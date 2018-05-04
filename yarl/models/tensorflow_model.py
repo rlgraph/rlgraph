@@ -19,7 +19,6 @@ from __future__ import print_function
 
 from yarl.models import Model
 import tensorflow as tf
-import os
 
 
 class TensorFlowModel(Model):

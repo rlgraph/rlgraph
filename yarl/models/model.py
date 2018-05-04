@@ -20,7 +20,7 @@ from __future__ import print_function
 import tensorflow as tf
 import itertools
 
-from yarl import YARLError, backend
+from yarl import YARLError
 from yarl.components import Component, Socket, Computation
 from yarl.utils.util import all_combinations
 from yarl.utils.input_parsing import parse_execution_spec
