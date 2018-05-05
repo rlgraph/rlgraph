@@ -22,14 +22,13 @@ import tensorflow as tf
 
 
 class TensorFlowModel(Model):
+    """
+    A TensorFlow-specific Model.
 
+    Uses a finalized tf.Graph and runs it inside a tf.Session object,
+    which can be used to fulfil `call` requests.
+    """
     def __init__(self, name="tf-model", saver_spec=None, summary_spec=None, execution_spec=None):
-        """
-        Args:
-            name (str): The name of this model.
-            summary_spec (dict): The specification dict for summary generation.
-            saver_spec (dict): The saver specification for saving this graph to disk.
-        """
         super(TensorFlowModel, self).__init__(
             name=name,
             saver_spec=saver_spec,
@@ -38,6 +37,7 @@ class TensorFlowModel(Model):
         )
         # TODO should this be in the core component?
         self.global_training_timestep = None
+
         # Saver.
         self.saver = None
         self.saver_directory = None
@@ -51,27 +51,13 @@ class TensorFlowModel(Model):
         # Summary settings.
         self.summary_writer = None
         self.summary_configuration_op = None
-        self.summaries = []  # List of summary objects of all our components.
+        self.summaries = list()  # List of summary objects of all our components.
 
         # The session for the computation graph.
         self.session = None
         self.monitored_session = None
+
         self.graph_default_context = None
-
-    def finalize_backend(self):
-        # After the graph is built -> Setup saver, summaries, etc..
-        hooks = []  # Will be appended to in the following functions.
-        self.setup_saver(hooks)
-        self.setup_scaffold()
-        self.setup_summaries(hooks)
-
-        # Finalize our graph, create and enter the session.
-        self.setup_session(hooks)
-
-    def setup_graph(self):
-        self.graph = tf.Graph()
-        self.graph_default_context = self.graph.as_default()
-        self.graph_default_context.__enter__()
 
     def call(self, sockets, input=None):
         fetch_list, feed_dict = self.get_execution_inputs(sockets=sockets, input_dict=input)
@@ -99,6 +85,24 @@ class TensorFlowModel(Model):
                 self.server.join()
                 quit()
 
+    def setup_graph(self):
+        self.graph = tf.Graph()
+        self.graph_default_context = self.graph.as_default()
+        self.graph_default_context.__enter__()
+
+    def finalize_backend(self):
+        # After the graph is built -> Setup saver, summaries, etc..
+        hooks = []  # Will be appended to in the following functions.
+        self.setup_saver(hooks)
+        self.setup_scaffold()
+        self.setup_summaries(hooks)
+
+        # Finalize our graph, create and enter the session.
+        self.setup_session(hooks)
+
+    def load_model(self, path=None):
+        pass
+
     def store_model(self, path=None, add_timestep=True):
         if self.summary_writer is not None:
             self.summary_writer.flush()
@@ -114,7 +118,40 @@ class TensorFlowModel(Model):
             write_state=True
         )
 
-    def load_model(self, path=None):
+    def setup_saver(self, hooks):
+        """
+        Creates the tf.train.Saver object and stores it in self.saver.
+
+        Args:
+            hooks (list): List of hooks to use for Saver and Summarizer in Session. Should be appended to.
+        """
+        self.saver = tf.train.Saver(
+            var_list=self.variables,
+            reshape=False,
+            sharded=False,
+            max_to_keep=self.saver_spec.get('max_checkpoints', 5),
+            keep_checkpoint_every_n_hours=10000.0,
+            name=None,
+            restore_sequentially=False,
+            saver_def=None,
+            builder=None,
+            defer_build=False,
+            allow_empty=True,
+            write_version=tf.train.SaverDef.V2,
+            pad_step_number=False,
+            save_relative_paths=True,
+            filename=None
+        )
+        # TODO check if hooks required.
+
+    def setup_scaffold(self):
+        pass
+
+    def setup_summaries(self, hooks):
+        """
+        Args:
+            hooks (list): List of hooks to use for Saver and Summarizer in Session. Should be appended to.
+        """
         pass
 
     def setup_session(self, hooks):
@@ -141,7 +178,7 @@ class TensorFlowModel(Model):
             self.monitored_session = tf.train.SingularMonitoredSession(
                 hooks=hooks,
                 scaffold=self.scaffold,
-                master='',
+                master='',  # Default value.
                 config=self.session_config,
                 checkpoint_dir=None
             )
@@ -154,25 +191,6 @@ class TensorFlowModel(Model):
         # Enter the session to be ready for acting/learning.
         self.monitored_session.__enter__()
         self.session = self.monitored_session._tf_sess()
-
-    def setup_saver(self, hooks):
-        """
-        Creates the tf.train.Saver object and stores it in self.saver.
-
-        Args:
-            hooks (list): List of hooks to use for Saver and Summarizer in Session. Should be appended to.
-        """
-        pass
-
-    def setup_scaffold(self):
-        pass
-
-    def setup_summaries(self, hooks):
-        """
-        Args:
-            hooks (list): List of hooks to use for Saver and Summarizer in Session. Should be appended to.
-        """
-        pass
 
     def assign_device(self, computation, socket, assigned_device):
         # TODO potentially validate device exists via fetching local devices.

@@ -21,8 +21,13 @@ import tensorflow as tf
 import numpy as np
 import itertools
 
-
+from .backend import backend
 from .yarl_error import YARLError
+
+if backend() == "tf":
+    import tensorflow as be
+else:
+    import pytorch as be
 
 
 def dtype(dtype_, to="tf"):
@@ -31,20 +36,25 @@ def dtype(dtype_, to="tf"):
 
     Args:
         dtype_ (any): String describing a numerical type (e.g. 'float'), numpy data type, tf dtype,
-            or python numerical type.
-        to (str): Either one of 'tf' or 'np' (default="tf").
+            pytorch data-type, or python numerical type.
+        to (str): Either one of 'tf' (tensorflow), 'pt' (pytorch), or 'np' (numpy). Default="tf".
 
     Returns: TensorFlow or Numpy data type (depending on `to` parameter).
     """
+    # generic backend
+    if dtype_ in ["float", "float32", float, np.float32, be.float32]:
+        return np.float32 if to == "np" else tf.float32
+    elif dtype_ in ["int", "int32", int, np.int32, be.int32]:
+        return np.int32 if to == "np" else tf.int32
+    # bool: tensorflow
+    elif backend() == "tf":
+        if dtype_ in ["bool", bool, np.bool, be.bool]:
+            return np.bool if to == "np" else be.bool
+    # bool: pytorch backend (not supported)
+    elif dtype_ in ["bool", bool, np.bool]:
+        return np.bool if to == "np" else tf.bool
 
-    if dtype_ in ["float", float, np.float32, tf.float32]:
-        return tf.float32 if to == "tf" else np.float32
-    elif dtype_ in ["int", int, np.int32, tf.int32]:
-        return tf.int32 if to == "tf" else np.int32
-    elif dtype_ in ["bool", bool, np.bool_, tf.bool]:
-        return tf.bool if to == "tf" else np.bool
-    else:
-        raise YARLError("Error: Type conversion to '{}' for type '{}' not supported.".format(to, str(dtype_)))
+    raise YARLError("Error: Type conversion to '{}' for type '{}' not supported.".format(to, str(dtype_)))
 
 
 def force_list(elements):
@@ -60,23 +70,25 @@ def force_list(elements):
     return list(elements) if isinstance(elements, (list, tuple)) else [elements]
 
 
-def all_combinations(input_list, descending=False):
+def all_combinations(input_list, descending_length=False):
     """
-    Returns a list containing sorted tuples of all possible combinations of all possible length of the elements
-    in the input_list (without repeating elements inside each tuple).
-    The returned list is sorted by the length of the combination tuples (in descending (longest first) or ascending
-    (shortest first) order).
-    Example:
+    Returns a list containing tuples of all possible combinations of all possible length of the elements
+    in the input_list (without repeating elements inside each tuple and without resorting the input_list).
+    The returned list is, however, sorted by the length of the different combination-tuples
+    (in descending (longest first) or ascending (shortest first) order).
+    Examples:
          input_list=[1, 2, 3] returns: [(1,), (2,), (3,), (1, 2), (1, 3), (2, 3), (1, 2, 3)]
+
+         NOTE: We do not resort input_list (5 still before 1):
          input_list=[5, 1]    returns: [(5,), (1,), (1,5)]
 
     Args:
         input_list (list): The list to get all combinations for.
-        descending (bool): Whether to sort the tuples longest first (default: shortest first).
+        descending_length (bool): Whether to sort the tuples longest first (default: shortest first).
 
     Returns:
         The list of tuples of possible combinations.
     """
     return sorted(list(itertools.chain.from_iterable(
         itertools.combinations(input_list, i+1) for i in range(len(input_list)))),
-        key=len, reverse=descending)
+        key=len, reverse=descending_length)

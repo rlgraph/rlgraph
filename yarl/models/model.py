@@ -20,13 +20,13 @@ from __future__ import print_function
 import tensorflow as tf
 import itertools
 
-from yarl import YARLError
+from yarl import YARLError, Specifiable
 from yarl.components import Component, Socket, Computation
 from yarl.utils.util import all_combinations
 from yarl.utils.input_parsing import parse_execution_spec
 
 
-class Model(object):
+class Model(Specifiable):
     """
     Contains:
     - actual tf.Graph
@@ -35,13 +35,16 @@ class Model(object):
     - The core Component object (with all its sub-ModelComponents).
 
     The Agent/Algo can use the Model's core-Component's exposed Sockets to reinforcement learn.
+    TODO: Lives in the SimulationSetup (for experiment-based setups), but Agent also has access to it. Does not need to know about its owner.
     """
     def __init__(self, name="model", saver_spec=None, summary_spec=None, execution_spec=None):
         """
         Args:
             name (str): The name of this model.
-            summary_spec (dict): The specification dict for summary generation.
             saver_spec (dict): The saver specification for saving this graph to disk.
+            summary_spec (dict): The specification dict for summary generation.
+            execution_spec (dict): The specification dict for the execution types (local vs distributed, etc..) and
+                settings (cluster types, etc..).
         """
         # The name of this model. Our core Component gets this name.
         self.name = name
@@ -56,15 +59,15 @@ class Model(object):
         # Create an empty core Component into which everything will be assembled by an Algo.
         self.core_component = Component(name=name)
         # List of variables (by scope/name) of all our components.
-        self.variables = {}
+        self.variables = dict()
         # Some registries that we need to build the Graph from core.
         # key=op; value=list of required ops to calculate the key-op
-        self.op_registry = {}
+        self.op_registry = dict()
         # key=Socket; value=list of alternative placeholders that could go into this socket.
         # Only for very first (in) Sockets.
-        self.socket_registry = {}
-        # Maps a out-Socket name+in-Socket/Space-combination to an actual op to fetch from our Graph.
-        self.call_registry = {}  # key=()
+        self.socket_registry = dict()
+        # Maps an out-Socket name+in-Socket/Space-combination to an actual op to fetch from our Graph.
+        self.call_registry = dict()  # key=()
 
         # Computation graph.
         self.graph = None
@@ -75,8 +78,7 @@ class Model(object):
         - Starting the Server, if necessary.
         - Setting up the computation graph object.
         - Assembling the computation graph defined inside our core component.
-        - Setting up Savers and Summaries.
-        -
+        - Setting up graph-savers, -summaries, and finalizing the graph.
         """
         # Starts the Server (if in distributed mode).
         # If we are a ps -> we stop here and just run the server.
@@ -133,24 +135,28 @@ class Model(object):
             self.partial_input_build(socket)
 
         # Now use the ready op/socket registries to determine for which out-Socket we need which inputs.
-        # Then we will be able to derive the correct ops for any given out-Socket+input-Sockets combination
-        # in the call method.
+        # Then we will be able to derive the correct op for any given (out-Socket+in-Socket+in-shape)-combination
+        # passed into the call method.
         for output_socket in self.core_component.output_sockets:
             # Loop through this Socket's set of possible ops.
             for op in output_socket.ops:
-                # Get all the Sockets that lead to this op.
-                sockets = self.trace_back_sockets({op})
-                all_combinations = itertools.product(*sockets)
-                # store all possible combinations in call_registry (for convenience).
-                for combination in all_combinations:
-                    key = tuple([output_socket.name, tuple(all_combinations)])
-                    self.call_registry[key] = combination
+                # Get all the (core) in-Socket names (alphabetically sorted) that are required for this op.
+                sockets = tuple(sorted(list(self.trace_back_sockets({op})), key=lambda s: s.name))
+                # If an in-Socket has more than one connected incoming Space:
+                # Get the shape-combinations for these Sockets.
+                # e.g. Sockets=["a", "b"] (and Space1 -> a, Space2 -> a, Space3 -> b)
+                #   shape-combinations=[(Space1, Space3), (Space2, Space3)]
+                shapes = [[i.shape for i in sock.incoming_connections] for sock in sockets]
+                shape_combinations = itertools.product(*shapes)
+                for shape_combination in shape_combinations:
+                    key = (output_socket.name, sockets, shape_combination)
+                    self.call_registry[key] = op
 
     def finalize_backend(self):
         """
         Initializes any remaining backend-specific monitoring or session handling.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def load_model(self, path=None):
         """
@@ -174,9 +180,8 @@ class Model(object):
 
     def get_default_model(self):
         """
-        Returns the default container.
-
-        Returns: The model's default component.
+        Returns:
+            Returns the core container component.
         """
         return self.core_component
 
@@ -192,23 +197,59 @@ class Model(object):
 
         Returns:
             Input-list and feed-dict with relevant args.
-        """
-        fetch_list = []
-        feed_dict = {}
+9       """
 
         # Try all possible input combinations to see whether we got an op for that.
-        input_combinations = all_combinations(input_dict, descending=True)
+        # Input Socket names will be sorted alphabetically and combined from short sequences up to longer ones.
+        # Example: input_dict={A: ..., B: ... C: ...}
+        #   input_combinations=[ABC, AB, AC, BC, A, B, C]
+        input_combinations = all_combinations(sorted(input_dict.keys()), descending_length=True)
 
+        # Go through each (core) out-Socket names and collect the correct ops to go into the fetch_list.
+        fetch_list = []
+        feed_dict = dict()
         for socket in sockets:
-            for input_combination in input_combinations:
-                key = (socket, input_combination)
-                # This is a good combination -> Use the looked up op, process next Socket.
-                if key in self.call_registry:
-                    fetch_list.append(self.call_registry[key])
-                    break
-        # TODO build feed dict?
+            self._get_execution_inputs_for_one_socket(socket, input_combinations, fetch_list, input_dict, feed_dict)
 
         return fetch_list, feed_dict
+
+    def _get_execution_inputs_for_one_socket(self, socket_name, input_combinations, fetch_list, input_dict, feed_dict):
+        """
+        Helper (to avoid nested for loop-break) for the loop in get_execution_inputs.
+
+        Args:
+            socket_name (str): The name of the (core) out-Socket to process.
+            input_combinations (list): The list of in-Socket (names) combinations starting with the combinations with
+                the most Socket names, then going towards combinations with only one Socket name.
+                Each combination in itself should already be sorted alphabetically on the in-Socket names.
+            fetch_list (list): Appends to this list, which ops to actually fetch.
+            input_dict (Union[dict,None]): Dict specifying the provided inputs for some (core) in-Sockets.
+                Passed through directly from the call method.
+            feed_dict (dict): The feed_dict we are trying to build. When done, needs to map input ops (not Socket names)
+                to data.
+        """
+        # Check all (input+shape)-combinations and it we find one that matches what the user passed in as
+        # `input_dict` -> take that and move on to the next Socket.
+        for input_combination in input_combinations:
+            # Get all Space-combinations (in-op) for this input combination
+            # (in case an in-Socket has more than one connected incoming Spaces).
+            space_combinations = itertools.product(*input_combination)
+            for space_combination in space_combinations:
+                # Get the shapes for this space_combination.
+                shapes = tuple([space.shape for space in space_combination])
+                key = (socket_name, input_combination, shapes)
+                # This is a good combination -> Use the looked up op, return to process next out-Socket.
+                if key in self.call_registry:
+                    fetch_list.append(self.call_registry[key])
+                    # Store for which in-Socket we need which in-op to put into the feed_dict.
+                    for in_sock_name, in_op in zip(input_combination, space_combination):
+                        # TODO: in_op may still be a dict or a tuple depending on what Space underlies.
+                        # Need to split into single ops.
+                        feed_dict[in_op] = input_dict[in_sock_name]
+                    return
+
+        raise YARLError("ERROR: No op found for out-Socket '{}' given the input-combinations: {}!".
+                        format(socket_name, input_combinations))
 
     def partial_input_build(self, socket):
         """
@@ -246,12 +287,13 @@ class Model(object):
 
     def trace_back_sockets(self, trace_set):
         """
-        For a given op, returns a list of all Sockets that are required to calculate this op.
+        For a given op, returns a list of all (core) in-Sockets that are required to calculate this op.
 
         Args:
             trace_set (set): The set of ops to trace-back till the beginning of the Graph.
 
-        Returns: A set of Socket objects that are required to calculate this op.
+        Returns:
+            A set of in-Socket objects (from the core Component) that are required to calculate this op.
         """
         # Recursively lookup op in op_registry until we hit a Socket.
         new_trace_set = set()

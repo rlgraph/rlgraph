@@ -57,7 +57,7 @@ class Dict(Space, OrderedDict):
 
     @property
     def shape(self):
-        return tuple([self[key].flat_dim for key in sorted(self.keys())])
+        return tuple([self[key].flat_dim for key in self.keys()])
 
     @property
     def flat_dim(self):
