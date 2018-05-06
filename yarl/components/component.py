@@ -90,24 +90,6 @@ class Component(Specifiable):
         #self.summary_labels = set(summary_labels or ())
         #self.summaries = list()
 
-    """OBSOLETE:
-    def build_computation_methods(self, scope):
-        scope = scope + "/" + self.scope
-        ret = {}
-        if self.built_computation_methods:
-            return ret
-        self.built_computation_methods = True
-
-        for method_name, method in self.computation_methods.items():
-            if backend() == "tf":
-                ret[scope+"/"+method_name] = autograph.to_graph(method, verbose=True)
-            else:
-                raise YARLError("ERROR: Backend other than tf not supported yet!")
-        for sub_component in self.sub_components:
-            ret.update(sub_component.build_computation_methods())
-        return ret
-    """
-
     def create_variables(self):
         """
         Should create all variables that are needed within this component,

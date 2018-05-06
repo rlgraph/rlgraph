@@ -203,10 +203,11 @@ class Model(Specifiable):
         # Input Socket names will be sorted alphabetically and combined from short sequences up to longer ones.
         # Example: input_dict={A: ..., B: ... C: ...}
         #   input_combinations=[ABC, AB, AC, BC, A, B, C]
+        # TODO memoize
         input_combinations = all_combinations(sorted(input_dict.keys()), descending_length=True)
 
         # Go through each (core) out-Socket names and collect the correct ops to go into the fetch_list.
-        fetch_list = []
+        fetch_list = list()
         feed_dict = dict()
         for socket in sockets:
             self._get_execution_inputs_for_one_socket(socket, input_combinations, fetch_list, input_dict, feed_dict)

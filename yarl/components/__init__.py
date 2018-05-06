@@ -16,3 +16,18 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
+from .component import Component
+from yarl.components.common.layer_component import LayerComponent
+from yarl.components.common.stack_component import StackComponent
+from .socket import Socket, Computation
+
+Component.__lookup_classes__ = dict(
+    component=Component,
+    stack=StackComponent,
+    stackcomponent=StackComponent,
+    layer=LayerComponent,
+    layercomponent=LayerComponent
+)
+
+__all__ = ["Component", "Socket", "Computation"]
