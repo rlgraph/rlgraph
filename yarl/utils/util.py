@@ -57,6 +57,20 @@ def dtype(dtype_, to="tf"):
     raise YARLError("Error: Type conversion to '{}' for type '{}' not supported.".format(to, str(dtype_)))
 
 
+def get_rank(tensor):
+    """
+    Returns the rank (as a single int) of an input tensor.
+
+    Args:
+        tensor (any): The input tensor.
+
+    Returns:
+        The rank of the given tensor.
+    """
+    if backend() == "tf":
+        return tensor.get_shape().ndims
+
+
 def force_list(elements):
     """
     Makes sure elements is returned as a list, whether elements is a single item, already a list, or a tuple.

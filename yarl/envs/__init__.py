@@ -17,8 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.envs.base import Env
-from yarl.envs.openai_gym import OpenAIGymEnv
+from .env import Env
+from .openai_gym import OpenAIGymEnv
 
 Env.__lookup_classes__ = dict(
     openai=OpenAIGymEnv,

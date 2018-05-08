@@ -22,6 +22,7 @@ import re
 import copy
 
 from yarl import YARLError, backend, Specifiable
+from yarl.components import EXPOSE_INS, EXPOSE_OUTS
 from yarl.components.socket import Socket, TfComputation
 from yarl.utils import util
 from yarl.spaces import Space
@@ -70,25 +71,18 @@ class Component(Specifiable):
         # dict of sub-components that live inside this one (key=sub-component's scope)
         self.sub_components = {}
 
+        # Keep track of whether this Component has already been added to another Component and throw error
+        # if this is done twice. Each Component should only be added once to some container Component for cleanlyness.
+        self.has_been_added = False
+
         # This Component's in/out Sockets by name. As OrderedDicts for easier assignment to computation input-
         # parameters and return values.
         self.input_sockets = list()
         self.output_sockets = list()
 
-        #OBSOLETE:
-        #self.computation_methods = {}  # key=name of the function (w/o `_computation`); value=the raw computation func
-        #self.built_computation_methods = False  # whether this component's computation methods have already been built
-
-        # All tf variables that are held by this component by full name. This will always include sub-components'
+        # All Variables that are held by this component by full name. This will always include sub-components'
         # variables.
         self.variables = dict()
-
-        # Local/global flags.
-        #self.component_is_global = {}
-
-        # TODO: summary stuff
-        #self.summary_labels = set(summary_labels or ())
-        #self.summaries = list()
 
     def create_variables(self):
         """
@@ -243,7 +237,9 @@ class Component(Specifiable):
                     component's interface. The output Socket as well, but under the name "exposed-out".
                 expose=["input", "output"]: Both "input" and "output" Socket are exposed into this component's
                     interface (with their original names "input" and "output").
-                expose=True: All sockets ("input" and "output") will be exposed.
+                expose=EXPOSE_INS: All in-Sockets will be exposed.
+                expose=EXPOSE_OUTS: All out-Sockets will be exposed.
+                expose=True: All sockets (in and out) will be exposed.
         """
         # Preprocess the expose spec.
         expose_spec = {}
@@ -258,13 +254,19 @@ class Component(Specifiable):
                     elif isinstance(e, dict):
                         for old, new in e.items():
                             expose_spec[old] = new  # change name from dict-key to dict-value
-            # Expose all Sockets if expose=True.
-            elif expose is True:
-                for sock in component.input_sockets + component.output_sockets:
-                    expose_spec[sock.name] = sock.name
-            # Single socket (given as string) needs to be exposed (and keep its name).
             else:
-                expose_spec[expose] = expose  # leave name
+                # Expose all Sockets if expose=True|EXPOSE_INS|EXPOSE_OUTS.
+                expose_list = []
+                if expose == EXPOSE_INS or expose is True:
+                    expose_list.extend(component.input_sockets)
+                if expose == EXPOSE_OUTS or expose is True:
+                    expose_list.extend(component.output_sockets)
+                if len(expose_list) > 0:
+                    for sock in expose_list:
+                        expose_spec[sock.name] = sock.name
+                # Single socket (given as string) needs to be exposed (and keep its name).
+                else:
+                    expose_spec[expose] = expose  # leave name
 
         # Make sure no two components with the same name are added to this one (own scope doesn't matter).
         if component.name in self.sub_components:
@@ -284,24 +286,21 @@ class Component(Specifiable):
             # Connect the two Sockets.
             self.connect(exposed_name, [component, socket_name])
 
-    def add_components(self, *components, **kwargs):
+    def add_components(self, *components, expose=None):
         """
         Adds sub-components to this one without connecting them with each other.
 
         Args:
             *components (Component): The list of ModelComponent objects to be added into this one.
-
-        Keyword Args:
             expose (Union[dict,tuple,str]): Expose-spec for the component(s) to be passed to self.add_component().
                 If more than one sub-components are added in the call and expose is a dict, lookup each component's
                 name in that dict and pass the found value to self.add_component. If expose is not a dict, pass it
                 as-is for each of the added sub-components.
         """
-        expose = kwargs.get("expose", {})
         for c in components:
             self.add_component(c, expose.get(c.name) if isinstance(expose, dict) else expose)
 
-    def copy(self, name=None, scope=None, disconnect_sockets=True):
+    def copy(self, name=None, scope=None):
         """
         Copies this component and returns a new component with possibly another name and another scope.
         The new component has its own variables (they are not shared with the variables of this component)
@@ -311,9 +310,9 @@ class Component(Specifiable):
         Args:
             name (str): The name of the new component. If None, use the value of scope.
             scope (str): The scope of the new component. If None, use the same scope as this component.
-            #OBSOLETE:disconnect_sockets (bool): Whether to disconnect all copied Sockets
 
-        Returns: The copied component object.
+        Returns:
+            The copied component object.
         """
         if scope is None:
             scope = self.scope
@@ -371,7 +370,7 @@ class Component(Specifiable):
         Actual private implementer for `connect` and `disconnect`.
 
         Args:
-            from_ (any): The specifier of the connector (e.g. incoming Socket).
+            from_ (any): The specifier of the connector (e.g. incoming Socket, an incoming Space).
             to_ (any): The specifier of the connectee (e.g. another Socket).
             disconnect (bool): Only used internally. Whether to actually disconnect (instead of connect).
         """
@@ -501,25 +500,3 @@ class Component(Specifiable):
             socket_obj = next((x for x in component.input_sockets if x.name == name), None)
         return socket_obj
 
-    """
-    @staticmethod
-    def _custom_getter(getter, name, registered=False, **kwargs):
-        ""
-        Makes sure all variables are registered in our variables-dict. Used by tf.make_template.
-        ""
-        # Our registry to use.
-        registry = kwargs.pop("registry")
-        # Check whether we are in top level.
-        #is_core = kwargs.pop("is_core", True)
-
-        # It's the _true_getter func of tf that doesn't have that param.
-        #if is_core:
-        variable = getter(name=name, **kwargs)
-        ## Our own getter.
-        #else:
-        #    variable = getter(name=name, registered=True, **kwargs)
-        # register the variable with all registries there are
-        if not registered:
-            registry[name] = variable
-        return variable
-    """

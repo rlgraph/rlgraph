@@ -18,9 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 from .component import Component
-from yarl.components.common.layer_component import LayerComponent
-from yarl.components.common.stack_component import StackComponent
+from .common import StackComponent
+from .layers import LayerComponent
 from .socket import Socket, Computation
+
+# some settings flags
+EXPOSE_INS = 0x1
+EXPOSE_OUTS = 0x2
 
 Component.__lookup_classes__ = dict(
     component=Component,
@@ -30,4 +34,5 @@ Component.__lookup_classes__ = dict(
     layercomponent=LayerComponent
 )
 
-__all__ = ["Component", "Socket", "Computation"]
+__all__ = ["Component", "Computation", "Socket", "EXPOSE_INS", "EXPOSE_OUTS"]
+

@@ -33,7 +33,7 @@ def backend_model(backend="tf"):
         return TensorFlowModel
 
 
-__lookup_classes__ = dict(
+Model.__lookup_classes__ = dict(
     tfmodel=TensorFlowModel,
     tensorflowmodel=TensorFlowModel,
     tf=TensorFlowModel,

@@ -136,12 +136,11 @@ class Socket(object):
 
 class Computation(object):
     """
-       Class describing a computation happening inside a _computation-func inside a Component.
-       Implements the update_from_input method which checks whether all necessary inputs to a computation function
-       are given and - if yes - starts producing output ops from these inputs and the computation to be passed
-       on to the outgoing Sockets.
-       """
-
+    Class describing a computation happening inside a _computation-func inside a Component.
+    Implements the update_from_input method which checks whether all necessary inputs to a computation function
+    are given and - if yes - starts producing output ops from these inputs and the computation to be passed
+    on to the outgoing Sockets.
+    """
     def __init__(self, method, component, input_sockets, output_sockets):
         """
         Args:
@@ -231,24 +230,14 @@ class Computation(object):
                 output_socket.update_from_input(self, op_registry, socket_registry, slot)
 
     def __str__(self):
-        return "Computation('{}' in=[{}] out=[{}])". \
-            format(self.method.__name__, str(self.input_sockets), str(self.output_sockets))
+        return "{}('{}' in=[{}] out=[{}])". \
+            format(type(self).__name__, self.method.__name__, str(self.input_sockets), str(self.output_sockets))
 
 
 class TfComputation(Computation):
     """
     TensorFlow computation.
     """
-    def __init__(self, method, component, input_sockets, output_sockets):
-        """
-        Args:
-            method (callable): The actual computation method/function.
-            component (Component): The Component object that this Computation belongs to.
-            input_sockets (list): The required input Sockets to be passed as  parameters into the computation function.
-            output_sockets (list): The Sockets associated with the return values coming from the computation function.
-        """
-        super(TfComputation).__init__(method, component, input_sockets, output_sockets)
-
     def to_graph(self, method):
         return autograph.to_graph(method, verbose=True)
 
@@ -298,8 +287,4 @@ class TfComputation(Computation):
             # Loop through our output Sockets and keep processing them with this computation's outputs.
             for slot, output_socket in enumerate(self.output_sockets):
                 output_socket.update_from_input(self, op_registry, socket_registry, slot)
-
-    def __str__(self):
-        return "Computation('{}' in=[{}] out=[{}])".\
-            format(self.method.__name__, str(self.input_sockets), str(self.output_sockets))
 
