@@ -20,8 +20,13 @@ from __future__ import print_function
 from .stack_component import StackComponent
 from .layer_component import LayerComponent
 from .stateful_layer import StatefulLayer
-from .nn_layer import NNLayer
 from .preprocessing.grayscale import GrayScale
+from .nn_layer import NNLayer, DenseLayer, Conv1DLayer, Conv2DLayer, Conv2DTransposeLayer, Conv3DLayer, \
+    Conv3DTransposeLayer, AveragePooling1DLayer, AveragePooling2DLayer, AveragePooling3DLayer, \
+    BatchNormalizationLayer, DropoutLayer, FlattenLayer, MaxPooling1DLayer, MaxPooling2DLayer, MaxPooling3DLayer
 
-__all__ = ["StackComponent", "LayerComponent", "StatefulLayer", "NNLayer", "GrayScale"]
+__all__ = ["StackComponent", "LayerComponent", "StatefulLayer", "GrayScale", "NNLayer", "DenseLayer", "Conv1DLayer",
+           "Conv2DLayer", "Conv2DTransposeLayer", "Conv3DLayer", "Conv3DTransposeLayer", "AveragePooling1DLayer",
+           "AveragePooling2DLayer", "AveragePooling3DLayer", "BatchNormalizationLayer", "DropoutLayer", "FlattenLayer",
+           "MaxPooling1DLayer", "MaxPooling2DLayer", "MaxPooling3DLayer"]
 

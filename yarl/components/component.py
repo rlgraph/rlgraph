@@ -271,6 +271,11 @@ class Component(Specifiable):
         # Make sure no two components with the same name are added to this one (own scope doesn't matter).
         if component.name in self.sub_components:
             raise YARLError("ERROR: Sub-Component with name '{}' already exists in this one!".format(component.name))
+        # Make sure each Component can only be added once to a parent/container Component.
+        elif component.has_been_added is True:
+            raise YARLError("ERROR: Sub-Component with name '{}' has already been added once to a container Component! "
+                            "Each Component can only be added once to a parent.".format(component.name))
+        component.has_been_added = True
         self.sub_components[component.name] = component
 
         # Expose all Sockets in exposed_spec and connect them correctly.
