@@ -22,10 +22,13 @@ import re
 import copy
 
 from yarl import YARLError, backend, Specifiable
-from yarl.components import EXPOSE_INS, EXPOSE_OUTS
 from yarl.components.socket import Socket, TfComputation
 from yarl.utils import util
 from yarl.spaces import Space
+
+# some settings flags
+EXPOSE_INS = 0x1
+EXPOSE_OUTS = 0x2
 
 
 class Component(Specifiable):
@@ -287,7 +290,7 @@ class Component(Specifiable):
             new_socket = self.get_socket_by_name(self, exposed_name)
             # Doesn't exist yet -> add it.
             if new_socket is None:
-                self.add_sockets(exposed_name, type="in")
+                self.add_sockets(exposed_name, type=socket.type)
             # Connect the two Sockets.
             self.connect(exposed_name, [component, socket_name])
 
@@ -431,15 +434,14 @@ class Component(Specifiable):
         Does all error checking.
 
         Args:
-            socket (Union[None,Tuple[Component,str],str]):
-                1) Either the name (str) of a local Socket (including sub-component's ones using the
+            socket (Optional[Tuple[Component,str],str,Socket]):
+                1) The name (str) of a local Socket (including sub-component's ones using the
                     "sub-comp-nam/socket-name"-notation)
                 2) tuple: (Component, Socket-name OR Socket-object)
-                3) None: Return the only Socket available on the given side.
+                3) Socket: An already given Socket -> return this Socket (throw error if return_component is True).
+                4) None: Return the only Socket available on the given side.
             type_ (Union[None,str]): Type of the Socket. If None, Socket could be either
                 'in' or 'out'. This must be given if the only-Socket is wanted (socket is None).
-            #OBSOLETE: exposed (bool): Whether to use the exposed interface (instead of the internal sockets).
-            #OBSOLETE:     This is only important, if the socket is given via its name or by None.
             return_component (bool): Whether also to return the Socket's component as a second element in a tuple.
 
         Returns: Either only the Socket found OR a tuple of the form:
@@ -470,7 +472,12 @@ class Component(Specifiable):
             else:
                 component = self
             socket_obj = self.get_socket_by_name(component, socket, type_=type_)
-
+        # Socket is given as a Socket object (simple pass-through).
+        elif isinstance(socket, Socket):
+            if return_component is True:
+                raise YARLError("ERROR: Cannot pass through Socket if parmaater `socket` is given as a Socket object "
+                                "and return_component is True!")
+            return socket
         # Socket is given as component/sock-name OR component/sock-obj pair:
         # Could be ours, external, but also one of our sub-component's.
         else:

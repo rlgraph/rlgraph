@@ -36,6 +36,13 @@ class Space(Specifiable):
         raise NotImplementedError
 
     @property
+    def rank(self):
+        """
+        The rank of the Space (e.g. 3 for a space with shape=(10, 7, 5)).
+        """
+        return len(self.shape)
+
+    @property
     def flat_dim(self):
         """
         The dimension of the flattened vector of the tensor representation.

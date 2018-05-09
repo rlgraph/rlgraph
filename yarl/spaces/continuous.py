@@ -87,11 +87,11 @@ class Continuous(Space):
             return tuple()
         return self.low.shape
 
-    @property
+    @cached_property
     def flat_dim(self):
         return int(np.prod(self.shape))
 
-    @property
+    @cached_property
     def dtype(self):
         return "float32"
 

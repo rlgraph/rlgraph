@@ -18,12 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+import tensorflow as tf
 
-from yarl.components.layers.stateful_layer import StatefulLayer
 from yarl.utils.util import get_rank
+from .preprocess_layer import PreprocessLayer
 
 
-class GrayScale(StatefulLayer):
+class GrayScale(PreprocessLayer):
     """
     A simple grayscale converter for RGB images.
     """
@@ -35,19 +36,13 @@ class GrayScale(StatefulLayer):
             keep_rank (bool): Whether to keep the color-depth rank in the pre-processed tensor (default: False).
         """
         self.weights = weights or (0.299, 0.587, 0.114)
+        self.weights_reshaped = None
         self.keep_rank = keep_rank
         super(GrayScale, self).__init__(**kwargs)
 
-    def _computation_apply(self, *inputs):
-        assert len(inputs) == 1, "ERROR: Only one input allowed in {}!".format(type(self).__name__)
-        # TODO: What if inputs is a dict?
-        input_ = inputs[0]
-        if isinstance(input_, (dict, tuple)):
-            # if input is a dict, return value is a dict
-            # if input is a tuple, return value is a tuple
-            return Container.map(input_, self._computation_apply)
+    def shape_test(self, input_shape):
+        self.weights_reshaped = np.reshape(a=self.weights, newshape=tuple((1 for _ in range(input_shape))) + (3,))
 
-        # TODO: Do this only once with each incoming op.
-        weights = np.reshape(a=self.weights, newshape=tuple((1 for _ in range(get_rank(input_)))) + (3,))
-        return np.sum(weights * input_, axis=-1, keepdims=self.keep_rank)
+    def preprocess(self, input_):
+        return tf.reduce_sum(self.weights_reshaped * input_, axis=-1, keepdims=self.keep_rank)
 

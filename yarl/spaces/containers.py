@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import numpy as np
 from collections import OrderedDict
+from cached_property import cached_property
 
 from yarl import YARLError
 from .space import Space
@@ -55,15 +56,19 @@ class Dict(Space, OrderedDict):
             raise YARLError("ERROR: Dict() c'tor needs a non-empty spec!")
         OrderedDict.__init__(self, dict_)
 
-    @property
+    @cached_property
     def shape(self):
         return tuple([self[key].flat_dim for key in self.keys()])
 
-    @property
+    @cached_property
+    def rank(self):
+        return tuple([self[key].rank for key in self.keys()])
+
+    @cached_property
     def flat_dim(self):
         return int(np.sum([c.flat_dim for c in self.values()]))
 
-    @property
+    @cached_property
     def dtype(self):
         return OrderedDict([(key, subspace.dtype()) for key, subspace in self.items()])
 
@@ -86,6 +91,19 @@ class Dict(Space, OrderedDict):
 
     def contains(self, x):
         return isinstance(x, (OrderedDict, dict)) and all(self[key].contains(x[key]) for key in self.keys())
+
+    @staticmethod
+    def map(container, wrapper, func):
+        """
+        Loops through this Dict and maps all values through the given funcreturns a dict
+        Args:
+            container ():
+            func ():
+
+        Returns:
+
+        """
+        return dict(map(lambda item: (item[0], wrapper(item[1], func)), container.items()))
 
 
 class Tuple(Space, tuple):
@@ -112,16 +130,21 @@ class Tuple(Space, tuple):
 
         return tuple.__new__(cls, list_)
 
-    @property
+    @cached_property
     def shape(self):
         return tuple([c.flat_dim for c in self])
 
-    @property
+    @cached_property
+    def rank(self):
+        return tuple([c.rank for c in self])
+
+    @cached_property
     def flat_dim(self):
         return np.sum([c.flat_dim for c in self.components])
 
+    @cached_property
     def dtype(self):
-        pass
+        return tuple([c.dtype for c in self])
 
     def __repr__(self):
         return "Tuple({})".format(tuple([cmp.__repr__() for cmp in self]))
@@ -140,4 +163,9 @@ class Tuple(Space, tuple):
 
     def contains(self, x):
         return isinstance(x, (tuple, list)) and len(self) == len(x) and all(c.contains(xi) for c, xi in zip(self, x))
+
+    @staticmethod
+    def map(container, wrapper, func):
+        return tuple(map(lambda c: wrapper(c, func), container))
+
 

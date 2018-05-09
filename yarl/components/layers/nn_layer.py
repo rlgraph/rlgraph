@@ -21,7 +21,6 @@ from yarl import backend
 from .layer_component import LayerComponent
 
 from functools import partial
-#import tensorflow as tf
 
 
 class NNLayer(LayerComponent):
@@ -45,10 +44,9 @@ class NNLayer(LayerComponent):
         """
         Only can make_template from this function after(!) we know what the "output"?? socket's shape will be.
         """
+        # TODO: wrap pytorch's torch.nn classes
         if backend() == "tf":
             return self.class_(input_, **self.kwargs)
-        # TODO: wrap pytorch's torch.nn classes
-        pass
 
 
 # Create some fixtures for all layer types for simplicity (w/o the need to add any code).

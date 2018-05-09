@@ -24,7 +24,7 @@ from yarl.spaces import Space
 
 class Agent(Specifiable):
     """
-    Generic agent defining API operations.
+    Generic agent defining YARL-API operations.
     """
 
     def __init__(

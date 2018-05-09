@@ -48,9 +48,9 @@ class LayerComponent(StackComponent):
         # Create computation and connect it from our input socket(s) (or last sub-component's output(s)) to our
         # output socket(s).
         if len(sub_components) > 0:
-            self.add_computation(sub_components[-1].outputs.values(), self.output_sockets.values())
+            self.add_computation(sub_components[-1].output_sockets, self.output_sockets, "apply")
         else:
-            self.add_computation(self.input_sockets.values(), self.output_sockets.values())
+            self.add_computation(self.input_sockets, self.output_sockets, "apply")
 
     def _computation_apply(self, *inputs):
         """

@@ -141,18 +141,19 @@ class Computation(object):
     are given and - if yes - starts producing output ops from these inputs and the computation to be passed
     on to the outgoing Sockets.
     """
-    def __init__(self, method, component, input_sockets, output_sockets):
+    def __init__(self, method, component, input_sockets, output_sockets, use_autograph=False):
         """
         Args:
             method (callable): The actual computation method/function.
             component (Component): The Component object that this Computation belongs to.
-            input_sockets (list): The required input Sockets to be passed as  parameters into the computation function.
+            input_sockets (list): The required input Sockets to be passed as parameters into the computation function.
             output_sockets (list): The Sockets associated with the return values coming from the computation function.
         """
         # TODO: Do some sanity checking.
         # The raw computation-method (not autograph'd yet).
         self.method = method
-        self.graph_method = self.to_graph(method=method)
+        self.use_autograph = use_autograph
+        #self.graph_method = self.to_graph(method=method)
         self.component = component
         self.input_sockets = input_sockets
         self.output_sockets = output_sockets
@@ -220,7 +221,11 @@ class Computation(object):
                 # key = tuple(input_combination)
                 # Make sure we call the computation method only once per input-op combination.
                 if input_combination not in self.processed_ops:
-                    ops = self.graph_method(self.component, *input_combination)
+                    # TEST: pre-measure the output of this computation (shape)
+                    self.component.shape_test(*input_combination)
+                    graph_method = self.to_graph(self.method)
+                    ops = graph_method(self.component, *input_combination)
+                    # END: TEST
                     self.processed_ops[input_combination] = tuple(ops)
                     # Keep track of which ops require which other ops.
                     op_registry[tuple(ops)] = input_combination
@@ -240,51 +245,4 @@ class TfComputation(Computation):
     """
     def to_graph(self, method):
         return autograph.to_graph(method, verbose=True)
-
-    def update_from_input(self, input_socket, op_registry, socket_registry):
-        """
-        Updates our "waiting" inputs with the incoming socket and checks whether this computation is "input-complete".
-        If yes, do all possible combinatorial pass-throughs through the computation function to generate output ops
-        and assign these ops to our respective output sockets (first socket gets first output op, etc.. depending
-        on how many return values the computation function has).
-
-        Args:
-            input_socket (Socket): The incoming Socket (by design, must be type "in").
-            op_registry (dict): Dict that keeps track of which ops require which other ops to be calculated.
-            socket_registry (dict): Dict that keeps track of which very in-Socket needs which ops (placeholders/feeds).
-        """
-        assert isinstance(input_socket, Socket) and input_socket.type == "in",\
-            "ERROR: `input_socket` must be a Socket object and of type 'in'!"
-        # Update waiting_ops.
-        if input_socket.name not in self.waiting_ops:
-            self.waiting_ops[input_socket.name] = set()
-        self.waiting_ops[input_socket.name].update(input_socket.ops)
-        # If "input-complete", pass through computation function.
-        if not self.input_complete:
-            # Check, whether we are input-complete now (whether all required inputs are given).
-            complete = True
-            for required in self.input_sockets:
-                if required.name not in self.waiting_ops:
-                    complete = False
-                    break
-            self.input_complete = complete
-
-        # No elif! We have to check again.
-        # We are input-complete: Get all possible combinations of input ops and pass all these combinations through
-        # the function (only those combinations that we didn't do yet).
-        if self.input_complete:
-            # A list of all possible input op combinations.
-            input_combinations = list(itertools.product(*self.waiting_ops.values()))
-            for input_combination in input_combinations:
-                #key = tuple(input_combination)
-                # Make sure we call the computation method only once per input-op combination.
-                if input_combination not in self.processed_ops:
-                    ops = self.graph_method(self.component, *input_combination)
-                    self.processed_ops[input_combination] = tuple(ops)
-                    # Keep track of which ops require which other ops.
-                    op_registry[tuple(ops)] = input_combination
-
-            # Loop through our output Sockets and keep processing them with this computation's outputs.
-            for slot, output_socket in enumerate(self.output_sockets):
-                output_socket.update_from_input(self, op_registry, socket_registry, slot)
 

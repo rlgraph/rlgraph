@@ -17,22 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .component import Component
-from .common import StackComponent
-from .layers import LayerComponent
+from .component import Component, EXPOSE_INS, EXPOSE_OUTS
 from .socket import Socket, Computation
 
-# some settings flags
-EXPOSE_INS = 0x1
-EXPOSE_OUTS = 0x2
 
 Component.__lookup_classes__ = dict(
-    component=Component,
-    stack=StackComponent,
-    stackcomponent=StackComponent,
-    layer=LayerComponent,
-    layercomponent=LayerComponent
+    component=Component
 )
 
-__all__ = ["Component", "Computation", "Socket", "EXPOSE_INS", "EXPOSE_OUTS"]
+__all__ = ["Component", "EXPOSE_INS", "EXPOSE_OUTS", "Computation", "Socket"]
 

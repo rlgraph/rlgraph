@@ -20,6 +20,7 @@ from __future__ import print_function
 from .space import Space
 import numpy as np
 import random
+from cached_property import cached_property
 
 
 class Discrete(Space):
@@ -32,15 +33,15 @@ class Discrete(Space):
             n = num_actions
         self.n = n or 2
 
-    @property
+    @cached_property
     def shape(self):
         return tuple((self.n,))
 
-    @property
+    @cached_property
     def flat_dim(self):
         return self.n
 
-    @property
+    @cached_property
     def dtype(self):
         return "uint8"
 

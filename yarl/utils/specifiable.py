@@ -91,6 +91,9 @@ class Specifiable(object):
             module_name, function_name = type_.rsplit(".", 1)
             module = importlib.import_module(module_name)
             ctor = getattr(module, function_name)
+        # type_ is already a created object of this class -> Take it as is.
+        elif isinstance(type_, cls):
+            return type_
         # Case c) identifier in cls.__lookup_classes__
         elif cls.__lookup_classes__ is not None and isinstance(cls.__lookup_classes__, dict) and \
                 type_ in cls.__lookup_classes__:
