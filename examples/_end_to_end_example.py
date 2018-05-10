@@ -24,8 +24,6 @@ import numpy as np
 from yarl.spaces import Continuous, Tuple, Dict
 
 
-computation_gray_autographd = None
-
 
 def precomputation_gray(*inputs):
     # In the precomputation step, we can calculate (in pure python) what we need for each primitive Space
@@ -58,9 +56,11 @@ def computation_gray(primitive_in, reshaped_weights):
 def generic_wrapper(pre, compute, *ops):
     # This is a generic wrapper that should go into the base Components class (and probably does not need to be overwritten ever).
 
-    # TODO: Figure out what should happen if we have two container spaces in *ops. Error?
-    # TODO: OR BETTER: if there are two containers, they probably just have to match in structure such that we can pass single items side-by-side into the pre.
+    # TODO: e.g. what if ops contains 2 dicts that have the exact same structure (ops[0]=dict, ops[1]=dict, ops[2]=primitive space or nothing)?
+    # TODO: We should then pass each key alongside each other into `pre`. Same for 2 tuples, 3 dicts, 3 tuples, etc..
+    # TODO: If there are more than 1 containers in ops and their structures don't align -> ERROR.
 
+    # simple case: assume only one input
     op = ops[0]  # TODO: make this more generic
 
     if isinstance(op, dict):
@@ -103,6 +103,8 @@ with tf.Session() as sess:
     # input_ is now a native dict that corresponds to the structure of input_space.
 
     # Let the wrapper do everything.
+    # The wrapper will live in Component.py and should not need to be overwritten ever (I think).
+    # We can call it something else, but component will use it all under the hood, automatically.
     gray_ops = generic_wrapper(precomputation_gray, computation_gray_autographd, input_)
 
     # Test the pipeline.
