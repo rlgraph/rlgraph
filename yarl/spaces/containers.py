@@ -28,7 +28,7 @@ from .space import Space
 class Dict(Space, OrderedDict):
     """
     A Dict space (an ordered and keyed combination of n other spaces).
-    Supports nesting of other Dict spaces (or any other Space types) inside itself.
+    Supports nesting of other Dict/Tuple spaces (or any other Space types) inside itself.
     """
     def __init__(self, spec=None, **kwargs):
         # Allow for any spec or already constructed Space to be passed in as values in the python-dict.
@@ -94,6 +94,10 @@ class Dict(Space, OrderedDict):
 
 
 class Tuple(Space, tuple):
+    """
+    A Tuple space (an ordered sequence of n other spaces).
+    Supports nesting of other container (Dict/Tuple) spaces inside itself.
+    """
     def __new__(cls, *components):
         if isinstance(components[0], (list, tuple)):
             assert len(components) == 1

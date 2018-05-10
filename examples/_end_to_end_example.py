@@ -27,6 +27,8 @@ from yarl.spaces import Continuous, Tuple, Dict
 
 def computation_gray(primitive_in, shape):
     weights = np.reshape((0.5, 0.25, 0.25), newshape=shape)
+    #doesn't work:
+    #return tf.stack(np.sum(weights * primitive_in, axis=-1, keepdims=False))
     return tf.reduce_sum(weights * primitive_in, axis=-1, keepdims=False)
 
 
@@ -44,13 +46,13 @@ def computation_func_insert(primitive_in, memory_var):
     pass
 
 
-def get_random_feed_dict(feed_dict, complex_sample, placeholders):
+def get_feed_dict(feed_dict, complex_sample, placeholders):
     if isinstance(complex_sample, dict):
         for k in complex_sample:
-            get_random_feed_dict(feed_dict, complex_sample[k], placeholders[k])
+            get_feed_dict(feed_dict, complex_sample[k], placeholders[k])
     elif isinstance(complex_sample, tuple):
         for sam, ph in zip(complex_sample, placeholders):
-            get_random_feed_dict(feed_dict, sam, ph)
+            get_feed_dict(feed_dict, sam, ph)
     else:
         feed_dict[placeholders] = complex_sample
 
@@ -65,7 +67,7 @@ with tf.Session() as sess:
     gray_ops = precomputation_gray(input_, func_autographd)
     sample = input_space.sample()
     feed_dict = {}
-    get_random_feed_dict(feed_dict, sample, input_)
+    get_feed_dict(feed_dict, sample, input_)
     #feed_dict = {input_["a"]: sample["a"], input_["b"]["c"]: sample["b"]["c"]}
     gray_outs = sess.run(gray_ops, feed_dict=feed_dict)
     print(gray_outs)
