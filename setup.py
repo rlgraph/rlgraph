@@ -24,7 +24,8 @@ from yarl import __version__ as version
 
 install_requires=[
     'tensorflow',
-    'pyyaml'
+    'pyyaml',
+    'cached_property'
 ]
 
 setup_requires=[
