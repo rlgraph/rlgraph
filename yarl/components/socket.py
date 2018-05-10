@@ -20,6 +20,7 @@ from __future__ import print_function
 import itertools
 from tensorflow.contrib import autograph
 
+from yarl import YARLError
 from yarl.spaces import Space
 
 
@@ -149,15 +150,21 @@ class Computation(object):
             input_sockets (list): The required input Sockets to be passed as parameters into the computation function.
             output_sockets (list): The Sockets associated with the return values coming from the computation function.
         """
-        # The raw computation-method (not autograph'd yet).
+
+        # Must match the _computation_...-method's name (w/o the `_computation`-prefix).
         self.name = name
+        # The component object that the method belongs to.
         self.component = component
 
         # Derive precomputation and computation methods from name and build the computation method.
-        # TODO: Discuss namings of the following two items:
-        self.pre_method = self.component.__getattribute__("_pre_" + self.name)
-        self.method = self.component.__getattribute__("_computation_" + self.name)
-        self.graph_method = self.to_graph(method=self.method)
+        self.method = getattr(self.component, "_" + self.name, None)
+        # Maybe method does not exist -> Use a generic pass-through one.
+        if not self.method:
+            self.method = lambda *ops: tuple(ops)
+        self.raw_method = getattr(self.component, "_computation_" + self.name, None)
+        if not self.raw_method:
+            raise YARLError("ERROR: No raw `_computation_...` method with name '{}' found!".format(self.name))
+        self.graphed_method = self.to_graph(method=self.raw_method)
 
         self.input_sockets = input_sockets
         self.output_sockets = output_sockets
@@ -224,9 +231,12 @@ class Computation(object):
                 # key = tuple(input_combination)
                 # Make sure we call the computation method only once per input-op combination.
                 if input_combination not in self.processed_ops:
-                    # Call our pre-computation method first.
-                    returns = self.pre_method(*input_combination)
-                    ops = self.graph_method(self.component, *returns)
+                    # Build the ops from this input-combination.
+                    ops = self.build_ops_from_inputs(*input_combination)
+                    #OBSOLETE:
+                    #returns = self.method(*input_combination)
+                    #ops = self.graphed_method(self.component, *returns)
+
                     self.processed_ops[input_combination] = tuple(ops)
                     # Keep track of which ops require which other ops.
                     op_registry[tuple(ops)] = input_combination
@@ -235,9 +245,43 @@ class Computation(object):
             for slot, output_socket in enumerate(self.output_sockets):
                 output_socket.update_from_input(self, op_registry, socket_registry, slot)
 
+    def build_ops_from_inputs(self, *ops):
+        """
+        Generates all ops that come out of this Computation for some given input-op combination.
+        If ops contains 1 container Space, find it and iterate over it leaving the other primitive Spaces constant.
+        If ops container 2 or more container Spaces, these then must have the exact same structure
+            e.g. ops[0]=dict, ops[1]=dict (same structure as ops[0]), (ops[2]=primitive space or nothing)?
+            We then pass each key alongside each other into `pre`. Same for 2 tuples, 3 dicts, 3 tuples, etc..
+
+        Args:
+            *ops (any): The input ops into this Computation. Some of these may be container ops (dict/tuple).
+
+        Returns:
+            The generated ops (could be a dict/tuple as well) depending on the incoming ops.
+
+        Raises:
+            YARLError: If there are more than 1 containers in ops and their structures don't align.
+        """
+
+        # TODO: make this more generic
+        assert len(ops) == 1
+        op = ops[0]
+
+        if isinstance(op, dict):
+            return dict(map(lambda item: (item[0],
+                                          self.build_ops_from_inputs(self.method, self.graphed_method, item[1])),
+                            op.items()))
+        elif isinstance(op, tuple):
+            return tuple(map(lambda c: self.build_ops_from_inputs(self.method, self.graphed_method, c), op))
+        else:
+            # Get args for autograph.
+            returns = self.method(op)
+            # And call autograph with these.
+            return self.graphed_method(self.component, *returns)
+
     def __str__(self):
         return "{}('{}' in=[{}] out=[{}])". \
-            format(type(self).__name__, self.method.__name__, str(self.input_sockets), str(self.output_sockets))
+            format(type(self).__name__, self.raw_method.__name__, str(self.input_sockets), str(self.output_sockets))
 
 
 class TfComputation(Computation):

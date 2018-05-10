@@ -71,6 +71,19 @@ def get_rank(tensor):
         return tensor.get_shape().ndims
 
 
+def get_shape(tensor):
+    """
+    Returns the shape of the tensor as a tuple.
+
+    Args:
+        tensor (any): The input tensor.
+
+    Returns:
+        The shape (as tuple) of the given tensor.
+    """
+    return tuple(tensor.get_shape().as_list())
+
+
 def force_list(elements):
     """
     Makes sure elements is returned as a list, whether elements is a single item, already a list, or a tuple.

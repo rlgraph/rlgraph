@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
-from yarl.utils.util import get_rank
+from yarl.utils.util import get_rank, get_shape
 from .preprocess_layer import PreprocessLayer
 
 
@@ -39,7 +39,7 @@ class GrayScale(PreprocessLayer):
         self.keep_rank = keep_rank
         super(GrayScale, self).__init__(**kwargs)
 
-    def _precomputation_apply(self, *inputs):
+    def _apply(self, *inputs):
         """
         Grayscales an incoming image of arbitrary rank (normally rank=3, width/height/colors).
         `weights_reshaped` must already match the rank of this image
@@ -48,12 +48,12 @@ class GrayScale(PreprocessLayer):
             inputs (any): The input Sockets' ops.
 
         Returns:
-            The arguments that need to be passed into
+            The arguments that need to be passed into the `_computation`-pendant of this method.
         """
         # Sanity checks.
         assert len(inputs) == 1, "ERROR: GrayScale can only take one input Socket!"
         image = inputs[0]
-        assert image.get_shape
+        assert get_shape(image)[-1] == 3, "ERROR: Given image is not an RGB."
         shape = tuple(1 for _ in range(get_rank(image) - 1)) + (3,)
         return image, np.reshape(a=self.weights, newshape=shape)
 

@@ -83,6 +83,13 @@ class Specifiable(object):
         # Default case: same class
         if type_ is None:
             ctor = cls
+        # type_ is already a created object of this class -> Take it as is.
+        elif isinstance(type_, cls):
+            return type_
+        # Case c) identifier in cls.__lookup_classes__
+        elif cls.__lookup_classes__ is not None and isinstance(cls.__lookup_classes__, dict) and \
+                type_ in cls.__lookup_classes__:
+            ctor = cls.__lookup_classes__[type_]
         # Case a) python callable
         elif callable(type_):
             ctor = type_
@@ -91,13 +98,7 @@ class Specifiable(object):
             module_name, function_name = type_.rsplit(".", 1)
             module = importlib.import_module(module_name)
             ctor = getattr(module, function_name)
-        # type_ is already a created object of this class -> Take it as is.
-        elif isinstance(type_, cls):
-            return type_
-        # Case c) identifier in cls.__lookup_classes__
-        elif cls.__lookup_classes__ is not None and isinstance(cls.__lookup_classes__, dict) and \
-                type_ in cls.__lookup_classes__:
-            ctor = cls.__lookup_classes__[type_]
+
         if not ctor:
             raise YARLError('Invalid type: {}'.format(type_))
 

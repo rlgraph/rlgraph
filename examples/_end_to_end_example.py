@@ -22,6 +22,10 @@ import tensorflow as tf
 import numpy as np
 
 from yarl.spaces import Continuous, Tuple, Dict
+from yarl.agents import Agent
+
+
+class MyAgent(Agent):
 
 
 
@@ -79,7 +83,7 @@ def computation_func_insert(primitive_in, memory_var):
     pass
 
 
-# TODO:Sven will check: This can probably be done smarter using Space classes?
+# TODO: Sven will check: This can probably be done smarter using Space classes?
 def get_feed_dict(feed_dict, complex_sample, placeholders):
     if isinstance(complex_sample, dict):
         for k in complex_sample:
