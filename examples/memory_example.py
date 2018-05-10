@@ -36,7 +36,7 @@ class Memory(Component):
         self.memory = self.get_variable("memory", trainable=False, from_space=self.record_space)
         self.index = self.get_variable("index", trainable=False, dtype=int)
         self.capacity = 5
-        self.insert = autograph.to_graph(self._computation_insert())
+        self.insert = autograph.to_graph(self._computation_insert)
 
     def _computation_insert(self, *records):
         num_elements = tf.shape(records[0])[0]
