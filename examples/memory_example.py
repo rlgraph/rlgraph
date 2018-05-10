@@ -39,21 +39,25 @@ class Memory(Component):
         self.var_list = [self.memory["state"]["state1"], self.memory["state"]["state2"], self.memory["reward"]]
 
         # TODO: this is normally done automatically by Component (see commented-out code below)
-        self.insert = autograph.to_graph(self._computation_insert)
+        self.insert = autograph.to_graph(self.computation_insert, verbose=True)  #, partial_types={tuple})
         #self.define_inputs("record")
         #self.define_outputs("insert")
         #self.add_computation("record", "insert")
 
-    def _computation_insert(self, *records):
-        num_elements = tf.shape(records[0])[0]
+    def computation_insert(self, *records):
+        num_elements = 1  #tf.shape(records[0])[0]
+        num_primitives = tf.shape(records)[0]
+        print(num_primitives)
         index_range = tf.range(start=self.index, limit=(self.index + num_elements)) % self.capacity
-        for i, record in enumerate(records):
-            # TODO assign
-            tf.scatter_update(
-                ref=self.var_list[i],
-                indices=index_range,
-                updates=record
-            )
+        print(index_range)
+        #for n in range(num_primitives):  #, record in enumerate(list(records)):
+        #     print(n)
+        #    record = records[i]
+        #    tf.scatter_update(
+        #        ref=self.var_list[i],
+        #        indices=index_range,
+        #        updates=record
+        #    )
 
         tf.assign(ref=self.index, value=(self.index + num_elements) % self.capacity)
         return tf.no_op()
@@ -82,8 +86,6 @@ with tf.Session() as sess:
     feed_dict = {}
     get_feed_dict(feed_dict, sample, input_)
 
-    outputs = sess.run(memory.insert, feed_dict=feed_dict)
+    sess.run(tf.global_variables_initializer())
+    outputs = sess.run(memory.insert(memory, input_["state"]["state1"], input_["state"]["state2"], input_["reward"]), feed_dict=feed_dict)
     print(outputs)
-
-
-
