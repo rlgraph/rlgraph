@@ -85,7 +85,7 @@ class Component(Specifiable):
 
         # All Variables that are held by this component by full name. This will always include sub-components'
         # variables.
-        self.variables = dict()
+        #self.variables = dict()
 
     def create_variables(self):
         """
@@ -104,7 +104,7 @@ class Component(Specifiable):
 
         Args:
             name (str): The name under which the variable is registered in this component.
-            shape (tuple): The shape of the variable.
+            shape (Optional[tuple]): The shape of the variable (default: ()).
             dtype (Union[str,type]): The dtype (as string) of this variable.
             trainable (bool): Whether this variable should be trainable.
             from_space (Union[Space,None]): Whether to create this variable from a Space object
@@ -114,8 +114,8 @@ class Component(Specifiable):
             The actual variable (dependent on the backend).
         """
         # Called as getter.
-        if name in self.variables:
-            return self.variables[name]
+        #if name in self.variables:
+        #    return self.variables[name]
 
         # Called as setter.
         var = None
@@ -125,10 +125,12 @@ class Component(Specifiable):
             if from_space:
                 var = from_space.get_tensor_variable(name)
             else:
+                if shape is None:
+                    shape = tuple()
                 var = tf.get_variable(name=name, shape=shape, dtype=util.dtype(dtype), trainable=trainable)
-        # Register a new variable.
-        if var.name not in self.variables:
-            self.variables[var.name] = var
+        # TODO: Register a new variable.
+        #if var.name not in self.variables:
+        #    self.variables[var.name] = var
 
         return var
 

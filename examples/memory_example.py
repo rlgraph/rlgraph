@@ -26,7 +26,6 @@ from yarl.spaces import Continuous, Tuple, Dict
 
 
 class Memory(Component):
-
     def __init__(self, *args, **kwargs):
         super(Memory, self).__init__(*args, **kwargs)
         self.record_space = Dict(
@@ -36,19 +35,25 @@ class Memory(Component):
         self.memory = self.get_variable("memory", trainable=False, from_space=self.record_space)
         self.index = self.get_variable("index", trainable=False, dtype=int)
         self.capacity = 5
+        # TODO: put this into splitter component:
+        self.var_list = [self.memory["state"]["state1"], self.memory["state"]["state2"], self.memory["reward"]]
+
+        # TODO: this is normally done automatically by Component (see commented-out code below)
         self.insert = autograph.to_graph(self._computation_insert)
+        #self.define_inputs("record")
+        #self.define_outputs("insert")
+        #self.add_computation("record", "insert")
 
     def _computation_insert(self, *records):
         num_elements = tf.shape(records[0])[0]
         index_range = tf.range(start=self.index, limit=(self.index + num_elements)) % self.capacity
-        for record in records:
+        for i, record in enumerate(records):
             # TODO assign
             tf.scatter_update(
-                ref=self.memory,  # TODO replace with right variable,
+                ref=self.var_list[i],
                 indices=index_range,
                 updates=record
             )
-
 
         tf.assign(ref=self.index, value=(self.index + num_elements) % self.capacity)
         return tf.no_op()

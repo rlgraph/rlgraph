@@ -81,7 +81,7 @@ class Dict(Space, OrderedDict):
         return OrderedDict(self) == OrderedDict(other)
 
     def get_tensor_variable(self, name, is_input_feed=False, **kwargs):
-        return OrderedDict([(key, subspace.get_tensor_variable(key+"/"+name, is_input_feed, **kwargs))
+        return OrderedDict([(key, subspace.get_tensor_variable(name+"/"+key, is_input_feed, **kwargs))
                             for key, subspace in self.items()])
 
     def sample(self, seed=None):
