@@ -36,13 +36,26 @@ class GrayScale(PreprocessLayer):
             keep_rank (bool): Whether to keep the color-depth rank in the pre-processed tensor (default: False).
         """
         self.weights = weights or (0.299, 0.587, 0.114)
-        self.weights_reshaped = None
         self.keep_rank = keep_rank
         super(GrayScale, self).__init__(**kwargs)
 
-    def shape_test(self, input_shape):
-        self.weights_reshaped = np.reshape(a=self.weights, newshape=tuple((1 for _ in range(input_shape))) + (3,))
+    def _precomputation_apply(self, *inputs):
+        """
+        Grayscales an incoming image of arbitrary rank (normally rank=3, width/height/colors).
+        `weights_reshaped` must already match the rank of this image
 
-    def preprocess(self, input_):
-        return tf.reduce_sum(self.weights_reshaped * input_, axis=-1, keepdims=self.keep_rank)
+        Args:
+            inputs (any): The input Sockets' ops.
 
+        Returns:
+            The arguments that need to be passed into
+        """
+        # Sanity checks.
+        assert len(inputs) == 1, "ERROR: GrayScale can only take one input Socket!"
+        image = inputs[0]
+        assert image.get_shape
+        shape = tuple(1 for _ in range(get_rank(image) - 1)) + (3,)
+        return image, np.reshape(a=self.weights, newshape=shape)
+
+    def _computation_apply(self, image, weights_reshaped):
+        return tf.reduce_sum(weights_reshaped * image, axis=-1, keepdims=self.keep_rank)

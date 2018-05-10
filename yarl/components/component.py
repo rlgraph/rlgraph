@@ -27,8 +27,8 @@ from yarl.utils import util
 from yarl.spaces import Space
 
 # some settings flags
-EXPOSE_INS = 0x1
-EXPOSE_OUTS = 0x2
+EXPOSE_INS = 0x1  # whether to expose only in-Sockets (in calls to add_components)
+EXPOSE_OUTS = 0x2  # whether to expose only out-Sockets (in calls to add_components)
 
 
 class Component(Specifiable):
@@ -72,7 +72,7 @@ class Component(Specifiable):
         self.global_component = kwargs.get("global_component", False)
 
         # dict of sub-components that live inside this one (key=sub-component's scope)
-        self.sub_components = {}
+        self.sub_components = dict()
 
         # Keep track of whether this Component has already been added to another Component and throw error
         # if this is done twice. Each Component should only be added once to some container Component for cleanlyness.
@@ -210,13 +210,11 @@ class Component(Specifiable):
             method_name = re.sub(r'^_computation_', "", method_name[0])
 
         # TODO: Sanity check the tf methods signature and return type.
-        method = self.__getattribute__("_computation_" + method_name)
-
         # Compile a list of all input Sockets.
         input_sockets = [self.get_socket(s) for s in inputs]
         output_sockets = [self.get_socket(s) for s in outputs]
         # Add the computation record to all input and output sockets.
-        computation = TfComputation(method, self, input_sockets, output_sockets)
+        computation = TfComputation(method_name, self, input_sockets, output_sockets)
         for input_socket in input_sockets:
             input_socket.connect_to(computation)
         for output_socket in output_sockets:
@@ -245,7 +243,7 @@ class Component(Specifiable):
                 expose=True: All sockets (in and out) will be exposed.
         """
         # Preprocess the expose spec.
-        expose_spec = {}
+        expose_spec = dict()
         if expose is not None:
             # More than one socket needs to be exposed.
             if isinstance(expose, (list, tuple)):
@@ -259,7 +257,7 @@ class Component(Specifiable):
                             expose_spec[old] = new  # change name from dict-key to dict-value
             else:
                 # Expose all Sockets if expose=True|EXPOSE_INS|EXPOSE_OUTS.
-                expose_list = []
+                expose_list = list()
                 if expose == EXPOSE_INS or expose is True:
                     expose_list.extend(component.input_sockets)
                 if expose == EXPOSE_OUTS or expose is True:
@@ -281,7 +279,7 @@ class Component(Specifiable):
         component.has_been_added = True
         self.sub_components[component.name] = component
 
-        # Expose all Sockets in exposed_spec and connect them correctly.
+        # Expose all Sockets in exposed_spec (create and connect them correctly).
         for socket_name, exposed_name in expose_spec.items():
             socket = self.get_socket_by_name(component, socket_name)  # type: Socket
             if socket is None:
@@ -335,9 +333,9 @@ class Component(Specifiable):
         # Then cut all the new_component's outside connections (no need to worry about the other side as
         # they were not notified of the copied Sockets).
         for socket in new_component.input_sockets:
-            socket.incoming_connections = []
+            socket.incoming_connections = list()
         for socket in new_component.output_sockets:
-            socket.outgoing_connections = []
+            socket.outgoing_connections = list()
 
         return new_component
 
@@ -422,12 +420,6 @@ class Component(Specifiable):
             from_socket_obj.disconnect_to(to_socket_obj)
             to_socket_obj.disconnect_from(from_socket_obj)
 
-    def get_input(self, socket=None):
-        return self.get_socket(socket, type_="in", return_component=True)
-
-    def get_output(self, socket=None):
-        return self.get_socket(socket, type_="out", return_component=True)
-
     def get_socket(self, socket=None, type_=None, return_component=False):
         """
         Returns a Component/Socket object pair given a specifier.
@@ -460,7 +452,6 @@ class Component(Specifiable):
             return list_[0]
 
         # Socket is given as string-only: Try to look up socket via this string identifier.
-        socket_name = ""
         if isinstance(socket, str):
             socket_name = socket
             mo = re.match(r'^([\w\-]*)\/(.+)$', socket)
@@ -501,6 +492,32 @@ class Component(Specifiable):
                             format("??" if type_ is None else type_, socket_name, component.name))
 
         return socket_obj if not return_component else (component, socket_obj)
+
+    def get_input(self, socket=None):
+        """
+        Helper method to retrieve one of our own in-Sockets by name (None for the only in-Socket
+        there is).
+
+        Args:
+            socket (Optional[str]): The name of the in-Socket to retrieve.
+
+        Returns:
+            The found in-Socket.
+        """
+        return self.get_socket(socket, type_="in", return_component=True)
+
+    def get_output(self, socket=None):
+        """
+        Helper method to retrieve one of our own out-Sockets by name (None for the only out-Socket
+        there is).
+
+        Args:
+            socket (Optional[str]): The name of the out-Socket to retrieve.
+
+        Returns:
+            The found out-Socket.
+        """
+        return self.get_socket(socket, type_="out", return_component=True)
 
     @staticmethod
     def get_socket_by_name(component, name, type_=None):

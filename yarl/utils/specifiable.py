@@ -77,7 +77,7 @@ class Specifiable(object):
             type_ = spec.pop("type", None)
         else:
             type_ = spec
-            spec = {}
+            spec = dict()
 
         ctor = None
         # Default case: same class

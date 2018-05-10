@@ -29,19 +29,6 @@ class PreprocessLayer(LayerComponent):
     gets called automatically by `apply` after taking care of container inputs.
     It is not required to implement the `reset` logic (or store any state information at all).
     """
-    def preprocess(self, *args):
-        """
-        The only method that needs to be implemented by child classes. This method is called automatically
-        by self._computation_apply after taking care of complex container Space inputs.
-
-        Args:
-            args (any): Defined by child classes.
-
-        Returns:
-            The result from preprocessing the input.
-        """
-        raise NotImplementedError
-
     def _computation_reset(self):
         """
         Returns:
@@ -55,19 +42,12 @@ class PreprocessLayer(LayerComponent):
     def _computation_apply(self, *inputs):
         """
         Args:
-            inputs (any): The input to be processed.
+            inputs (any): The input to be "pre-processed".
 
         Returns:
-            The op that processes the input Tensor.
+            The op that pre-processes the input.
         """
-        input_ = inputs[0]
-        # TODO: uncomment once builtin isinstance is supported by autograph (getting error right now).
-        # if isinstance(input_, dict):
-        #    return Dict.map(input_, self.preprocess)
-        #elif isinstance(input_, tuple):
-        #    return Tuple.map(input_, self.preprocess)
-
-        return self.preprocess(input_)
+        raise NotImplementedError
 
     def processed_shape(self, space):
         """

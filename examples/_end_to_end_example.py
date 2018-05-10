@@ -24,28 +24,62 @@ import numpy as np
 from yarl.spaces import Continuous, Tuple, Dict
 
 
+computation_gray_autographd = None
 
-def computation_gray(primitive_in, shape):
+
+def precomputation_gray(*inputs):
+    # In the precomputation step, we can calculate (in pure python) what we need for each primitive Space
+    # input (e.g. the reshaped weights below for the grayscale on arbitrarily sized incoming images).
+
+    # asserts work as well (we are in python!)
+    assert len(inputs) == 1
+    # sort out incoming parameters
+    image = inputs[0]
+
+    # We can do this step already here (statically), instead of moving this into the graph
+    # (as it's done in tensorforce).
+    shape = tuple(1 for _ in range(image.get_shape().ndims - 1)) + (3,)
     weights = np.reshape((0.5, 0.25, 0.25), newshape=shape)
-    #doesn't work:
-    #return tf.stack(np.sum(weights * primitive_in, axis=-1, keepdims=False))
-    return tf.reduce_sum(weights * primitive_in, axis=-1, keepdims=False)
+
+    # now return the args that will be passed into the autographd func.
+    return image, weights
 
 
-def precomputation_gray(op, func_):
+def computation_gray(primitive_in, reshaped_weights):
+    # This is the autograph function:
+    # Only think "Tensors" in here. No asserts, no control flow
+    # that should not go into the graph, no tuple generation, etc..
+
+    # Unfortunately, numpy doesn't work here. Maybe that should be a tf issue (if native python lists
+    # with tf.stack work, then why not np arrays)?
+    return tf.reduce_sum(reshaped_weights * primitive_in, axis=-1, keepdims=False)
+
+
+def generic_wrapper(pre, compute, *ops):
+    # This is a generic wrapper that should go into the base Components class (and probably does not need to be overwritten ever).
+
+    # TODO: Figure out what should happen if we have two container spaces in *ops. Error?
+    # TODO: OR BETTER: if there are two containers, they probably just have to match in structure such that we can pass single items side-by-side into the pre.
+
+    op = ops[0]  # TODO: make this more generic
+
     if isinstance(op, dict):
-        return dict(map(lambda item: (item[0], precomputation_gray(item[1], func_)), op.items()))
+        return dict(map(lambda item: (item[0], generic_wrapper(pre, compute, item[1])), op.items()))
     elif isinstance(op, tuple):
-        return tuple(map(lambda c: precomputation_gray(c, func_), op))
+        return tuple(map(lambda c: generic_wrapper(pre, compute, c), op))
     else:
-        shape = tuple(1 for _ in range(op.get_shape().ndims - 1)) + (3,)
-        return func_(op, shape)
+        # Get args for autograph.
+        returns = pre(op)
+        # And call autograph with these.
+        return compute(*returns)
 
 
+# TODO: create memory example for Michael to start.
 def computation_func_insert(primitive_in, memory_var):
     pass
 
 
+# TODO:Sven will check: This can probably be done smarter using Space classes?
 def get_feed_dict(feed_dict, complex_sample, placeholders):
     if isinstance(complex_sample, dict):
         for k in complex_sample:
@@ -58,17 +92,25 @@ def get_feed_dict(feed_dict, complex_sample, placeholders):
 
 
 with tf.Session() as sess:
-    input_space = Dict({"a": Tuple(Continuous(shape=(2,2,3)), Continuous(shape=(3,3,3))),
-                        "b": Dict({"c": Continuous(shape=(1,1,3))})})
+    # Create a messed up, complex Space:
+    input_space = Dict(a=Tuple(Continuous(shape=(2,2,3)), Continuous(shape=(3,3,3))),
+                       b=Dict(c=Continuous(shape=(1,1,3))))
     print(autograph.to_code(computation_gray))
-    func_autographd = autograph.to_graph(computation_gray, verbose=True)
+    # Only needs be done once upon Computation object creation:
+    computation_gray_autographd = autograph.to_graph(computation_gray, verbose=True)
+    # This is now very cool with Spaces.
     input_ = input_space.get_tensor_variable(name="placeholder")
+    # input_ is now a native dict that corresponds to the structure of input_space.
 
-    gray_ops = precomputation_gray(input_, func_autographd)
+    # Let the wrapper do everything.
+    gray_ops = generic_wrapper(precomputation_gray, computation_gray_autographd, input_)
+
+    # Test the pipeline.
     sample = input_space.sample()
     feed_dict = {}
     get_feed_dict(feed_dict, sample, input_)
-    #feed_dict = {input_["a"]: sample["a"], input_["b"]["c"]: sample["b"]["c"]}
+
+    # Fetch a complex opts-dict.
     gray_outs = sess.run(gray_ops, feed_dict=feed_dict)
     print(gray_outs)
 
