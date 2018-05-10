@@ -92,19 +92,6 @@ class Dict(Space, OrderedDict):
     def contains(self, x):
         return isinstance(x, (OrderedDict, dict)) and all(self[key].contains(x[key]) for key in self.keys())
 
-    @staticmethod
-    def map(container, wrapper, func):
-        """
-        Loops through this Dict and maps all values through the given funcreturns a dict
-        Args:
-            container ():
-            func ():
-
-        Returns:
-
-        """
-        return dict(map(lambda item: (item[0], wrapper(item[1], func)), container.items()))
-
 
 class Tuple(Space, tuple):
     def __new__(cls, *components):
@@ -153,7 +140,7 @@ class Tuple(Space, tuple):
         return tuple.__eq__(self, other)
 
     def get_tensor_variable(self, name, is_input_feed=False, **kwargs):
-        return tuple([subspace.get_tensor_variable(name+"/"+i, is_input_feed, **kwargs)
+        return tuple([subspace.get_tensor_variable(name+"/"+str(i), is_input_feed, **kwargs)
                       for i, subspace in enumerate(self)])
 
     def sample(self, seed=None):
@@ -163,9 +150,4 @@ class Tuple(Space, tuple):
 
     def contains(self, x):
         return isinstance(x, (tuple, list)) and len(self) == len(x) and all(c.contains(xi) for c, xi in zip(self, x))
-
-    @staticmethod
-    def map(container, wrapper, func):
-        return tuple(map(lambda c: wrapper(c, func), container))
-
 
