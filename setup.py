@@ -19,7 +19,7 @@ from __future__ import division
 
 from setuptools import setup, find_packages
 
-from yarl import __version__ as version
+from yarl import __version__
 
 
 install_requires=[
@@ -38,7 +38,7 @@ extras_require = {
 
 setup(
     name='yarl',
-    version=version,
+    version=__version__,
     description='A Framework for Flexible Deep Reinforcement Learning Graphs',
     url='https://yarl-project.org',
     author='yarl',

@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import Specifiable, backend, YARLError
+from yarl.components.layers import Initializer
 # TODO: make this backend-dependent
 import tensorflow as tf
 
@@ -58,7 +59,7 @@ class Space(Specifiable):
 
     def get_tensor_variable(self, name, is_input_feed=False, **kwargs):
         """
-        Returns a tensorflow variable/placeholder that matches the space's shape (plus possible extra dims).
+        Returns a backend-specific variable/placeholder that matches the space's shape.
 
         Args:
             name (str): The name for the variable.
@@ -78,6 +79,18 @@ class Space(Specifiable):
                 return tf.get_variable(name, shape=self.shape, dtype=self.dtype, **kwargs)
         else:
             raise YARLError("ERROR: Pytorch not supported yet!")
+
+    #def get_initializer(self, specification):
+    #    """
+    #    Returns a backend-specific initializer object that matches the space's shape.
+    #
+    #    Args:
+    #        specification (any): The specification to be passed into
+    #
+    #    Returns:
+    #        An Initializer object.
+    #    """
+    #    return None  # optional
 
     def __repr__(self):
         return "Space(shape=" + str(self.shape) + ")"

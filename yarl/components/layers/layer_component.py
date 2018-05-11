@@ -62,5 +62,5 @@ class LayerComponent(StackComponent):
         Returns:
             The output(s) of this layer. The number of elements in the returned tuple must match self.computation_outputs.
         """
-        raise NotImplementedError
+        return inputs  # optional
 

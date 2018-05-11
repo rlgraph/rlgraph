@@ -23,14 +23,17 @@ from .layer_component import LayerComponent
 # Preprocessing.
 from .preprocessing import PreprocessLayer, GrayScale
 # NN-Layers.
-from .nn_layer import NNLayer, DenseLayer, Conv1DLayer, Conv2DLayer, Conv2DTransposeLayer, Conv3DLayer, \
-    Conv3DTransposeLayer, AveragePooling1DLayer, AveragePooling2DLayer, AveragePooling3DLayer, \
-    BatchNormalizationLayer, DropoutLayer, FlattenLayer, MaxPooling1DLayer, MaxPooling2DLayer, MaxPooling3DLayer
+from .initializer import Initializer
+from .dense_layer import DenseLayer
+#, Conv1DLayer, Conv2DLayer, Conv2DTransposeLayer, Conv3DLayer, \
+#    Conv3DTransposeLayer, AveragePooling1DLayer, AveragePooling2DLayer, AveragePooling3DLayer, \
+#    BatchNormalizationLayer, DropoutLayer, FlattenLayer, MaxPooling1DLayer, MaxPooling2DLayer, MaxPooling3DLayer
 
 __all__ = ["StackComponent", "LayerComponent",
-           "NNLayer", "DenseLayer", "Conv1DLayer",
-           "Conv2DLayer", "Conv2DTransposeLayer", "Conv3DLayer", "Conv3DTransposeLayer", "AveragePooling1DLayer",
-           "AveragePooling2DLayer", "AveragePooling3DLayer", "BatchNormalizationLayer", "DropoutLayer", "FlattenLayer",
-           "MaxPooling1DLayer", "MaxPooling2DLayer", "MaxPooling3DLayer",
+           "Initializer", "DenseLayer",
+           #"NNLayer", "Conv1DLayer",
+           #"Conv2DLayer", "Conv2DTransposeLayer", "Conv3DLayer", "Conv3DTransposeLayer", "AveragePooling1DLayer",
+           #"AveragePooling2DLayer", "AveragePooling3DLayer", "BatchNormalizationLayer", "DropoutLayer", "FlattenLayer",
+           #"MaxPooling1DLayer", "MaxPooling2DLayer", "MaxPooling3DLayer",
            "PreprocessLayer", "GrayScale"]
 

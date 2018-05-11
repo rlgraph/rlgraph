@@ -17,9 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .space import Space
 import numpy as np
 from cached_property import cached_property
+
+from .space import Space
+from yarl import backend, YARLError
+from yarl.components.layers.initializer import Initializer
 
 
 class Continuous(Space):
@@ -98,6 +101,12 @@ class Continuous(Space):
     @property
     def bounds(self):
         return self.low, self.high
+
+    #def get_initializer(self, specification):
+    #    if backend() == "tf":
+    #        return Initializer.from_spec(shape=self.shape, specification=specification)
+    #    else:
+    #        raise YARLError("ERROR: Pytorch not supported yet!")
 
     def __repr__(self):
         return "Continuous" + str(self.shape)

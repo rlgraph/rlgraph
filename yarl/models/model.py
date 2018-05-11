@@ -53,6 +53,8 @@ class Model(Specifiable):
         self.execution_spec = parse_execution_spec(execution_spec)  # sanitize again (after Agent); one never knows
         # Default single-process execution.
         self.execution_mode = self.execution_spec.get("mode", "single")
+        self.seed = self.execution_spec.get("seed")
+
         self.session_config = self.execution_spec["session_config"]
         self.distributed_spec = self.execution_spec.get("distributed_spec")
 

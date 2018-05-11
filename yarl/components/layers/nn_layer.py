@@ -17,32 +17,29 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import backend
-from .layer_component import LayerComponent
-
-from functools import partial
-
-
+"""
+TODO: this may still be needed as a superclass for NN-specific stuff.
 class NNLayer(LayerComponent):
-    """
+    ""
     A neural-net layer wrapper class that can incorporate a backend-specific layer object.
-    """
-    def __init__(self, *sub_components, class_=None, **kwargs):
-        """
+    ""
+    def __init__(self, *sub_components, **kwargs):
+        ""
         Keyword Args:
             class (class): The wrapped tf.layers class to use.
+            seed (Optional[int]): The seed to use to make this class non-deterministic.
             **kwargs (any): Kwargs to be passed to the native backend's layers's constructor.
-        """
+        ""
         assert class_, "ERROR: class_ parameter needs to be given as kwarg in c'tor of NNLayer!"
 
         super(NNLayer, self).__init__(*sub_components, **kwargs)
         # Generate the wrapped layer object.
-        self.layer = class_(**kwargs)
+        self.layer = class_(**kwargs, ini)
 
     def _computation_apply(self, *inputs):
-        """
+        ""
         Only can make_template from this function after(!) we know what the "output"?? socket's shape will be.
-        """
+        ""
         # TODO: wrap pytorch's torch.nn classes
         if backend() == "tf":
             return self.layer.apply(inputs)
@@ -53,7 +50,7 @@ if backend() == "tf":
     import tensorflow as tf
 
     DenseLayer = partial(NNLayer, class_=tf.layers.Dense)
-    Conv1DLayer = partial(NNLayer,class_=tf.layers.Conv1D)
+    Conv1DLayer = partial(NNLayer, class_=tf.layers.Conv1D)
     Conv2DLayer = partial(NNLayer, class_=tf.layers.Conv2D)
     Conv2DTransposeLayer = partial(NNLayer, class_=tf.layers.Conv2DTranspose)
     Conv3DLayer = partial(NNLayer, class_=tf.layers.Conv3D)
@@ -68,3 +65,4 @@ if backend() == "tf":
     MaxPooling2DLayer = partial(NNLayer, class_=tf.layers.MaxPooling2D)
     MaxPooling3DLayer = partial(NNLayer, class_=tf.layers.MaxPooling3D)
 
+"""

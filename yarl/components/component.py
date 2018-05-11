@@ -60,6 +60,10 @@ class Component(Specifiable):
             global_component (bool): In distributed mode, this flag indicates if the component is part of the
                 shared global model or local to the worker. Defaults to False and will be ignored if set to
                 True in non-distributed mode.
+            #deterministic (bool): Flag that indicates, whether this component behaves deterministically.
+            #    As soon as an added sub-component is non-deterministic, this flag switches to False.
+            #seed (Optional[int]): The seed to use (if applicable) to make this component behave deterministically.
+            #    (Default: time()).
         """
 
         # Scope if used to create scope hierarchies inside the Graph.
@@ -70,6 +74,10 @@ class Component(Specifiable):
         self.name = kwargs.get("name", self.scope)  # if no name given, use scope
         self.device = kwargs.get("device")
         self.global_component = kwargs.get("global_component", False)
+        # Whether this component behaves (or should behave) deterministically.
+        #self.deterministic = kwargs.get("deterministic", False)
+        # NOT YET: We may add per-component seeds later:
+        # self.seed = kwargs.get("seed", time.time())
 
         # dict of sub-components that live inside this one (key=sub-component's scope)
         self.sub_components = dict()
@@ -280,6 +288,10 @@ class Component(Specifiable):
                             "Each Component can only be added once to a parent.".format(component.name))
         component.has_been_added = True
         self.sub_components[component.name] = component
+        ## As soon as a non-deterministic sub-component comes in, we stop being deterministic as well
+        ## (if we haven't already).
+        #if component.deterministic is False:
+        #    self.deterministic = False
 
         # Expose all Sockets in exposed_spec (create and connect them correctly).
         for socket_name, exposed_name in expose_spec.items():

@@ -72,6 +72,13 @@ class Dict(Space, OrderedDict):
     def dtype(self):
         return OrderedDict([(key, subspace.dtype()) for key, subspace in self.items()])
 
+    def get_tensor_variable(self, name, is_input_feed=False, **kwargs):
+        return OrderedDict([(key, subspace.get_tensor_variable(name+"/"+key, is_input_feed, **kwargs))
+                            for key, subspace in self.items()])
+
+    #def get_initializer(self, specification):
+    #    return OrderedDict([(key, subspace.get_initializer(specification)) for key, subspace in self.items()])
+
     def __repr__(self):
         return "Dict({})".format([(key, self[key].__repr__()) for key in self.keys()])
 
@@ -79,10 +86,6 @@ class Dict(Space, OrderedDict):
         if not isinstance(other, Dict):
             return False
         return OrderedDict(self) == OrderedDict(other)
-
-    def get_tensor_variable(self, name, is_input_feed=False, **kwargs):
-        return OrderedDict([(key, subspace.get_tensor_variable(name+"/"+key, is_input_feed, **kwargs))
-                            for key, subspace in self.items()])
 
     def sample(self, seed=None):
         if seed is not None:
@@ -137,15 +140,18 @@ class Tuple(Space, tuple):
     def dtype(self):
         return tuple([c.dtype for c in self])
 
+    def get_tensor_variable(self, name, is_input_feed=False, **kwargs):
+        return tuple([subspace.get_tensor_variable(name+"/"+str(i), is_input_feed, **kwargs)
+                      for i, subspace in enumerate(self)])
+
+    #def get_initializer(self, specification):
+    #    return tuple([subspace.get_initializer(specification) for subspace in self])
+
     def __repr__(self):
         return "Tuple({})".format(tuple([cmp.__repr__() for cmp in self]))
 
     def __eq__(self, other):
         return tuple.__eq__(self, other)
-
-    def get_tensor_variable(self, name, is_input_feed=False, **kwargs):
-        return tuple([subspace.get_tensor_variable(name+"/"+str(i), is_input_feed, **kwargs)
-                      for i, subspace in enumerate(self)])
 
     def sample(self, seed=None):
         if seed is not None:
