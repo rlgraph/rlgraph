@@ -57,7 +57,7 @@ class Specifiable(object):
         return cls.from_spec(spec=spec)
 
     @classmethod
-    def from_spec(cls, spec):
+    def from_spec(cls, spec, **kwargs):
         """
         Uses the given spec to create an object. The `type` key can be used to instantiate a different (sub-)class.
         The following inputs are valid as types: a) a python callable, b) a string of a python callable,
@@ -67,6 +67,10 @@ class Specifiable(object):
         Args:
             spec (dict): The specification dict.
 
+        Keyword Args:
+            kwargs (any): Optional possibility to pass the c'tor arguments in here and use spec as the type-only info.
+                Then we can call this like: from_spec([type], [**kwargs for ctor])
+
         Returns:
             The object generated from the spec.
         """
@@ -75,9 +79,10 @@ class Specifiable(object):
 
         if isinstance(spec, dict) and "type" in spec:
             type_ = spec.pop("type", None)
+            spec.update(kwargs)  # give kwargs priority
         else:
             type_ = spec
-            spec = dict()
+            spec = kwargs
 
         ctor = None
         # Default case: same class

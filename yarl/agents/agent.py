@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 from yarl import Specifiable, backend
 from yarl.utils.input_parsing import parse_execution_spec
-from yarl.models import backend_model
+from yarl.models import Model
 from yarl.spaces import Space
 
 
@@ -59,12 +59,12 @@ class Agent(Specifiable):
         self.execution_spec = parse_execution_spec(execution)
         self.optimizer_spec = optimizer
 
-        # TODO do via from spec?
-        self.model = backend_model(backend=backend())(
-            execution_spec=self.execution_spec
-        )
+        # Create our Model.
+        self.model = Model.from_spec(backend(), execution_spec=self.execution_spec)
 
+        # Build a custom, agent-specific algorithm.
         self.build_graph()
+        # Ask our Model to actually build the Graph.
         self.model.build()
 
     def build_graph(self):

@@ -33,20 +33,19 @@ class NNLayer(LayerComponent):
             class (class): The wrapped tf.layers class to use.
             **kwargs (any): Kwargs to be passed to the native backend's layers's constructor.
         """
-        sub_components = list(sub_components)
         assert class_, "ERROR: class_ parameter needs to be given as kwarg in c'tor of NNLayer!"
 
         super(NNLayer, self).__init__(*sub_components, **kwargs)
-        self.class_ = class_
-        self.kwargs = kwargs
+        # Generate the wrapped layer object.
+        self.layer = class_(**kwargs)
 
-    def _computation_apply(self, input_):
+    def _computation_apply(self, *inputs):
         """
         Only can make_template from this function after(!) we know what the "output"?? socket's shape will be.
         """
         # TODO: wrap pytorch's torch.nn classes
         if backend() == "tf":
-            return self.class_(input_, **self.kwargs)
+            return self.layer.apply(inputs)
 
 
 # Create some fixtures for all layer types for simplicity (w/o the need to add any code).
@@ -68,3 +67,4 @@ if backend() == "tf":
     MaxPooling1DLayer = partial(NNLayer, class_=tf.layers.MaxPooling1D)
     MaxPooling2DLayer = partial(NNLayer, class_=tf.layers.MaxPooling2D)
     MaxPooling3DLayer = partial(NNLayer, class_=tf.layers.MaxPooling3D)
+

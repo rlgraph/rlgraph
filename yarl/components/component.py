@@ -22,7 +22,7 @@ import re
 import copy
 
 from yarl import YARLError, backend, Specifiable
-from yarl.components.socket import Socket, TfComputation
+from yarl.components.socket_and_computation import Socket, TfComputation
 from yarl.utils import util
 from yarl.spaces import Space
 

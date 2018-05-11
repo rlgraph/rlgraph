@@ -95,14 +95,14 @@ class Model(Specifiable):
         # Set up any remaining session or monitoring configurations.
         self.finalize_backend()
 
-    def call(self, sockets, input=None):
+    def call(self, sockets, inputs=None):
         """
         Fetches one or more Socket outputs from the graph (given some inputs) and returns their outputs.
 
         Args:
             sockets (Union[str,List[str]]): A name or a list of names of the (out) Sockets to fetch from our core
                 component.
-            input (Union[dict,None]): Dict specifying the provided inputs for some (in) Sockets. Depending on these
+            inputs (Optional[dict]): Dict specifying the provided inputs for some (in) Sockets. Depending on these
                 given inputs, the correct backend-ops can be selected within the given (out) sockets.
 
         Returns:
@@ -137,6 +137,15 @@ class Model(Specifiable):
                                 format(socket))
             self.partial_input_build(socket)
 
+        # Memoize possible input-combinations (from all our in-Sockets)
+        # so we don't have to do this every time we get a `call`.
+        in_names = sorted(list(map(lambda s: s.name, self.core_component.input_sockets)))
+        input_combinations = all_combinations(in_names, descending_length=True)
+        # Store each combination and its sub-combinations in self.input_combinations.
+        for input_combination in input_combinations:
+            self.input_combinations[tuple(input_combination)] = \
+                all_combinations(input_combination, descending_length=True)
+
         # Now use the ready op/socket registries to determine for which out-Socket we need which inputs.
         # Then we will be able to derive the correct op for any given (out-Socket+in-Socket+in-shape)-combination
         # passed into the call method.
@@ -154,15 +163,6 @@ class Model(Specifiable):
                 for shape_combination in shape_combinations:
                     key = (output_socket.name, sockets, shape_combination)
                     self.call_registry[key] = op
-
-        # Memoize possible input-combinations (from all our in-Sockets)
-        # so we don't have to do this every time we get a `call`.
-        in_names = list(map(lambda s: s.name, self.core_component.input_sockets))
-        input_combinations = all_combinations(in_names, descending_length=True)
-        # Store each combination and its sub-combinations in self.input_combinations.
-        for input_combination in input_combinations:
-            self.input_combinations[tuple(input_combination)] = \
-                all_combinations(input_combination, descending_length=True)
 
     def finalize_backend(self):
         """
