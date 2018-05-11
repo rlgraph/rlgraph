@@ -23,7 +23,7 @@ import itertools
 from yarl import YARLError, Specifiable
 from yarl.components import Component, Socket, Computation
 from yarl.utils.util import all_combinations
-from yarl.utils.input_parsing import parse_execution_spec
+from yarl.utils.input_parsing import parse_saver_spec, parse_summary_spec, parse_execution_spec
 
 
 class Model(Specifiable):
@@ -48,8 +48,8 @@ class Model(Specifiable):
         """
         # The name of this model. Our core Component gets this name.
         self.name = name
-        self.saver_spec = saver_spec
-        self.summary_spec = summary_spec
+        self.saver_spec = parse_saver_spec(saver_spec)
+        self.summary_spec = parse_summary_spec(summary_spec)
         self.execution_spec = parse_execution_spec(execution_spec)  # sanitize again (after Agent); one never knows
         # Default single-process execution.
         self.execution_mode = self.execution_spec.get("mode", "single")
@@ -59,7 +59,7 @@ class Model(Specifiable):
         self.distributed_spec = self.execution_spec.get("distributed_spec")
 
         # Create an empty core Component into which everything will be assembled by an Algo.
-        self.core_component = Component(name=name)
+        self.core_component = Component(name=self.name)
         # List of variables (by scope/name) of all our components.
         self.variables = dict()
         # A dict used for lookup of all combinations that are possible for a given set of given in-Socket
@@ -195,7 +195,7 @@ class Model(Specifiable):
     def get_default_model(self):
         """
         Returns:
-            Returns the core container component.
+            Component: The core container component.
         """
         return self.core_component
 

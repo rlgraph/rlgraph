@@ -26,7 +26,7 @@ from .preprocess_layer import PreprocessLayer
 
 class GrayScale(PreprocessLayer):
     """
-    A simple grayscale converter for RGB images.
+    A simple grayscale converter for RGB images of arbitrary dimensions (normally, an image is 2D).
     """
     def __init__(self, weights=None, keep_rank=False, **kwargs):
         """
@@ -39,23 +39,19 @@ class GrayScale(PreprocessLayer):
         self.weights = weights or (0.299, 0.587, 0.114)
         self.keep_rank = keep_rank
 
-    def _apply(self, *inputs):
+    def _single_computation_apply(self, image):
         """
-        Grayscales an incoming image of arbitrary rank (normally rank=3, width/height/colors).
-        `weights_reshaped` must already match the rank of this image
+        Gray-scales an incoming image of arbitrary rank (normally rank=3, width/height/colors).
+        The last rank must be of size 3 (RGB color images).
 
         Args:
-            inputs (any): The input Sockets' ops.
+            image (tensor): The image to be gray-scaled (may be nD + 3 (required!) colors).
 
         Returns:
-            The arguments that need to be passed into the `_computation`-pendant of this method.
+            The op responsible for processing the image.
         """
-        # Sanity checks.
-        assert len(inputs) == 1, "ERROR: GrayScale can only take one input Socket!"
-        image = inputs[0]
-        assert get_shape(image)[-1] == 3, "ERROR: Given image is not an RGB."
+        assert get_shape(image)[-1] == 3, "ERROR: Given image is not an RGB!"
         shape = tuple(1 for _ in range(get_rank(image) - 1)) + (3,)
-        return image, np.reshape(a=self.weights, newshape=shape)
-
-    def _computation_apply(self, image, weights_reshaped):
+        weights_reshaped = np.reshape(a=self.weights, newshape=shape)
         return tf.reduce_sum(weights_reshaped * image, axis=-1, keepdims=self.keep_rank)
+

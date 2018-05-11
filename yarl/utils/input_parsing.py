@@ -17,6 +17,18 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from .util import default_dict
+
+
+def parse_saver_spec(saver_spec):
+    default_spec = dict(max_checkpoints=5)
+    return default_dict(saver_spec, default_spec)
+
+
+def parse_summary_spec(summary_spec):
+    default_spec = dict()
+    return default_dict(summary_spec, default_spec)
+
 
 def parse_execution_spec(execution_spec):
     """
@@ -38,13 +50,12 @@ def parse_execution_spec(execution_spec):
     default_spec = dict(
         mode="single",
         distributed_spec=None,
-        session_config=None
+        session_config=None,
+        seed=None
     )
-    if not execution_spec:
-        return default_spec
+    execution_spec = default_dict(execution_spec, default_spec)
 
-    execution_mode = execution_spec['mode']
-
+    execution_mode = execution_spec.get("mode")
     if execution_mode == "distributed":
         default_distributed = dict(
             job="ps",
@@ -55,11 +66,7 @@ def parse_execution_spec(execution_spec):
             },
             global_shared_memory=True
         )
-        default_distributed.update(execution_spec.get("distributed_spec", {}))
-        execution_spec["distributed_spec"] = default_distributed
+        default_dict(execution_spec.get("distributed_spec"), default_distributed)
         execution_spec["session_config"] = execution_spec.get("session_config")
-        return execution_spec
-    elif execution_mode == "multi-threaded":
-        return execution_spec
-    elif execution_mode == "single":
-        return execution_spec
+
+    return execution_spec

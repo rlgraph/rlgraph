@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import Specifiable, backend, YARLError
-from yarl.components.layers import Initializer
 # TODO: make this backend-dependent
 import tensorflow as tf
 

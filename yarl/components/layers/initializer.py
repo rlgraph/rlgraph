@@ -44,8 +44,8 @@ class Initializer(Specifiable):
         else:
             tf = None
 
-        # No spec -> Leave initializer as None: Use default (for tf: Xavier uniform).
-        if specification is None:
+        # No spec -> Leave initializer as None (will then use default; for tf: Xavier uniform).
+        if specification is None or specification is False:
             pass
         # Fixed values spec -> Use them, just do sanity checking.
         else:

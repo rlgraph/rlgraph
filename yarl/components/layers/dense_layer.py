@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import backend
-from yarl.utils.util import get_shape
 from yarl.spaces import Space, Dict, Tuple
 from .layer_component import LayerComponent
 from .initializer import Initializer
@@ -28,36 +27,44 @@ class DenseLayer(LayerComponent):
     """
     A dense (or "fully connected") NN-layer.
     """
-    def __init__(self, units, input_space, *sub_components, **kwargs):
+    def __init__(self, input_space, units, *sub_components, **kwargs):
         """
         Args:
             units (int): The number of nodes in this layer.
             input_space (Space): The input Space that will be passed through this layer.
-                TODO: Lift restriction that this has to be primitive Space? Would this ever be needed?
+                TODO: Lift restriction that this has to be primitive Space? But then again: Would this ever be needed?
 
         Keyword Args:
             weights_spec (any): A specifier for a weights initializer.
             biases_spec (any): A specifier for a biases initializer.
         """
-        assert not isinstance(input_space, (Dict, Tuple)), "ERROR: Cannot handle container input_spaces atm!"
+        assert not isinstance(input_space, (Dict, Tuple)), "ERROR: Cannot handle container input_spaces " \
+                                                           "(atm; may soon do)!"
+
+        assert input_space.rank > 1, \
+            "ERROR: Rank of input_space (rank={}) must be 2 or larger (1st rank is batch size)!". \
+                format(input_space.rank)
         super(DenseLayer, self).__init__(*sub_components, **kwargs)
 
+        # Number of nodes in this layer.
         self.units = units
 
-        # Create weights (and maybe biases).
+        # Create weights.
         self.weights_shape = (input_space.shape[1], self.units)
         self.weights_spec = kwargs.get("weights_spec")
-        self.weights_init = Initializer.from_spec(self.weights_spec, shape=self.weights_shape)
+        self.weights_init = Initializer.from_spec(shape=self.weights_shape, specification=self.weights_spec)
+        # And maybe biases.
         self.biases_shape = (self.units,)
-        self.biases_spec = kwargs.get("biases_spec")
-        self.biases_init = Initializer.from_spec(self.biases_spec, shape=self.biases_shape)
+        self.biases_spec = kwargs.get("biases_spec", False)
+        self.biases_init = Initializer.from_spec(shape=self.biases_shape, specification=self.biases_spec)
 
         # Wrapper for backend.
         if backend() == "tf":
             import tensorflow as tf
+            # TODO: variables registry (variables now exist in tf.layer).
             self.layer = tf.layers.Dense(units=self.units,
                                          kernel_initializer=self.weights_init.initializer,
-                                         use_bias=(self.biases_init.initializer is not None),
+                                         use_bias=(self.biases_spec is not False),
                                          bias_initializer=self.biases_init.initializer)
 
     def _computation_apply(self, input_):

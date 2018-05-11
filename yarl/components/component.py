@@ -449,9 +449,11 @@ class Component(Specifiable):
             type_ (Union[None,str]): Type of the Socket. If None, Socket could be either
                 'in' or 'out'. This must be given if the only-Socket is wanted (socket is None).
             return_component (bool): Whether also to return the Socket's component as a second element in a tuple.
+                Will be ignored if socket is None (then the Component is always assumed to be self, anyway).
 
-        Returns: Either only the Socket found OR a tuple of the form:
-            (retrieved Socket object, component that the retrieved socket belongs to).
+        Returns:
+            Socket: Only the Socket found.
+            Tuple[Socket,Component]: Retrieved Socket object, Component that the retrieved Socket belongs to.
         """
 
         # Return the only Socket of this component on given side (type_ must be given in this case as 'in' or 'out').

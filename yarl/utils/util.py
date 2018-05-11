@@ -84,17 +84,41 @@ def get_shape(tensor):
     return tuple(tensor.get_shape().as_list())
 
 
-def force_list(elements):
+def force_list(elements, to_tuple=False):
     """
     Makes sure elements is returned as a list, whether elements is a single item, already a list, or a tuple.
 
     Args:
         elements (any): The input single item, list, or tuple to be converted into a list.
+        to_tuple (bool): Whether to use tuple (instead of list).
 
     Returns:
-        All given elements in a list.
+        list: All given elements in a list.
+        tuple: All given elements in a tuple.
     """
-    return list(elements) if isinstance(elements, (list, tuple)) else [elements]
+    ctor = list
+    if to_tuple is True:
+        ctor = tuple
+    return ctor(elements) if isinstance(elements, (list, tuple)) else ctor([elements])
+
+
+def default_dict(original, defaults):
+    """
+    Updates the original dict with values from to_add, but only for those keys that
+    do not exist yet in original.
+    Changes original in place, but leaves to_add as is.
+
+    Args:
+        original (Union[None,dict]): The dict to (soft)-update. If None, return the default one.
+        defaults (dict): The dict to update from.
+    """
+    if original is None:
+        return defaults
+
+    for key in defaults:
+        if key not in original:
+            original[key] = defaults[key]
+    return original
 
 
 def all_combinations(input_list, descending_length=False):

@@ -23,6 +23,7 @@ from collections import OrderedDict
 
 from yarl import YARLError
 from yarl.spaces import Space
+from yarl.utils.util import force_list
 
 
 class Socket(object):
@@ -175,7 +176,8 @@ class Computation(object):
         self.raw_method = getattr(self.component, "_computation_" + self.name, None)
         if not self.raw_method:
             raise YARLError("ERROR: No raw `_computation_...` method with name '{}' found!".format(self.name))
-        self.graphed_method = self.to_graph(method=self.raw_method)
+        #self.graphed_method = self.to_graph(method=self.raw_method)
+        self.graphed_method = self.raw_method
 
         self.input_sockets = input_sockets
         self.output_sockets = output_sockets
@@ -249,11 +251,13 @@ class Computation(object):
                     # By ignoring complex spaces (treat them as we do any others and pass them through the computation
                     # func).
                     else:
-                        ops = self.graphed_method(self.component, *input_combination)
+                        #ops = self.graphed_method(self.component, *input_combination)
+                        ops = self.graphed_method(*input_combination)
 
-                    self.processed_ops[input_combination] = tuple(ops)
+                    ops_as_tuple = force_list(ops, to_tuple=True)
+                    self.processed_ops[input_combination] = ops_as_tuple
                     # Keep track of which ops require which other ops.
-                    op_registry[tuple(ops)] = input_combination
+                    op_registry[ops_as_tuple] = input_combination
 
             # Loop through our output Sockets and keep processing them with this computation's outputs.
             for slot, output_socket in enumerate(self.output_sockets):
@@ -298,7 +302,8 @@ class Computation(object):
             # Get args for autograph.
             returns = self.primitive_space_pre_method(op)
             # And call autograph with these.
-            return self.graphed_method(self.component, *returns)
+            #return self.graphed_method(self.component, *returns)
+            return self.graphed_method(*returns)
 
     def __str__(self):
         return "{}('{}' in=[{}] out=[{}])". \

@@ -21,8 +21,6 @@ import numpy as np
 from cached_property import cached_property
 
 from .space import Space
-from yarl import backend, YARLError
-from yarl.components.layers.initializer import Initializer
 
 
 class Continuous(Space):
