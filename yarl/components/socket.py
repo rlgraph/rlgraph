@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import itertools
 from tensorflow.contrib import autograph
+from collections import OrderedDict
 
 from yarl import YARLError
 from yarl.spaces import Space
@@ -142,13 +143,18 @@ class Computation(object):
     are given and - if yes - starts producing output ops from these inputs and the computation to be passed
     on to the outgoing Sockets.
     """
-    def __init__(self, name, component, input_sockets, output_sockets):
+    def __init__(self, name, component, input_sockets, output_sockets,
+                 split_complex_spaces=False, re_merge_complex_spaces=True):
         """
         Args:
             name (str): The name of the computation (must have a matching method name inside `component`).
             component (Component): The Component object that this Computation belongs to.
             input_sockets (list): The required input Sockets to be passed as parameters into the computation function.
             output_sockets (list): The Sockets associated with the return values coming from the computation function.
+            split_complex_spaces (bool): Whether to split up the computations for a complex incoming Space into
+                single computations for each primitive Space. (default=False)
+            re_merge_complex_spaces (bool): Whether to re-merge the computations for a complex incoming Space into the
+                same base structure as the incoming Spaces. Only relevant if split_complex_spaces=True. (default=True)
         """
 
         # Must match the _computation_...-method's name (w/o the `_computation`-prefix).
@@ -156,11 +162,16 @@ class Computation(object):
         # The component object that the method belongs to.
         self.component = component
 
-        # Derive precomputation and computation methods from name and build the computation method.
-        self.method = getattr(self.component, "_" + self.name, None)
-        # Maybe method does not exist -> Use a generic pass-through one.
-        if not self.method:
-            self.method = lambda *ops: tuple(ops)
+        self.split_complex_spaces = split_complex_spaces
+        self.re_merge_complex_spaces = re_merge_complex_spaces
+        # Derive primitive-space-pre-method and computation methods from name and build the computation method.
+        self.primitive_space_pre_method = None
+        if self.split_complex_spaces:
+            self.primitive_space_pre_method = getattr(self.component, "_primitive_pre_" + self.name, None)
+            # Maybe method does not exist -> Use a default one (simple pass-through).
+            if not self.primitive_space_pre_method:
+                self.primitive_space_pre_method = lambda *ops: tuple(ops)
+
         self.raw_method = getattr(self.component, "_computation_" + self.name, None)
         if not self.raw_method:
             raise YARLError("ERROR: No raw `_computation_...` method with name '{}' found!".format(self.name))
@@ -232,10 +243,13 @@ class Computation(object):
                 # Make sure we call the computation method only once per input-op combination.
                 if input_combination not in self.processed_ops:
                     # Build the ops from this input-combination.
-                    ops = self.build_ops_from_inputs(*input_combination)
-                    #OBSOLETE:
-                    #returns = self.method(*input_combination)
-                    #ops = self.graphed_method(self.component, *returns)
+                    # By splitting (and maybe re-merging) complex spaces.
+                    if self.split_complex_spaces:
+                        ops = self.ops_from_complex_spaces(*input_combination, re_merge=self.re_merge_complex_spaces)
+                    # By ignoring complex spaces (treat them as we do any others and pass them through the computation
+                    # func).
+                    else:
+                        ops = self.graphed_method(self.component, *input_combination)
 
                     self.processed_ops[input_combination] = tuple(ops)
                     # Keep track of which ops require which other ops.
@@ -245,7 +259,7 @@ class Computation(object):
             for slot, output_socket in enumerate(self.output_sockets):
                 output_socket.update_from_input(self, op_registry, socket_registry, slot)
 
-    def build_ops_from_inputs(self, *ops):
+    def ops_from_complex_spaces(self, *ops, re_merge=True):
         """
         Generates all ops that come out of this Computation for some given input-op combination.
         If ops contains 1 container Space, find it and iterate over it leaving the other primitive Spaces constant.
@@ -255,9 +269,12 @@ class Computation(object):
 
         Args:
             *ops (any): The input ops into this Computation. Some of these may be container ops (dict/tuple).
+            re_merge (bool): Whether to wrap up the ops in the same structure as they originally came in.
+                If False, this will instead produce a (sorted) tuple of ops in the same order as the complex
+                Dict (which is an OrderedDict)/Tuple suggest.
 
         Returns:
-            The generated ops (could be a dict/tuple as well) depending on the incoming ops.
+            The generated ops (could be a dict/tuple as well) depending on the incoming ops and on re_merge.
 
         Raises:
             YARLError: If there are more than 1 containers in ops and their structures don't align.
@@ -267,21 +284,25 @@ class Computation(object):
         assert len(ops) == 1
         op = ops[0]
 
-        if isinstance(op, dict):
-            return dict(map(lambda item: (item[0],
-                                          self.build_ops_from_inputs(self.method, self.graphed_method, item[1])),
-                            op.items()))
-        elif isinstance(op, tuple):
-            return tuple(map(lambda c: self.build_ops_from_inputs(self.method, self.graphed_method, c), op))
+        if isinstance(op, tuple):
+            ret = list()
+            for c in op:
+                ret.append(self.ops_from_complex_spaces(self.primitive_space_pre_method, self.graphed_method, c))
+            return tuple(ret)
+        elif isinstance(op, OrderedDict):
+            ret = OrderedDict()
+            for k, v in op.items():
+                ret[k] = self.ops_from_complex_spaces(self.primitive_space_pre_method, self.graphed_method, v)
+            return ret
         else:
             # Get args for autograph.
-            returns = self.method(op)
+            returns = self.primitive_space_pre_method(op)
             # And call autograph with these.
             return self.graphed_method(self.component, *returns)
 
     def __str__(self):
         return "{}('{}' in=[{}] out=[{}])". \
-            format(type(self).__name__, self.raw_method.__name__, str(self.input_sockets), str(self.output_sockets))
+            format(type(self).__name__, self.name, str(self.input_sockets), str(self.output_sockets))
 
 
 class TfComputation(Computation):

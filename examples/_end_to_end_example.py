@@ -22,11 +22,6 @@ import tensorflow as tf
 import numpy as np
 
 from yarl.spaces import Continuous, Tuple, Dict
-from yarl.agents import Agent
-
-
-class MyAgent(Agent):
-
 
 
 def precomputation_gray(*inputs):

@@ -104,7 +104,7 @@ class Tuple(Space, tuple):
             components = components[0]
 
         # Allow for any spec or already constructed Space to be passed in as values in the python-list/tuple.
-        list_ = []
+        list_ = list()
         for value in components:
             # value is already a Space -> keep it
             if isinstance(value, Space):
@@ -155,3 +155,16 @@ class Tuple(Space, tuple):
     def contains(self, x):
         return isinstance(x, (tuple, list)) and len(self) == len(x) and all(c.contains(xi) for c, xi in zip(self, x))
 
+    def flatten_with_names(self, scope=None, list_=None):
+        ret = False
+        if not list_:
+            list_ = list()
+            ret = True
+            scope = ""
+        for i, component in enumerate(self):
+            if isinstance(component, (Dict, Tuple)):
+                component.flatten_with_names(scope, list_)
+            else:
+                list_.append(scope+"/"+str(i))
+        if ret:
+            return tuple(list_)

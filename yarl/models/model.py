@@ -60,6 +60,9 @@ class Model(Specifiable):
         self.core_component = Component(name=name)
         # List of variables (by scope/name) of all our components.
         self.variables = dict()
+        # A dict used for lookup of all combinations that are possible for a given set of given in-Socket
+        # names (inside a call to `self.call`).
+        self.input_combinations = dict()
         # Some registries that we need to build the Graph from core.
         # key=op; value=list of required ops to calculate the key-op
         self.op_registry = dict()
@@ -152,6 +155,11 @@ class Model(Specifiable):
                     key = (output_socket.name, sockets, shape_combination)
                     self.call_registry[key] = op
 
+        # Memoize possible input-combinations (from all our in-Sockets)
+        # so we don't have to do this every time we get a `call`.
+        in_names = list(map(lambda s: s.name, self.core_component.input_sockets))
+        self.input_combinations = all_combinations(in_names, descending_length=True)
+
     def finalize_backend(self):
         """
         Initializes any remaining backend-specific monitoring or session handling.
@@ -203,8 +211,12 @@ class Model(Specifiable):
         # Input Socket names will be sorted alphabetically and combined from short sequences up to longer ones.
         # Example: input_dict={A: ..., B: ... C: ...}
         #   input_combinations=[ABC, AB, AC, BC, A, B, C]
-        # TODO memoize
-        input_combinations = all_combinations(sorted(input_dict.keys()), descending_length=True)
+
+        # These combinations have been memoized for fast lookup.
+        key = sorted(input_dict.keys())
+        input_combinations = self.input_combinations.get(key)
+        if not input_combinations:
+            raise YARLError("ERROR: Could not find input_combinations for in-Sockets '{}'!".format(key))
 
         # Go through each (core) out-Socket names and collect the correct ops to go into the fetch_list.
         fetch_list = list()

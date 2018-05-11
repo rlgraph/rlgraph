@@ -39,7 +39,7 @@ class Memory(Component):
         self.var_list = [self.memory["state"]["state1"], self.memory["state"]["state2"], self.memory["reward"]]
 
         # TODO: this is normally done automatically by Component (see commented-out code below)
-        self.insert = autograph.to_graph(self.computation_insert, verbose=True)  #, partial_types={tuple})
+        self.insert = autograph.to_graph(self.computation_insert, verbose=True, partial_types={int})  #, partial_types={str, tuple})
         #self.define_inputs("record")
         #self.define_outputs("insert")
         #self.add_computation("record", "insert")
@@ -49,14 +49,14 @@ class Memory(Component):
         num_primitives = tf.shape(records)[0]
         print(num_primitives)
         index_range = tf.range(start=self.index, limit=(self.index + num_elements)) % self.capacity
-        print(index_range)
-        #for n in range(num_primitives):  #, record in enumerate(list(records)):
-        #     print(n)
-        #    record = records[i]
+        #print("index_range={}".format(index_range))
+        print(records[0])
+        for n in range(num_primitives):  #, record in enumerate(list(records)):
+            print(n)
         #    tf.scatter_update(
-        #        ref=self.var_list[i],
+        #        ref=self.var_list[n],
         #        indices=index_range,
-        #        updates=record
+        #        updates=records[n]
         #    )
 
         tf.assign(ref=self.index, value=(self.index + num_elements) % self.capacity)
@@ -88,4 +88,4 @@ with tf.Session() as sess:
 
     sess.run(tf.global_variables_initializer())
     outputs = sess.run(memory.insert(memory, input_["state"]["state1"], input_["state"]["state2"], input_["reward"]), feed_dict=feed_dict)
-    print(outputs)
+    print("Sess.run="+str(outputs))

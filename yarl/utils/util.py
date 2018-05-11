@@ -106,8 +106,8 @@ def all_combinations(input_list, descending_length=False):
     Examples:
          input_list=[1, 2, 3] returns: [(1,), (2,), (3,), (1, 2), (1, 3), (2, 3), (1, 2, 3)]
 
-         NOTE: We do not resort input_list (5 still before 1):
-         input_list=[5, 1]    returns: [(5,), (1,), (1,5)]
+         NOTE: We do not re-sort input_list (5 still before 1):
+         input_list=[5, 1]    returns: [(5,), (1,), (5, 1)]
 
     Args:
         input_list (list): The list to get all combinations for.
