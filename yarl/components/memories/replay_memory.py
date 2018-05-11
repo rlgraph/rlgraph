@@ -19,6 +19,8 @@ from __future__ import print_function
 
 from yarl.components.memories.memory import Memory
 from yarl.spaces import Space
+import numpy as np
+import tensorflow as tf
 
 
 class ReplayMemory(Memory):
@@ -34,9 +36,11 @@ class ReplayMemory(Memory):
         scope="replay-memory",
         sub_indexes=None,
         next_states=True,
+        sequences=False
     ):
         super(ReplayMemory, self).__init__(record_space, capacity, name, scope, sub_indexes)
         self.next_states = next_states
+        self.sequences = sequences
 
     def create_variables(self):
         # Main memory.
@@ -45,7 +49,6 @@ class ReplayMemory(Memory):
             trainable=False,
             from_space=self.record_space
         )
-
         # Main buffer index.
         self.index = self.get_variable(
             name="index",
@@ -55,7 +58,18 @@ class ReplayMemory(Memory):
         )
 
     def _computation_insert(self, records):
-        pass
+        num_records = tf.shape(records.keys()[0])
+        update_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
+
+        # Updates all the necessary sub-variables in the record.
+        updates = list()
+        # self.scatter_update_records(variables=self.replay_buffer)
+
+        # Update main buffer index and episode index.
+        tf.assign(ref=self.index, value=(self.index + num_records) % self.capacity)
+
+        # Nothing to return
+        return tf.no_op()
 
     def _computation_get_records(self, num_records):
         pass

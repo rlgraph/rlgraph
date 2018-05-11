@@ -543,3 +543,30 @@ class Component(Specifiable):
             socket_obj = next((x for x in component.input_sockets if x.name == name), None)
         return socket_obj
 
+    @staticmethod
+    def scatter_update_variable(variable, indices, updates):
+        """
+        Updates a variable. Optionally returns the operation depending on the backend.
+        Args:
+            variable (any): Variable to update.
+            indices (array): Indices to update
+            updates (any):  Update values.
+
+        Returns: None or graph operation representing the update.
+        """
+        if backend() == "tf":
+            return tf.scatter_update(ref=variable, indices=indices, updates=updates)
+
+    @staticmethod
+    def assign_variable(variable, value):
+        """
+        Assigns a variable.
+        Args:
+            variable (any):
+            value (any):
+
+        Returns: None or the
+
+        """
+        if backend() == "tf":
+            return tf.assign(ref=variable, value=value)

@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl.components import Component
-from yarl.spaces import Space
+from yarl.spaces import Space, Dict, Tuple
 
 
 class Memory(Component):
@@ -45,8 +45,48 @@ class Memory(Component):
         """
         super(Memory, self).__init__(name=name, scope=scope)
         self.record_space = record_space
+
+        self.record_registry = dict()
         self.capacity = capacity
         self.sub_indexes_spec = sub_indexes
+
+    def build_record_variable_registry(self, variable_or_dict):
+        """
+        Builds a flat variable registry from a recursively defined variable Space.
+        Args:
+            variable_or_dict Union[Dict, tf.Variable]: Dict containing variables or variable.
+        """
+        for key, value in variable_or_dict:
+            if isinstance(value, Dict):
+                self.build_record_variable_registry(value)
+            elif isinstance(value, Tuple):
+                self.build_record_variable_registry(value[0])
+                self.build_record_variable_registry(value[1])
+            else:
+                self.record_registry[key] = variable_or_dict
+
+    def scatter_update_records(self, records, indices, updates):
+        """
+        Updates record variables using the variable registry.
+
+        Args:
+            records (dict): Dict containing record data. Keys must match keys in record space,
+                values must be tensors.
+            indices (array): Indices to update.
+            updates (list): Assignments to update.
+        """
+        for name, value in records:
+            if isinstance(value, Dict):
+                self.scatter_update_records(value, indices, updates)
+            elif isinstance(value, Tuple):
+                self.scatter_update_records(value[0], indices, updates)
+                self.scatter_update_records(value[1], indices, updates)
+            else:
+                updates.append(self.scatter_update_variable(
+                    variable=self.record_registry[name],
+                    indices=indices,
+                    updates=value
+                ))
 
     def _computation_insert(self, records):
         """
@@ -100,3 +140,5 @@ class Memory(Component):
                 of most recently read batch of records.
         """
         pass
+
+
