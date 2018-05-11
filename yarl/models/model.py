@@ -158,7 +158,11 @@ class Model(Specifiable):
         # Memoize possible input-combinations (from all our in-Sockets)
         # so we don't have to do this every time we get a `call`.
         in_names = list(map(lambda s: s.name, self.core_component.input_sockets))
-        self.input_combinations = all_combinations(in_names, descending_length=True)
+        input_combinations = all_combinations(in_names, descending_length=True)
+        # Store each combination and its sub-combinations in self.input_combinations.
+        for input_combination in input_combinations:
+            self.input_combinations[tuple(input_combination)] = \
+                all_combinations(input_combination, descending_length=True)
 
     def finalize_backend(self):
         """
@@ -213,7 +217,7 @@ class Model(Specifiable):
         #   input_combinations=[ABC, AB, AC, BC, A, B, C]
 
         # These combinations have been memoized for fast lookup.
-        key = sorted(input_dict.keys())
+        key = tuple(sorted(input_dict.keys()))
         input_combinations = self.input_combinations.get(key)
         if not input_combinations:
             raise YARLError("ERROR: Could not find input_combinations for in-Sockets '{}'!".format(key))
