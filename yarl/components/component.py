@@ -304,7 +304,10 @@ class Component(Specifiable):
             if new_socket is None:
                 self.add_sockets(exposed_name, type=socket.type)
             # Connect the two Sockets.
-            self.connect(exposed_name, [component, socket_name])
+            if socket.type == "in":
+                self.connect(exposed_name, [component, socket_name])
+            else:
+                self.connect([component, socket_name], exposed_name)
 
     def add_components(self, *components, expose=None):
         """

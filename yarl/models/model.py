@@ -22,7 +22,7 @@ import itertools
 
 from yarl import YARLError, Specifiable
 from yarl.components import Component, Socket, Computation
-from yarl.utils.util import all_combinations
+from yarl.utils.util import all_combinations, force_list, get_shape
 from yarl.utils.input_parsing import parse_saver_spec, parse_summary_spec, parse_execution_spec
 
 
@@ -68,9 +68,9 @@ class Model(Specifiable):
         # Some registries that we need to build the Graph from core.
         # key=op; value=list of required ops to calculate the key-op
         self.op_registry = dict()
-        # key=Socket; value=list of alternative placeholders that could go into this socket.
-        # Only for very first (in) Sockets.
-        self.socket_registry = dict()
+        # key=in-Socket name; value=list of alternative placeholders that could go into this socket.
+        # Only for very first in-Sockets.
+        self.in_socket_registry = dict()
         # Maps an out-Socket name+in-Socket/Space-combination to an actual op to fetch from our Graph.
         self.call_registry = dict()  # key=()
 
@@ -163,7 +163,8 @@ class Model(Specifiable):
                 shapes = [[i.shape for i in sock.incoming_connections] for sock in sockets]
                 shape_combinations = itertools.product(*shapes)
                 for shape_combination in shape_combinations:
-                    key = (output_socket.name, sockets, shape_combination)
+                    # Do everything by Socket-name (easier to debug).
+                    key = (output_socket.name, tuple([s.name for s in sockets]), shape_combination)
                     self.call_registry[key] = op
 
     def finalize_backend(self):
@@ -199,12 +200,12 @@ class Model(Specifiable):
         """
         return self.core_component
 
-    def get_execution_inputs(self, sockets, input_dict=None):
+    def get_execution_inputs(self, socket_names, input_dict=None):
         """
         Fetches graph inputs for execution.
 
         Args:
-            sockets (Union[str,List[str]]): A name or a list of names of the (out) Sockets to fetch from our core
+            socket_names (Union[str,List[str]]): A name or a list of names of the (out) Sockets to fetch from our core
                 component.
             input_dict (Union[dict,None]): Dict specifying the provided inputs for some (in) Sockets.
                 Depending on these given inputs, the correct backend-ops can be selected within the given (out)-Sockets.
@@ -227,8 +228,8 @@ class Model(Specifiable):
         # Go through each (core) out-Socket names and collect the correct ops to go into the fetch_list.
         fetch_list = list()
         feed_dict = dict()
-        for socket in sockets:
-            self._get_execution_inputs_for_one_socket(socket, input_combinations, fetch_list, input_dict, feed_dict)
+        for socket_name in socket_names:
+            self._get_execution_inputs_for_one_socket(socket_name, input_combinations, fetch_list, input_dict, feed_dict)
 
         return fetch_list, feed_dict
 
@@ -248,20 +249,21 @@ class Model(Specifiable):
                 to data.
         """
         # Check all (input+shape)-combinations and it we find one that matches what the user passed in as
-        # `input_dict` -> take that and move on to the next Socket.
+        # `input_dict` -> Take that one and move on to the next Socket by returning.
         for input_combination in input_combinations:
             # Get all Space-combinations (in-op) for this input combination
             # (in case an in-Socket has more than one connected incoming Spaces).
-            space_combinations = itertools.product(*input_combination)
-            for space_combination in space_combinations:
+            ops = [self.in_socket_registry[c] for c in input_combination]
+            op_combinations = itertools.product(*ops)
+            for op_combination in op_combinations:
                 # Get the shapes for this space_combination.
-                shapes = tuple([space.shape for space in space_combination])
+                shapes = tuple([get_shape(op) for op in op_combination])
                 key = (socket_name, input_combination, shapes)
                 # This is a good combination -> Use the looked up op, return to process next out-Socket.
                 if key in self.call_registry:
                     fetch_list.append(self.call_registry[key])
                     # Store for which in-Socket we need which in-op to put into the feed_dict.
-                    for in_sock_name, in_op in zip(input_combination, space_combination):
+                    for in_sock_name, in_op in zip(input_combination, op_combination):
                         # TODO: in_op may still be a dict or a tuple depending on what Space underlies.
                         # Need to split into single ops.
                         feed_dict[in_op] = input_dict[in_sock_name]
@@ -270,7 +272,7 @@ class Model(Specifiable):
         raise YARLError("ERROR: No op found for out-Socket '{}' given the input-combinations: {}!".
                         format(socket_name, input_combinations))
 
-    def partial_input_build(self, socket):
+    def partial_input_build(self, socket, from_computation=None, computation_out_slot=None):
         """
         Builds one Socket in terms of its incoming and outgoing connections. Returns if we hit a dead end (computation
         that's not complete yet) OR the very end of the graph.
@@ -278,14 +280,23 @@ class Model(Specifiable):
 
         Args:
             socket (Socket): The Socket object to process.
+            from_computation (Optional[Computation]): If we are processing the socket only from one Computation
+                (ignoring other incoming connections), set this to the Computation.
+            computation_out_slot (Optional[int]): If from_computation is given, this holds the out slot from the
+                Computation (index into the computation-returned tuple).
         """
+        assert (from_computation is None and computation_out_slot is None) or \
+            (from_computation is not None and computation_out_slot is not None), \
+            "ERROR: Bad input parameter combination (either `from_computation` and `slot` defined OR both None)!"
+
         with tf.variable_scope(socket.scope):
-            # Loop through this socket's incoming connections.
-            for incoming in socket.incoming_connections:
+            # Loop through this socket's incoming connections (or just process one).
+            incoming_connections = from_computation or socket.incoming_connections
+            for in_ in force_list(incoming_connections):
                 # create tf placeholder(s)
                 # example: Space (Dict({"a": Discrete(3), "b": Bool(), "c": Continuous()})) connects to Socket ->
                 # create inputs[name-of-sock] = dict({"a": tf.placeholder(name="", dtype=int, shape=(3,))})
-                socket.update_from_input(incoming, self.op_registry, self.socket_registry)
+                socket.update_from_input(in_, self.op_registry, self.in_socket_registry, computation_out_slot)
 
             for outgoing in socket.outgoing_connections:
                 if isinstance(outgoing, Socket):
@@ -294,13 +305,18 @@ class Model(Specifiable):
                 # Outgoing is a Computation -> Add the socket to the computations ("waiting") inputs.
                 # ... and maybe build a new op into the graph (via the computation).
                 elif isinstance(outgoing, Computation):
+                    computation = outgoing
                     # We have to specify the device here (only a Computation actually adds something to the graph).
                     assigned_device = socket.device
                     if socket.device:
-                        self.assign_device(outgoing, socket, assigned_device)
+                        self.assign_device(computation, socket, assigned_device)
                     else:
                         # TODO fetch default device?
-                        outgoing.update_from_input(socket, self.op_registry, self.socket_registry)
+                        computation.update_from_input(socket, self.op_registry, self.in_socket_registry)
+                        # Keep moving through this computations out-Sockets (if input-complete).
+                        if computation.input_complete:
+                            for slot, out_socket in enumerate(computation.output_sockets):
+                                self.partial_input_build(out_socket, computation, slot)
                 else:
                     raise YARLError("ERROR: Outgoing connection must be Socket or Computation!")
 
@@ -318,8 +334,8 @@ class Model(Specifiable):
         new_trace_set = set()
         for op in trace_set:
             if op not in self.op_registry:
-                if op not in self.socket_registry:
-                    raise YARLError("ERROR: op {} could not be found in op_registry or socket_registry of model!".
+                if op not in self.in_socket_registry:
+                    raise YARLError("ERROR: op {} could not be found in op_registry or in_socket_registry of model!".
                                     format(op.name))
                 # Already a Socket -> add to new set and continue.
                 else:

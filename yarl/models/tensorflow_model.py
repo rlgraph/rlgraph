@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from yarl.utils.util import force_list
 from yarl.models import Model
 import tensorflow as tf
 
@@ -59,8 +60,9 @@ class TensorFlowModel(Model):
 
         self.graph_default_context = None
 
-    def call(self, sockets, input=None):
-        fetch_list, feed_dict = self.get_execution_inputs(sockets=sockets, input_dict=input)
+    def call(self, sockets, inputs=None):
+        socket_names = force_list(sockets, to_tuple=True)
+        fetch_list, feed_dict = self.get_execution_inputs(socket_names=socket_names, input_dict=inputs)
         ret = self.monitored_session.run(fetch_list, feed_dict=feed_dict)
 
         return ret
@@ -200,4 +202,4 @@ class TensorFlowModel(Model):
         # TODO potentially validate device exists via fetching local devices.
         # Otherwise, what happens if device assigned not recognized?
         with tf.device(assigned_device):
-            computation.update_from_input(socket, self.op_registry, self.socket_registry)
+            computation.update_from_input(socket, self.op_registry, self.in_socket_registry)

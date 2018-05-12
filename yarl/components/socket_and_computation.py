@@ -100,14 +100,15 @@ class Socket(object):
         if from_ in self.incoming_connections:
             self.incoming_connections.remove(from_)
 
-    def update_from_input(self, incoming, op_registry, socket_registry, slot=None):
+    def update_from_input(self, incoming, op_registry, in_socket_registry, slot=None):
         """
         Updates this socket based on an incoming connection (from a Space or Computation or another Socket).
 
         Args:
             incoming (Union[Space,Computation,Socket]): The incoming item.
             op_registry (dict): Dict that keeps track of which ops require which other ops to be calculated.
-            socket_registry (dict): Dict that keeps track of which very in-Socket needs which ops (placeholders/feeds).
+            in_socket_registry (dict): Dict that keeps track of which very in-Socket (name) needs which
+                ops (placeholders/feeds).
             slot (int): If incoming is a Computation, which output slot does this Socket connect to?
         """
         # Space: generate backend-ops.
@@ -118,7 +119,8 @@ class Socket(object):
             # Add new op to our list of (alternative) ops.
             self.ops.add(op)
             # Keep track of which Spaces can go (alternatively) into this Socket.
-            socket_registry[self] = {op} if self not in socket_registry else (socket_registry[self] | {op})
+            in_socket_registry[self.name] = {op} if self.name not in in_socket_registry \
+                else (in_socket_registry[self.name] | {op})
             # Remember, that this op goes into a Socket at the very beginning of the Graph (e.g. a tf.placeholder).
             op_registry[op] = {self}
         # Computation: Connect this Socket to the nth op coming out of the Computation function.
@@ -207,7 +209,7 @@ class Computation(object):
         """
         return method  # not mandatory
 
-    def update_from_input(self, input_socket, op_registry, socket_registry):
+    def update_from_input(self, input_socket, op_registry, in_socket_registry):
         """
         Updates our "waiting" inputs with the incoming socket and checks whether this computation is "input-complete".
         If yes, do all possible combinatorial pass-throughs through the computation function to generate output ops
@@ -217,7 +219,8 @@ class Computation(object):
         Args:
             input_socket (Socket): The incoming Socket (by design, must be type "in").
             op_registry (dict): Dict that keeps track of which ops require which other ops to be calculated.
-            socket_registry (dict): Dict that keeps track of which in-Socket needs which ops (placeholders/feeds).
+            in_socket_registry (dict): Dict that keeps track of which in-Socket (name) needs which
+                ops (placeholders/feeds).
         """
         assert isinstance(input_socket, Socket) and input_socket.type == "in", \
             "ERROR: `input_socket` must be a Socket object and of type 'in'!"
@@ -261,7 +264,7 @@ class Computation(object):
 
             # Loop through our output Sockets and keep processing them with this computation's outputs.
             for slot, output_socket in enumerate(self.output_sockets):
-                output_socket.update_from_input(self, op_registry, socket_registry, slot)
+                output_socket.update_from_input(self, op_registry, in_socket_registry, slot)
 
     def ops_from_complex_spaces(self, *ops, re_merge=True):
         """
