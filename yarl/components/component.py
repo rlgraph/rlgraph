@@ -106,7 +106,7 @@ class Component(Specifiable):
         """
         pass  # Children may overwrite this method.
 
-    def get_variable(self, name="", shape=None, dtype="float", trainable=True, from_space=None):
+    def get_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True, from_space=None):
         """
         Generates or returns a variable to use in the selected backend.
 
@@ -114,6 +114,7 @@ class Component(Specifiable):
             name (str): The name under which the variable is registered in this component.
             shape (Optional[tuple]): The shape of the variable (default: ()).
             dtype (Union[str,type]): The dtype (as string) of this variable.
+            initializer (Optional[any]): Initializer for this variable.
             trainable (bool): Whether this variable should be trainable.
             from_space (Union[Space,None]): Whether to create this variable from a Space object
                 (shape, dtype and trainable are not needed then).
@@ -135,7 +136,13 @@ class Component(Specifiable):
             else:
                 if shape is None:
                     shape = tuple()
-                var = tf.get_variable(name=name, shape=shape, dtype=util.dtype(dtype), trainable=trainable)
+                var = tf.get_variable(
+                    name=name,
+                    shape=shape,
+                    dtype=util.dtype(dtype),
+                    initializer=initializer,
+                    trainable=trainable
+                )
         # TODO: Register a new variable.
         #if var.name not in self.variables:
         #    self.variables[var.name] = var
