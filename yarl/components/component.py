@@ -577,7 +577,8 @@ class Component(Specifiable):
             variable (any):
             value (any):
 
-        Returns: None or the graph operation representing the assginment.
+        Returns:
+            Union[None, any]: None or the graph operation representing the assginment.
 
         """
         if backend() == "tf":
@@ -589,7 +590,8 @@ class Component(Specifiable):
         Args:
             indices Optional[ndarray, tf.Tensor]: Indices to fetch
 
-        Returns: Variable values.
+        Returns:
+            any: Variable values.
         """
         if backend() == "tf":
             if indices:
