@@ -577,8 +577,24 @@ class Component(Specifiable):
             variable (any):
             value (any):
 
-        Returns: None or the
+        Returns: None or the graph operation representing the assginment.
 
         """
         if backend() == "tf":
             return tf.assign(ref=variable, value=value)
+
+    def read_variable(self, variable, indices=None):
+        """
+        Reads a variable.
+        Args:
+            indices Optional[ndarray, tf.Tensor]: Indices to fetch
+
+        Returns: Variable values.
+        """
+        if backend() == "tf":
+            if indices:
+                # Could be redundant, question is if there may be special read operations
+                # in other backends, or read from remote variable requiring extra args.
+                return variable
+            else:
+                return tf.gather(params=variable, indices=indices)

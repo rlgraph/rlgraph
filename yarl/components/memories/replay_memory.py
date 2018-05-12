@@ -19,7 +19,6 @@ from __future__ import print_function
 
 from yarl.components.memories.memory import Memory
 from yarl.spaces import Space
-import numpy as np
 import tensorflow as tf
 
 
@@ -44,32 +43,62 @@ class ReplayMemory(Memory):
 
     def create_variables(self):
         # Main memory.
-        self.replay_buffer = self.get_variable(
-            name="replay_buffer",
-            trainable=False,
-            from_space=self.record_space
-        )
+        buffer_variables = self.get_variable(name="replay_buffer", trainable=False, from_space=self.record_space)
+        self.build_record_variable_registry(buffer_variables)
+
         # Main buffer index.
-        self.index = self.get_variable(
-            name="index",
-            dtype=int,
-            trainable=False,
-            from_space=None
-        )
+        self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
+        if self.next_states:
+            # Next states are not represented as explicit keys in the registry
+            # as this would cause extra memory overhead.
+            self.states = self.record_space["states"].keys()
+
+        if self.sequences:
+            # Only create these if necessary to avoid overhead.
+            self.episode = self.get_variable(name="episodes", dtype=int, trainable=False, initializer=0)
 
     def _computation_insert(self, records):
         num_records = tf.shape(records.keys()[0])
-        update_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
+        update_indices = tf.range(start=self.index, stop=self.index + num_records) % self.capacity
 
         # Updates all the necessary sub-variables in the record.
         updates = list()
-        # self.scatter_update_records(variables=self.replay_buffer)
+        self.scatter_update_records(records=records, indices=update_indices, updates=updates)
 
-        # Update main buffer index and episode index.
-        tf.assign(ref=self.index, value=(self.index + num_records) % self.capacity)
+        # Update indices.
+        with tf.control_dependencies(updates):
+            updates = list()
+            updates.append(self.assign_variable(variable=self.index, value=(self.index + num_records) % self.capacity))
+            if self.sequences:
+                # Update episode indexing.
+                pass
+                # updates.append()
 
         # Nothing to return
-        return tf.no_op()
+        with tf.control_dependencies(updates):
+            return tf.no_op()
+
+    def read_records(self, indices):
+        """
+        Obtains record values for the provided indices.
+        Args:
+            indices Union[ndarray, tf.Tensor]: Indices to read. Assumed to be not contiguous.
+
+        Returns: Record value dict.
+        """
+
+        records = dict()
+        for name, variable in self.record_registry:
+            records[name] = self.read_variable(variable, indices)
+        if self.next_states:
+            next_indices = (indices + 1) % self.capacity
+            next_states = dict()
+            # Next states are read via index shift from state variables.
+            for state_name in self.states:
+                next_states = self.read_variable(self.record_registry[state_name], next_indices)
+            records["next_states"] = next_states
+
+        return records
 
     def _computation_get_records(self, num_records):
         pass
