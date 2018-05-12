@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl.components.memories.memory import Memory
-from yarl.spaces import Space
 import tensorflow as tf
 
 
@@ -101,7 +100,27 @@ class ReplayMemory(Memory):
         return records
 
     def _computation_get_records(self, num_records):
-        pass
+        # TODO what modes do we actually need in practice?
+        if self.next_states:
+            # Read terminals.
+            terminal_indices = self.read_variable(self.record_registry['terminal'])
+            # TODO create size variable.
+            all_indices = tf.range(start=0, limit=self.index)
+            # Valid indices are non-terminal indices.
+            valid_indices = tf.boolean_mask(tensor=all_indices, mask=tf.logical_not(x=terminal_indices))
+            # Now sample with equal probability from all valid indices.
+            samples = tf.multinomial(tf.ones_like(valid_indices), num_samples=num_records)
+            # Slice out sampled from valid.
+            sampled_indices = valid_indices[tf.cast(samples[0][0], tf.int32)]
+
+            return self.read_records(indices=sampled_indices)
+        elif self.sequences:
+            pass
+        else:
+            # TODO unnecessary?
+            # Do we ever want neither next states nor sequences nor episodes?
+            indices = tf.random_uniform(shape=(num_records,), maxval=self.index + 1, dtype=tf.int32)
+            return self.read_records(indices)
 
     def _computation_get_sequences(self, num_sequences, sequence_length):
         pass
