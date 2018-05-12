@@ -107,28 +107,17 @@ class ReplayMemory(Memory):
 
     def _computation_get_records(self, num_records):
         # TODO what modes do we actually need in practice?
+        indices = tf.range(start=0, limit=self.read_variable(self.size))
+
         if self.next_states:
-            # Read terminals.
-            terminal_indices = self.read_variable(self.record_registry['terminal'])
-
-            # All indices are simply from 0 to current size which equals capacity after a while.
-            all_indices = tf.range(start=0, limit=self.read_variable(self.size))
-
             # Valid indices are non-terminal indices.
-            valid_indices = tf.boolean_mask(tensor=all_indices, mask=tf.logical_not(x=terminal_indices))
+            terminal_indices = self.read_variable(self.record_registry['terminal'])
+            indices = tf.boolean_mask(tensor=indices, mask=tf.logical_not(x=terminal_indices))
 
-            # Now sample with equal probability from all valid indices.
-            samples = tf.multinomial(tf.ones_like(valid_indices), num_samples=num_records)
+        samples = tf.multinomial(tf.ones_like(indices), num_samples=num_records)
+        sampled_indices = indices[tf.cast(samples[0][0], tf.int32)]
 
-            # Slice out sampled from valid, [0][0] due to multinomial returning [batch_size, sample_size].
-            sampled_indices = valid_indices[tf.cast(samples[0][0], tf.int32)]
-
-            return self.read_records(indices=sampled_indices)
-        elif self.sequences:
-            pass
-        else:
-            # Is this mode conceivably needed?
-            raise NotImplementedError
+        return self.read_records(indices=sampled_indices)
 
     def _computation_get_sequences(self, num_sequences, sequence_length):
         pass
