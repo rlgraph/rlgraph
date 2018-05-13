@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from collections import OrderedDict
+
 from yarl import Specifiable, backend, YARLError
 # TODO: make this backend-dependent
 import tensorflow as tf
@@ -90,6 +92,52 @@ class Space(Specifiable):
     #        An Initializer object.
     #    """
     #    return None  # optional
+
+    def flatten(self, mapping=None, scope_=None, list_=None):
+        """
+        A mapping function to flatten this Space into a flat OrderedDict whose only values are
+        primitive (non-container) Spaces. The keys are created automatically from Dict keys and
+        Tuple indexes.
+
+        Args:
+            mapping (Optional[callable]): A mapping function that takes a primitive Space and converts it
+                to something else. Default is pass through.
+            scope_ (Optional[str]): For recursive calls only. Used for automatic key generation.
+            list_ (Optional[list]): For recursive calls only. The list so far.
+
+        Returns:
+            OrderedDict: The flattened OrderedDict containing only primitive Spaces.
+        """
+        # default: no mapping
+        if mapping is None:
+            def mapping(x):
+                return x
+
+        # Are we in the non-recursive (first) call?
+        ret = False
+        if list_ is None:
+            list_ = list()
+            ret = True
+            scope_ = ""
+
+        self._flatten(mapping, scope_, list_)
+
+        # Non recursive (first) call -> Return the final OrderedDict.
+        if ret:
+            return OrderedDict(list_)
+
+    def _flatten(self, mapping, scope_, list_):
+        """
+        Base implementation. May be overridden by ContainerSpace classes.
+        Simply sends self through the mapping function.
+
+        Args:
+            mapping (callable): The mapping function to use on a primitive (non-container) Space.
+            scope_ (str): The key to use to store the mapped result in list_ (which will be converted into
+                an OrderedDict at the very end).
+            list_ (list): The list to append the mapped results to (under key=`scope_`).
+        """
+        list_.append(tuple([scope_, mapping(self)]))
 
     def __repr__(self):
         return "Space(shape=" + str(self.shape) + ")"

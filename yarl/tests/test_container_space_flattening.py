@@ -17,30 +17,41 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import unittest
+
 from yarl.spaces import Dict, Tuple, Continuous, Bool, Discrete
 
-space = Tuple(
-    Dict(
-        a=Bool(),  # tuple-0/a
-        b=Discrete(4),  # tuple-0/b
-        c=Dict(
-            d=Continuous()  # tuple-0/c/d
+
+class TestSpaces(unittest.TestCase):
+
+    def test_container_space_flattening_with_mapping(self):
+        space = Tuple(
+            Dict(
+                a=Bool(),
+                b=Discrete(4),
+                c=Dict(
+                    d=Continuous()
+                )
+            ),
+            Bool(),
+            Discrete(),
+            Continuous(shape=(3, 2)),
+            Tuple(
+                Bool()
+            )
         )
-    ),
-    Bool(),  # tuple-1/
-    Discrete(),  # tuple-2/
-    Continuous(3),  # tuple-3/
-    Tuple(
-        Bool()  # tuple-4/tuple-0/
-    )
-)
+
+        def mapping_func(primitive_space):
+            # Just map a primitive Space to its flat_dim property.
+            return primitive_space.flat_dim
+
+        result = ""
+        flat_space_and_mapped = space.flatten(mapping=mapping_func)
+        for k, v in flat_space_and_mapped.items():
+            result += "{}:{},".format(k, v)
+
+        expected = "/tuple-0/a:1,/tuple-0/b:4,/tuple-0/c/d:1,/tuple-1:1,/tuple-2:2,/tuple-3:6,/tuple-4/tuple-0:1,"
+
+        self.assertTrue(result == expected)
 
 
-def mapping_func(primitive_space):
-    return primitive_space.flat_dim
-
-
-flat_space_and_mapped = space.flatten(mapping=mapping_func)
-
-for k, v in flat_space_and_mapped.items():
-    print(k+": "+str(v))

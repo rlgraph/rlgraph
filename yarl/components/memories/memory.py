@@ -53,6 +53,7 @@ class Memory(Component):
     def build_record_variable_registry(self, variable_or_dict):
         """
         Builds a flat variable registry from a recursively defined variable Space.
+
         Args:
             variable_or_dict Union[Dict, tf.Variable]: Dict containing variables or variable.
         """
@@ -63,7 +64,7 @@ class Memory(Component):
                 self.build_record_variable_registry(value[0])
                 self.build_record_variable_registry(value[1])
             else:
-                self.record_registry[key] = variable_or_dict
+                self.record_registry[key] = value
 
     def scatter_update_records(self, records, indices, updates):
         """
