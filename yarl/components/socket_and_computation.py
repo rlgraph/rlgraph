@@ -122,12 +122,12 @@ class Socket(object):
             in_socket_registry[self.name] = {op} if self.name not in in_socket_registry \
                 else (in_socket_registry[self.name] | {op})
             # Remember, that this op goes into a Socket at the very beginning of the Graph (e.g. a tf.placeholder).
-            op_registry[op] = {self}
+            op_registry[op] = set([self])
         # Computation: Connect this Socket to the nth op coming out of the Computation function.
         elif isinstance(incoming, TfComputation):
             assert isinstance(slot, int) and slot >= 0, "ERROR: If incoming is a Computation, slot must be set and >=0!"
             # Add every nth op from the output of the completed computations to this Socket's set of ops.
-            nth_computed_ops = [outputs[slot] for outputs in incoming.processed_ops]
+            nth_computed_ops = [outputs[slot] for outputs in incoming.processed_ops.values()]
             self.ops.update(nth_computed_ops)
         # Incoming is another Socket -> Simply add ops to this one.
         else:
@@ -260,7 +260,8 @@ class Computation(object):
                     ops_as_tuple = force_list(ops, to_tuple=True)
                     self.processed_ops[input_combination] = ops_as_tuple
                     # Keep track of which ops require which other ops.
-                    op_registry[ops_as_tuple] = input_combination
+                    for op in ops_as_tuple:
+                        op_registry[op] = set(input_combination)
 
             # Loop through our output Sockets and keep processing them with this computation's outputs.
             for slot, output_socket in enumerate(self.output_sockets):

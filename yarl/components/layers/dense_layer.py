@@ -45,18 +45,25 @@ class DenseLayer(LayerComponent):
             "ERROR: Rank of input_space (rank={}) must be 2 or larger (1st rank is batch size)!". \
                 format(input_space.rank)
         super(DenseLayer, self).__init__(*sub_components, **kwargs)
+        self.weights_spec = kwargs.get("weights_spec")
+        self.weights_init = None  # at build time
+        self.biases_spec = kwargs.get("biases_spec", False)
+        self.biases_init = None  # at build time
 
         # Number of nodes in this layer.
         self.units = units
 
+        # TODO: TEST this approach (remove this call when model.build can take care of this).
+        self.when_built(input_space)
+
+    # TODO: TEST this approach.
+    def when_built(self, input_space):
         # Create weights.
-        self.weights_shape = (input_space.shape[1], self.units)
-        self.weights_spec = kwargs.get("weights_spec")
-        self.weights_init = Initializer.from_spec(shape=self.weights_shape, specification=self.weights_spec)
+        weights_shape = (input_space.shape[1], self.units)
+        self.weights_init = Initializer.from_spec(shape=weights_shape, specification=self.weights_spec)
         # And maybe biases.
-        self.biases_shape = (self.units,)
-        self.biases_spec = kwargs.get("biases_spec", False)
-        self.biases_init = Initializer.from_spec(shape=self.biases_shape, specification=self.biases_spec)
+        biases_shape = (self.units,)
+        self.biases_init = Initializer.from_spec(shape=biases_shape, specification=self.biases_spec)
 
         # Wrapper for backend.
         if backend() == "tf":

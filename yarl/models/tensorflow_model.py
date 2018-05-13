@@ -64,8 +64,10 @@ class TensorFlowModel(Model):
         socket_names = force_list(sockets, to_tuple=True)
         fetch_list, feed_dict = self.get_execution_inputs(socket_names=socket_names, input_dict=inputs)
         ret = self.monitored_session.run(fetch_list, feed_dict=feed_dict)
-
-        return ret
+        if len(fetch_list) == 1:
+            return ret[0]
+        else:
+            return ret
 
     def init_execution(self):
         """

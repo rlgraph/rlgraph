@@ -83,7 +83,7 @@ class ComponentTest(object):
         # Get the outs ..
         outs = self.model.call(sockets=out_socket_name, inputs=inputs)
         # .. and compare them with what we want.
-        if expected_outputs != outs:
-            return False
-        return True
+        if (expected_outputs == outs[0]).all():  # TODO: make model.call return a single item if only one out-socket given
+            return True
+        return False
 

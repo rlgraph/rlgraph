@@ -129,7 +129,7 @@ class Model(Specifiable):
     def assemble_graph(self):
         """
         Loops through all our sub-components starting at core and assembles the graph by creating placeholders,
-        following Socket->Socket connections and running the autograph functions of our Computations.
+        following Socket->Socket connections and running through our Computations.
         """
         # Loop through our input sockets and connect them from left to right.
         for socket in self.core_component.input_sockets:
@@ -199,6 +199,54 @@ class Model(Specifiable):
             Component: The core container component.
         """
         return self.core_component
+
+    def partial_input_build(self, socket, from_computation=None, computation_out_slot=None):
+        """
+        Builds one Socket in terms of its incoming and outgoing connections. Returns if we hit a dead end (computation
+        that's not complete yet) OR the very end of the graph.
+        Recursively calls itself for any encountered Sockets on the way through the Component(s).
+
+        Args:
+            socket (Socket): The Socket object to process.
+            from_computation (Optional[Computation]): If we are processing the socket only from one Computation
+                (ignoring other incoming connections), set this to the Computation.
+            computation_out_slot (Optional[int]): If from_computation is given, this holds the out slot from the
+                Computation (index into the computation-returned tuple).
+        """
+        assert (from_computation is None and computation_out_slot is None) or \
+            (from_computation is not None and computation_out_slot is not None), \
+            "ERROR: Bad input parameter combination (either `from_computation` and `slot` defined OR both None)!"
+
+        with tf.variable_scope(socket.scope):
+            # Loop through this socket's incoming connections (or just process one).
+            incoming_connections = from_computation or socket.incoming_connections
+            for in_ in force_list(incoming_connections):
+                # create tf placeholder(s)
+                # example: Space (Dict({"a": Discrete(3), "b": Bool(), "c": Continuous()})) connects to Socket ->
+                # create inputs[name-of-sock] = dict({"a": tf.placeholder(name="", dtype=int, shape=(3,))})
+                socket.update_from_input(in_, self.op_registry, self.in_socket_registry, computation_out_slot)
+
+            for outgoing in socket.outgoing_connections:
+                if isinstance(outgoing, Socket):
+                    # Outgoing is another Socket -> recurse.
+                    self.partial_input_build(outgoing)
+                # Outgoing is a Computation -> Add the socket to the computations ("waiting") inputs.
+                # ... and maybe build a new op into the graph (via the computation).
+                elif isinstance(outgoing, Computation):
+                    computation = outgoing
+                    # We have to specify the device here (only a Computation actually adds something to the graph).
+                    if socket.device:
+                        self.assign_device(computation, socket, socket.device)
+                    else:
+                        # TODO fetch default device?
+                        computation.update_from_input(socket, self.op_registry, self.in_socket_registry)
+
+                    # Keep moving through this computations out-Sockets (if input-complete).
+                    if computation.input_complete:
+                        for slot, out_socket in enumerate(computation.output_sockets):
+                            self.partial_input_build(out_socket, computation, slot)
+                else:
+                    raise YARLError("ERROR: Outgoing connection must be Socket or Computation!")
 
     def get_execution_inputs(self, socket_names, input_dict=None):
         """
@@ -272,63 +320,15 @@ class Model(Specifiable):
         raise YARLError("ERROR: No op found for out-Socket '{}' given the input-combinations: {}!".
                         format(socket_name, input_combinations))
 
-    def partial_input_build(self, socket, from_computation=None, computation_out_slot=None):
-        """
-        Builds one Socket in terms of its incoming and outgoing connections. Returns if we hit a dead end (computation
-        that's not complete yet) OR the very end of the graph.
-        Recursively calls itself for any encountered Sockets on the way through the Component(s).
-
-        Args:
-            socket (Socket): The Socket object to process.
-            from_computation (Optional[Computation]): If we are processing the socket only from one Computation
-                (ignoring other incoming connections), set this to the Computation.
-            computation_out_slot (Optional[int]): If from_computation is given, this holds the out slot from the
-                Computation (index into the computation-returned tuple).
-        """
-        assert (from_computation is None and computation_out_slot is None) or \
-            (from_computation is not None and computation_out_slot is not None), \
-            "ERROR: Bad input parameter combination (either `from_computation` and `slot` defined OR both None)!"
-
-        with tf.variable_scope(socket.scope):
-            # Loop through this socket's incoming connections (or just process one).
-            incoming_connections = from_computation or socket.incoming_connections
-            for in_ in force_list(incoming_connections):
-                # create tf placeholder(s)
-                # example: Space (Dict({"a": Discrete(3), "b": Bool(), "c": Continuous()})) connects to Socket ->
-                # create inputs[name-of-sock] = dict({"a": tf.placeholder(name="", dtype=int, shape=(3,))})
-                socket.update_from_input(in_, self.op_registry, self.in_socket_registry, computation_out_slot)
-
-            for outgoing in socket.outgoing_connections:
-                if isinstance(outgoing, Socket):
-                    # Outgoing is another Socket -> recurse.
-                    self.partial_input_build(outgoing)
-                # Outgoing is a Computation -> Add the socket to the computations ("waiting") inputs.
-                # ... and maybe build a new op into the graph (via the computation).
-                elif isinstance(outgoing, Computation):
-                    computation = outgoing
-                    # We have to specify the device here (only a Computation actually adds something to the graph).
-                    assigned_device = socket.device
-                    if socket.device:
-                        self.assign_device(computation, socket, assigned_device)
-                    else:
-                        # TODO fetch default device?
-                        computation.update_from_input(socket, self.op_registry, self.in_socket_registry)
-                        # Keep moving through this computations out-Sockets (if input-complete).
-                        if computation.input_complete:
-                            for slot, out_socket in enumerate(computation.output_sockets):
-                                self.partial_input_build(out_socket, computation, slot)
-                else:
-                    raise YARLError("ERROR: Outgoing connection must be Socket or Computation!")
-
     def trace_back_sockets(self, trace_set):
         """
-        For a given op, returns a list of all (core) in-Sockets that are required to calculate this op.
+        For a set of given ops, returns a list of all (core) in-Sockets that are required to calculate these ops.
 
         Args:
             trace_set (set): The set of ops to trace-back till the beginning of the Graph.
 
         Returns:
-            A set of in-Socket objects (from the core Component) that are required to calculate this op.
+            set: in-Socket objects (from the core Component) that are required to calculate this op.
         """
         # Recursively lookup op in op_registry until we hit a Socket.
         new_trace_set = set()
