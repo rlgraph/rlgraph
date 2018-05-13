@@ -39,6 +39,9 @@ class ReplayMemory(Memory):
         super(ReplayMemory, self).__init__(record_space, capacity, name, scope, sub_indexes)
         self.next_states = next_states
         self.episode_semantics = episode_semantics
+        self.define_inputs("records")
+        self.define_outputs("insert")
+        self.add_computation("records", "insert")
 
     def create_variables(self):
         # Main memory.

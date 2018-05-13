@@ -20,29 +20,31 @@ from __future__ import print_function
 import unittest
 
 from yarl.components.layers import DenseLayer
+from yarl.components.memories.replay_memory import ReplayMemory
 from yarl.spaces import Dict, Tuple, Continuous
 from yarl.tests import ComponentTest
 
 import numpy as np
 
 
-class TestNNLayer(unittest.TestCase):
+class TestReplayMemory(unittest.TestCase):
 
-    def test_dense(self):
-        # Dict(a=Continuous(), b=Continuous(), c=Dict(d=Continuous()))
-        space = Continuous(shape=(1,2))
+    record_space = Dict(
+        state=Dict(state1=float, state2=float),
+        action=Dict(action1=float),
+        reward=float,
+        terminal=int
+    )
 
-        # The Component to test.
-        # - fixed 1.0 weights, no biases
-        component_to_test = DenseLayer(input_space=space, units=2, weights_spec=1.0, biases_spec=False)
-
-        # TODO: discuss, whether it would be better in the DenseLayer to wait until we know the input space.
-        # TODO: Maybe introduce a `at_build` method for components, in which they can do stuff after they know about the input Space.
-        # TODO: Then we wouldn't have to specify it twice here (once when we build the layer and once when we
-        # TODO: connect the core's input to the Space)!
+    def test_insert(self):
+        component_to_test = ReplayMemory(
+            record_space=self.record_space,
+            capacity=10,
+            next_states=True
+        )
 
         # A ComponentTest object.
-        test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
+        test = ComponentTest(component=component_to_test, input_spaces=dict(input=self.record_space))
 
         # Run the test.
         input_ = np.array([[0.5, 2.0]])
