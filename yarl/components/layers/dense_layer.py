@@ -31,19 +31,20 @@ class DenseLayer(LayerComponent):
         """
         Args:
             units (int): The number of nodes in this layer.
-            input_space (Space): The input Space that will be passed through this layer.
+            input_space (Union[Space,dict]): The input Space or Space-spec that will be passed through this layer.
                 TODO: Lift restriction that this has to be primitive Space? But then again: Would this ever be needed?
 
         Keyword Args:
             weights_spec (any): A specifier for a weights initializer.
             biases_spec (any): A specifier for a biases initializer.
         """
-        assert not isinstance(input_space, (Dict, Tuple)), "ERROR: Cannot handle container input_spaces " \
-                                                           "(atm; may soon do)!"
+        self.input_space = Space.from_spec(input_space)
+        assert not isinstance(self.input_space, (Dict, Tuple)), "ERROR: Cannot handle container input_spaces " \
+                                                                "(atm; may soon do)!"
 
-        assert input_space.rank > 1, \
+        assert self.input_space.rank > 1, \
             "ERROR: Rank of input_space (rank={}) must be 2 or larger (1st rank is batch size)!". \
-                format(input_space.rank)
+                format(self.input_space.rank)
         super(DenseLayer, self).__init__(*sub_components, **kwargs)
         self.weights_spec = kwargs.get("weights_spec")
         self.weights_init = None  # at build time
@@ -54,12 +55,12 @@ class DenseLayer(LayerComponent):
         self.units = units
 
         # TODO: TEST this approach (remove this call when model.build can take care of this).
-        self.when_built(input_space)
+        self.when_built()
 
     # TODO: TEST this approach.
-    def when_built(self, input_space):
+    def when_built(self):
         # Create weights.
-        weights_shape = (input_space.shape[1], self.units)
+        weights_shape = (self.input_space.shape[1], self.units)
         self.weights_init = Initializer.from_spec(shape=weights_shape, specification=self.weights_spec)
         # And maybe biases.
         biases_shape = (self.units,)

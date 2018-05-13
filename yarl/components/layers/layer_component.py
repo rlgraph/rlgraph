@@ -23,7 +23,7 @@ class LayerComponent(StackComponent):
         Keyword Args:
             comp_inputs (int): The number of parameters that our computation function takes.
             comp_outputs (int): The number of output values that our computation function returns (as tuple)
-                given that the number of input paramaeters is num_computation_inputs.
+                given that the number of input parameters is num_computation_inputs.
         """
         self.computation_inputs = kwargs.pop("computation_inputs", 1)
         self.computation_outputs = kwargs.pop("computation_outputs", 1)

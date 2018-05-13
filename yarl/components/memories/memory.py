@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl.components import Component
-from yarl.spaces import Space, Dict, Tuple
+from yarl.spaces import Space
 
 
 class Memory(Component):
@@ -36,7 +36,7 @@ class Memory(Component):
     ):
         """
         Args:
-            record_space (Space): The space of the records to be stored.
+            record_space (Union[Space,dict]): The Space or Space-spec of the records to be stored.
             capacity (int): The number of records that can be stored in this memory.
             sub_indexes (Union[None,List[str]]): A list of strings of sub-indexes to add to the main (enumeration)
                 index. For example: Each record could belong to a certain RL-episode. Each sub-index gets its own
@@ -49,7 +49,7 @@ class Memory(Component):
         self.record_registry = None
 
         self.capacity = capacity
-        self.record_space = record_space
+        self.record_space = Space.from_spec(record_space)
         self.sub_indexes_spec = sub_indexes
 
     def create_variables(self):

@@ -39,18 +39,18 @@ class GrayScale(PreprocessLayer):
         self.weights = weights or (0.299, 0.587, 0.114)
         self.keep_rank = keep_rank
 
-    def _single_computation_apply(self, image):
+    def _computation_apply(self, image):
         """
         Gray-scales an incoming image of arbitrary rank (normally rank=3, width/height/colors).
-        The last rank must be of size 3 (RGB color images).
+        However, the last rank must be of size 3 (RGB color images).
 
         Args:
-            image (tensor): The image to be gray-scaled (may be nD + 3 (required!) colors).
+            image (tensor): A single image to be gray-scaled (may be nD + 3 (required!) colors).
 
         Returns:
-            The op responsible for processing the image.
+            op: The op for processing the image.
         """
-        assert get_shape(image)[-1] == 3, "ERROR: Given image is not an RGB!"
+        assert get_shape(image)[-1] == 3, "ERROR: Given image is not RGB (last rank must be 3)!"
         shape = tuple(1 for _ in range(get_rank(image) - 1)) + (3,)
         weights_reshaped = np.reshape(a=self.weights, newshape=shape)
         return tf.reduce_sum(weights_reshaped * image, axis=-1, keepdims=self.keep_rank)
