@@ -33,8 +33,7 @@ class ReplayMemory(Memory):
         name="",
         scope="replay-memory",
         sub_indexes=None,
-        next_states=True,
-        episode_semantics=False
+        next_states=True
     ):
         super(ReplayMemory, self).__init__(record_space, capacity, name, scope, sub_indexes)
 
@@ -43,9 +42,7 @@ class ReplayMemory(Memory):
         self.size = None
         self.episode = None
         self.states = None
-
         self.next_states = next_states
-        self.episode_semantics = episode_semantics
 
         # Add Sockets and Computations.
         self.define_inputs("records")
@@ -63,10 +60,6 @@ class ReplayMemory(Memory):
             # Next states are not represented as explicit keys in the registry
             # as this would cause extra memory overhead.
             self.states = self.record_space["states"].keys()
-
-        if self.episode_semantics:
-            # Only create these if necessary to avoid overhead.
-            self.episode = self.get_variable(name="episodes", dtype=int, trainable=False, initializer=0)
 
     def _computation_insert(self, records):
         num_records = tf.shape(records.keys()[0])
@@ -86,10 +79,6 @@ class ReplayMemory(Memory):
             updates.append(self.assign_variable(variable=self.index, value=(index + num_records) % self.capacity))
             update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
             updates.append(self.assign_variable(self.size, value=update_size))
-            if self.episode_semantics:
-                # Update episode indexing.
-                pass
-                # updates.append()
 
         # Nothing to return.
         with tf.control_dependencies(updates):
@@ -120,9 +109,7 @@ class ReplayMemory(Memory):
         return records
 
     def _computation_get_records(self, num_records):
-        # TODO what modes do we actually need in practice?
         indices = tf.range(start=0, limit=self.read_variable(self.size))
-
         if self.next_states:
             # Valid indices are non-terminal indices.
             terminal_indices = self.read_variable(self.record_registry['terminal'])
@@ -132,6 +119,3 @@ class ReplayMemory(Memory):
         sampled_indices = indices[tf.cast(samples[0][0], tf.int32)]
 
         return self.read_records(indices=sampled_indices)
-
-    def _computation_get_sequences(self, num_sequences, sequence_length):
-        pass

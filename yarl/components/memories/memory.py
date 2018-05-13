@@ -129,7 +129,7 @@ class Memory(Component):
 
         Returns: The retrieved sequences.
         """
-        raise NotImplementedError
+        pass
 
     def _computation_clear(self):
         """

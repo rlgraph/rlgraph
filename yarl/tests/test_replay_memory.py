@@ -19,15 +19,17 @@ from __future__ import print_function
 
 import unittest
 
-from yarl.components.layers import DenseLayer
 from yarl.components.memories.replay_memory import ReplayMemory
-from yarl.spaces import Dict, Tuple, Continuous
+from yarl.spaces import Dict
 from yarl.tests import ComponentTest
 
 import numpy as np
 
 
 class TestReplayMemory(unittest.TestCase):
+    """
+    Tests sampling and insertion behaviour of the replay_memory module.
+    """
 
     record_space = Dict(
         state=Dict(state1=float, state2=float),
@@ -43,7 +45,6 @@ class TestReplayMemory(unittest.TestCase):
             next_states=True
         )
 
-        # A ComponentTest object.
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=self.record_space))
 
         # Run the test.
