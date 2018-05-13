@@ -26,6 +26,7 @@ install_requires=[
     'tensorflow',
     'pyyaml',
     'cached_property'
+    'pytest'
 ]
 
 setup_requires=[

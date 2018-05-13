@@ -34,11 +34,11 @@ class ReplayMemory(Memory):
         scope="replay-memory",
         sub_indexes=None,
         next_states=True,
-        sequences=False
+        episode_semantics=False
     ):
         super(ReplayMemory, self).__init__(record_space, capacity, name, scope, sub_indexes)
         self.next_states = next_states
-        self.sequences = sequences
+        self.episode_semantics = episode_semantics
 
     def create_variables(self):
         # Main memory.
@@ -54,7 +54,7 @@ class ReplayMemory(Memory):
             # as this would cause extra memory overhead.
             self.states = self.record_space["states"].keys()
 
-        if self.sequences:
+        if self.episode_semantics:
             # Only create these if necessary to avoid overhead.
             self.episode = self.get_variable(name="episodes", dtype=int, trainable=False, initializer=0)
 
@@ -73,7 +73,7 @@ class ReplayMemory(Memory):
             updates.append(self.assign_variable(variable=self.index, value=(index + num_records) % self.capacity))
             update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
             updates.append(self.assign_variable(self.size, value=update_size))
-            if self.sequences:
+            if self.episode_semantics:
                 # Update episode indexing.
                 pass
                 # updates.append()

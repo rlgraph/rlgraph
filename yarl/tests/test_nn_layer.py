@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import unittest
+
 from yarl.components.layers import DenseLayer
 from yarl.spaces import Dict, Tuple, Continuous
 from yarl.tests import ComponentTest
@@ -24,27 +26,28 @@ from yarl.tests import ComponentTest
 import numpy as np
 
 
-space = Continuous(shape=(1,2))  #Dict(a=Continuous(), b=Continuous(), c=Dict(d=Continuous()))
+class NNLayerTest(unittest.TestCase):
 
-# The Component to test.
-# - fixed 1.0 weights, no biases
-component_to_test = DenseLayer(input_space=space, units=2, weights_spec=1.0, biases_spec=False)
+    def test_dense(self):
+        # Dict(a=Continuous(), b=Continuous(), c=Dict(d=Continuous()))
+        space = Continuous(shape=(1,2))
 
-# TODO: discuss, whether it would be better in the DenseLayer to wait until we know the input space.
-# TODO: Maybe introduce a `at_build` method for components, in which they can do stuff after they know about the input Space.
-# TODO: Then we wouldn't have to specify it twice here (once when we build the layer and once when we
-# TODO: connect the core's input to the Space)!
+        # The Component to test.
+        # - fixed 1.0 weights, no biases
+        component_to_test = DenseLayer(input_space=space, units=2, weights_spec=1.0, biases_spec=False)
 
-# A ComponentTest object.
-test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
+        # TODO: discuss, whether it would be better in the DenseLayer to wait until we know the input space.
+        # TODO: Maybe introduce a `at_build` method for components, in which they can do stuff after they know about the input Space.
+        # TODO: Then we wouldn't have to specify it twice here (once when we build the layer and once when we
+        # TODO: connect the core's input to the Space)!
 
-# Run the test.
-input_ = np.array([[0.5, 2.0]])
-expected = np.array([[2.5, 2.5]])
+        # A ComponentTest object.
+        test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
 
-result = test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
-if result:
-    print("test passed!")
-else:
-    print("test failed!")
+        # Run the test.
+        input_ = np.array([[0.5, 2.0]])
+        expected = np.array([[2.5, 2.5]])
+
+        result = test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
+        self.assertTrue(result)
 
