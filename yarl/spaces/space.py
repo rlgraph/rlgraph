@@ -110,7 +110,7 @@ class Space(Specifiable):
         """
         # default: no mapping
         if mapping is None:
-            def mapping(x):
+            def mapping(key, x):
                 return x
 
         # Are we in the non-recursive (first) call?
@@ -137,7 +137,7 @@ class Space(Specifiable):
                 an OrderedDict at the very end).
             list_ (list): The list to append the mapped results to (under key=`scope_`).
         """
-        list_.append(tuple([scope_, mapping(self)]))
+        list_.append(tuple([scope_, mapping(scope_, self)]))
 
     def __repr__(self):
         return "Space(shape=" + str(self.shape) + ")"

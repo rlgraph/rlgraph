@@ -69,8 +69,7 @@ class Bool(Discrete):
     and the flattened representation is a 1D vector of dim = 1 (not 2!) ([0]=False or [1]=True)
     """
     def __init__(self):
-        super(Bool, self).__init__(3)
-        self.n = 2  # circumvent the assertion inside Discrete for n <= 2
+        super(Bool, self).__init__(2)
 
     @property
     def shape(self):

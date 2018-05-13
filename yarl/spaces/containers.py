@@ -88,12 +88,7 @@ class Dict(ContainerSpace, OrderedDict):
         # Iterate through this Dict.
         scope_ += "/"
         for key, component in self.items():
-            # ContainerSpace: Keep recursing.
-            ##if isinstance(component, ContainerSpace):
             component.flatten(mapping, scope_ + key, list_)
-            ## Primitive Space -> Send it through the mapping.
-            #else:
-            #    list_.append(tuple([scope_ + key, mapping(component)]))
 
     #def get_initializer(self, specification):
     #    return OrderedDict([(key, subspace.get_initializer(specification)) for key, subspace in self.items()])
@@ -167,12 +162,7 @@ class Tuple(ContainerSpace, tuple):
         # Iterate through this Tuple.
         scope_ += "/tuple-"
         for i, component in enumerate(self):
-            # ContainerSpace: Keep recursing.
-            if isinstance(component, ContainerSpace):
-                component._flatten(mapping, scope_ + str(i), list_)
-            # Primitive Space -> Send it through the mapping.
-            else:
-                list_.append(tuple([scope_ + str(i), mapping(component)]))
+            component.flatten(mapping, scope_ + str(i), list_)
 
     #def get_initializer(self, specification):
     #    return tuple([subspace.get_initializer(specification) for subspace in self])

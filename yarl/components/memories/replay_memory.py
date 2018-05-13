@@ -37,16 +37,23 @@ class ReplayMemory(Memory):
         episode_semantics=False
     ):
         super(ReplayMemory, self).__init__(record_space, capacity, name, scope, sub_indexes)
+
+        # Variables.
+        self.index = None
+        self.size = None
+        self.episode = None
+        self.states = None
+
         self.next_states = next_states
         self.episode_semantics = episode_semantics
+
+        # Add Sockets and Computations.
         self.define_inputs("records")
         self.define_outputs("insert")
-        self.add_computation("records", "insert")
+        self.add_computation("records", "insert", "insert")
 
     def create_variables(self):
-        # Main memory.
-        buffer_variables = self.get_variable(name="replay_buffer", trainable=False, from_space=self.record_space)
-        self.build_record_variable_registry(buffer_variables)
+        super(ReplayMemory, self).create_variables()
 
         # Main buffer index.
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
@@ -67,11 +74,14 @@ class ReplayMemory(Memory):
         update_indices = tf.range(start=index, stop=index + num_records) % self.capacity
 
         # Updates all the necessary sub-variables in the record.
-        updates = list()
-        self.scatter_update_records(records=records, indices=update_indices, updates=updates)
+        updates = self.record_space.flatten(mapping=lambda key, primitive: self.scatter_update_variable(
+            variable=self.record_registry[key],
+            indices=update_indices,
+            updates=records[key]
+        ))
 
         # Update indices and size.
-        with tf.control_dependencies(updates):
+        with tf.control_dependencies(list(updates.values())):
             updates = list()
             updates.append(self.assign_variable(variable=self.index, value=(index + num_records) % self.capacity))
             update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
@@ -88,6 +98,7 @@ class ReplayMemory(Memory):
     def read_records(self, indices):
         """
         Obtains record values for the provided indices.
+
         Args:
             indices Union[ndarray, tf.Tensor]: Indices to read. Assumed to be not contiguous.
 

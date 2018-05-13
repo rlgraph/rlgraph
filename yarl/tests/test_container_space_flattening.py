@@ -41,7 +41,7 @@ class TestSpaces(unittest.TestCase):
             )
         )
 
-        def mapping_func(primitive_space):
+        def mapping_func(key, primitive_space):
             # Just map a primitive Space to its flat_dim property.
             return primitive_space.flat_dim
 

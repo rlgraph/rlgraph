@@ -106,7 +106,9 @@ class Component(Specifiable):
         """
         pass  # Children may overwrite this method.
 
-    def get_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True, from_space=None):
+    def get_variable(self, name="", shape=None, dtype="float",
+                     initializer=None, trainable=True, from_space=None,
+                     flatten=True):
         """
         Generates or returns a variable to use in the selected backend.
 
@@ -116,11 +118,13 @@ class Component(Specifiable):
             dtype (Union[str,type]): The dtype (as string) of this variable.
             initializer (Optional[any]): Initializer for this variable.
             trainable (bool): Whether this variable should be trainable.
-            from_space (Union[Space,None]): Whether to create this variable from a Space object
+            from_space (Optional[Space]): Whether to create this variable from a Space object
                 (shape, dtype and trainable are not needed then).
+            flatten (bool): If from_space =True):
 
         Returns:
-            The actual variable (dependent on the backend).
+            Union[variable,OrderedDict,tuple]: The actual variable (dependent on the backend) or - if from a container
+                space - a (flattened or nested) dict or tuple depending on the Space.
         """
         # Called as getter.
         #if name in self.variables:
@@ -132,7 +136,7 @@ class Component(Specifiable):
         if backend() == "tf":
             # TODO: need to discuss what other data we need per variable. Initializer, trainable, etc..
             if from_space:
-                var = from_space.get_tensor_variable(name)
+                var = from_space.flatten(mapping=lambda primitive: primitive.get_tensor_variable())
             else:
                 if shape is None:
                     shape = tuple()
@@ -559,12 +563,14 @@ class Component(Specifiable):
     def scatter_update_variable(variable, indices, updates):
         """
         Updates a variable. Optionally returns the operation depending on the backend.
+
         Args:
             variable (any): Variable to update.
             indices (array): Indices to update
             updates (any):  Update values.
 
-        Returns: None or graph operation representing the update.
+        Returns:
+            Optional[op]: The graph operation representing the update (or None).
         """
         if backend() == "tf":
             return tf.scatter_update(ref=variable, indices=indices, updates=updates)
