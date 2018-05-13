@@ -114,8 +114,10 @@ class ReplayMemory(Memory):
             # Valid indices are non-terminal indices.
             terminal_indices = self.read_variable(self.record_registry['terminal'])
             indices = tf.boolean_mask(tensor=indices, mask=tf.logical_not(x=terminal_indices))
-
+        # Choose with uniform probability from all valid indices.
         samples = tf.multinomial(tf.ones_like(indices), num_samples=num_records)
+
+        # Slice sampled indices from all indices.
         sampled_indices = indices[tf.cast(samples[0][0], tf.int32)]
 
         return self.read_records(indices=sampled_indices)

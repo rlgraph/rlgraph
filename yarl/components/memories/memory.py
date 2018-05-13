@@ -118,16 +118,14 @@ class Memory(Component):
         """
         raise NotImplementedError
 
-    def _computation_get_sequences(self, num_sequences, sequence_length):
+    def _computation_get_episodes(self, num_episodes):
         """
-        Retrieves a given number of temporally consistent time-step sequences from the stored
-        records (in the order they were inserted).
+        Retrieves a given number of episodes.
 
         Args:
-            num_sequences (int): Number of sequences to retrieve.
-            sequence_length (int): Length of sequences.
+            num_episodes (int): Number of episodes to retrieve.
 
-        Returns: The retrieved sequences.
+        Returns: The retrieved episodes.
         """
         pass
 

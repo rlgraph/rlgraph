@@ -38,7 +38,7 @@ class TestReplayMemory(unittest.TestCase):
         terminal=int
     )
 
-    def test_insert(self):
+    def test_insert_retrieve(self):
         component_to_test = ReplayMemory(
             record_space=self.record_space,
             capacity=10,
