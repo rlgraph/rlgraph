@@ -47,6 +47,8 @@ class ReplayMemory(Memory):
 
         # Main buffer index.
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
+        # Number of elements present.
+        self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
         if self.next_states:
             # Next states are not represented as explicit keys in the registry
             # as this would cause extra memory overhead.
@@ -58,22 +60,25 @@ class ReplayMemory(Memory):
 
     def _computation_insert(self, records):
         num_records = tf.shape(records.keys()[0])
-        update_indices = tf.range(start=self.index, stop=self.index + num_records) % self.capacity
+        index = self.read_variable(self.index)
+        update_indices = tf.range(start=index, stop=index + num_records) % self.capacity
 
         # Updates all the necessary sub-variables in the record.
         updates = list()
         self.scatter_update_records(records=records, indices=update_indices, updates=updates)
 
-        # Update indices.
+        # Update indices and size.
         with tf.control_dependencies(updates):
             updates = list()
-            updates.append(self.assign_variable(variable=self.index, value=(self.index + num_records) % self.capacity))
+            updates.append(self.assign_variable(variable=self.index, value=(index + num_records) % self.capacity))
+            update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
+            updates.append(self.assign_variable(self.size, value=update_size))
             if self.sequences:
                 # Update episode indexing.
                 pass
                 # updates.append()
 
-        # Nothing to return
+        # Nothing to return.
         with tf.control_dependencies(updates):
             return tf.no_op()
 
@@ -83,7 +88,8 @@ class ReplayMemory(Memory):
         Args:
             indices Union[ndarray, tf.Tensor]: Indices to read. Assumed to be not contiguous.
 
-        Returns: Record value dict.
+        Returns:
+             dict: Record value dict.
         """
 
         records = dict()
@@ -101,26 +107,17 @@ class ReplayMemory(Memory):
 
     def _computation_get_records(self, num_records):
         # TODO what modes do we actually need in practice?
-        if self.next_states:
-            # Read terminals.
-            terminal_indices = self.read_variable(self.record_registry['terminal'])
-            # TODO create size variable.
-            all_indices = tf.range(start=0, limit=self.index)
-            # Valid indices are non-terminal indices.
-            valid_indices = tf.boolean_mask(tensor=all_indices, mask=tf.logical_not(x=terminal_indices))
-            # Now sample with equal probability from all valid indices.
-            samples = tf.multinomial(tf.ones_like(valid_indices), num_samples=num_records)
-            # Slice out sampled from valid.
-            sampled_indices = valid_indices[tf.cast(samples[0][0], tf.int32)]
+        indices = tf.range(start=0, limit=self.read_variable(self.size))
 
-            return self.read_records(indices=sampled_indices)
-        elif self.sequences:
-            pass
-        else:
-            # TODO unnecessary?
-            # Do we ever want neither next states nor sequences nor episodes?
-            indices = tf.random_uniform(shape=(num_records,), maxval=self.index + 1, dtype=tf.int32)
-            return self.read_records(indices)
+        if self.next_states:
+            # Valid indices are non-terminal indices.
+            terminal_indices = self.read_variable(self.record_registry['terminal'])
+            indices = tf.boolean_mask(tensor=indices, mask=tf.logical_not(x=terminal_indices))
+
+        samples = tf.multinomial(tf.ones_like(indices), num_samples=num_records)
+        sampled_indices = indices[tf.cast(samples[0][0], tf.int32)]
+
+        return self.read_records(indices=sampled_indices)
 
     def _computation_get_sequences(self, num_sequences, sequence_length):
         pass
