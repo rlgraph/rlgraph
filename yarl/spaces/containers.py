@@ -25,7 +25,51 @@ from yarl import YARLError
 from .space import Space
 
 
-class Dict(Space, OrderedDict):
+class ContainerSpace(Space):
+    """
+    A simple placeholder class for Spaces that contain other Spaces.
+    """
+    def flatten(self, mapping=None, scope_=None, list_=None):
+        """
+        A mapping function to flatten this Space into a flat OrderedDict whose only values are
+        primitive (non-container) Spaces. The keys are created automatically from Dict keys and
+        Tuple indexes.
+
+        Args:
+            mapping (Optional[callable]): A mapping function that takes a primitive Space and converts it
+                to something else. Default is pass through.
+            scope_ (Optional[str]): For recursive calls only. Used for automatic key generation.
+            list_ (Optional[list]): For recursive calls only. The list so far.
+
+        Returns:
+            OrderedDict: The flattened OrderedDict containing only primitive Spaces.
+        """
+        # default: no mapping
+        if mapping is None:
+            def mapping(x):
+                return x
+
+        # Are we in the non-recursive (first) call?
+        ret = False
+        if list_ is None:
+            list_ = list()
+            ret = True
+            scope_ = ""
+
+        self._flatten(mapping, scope_, list_)
+
+        # Non recursive (first) call -> Return the final OrderedDict.
+        if ret:
+            return OrderedDict(list_)
+
+    def _flatten(self, mapping, scope_, list_):
+        """
+        Needs to be implemented by children of this Container class.
+        """
+        raise NotImplementedError
+
+
+class Dict(ContainerSpace, OrderedDict):
     """
     A Dict space (an ordered and keyed combination of n other spaces).
     Supports nesting of other Dict/Tuple spaces (or any other Space types) inside itself.
@@ -38,6 +82,7 @@ class Dict(Space, OrderedDict):
 
         dict_ = OrderedDict()
         for key in sorted(spec.keys()):
+            assert isinstance(key, str), "ERROR: No non-str keys allowed in a Dict-Space!"
             value = spec[key]
             # value is already a Space -> keep it
             if isinstance(value, Space):
@@ -76,6 +121,17 @@ class Dict(Space, OrderedDict):
         return OrderedDict([(key, subspace.get_tensor_variable(name+"/"+key, is_input_feed, **kwargs))
                             for key, subspace in self.items()])
 
+    def _flatten(self, mapping, scope_, list_):
+        # Iterate through this Dict.
+        scope_ += "/"
+        for key, component in self.items():
+            # ContainerSpace: Keep recursing.
+            if isinstance(component, ContainerSpace):
+                component.flatten(mapping, scope_ + key, list_)
+            # Primitive Space -> Send it through the mapping.
+            else:
+                list_.append(tuple([scope_ + key, mapping(component)]))
+
     #def get_initializer(self, specification):
     #    return OrderedDict([(key, subspace.get_initializer(specification)) for key, subspace in self.items()])
 
@@ -96,7 +152,7 @@ class Dict(Space, OrderedDict):
         return isinstance(x, (OrderedDict, dict)) and all(self[key].contains(x[key]) for key in self.keys())
 
 
-class Tuple(Space, tuple):
+class Tuple(ContainerSpace, tuple):
     """
     A Tuple space (an ordered sequence of n other spaces).
     Supports nesting of other container (Dict/Tuple) spaces inside itself.
@@ -144,6 +200,17 @@ class Tuple(Space, tuple):
         return tuple([subspace.get_tensor_variable(name+"/"+str(i), is_input_feed, **kwargs)
                       for i, subspace in enumerate(self)])
 
+    def _flatten(self, mapping, scope_, list_):
+        # Iterate through this Tuple.
+        scope_ += "/tuple-"
+        for i, component in enumerate(self):
+            # ContainerSpace: Keep recursing.
+            if isinstance(component, ContainerSpace):
+                component._flatten(mapping, scope_ + str(i), list_)
+            # Primitive Space -> Send it through the mapping.
+            else:
+                list_.append(tuple([scope_ + str(i), mapping(component)]))
+
     #def get_initializer(self, specification):
     #    return tuple([subspace.get_initializer(specification) for subspace in self])
 
@@ -161,16 +228,3 @@ class Tuple(Space, tuple):
     def contains(self, x):
         return isinstance(x, (tuple, list)) and len(self) == len(x) and all(c.contains(xi) for c, xi in zip(self, x))
 
-    def flatten_with_names(self, scope=None, list_=None):
-        ret = False
-        if not list_:
-            list_ = list()
-            ret = True
-            scope = ""
-        for i, component in enumerate(self):
-            if isinstance(component, (Dict, Tuple)):
-                component.flatten_with_names(scope, list_)
-            else:
-                list_.append(scope+"/"+str(i))
-        if ret:
-            return tuple(list_)
