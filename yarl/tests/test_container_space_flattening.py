@@ -22,32 +22,36 @@ import unittest
 from yarl.spaces import Dict, Tuple, Continuous, Bool, Discrete
 
 
-class TestContainerSpaces(unittest.TestCase):
-    """
-    Tests the behaviour of container spaces.
-    """
+class TestSpaces(unittest.TestCase):
 
-    def test_flattening(self):
+    def test_container_space_flattening_with_mapping(self):
         space = Tuple(
             Dict(
-                a=Bool(),  # tuple-0/a
-                b=Discrete(4),  # tuple-0/b
+                a=Bool(),
+                b=Discrete(4),
                 c=Dict(
-                    d=Continuous()  # tuple-0/c/d
+                    d=Continuous()
                 )
             ),
-            Bool(),  # tuple-1/
-            Discrete(),  # tuple-2/
-            Continuous(3),  # tuple-3/
+            Bool(),
+            Discrete(),
+            Continuous(shape=(3, 2)),
             Tuple(
-                Bool()  # tuple-4/tuple-0/
+                Bool()
             )
         )
 
-        def mapping_func(primitive_space):
+        def mapping_func(key, primitive_space):
+            # Just map a primitive Space to its flat_dim property.
             return primitive_space.flat_dim
 
+        result = ""
         flat_space_and_mapped = space.flatten(mapping=mapping_func)
-
         for k, v in flat_space_and_mapped.items():
-            print(k+": "+str(v))
+            result += "{}:{},".format(k, v)
+
+        expected = "/tuple-0/a:1,/tuple-0/b:4,/tuple-0/c/d:1,/tuple-1:1,/tuple-2:2,/tuple-3:6,/tuple-4/tuple-0:1,"
+
+        self.assertTrue(result == expected)
+
+

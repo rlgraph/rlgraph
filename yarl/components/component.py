@@ -22,7 +22,7 @@ import re
 import copy
 
 from yarl import YARLError, backend, Specifiable
-from yarl.components.socket_and_computation import Socket, TfComputation
+from yarl.components.socket_and_computation import Socket, Computation
 from yarl.utils import util
 from yarl.spaces import Space
 
@@ -86,8 +86,7 @@ class Component(Specifiable):
         # if this is done twice. Each Component should only be added once to some container Component for cleanlyness.
         self.has_been_added = False
 
-        # This Component's in/out Sockets by name. As OrderedDicts for easier assignment to computation input-
-        # parameters and return values.
+        # This Component's in/out-Socket objects.
         self.input_sockets = list()
         self.output_sockets = list()
 
@@ -123,7 +122,7 @@ class Component(Specifiable):
             flatten (bool): If from_space =True):
 
         Returns:
-            Union[variable,OrderedDict,tuple]: The actual variable (dependent on the backend) or - if from a container
+            Union[variable,dict,tuple]: The actual variable (dependent on the backend) or - if from a container
                 space - a (flattened or nested) dict or tuple depending on the Space.
         """
         # Called as getter.
@@ -203,7 +202,9 @@ class Component(Specifiable):
             else:
                 self.output_sockets.append(sock)
 
-    def add_computation(self, inputs, outputs, method_name=None):
+    def add_computation(self, inputs, outputs, method_name=None,
+                        flatten_container_spaces=True, split_container_spaces=True,
+                        add_auto_key_as_first_param=False, re_nest_container_spaces=True):
         """
         Links a set (A) of sockets via a computation to a set (B) of other sockets via a computation function.
         Any socket in B is thus linked back to all sockets in A (requires all A sockets).
@@ -215,7 +216,10 @@ class Component(Specifiable):
                 (without the _computation_ prefix). This method's signature and number of return values has to match the
                 number of input- and output Sockets provided here. If None, use the only member method that starts with
                 '_computation_' (error otherwise).
-
+            flatten_container_spaces (Union[bool,Set[str]]): Passed to Computation's c'tor. See Computation for details.
+            split_container_spaces (Union[bool,Set[str]]): Passed to Computation's c'tor. See Computation for details.
+            add_auto_key_as_first_param (bool): Passed to Computation's c'tor. See Computation for details.
+            re_nest_container_spaces (bool): Passed to Computation's c'tor. See Computation for details.
         Raises:
             YARLError: If method_name is None and not exactly one member method found that starts with `_computation_`.
         """
@@ -235,7 +239,9 @@ class Component(Specifiable):
         input_sockets = [self.get_socket(s) for s in inputs]
         output_sockets = [self.get_socket(s) for s in outputs]
         # Add the computation record to all input and output sockets.
-        computation = TfComputation(method_name, self, input_sockets, output_sockets)
+        computation = Computation(method_name, self, input_sockets, output_sockets,
+                                  flatten_container_spaces, split_container_spaces,
+                                  add_auto_key_as_first_param, re_nest_container_spaces)
         for input_socket in input_sockets:
             input_socket.connect_to(computation)
         for output_socket in output_sockets:

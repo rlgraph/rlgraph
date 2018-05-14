@@ -20,6 +20,7 @@ from __future__ import print_function
 import tensorflow as tf
 import numpy as np
 import itertools
+from functools import partial
 
 from .backend import backend
 from .yarl_error import YARLError
@@ -102,6 +103,9 @@ def force_list(elements, to_tuple=False):
     return ctor(elements) if isinstance(elements, (list, tuple)) else ctor([elements])
 
 
+force_tuple = partial(force_list, to_tuple=True)
+
+
 def default_dict(original, defaults):
     """
     Updates the original dict with values from to_add, but only for those keys that
@@ -143,3 +147,18 @@ def all_combinations(input_list, descending_length=False):
     return sorted(list(itertools.chain.from_iterable(
         itertools.combinations(input_list, i+1) for i in range(len(input_list)))),
         key=len, reverse=descending_length)
+
+
+def clamp(x, min_, max_):
+    """
+    Clamps x between min_ and max_.
+
+    Args:
+        x (float): The input to be clamped.
+        min_ (float): The min value for x.
+        largest (float): The max value for x.
+
+    Returns:
+        float: The clamped value.
+    """
+    return max(min_, min(x, max_))

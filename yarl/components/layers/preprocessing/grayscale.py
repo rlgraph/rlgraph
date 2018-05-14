@@ -28,18 +28,18 @@ class GrayScale(PreprocessLayer):
     """
     A simple grayscale converter for RGB images of arbitrary dimensions (normally, an image is 2D).
     """
-    def __init__(self, weights=None, keep_rank=False, **kwargs):
+    def __init__(self, weights=None, keep_rank=False, scope="grayscale", **kwargs):
         """
         Args:
             weights (Optional[tuple,list]): A list/tuple of three items indicating the weights to apply to the 3 color
                 channels (RGB).
             keep_rank (bool): Whether to keep the color-depth rank in the pre-processed tensor (default: False).
         """
-        super(GrayScale, self).__init__(deterministic=True, **kwargs)
+        super(GrayScale, self).__init__(deterministic=True, scope=scope, **kwargs)
         self.weights = weights or (0.299, 0.587, 0.114)
         self.keep_rank = keep_rank
 
-    def _computation_apply(self, image):
+    def _computation_apply(self, image, key):
         """
         Gray-scales an incoming image of arbitrary rank (normally rank=3, width/height/colors).
         However, the last rank must be of size 3 (RGB color images).

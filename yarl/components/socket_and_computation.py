@@ -23,7 +23,7 @@ from collections import OrderedDict
 
 from yarl import YARLError
 from yarl.spaces import Space
-from yarl.utils.util import force_list
+from yarl.utils.util import force_tuple, get_shape
 
 
 class Socket(object):
@@ -32,8 +32,8 @@ class Socket(object):
     One Socket either carries:
 
     - a single op (e.g. some tensor)
-    - a tuple of ops (nested also supported)
-    - a dict of ops (nested also supported)
+    - a tuple of ops (nesting also supported)
+    - a dict of ops (nesting also supported)
 
     Also, each of the above possibilities can have many parallel solutions. These splits happen e.g. if two Sockets
     connect to the same target Socket. In this case, the target Socket's inputs are treated as possible alternatives
@@ -55,10 +55,13 @@ class Socket(object):
         """
         # The name of this Socket.
         self.name = name
-        # The scope of this socket (important for computations and variable creation).
-        self.scope = scope
         # "in" or "out"
         self.type = type_
+
+        # TODO: remove the following again and get them from the component. Store the component in the Socket.
+        # TODO: need to move everything into the same python module.
+        # The scope of this socket (important for computations and variable creation).
+        self.scope = scope
         # The device to use when placing ops that come after this Socket into the Graph.
         self.device = device
         self.global_ = global_
@@ -122,9 +125,9 @@ class Socket(object):
             in_socket_registry[self.name] = {op} if self.name not in in_socket_registry \
                 else (in_socket_registry[self.name] | {op})
             # Remember, that this op goes into a Socket at the very beginning of the Graph (e.g. a tf.placeholder).
-            op_registry[op] = set([self])
+            op_registry[op] = {self}
         # Computation: Connect this Socket to the nth op coming out of the Computation function.
-        elif isinstance(incoming, TfComputation):
+        elif isinstance(incoming, Computation):
             assert isinstance(slot, int) and slot >= 0, "ERROR: If incoming is a Computation, slot must be set and >=0!"
             # Add every nth op from the output of the completed computations to this Socket's set of ops.
             nth_computed_ops = [outputs[slot] for outputs in incoming.processed_ops.values()]
@@ -147,18 +150,44 @@ class Computation(object):
     on to the outgoing Sockets.
     """
     def __init__(self, name, component, input_sockets, output_sockets,
-                 flatten_container_spaces=True, re_nest_container_spaces=True):
+                 flatten_container_spaces=True, split_container_spaces=True,
+                 add_auto_key_as_first_param=False, re_nest_container_spaces=True):
         """
         Args:
             name (str): The name of the computation (must have a matching method name inside `component`).
             component (Component): The Component object that this Computation belongs to.
-            input_sockets (list): The required input Sockets to be passed as parameters into the computation function.
-            output_sockets (list): The Sockets associated with the return values coming from the computation function.
-            flatten_container_spaces (bool): Whether to split up the computations for an incoming ContainerSpace
-                into a flattened OrderedDict (with automatic keys) holding single computations for each primitive Space.
-                (default=True)
+            input_sockets (List[Socket]): The required input Sockets to be passed as parameters into the
+                computation function.
+            output_sockets (List[socket]): The Sockets associated with the return values coming from the computation
+                function.
+            flatten_container_spaces (Union[bool,Set[str]]): Whether to flatten input ContainerSpaces by creating
+                a flat OrderedDict (with automatic key names) out of Dict/Tuple.
+                Alternatively, can be a set of in-Socket names to flatten.
+                (default: True).
+            split_container_spaces (Union[bool,Set[str]]): Whether to flatten, then split all or some input
+                ContainerSpaces and send the single, primitive Spaces one by one through the computation.
+                In this case, the computation function needs to expect single, primitive Spaces as input parameters.
+                Example: in-Sockets=A=Dict (container), B=int (primitive)
+                    The computation func should then expect for each primitive Space in A:
+                        _computation_func(primitive-in-A (Space), B (int))
+                        NOTE that B will be the same in all calls for all primitive-in-A's.
+                (default: True).
+            add_auto_key_as_first_param (bool): If `split_container_spaces` is not False, whether to send the
+                automatically generated flat key as the very first parameter into each call of the computation func.
+                Example: in-Sockets=A=float (primitive), B=Tuple (container)
+                    The computation func should then expect for each primitive Space in B:
+                        _computation_func(key, A (float), primitive-in-B (Space))
+                        NOTE that A will be the same in all calls for all primitive-in-B's.
+                        The key can now be used to index into variables equally structured as B.
+                Has no effect if `split_container_spaces` is False.
+                (default: False).
             re_nest_container_spaces (bool): Whether to re-establish the originally nested structure of computations
-                for an incoming ContainerSpace. Only relevant if flatten_container_spaces=True. (default=True)
+                for an incoming, flattened ContainerSpace.
+                Only relevant if flatten_container_spaces is not False.
+                (default: True)
+
+        Raises:
+            YARLError: If a computation method with the given name cannot be found in the component.
         """
 
         # Must match the _computation_...-method's name (w/o the `_computation`-prefix).
@@ -167,21 +196,13 @@ class Computation(object):
         self.component = component
 
         self.flatten_container_spaces = flatten_container_spaces
+        self.split_container_spaces = split_container_spaces
+        self.add_auto_key_as_first_param = add_auto_key_as_first_param
         self.re_nest_container_spaces = re_nest_container_spaces
 
-        # Derive primitive-space-pre-method and computation methods from name and build the computation method.
-        #self.primitive_space_pre_method = None
-        #if self.flatten_container_spaces:
-        #    self.primitive_space_pre_method = getattr(self.component, "_primitive_pre_" + self.name, None)
-        #    # Maybe method does not exist -> Use a default one (simple pass-through).
-        #    if not self.primitive_space_pre_method:
-        #        self.primitive_space_pre_method = lambda *ops: tuple(ops)
-
-        self.raw_method = getattr(self.component, "_computation_" + self.name, None)
-        if not self.raw_method:
-            raise YARLError("ERROR: No raw `_computation_...` method with name '{}' found!".format(self.name))
-        #self.graphed_method = self.to_graph(method=self.raw_method)
-        #self.graphed_method = self.raw_method
+        self.method = getattr(self.component, "_computation_" + self.name, None)
+        if not self.method:
+            raise YARLError("ERROR: No `_computation_...` method with name '{}' found!".format(self.name))
 
         self.input_sockets = input_sockets
         self.output_sockets = output_sockets
@@ -199,17 +220,17 @@ class Computation(object):
         # value=list of generated output ops (len==number of return values).
         self.processed_ops = dict()
 
-    def to_graph(self, method):
-        """
-        Converts function containing Python control flow to graph.
-
-        Args:
-            method (callable): Function object containing computations and potentially control flow.
-
-        Returns:
-            Computation graph object.
-        """
-        return method  # not mandatory
+    #def to_graph(self, method):
+    #    """
+    #    Converts function containing Python control flow to graph.
+    #
+    #    Args:
+    #        method (callable): Function object containing computations and potentially control flow.
+    #
+    #    Returns:
+    #        Computation graph object.
+    #    """
+    #    return method  # not mandatory
 
     def update_from_input(self, input_socket, op_registry, in_socket_registry):
         """
@@ -250,74 +271,181 @@ class Computation(object):
                 # Make sure we call the computation method only once per input-op combination.
                 if input_combination not in self.processed_ops:
                     # Build the ops from this input-combination.
-                    # By flattening (and maybe re-nesting) complex spaces.
-                    if self.flatten_container_spaces:
-                        ops = self.ops_from_container_spaces(*input_combination)
-                    # By ignoring complex spaces (treat them as we do any others and pass them through the computation
-                    # func).
-                    else:
-                        #ops = self.graphed_method(self.component, *input_combination)
-                        ops = self.raw_method(*input_combination)
+                    # - Flatten complex spaces.
+                    if self.flatten_container_spaces is not False:
+                        flattened_spaces = self.flatten_container_ops(*input_combination)
+                        if self.split_container_spaces:
+                            # ops is an OrderedDict of return-tuples.
+                            ops = self.split_flattened_ops(*flattened_spaces)
 
-                    ops_as_tuple = force_list(ops, to_tuple=True)
-                    self.processed_ops[input_combination] = ops_as_tuple
+                        else:
+                            # ops is a return-tuple or a single op.
+                            ops = force_tuple(self.method(*input_combination))
+
+                        # Do optional re-nesting for both cases: 1) flatten and 2) flatten+split
+                        if self.re_nest_container_spaces:
+                            pass
+                            """
+                            3) bool-Option: Ob man die outputs wieder re-nested haben moechte.
+                                Dann muessen bei 1) die outputs
+                                (OrderedDicts) dieselbe Struktur haben wie die geflatteten inputs (sonst YARLError),
+                                und bei 2) wuerde das automatisch gehen, weil die computations ja einzeln pro primitive gecalled werden
+                                und YARL die outputs dann einfach wieder einsammelt und buendelt.
+                            """
+
+                    # - Simple case: Just pass in everything as is.
+                    else:
+                        ops = force_tuple(self.method(*input_combination))
+
+                    self.processed_ops[input_combination] = ops
                     # Keep track of which ops require which other ops.
-                    for op in ops_as_tuple:
+                    for op in ops:
                         op_registry[op] = set(input_combination)
 
             # Loop through our output Sockets and keep processing them with this computation's outputs.
             for slot, output_socket in enumerate(self.output_sockets):
                 output_socket.update_from_input(self, op_registry, in_socket_registry, slot)
 
-    def ops_from_container_spaces(self, *ops):
+    def flatten_container_ops(self, *ops):
         """
-        Generates all ops that come out of this Computation for some given input-op combination.
-        If ops contains 1 ContainerSpace, find it and iterate over it leaving the other primitive Spaces constant.
-        If ops container 2 or more container Spaces, these then must have the exact same structure
-            e.g. ops[0]=dict, ops[1]=dict (same structure as ops[0]), (ops[2]=primitive space or nothing)?
-            We then pass each key alongside each other into `pre`. Same for 2 tuples, 3 dicts, 3 tuples, etc..
+        Flattens all ContainerSpace instances in ops into python OrderedDicts with auto-key generation.
+        Primitives ops and ops whose Sockets are not in self.flatten_container_spaces (if its a set)
+        will be ignored.
 
         Args:
-            *ops (any): The input ops into this Computation. Some of these may be container ops (dict/tuple).
+            *ops (Union[dict,tuple,op]): The ops to flatten.
 
         Returns:
-            The generated ops (could be a dict/tuple as well) depending on the incoming ops and on re_merge.
-
-        Raises:
-            YARLError: If there are more than 1 containers in ops and their structures don't align.
+            tuple: All *ops as flattened OrderedDicts (or left unchanged if already primitive).
         """
+        # The returned sequence of output ops.
+        ret = []
 
-        # TODO: make this more generic
-        assert len(ops) == 1
-        op = ops[0]
+        for i, op in enumerate(ops):
+            # The in-Socket name of this op.
+            socket_name = self.input_sockets[i].name
+            # self.flatten_container_spaces cannot be False here.
+            if (self.flatten_container_spaces is True or socket_name in self.flatten_container_spaces) and \
+                    not isinstance(op, (dict, tuple)):
+                ret.append(self._flatten_container_op(op))
+            # Primitive ops are left as-is.
+            else:
+                ret.append(op)
+
+        # Always return a tuple for indexing into the return values.
+        return tuple(ret)
+
+    def _flatten_container_op(self, op, scope_="", list_=None):
+        """
+        Flattens a single ContainerSpace (op) into a python OrderedDict with auto-key generation.
+
+        Args:
+            op (op): The op to flatten. This can only be a tuple or a dict.
+            scope_ (str): The recursive scope for auto-key generation.
+            list_ (list): The list of tuples (key, value) to be converted into the final OrderedDict.
+
+        Returns:
+            OrderedDict: The flattened representation of the op.
+        """
+        ret = False
+        # Are we in the non-recursive (first) call?
+        if list_ is None:
+            assert isinstance(op, (tuple, dict)), "ERROR: Can only flatten container (tuple/dict) ops!"
+            list_ = list()
+            ret = True
 
         if isinstance(op, tuple):
-            ret = list()
-            for c in op:
-                ret.append(self.ops_from_container_spaces(c))
-            return tuple(ret)
-        elif isinstance(op, OrderedDict):
-            ret = OrderedDict()
+            scope_ += "/tuple-"
+            for i, c in enumerate(op):
+                list_.append((scope_ + str(i), self._flatten_container_op(c)))
+        elif isinstance(op, dict):
+            scope_ += "/"
             for k, v in op.items():
-                ret[k] = self.ops_from_container_spaces(v)
-            return ret
+                list_.append((scope_ + k, self._flatten_container_op(v)))
         else:
-            # Get args for autograph.
-            #returns = self.primitive_space_pre_method(op)
-            # And call autograph with these.
-            #return self.graphed_method(self.component, *returns)
-            #return self.graphed_method(*returns)
-            return self.raw_method(op)
+            list_.append((scope_, op))
+
+        # Non recursive (first) call -> Return the final OrderedDict.
+        if ret:
+            return OrderedDict(list_)
+
+    def split_flattened_ops(self, *ops):
+        """
+        Splits any (flattened) OrderedDict-type op in ops into its single, primitive ops and passes them
+        one by one through the computation function. If more than one container op exists in ops,
+        these must have the exact same key/value structure and sequence.
+        If self.add_auto_key_as_first_param is True: Pass in auto-key as very first parameter into each
+            call to computation func.
+
+        Args:
+            *ops (any): The input ops into this Computation. Some of these may be flattened container ops (OrderedDict).
+
+        Returns:
+            OrderedDict: The flattened, sorted, generated ops (if at least one in ops is already a flattened
+                OrderedDict.
+            tuple(ops): If no flattened OrderedDict is in ops.
+
+        Raises:
+            YARLError: If there are more than 1 flattened ops in ops and their keys and value-types don't match 100%.
+        """
+        # Collect OrderedDicts (these are the flattened ones) for checking their structures (must match).
+        flattened = [op.items() for op in ops if isinstance(op, OrderedDict)]
+        # If it's more than 1, make sure they match. If they don't match: raise Error.
+        if len(flattened) > 1:
+            # Loop through the first one and make sure all others match.
+            for key, value in flattened[0]:
+                for other in flattened[1:]:
+                    k_other, v_other = next(other)
+                    if k_other != key or get_shape(v_other) != get_shape(value):
+                        raise YARLError("ERROR: Flattened ops dont match in structure (key={})!".format(key))
+
+        # We have (matching) container ops: Split the calls.
+        if len(flattened) > 0:
+            # The first op that is an OrderedDict.
+            guide_op = next([op for op in ops if isinstance(op, OrderedDict)])
+            # Re-create our iterators.
+            flattened = [op.items() if isinstance(op, OrderedDict) else op for op in ops]
+            collected_returns = OrderedDict()
+            # Do the single split calls to our computation func.
+            for key, value in guide_op:
+                # Prep input params for a single call.
+                params = [key, value] if self.add_auto_key_as_first_param else [value]
+                # Pull along the other ops' values for the guide_op's current key
+                # (all container ops match structure-wise).
+                for other in flattened[1:]:
+                    v_other = next(other)[1] if isinstance(other, OrderedDict) else other
+                    params.append(v_other)
+                # Now do the single call.
+                collected_returns[key] = self.method(*params)
+
+            return collected_returns
+        # We don't have any container ops: No splitting possible. Return as is.
+        else:
+            return force_tuple(self.method(*ops))
+
+    def re_nest_container_ops(self, ops):
+        """
+        Re-creates the originally nested structure (as dict/tuple) of a given OrderedDict (with
+        auto-generated keys).
+
+        Args:
+            ops (OrderedDict): The OrderedDict that has to be re-nested.
+
+        Returns:
+            Union[dict,tuple]: A python dict/tuple depending on the original structure that was flattened into
+                an OrderedDict.
+        """
+
 
     def __str__(self):
         return "{}('{}' in=[{}] out=[{}])". \
             format(type(self).__name__, self.name, str(self.input_sockets), str(self.output_sockets))
 
 
-class TfComputation(Computation):
-    """
-    TensorFlow computation.
-    """
-    def to_graph(self, method):
-        return autograph.to_graph(method, verbose=True)
+#class TfComputation(Computation):
+#    """
+#    TensorFlow computation.
+#    """
+#    def to_graph(self, method):
+#        return autograph.to_graph(method, verbose=True)
 

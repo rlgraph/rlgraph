@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-from collections import OrderedDict
 from cached_property import cached_property
 
 from yarl import YARLError
@@ -32,7 +31,7 @@ class ContainerSpace(Space):
     pass
 
 
-class Dict(ContainerSpace, OrderedDict):
+class Dict(ContainerSpace, dict):
     """
     A Dict space (an ordered and keyed combination of n other spaces).
     Supports nesting of other Dict/Tuple spaces (or any other Space types) inside itself.
@@ -43,7 +42,7 @@ class Dict(ContainerSpace, OrderedDict):
         if spec is None:
             spec = kwargs
 
-        dict_ = OrderedDict()
+        dict_ = dict()
         for key in sorted(spec.keys()):
             assert isinstance(key, str), "ERROR: No non-str keys allowed in a Dict-Space!"
             value = spec[key]
@@ -62,7 +61,7 @@ class Dict(ContainerSpace, OrderedDict):
 
         if len(dict_) == 0:
             raise YARLError("ERROR: Dict() c'tor needs a non-empty spec!")
-        OrderedDict.__init__(self, dict_)
+        dict.__init__(self, dict_)
 
     @cached_property
     def shape(self):
@@ -78,10 +77,10 @@ class Dict(ContainerSpace, OrderedDict):
 
     @cached_property
     def dtype(self):
-        return OrderedDict([(key, subspace.dtype()) for key, subspace in self.items()])
+        return dict([(key, subspace.dtype()) for key, subspace in self.items()])
 
     def get_tensor_variable(self, name, is_input_feed=False, **kwargs):
-        return OrderedDict([(key, subspace.get_tensor_variable(name+"/"+key, is_input_feed, **kwargs))
+        return dict([(key, subspace.get_tensor_variable(name+"/"+key, is_input_feed, **kwargs))
                             for key, subspace in self.items()])
 
     def _flatten(self, mapping, scope_, list_):
@@ -91,7 +90,7 @@ class Dict(ContainerSpace, OrderedDict):
             component.flatten(mapping, scope_ + key, list_)
 
     #def get_initializer(self, specification):
-    #    return OrderedDict([(key, subspace.get_initializer(specification)) for key, subspace in self.items()])
+    #    return dict([(key, subspace.get_initializer(specification)) for key, subspace in self.items()])
 
     def __repr__(self):
         return "Dict({})".format([(key, self[key].__repr__()) for key in self.keys()])
@@ -99,15 +98,15 @@ class Dict(ContainerSpace, OrderedDict):
     def __eq__(self, other):
         if not isinstance(other, Dict):
             return False
-        return OrderedDict(self) == OrderedDict(other)
+        return dict(self) == dict(other)
 
     def sample(self, seed=None):
         if seed is not None:
             np.random.seed(seed)
-        return OrderedDict([(key, subspace.sample()) for key, subspace in self.items()])
+        return dict([(key, subspace.sample()) for key, subspace in self.items()])
 
     def contains(self, x):
-        return isinstance(x, (OrderedDict, dict)) and all(self[key].contains(x[key]) for key in self.keys())
+        return isinstance(x, dict) and all(self[key].contains(x[key]) for key in self.keys())
 
 
 class Tuple(ContainerSpace, tuple):
