@@ -40,7 +40,6 @@ class ReplayMemory(Memory):
         # Variables.
         self.index = None
         self.size = None
-        self.episode = None
         self.states = None
         self.next_states = next_states
 
@@ -67,21 +66,21 @@ class ReplayMemory(Memory):
         update_indices = tf.range(start=index, stop=index + num_records) % self.capacity
 
         # Updates all the necessary sub-variables in the record.
-        updates = self.record_space.flatten(mapping=lambda key, primitive: self.scatter_update_variable(
+        record_updates = self.record_space.flatten(mapping=lambda key, primitive: self.scatter_update_variable(
             variable=self.record_registry[key],
             indices=update_indices,
             updates=records[key]
         ))
 
         # Update indices and size.
-        with tf.control_dependencies(list(updates.values())):
-            updates = list()
-            updates.append(self.assign_variable(variable=self.index, value=(index + num_records) % self.capacity))
+        with tf.control_dependencies(control_inputs=list(record_updates.values())):
+            index_updates = list()
+            index_updates.append(self.assign_variable(variable=self.index, value=(index + num_records) % self.capacity))
             update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
-            updates.append(self.assign_variable(self.size, value=update_size))
+            index_updates.append(self.assign_variable(self.size, value=update_size))
 
         # Nothing to return.
-        with tf.control_dependencies(updates):
+        with tf.control_dependencies(control_inputs=index_updates):
             return tf.no_op()
 
     def read_records(self, indices):
