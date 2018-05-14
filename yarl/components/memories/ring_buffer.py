@@ -59,7 +59,7 @@ class RingBuffer(Memory):
 
         if self.episode_semantics:
             # Num episodes present.
-            self.num_episodes = self.get_variable(name="num_episodes", dtype=int, trainable=False, initializer=0)
+            self.num_episodes = self.get_variable(name="num-episodes", dtype=int, trainable=False, initializer=0)
 
             # Terminal indices contiguously arranged.
             self.episode_indices = self.get_variable(
@@ -97,8 +97,8 @@ class RingBuffer(Memory):
                 inserted_episodes = tf.reduce_sum(input_tensor=records['terminal'], axis=0)
                 num_episode_update = num_episodes - episodes_in_insert_range + inserted_episodes
 
-                episode_index_updates = list()
                 # Remove previous episodes in inserted range.
+                # TODO test if these can all update in parallel without problems.
                 index_updates.append(self.assign_variable(
                         variable=self.episode_indices[:num_episodes + 1 - episodes_in_insert_range],
                         value=self.episode_indices[episodes_in_insert_range: num_episodes + 1]
