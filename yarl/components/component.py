@@ -96,6 +96,8 @@ class Component(Specifiable):
 
     def create_variables(self):
         """
+        TODO: maybe only call this after we know the different in-Socket Spaces.
+        TODO: That way, we don't need to always pass Space information into the different Component c'tors.
         Should create all variables that are needed within this component,
         unless a variable is only needed inside a single computation method (_computation_-method), in which case,
         it should be created there.
@@ -203,7 +205,7 @@ class Component(Specifiable):
                 self.output_sockets.append(sock)
 
     def add_computation(self, inputs, outputs, method_name=None,
-                        flatten_container_spaces=True, split_container_spaces=True,
+                        flatten_container_spaces=True, split_container_spaces=False,
                         add_auto_key_as_first_param=False, re_nest_container_spaces=True):
         """
         Links a set (A) of sockets via a computation to a set (B) of other sockets via a computation function.

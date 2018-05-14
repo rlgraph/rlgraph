@@ -19,41 +19,30 @@ from __future__ import print_function
 
 import unittest
 
-from yarl.components.layers import DenseLayer
+from yarl.components.layers import GrayScale
 from yarl.spaces import *
 from yarl.tests import ComponentTest
 
 import numpy as np
 
 
-class TestNNLayer(unittest.TestCase):
+class TestPreprocessors(unittest.TestCase):
+
     def test_split_computation_on_grayscale(self):
-        space = Dict(
-            a=Dict(
-                a=Continuous(shape=(1, 1, 3)),
-                b=Continuous(shape=(2, 2, 3)),
-                c=Dict(
-                    ca=Continuous(shape=(1, 3)),
-                    cb=Continuous(shape=(1, 3))
+        space = dict(
+            a=dict(
+                a=Continuous(shape=(1, 1, 3)),  # 2D image
+                b=Continuous(shape=(2, 2, 2, 3)),  # 3D image
+                c=dict(
+                    ca=Continuous(shape=(1, 3)),  # 1D image
+                    cb=Continuous(shape=(4, 4, 3))  # 2D image
                 )
             ),
-            b=Bool(),
-            c=Discrete(),
-            d=Continuous(shape=(3, 2)),
-            e=Tuple(
-                Bool(),
-                Bool()
-            )
+            b=Continuous(shape=(3,)),  # 0D image (pixel)
         )
 
         # The Component to test.
-        # - fixed 1.0 weights, no biases
-        component_to_test = DenseLayer(input_space=space, units=2, weights_spec=1.0, biases_spec=False)
-
-        # TODO: discuss, whether it would be better in the DenseLayer to wait until we know the input space.
-        # TODO: Maybe introduce a `at_build` method for components, in which they can do stuff after they know about the input Space.
-        # TODO: Then we wouldn't have to specify it twice here (once when we build the layer and once when we
-        # TODO: connect the core's input to the Space)!
+        component_to_test = GrayScale()
 
         # A ComponentTest object.
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))

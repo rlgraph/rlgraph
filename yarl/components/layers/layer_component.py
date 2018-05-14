@@ -45,12 +45,11 @@ class LayerComponent(StackComponent):
         else:
             self.add_sockets("output")
 
-        # Create computation and connect it from our input socket(s) (or last sub-component's output(s)) to our
-        # output socket(s).
-        if len(sub_components) > 0:
-            self.add_computation(sub_components[-1].output_sockets, self.output_sockets, "apply")
-        else:
-            self.add_computation(self.input_sockets, self.output_sockets, "apply")
+        # Create computation and connect it from our input socket(s) (or last sub-component's output(s)) to our output
+        # socket(s).
+        # NOTE: Layers always do split computations on complex input Spaces.
+        self.add_computation(sub_components[-1].output_sockets if len(sub_components) > 0 else self.input_sockets,
+                             self.output_sockets, "apply", split_container_spaces=True)
 
     def _computation_apply(self, *inputs):
         """

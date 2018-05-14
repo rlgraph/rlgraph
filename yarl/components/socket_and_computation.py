@@ -20,6 +20,7 @@ from __future__ import print_function
 import itertools
 from tensorflow.contrib import autograph
 from collections import OrderedDict
+import re
 
 from yarl import YARLError
 from yarl.spaces import Space
@@ -277,21 +278,13 @@ class Computation(object):
                         if self.split_container_spaces:
                             # ops is an OrderedDict of return-tuples.
                             ops = self.split_flattened_ops(*flattened_spaces)
-
                         else:
-                            # ops is a return-tuple or a single op.
+                            # ops is a return-tuple (maybe including flattened OrderedDicts) or a single op.
                             ops = force_tuple(self.method(*input_combination))
 
-                        # Do optional re-nesting for both cases: 1) flatten and 2) flatten+split
+                        # Need to re-nest?
                         if self.re_nest_container_spaces:
-                            pass
-                            """
-                            3) bool-Option: Ob man die outputs wieder re-nested haben moechte.
-                                Dann muessen bei 1) die outputs
-                                (OrderedDicts) dieselbe Struktur haben wie die geflatteten inputs (sonst YARLError),
-                                und bei 2) wuerde das automatisch gehen, weil die computations ja einzeln pro primitive gecalled werden
-                                und YARL die outputs dann einfach wieder einsammelt und buendelt.
-                            """
+                            ops = self.re_nest_container_ops(*ops)
 
                     # - Simple case: Just pass in everything as is.
                     else:
@@ -423,19 +416,72 @@ class Computation(object):
         else:
             return force_tuple(self.method(*ops))
 
-    def re_nest_container_ops(self, ops):
+    def re_nest_container_ops(self, *ops, input_comparison_op=None):
         """
-        Re-creates the originally nested structure (as dict/tuple) of a given OrderedDict (with
-        auto-generated keys).
+        Re-creates the originally nested input structure (as dict/tuple) of the given output ops.
+        Process all flattened OrderedDicts with auto-generated keys, and leave the others (primitives)
+        untouched.
 
         Args:
-            ops (OrderedDict): The OrderedDict that has to be re-nested.
+            *ops (Union[OrderedDict,dict,tuple,op]): The ops that need to be re-nested (only process the OrderedDicts
+                amongst these and ignore all others).
+            input_comparison_op (Optional[OrderedDict]): One of the flattened input ops to use for sanity checking.
+                If not None, all output OrderedDict ops must match this one's key/value structure.
 
         Returns:
-            Union[dict,tuple]: A python dict/tuple depending on the original structure that was flattened into
-                an OrderedDict.
+            Tuple[Union[dict,tuple,op]]: A tuple containing the ops as they came in, except that all OrderedDicts
+                have been re-nested into their original (dict/tuple) container structures.
         """
+        # The returned sequence of output ops.
+        ret = []
 
+        for i, op in enumerate(ops):
+            # An OrderedDict: Try to re-nest it and then compare it to input_template_op's structure.
+            if isinstance(op, OrderedDict):
+                ret.append(self._re_nest_container_op(op))  #, input_comparison_op=input_comparison_op))
+            # All others are left as-is.
+            else:
+                ret.append(op)
+
+        # Always return a tuple for indexing into the return values.
+        return tuple(ret)
+
+    @staticmethod
+    def _re_nest_container_op(op):
+        base_structure = None
+
+        for k, v in op.items():
+            parent_structure = None
+            parent_key = None
+            current_structure = None
+
+            keys = k[1:].split("/")  # skip 1st char (/)
+            for key in keys:
+                mo = re.match(r'^tuple-(\d+)$', key)
+                idx = int(mo.group(1))
+
+                if current_structure is None:
+                    if base_structure is None:
+                        base_structure = [None]
+                    current_structure = base_structure
+                elif parent_key is not None:
+                    if parent_structure[parent_key] is None:
+                        current_structure = [None]
+                        parent_structure[parent_key] = current_structure
+                    else:
+                        current_structure = parent_structure[parent_key]
+                        if len(current_structure) == idx:
+                            current_structure.append(None)
+
+                parent_structure = current_structure
+                parent_key = idx
+
+            if len(current_structure) == parent_key:
+                current_structure.append(None)
+            current_structure[parent_key] = v
+
+        # TODO: complete deep conversion from list to tuple
+        return tuple(base_structure)
 
     def __str__(self):
         return "{}('{}' in=[{}] out=[{}])". \
