@@ -108,20 +108,20 @@ class Component(Specifiable):
         pass  # Children may overwrite this method.
 
     def get_variable(self, name="", shape=None, dtype="float",
-                     initializer=None, trainable=True, from_space=None,
-                     flatten=True):
+                     initializer=None, trainable=True, from_space=None, add_batch_rank=False):
         """
         Generates or returns a variable to use in the selected backend.
 
         Args:
             name (str): The name under which the variable is registered in this component.
-            shape (Optional[tuple]): The shape of the variable (default: ()).
+            shape (Optional[tuple]): The shape of the variable. Default: empty tuple.
             dtype (Union[str,type]): The dtype (as string) of this variable.
             initializer (Optional[any]): Initializer for this variable.
             trainable (bool): Whether this variable should be trainable.
             from_space (Optional[Space]): Whether to create this variable from a Space object
                 (shape, dtype and trainable are not needed then).
-            flatten (bool): If from_space =True):
+            add_batch_rank (bool): If from_space is given and is True, will add a 0th rank to the created variable.
+                Default: False.
 
         Returns:
             Union[variable,dict,tuple]: The actual variable (dependent on the backend) or - if from a container
@@ -137,13 +137,11 @@ class Component(Specifiable):
         if backend() == "tf":
             # TODO: need to discuss what other data we need per variable. Initializer, trainable, etc..
             if from_space:
-                var = from_space.flatten(mapping=lambda primitive: primitive.get_tensor_variable())
+                var = from_space.flatten(mapping=lambda primitive: primitive.get_tensor_variable(add_batch_rank=True))
             else:
-                if shape is None:
-                    shape = tuple()
                 var = tf.get_variable(
                     name=name,
-                    shape=shape,
+                    shape=tuple((() if not add_batch_rank else (None,)) + (shape or ())),
                     dtype=util.dtype(dtype),
                     initializer=initializer,
                     trainable=trainable

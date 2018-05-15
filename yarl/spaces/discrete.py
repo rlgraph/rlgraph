@@ -58,7 +58,7 @@ class Discrete(Space):
             np.random.seed(seed)
         return np.random.randint(self.n)
 
-    def contains(self, x):
-        x = np.asarray(x)
-        return x.shape == () and x.dtype.kind == 'i' and 0 <= x < self.n
+    def contains(self, sample):
+        sample = np.asarray(sample)
+        return sample.shape == () and sample.dtype.kind == 'i' and 0 <= sample < self.n
 

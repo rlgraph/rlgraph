@@ -51,7 +51,8 @@ class PreprocessLayer(LayerComponent):
 
     def processed_shape(self, space):
         """
-        TODO: make it such that children of this class don't have to re-implement this function. It should be automatic.
+        TODO: make it such that children of this class don't have to re-implement this function. It should be
+        TODO: automatically inferred.
 
         Returns the processed shape for an input of space `space`.
 

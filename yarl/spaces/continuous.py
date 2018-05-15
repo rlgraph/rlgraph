@@ -120,15 +120,15 @@ class Continuous(Space):
             return np.random.uniform(size=None if self.is_scalar else self.low.shape)
         return np.random.uniform(low=self.low, high=self.high, size=None if self.is_scalar else self.low.shape)
 
-    def contains(self, x):
+    def contains(self, sample):
         if self.is_scalar:
             if self.has_unknown_bounds:
-                return isinstance(x, (float, int))
+                return isinstance(sample, (float, int))
             else:
-                return self.low <= x <= self.high
+                return self.low <= sample <= self.high
         else:
-            if x.shape != self.shape:
+            if sample.shape != self.shape:
                 return False
             elif self.has_unknown_bounds:
                 return True
-            return (x >= self.low).all() and (x <= self.high).all()
+            return (sample >= self.low).all() and (sample <= self.high).all()

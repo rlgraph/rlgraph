@@ -56,10 +56,10 @@ class IntBox(Continuous):
         return np.random.uniform(self.low - 1, self.high + 1, size=None if self.is_scalar else self.low.shape).\
             astype(int)
 
-    def contains(self, x):
+    def contains(self, sample):
         # Check for int type in given sample.
-        if not np.equal(np.mod(x, 1), 0).all():
+        if not np.equal(np.mod(sample, 1), 0).all():
             # Wrong type.
             return False
         # Let parent handle it.
-        return super(IntBox, self).contains(x)
+        return super(IntBox, self).contains(sample)

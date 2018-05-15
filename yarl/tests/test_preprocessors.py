@@ -48,7 +48,7 @@ space = Dict.from_spec(dict(
 ))
 
 # The Component to test.
-component_to_test = GrayScale(weights=(0.5, 0.5))
+component_to_test = GrayScale(weights=(0.5, 0.5), keep_rank=True)
 
 # A ComponentTest object.
 test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))

@@ -33,32 +33,37 @@ class Space(Specifiable):
     @property
     def shape(self):
         """
-        The shape of this Space as a tuple.
+        Returns:
+            tuple: The shape of this Space as a tuple.
         """
         raise NotImplementedError
 
     @property
     def rank(self):
         """
-        The rank of the Space (e.g. 3 for a space with shape=(10, 7, 5)).
+        Returns:
+            int: The rank of the Space (e.g. 3 for a space with shape=(10, 7, 5)).
         """
         return len(self.shape)
 
     @property
     def flat_dim(self):
         """
-        The dimension of the flattened vector of the tensor representation.
+        Returns:
+            int: The dimension of the flattened vector of the tensor representation.
         """
         raise NotImplementedError
 
     @property
     def dtype(self):
         """
-        The dtype (as string) of this Space. Can be converted to tf/np/python dtypes via the misc.utils.dtype function.
+        Returns:
+            str: The dtype (as string) of this Space.
+                Can be converted to tf/np/python dtypes via the misc.utils.dtype function.
         """
         raise NotImplementedError
 
-    def get_tensor_variable(self, name, is_input_feed=False, **kwargs):
+    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=False, **kwargs):
         """
         Returns a backend-specific variable/placeholder that matches the space's shape.
 
@@ -66,18 +71,21 @@ class Space(Specifiable):
             name (str): The name for the variable.
             is_input_feed (bool): Whether the returned object should be an input placeholder,
                 instead of a full variable.
+            add_batch_rank (bool): If from_space is given and is True, will add a 0th rank to the created variable.
+                Default: False.
 
         Keyword Args:
             To be passed on to backend-specific methods.
 
         Returns:
-            A Tensor Variable/Placeholder.
+            any: A Tensor Variable/Placeholder.
         """
+        shape = tuple((() if not add_batch_rank else (None,)) + self.shape)
         if backend() == "tf":
             if is_input_feed:
-                return tf.placeholder(dtype=self.dtype, shape=self.shape, name=name)
+                return tf.placeholder(dtype=self.dtype, shape=shape, name=name)
             else:
-                return tf.get_variable(name, shape=self.shape, dtype=self.dtype, **kwargs)
+                return tf.get_variable(name, shape=shape, dtype=self.dtype, **kwargs)
         else:
             raise YARLError("ERROR: Pytorch not supported yet!")
 
@@ -149,18 +157,24 @@ class Space(Specifiable):
         """
         Uniformly randomly samples an element from this space. This is more for testing purposes, e.g. to simulate
         a random environment.
+
         Args:
             seed (int): The random seed to use.
-        Returns: The sampled element.
+
+        Returns:
+            any: The sampled element.
         """
         raise NotImplementedError
 
-    def contains(self, x):
+    def contains(self, sample):
         """
         Checks whether this space contains the given sample. This is more for testing purposes.
+
         Args:
-            x: The element to check.
-        Returns: Whether x is a valid member of this space.
+            sample: The element to check.
+
+        Returns:
+            bool: Whether sample is a valid member of this space.
         """
         raise NotImplementedError
 

@@ -50,6 +50,6 @@ class Bool(Discrete):
             random.seed(seed)
         return not not random.getrandbits(1)  # fastest way (better than bool)
 
-    def contains(self, x):
-        return isinstance(x, bool)
+    def contains(self, sample):
+        return isinstance(sample, bool)
 

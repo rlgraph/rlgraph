@@ -17,10 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
-import tensorflow as tf
-
-from yarl.utils.util import get_rank, get_shape
 from .preprocess_layer import PreprocessLayer
 
 
@@ -37,14 +33,14 @@ class Scale(PreprocessLayer):
         super(Scale, self).__init__(scope=scope, **kwargs)
         self.scaling_factor = scaling_factor
 
-    def _computation_apply(self, input_):
+    def _computation_apply(self, tensor):
         """
         Simply multiplies the input with our scaling factor.
 
         Args:
-            input_ (tensor): The input to be scaled.
+            tensor (tensor): The input to be scaled.
 
         Returns:
             op: The op to scale the input.
         """
-        return input_ * self.scaling_factor
+        return tensor * self.scaling_factor

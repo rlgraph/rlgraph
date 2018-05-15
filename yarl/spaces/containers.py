@@ -87,8 +87,8 @@ class Dict(ContainerSpace, dict):
     def dtype(self):
         return dictop([(key, subspace.dtype()) for key, subspace in self.items()])
 
-    def get_tensor_variable(self, name, is_input_feed=False, **kwargs):
-        return dictop([(key, subspace.get_tensor_variable(name+"/"+key, is_input_feed, **kwargs))
+    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=False, **kwargs):
+        return dictop([(key, subspace.get_tensor_variable(name+"/"+key, is_input_feed, add_batch_rank, **kwargs))
                        for key, subspace in self.items()])
 
     def _flatten(self, mapping, scope_, list_):
@@ -113,8 +113,8 @@ class Dict(ContainerSpace, dict):
             np.random.seed(seed)
         return dict([(key, subspace.sample()) for key, subspace in self.items()])
 
-    def contains(self, x):
-        return isinstance(x, dict) and all(self[key].contains(x[key]) for key in self.keys())
+    def contains(self, sample):
+        return isinstance(sample, dict) and all(self[key].contains(sample[key]) for key in self.keys())
 
 
 class Tuple(ContainerSpace, tuple):
@@ -161,8 +161,8 @@ class Tuple(ContainerSpace, tuple):
     def dtype(self):
         return tuple([c.dtype for c in self])
 
-    def get_tensor_variable(self, name, is_input_feed=False, **kwargs):
-        return tuple([subspace.get_tensor_variable(name+"/"+str(i), is_input_feed, **kwargs)
+    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=False, **kwargs):
+        return tuple([subspace.get_tensor_variable(name+"/"+str(i), is_input_feed, add_batch_rank, **kwargs)
                       for i, subspace in enumerate(self)])
 
     def _flatten(self, mapping, scope_, list_):
@@ -185,6 +185,7 @@ class Tuple(ContainerSpace, tuple):
             np.random.seed(seed)
         return tuple(x.sample() for x in self)
 
-    def contains(self, x):
-        return isinstance(x, (tuple, list)) and len(self) == len(x) and all(c.contains(xi) for c, xi in zip(self, x))
+    def contains(self, sample):
+        return isinstance(sample, (tuple, list)) and len(self) == len(sample) and \
+               all(c.contains(xi) for c, xi in zip(self, sample))
 
