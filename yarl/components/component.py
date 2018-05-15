@@ -120,7 +120,8 @@ class Component(Specifiable):
             trainable (bool): Whether this variable should be trainable.
             from_space (Optional[Space]): Whether to create this variable from a Space object
                 (shape, dtype and trainable are not needed then).
-            add_batch_rank (bool): If from_space is given and is True, will add a 0th rank to the created variable.
+            add_batch_rank (Union[bool,None,int]): If from_space is given and is True, will add a 0th rank (None) to
+                the created variable. If it is an int, will add that int instead of None.
                 Default: False.
 
         Returns:
@@ -141,7 +142,8 @@ class Component(Specifiable):
             else:
                 var = tf.get_variable(
                     name=name,
-                    shape=tuple((() if not add_batch_rank else (None,)) + (shape or ())),
+                    shape=tuple((() if add_batch_rank is False else
+                                 (None,) if add_batch_rank is True else (add_batch_rank,)) + (shape or ())),
                     dtype=util.dtype(dtype),
                     initializer=initializer,
                     trainable=trainable
