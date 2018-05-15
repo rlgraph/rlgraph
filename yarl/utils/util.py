@@ -24,6 +24,7 @@ from functools import partial
 
 from .backend import backend
 from .yarl_error import YARLError
+from .dictop import dictop
 
 if backend() == "tf":
     import tensorflow as be
@@ -72,17 +73,25 @@ def get_rank(tensor):
         return tensor.get_shape().ndims
 
 
-def get_shape(tensor):
+def get_shape(op):
     """
     Returns the shape of the tensor as a tuple.
 
     Args:
-        tensor (any): The input tensor.
+        op (Union[dictop,tuple,tensor]): The input op.
 
     Returns:
-        The shape (as tuple) of the given tensor.
+        tuple: The shape of the given op.
     """
-    return tuple(tensor.get_shape().as_list())
+    # dictop
+    if isinstance(op, dictop):
+        return tuple([get_shape(op[key]) for key in sorted(op.keys())])
+    # tuple-op
+    elif isinstance(op, tuple):
+        return tuple([get_shape(i) for i in op])
+    # primitive op (e.g. tensorflow)
+    else:
+        return tuple(op.get_shape().as_list())
 
 
 def force_list(elements, to_tuple=False):
@@ -104,6 +113,25 @@ def force_list(elements, to_tuple=False):
 
 
 force_tuple = partial(force_list, to_tuple=True)
+
+
+def deep_tuple(x):
+    """
+    Converts an input list of list (of list, etc..) into the respective nested tuple.
+
+    Args:
+        x (list): The input list to be converted into a tuple.
+
+    Returns:
+        tuple: The corresponding tuple to x.
+    """
+    if isinstance(x, list):
+        return tuple(map(deep_tuple, x))
+    elif isinstance(x, dictop):
+        return dictop(dict(map(lambda i: (i[0], deep_tuple(i[1])), x.items())))
+    else:
+        return x
+
 
 
 def default_dict(original, defaults):
@@ -156,7 +184,7 @@ def clamp(x, min_, max_):
     Args:
         x (float): The input to be clamped.
         min_ (float): The min value for x.
-        largest (float): The max value for x.
+        max_ (float): The max value for x.
 
     Returns:
         float: The clamped value.

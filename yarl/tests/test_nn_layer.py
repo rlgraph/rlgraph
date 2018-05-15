@@ -30,7 +30,7 @@ class TestNNLayer(unittest.TestCase):
 
     def test_dense(self):
         # Dict(a=Continuous(), b=Continuous(), c=Dict(d=Continuous()))
-        space = Continuous(shape=(1,2))
+        space = Continuous(shape=(1, 2))
 
         # The Component to test.
         # - fixed 1.0 weights, no biases

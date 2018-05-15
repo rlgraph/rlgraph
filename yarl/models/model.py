@@ -68,7 +68,7 @@ class Model(Specifiable):
         # Some registries that we need to build the Graph from core.
         # key=op; value=list of required ops to calculate the key-op
         self.op_registry = dict()
-        # key=in-Socket name; value=list of alternative placeholders that could go into this socket.
+        # key=in-Socket name; value=set of alternative ops (dictop/tuple/op) that could go into this socket.
         # Only for very first in-Sockets.
         self.in_socket_registry = dict()
         # Maps an out-Socket name+in-Socket/Space-combination to an actual op to fetch from our Graph.
@@ -277,21 +277,21 @@ class Model(Specifiable):
         fetch_list = list()
         feed_dict = dict()
         for socket_name in socket_names:
-            self._get_execution_inputs_for_one_socket(socket_name, input_combinations, fetch_list, input_dict, feed_dict)
+            self._get_execution_inputs_for_socket(socket_name, input_combinations, fetch_list, input_dict, feed_dict)
 
         return fetch_list, feed_dict
 
-    def _get_execution_inputs_for_one_socket(self, socket_name, input_combinations, fetch_list, input_dict, feed_dict):
+    def _get_execution_inputs_for_socket(self, socket_name, input_combinations, fetch_list, input_dict, feed_dict):
         """
         Helper (to avoid nested for loop-break) for the loop in get_execution_inputs.
 
         Args:
             socket_name (str): The name of the (core) out-Socket to process.
-            input_combinations (list): The list of in-Socket (names) combinations starting with the combinations with
-                the most Socket names, then going towards combinations with only one Socket name.
+            input_combinations (List[str]): The list of in-Socket (names) combinations starting with the combinations
+                with the most Socket names, then going towards combinations with only one Socket name.
                 Each combination in itself should already be sorted alphabetically on the in-Socket names.
             fetch_list (list): Appends to this list, which ops to actually fetch.
-            input_dict (Union[dict,None]): Dict specifying the provided inputs for some (core) in-Sockets.
+            input_dict (Optional[dict]): Dict specifying the provided inputs for some (core) in-Sockets.
                 Passed through directly from the call method.
             feed_dict (dict): The feed_dict we are trying to build. When done, needs to map input ops (not Socket names)
                 to data.
@@ -304,8 +304,8 @@ class Model(Specifiable):
             ops = [self.in_socket_registry[c] for c in input_combination]
             op_combinations = itertools.product(*ops)
             for op_combination in op_combinations:
-                # Get the shapes for this space_combination.
-                shapes = tuple([get_shape(op) for op in op_combination])
+                # Get the shapes for this op_combination.
+                shapes = tuple(get_shape(op) for op in op_combination)
                 key = (socket_name, input_combination, shapes)
                 # This is a good combination -> Use the looked up op, return to process next out-Socket.
                 if key in self.call_registry:

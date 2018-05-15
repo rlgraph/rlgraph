@@ -14,40 +14,20 @@
 # ==============================================================================
 
 from __future__ import absolute_import
-from __future__ import print_function
 from __future__ import division
-
-from setuptools import setup, find_packages
-
-from yarl import __version__
+from __future__ import print_function
 
 
-install_requires=[
-    'tensorflow',
-    'pyyaml',
-    'cached_property',
-    'pytest'
-]
+class dictop(dict):
+    """
+    A hashable dict that's used in YARL only to make dict-type ops hashable so we can store them in sets and use them as
+    lookup keys in other dicts.
+    Dict() Spaces produce dictops when methods like get_tensor_variables are called on them.
+    """
+    def __hash__(self):
+        """
+        Hash based on sequence of sorted items (keys are all strings, values are always other dictops, tuples or
+        primitive ops).
+        """
+        return hash(tuple(sorted(self.items())))
 
-setup_requires=[
-    'numpy'
-]
-
-extras_require = {
-
-}
-
-setup(
-    name='yarl',
-    version=__version__,
-    description='A Framework for Flexible Deep Reinforcement Learning Graphs',
-    url='https://yarl-project.org',
-    author='yarl',
-    author_email='yarl@yarl-project.org',
-    license='Apache 2.0',
-    packages=[package for package in find_packages() if package.startswith('yarl')],
-    install_requires=install_requires,
-    setup_requires=setup_requires,
-    extras_require=extras_require,
-    zip_safe=False
-)

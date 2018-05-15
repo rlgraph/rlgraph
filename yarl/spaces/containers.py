@@ -19,8 +19,10 @@ from __future__ import print_function
 
 import numpy as np
 from cached_property import cached_property
+import re
 
 from yarl import YARLError
+from yarl.utils.dictop import dictop
 from .space import Space
 
 
@@ -44,7 +46,13 @@ class Dict(ContainerSpace, dict):
 
         dict_ = dict()
         for key in sorted(spec.keys()):
-            assert isinstance(key, str), "ERROR: No non-str keys allowed in a Dict-Space!"
+            # Keys must be strings.
+            if not isinstance(key, str):
+                raise YARLError("ERROR: No non-str keys allowed in a Dict-Space!")
+            # Prohibit reserved characters (for flattened syntax).
+            if re.search(r'[/\[\]]', key):
+                raise YARLError("ERROR: Keys to Dict() must not contain '/', '[' or ']' characters!")
+
             value = spec[key]
             # value is already a Space -> keep it
             if isinstance(value, Space):
@@ -65,11 +73,11 @@ class Dict(ContainerSpace, dict):
 
     @cached_property
     def shape(self):
-        return tuple([self[key].flat_dim for key in self.keys()])
+        return tuple([self[key].shape for key in sorted(self.keys())])
 
     @cached_property
     def rank(self):
-        return tuple([self[key].rank for key in self.keys()])
+        return tuple([self[key].rank for key in sorted(self.keys())])
 
     @cached_property
     def flat_dim(self):
@@ -77,17 +85,17 @@ class Dict(ContainerSpace, dict):
 
     @cached_property
     def dtype(self):
-        return dict([(key, subspace.dtype()) for key, subspace in self.items()])
+        return dictop([(key, subspace.dtype()) for key, subspace in self.items()])
 
     def get_tensor_variable(self, name, is_input_feed=False, **kwargs):
-        return dict([(key, subspace.get_tensor_variable(name+"/"+key, is_input_feed, **kwargs))
-                            for key, subspace in self.items()])
+        return dictop([(key, subspace.get_tensor_variable(name+"/"+key, is_input_feed, **kwargs))
+                       for key, subspace in self.items()])
 
     def _flatten(self, mapping, scope_, list_):
         # Iterate through this Dict.
         scope_ += "/"
-        for key, component in self.items():
-            component.flatten(mapping, scope_ + key, list_)
+        for key in sorted(self.keys()):
+            self[key].flatten(mapping, scope_ + key, list_)
 
     #def get_initializer(self, specification):
     #    return dict([(key, subspace.get_initializer(specification)) for key, subspace in self.items()])
@@ -139,7 +147,7 @@ class Tuple(ContainerSpace, tuple):
 
     @cached_property
     def shape(self):
-        return tuple([c.flat_dim for c in self])
+        return tuple([c.shape for c in self])
 
     @cached_property
     def rank(self):
@@ -147,7 +155,7 @@ class Tuple(ContainerSpace, tuple):
 
     @cached_property
     def flat_dim(self):
-        return np.sum([c.flat_dim for c in self.components])
+        return np.sum([c.flat_dim for c in self])
 
     @cached_property
     def dtype(self):
@@ -159,9 +167,9 @@ class Tuple(ContainerSpace, tuple):
 
     def _flatten(self, mapping, scope_, list_):
         # Iterate through this Tuple.
-        scope_ += "/tuple-"
+        scope_ += "/["
         for i, component in enumerate(self):
-            component.flatten(mapping, scope_ + str(i), list_)
+            component.flatten(mapping, scope_ + str(i) + "]", list_)
 
     #def get_initializer(self, specification):
     #    return tuple([subspace.get_initializer(specification) for subspace in self])

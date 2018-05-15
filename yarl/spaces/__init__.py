@@ -14,10 +14,11 @@
 # ==============================================================================
 
 from .space import Space
-from .discrete import Discrete, Bool
+from .discrete import Discrete
+from .bool import Bool
 from .continuous import Continuous
 from .intbox import IntBox
-from .containers import Space, Dict, Tuple
+from .containers import ContainerSpace, Dict, Tuple
 
 
 Space.__lookup_classes__ = {
@@ -31,9 +32,13 @@ Space.__lookup_classes__ = {
     "continuous": Continuous,
     "float": Continuous,
     float: Continuous,
+    list: Tuple,
+    "list": Tuple,
+    tuple: Tuple,
     "tuple": Tuple,
     # "sequence" action type for nlp use cases and combinatorial optimisation.
     "sequence": Tuple,
+    dict: Dict,
     "dict": Dict
 }
 

@@ -18,13 +18,14 @@ from __future__ import division
 from __future__ import print_function
 
 import itertools
-from tensorflow.contrib import autograph
+#from tensorflow.contrib import autograph
 from collections import OrderedDict
 import re
 
 from yarl import YARLError
 from yarl.spaces import Space
-from yarl.utils.util import force_tuple, get_shape
+from yarl.utils.dictop import dictop
+from yarl.utils.util import force_tuple, get_shape, deep_tuple
 
 
 class Socket(object):
@@ -118,9 +119,9 @@ class Socket(object):
         # Space: generate backend-ops.
         if isinstance(incoming, Space):
             # TODO: Add batch dimension-option.
-            # NOTE: op could be dict or tuple as well.
+            # NOTE: op could be dictop or tuple as well.
             op = incoming.get_tensor_variable(name=self.name, is_input_feed=True)
-            # Add new op to our list of (alternative) ops.
+            # Add new op to our set of (alternative) ops.
             self.ops.add(op)
             # Keep track of which Spaces can go (alternatively) into this Socket.
             in_socket_registry[self.name] = {op} if self.name not in in_socket_registry \
@@ -280,15 +281,18 @@ class Computation(object):
                             ops = self.split_flattened_ops(*flattened_spaces)
                         else:
                             # ops is a return-tuple (maybe including flattened OrderedDicts) or a single op.
-                            ops = force_tuple(self.method(*input_combination))
+                            ops = self.method(*input_combination)
 
                         # Need to re-nest?
                         if self.re_nest_container_spaces:
-                            ops = self.re_nest_container_ops(*ops)
+                            ops = self.re_nest_container_ops(*force_tuple(ops))
 
                     # - Simple case: Just pass in everything as is.
                     else:
-                        ops = force_tuple(self.method(*input_combination))
+                        ops = self.method(*input_combination)
+
+                    # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
+                    ops = force_tuple(ops)
 
                     self.processed_ops[input_combination] = ops
                     # Keep track of which ops require which other ops.
@@ -306,7 +310,7 @@ class Computation(object):
         will be ignored.
 
         Args:
-            *ops (Union[dict,tuple,op]): The ops to flatten.
+            *ops (Union[dictop,tuple,op]): The ops to flatten.
 
         Returns:
             tuple: All *ops as flattened OrderedDicts (or left unchanged if already primitive).
@@ -318,8 +322,8 @@ class Computation(object):
             # The in-Socket name of this op.
             socket_name = self.input_sockets[i].name
             # self.flatten_container_spaces cannot be False here.
-            if (self.flatten_container_spaces is True or socket_name in self.flatten_container_spaces) and \
-                    not isinstance(op, (dict, tuple)):
+            if isinstance(op, (dictop, tuple)) and \
+                    (self.flatten_container_spaces is True or socket_name in self.flatten_container_spaces):
                 ret.append(self._flatten_container_op(op))
             # Primitive ops are left as-is.
             else:
@@ -333,7 +337,7 @@ class Computation(object):
         Flattens a single ContainerSpace (op) into a python OrderedDict with auto-key generation.
 
         Args:
-            op (op): The op to flatten. This can only be a tuple or a dict.
+            op (Union[dictop,tuple]): The op to flatten. This can only be a tuple or a dictop.
             scope_ (str): The recursive scope for auto-key generation.
             list_ (list): The list of tuples (key, value) to be converted into the final OrderedDict.
 
@@ -343,18 +347,18 @@ class Computation(object):
         ret = False
         # Are we in the non-recursive (first) call?
         if list_ is None:
-            assert isinstance(op, (tuple, dict)), "ERROR: Can only flatten container (tuple/dict) ops!"
+            assert isinstance(op, (dictop, tuple)), "ERROR: Can only flatten container (dictop/tuple) ops!"
             list_ = list()
             ret = True
 
         if isinstance(op, tuple):
-            scope_ += "/tuple-"
+            scope_ += "/["
             for i, c in enumerate(op):
-                list_.append((scope_ + str(i), self._flatten_container_op(c)))
-        elif isinstance(op, dict):
+                self._flatten_container_op(c, scope_=scope_ + str(i) + "]", list_=list_)
+        elif isinstance(op, dictop):
             scope_ += "/"
             for k, v in op.items():
-                list_.append((scope_ + k, self._flatten_container_op(v)))
+                self._flatten_container_op(v, scope_=scope_ + k, list_=list_)
         else:
             list_.append((scope_, op))
 
@@ -395,12 +399,12 @@ class Computation(object):
         # We have (matching) container ops: Split the calls.
         if len(flattened) > 0:
             # The first op that is an OrderedDict.
-            guide_op = next([op for op in ops if isinstance(op, OrderedDict)])
+            guide_op = next(op for op in ops if isinstance(op, OrderedDict))
             # Re-create our iterators.
             flattened = [op.items() if isinstance(op, OrderedDict) else op for op in ops]
             collected_returns = OrderedDict()
             # Do the single split calls to our computation func.
-            for key, value in guide_op:
+            for key, value in guide_op.items():
                 # Prep input params for a single call.
                 params = [key, value] if self.add_auto_key_as_first_param else [value]
                 # Pull along the other ops' values for the guide_op's current key
@@ -423,7 +427,7 @@ class Computation(object):
         untouched.
 
         Args:
-            *ops (Union[OrderedDict,dict,tuple,op]): The ops that need to be re-nested (only process the OrderedDicts
+            *ops (Union[OrderedDict,dictop,tuple,op]): The ops that need to be re-nested (only process the OrderedDicts
                 amongst these and ignore all others).
             input_comparison_op (Optional[OrderedDict]): One of the flattened input ops to use for sanity checking.
                 If not None, all output OrderedDict ops must match this one's key/value structure.
@@ -454,34 +458,41 @@ class Computation(object):
             parent_structure = None
             parent_key = None
             current_structure = None
+            type_ = None
 
             keys = k[1:].split("/")  # skip 1st char (/)
             for key in keys:
-                mo = re.match(r'^tuple-(\d+)$', key)
-                idx = int(mo.group(1))
+                mo = re.match(r'^\[(\d+)\]$', key)
+                if mo:
+                    type_ = list
+                    idx = int(mo.group(1))
+                else:
+                    type_ = dictop
+                    idx = key
 
                 if current_structure is None:
                     if base_structure is None:
-                        base_structure = [None]
+                        base_structure = [None] if type_ == list else dictop()
                     current_structure = base_structure
                 elif parent_key is not None:
-                    if parent_structure[parent_key] is None:
-                        current_structure = [None]
+                    if isinstance(parent_structure, list) and parent_structure[parent_key] is None or \
+                            isinstance(parent_structure, dictop) and parent_key not in parent_structure:
+                        current_structure = [None] if type_ == list else dictop()
                         parent_structure[parent_key] = current_structure
                     else:
                         current_structure = parent_structure[parent_key]
-                        if len(current_structure) == idx:
+                        if type_ == list and len(current_structure) == idx:
                             current_structure.append(None)
 
                 parent_structure = current_structure
                 parent_key = idx
 
-            if len(current_structure) == parent_key:
+            if type_ == list and len(current_structure) == parent_key:
                 current_structure.append(None)
             current_structure[parent_key] = v
 
-        # TODO: complete deep conversion from list to tuple
-        return tuple(base_structure)
+        # Deep conversion from list to tuple.
+        return deep_tuple(base_structure)
 
     def __str__(self):
         return "{}('{}' in=[{}] out=[{}])". \
