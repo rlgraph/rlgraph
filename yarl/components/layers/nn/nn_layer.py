@@ -17,7 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from components.layers.layer_component import LayerComponent
+from yarl.components.layers.layer_component import LayerComponent
+from yarl.spaces import ContainerSpace
 
 
 class NNLayer(LayerComponent):
@@ -29,6 +30,17 @@ class NNLayer(LayerComponent):
 
         # The wrapped layer object.
         self.layer = None
+
+    def create_variables(self, input_spaces):
+        """
+        Do some sanity checking on the incoming Space:
+        Must not be Container (for now) and must have a batch rank.
+        """
+        in_space = input_spaces["input"]
+        assert not isinstance(in_space, ContainerSpace), "ERROR: Cannot handle container input Spaces " \
+                                                         "in layer '{}' (atm; may soon do)!".format(self.name)
+        assert in_space.add_batch_rank,\
+            "ERROR: Space in 'input' Socket to layer '{}' must have a batch rank (0th position)!".format(self.name)
 
     def _computation_apply(self, input_):
         """

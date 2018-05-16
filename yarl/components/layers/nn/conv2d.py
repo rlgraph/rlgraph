@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import backend
-from yarl.spaces import Dict, Tuple
 
 from .initializer import Initializer
 from .nn_layer import NNLayer
@@ -59,10 +58,7 @@ class Conv2DLayer(NNLayer):
         self.biases_init = None  # at model-build time
 
     def create_variables(self, input_spaces):
-        in_space = input_spaces["input"]
-        assert not isinstance(in_space, (Dict, Tuple)), "ERROR: Cannot handle container input Spaces " \
-                                                        "(atm; may soon do)!"
-        assert in_space.add_batch_rank, "ERROR: Input-space must have a batch rank (0th position)!"
+        super(Conv2DLayer, self).create_variables(input_spaces)
 
         # Create kernel and biases initializers.
         self.kernel_init = Initializer.from_spec(shape=self.kernel_size, specification=self.kernel_spec)

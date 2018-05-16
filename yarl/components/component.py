@@ -155,7 +155,7 @@ class Component(Specifiable):
                 #    name=name+"/"+key, add_batch_rank=add_batch_rank))
                 var = from_space.get_tensor_variable(name=name, add_batch_rank=add_batch_rank)
                 if flatten:
-                    var = from_space.flatten(mapping=lambda key, primitive: var[key])
+                    var = from_space.flatten()  # mapping=lambda key, primitive: var[key]
             else:
                 if initializer is None or isinstance(initializer, tf.keras.initializers.Initializer):
                     shape = tuple((() if add_batch_rank is False else

@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import backend
-from yarl.spaces import Dict, Tuple
 
 from .initializer import Initializer
 from .nn_layer import NNLayer
@@ -47,10 +46,9 @@ class DenseLayer(NNLayer):
         self.units = units
 
     def create_variables(self, input_spaces):
+        super(DenseLayer, self).create_variables(input_spaces)
+
         in_space = input_spaces["input"]
-        assert not isinstance(in_space, (Dict, Tuple)), "ERROR: Cannot handle container input Spaces " \
-                                                        "(atm; may soon do)!"
-        assert in_space.add_batch_rank, "ERROR: Input-space must have a batch rank (0th position)!"
 
         # Create weights.
         weights_shape = (in_space.shape[0], self.units)  # [0] b/c `in_space.shape` does not include batch-rank
