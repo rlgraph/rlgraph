@@ -53,9 +53,9 @@ def get_space_from_op(op):
         return Tuple(spec)
     # primitive Space -> infer from op dtype and shape
     else:
-        # a Bool
-        if op.dtype == dtype("bool"):
-            return Bool()
+        # No Space: e.g. the tf.no_op.
+        if hasattr(op, "dtype") is False:
+            return 0
         # a Continuous
         elif op.dtype == dtype("float"):
             return Continuous(shape=get_shape(op))
@@ -66,6 +66,6 @@ def get_space_from_op(op):
                 return Discrete(n=get_shape(op)[0])
             else:
                 return IntBox(low=0, high=255, shape=get_shape(op))  # low, high=dummy values
-        # No Space: e.g. the tf.no_op.
-        else:
-            return 0
+        # a Bool
+        elif op.dtype == dtype("bool"):
+            return Bool()
