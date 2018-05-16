@@ -45,9 +45,9 @@ class ReplayMemory(Memory):
         super(ReplayMemory, self).create_variables(input_spaces)
 
         # Main buffer index.
-        self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
+        self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0, add_batch_rank=self.capacity)
         # Number of elements present.
-        self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
+        self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0, add_batch_rank=self.capacity)
         if self.next_states:
             # Next states are not represented as explicit keys in the registry
             # as this would cause extra memory overhead.

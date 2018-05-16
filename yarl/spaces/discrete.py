@@ -35,28 +35,31 @@ class Discrete(Space):
         super(Discrete, self).__init__(add_batch_rank=add_batch_rank)
         if num_actions is not None:
             n = num_actions
-        self.n = n or 1
+        ## Default: 0D Space
+        #if n is None:
+        #    n = 0
+        self.n = n or 2
 
     @cached_property
     def shape(self):
-        if self.n == 0:
-            return ()
-        else:
-            return (self.n,)
+        #if self.n == 0:
+        #    return ()
+        #else:
+        return tuple((self.n,))
 
     @cached_property
     def shape_with_batch_rank(self):
-        if self.n == 0:
-            return self.batch_rank_tuple
-        else:
-            return tuple(self.batch_rank_tuple + (self.n,))
+        #if self.n == 0:
+        #    return self.batch_rank_tuple
+        #else:
+        return tuple(self.batch_rank_tuple + (self.n,))
 
     @cached_property
     def flat_dim(self):
-        if self.n == 0:
-            return 1
-        else:
-            return self.n
+        #if self.n == 0:
+        #    return 1
+        #else:
+        return self.n
 
     @cached_property
     def dtype(self):

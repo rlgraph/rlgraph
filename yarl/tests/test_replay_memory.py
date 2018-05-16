@@ -33,7 +33,7 @@ class TestReplayMemory(unittest.TestCase):
         states=dict(state1=float, state2=float),
         actions=dict(action1=float),
         reward=float,
-        terminal=Discrete(0)
+        terminal=dict(type=int, n=2)
     )
 
     def test_insert_retrieve(self):
@@ -44,11 +44,10 @@ class TestReplayMemory(unittest.TestCase):
             capacity=10,
             next_states=True
         )
-        observation = self.record_space.sample(size=5)
-
         test = ComponentTest(component=component_to_test, input_spaces=dict(records=self.record_space))
 
         # Run the test.
+        observation = self.record_space.sample(size=5)
         print(observation)
         result = test.test(out_socket_name="insert", inputs=observation, expected_outputs=[])
 
