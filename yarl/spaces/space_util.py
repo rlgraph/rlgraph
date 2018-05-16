@@ -66,4 +66,6 @@ def get_space_from_op(op):
                 return Discrete(n=get_shape(op)[0])
             else:
                 return IntBox(low=0, high=255, shape=get_shape(op))  # low, high=dummy values
-
+        # No Space: e.g. the tf.no_op.
+        else:
+            return 0

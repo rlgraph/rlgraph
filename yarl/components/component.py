@@ -152,12 +152,11 @@ class Component(Specifiable):
         if backend() == "tf":
             # TODO: need to discuss what other data we need per variable. Initializer, trainable, etc..
             if from_space is not None:
-                #var = from_space.flatten(mapping=lambda key, primitive: primitive.get_tensor_variable(
-                #    name=name+"/"+key, add_batch_rank=add_batch_rank))
+                # Variables should be returned in a flattened OrderedDict.
                 if flatten:
-                    flat_dict = from_space.flatten()  # mapping=lambda key, primitive: var[key]
-                    var = OrderedDict({k: v.get_tensor_variable(name=name+"/"+k, add_batch_rank=add_batch_rank)
-                                       for k, v in flat_dict.items()})
+                    var = from_space.flatten(mapping=lambda k, primitive: primitive.get_tensor_variable(
+                        name=name+"/"+k, add_batch_rank=add_batch_rank))
+                # Normal, nested Variables from a Space (container or primitive).
                 else:
                     var = from_space.get_tensor_variable(name=name, add_batch_rank=add_batch_rank)
             else:
