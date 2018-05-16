@@ -20,9 +20,8 @@ from __future__ import print_function
 import unittest
 
 from yarl.components.memories.replay_memory import ReplayMemory
+from yarl.spaces import Dict
 from yarl.tests import ComponentTest
-
-import numpy as np
 
 
 class TestReplayMemory(unittest.TestCase):
@@ -30,7 +29,7 @@ class TestReplayMemory(unittest.TestCase):
     Tests sampling and insertion behaviour of the replay_memory module.
     """
 
-    record_space = dict(
+    record_space = Dict(
         state=dict(state1=float, state2=float),
         action=dict(action1=float),
         reward=float,
@@ -39,17 +38,12 @@ class TestReplayMemory(unittest.TestCase):
 
     def test_insert_retrieve(self):
         component_to_test = ReplayMemory(
-            record_space=self.record_space,
             capacity=10,
             next_states=True
         )
-
-        test = ComponentTest(component=component_to_test, input_spaces=dict(input=self.record_space))
+        test = ComponentTest(component=component_to_test, input_spaces=dict(records=self.record_space))
 
         # Run the test.
-        input_ = np.array([[0.5, 2.0]])
-        expected = np.array([[2.5, 2.5]])
-
-        result = test.test(out_socket_name="insert", inputs=input_, expected_outputs=expected)
-        self.assertTrue(result)
+        observation = self.record_space.sample()
+        result = test.test(out_socket_name="insert", inputs=observation, expected_outputs=[])
 
