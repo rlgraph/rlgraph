@@ -240,10 +240,6 @@ class Computation(object):
         if not self.method:
             raise YARLError("ERROR: No `_computation_...` method with name '{}' found!".format(self.name))
 
-        #self.create_variables = getattr(self.component, "create_variables", None)
-        #if not self.create_variables:
-        #    raise YARLError("ERROR: No `create_variables` method found in component '{}'!".format(self.component.name))
-
         self.input_sockets = input_sockets
         self.output_sockets = output_sockets
 
@@ -313,7 +309,7 @@ class Computation(object):
                     # Build the ops from this input-combination.
                     # - Flatten complex spaces.
                     if self.flatten_container_spaces is not False:
-                        flattened_spaces = self.flatten_container_ops(*input_combination)
+                        flattened_spaces = self.flatten_ops(*input_combination)
                         if self.split_container_spaces:
                             # ops is an OrderedDict of return-tuples.
                             ops = self.split_flattened_ops(*flattened_spaces)
@@ -323,7 +319,7 @@ class Computation(object):
 
                         # Need to re-nest?
                         if self.re_nest_container_spaces:
-                            ops = self.re_nest_container_ops(*force_tuple(ops))
+                            ops = self.re_nest_ops(*force_tuple(ops))
 
                     # - Simple case: Just pass in everything as is.
                     else:
@@ -341,7 +337,7 @@ class Computation(object):
             for slot, output_socket in enumerate(self.output_sockets):
                 output_socket.update_from_input(self, op_registry, in_socket_registry, slot)
 
-    def flatten_container_ops(self, *ops):
+    def flatten_ops(self, *ops):
         """
         Flattens all ContainerSpace instances in ops into python OrderedDicts with auto-key generation.
         Primitives ops and ops whose Sockets are not in self.flatten_container_spaces (if its a set)
@@ -362,7 +358,7 @@ class Computation(object):
             # self.flatten_container_spaces cannot be False here.
             if isinstance(op, (DictOp, tuple)) and \
                     (self.flatten_container_spaces is True or socket_name in self.flatten_container_spaces):
-                ret.append(self._flatten_container_op(op))
+                ret.append(self._flatten_op(op))
             # Primitive ops are left as-is.
             else:
                 ret.append(op)
@@ -370,7 +366,7 @@ class Computation(object):
         # Always return a tuple for indexing into the return values.
         return tuple(ret)
 
-    def _flatten_container_op(self, op, scope_="", list_=None):
+    def _flatten_op(self, op, scope_="", list_=None):
         """
         Flattens a single ContainerSpace (op) into a python OrderedDict with auto-key generation.
 
@@ -392,11 +388,11 @@ class Computation(object):
         if isinstance(op, tuple):
             scope_ += "/["
             for i, c in enumerate(op):
-                self._flatten_container_op(c, scope_=scope_ + str(i) + "]", list_=list_)
+                self._flatten_op(c, scope_=scope_ + str(i) + "]", list_=list_)
         elif isinstance(op, DictOp):
             scope_ += "/"
             for k, v in op.items():
-                self._flatten_container_op(v, scope_=scope_ + k, list_=list_)
+                self._flatten_op(v, scope_=scope_ + k, list_=list_)
         else:
             list_.append((scope_, op))
 
@@ -458,7 +454,7 @@ class Computation(object):
         else:
             return force_tuple(self.method(*ops))
 
-    def re_nest_container_ops(self, *ops):
+    def re_nest_ops(self, *ops):
         """
         Re-creates the originally nested input structure (as dict/tuple) of the given output ops.
         Process all flattened OrderedDicts with auto-generated keys, and leave the others (primitives)
@@ -480,7 +476,7 @@ class Computation(object):
         for i, op in enumerate(ops):
             # An OrderedDict: Try to re-nest it and then compare it to input_template_op's structure.
             if isinstance(op, OrderedDict):
-                ret.append(self._re_nest_container_op(op))  #, input_comparison_op=input_comparison_op))
+                ret.append(self._re_nest_op(op))  #, input_comparison_op=input_comparison_op))
             # All others are left as-is.
             else:
                 ret.append(op)
@@ -489,7 +485,7 @@ class Computation(object):
         return tuple(ret)
 
     @staticmethod
-    def _re_nest_container_op(op):
+    def _re_nest_op(op):
         base_structure = None
 
         for k, v in op.items():
