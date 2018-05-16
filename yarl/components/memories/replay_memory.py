@@ -28,14 +28,13 @@ class ReplayMemory(Memory):
 
     def __init__(
         self,
-        record_space,
         capacity=1000,
         name="",
         scope="replay-memory",
         sub_indexes=None,
         next_states=True
     ):
-        super(ReplayMemory, self).__init__(record_space, capacity, name, scope, sub_indexes)
+        super(ReplayMemory, self).__init__(capacity, name, scope, sub_indexes)
 
         # Variables.
         self.index = None
@@ -43,8 +42,8 @@ class ReplayMemory(Memory):
         self.states = None
         self.next_states = next_states
 
-    def create_variables(self, ):
-        super(ReplayMemory, self).create_variables()
+    def create_variables(self, input_spaces):
+        super(ReplayMemory, self).create_variables(input_spaces)
 
         # Main buffer index.
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)

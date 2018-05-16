@@ -17,16 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-# Basics.
-from .stack_component import StackComponent
-from .layer_component import LayerComponent
-# Preprocessing.
-from .preprocessing import PreprocessLayer, Clamp, Scale, Sequence, GrayScale
-# NN-Layers.
-from components.layers.nn.initializer import Initializer
-from .nn import DenseLayer
+from .initializer import Initializer
+from .dense_layer import DenseLayer
 
-__all__ = ["StackComponent", "LayerComponent",
-           "Initializer", "DenseLayer",
-           "PreprocessLayer", "Clamp", "Scale", "GrayScale", "Sequence"]
-
+__all__ = ["Initializer", "DenseLayer"]

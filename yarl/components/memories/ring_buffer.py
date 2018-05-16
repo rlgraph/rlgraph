@@ -28,14 +28,13 @@ class RingBuffer(Memory):
     """
     def __init__(
         self,
-        record_space,
         capacity=1000,
         name="",
         scope="ring-buffer",
         sub_indexes=None,
         episode_semantics=False
     ):
-        super(RingBuffer, self).__init__(record_space, capacity, name, scope, sub_indexes)
+        super(RingBuffer, self).__init__(capacity, name, scope, sub_indexes)
         # Variables.
         self.index = None
         self.size = None
@@ -49,8 +48,8 @@ class RingBuffer(Memory):
         self.define_outputs("insert")
         self.add_computation("records", "insert", "insert")
 
-    def create_variables(self):
-        super(RingBuffer, self).create_variables()
+    def create_variables(self, input_spaces):
+        super(RingBuffer, self).create_variables(input_spaces)
 
         # Main buffer index.
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)

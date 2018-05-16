@@ -114,7 +114,7 @@ class Component(Specifiable):
         Note that for different scopes in which this component is being used, variables will not(!) be shared.
 
         Args:
-            input_spaces (dict): A convenience dict with Space/shape information.
+            input_spaces (Dict[str,Space]): A convenience dict with Space/shape information.
                 keys=in-Socket name (str); values=the associated Space
         """
         pass  # Children may overwrite this method.

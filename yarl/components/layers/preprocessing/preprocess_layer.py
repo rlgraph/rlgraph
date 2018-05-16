@@ -49,21 +49,3 @@ class PreprocessLayer(LayerComponent):
         """
         raise NotImplementedError
 
-    def processed_shape(self, space):
-        """
-        TODO: make it such that children of this class don't have to re-implement this function. It should be
-        TODO: automatically inferred.
-
-        Returns the processed shape for an input of space `space`.
-
-        Args:
-            space (Space): The Space of the input to _computation_apply.
-
-        Returns:
-            The shape of the return value of _computation_apply (if the input space is `space`).
-        """
-        # Use numpy semantics.
-        sample = space.sample()
-        out = self._computation_apply(sample)
-        return out.shape
-

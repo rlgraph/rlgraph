@@ -63,8 +63,8 @@ class TestAutomaticSpacePassingThroughStack(unittest.TestCase):
         #self.assertTrue(result)
 
     def test_sequence_preprocessors(self):
-        # some simple Space (float only)
-        space = Continuous(shape=(1,), add_batch_rank=True)
+        # some mildly crazy Space
+        space = Tuple(Continuous(shape=(1,)), IntBox(shape=(2, 2)), add_batch_rank=True)
 
         # Construct the Component to test (simple Stack).
         component_to_test = Sequence(seq_length=3, add_rank=True)
