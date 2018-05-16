@@ -54,19 +54,22 @@ class ReplayMemory(Memory):
             self.states = self.record_space["states"].keys()
 
     def _computation_insert(self, records):
-        num_records = tf.shape(list(records.keys())[0])
+        num_records = tf.shape(list(records.keys()))[0]
         index = self.read_variable(self.index)
-        update_indices = tf.range(start=index, stop=index + num_records) % self.capacity
+        num_records = tf.Print(num_records, [num_records], summarize=10, message='num_records=')
+        update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
         # Updates all the necessary sub-variables in the record.
-        record_updates = self.record_space.flatten(mapping=lambda key, primitive: self.scatter_update_variable(
-            variable=self.record_registry[key],
-            indices=update_indices,
-            updates=records[key]
-        ))
+        record_updates = list()
+        for key in self.record_registry:
+            record_updates.append(self.scatter_update_variable(
+                variable=self.record_registry[key],
+                indices=update_indices,
+                updates=records[key]
+            ))
 
         # Update indices and size.
-        with tf.control_dependencies(control_inputs=list(record_updates.values())):
+        with tf.control_dependencies(control_inputs=record_updates):
             index_updates = list()
             index_updates.append(self.assign_variable(variable=self.index, value=(index + num_records) % self.capacity))
             update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)

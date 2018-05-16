@@ -70,9 +70,9 @@ class RingBuffer(Memory):
             )
 
     def _computation_insert(self, records):
-        num_records = tf.shape(records.keys()[0])
+        num_records = tf.shape(list(records.keys()))[0]
         index = self.read_variable(self.index)
-        update_indices = tf.range(start=index, stop=index + num_records) % self.capacity
+        update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
         insert_terminal_slice = self.read_variable(self.record_registry['terminal'], update_indices)
 
         # Updates all the necessary sub-variables in the record.
