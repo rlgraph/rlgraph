@@ -62,10 +62,10 @@ class Discrete(Space):
             return False
         return self.n == other.n
 
-    def sample(self, seed=None):
+    def sample(self, seed=None, size=None):
         if seed is not None:
             np.random.seed(seed)
-        return np.random.randint(self.n)
+        return np.random.randint(self.n, size=size)
 
     def contains(self, sample):
         sample = np.asarray(sample)

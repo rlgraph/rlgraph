@@ -173,14 +173,14 @@ class Space(Specifiable):
     def __eq__(self, other):
         raise NotImplementedError
 
-    def sample(self, seed=None):
+    def sample(self, seed=None, size=None):
         """
         Uniformly randomly samples an element from this space. This is more for testing purposes, e.g. to simulate
         a random environment.
 
         Args:
             seed (int): The random seed to use.
-
+            size (Union[int, iterable, tuple]): Size of sample.
         Returns:
             any: The sampled element.
         """

@@ -119,13 +119,13 @@ class Continuous(Space):
     def __eq__(self, other):
         return isinstance(other, Continuous) and np.allclose(self.low, other.low) and np.allclose(self.high, other.high)
 
-    def sample(self, seed=None):
+    def sample(self, seed=None, size=None):
         if seed is not None:
             np.random.seed(seed)
         # No bounds are known: Pretend we are between 0.0 and 1.0.
         if self.has_unknown_bounds:
-            return np.random.uniform(size=None if self.is_scalar else self.low.shape)
-        return np.random.uniform(low=self.low, high=self.high, size=None if self.is_scalar else self.low.shape)
+            return np.random.uniform(size=size)
+        return np.random.uniform(low=self.low, high=self.high, size=size)
 
     def contains(self, sample):
         if self.is_scalar:
