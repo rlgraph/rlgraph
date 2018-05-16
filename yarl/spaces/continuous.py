@@ -93,7 +93,7 @@ class Continuous(Space):
     def shape_with_batch_rank(self):
         if self.is_scalar:
             return self.batch_rank_tuple
-        return tuple(self.batch_rank_tuple + self.low.shape)
+        return tuple(self.batch_rank_tuple + self.shape)
 
     @cached_property
     def flat_dim(self):
@@ -119,7 +119,7 @@ class Continuous(Space):
     def __eq__(self, other):
         return isinstance(other, Continuous) and np.allclose(self.low, other.low) and np.allclose(self.high, other.high)
 
-    def sample(self, seed=None, size=None):
+    def sample(self, size=None, seed=None):
         if seed is not None:
             np.random.seed(seed)
         # No bounds are known: Pretend we are between 0.0 and 1.0.

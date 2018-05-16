@@ -44,7 +44,7 @@ class IntBox(Continuous):
     def __eq__(self, other):
         return isinstance(other, IntBox) and np.allclose(self.low, other.low) and np.allclose(self.high, other.high)
 
-    def sample(self, seed=None, size=None):
+    def sample(self, size=None, seed=None):
         if self.has_unknown_bounds:
             raise RuntimeError("Cannot generate samples of a Space with unknown bounds. "
                                "Need flatten/unflatten samples first!")

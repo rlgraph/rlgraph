@@ -42,12 +42,12 @@ class Discrete(Space):
         if self.n == 0:
             return ()
         else:
-            return tuple((self.n,))
+            return (self.n,)
 
     @cached_property
     def shape_with_batch_rank(self):
         if self.n == 0:
-            return tuple(self.batch_rank_tuple, )
+            return self.batch_rank_tuple
         else:
             return tuple(self.batch_rank_tuple + (self.n,))
 
@@ -70,7 +70,7 @@ class Discrete(Space):
             return False
         return self.n == other.n
 
-    def sample(self, seed=None, size=None):
+    def sample(self, size=None, seed=None):
         if seed is not None:
             np.random.seed(seed)
         return np.random.randint(self.n, size=size)

@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import random
+import numpy as np
 
 from yarl.spaces import Discrete
 
@@ -49,10 +50,10 @@ class Bool(Discrete):
     def __repr__(self):
         return "Bool({})".format("+batch" if self.add_batch_rank else "")
 
-    def sample(self, seed=None):
+    def sample(self, size=None, seed=None):
         if seed is not None:
             random.seed(seed)
-        return not not random.getrandbits(1)  # fastest way (better than bool)
+        return np.random.choice(a=[False, True], size=size)
 
     def contains(self, sample):
         return isinstance(sample, bool)
