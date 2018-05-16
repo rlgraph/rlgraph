@@ -359,6 +359,18 @@ class Model(Specifiable):
         else:
             return self.trace_back_sockets(new_trace_set)
 
+    def get_variable_values(self, variables):
+        """
+        Read variable values from a model, e.g. by calling the underlying graph
+        or just returning the variable in imperative modes.
+        Args:
+            variables (list): Variable objects to retrieve from the graph.
+
+        Returns:
+            list: Values of the variables provided.
+        """
+        pass
+
     def assign_device(self, computation, socket, assigned_device):
         """
         Assigns device to socket.

@@ -85,3 +85,13 @@ class ComponentTest(object):
         # .. and compare them with what we want.
         return (expected_outputs == outs).all()
 
+    def get_variable_values(self, variables):
+        """
+        Executes a session to retrieve the values of the provided variables.
+        Args:
+            variables (list): Variable objects to retrieve from the graph.
+
+        Returns:
+            list: Values of the variables provided.
+        """
+        return self.model.get_variable_values(variables)
