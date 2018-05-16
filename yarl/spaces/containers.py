@@ -39,6 +39,8 @@ class Dict(ContainerSpace, dict):
     Supports nesting of other Dict/Tuple spaces (or any other Space types) inside itself.
     """
     def __init__(self, spec=None, add_batch_rank=False, **kwargs):
+        ContainerSpace.__init__(self, add_batch_rank=add_batch_rank)
+
         # Allow for any spec or already constructed Space to be passed in as values in the python-dict.
         # Spec may be part of kwargs.
         if spec is None:
@@ -59,7 +61,7 @@ class Dict(ContainerSpace, dict):
                 dict_[key] = value
             # Value is a list/tuple -> treat as Tuple space.
             elif isinstance(value, (list, tuple)):
-                dict_[key] = Tuple(value, add_batch_rank=add_batch_rank)
+                dict_[key] = Tuple(*value, add_batch_rank=add_batch_rank)
             # Value is a spec (or a spec-dict with "type" field) -> produce via `from_spec`.
             elif (isinstance(value, dict) and "type" in value) or not isinstance(value, dict):
                 dict_[key] = Space.from_spec(value, add_batch_rank=add_batch_rank)
@@ -126,10 +128,13 @@ class Tuple(ContainerSpace, tuple):
     A Tuple space (an ordered sequence of n other spaces).
     Supports nesting of other container (Dict/Tuple) spaces inside itself.
     """
-    def __new__(cls, *components, add_batch_rank=False):
+    def __new__(cls, *components, **kwargs):
         if isinstance(components[0], (list, tuple)):
             assert len(components) == 1
             components = components[0]
+
+        add_batch_rank = kwargs.pop("add_batch_rank", False)
+        assert not kwargs
 
         # Allow for any spec or already constructed Space to be passed in as values in the python-list/tuple.
         list_ = list()
@@ -139,7 +144,7 @@ class Tuple(ContainerSpace, tuple):
                 list_.append(value)
             # Value is a list/tuple -> treat as Tuple space.
             elif isinstance(value, (list, tuple)):
-                list_.append(Tuple(value, add_batch_rank=add_batch_rank))
+                list_.append(Tuple(*value, add_batch_rank=add_batch_rank))
             # Value is a spec (or a spec-dict with "type" field) -> produce via `from_spec`.
             elif (isinstance(value, dict) and "type" in value) or not isinstance(value, dict):
                 list_.append(Space.from_spec(value, add_batch_rank=add_batch_rank))

@@ -30,11 +30,10 @@ class TestAutomaticSpacePassingThroughStack(unittest.TestCase):
 
     def test_two_preprocessors(self):
         # Some crazy Space
-        space = Dict.from_spec(dict(
+        space = Dict(
             a=Continuous(shape=(1, 2)),
             b=Continuous(shape=(2, 2, 2)),
             c=Tuple(Continuous(shape=(2,)), Dict(ca=Continuous(shape=(3, 3, 2))))
-        )
         )
 
         # Construct the Component to test (simple Stack).

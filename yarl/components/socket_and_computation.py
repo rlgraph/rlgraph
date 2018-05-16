@@ -315,7 +315,7 @@ class Computation(object):
                             ops = self.split_flattened_ops(*flattened_spaces)
                         else:
                             # ops is a return-tuple (maybe including flattened OrderedDicts) or a single op.
-                            ops = self.method(*input_combination)
+                            ops = self.method(*flattened_spaces)
 
                         # Need to re-nest?
                         if self.re_nest_container_spaces:
