@@ -29,7 +29,7 @@ class Bool(Discrete):
     and the flattened representation is a 1D vector of dim = 1 (not 2!) ([0]=False or [1]=True)
     """
     def __init__(self, add_batch_rank=False):
-        super(Bool, self).__init__(2, add_batch_rank=add_batch_rank)
+        super(Bool, self).__init__(n=2, add_batch_rank=add_batch_rank)
 
     @property
     def shape(self):

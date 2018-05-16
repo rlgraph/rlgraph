@@ -33,7 +33,7 @@ class TestReplayMemory(unittest.TestCase):
         states=dict(state1=float, state2=float),
         actions=dict(action1=float),
         reward=float,
-        terminal=dict(type=int, n=2),
+        terminal=bool,
         add_batch_rank=True
     )
 

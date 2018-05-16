@@ -24,7 +24,7 @@ from .containers import Dict, Tuple
 from .continuous import Continuous
 from .intbox import IntBox
 from .discrete import Discrete
-from .bool import Bool
+from .bool_space import Bool
 
 
 def get_space_from_op(op):

@@ -15,7 +15,7 @@
 
 from .space import Space
 from .discrete import Discrete
-from .bool import Bool
+from .bool_space import Bool
 from .continuous import Continuous
 from .intbox import IntBox
 from .containers import ContainerSpace, Dict, Tuple
