@@ -19,7 +19,6 @@ from __future__ import print_function
 
 from .space import Space
 import numpy as np
-import random
 from cached_property import cached_property
 
 
@@ -40,15 +39,24 @@ class Discrete(Space):
 
     @cached_property
     def shape(self):
-        return tuple((self.n,))
+        if self.n == 0:
+            return ()
+        else:
+            return tuple((self.n,))
 
     @cached_property
     def shape_with_batch_rank(self):
-        return tuple(self.batch_rank_tuple + (self.n,))
+        if self.n == 0:
+            return tuple(self.batch_rank_tuple, )
+        else:
+            return tuple(self.batch_rank_tuple + (self.n,))
 
     @cached_property
     def flat_dim(self):
-        return self.n
+        if self.n == 0:
+            return 1
+        else:
+            return self.n
 
     @cached_property
     def dtype(self):
