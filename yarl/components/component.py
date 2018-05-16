@@ -175,18 +175,33 @@ class Component(Specifiable):
 
         return var
 
-    # Some helper functions (as special partials of existing methods).
-    def define_inputs(self, *sockets, space=None):
+    def define_inputs(self, *sockets, **kwargs):
+        """
+        Calls add_sockets with type="in" and then connects each of the Sockets with the given
+        Space.
+
+        Args:
+            *sockets (List[Socket]): The list of in-Sockets to add.
+
+        Keyword Args:
+            space (Optional[Space]): The Space to connect to the in-Sockets.
+        """
         self.add_sockets(*sockets, type="in")
+        space = kwargs.get("space")
         if space is not None:
             for socket in sockets:
                 self.connect(space, self.get_socket(socket).name)
 
-    def define_outputs(self, *sockets, space=None):
+    def define_outputs(self, *sockets):
+        """
+        Calls add_sockets with type="out".
+
+        Args:
+            *sockets (List[Socket]): The list of out-Sockets to add.
+        """
+        # TODO: Add out-Socket to Space connection for reverse Space inferral?
+        # TODO: E.g.: NN-fc-out layer -> Action Space (then the out layer would know how many units it needs).
         self.add_sockets(*sockets, type="out")
-        if space is not None:
-            for socket in sockets:
-                self.connect(self.get_socket(socket).name, space)
 
     def add_sockets(self, *sockets, **kwargs):
         """
@@ -349,17 +364,20 @@ class Component(Specifiable):
             else:
                 self.connect([component, socket_name], exposed_name)
 
-    def add_components(self, *components, expose=None):
+    def add_components(self, *components, **kwargs):
         """
         Adds sub-components to this one without connecting them with each other.
 
         Args:
             *components (Component): The list of ModelComponent objects to be added into this one.
+
+        Keyword Args:
             expose (Union[dict,tuple,str]): Expose-spec for the component(s) to be passed to self.add_component().
                 If more than one sub-components are added in the call and expose is a dict, lookup each component's
                 name in that dict and pass the found value to self.add_component. If expose is not a dict, pass it
                 as-is for each of the added sub-components.
         """
+        expose = kwargs.get("expose")
         for c in components:
             self.add_component(c, expose.get(c.name) if isinstance(expose, dict) else expose)
 

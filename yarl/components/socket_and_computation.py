@@ -458,7 +458,7 @@ class Computation(object):
         else:
             return force_tuple(self.method(*ops))
 
-    def re_nest_container_ops(self, *ops, input_comparison_op=None):
+    def re_nest_container_ops(self, *ops):
         """
         Re-creates the originally nested input structure (as dict/tuple) of the given output ops.
         Process all flattened OrderedDicts with auto-generated keys, and leave the others (primitives)
@@ -467,8 +467,8 @@ class Computation(object):
         Args:
             *ops (Union[OrderedDict,dictop,tuple,op]): The ops that need to be re-nested (only process the OrderedDicts
                 amongst these and ignore all others).
-            TODO: input_comparison _op (Optional[OrderedDict]): One of the flattened input ops to use for sanity checking.
-                If not None, all output OrderedDict ops must match this one's key/value structure.
+            #TODO: input_comparison _op (Optional[OrderedDict]): One of the flattened input ops to use for sanity checking.
+            #If not None, all output OrderedDict ops must match this one's key/value structure.
 
         Returns:
             Tuple[Union[dict,tuple,op]]: A tuple containing the ops as they came in, except that all OrderedDicts
