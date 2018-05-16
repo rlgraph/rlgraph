@@ -381,7 +381,7 @@ class Component(Specifiable):
                 name in that dict and pass the found value to self.add_component. If expose is not a dict, pass it
                 as-is for each of the added sub-components.
         """
-        expose = kwargs.pop("expose")
+        expose = kwargs.pop("expose", None)
         assert not kwargs
 
         for c in components:
