@@ -19,11 +19,12 @@ from __future__ import print_function
 
 from yarl import backend
 from yarl.spaces import Dict, Tuple
-from components.layers.layer_component import LayerComponent
-from components.layers.nn.initializer import Initializer
+
+from .initializer import Initializer
+from .nn_layer import NNLayer
 
 
-class DenseLayer(LayerComponent):
+class DenseLayer(NNLayer):
     """
     A dense (or "fully connected") NN-layer.
     """
@@ -34,7 +35,7 @@ class DenseLayer(LayerComponent):
 
         Keyword Args:
             weights_spec (any): A specifier for a weights initializer.
-            biases_spec (any): A specifier for a biases initializer.
+            biases_spec (any): A specifier for a biases initializer. If False, use no biases.
         """
         super(DenseLayer, self).__init__(*sub_components, **kwargs)
         self.weights_spec = kwargs.get("weights_spec")
@@ -44,9 +45,6 @@ class DenseLayer(LayerComponent):
 
         # Number of nodes in this layer.
         self.units = units
-
-        # The wrapped layer object.
-        self.layer = None
 
     def create_variables(self, input_spaces):
         in_space = input_spaces["input"]
@@ -70,14 +68,3 @@ class DenseLayer(LayerComponent):
                                          use_bias=(self.biases_spec is not False),
                                          bias_initializer=self.biases_init.initializer)
 
-    def _computation_apply(self, input_):
-        """
-        The actual calculation on a single, primitive input Space.
-
-        Args:
-            input_ (any): The input to the fc-layer.
-
-        Returns:
-            The output after having pushed the input through the layer.
-        """
-        return self.layer.apply(input_)

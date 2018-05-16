@@ -17,16 +17,27 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-# Basics.
-from .stack_component import StackComponent
-from .layer_component import LayerComponent
-# Preprocessing.
-from .preprocessing import PreprocessLayer, Clamp, Scale, Sequence, GrayScale
-# NN-Layers.
-from components.layers.nn.initializer import Initializer
-from .nn import NNLayer, DenseLayer, Conv2DLayer
+from components.layers.layer_component import LayerComponent
 
-__all__ = ["StackComponent", "LayerComponent",
-           "Initializer", "NNLayer", "DenseLayer", "Conv2DLayer",
-           "PreprocessLayer", "Clamp", "Scale", "GrayScale", "Sequence"]
 
+class NNLayer(LayerComponent):
+    """
+    A generic NN-layer object.
+    """
+    def __init__(self, *sub_components, **kwargs):
+        super(NNLayer, self).__init__(*sub_components, **kwargs)
+
+        # The wrapped layer object.
+        self.layer = None
+
+    def _computation_apply(self, input_):
+        """
+        The actual calculation on a single, primitive input Space.
+
+        Args:
+            input_ (op): The input to the layer.
+
+        Returns:
+            The output after having pushed the input through the layer.
+        """
+        return self.layer.apply(input_)
