@@ -179,12 +179,42 @@ class Space(Specifiable):
         a random environment.
 
         Args:
-            size (Union[int,iterable,tuple]): Size of sample.
+            size (Union[int,iterable,tuple]): Output shape of the sample.
             seed (Optional[int]): The random seed to use.
         Returns:
             any: The sampled element.
         """
         raise NotImplementedError
+
+    @staticmethod
+    def _check_size(size=None, batch_rank_required=False):
+        """
+
+        Args:
+            size Optional(Union[int, tuple]): Output shape of the sample.
+            batch_rank_required: If a batch rank is required for the sample.
+
+        Returns:
+            Union[int, tuple, None]: Modified size.
+        """
+        if size is None:
+            return None
+        else:
+            if batch_rank_required:
+                # TODO -> what do we do here?
+                if isinstance(size, tuple):
+                    return size
+                else:
+                    return (size, )
+            else:
+                if size == 0:
+                    return ()
+                elif isinstance(size, int):
+                    return size
+                elif isinstance(size, tuple):
+                    return size
+                else:
+                    raise ValueError("Size must be non-negative integer or tuple.")
 
     def contains(self, sample):
         """

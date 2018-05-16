@@ -48,7 +48,7 @@ class TestReplayMemory(unittest.TestCase):
         test = ComponentTest(component=component_to_test, input_spaces=dict(records=self.record_space))
 
         # Run the test.
-        observation = self.record_space.sample()
+        observation = self.record_space.sample(size=1)
         print(observation)
         result = test.test(out_socket_name="insert", inputs=observation, expected_outputs=[])
 

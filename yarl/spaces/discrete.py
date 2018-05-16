@@ -74,6 +74,7 @@ class Discrete(Space):
         return self.n == other.n
 
     def sample(self, size=None, seed=None):
+        size = self._check_size(size=size, batch_rank_required=self.add_batch_rank)
         if seed is not None:
             np.random.seed(seed)
         return np.random.randint(self.n, size=size)

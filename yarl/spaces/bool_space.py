@@ -51,6 +51,7 @@ class Bool(Discrete):
         return "Bool({})".format("+batch" if self.add_batch_rank else "")
 
     def sample(self, size=None, seed=None):
+        size = self._check_size(size=size, batch_rank_required=self.add_batch_rank)
         if seed is not None:
             random.seed(seed)
         return np.random.choice(a=[False, True], size=size)

@@ -120,6 +120,7 @@ class Continuous(Space):
         return isinstance(other, Continuous) and np.allclose(self.low, other.low) and np.allclose(self.high, other.high)
 
     def sample(self, size=None, seed=None):
+        size = self._check_size(size=size, batch_rank_required=self.add_batch_rank)
         if seed is not None:
             np.random.seed(seed)
         # No bounds are known: Pretend we are between 0.0 and 1.0.
