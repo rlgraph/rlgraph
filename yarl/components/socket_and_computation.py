@@ -314,7 +314,8 @@ class Computation(object):
                             # ops is an OrderedDict of return-tuples.
                             ops = self.split_flattened_ops(*flattened_spaces)
                         else:
-                            # ops is a return-tuple (maybe including flattened OrderedDicts) or a single op.
+                            # ops is a return-tuple or a single op.
+                            # Maybe including flattened OrderedDicts.
                             ops = self.method(*flattened_spaces)
 
                         # Need to re-nest?

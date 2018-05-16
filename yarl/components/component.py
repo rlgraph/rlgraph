@@ -20,6 +20,7 @@ from __future__ import print_function
 import tensorflow as tf
 import re
 import copy
+from collections import OrderedDict
 
 from yarl import YARLError, backend, Specifiable
 from yarl.components.socket_and_computation import Socket, Computation
@@ -153,9 +154,12 @@ class Component(Specifiable):
             if from_space is not None:
                 #var = from_space.flatten(mapping=lambda key, primitive: primitive.get_tensor_variable(
                 #    name=name+"/"+key, add_batch_rank=add_batch_rank))
-                var = from_space.get_tensor_variable(name=name, add_batch_rank=add_batch_rank)
                 if flatten:
-                    var = from_space.flatten()  # mapping=lambda key, primitive: var[key]
+                    flat_dict = from_space.flatten()  # mapping=lambda key, primitive: var[key]
+                    var = OrderedDict({k: v.get_tensor_variable(name=name+"/"+k, add_batch_rank=add_batch_rank)
+                                       for k, v in flat_dict.items()})
+                else:
+                    var = from_space.get_tensor_variable(name=name, add_batch_rank=add_batch_rank)
             else:
                 if initializer is None or isinstance(initializer, tf.keras.initializers.Initializer):
                     shape = tuple((() if add_batch_rank is False else

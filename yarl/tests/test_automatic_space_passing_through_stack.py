@@ -30,6 +30,7 @@ class TestAutomaticSpacePassingThroughStack(unittest.TestCase):
 
     def test_two_preprocessors(self):
         # Some crazy Space
+        space = Tuple(Continuous(shape=(2,)), Continuous(shape=(3, 3, 2)))
         space = Dict(
             a=Continuous(shape=(1, 2)),
             b=Continuous(shape=(2, 2, 2)),
