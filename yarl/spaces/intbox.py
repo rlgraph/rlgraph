@@ -45,13 +45,13 @@ class IntBox(Continuous):
         return isinstance(other, IntBox) and np.allclose(self.low, other.low) and np.allclose(self.high, other.high)
 
     def sample(self, size=None, seed=None):
-        if self.has_unknown_bounds:
-            raise RuntimeError("Cannot generate samples of a Space with unknown bounds. "
-                               "Need flatten/unflatten samples first!")
-        size = self._check_size(size=size, batch_rank_required=self.add_batch_rank)
+        shape = self._get_np_shape(num_samples=size)
         if seed is not None:
             np.random.seed(seed)
-        return np.random.randint(low=self.low - 1, high=self.high + 1, size=size)
+        if self.has_unknown_bounds:
+            return np.random.randint(low=0, high=256, size=shape)
+        else:
+            return np.random.randint(low=self.low, high=self.high + 1, size=shape)
 
     def contains(self, sample):
         # Check for int type in given sample.

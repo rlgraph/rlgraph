@@ -20,6 +20,7 @@ from __future__ import print_function
 from collections import OrderedDict
 
 from yarl import Specifiable, backend, YARLError
+from yarl.utils.util import force_tuple
 # TODO: make this backend-dependent
 import tensorflow as tf
 
@@ -35,8 +36,9 @@ class Space(Specifiable):
             add_batch_rank (bool): Whether to always add a batch rank at the 0th position when creating
                 variables from this Space.
         """
-        self.add_batch_rank = add_batch_rank
-        self.batch_rank_tuple = (None,) if self.add_batch_rank else ()
+        self.add_batch_rank = None
+        self.batch_rank_tuple = None
+        self._add_batch_rank(add_batch_rank)
 
     @property
     def shape(self):
@@ -186,35 +188,27 @@ class Space(Specifiable):
         """
         raise NotImplementedError
 
-    @staticmethod
-    def _check_size(size=None, batch_rank_required=False):
+    def _get_np_shape(self, num_samples=None):
         """
+        Helper to determine, which shape one should pass to the numpy random funcs for sampling from a Space.
+        Depends on num_samples, the shape of this Space and the add_batch_rank setting.
 
         Args:
-            size Optional(Union[int, tuple]): Output shape of the sample.
-            batch_rank_required: If a batch rank is required for the sample.
+            num_samples (Optional[int]): Number of samples to pull. If None or 0, pull 1 sample, but without batch rank
+                (no matter what the value of self.add_batch_rank is).
 
         Returns:
-            Union[int, tuple, None]: Modified size.
+            Tuple[int]: Shape to use for numpy random sampling.
         """
-        if size is None:
-            return None
-        else:
-            if batch_rank_required:
-                # TODO -> what do we do here?
-                if isinstance(size, tuple):
-                    return size
-                else:
-                    return (size, )
+        # No batch rank.
+        if not num_samples or (num_samples == 1 and not self.add_batch_rank):
+            if len(self.shape) == 0:
+                return None
             else:
-                if size == 0:
-                    return ()
-                elif isinstance(size, int):
-                    return size
-                elif isinstance(size, tuple):
-                    return size
-                else:
-                    raise ValueError("Size must be non-negative integer or tuple.")
+                return self.shape
+        # With batch rank.
+        else:
+            return tuple((num_samples,) + self.shape)
 
     def contains(self, sample):
         """
@@ -227,4 +221,14 @@ class Space(Specifiable):
             bool: Whether sample is a valid member of this space.
         """
         raise NotImplementedError
+
+    def _add_batch_rank(self, add_batch_rank=False):
+        """
+        Helper method for ContainerSpaces to add this feature later (after this Space has been constructed).
+
+        Args:
+            add_batch_rank (bool): See c'tor.
+        """
+        self.add_batch_rank = add_batch_rank
+        self.batch_rank_tuple = (None,) if self.add_batch_rank else ()
 

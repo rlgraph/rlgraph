@@ -51,10 +51,10 @@ class Bool(Discrete):
         return "Bool({})".format("+batch" if self.add_batch_rank else "")
 
     def sample(self, size=None, seed=None):
-        size = self._check_size(size=size, batch_rank_required=self.add_batch_rank)
+        shape = self._get_np_shape(num_samples=size)
         if seed is not None:
             random.seed(seed)
-        return np.random.choice(a=[False, True], size=size)
+        return np.random.choice(a=[False, True], size=shape)
 
     def contains(self, sample):
         return isinstance(sample, bool)

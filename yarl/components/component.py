@@ -155,7 +155,7 @@ class Component(Specifiable):
                 # Variables should be returned in a flattened OrderedDict.
                 if flatten:
                     var = from_space.flatten(mapping=lambda k, primitive: primitive.get_tensor_variable(
-                        name=name+"/"+k, add_batch_rank=add_batch_rank))
+                        name=name+k, add_batch_rank=add_batch_rank))
                 # Normal, nested Variables from a Space (container or primitive).
                 else:
                     var = from_space.get_tensor_variable(name=name, add_batch_rank=add_batch_rank)

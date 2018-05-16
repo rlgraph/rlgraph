@@ -42,10 +42,7 @@ class Continuous(Space):
                 where all(!) elements are between low and high.
             Continuous(np.array([-1.0,-2.0]), np.array([2.0,4.0])) # low and high are arrays of the same shape
                 (no shape given!) -> nD array where each dimension has different bounds.
-
-            NOT SUPPORTED ATM:
-                Continuous(None, None, (2,3,4)) # low and high are not given (unknown) -> figure out bounds by
-                    observing incoming samples (use flatten(_batch)? and unflatten(_batch)? methods to get samples).
+            Continuous(None, None, (2,3,4)) # low and high are not given (unknown).
         """
         super(Continuous, self).__init__(add_batch_rank=add_batch_rank)
         self.is_scalar = False  # whether we are a single scalar (shape=())
@@ -114,19 +111,20 @@ class Continuous(Space):
     #        raise YARLError("ERROR: Pytorch not supported yet!")
 
     def __repr__(self):
-        return "Continuous({}{})".format(self.shape, "; +batch" if self.add_batch_rank else "")
+        return "{}({}{})".format(type(self).__name__.title(), self.shape, "; +batch" if self.add_batch_rank else "")
 
     def __eq__(self, other):
         return isinstance(other, Continuous) and np.allclose(self.low, other.low) and np.allclose(self.high, other.high)
 
-    def sample(self, size=None, seed=None):
-        size = self._check_size(size=size, batch_rank_required=self.add_batch_rank)
+    def sample(self, size=1, seed=None):
+        shape = self._get_np_shape(num_samples=size)
+        #shape = self.shape_with_batch_rank
         if seed is not None:
             np.random.seed(seed)
         # No bounds are known: Pretend we are between 0.0 and 1.0.
         if self.has_unknown_bounds:
-            return np.random.uniform(size=size)
-        return np.random.uniform(low=self.low, high=self.high, size=size)
+            return np.random.uniform(size=shape)
+        return np.random.uniform(low=self.low, high=self.high, size=shape)
 
     def contains(self, sample):
         if self.is_scalar:

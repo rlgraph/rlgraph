@@ -33,7 +33,7 @@ class TestReplayMemory(unittest.TestCase):
         states=dict(state1=float, state2=float),
         actions=dict(action1=float),
         reward=float,
-        terminal=IntBox(shape=(), low=0, high=1),
+        terminal=IntBox(low=0, high=1),
         add_batch_rank=True
     )
     capacity = 10
@@ -49,7 +49,7 @@ class TestReplayMemory(unittest.TestCase):
         test = ComponentTest(component=memory, input_spaces=dict(records=self.record_space))
 
         # Run the test.
-        observation = self.record_space.sample(size=(1,))
+        observation = self.record_space.sample(size=5)
         print(observation)
         result = test.test(out_socket_name="insert", inputs=observation, expected_outputs=[])
 

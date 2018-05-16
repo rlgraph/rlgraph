@@ -74,10 +74,10 @@ class Discrete(Space):
         return self.n == other.n
 
     def sample(self, size=None, seed=None):
-        size = self._check_size(size=size, batch_rank_required=self.add_batch_rank)
+        shape = self._get_np_shape(num_samples=size)
         if seed is not None:
             np.random.seed(seed)
-        return np.random.randint(self.n, size=size)
+        return np.random.randint(self.n, size=shape)
 
     def contains(self, sample):
         sample = np.asarray(sample)

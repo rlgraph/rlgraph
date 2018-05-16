@@ -56,8 +56,10 @@ class Dict(ContainerSpace, dict):
                 raise YARLError("ERROR: Keys to Dict() must not contain '/', '[' or ']' characters!")
 
             value = spec[key]
-            # value is already a Space -> keep it
+            # Value is already a Space: Keep it, but maybe add batch-rank.
             if isinstance(value, Space):
+                if self.add_batch_rank is True:
+                    value._add_batch_rank(add_batch_rank=True)
                 dict_[key] = value
             # Value is a list/tuple -> treat as Tuple space.
             elif isinstance(value, (list, tuple)):
@@ -133,14 +135,15 @@ class Tuple(ContainerSpace, tuple):
             assert len(components) == 1
             components = components[0]
 
-        add_batch_rank = kwargs.pop("add_batch_rank", False)
-        assert not kwargs
+        add_batch_rank = kwargs.get("add_batch_rank", False)
 
         # Allow for any spec or already constructed Space to be passed in as values in the python-list/tuple.
         list_ = list()
         for value in components:
             # value is already a Space -> keep it
             if isinstance(value, Space):
+                if add_batch_rank is True:
+                    value._add_batch_rank(add_batch_rank=True)
                 list_.append(value)
             # Value is a list/tuple -> treat as Tuple space.
             elif isinstance(value, (list, tuple)):
@@ -154,7 +157,9 @@ class Tuple(ContainerSpace, tuple):
 
         return tuple.__new__(cls, list_)
 
-    #def __init__(self, *value, **kwargs):
+    def __init__(self, *components, **kwargs):
+        add_batch_rank = kwargs.get("add_batch_rank", False)
+        super(Tuple, self).__init__(add_batch_rank=add_batch_rank)
 
     @cached_property
     def shape(self):
