@@ -64,8 +64,8 @@ class StackComponent(Component):
 
             # TODO: change this to make it possible to just pass in two components, and they would be connected
             # connect component's output socket(s) with next_component's input socket(s).
-            for output_sock, input_sock in zip(component.outputs.values(), next_component.inputs.values()):
+            for out_sock, in_sock in zip(component.output_sockets, next_component.input_sockets):
                 # correctly with each other if the first one has the same number of
                 # outputs than the second one has inputs.
-                self.connect([component, output_sock], [next_component, input_sock])
+                self.connect([component, out_sock], [next_component, in_sock])
 

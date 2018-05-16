@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.utils.util import force_list
+from yarl.utils.util import force_tuple
 from yarl.models import Model
 import tensorflow as tf
 
@@ -61,7 +61,7 @@ class TensorFlowModel(Model):
         self.graph_default_context = None
 
     def call(self, sockets, inputs=None):
-        socket_names = force_list(sockets, to_tuple=True)
+        socket_names = force_tuple(sockets)
         fetch_list, feed_dict = self.get_execution_inputs(socket_names=socket_names, input_dict=inputs)
         ret = self.monitored_session.run(fetch_list, feed_dict=feed_dict)
         if len(fetch_list) == 1:

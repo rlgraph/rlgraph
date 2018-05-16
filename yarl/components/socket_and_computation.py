@@ -23,7 +23,7 @@ from collections import OrderedDict
 import re
 
 from yarl import YARLError
-from yarl.spaces import Space
+from yarl.spaces import Space, get_space_from_op
 from yarl.utils.dictop import dictop
 from yarl.utils.util import force_tuple, get_shape, deep_tuple
 
@@ -44,29 +44,32 @@ class Socket(object):
     When connected to a computation object, a Socket always represents one of the input parameters to the computation
     method. Also, each returned value of a computation method corresponds to one Socket.
     """
-    def __init__(self, name="", scope="", type_="in", device=None, global_=False):
+    def __init__(self, name, component, type_="in"):
         """
         Args:
             name (str): The name of this Socket (as it will show in the final call interface).
-            scope (str): The scope of this Socket (same as the owning Component's scope).
+            component (Component): The Component object that this Socket belongs to.
             type_ (str): The Socket type: "in" or "out".
-            device (str): Device this Socket's component will be assigned to. If None, defaults to CPU.
-            global_ (bool): In distributed mode, this flag indicates if the Socket's component is part of the
-                shared global model or local to the worker. Defaults to False and will be ignored if set to
-                True in non-distributed mode.
+            #OBSOLETE: we have the component now!
+            #scope (str): The scope of this Socket (same as the owning Component's scope).
+            #device (str): Device this Socket's component will be assigned to. If None, defaults to CPU.
+            #global_ (bool): In distributed mode, this flag indicates if the Socket's component is part of the
+            #    shared global model or local to the worker. Defaults to False and will be ignored if set to
+            #    True in non-distributed mode.
         """
         # The name of this Socket.
         self.name = name
         # "in" or "out"
         self.type = type_
+        # The Component that this Socket belongs to.
+        self.component = component
 
-        # TODO: remove the following again and get them from the component. Store the component in the Socket.
-        # TODO: need to move everything into the same python module.
-        # The scope of this socket (important for computations and variable creation).
-        self.scope = scope
-        # The device to use when placing ops that come after this Socket into the Graph.
-        self.device = device
-        self.global_ = global_
+        ## TODO: remove the following again and get them from the component. Store the component in the Socket.
+        ## The scope of this socket (important for computations and variable creation).
+        #self.scope = scope
+        ## The device to use when placing ops that come after this Socket into the Graph.
+        #self.device = device
+        #self.global_ = global_
 
         # Which other socket(s), space(s), computation(s) are we connected to on the incoming and outgoing side?
         # - Records in these lists have a parallel relationship (they are all alternatives to each other).
@@ -77,7 +80,11 @@ class Socket(object):
         self.incoming_connections = list()
         self.outgoing_connections = list()
 
-        # The set of (alternative) tf op(s) that this socket carries. Populated at build time.
+        # The inferred Space coming into this Socket.
+        # TODO: Make sure all incoming connections have the same Space.
+        self.space = None
+
+        # The set of (alternative) ops (dictop, tuple or primitive) that this socket carries. Populated at build time.
         self.ops = set()
 
     # A+B -> comp -> C+D -> C -> E (which also gets an alternative input from G) AND D -> F
@@ -105,7 +112,8 @@ class Socket(object):
         if from_ in self.incoming_connections:
             self.incoming_connections.remove(from_)
 
-    def update_from_input(self, incoming, op_registry, in_socket_registry, slot=None):
+    def update_from_input(self, incoming, op_registry, in_socket_registry, computation_in_slot=None,
+                          socket_in_op=None):
         """
         Updates this socket based on an incoming connection (from a Space or Computation or another Socket).
 
@@ -114,10 +122,18 @@ class Socket(object):
             op_registry (dict): Dict that keeps track of which ops require which other ops to be calculated.
             in_socket_registry (dict): Dict that keeps track of which very in-Socket (name) needs which
                 ops (placeholders/feeds).
-            slot (int): If incoming is a Computation, which output slot does this Socket connect to?
+            computation_in_slot (Optional[int]): If incoming is a Computation, which output slot does this Socket
+                connect to?
+            socket_in_op (Optional[op]): If incoming is a Socket, this may hold a single op that we should
+                build from. If None and incoming is Socket, update all.
+
+        Raises:
+            YARLError: If there is an attempt to connect more than one Space to this Socket.
         """
         # Space: generate backend-ops.
         if isinstance(incoming, Space):
+            if self.space is not None:
+                raise YARLError("ERROR: A Socket can only have one incoming Space!")
             # TODO: Add batch dimension-option.
             # NOTE: op could be dictop or tuple as well.
             op = incoming.get_tensor_variable(name=self.name, is_input_feed=True)
@@ -128,20 +144,38 @@ class Socket(object):
                 else (in_socket_registry[self.name] | {op})
             # Remember, that this op goes into a Socket at the very beginning of the Graph (e.g. a tf.placeholder).
             op_registry[op] = {self}
+            # Store this Space as our incoming Space.
+            self.space = incoming
         # Computation: Connect this Socket to the nth op coming out of the Computation function.
         elif isinstance(incoming, Computation):
-            assert isinstance(slot, int) and slot >= 0, "ERROR: If incoming is a Computation, slot must be set and >=0!"
+            assert isinstance(computation_in_slot, int) and computation_in_slot >= 0, \
+                "ERROR: If incoming is a Computation, slot must be set and >=0!"
             # Add every nth op from the output of the completed computations to this Socket's set of ops.
-            nth_computed_ops = [outputs[slot] for outputs in incoming.processed_ops.values()]
+            nth_computed_ops = [outputs[computation_in_slot] for outputs in incoming.processed_ops.values()]
+
+            # Store incoming Space.
+            if len(self.ops) == 0:
+                in_space = get_space_from_op(next(iter(nth_computed_ops)))
+                # TODO: check whether all incoming ops have same Space
+                self.space = in_space
+
             self.ops.update(nth_computed_ops)
-        # Incoming is another Socket -> Simply add ops to this one.
+        # Incoming is another Socket -> Simply update ops from this one.
         else:
-            assert isinstance(incoming, Socket), "ERROR: incoming must be Socket!"
-            self.ops.update(incoming.ops)
+            assert isinstance(incoming, Socket), "ERROR: Incoming must be Space, Computation, or another Socket!"
+            # Update given op or all (it's a set, so no harm).
+            self.ops.update(socket_in_op or incoming.ops)
+            self.space = incoming.space
+            # Check whether our Component now has all it's Sockets with a Space-information.
+            self.component.input_complete = True
+            for in_sock in self.component.input_sockets:
+                if in_sock.space is None:
+                    self.component.input_complete = False
+                    break
 
     def __str__(self):
-        return "{}-Socket('{}/{}'{})".format(self.type, self.scope, self.name,
-                                             " dev='{}'".format(self.device) if self.device else "")
+        return "{}-Socket('{}/{}'{})".format(self.type, self.component.scope, self.name,
+                                             " dev='{}'".format(self.component.device) if self.component.device else "")
 
 
 class Computation(object):
@@ -205,6 +239,10 @@ class Computation(object):
         self.method = getattr(self.component, "_computation_" + self.name, None)
         if not self.method:
             raise YARLError("ERROR: No `_computation_...` method with name '{}' found!".format(self.name))
+
+        #self.create_variables = getattr(self.component, "create_variables", None)
+        #if not self.create_variables:
+        #    raise YARLError("ERROR: No `create_variables` method found in component '{}'!".format(self.component.name))
 
         self.input_sockets = input_sockets
         self.output_sockets = output_sockets
@@ -429,7 +467,7 @@ class Computation(object):
         Args:
             *ops (Union[OrderedDict,dictop,tuple,op]): The ops that need to be re-nested (only process the OrderedDicts
                 amongst these and ignore all others).
-            input_comparison_op (Optional[OrderedDict]): One of the flattened input ops to use for sanity checking.
+            TODO: input_comparison _op (Optional[OrderedDict]): One of the flattened input ops to use for sanity checking.
                 If not None, all output OrderedDict ops must match this one's key/value structure.
 
         Returns:

@@ -29,12 +29,28 @@ class Space(Specifiable):
     Space class (based and compatible with openAI).
     Provides a classification for state-, action- and reward spaces.
     """
+    def __init__(self, add_batch_rank=False):
+        """
+        Args:
+            add_batch_rank (bool): Whether to always add a batch rank at the 0th position when creating
+                variables from this Space.
+        """
+        self.add_batch_rank = add_batch_rank
+        self.batch_rank_tuple = (None,) if self.add_batch_rank else ()
 
     @property
     def shape(self):
         """
         Returns:
             tuple: The shape of this Space as a tuple.
+        """
+        raise NotImplementedError
+
+    @property
+    def shape_with_batch_rank(self):
+        """
+        Returns:
+            tuple: The shape of this Space as a tuple including a possible batch_rank as the 0th rank.
         """
         raise NotImplementedError
 
@@ -63,7 +79,7 @@ class Space(Specifiable):
         """
         raise NotImplementedError
 
-    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=False, **kwargs):
+    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, **kwargs):
         """
         Returns a backend-specific variable/placeholder that matches the space's shape.
 
@@ -71,8 +87,10 @@ class Space(Specifiable):
             name (str): The name for the variable.
             is_input_feed (bool): Whether the returned object should be an input placeholder,
                 instead of a full variable.
-            add_batch_rank (bool): If from_space is given and is True, will add a 0th rank to the created variable.
-                Default: False.
+            add_batch_rank (Optional[bool,int]): If True, will add a 0th rank (None) to
+                the created variable. If it is an int, will add that int (-1 means None).
+                If None, will use the Space's default value: `self.add_batch_rank`.
+                Default: None.
 
         Keyword Args:
             To be passed on to backend-specific methods.
@@ -80,7 +98,9 @@ class Space(Specifiable):
         Returns:
             any: A Tensor Variable/Placeholder.
         """
-        shape = tuple((() if not add_batch_rank else (None,)) + self.shape)
+        add_batch_rank = self.add_batch_rank if add_batch_rank is None else add_batch_rank
+        batch_rank = () if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,)
+        shape = tuple(batch_rank + self.shape)
         if backend() == "tf":
             if is_input_feed:
                 return tf.placeholder(dtype=self.dtype, shape=shape, name=name)

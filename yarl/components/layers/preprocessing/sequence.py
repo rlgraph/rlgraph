@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-from yarl.utils.util import dtype, get_rank, get_shape
+from yarl.utils.util import get_rank
 from .preprocess_layer import PreprocessLayer
 
 
@@ -44,20 +44,20 @@ class Sequence(PreprocessLayer):
 
         self.sequence_length = seq_length
         self.add_rank = add_rank
-        # TODO: Make rank0=batch-dim optional. Hardcoded atm.
-        self.first_rank_is_batch = True
 
-        # Our sequence buffer.
+        # The sequence-buffer where we store previous inputs.
         self.buffer = None
         # The index into the buffer.
         self.index = None
+        # Whether the first rank of the inputs is the batch dimension (known at create_variables time).
+        self.first_rank_is_batch = None
 
     def create_variables(self, input_spaces):
-        # The sequence-buffer where we store previously "seen" inputs.
         # Cut the "batch rank" (always 1 anyway) and replace it with the "sequence-rank".
+        in_space = input_spaces["input"]
+        self.first_rank_is_batch = in_space.add_batch_rank
         self.buffer = self.get_variable(name="buffer", trainable=False,
-                                        from_space=input_spaces["input"], add_batch_rank=self.sequence_length)
-        # The index for the last inserted input.
+                                        from_space=in_space, add_batch_rank=self.sequence_length)
         self.index = self.get_variable(name="index", dtype="int", initializer=-1, trainable=False)
 
     def _computation_reset(self):

@@ -19,6 +19,7 @@ from .bool import Bool
 from .continuous import Continuous
 from .intbox import IntBox
 from .containers import ContainerSpace, Dict, Tuple
+from .space_util import get_space_from_op
 
 
 Space.__lookup_classes__ = {
@@ -42,7 +43,7 @@ Space.__lookup_classes__ = {
     "dict": Dict
 }
 
-__all__ = ["Space", "Discrete", "Bool", "Continuous", "IntBox", "ContainerSpace", "Dict", "Tuple"]
+__all__ = ["Space", "Discrete", "Bool", "Continuous", "IntBox", "ContainerSpace", "Dict", "Tuple", "get_space_from_op"]
 
 
 

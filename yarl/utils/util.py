@@ -141,7 +141,7 @@ def default_dict(original, defaults):
     Changes original in place, but leaves to_add as is.
 
     Args:
-        original (Union[None,dict]): The dict to (soft)-update. If None, return the default one.
+        original (Optional[dict]): The dict to (soft)-update. If None, return the default one.
         defaults (dict): The dict to update from.
     """
     if original is None:

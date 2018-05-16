@@ -27,12 +27,16 @@ class Bool(Discrete):
     A Bool space is a special case of Discrete where n = 2, the possible values are True or False,
     and the flattened representation is a 1D vector of dim = 1 (not 2!) ([0]=False or [1]=True)
     """
-    def __init__(self):
-        super(Bool, self).__init__(2)
+    def __init__(self, add_batch_rank=False):
+        super(Bool, self).__init__(2, add_batch_rank=add_batch_rank)
 
     @property
     def shape(self):
-        return tuple()
+        return ()
+
+    @property
+    def shape_with_batch_rank(self):
+        return self.batch_rank_tuple
 
     @property
     def flat_dim(self):
@@ -43,7 +47,7 @@ class Bool(Discrete):
         return "bool"
 
     def __repr__(self):
-        return "Bool()"
+        return "Bool({})".format("+batch" if self.add_batch_rank else "")
 
     def sample(self, seed=None):
         if seed is not None:

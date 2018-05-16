@@ -40,21 +40,24 @@ class GrayScale(PreprocessLayer):
         self.last_rank = len(self.weights)
         self.keep_rank = keep_rank
 
-    def _computation_apply(self, image):
+    def _computation_apply(self, images):
         """
-        Gray-scales an incoming single image of arbitrary rank (normally rank=3, width/height/colors).
+        Gray-scales images of arbitrary rank.
+        Normally, the images' rank is 3 (width/height/colors), but can also be: batch/width/height/colors, or any other.
         However, the last rank must be of size: len(self.weights).
 
         Args:
-            image (tensor): A single image to be gray-scaled (may be nD + m colors).
+            images (tensor): Single image or a batch of images to be gray-scaled (last rank=n colors, where
+                m=len(self.weights)).
 
         Returns:
-            op: The op for processing the single image.
+            op: The op for processing the images.
         """
-        assert get_shape(image)[-1] == self.last_rank, "ERROR: Given image's shape ({}) does not match number of " \
-                                                       "weights (last rank must be {})!".format(get_shape(image),
-                                                                                                self.last_rank)
-        shape = tuple([1] * get_rank(image)-1) + (self.last_rank,)
-        weights_reshaped = np.reshape(a=self.weights, newshape=shape)
-        return tf.reduce_sum(weights_reshaped * image, axis=-1, keepdims=self.keep_rank)
+        images_shape = get_shape(images)
+        assert images_shape[-1] == self.last_rank, "ERROR: Given image's shape ({}) does not match number of " \
+                                                   "weights (last rank must be {})!".format(images_shape,
+                                                                                            self.last_rank)
+        weights_reshaped = np.reshape(a=self.weights,
+                                      newshape=tuple([1] * (get_rank(images)-1)) + (self.last_rank,))
+        return tf.reduce_sum(weights_reshaped * images, axis=-1, keepdims=self.keep_rank)
 

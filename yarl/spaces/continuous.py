@@ -28,7 +28,7 @@ class Continuous(Space):
     A box in R^n (each coordinate is bounded).
     """
 
-    def __init__(self, low=None, high=None, shape=None):
+    def __init__(self, low=None, high=None, shape=None, add_batch_rank=False):
         """
         Args:
             low (any): The lower bound (see Valid Inputs for more information).
@@ -47,6 +47,7 @@ class Continuous(Space):
                 Continuous(None, None, (2,3,4)) # low and high are not given (unknown) -> figure out bounds by
                     observing incoming samples (use flatten(_batch)? and unflatten(_batch)? methods to get samples).
         """
+        super(Continuous, self).__init__(add_batch_rank=add_batch_rank)
         self.is_scalar = False  # whether we are a single scalar (shape=())
         self.has_unknown_bounds = False
         self.has_flex_bounds = False
@@ -85,8 +86,14 @@ class Continuous(Space):
     @cached_property
     def shape(self):
         if self.is_scalar:
-            return tuple()
-        return self.low.shape
+            return ()
+        return tuple(self.low.shape)
+
+    @cached_property
+    def shape_with_batch_rank(self):
+        if self.is_scalar:
+            return self.batch_rank_tuple
+        return tuple(self.batch_rank_tuple + self.low.shape)
 
     @cached_property
     def flat_dim(self):
@@ -107,7 +114,7 @@ class Continuous(Space):
     #        raise YARLError("ERROR: Pytorch not supported yet!")
 
     def __repr__(self):
-        return "Continuous" + str(self.shape)
+        return "Continuous({}{})".format(self.shape, "; +batch" if self.add_batch_rank else "")
 
     def __eq__(self, other):
         return isinstance(other, Continuous) and np.allclose(self.low, other.low) and np.allclose(self.high, other.high)

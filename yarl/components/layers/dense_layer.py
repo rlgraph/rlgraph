@@ -27,24 +27,15 @@ class DenseLayer(LayerComponent):
     """
     A dense (or "fully connected") NN-layer.
     """
-    def __init__(self, input_space, units, *sub_components, **kwargs):
+    def __init__(self, units, *sub_components, **kwargs):
         """
         Args:
             units (int): The number of nodes in this layer.
-            input_space (Union[Space,dict]): The input Space or Space-spec that will be passed through this layer.
-                TODO: Lift restriction that this has to be primitive Space? But then again: Would this ever be needed?
 
         Keyword Args:
             weights_spec (any): A specifier for a weights initializer.
             biases_spec (any): A specifier for a biases initializer.
         """
-        self.input_space = Space.from_spec(input_space)
-        assert not isinstance(self.input_space, (Dict, Tuple)), "ERROR: Cannot handle container input_spaces " \
-                                                                "(atm; may soon do)!"
-
-        assert self.input_space.rank > 1, \
-            "ERROR: Rank of input_space (rank={}) must be 2 or larger (1st rank is batch size)!". \
-                format(self.input_space.rank)
         super(DenseLayer, self).__init__(*sub_components, **kwargs)
         self.weights_spec = kwargs.get("weights_spec")
         self.weights_init = None  # at build time
@@ -54,13 +45,19 @@ class DenseLayer(LayerComponent):
         # Number of nodes in this layer.
         self.units = units
 
-        # TODO: TEST this approach (remove this call when model.build can take care of this).
-        self.when_built()
+        # The wrapped layer object.
+        self.layer = None
 
-    # TODO: TEST this approach.
-    def when_built(self):
+    def create_variables(self):
+        space = self.get_input().space
+        assert not isinstance(space, (Dict, Tuple)), "ERROR: Cannot handle container input Spaces " \
+                                                     "(atm; may soon do)!"
+        assert space.rank > 1, \
+            "ERROR: Rank of input-space (rank={}) must be 2 or larger (1st rank is batch size)!".\
+                format(space.rank)
+
         # Create weights.
-        weights_shape = (self.input_space.shape[1], self.units)
+        weights_shape = (space.shape[1], self.units)
         self.weights_init = Initializer.from_spec(shape=weights_shape, specification=self.weights_spec)
         # And maybe biases.
         biases_shape = (self.units,)

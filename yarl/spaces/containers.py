@@ -38,7 +38,7 @@ class Dict(ContainerSpace, dict):
     A Dict space (an ordered and keyed combination of n other spaces).
     Supports nesting of other Dict/Tuple spaces (or any other Space types) inside itself.
     """
-    def __init__(self, spec=None, **kwargs):
+    def __init__(self, spec=None, add_batch_rank=False, **kwargs):
         # Allow for any spec or already constructed Space to be passed in as values in the python-dict.
         # Spec may be part of kwargs.
         if spec is None:
@@ -59,13 +59,13 @@ class Dict(ContainerSpace, dict):
                 dict_[key] = value
             # Value is a list/tuple -> treat as Tuple space.
             elif isinstance(value, (list, tuple)):
-                dict_[key] = Tuple(value)
+                dict_[key] = Tuple(value, add_batch_rank=add_batch_rank)
             # Value is a spec (or a spec-dict with "type" field) -> produce via `from_spec`.
             elif (isinstance(value, dict) and "type" in value) or not isinstance(value, dict):
-                dict_[key] = Space.from_spec(value)
+                dict_[key] = Space.from_spec(value, add_batch_rank=add_batch_rank)
             # Value is a simple dict -> recursively construct another Dict Space as a sub-space of this one.
             else:
-                dict_[key] = Dict(value)
+                dict_[key] = Dict(value, add_batch_rank=add_batch_rank)
 
         if len(dict_) == 0:
             raise YARLError("ERROR: Dict() c'tor needs a non-empty spec!")
@@ -74,6 +74,10 @@ class Dict(ContainerSpace, dict):
     @cached_property
     def shape(self):
         return tuple([self[key].shape for key in sorted(self.keys())])
+
+    @cached_property
+    def shape_with_batch_rank(self):
+        return tuple([self[key].shape_with_batch_rank for key in sorted(self.keys())])
 
     @cached_property
     def rank(self):
@@ -87,7 +91,7 @@ class Dict(ContainerSpace, dict):
     def dtype(self):
         return dictop([(key, subspace.dtype()) for key, subspace in self.items()])
 
-    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=False, **kwargs):
+    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, **kwargs):
         return dictop([(key, subspace.get_tensor_variable(name+"/"+key, is_input_feed, add_batch_rank, **kwargs))
                        for key, subspace in self.items()])
 
@@ -122,7 +126,7 @@ class Tuple(ContainerSpace, tuple):
     A Tuple space (an ordered sequence of n other spaces).
     Supports nesting of other container (Dict/Tuple) spaces inside itself.
     """
-    def __new__(cls, *components):
+    def __new__(cls, *components, add_batch_rank=False):
         if isinstance(components[0], (list, tuple)):
             assert len(components) == 1
             components = components[0]
@@ -135,19 +139,23 @@ class Tuple(ContainerSpace, tuple):
                 list_.append(value)
             # Value is a list/tuple -> treat as Tuple space.
             elif isinstance(value, (list, tuple)):
-                list_.append(Tuple(value))
+                list_.append(Tuple(value, add_batch_rank=add_batch_rank))
             # Value is a spec (or a spec-dict with "type" field) -> produce via `from_spec`.
             elif (isinstance(value, dict) and "type" in value) or not isinstance(value, dict):
-                list_.append(Space.from_spec(value))
+                list_.append(Space.from_spec(value, add_batch_rank=add_batch_rank))
             # Value is a simple dict -> recursively construct another Dict Space as a sub-space of this one.
             else:
-                list_.append(Dict(value))
+                list_.append(Dict(value, add_batch_rank=add_batch_rank))
 
         return tuple.__new__(cls, list_)
 
     @cached_property
     def shape(self):
         return tuple([c.shape for c in self])
+
+    @cached_property
+    def shape_with_batch_rank(self):
+        return tuple([c.shape_with_batch_rank for c in self])
 
     @cached_property
     def rank(self):
@@ -161,7 +169,7 @@ class Tuple(ContainerSpace, tuple):
     def dtype(self):
         return tuple([c.dtype for c in self])
 
-    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=False, **kwargs):
+    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, **kwargs):
         return tuple([subspace.get_tensor_variable(name+"/"+str(i), is_input_feed, add_batch_rank, **kwargs)
                       for i, subspace in enumerate(self)])
 

@@ -17,12 +17,26 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
+import tensorflow as tf
+
+from yarl.utils.util import get_rank, get_shape
 from .preprocess_layer import PreprocessLayer
-from .clamp import Clamp
-from .scale import Scale
-from .grayscale import GrayScale
-from .sequence import Sequence
 
 
-__all__ = ["PreprocessLayer", "Clamp", "Scale", "GrayScale", "Sequence"]
+class Clamp(PreprocessLayer):
+    """
+    A simple clamp layer. Clamps each value in the input tensor between min_ and max_.
+    """
+    def __init__(self,  min_, max_, scope="clamp", **kwargs):
+        """
+        Args:
+            min_ (float): The min value that any value in the inputs may have.
+            max_ (float): The max value that any value in the inputs may have.
+        """
+        super(Clamp, self).__init__(scope=scope, **kwargs)
+        self.min_ = min_
+        self.max_ = max_
 
+    def _computation_apply(self, input_):
+        return tf.clip_by_value(t=input_, clip_value_min=self.min_, clip_value_max=self.max_)

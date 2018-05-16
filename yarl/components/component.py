@@ -89,26 +89,38 @@ class Component(Specifiable):
         # This Component's in/out-Socket objects.
         self.input_sockets = list()
         self.output_sockets = list()
+        # Whether we know already all our in-Sockets' Spaces.
+        # Only then can we create our variables. Model will do this.
+        self.input_complete = False
 
-        # All Variables that are held by this component by full name. This will always include sub-components'
-        # variables.
-        #self.variables = dict()
+        # A dict for looking up which in-Sockets get which Spaces.
+        # keys=in-Socket name (of this component); values=Space object associated with this Socket.
+        # TODO: What about batch- or other additional ranks?
+        # Will be populated by Model after .
+        #self.input_spaces = dict()
 
-    def create_variables(self):
+        # All Variables that are held by this component (and its sub-components) by full name.
+        # key=full-scope variable name
+        # value=the actual variable
+        self.variables = dict()
+
+    def create_variables(self, input_spaces):
         """
-        TODO: maybe only call this after we know the different in-Socket Spaces.
-        TODO: That way, we don't need to always pass Space information into the different Component c'tors.
         Should create all variables that are needed within this component,
         unless a variable is only needed inside a single computation method (_computation_-method), in which case,
         it should be created there.
         Variables must be created via the backend-agnostic self.get_variable-method.
 
         Note that for different scopes in which this component is being used, variables will not(!) be shared.
+
+        Args:
+            input_spaces (dict): A convenience dict with Space/shape information.
+                keys=in-Socket name (str); values=the associated Space
         """
         pass  # Children may overwrite this method.
 
     def get_variable(self, name="", shape=None, dtype="float",
-                     initializer=None, trainable=True, from_space=None, add_batch_rank=False):
+                     initializer=None, trainable=True, from_space=None, add_batch_rank=False, flatten=False):
         """
         Generates or returns a variable to use in the selected backend.
 
@@ -118,15 +130,16 @@ class Component(Specifiable):
             dtype (Union[str,type]): The dtype (as string) of this variable.
             initializer (Optional[any]): Initializer for this variable.
             trainable (bool): Whether this variable should be trainable.
-            from_space (Optional[Space]): Whether to create this variable from a Space object
-                (shape, dtype and trainable are not needed then).
-            add_batch_rank (Union[bool,None,int]): If from_space is given and is True, will add a 0th rank (None) to
+            from_space (Optional[Space,str]): Whether to create this variable from a Space object
+                (shape and dtype are not needed then). The Space object can be given directly or via the name
+                of the in-Socket holding the Space.
+            add_batch_rank (Optional[bool,int]): If from_space is given and is True, will add a 0th rank (None) to
                 the created variable. If it is an int, will add that int instead of None.
                 Default: False.
 
         Returns:
-            Union[variable,dict,tuple]: The actual variable (dependent on the backend) or - if from a container
-                space - a (flattened or nested) dict or tuple depending on the Space.
+            Union[variable,dictop,tuple]: The actual variable (dependent on the backend) or - if from
+                a ContainerSpace - a (flattened or nested) dictop or tuple depending on the Space.
         """
         # Called as getter.
         #if name in self.variables:
@@ -137,13 +150,21 @@ class Component(Specifiable):
 
         if backend() == "tf":
             # TODO: need to discuss what other data we need per variable. Initializer, trainable, etc..
-            if from_space:
-                var = from_space.flatten(mapping=lambda primitive: primitive.get_tensor_variable(add_batch_rank=True))
+            if from_space is not None:
+                #var = from_space.flatten(mapping=lambda key, primitive: primitive.get_tensor_variable(
+                #    name=name+"/"+key, add_batch_rank=add_batch_rank))
+                var = from_space.get_tensor_variable(name=name, add_batch_rank=add_batch_rank)
+                if flatten:
+                    var = from_space.flatten(mapping=lambda key, primitive: var[key])
             else:
+                if initializer is None or isinstance(initializer, tf.keras.initializers.Initializer):
+                    shape = tuple((() if add_batch_rank is False else
+                                     (None,) if add_batch_rank is True else (add_batch_rank,)) + (shape or ()))
+                else:
+                    shape = None
                 var = tf.get_variable(
                     name=name,
-                    shape=tuple((() if add_batch_rank is False else
-                                 (None,) if add_batch_rank is True else (add_batch_rank,)) + (shape or ())),
+                    shape=shape,
                     dtype=util.dtype(dtype),
                     initializer=initializer,
                     trainable=trainable
@@ -198,7 +219,7 @@ class Component(Specifiable):
                 raise YARLError("ERROR: Socket of name '{}' already exists in component '{}'!".format(name, self.name))
             all_names.append(name)
 
-            sock = Socket(name=name, scope=self.scope, type_=type_, device=self.device, global_=self.global_component)
+            sock = Socket(name=name, component=self, type_=type_)
             if type_ == "in":
                 self.input_sockets.append(sock)
             else:
@@ -214,7 +235,7 @@ class Component(Specifiable):
         Args:
             inputs (Union[str|List[str]]): List or single input Socket specifiers to link from.
             outputs (Union[str|List[str]]): List or single output Socket specifiers to link to.
-            method_name (Union[str,None]): The (string) name of the template method to use for linking
+            method_name (Optional[str]): The (string) name of the template method to use for linking
                 (without the _computation_ prefix). This method's signature and number of return values has to match the
                 number of input- and output Sockets provided here. If None, use the only member method that starts with
                 '_computation_' (error otherwise).
@@ -415,6 +436,9 @@ class Component(Specifiable):
             from_ (any): The specifier of the connector (e.g. incoming Socket, an incoming Space).
             to_ (any): The specifier of the connectee (e.g. another Socket).
             disconnect (bool): Only used internally. Whether to actually disconnect (instead of connect).
+
+        Raises:
+            YARLError: If one tries to connect two Sockets of the same Component.
         """
         # Connect a Space (other must be Socket).
         # Also, there are certain restrictions for the Socket's type.
@@ -448,13 +472,17 @@ class Component(Specifiable):
         else:
             to_socket_obj = self.get_socket(to_)
 
-        # Connect the two Sockets in both ways.
-        if not disconnect:
-            from_socket_obj.connect_to(to_socket_obj)
-            to_socket_obj.connect_from(from_socket_obj)
-        else:
+        # (Dis)connect the two Sockets in both ways.
+        if disconnect:
+            # Sanity check that we are not connecting two Sockets of the same Component.
+            if from_socket_obj.component is to_socket_obj.component:
+                raise YARLError("ERROR: Cannot connect two Sockets that belong to the same Component!")
+
             from_socket_obj.disconnect_to(to_socket_obj)
             to_socket_obj.disconnect_from(from_socket_obj)
+        else:
+            from_socket_obj.connect_to(to_socket_obj)
+            to_socket_obj.connect_from(from_socket_obj)
 
     def get_socket(self, socket=None, type_=None, return_component=False):
         """
@@ -468,7 +496,7 @@ class Component(Specifiable):
                 2) tuple: (Component, Socket-name OR Socket-object)
                 3) Socket: An already given Socket -> return this Socket (throw error if return_component is True).
                 4) None: Return the only Socket available on the given side.
-            type_ (Union[None,str]): Type of the Socket. If None, Socket could be either
+            type_ (Optional[str]): Type of the Socket. If None, Socket could be either
                 'in' or 'out'. This must be given if the only-Socket is wanted (socket is None).
             return_component (bool): Whether also to return the Socket's component as a second element in a tuple.
                 Will be ignored if socket is None (then the Component is always assumed to be self, anyway).
@@ -488,9 +516,8 @@ class Component(Specifiable):
 
             assert len(list_) == 1, "ERROR: More than one {}-Socket! Cannot return only-Socket.".format(type_)
             return list_[0]
-
         # Socket is given as string-only: Try to look up socket via this string identifier.
-        if isinstance(socket, str):
+        elif isinstance(socket, str):
             socket_name = socket
             mo = re.match(r'^([\w\-]*)\/(.+)$', socket)
             if mo:
@@ -592,7 +619,7 @@ class Component(Specifiable):
             value (any):
 
         Returns:
-            Union[None, any]: None or the graph operation representing the assginment.
+            Optional[op]: None or the graph operation representing the assginment.
 
         """
         if backend() == "tf":

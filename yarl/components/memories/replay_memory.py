@@ -43,12 +43,7 @@ class ReplayMemory(Memory):
         self.states = None
         self.next_states = next_states
 
-        # Add Sockets and Computations.
-        self.define_inputs("records")
-        self.define_outputs("insert")
-        self.add_computation("records", "insert", "insert")
-
-    def create_variables(self):
+    def create_variables(self, ):
         super(ReplayMemory, self).create_variables()
 
         # Main buffer index.

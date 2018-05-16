@@ -41,7 +41,6 @@ class Distribution(LayerComponent):
         """
         Only can make_template from this function after(!) we know what the "output"?? socket's shape will be.
         """
-        # TODO: wrap pytorch's torch.nn classes
         if backend() == "tf":
             return self.class_(input_, **self.kwargs)
 

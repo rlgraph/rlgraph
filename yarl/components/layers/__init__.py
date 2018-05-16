@@ -21,7 +21,7 @@ from __future__ import print_function
 from .stack_component import StackComponent
 from .layer_component import LayerComponent
 # Preprocessing.
-from .preprocessing import PreprocessLayer, GrayScale
+from .preprocessing import PreprocessLayer, Clamp, Scale, Sequence, GrayScale
 # NN-Layers.
 from .initializer import Initializer
 from .dense_layer import DenseLayer
@@ -35,5 +35,5 @@ __all__ = ["StackComponent", "LayerComponent",
            #"Conv2DLayer", "Conv2DTransposeLayer", "Conv3DLayer", "Conv3DTransposeLayer", "AveragePooling1DLayer",
            #"AveragePooling2DLayer", "AveragePooling3DLayer", "BatchNormalizationLayer", "DropoutLayer", "FlattenLayer",
            #"MaxPooling1DLayer", "MaxPooling2DLayer", "MaxPooling3DLayer",
-           "PreprocessLayer", "GrayScale"]
+           "PreprocessLayer", "Clamp", "Scale", "GrayScale", "Sequence"]
 

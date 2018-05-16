@@ -27,8 +27,13 @@ class Discrete(Space):
     """
     A discrete space with n possible values represented by integers: {0,1,...,n-1}.
     """
-
-    def __init__(self, n=None, num_actions=None):
+    def __init__(self, n=None, num_actions=None, add_batch_rank=False):
+        """
+        Args:
+            n (int): The number of discrete values.
+            num_actions (int): Obsolete (use `n` instead!) The number of discrete values.
+        """
+        super(Discrete, self).__init__(add_batch_rank=add_batch_rank)
         if num_actions is not None:
             n = num_actions
         self.n = n or 2
@@ -36,6 +41,10 @@ class Discrete(Space):
     @cached_property
     def shape(self):
         return tuple((self.n,))
+
+    @cached_property
+    def shape_with_batch_rank(self):
+        return tuple(self.batch_rank_tuple + (self.n,))
 
     @cached_property
     def flat_dim(self):
@@ -46,7 +55,7 @@ class Discrete(Space):
         return "uint8"
 
     def __repr__(self):
-        return "Discrete({})".format(self.n)
+        return "Discrete({}{})".format(self.n, "; +batch" if self.add_batch_rank else "")
 
     def __eq__(self, other):
         if not isinstance(other, Discrete):
