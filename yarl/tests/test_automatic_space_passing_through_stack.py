@@ -29,7 +29,7 @@ import numpy as np
 class TestAutomaticSpacePassingThroughStack(unittest.TestCase):
 
     def test_two_preprocessors(self):
-        # some crazy Space
+        # Some crazy Space
         space = Dict.from_spec(dict(
             a=Continuous(shape=(1, 2)),
             b=Continuous(shape=(2, 2, 2)),

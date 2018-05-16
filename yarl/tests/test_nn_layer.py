@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 
 from yarl.components.layers import DenseLayer
-from yarl.spaces import Dict, Tuple, Continuous
+from yarl.spaces import Continuous
 from yarl.tests import ComponentTest
 
 import numpy as np
