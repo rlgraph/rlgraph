@@ -118,3 +118,8 @@ class ReplayMemory(Memory):
         sampled_indices = indices[tf.cast(samples[0][0], tf.int32)]
 
         return self.read_records(indices=sampled_indices)
+
+    def get_variables(self, names=None):
+        # TODO: problem is that these are not part of any registry
+        # They also dont belong in the record registry
+        return [self.size, self.index]

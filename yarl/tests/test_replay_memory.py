@@ -36,29 +36,43 @@ class TestReplayMemory(unittest.TestCase):
         terminal=IntBox(shape=(), low=0, high=1),
         add_batch_rank=True
     )
+    capacity = 10
 
     def test_insert_retrieve(self):
         """
         Test simple insert and retrieval of data.
         """
-        component_to_test = ReplayMemory(
-            capacity=10,
+        memory = ReplayMemory(
+            capacity=self.capacity,
             next_states=True
         )
-        test = ComponentTest(component=component_to_test, input_spaces=dict(records=self.record_space))
+        test = ComponentTest(component=memory, input_spaces=dict(records=self.record_space))
 
         # Run the test.
-        observation = self.record_space.sample(size=1)
+        observation = self.record_space.sample(size=(1,))
         print(observation)
         result = test.test(out_socket_name="insert", inputs=observation, expected_outputs=[])
 
-    # def test_insert_after_full(self):
-    #     component_to_test = ReplayMemory(
-    #         capacity=10,
-    #         next_states=True
-    #     )
-    #     test = ComponentTest(component=component_to_test, input_spaces=dict(records=self.record_space))
-    #
-    #     # Run the test.
-    #     observation = self.record_space.sample(size=1)
-    #     result = test.test(out_socket_name="insert", inputs=observation, expected_outputs=[])
+    def test_insert_after_full(self):
+        memory = ReplayMemory(
+            capacity=self.capacity,
+            next_states=True
+        )
+        test = ComponentTest(component=memory, input_spaces=dict(records=self.record_space))
+        buffer_size, buffer_index = memory.get_variables()
+
+        size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
+        # Assert indices 0 before insert.
+        self.assertTrue(size_value == 0)
+        self.assertTrue(index_value == 0)
+
+        # insert one more element than capacity
+        observation = self.record_space.sample(size=self.capacity + 1)
+        result = test.test(out_socket_name="insert", inputs=observation, expected_outputs=[])
+
+        # TODO fetch index variables here
+        size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
+        # Size should be full now
+        self.assertTrue(size_value == self.capacity)
+        # One over capacity
+        self.assertTrue(index_value == 1)

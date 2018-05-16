@@ -108,7 +108,7 @@ class Memory(Component):
         """
         pass
 
-    def get_variables(self, names):
+    def get_variables(self, name=None):
         """
         Utility method to retrieve internal variables from the registry
         for debugging purposes.
