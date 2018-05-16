@@ -22,7 +22,7 @@ from cached_property import cached_property
 import re
 
 from yarl import YARLError
-from yarl.utils.dictop import dictop
+from yarl.utils.dictop import DictOp
 from .space import Space
 
 
@@ -89,10 +89,10 @@ class Dict(ContainerSpace, dict):
 
     @cached_property
     def dtype(self):
-        return dictop([(key, subspace.dtype()) for key, subspace in self.items()])
+        return DictOp([(key, subspace.dtype()) for key, subspace in self.items()])
 
     def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, **kwargs):
-        return dictop([(key, subspace.get_tensor_variable(name+"/"+key, is_input_feed, add_batch_rank, **kwargs))
+        return DictOp([(key, subspace.get_tensor_variable(name + "/" + key, is_input_feed, add_batch_rank, **kwargs))
                        for key, subspace in self.items()])
 
     def _flatten(self, mapping, scope_, list_):

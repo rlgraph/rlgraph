@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.utils.util import dictop, dtype, get_shape, get_rank
+from yarl.utils.util import DictOp, dtype, get_shape, get_rank
 
 from .space import Space
 from .containers import Dict, Tuple
@@ -40,7 +40,7 @@ def get_space_from_op(op):
         Space: The inferred Space object.
     """
     # a Dict
-    if isinstance(op, dictop):
+    if isinstance(op, DictOp):
         spec = dict()
         for k, v in op.items():
             spec[k] = get_space_from_op(v)

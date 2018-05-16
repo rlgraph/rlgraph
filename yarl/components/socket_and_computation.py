@@ -24,7 +24,7 @@ import re
 
 from yarl import YARLError
 from yarl.spaces import Space, get_space_from_op
-from yarl.utils.dictop import dictop
+from yarl.utils.dictop import DictOp
 from yarl.utils.util import force_tuple, get_shape, deep_tuple
 
 
@@ -360,7 +360,7 @@ class Computation(object):
             # The in-Socket name of this op.
             socket_name = self.input_sockets[i].name
             # self.flatten_container_spaces cannot be False here.
-            if isinstance(op, (dictop, tuple)) and \
+            if isinstance(op, (DictOp, tuple)) and \
                     (self.flatten_container_spaces is True or socket_name in self.flatten_container_spaces):
                 ret.append(self._flatten_container_op(op))
             # Primitive ops are left as-is.
@@ -385,7 +385,7 @@ class Computation(object):
         ret = False
         # Are we in the non-recursive (first) call?
         if list_ is None:
-            assert isinstance(op, (dictop, tuple)), "ERROR: Can only flatten container (dictop/tuple) ops!"
+            assert isinstance(op, (DictOp, tuple)), "ERROR: Can only flatten container (dictop/tuple) ops!"
             list_ = list()
             ret = True
 
@@ -393,7 +393,7 @@ class Computation(object):
             scope_ += "/["
             for i, c in enumerate(op):
                 self._flatten_container_op(c, scope_=scope_ + str(i) + "]", list_=list_)
-        elif isinstance(op, dictop):
+        elif isinstance(op, DictOp):
             scope_ += "/"
             for k, v in op.items():
                 self._flatten_container_op(v, scope_=scope_ + k, list_=list_)
@@ -505,17 +505,17 @@ class Computation(object):
                     type_ = list
                     idx = int(mo.group(1))
                 else:
-                    type_ = dictop
+                    type_ = DictOp
                     idx = key
 
                 if current_structure is None:
                     if base_structure is None:
-                        base_structure = [None] if type_ == list else dictop()
+                        base_structure = [None] if type_ == list else DictOp()
                     current_structure = base_structure
                 elif parent_key is not None:
                     if isinstance(parent_structure, list) and parent_structure[parent_key] is None or \
-                            isinstance(parent_structure, dictop) and parent_key not in parent_structure:
-                        current_structure = [None] if type_ == list else dictop()
+                            isinstance(parent_structure, DictOp) and parent_key not in parent_structure:
+                        current_structure = [None] if type_ == list else DictOp()
                         parent_structure[parent_key] = current_structure
                     else:
                         current_structure = parent_structure[parent_key]

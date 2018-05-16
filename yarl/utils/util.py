@@ -24,7 +24,7 @@ from functools import partial
 
 from .backend import backend
 from .yarl_error import YARLError
-from .dictop import dictop
+from .dictop import DictOp
 
 if backend() == "tf":
     import tensorflow as be
@@ -84,7 +84,7 @@ def get_shape(op):
         tuple: The shape of the given op.
     """
     # dictop
-    if isinstance(op, dictop):
+    if isinstance(op, DictOp):
         return tuple([get_shape(op[key]) for key in sorted(op.keys())])
     # tuple-op
     elif isinstance(op, tuple):
@@ -127,8 +127,8 @@ def deep_tuple(x):
     """
     if isinstance(x, list):
         return tuple(map(deep_tuple, x))
-    elif isinstance(x, dictop):
-        return dictop(dict(map(lambda i: (i[0], deep_tuple(i[1])), x.items())))
+    elif isinstance(x, DictOp):
+        return DictOp(dict(map(lambda i: (i[0], deep_tuple(i[1])), x.items())))
     else:
         return x
 
