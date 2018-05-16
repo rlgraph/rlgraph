@@ -107,4 +107,16 @@ class Memory(Component):
         """
         pass
 
+    def get_variables(self, names):
+        """
+        Utility method to retrieve internal variables from the registry
+        for debugging purposes.
 
+        Args:
+            names (list): List of variables to retrieve. Variables must be identified via
+                their str name in the registry.
+
+        Returns:
+            list: List of variables which the model can run to fetch their values.
+        """
+        pass

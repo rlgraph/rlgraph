@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 
 from yarl.components.memories.replay_memory import ReplayMemory
-from yarl.spaces import Dict
+from yarl.spaces import Dict, Discrete
 from yarl.tests import ComponentTest
 
 
@@ -33,10 +33,13 @@ class TestReplayMemory(unittest.TestCase):
         states=dict(state1=float, state2=float),
         actions=dict(action1=float),
         reward=float,
-        terminal=int
+        terminal=Discrete(1)
     )
 
     def test_insert_retrieve(self):
+        """
+        Test simple insert and retrieval of data.
+        """
         component_to_test = ReplayMemory(
             capacity=10,
             next_states=True
@@ -47,13 +50,13 @@ class TestReplayMemory(unittest.TestCase):
         observation = self.record_space.sample()
         result = test.test(out_socket_name="insert", inputs=observation, expected_outputs=[])
 
-    # def test_insert_after_full(self):
-    #     component_to_test = ReplayMemory(
-    #         capacity=10,
-    #         next_states=True
-    #     )
-    #     test = ComponentTest(component=component_to_test, input_spaces=dict(records=self.record_space))
-    #
-    #     # Run the test.
-    #     observation = self.record_space.sample()
-    #     result = test.test(out_socket_name="insert", inputs=observation, expected_outputs=[])
+    def test_insert_after_full(self):
+        component_to_test = ReplayMemory(
+            capacity=10,
+            next_states=True
+        )
+        test = ComponentTest(component=component_to_test, input_spaces=dict(records=self.record_space))
+
+        # Run the test.
+        observation = self.record_space.sample()
+        result = test.test(out_socket_name="insert", inputs=observation, expected_outputs=[])

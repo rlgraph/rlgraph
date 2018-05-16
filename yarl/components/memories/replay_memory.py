@@ -56,7 +56,6 @@ class ReplayMemory(Memory):
     def _computation_insert(self, records):
         num_records = tf.shape(list(records.keys()))[0]
         index = self.read_variable(self.index)
-        num_records = tf.Print(num_records, [num_records], summarize=10, message='num_records=')
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
         # Updates all the necessary sub-variables in the record.
