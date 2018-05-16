@@ -30,8 +30,8 @@ class TestReplayMemory(unittest.TestCase):
     """
 
     record_space = Dict(
-        state=dict(state1=float, state2=float),
-        action=dict(action1=float),
+        states=dict(state1=float, state2=float),
+        actions=dict(action1=float),
         reward=float,
         terminal=int
     )
@@ -47,3 +47,13 @@ class TestReplayMemory(unittest.TestCase):
         observation = self.record_space.sample()
         result = test.test(out_socket_name="insert", inputs=observation, expected_outputs=[])
 
+    # def test_insert_after_full(self):
+    #     component_to_test = ReplayMemory(
+    #         capacity=10,
+    #         next_states=True
+    #     )
+    #     test = ComponentTest(component=component_to_test, input_spaces=dict(records=self.record_space))
+    #
+    #     # Run the test.
+    #     observation = self.record_space.sample()
+    #     result = test.test(out_socket_name="insert", inputs=observation, expected_outputs=[])

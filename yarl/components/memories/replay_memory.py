@@ -31,10 +31,9 @@ class ReplayMemory(Memory):
         capacity=1000,
         name="",
         scope="replay-memory",
-        sub_indexes=None,
         next_states=True
     ):
-        super(ReplayMemory, self).__init__(capacity, name, scope, sub_indexes)
+        super(ReplayMemory, self).__init__(capacity, name, scope)
 
         # Variables.
         self.index = None
@@ -55,7 +54,7 @@ class ReplayMemory(Memory):
             self.states = self.record_space["states"].keys()
 
     def _computation_insert(self, records):
-        num_records = tf.shape(records.keys()[0])
+        num_records = tf.shape(list(records.keys())[0])
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, stop=index + num_records) % self.capacity
 
@@ -94,6 +93,7 @@ class ReplayMemory(Memory):
         if self.next_states:
             next_indices = (indices + 1) % self.capacity
             next_states = dict()
+
             # Next states are read via index shift from state variables.
             for state_name in self.states:
                 next_states = self.read_variable(self.record_registry[state_name], next_indices)
@@ -103,6 +103,8 @@ class ReplayMemory(Memory):
 
     def _computation_get_records(self, num_records):
         indices = tf.range(start=0, limit=self.read_variable(self.size))
+
+        # TODO When would we use a replay memory without next-states?
         if self.next_states:
             # Valid indices are non-terminal indices.
             terminal_indices = self.read_variable(self.record_registry['terminal'])

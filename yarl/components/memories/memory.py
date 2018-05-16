@@ -36,19 +36,13 @@ class Memory(Component):
         """
         Args:
             capacity (int): The number of records that can be stored in this memory.
-            sub_indexes (Optional[List[str]]): A list of strings of sub-indexes to add to the main (enumeration)
-                index. For example: Each record could belong to a certain RL-episode. Each sub-index gets its own
-                vector variable with the size of the number of records as well as a counter that holds the highest
-                value of that sub-index currently in the memory.
         """
         super(Memory, self).__init__(name=name, scope=scope)
 
         # Variables (will be populated in create_variables).
         self.record_space = None
         self.record_registry = None
-
         self.capacity = capacity
-        self.sub_indexes_spec = sub_indexes
 
         # Add default Sockets and the insert Computation.
         self.define_inputs("records")
