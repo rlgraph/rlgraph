@@ -656,6 +656,6 @@ class Component(Specifiable):
             if indices:
                 # Could be redundant, question is if there may be special read operations
                 # in other backends, or read from remote variable requiring extra args.
-                return variable
-            else:
                 return tf.gather(params=variable, indices=indices)
+            else:
+                return variable
