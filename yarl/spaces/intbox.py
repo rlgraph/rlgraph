@@ -50,8 +50,7 @@ class IntBox(Continuous):
                                "Need flatten/unflatten samples first!")
         if seed is not None:
             np.random.seed(seed)
-        return np.random.uniform(low=self.low - 1,high=self.high + 1, size=size).\
-            astype(int)
+        return np.random.randint(low=self.low - 1,high=self.high + 1, size=size)
 
     def contains(self, sample):
         # Check for int type in given sample.

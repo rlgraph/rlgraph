@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 
 from yarl.components.memories.replay_memory import ReplayMemory
-from yarl.spaces import Dict, Discrete
+from yarl.spaces import Dict, Discrete, IntBox
 from yarl.tests import ComponentTest
 
 
@@ -33,7 +33,7 @@ class TestReplayMemory(unittest.TestCase):
         states=dict(state1=float, state2=float),
         actions=dict(action1=float),
         reward=float,
-        terminal=bool,
+        terminal=IntBox(shape=(), low=0, high=1),
         add_batch_rank=True
     )
 
@@ -48,7 +48,7 @@ class TestReplayMemory(unittest.TestCase):
         test = ComponentTest(component=component_to_test, input_spaces=dict(records=self.record_space))
 
         # Run the test.
-        observation = self.record_space.sample(size=5)
+        observation = self.record_space.sample()
         print(observation)
         result = test.test(out_socket_name="insert", inputs=observation, expected_outputs=[])
 
