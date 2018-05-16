@@ -187,7 +187,9 @@ class Component(Specifiable):
             space (Optional[Space]): The Space to connect to the in-Sockets.
         """
         self.add_sockets(*sockets, type="in")
-        space = kwargs.get("space")
+        space = kwargs.pop("space", None)
+        assert not kwargs
+
         if space is not None:
             for socket in sockets:
                 self.connect(space, self.get_socket(socket).name)
@@ -217,7 +219,9 @@ class Component(Specifiable):
         Raises:
             YARLError: If type is not given and cannot be inferred.
         """
-        type_ = kwargs.get("type", kwargs.get("type_"))
+        type_ = kwargs.pop("type", kwargs.pop("type_", None))
+        assert not kwargs
+
         # Make sure we don't add two sockets with the same name.
         all_names = [sock.name for sock in self.input_sockets + self.output_sockets]
 
@@ -377,7 +381,9 @@ class Component(Specifiable):
                 name in that dict and pass the found value to self.add_component. If expose is not a dict, pass it
                 as-is for each of the added sub-components.
         """
-        expose = kwargs.get("expose")
+        expose = kwargs.pop("expose", None)
+        assert not kwargs
+
         for c in components:
             self.add_component(c, expose.get(c.name) if isinstance(expose, dict) else expose)
 
@@ -656,6 +662,6 @@ class Component(Specifiable):
             if indices:
                 # Could be redundant, question is if there may be special read operations
                 # in other backends, or read from remote variable requiring extra args.
-                return variable
-            else:
                 return tf.gather(params=variable, indices=indices)
+            else:
+                return variable
