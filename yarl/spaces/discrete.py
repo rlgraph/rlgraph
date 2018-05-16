@@ -36,7 +36,7 @@ class Discrete(Space):
         super(Discrete, self).__init__(add_batch_rank=add_batch_rank)
         if num_actions is not None:
             n = num_actions
-        self.n = n or 2
+        self.n = n or 1
 
     @cached_property
     def shape(self):
