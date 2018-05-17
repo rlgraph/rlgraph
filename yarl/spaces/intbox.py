@@ -26,7 +26,7 @@ class IntBox(Continuous):
     A box in Z^n (only integers; each coordinate is bounded)
     e.g. an image (w x h x RGB) where each color channel pixel can be between 0 and 255.
     """
-    def __init__(self, low=None, high=None, shape=None, add_batch_rank=False):
+    def __init__(self, low=None, high=None, shape=None, add_batch_rank=False, dtype="int32"):
         """
         Three kinds of valid input:
             IntBox(0, 1) # low and high are given as scalars and shape is assumed to be ()
@@ -35,11 +35,12 @@ class IntBox(Continuous):
         """
         if not isinstance(low, int) or not isinstance(high, int):
             assert low is None or low.shape == high.shape
+        self._dtype = dtype
         super(IntBox, self).__init__(low, high, shape, add_batch_rank=add_batch_rank)
 
     @property
     def dtype(self):
-        return "int32"
+        return self._dtype
 
     def __eq__(self, other):
         return isinstance(other, IntBox) and np.allclose(self.low, other.low) and np.allclose(self.high, other.high)
