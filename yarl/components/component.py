@@ -673,7 +673,7 @@ class Component(Specifiable):
             any: Variable values.
         """
         if backend() == "tf":
-            if indices:
+            if indices is not None:
                 # Could be redundant, question is if there may be special read operations
                 # in other backends, or read from remote variable requiring extra args.
                 return tf.gather(params=variable, indices=indices)
