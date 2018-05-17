@@ -185,12 +185,13 @@ class Computation(object):
     are given and - if yes - starts producing output ops from these inputs and the computation to be passed
     on to the outgoing Sockets.
     """
-    def __init__(self, name, component, input_sockets, output_sockets,
+    def __init__(self, method, component, input_sockets, output_sockets,
                  flatten_container_spaces=True, split_container_spaces=True,
                  add_auto_key_as_first_param=False, re_nest_container_spaces=True):
         """
         Args:
-            name (str): The name of the computation (must have a matching method name inside `component`).
+            method (Union[str,callable]): The method of the computation (must be the name (w/o _computation prefix)
+                of a method in `component` or directly a callable.
             component (Component): The Component object that this Computation belongs to.
             input_sockets (List[Socket]): The required input Sockets to be passed as parameters into the
                 computation function.
@@ -226,8 +227,6 @@ class Computation(object):
             YARLError: If a computation method with the given name cannot be found in the component.
         """
 
-        # Must match the _computation_...-method's name (w/o the `_computation`-prefix).
-        self.name = name
         # The component object that the method belongs to.
         self.component = component
 
@@ -236,9 +235,14 @@ class Computation(object):
         self.add_auto_key_as_first_param = add_auto_key_as_first_param
         self.re_nest_container_spaces = re_nest_container_spaces
 
-        self.method = getattr(self.component, "_computation_" + self.name, None)
-        if not self.method:
-            raise YARLError("ERROR: No `_computation_...` method with name '{}' found!".format(self.name))
+        if isinstance(method, str):
+            self.name = method
+            self.method = getattr(self.component, "_computation_" + method, None)
+            if not self.method:
+                raise YARLError("ERROR: No `_computation_...` method with name '{}' found!".format(method))
+        else:
+            self.method = method
+            self.name = re.sub(r'^_computation_', "", method.__name__)
 
         self.input_sockets = input_sockets
         self.output_sockets = output_sockets

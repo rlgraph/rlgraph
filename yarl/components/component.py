@@ -253,7 +253,7 @@ class Component(Specifiable):
             else:
                 self.output_sockets.append(sock)
 
-    def add_computation(self, inputs, outputs, method_name=None,
+    def add_computation(self, inputs, outputs, method=None,
                         flatten_container_spaces=True, split_container_spaces=False,
                         add_auto_key_as_first_param=False, re_nest_container_spaces=True):
         """
@@ -263,10 +263,11 @@ class Component(Specifiable):
         Args:
             inputs (Union[str|List[str]]): List or single input Socket specifiers to link from.
             outputs (Union[str|List[str]]): List or single output Socket specifiers to link to.
-            method_name (Optional[str]): The (string) name of the template method to use for linking
-                (without the _computation_ prefix). This method's signature and number of return values has to match the
-                number of input- and output Sockets provided here. If None, use the only member method that starts with
-                '_computation_' (error otherwise).
+            method (Optional[str,callable]): The name of the template method to use for linking
+                (without the _computation_ prefix) or the method itself (callable).
+                The `method`'s signature and number of return values has to match the
+                number of input- and output Sockets provided here.
+                If None, use the only member method that starts with '_computation_' (error otherwise).
             flatten_container_spaces (Union[bool,Set[str]]): Passed to Computation's c'tor. See Computation for details.
             split_container_spaces (Union[bool,Set[str]]): Passed to Computation's c'tor. See Computation for details.
             add_auto_key_as_first_param (bool): Passed to Computation's c'tor. See Computation for details.
@@ -277,20 +278,19 @@ class Component(Specifiable):
         inputs = util.force_list(inputs)
         outputs = util.force_list(outputs)
 
-        if method_name is None:
-            method_name = [m for m in dir(self) if (callable(self.__getattribute__(m)) and
-                                                    re.match(r'^_computation_', m))]
-            if len(method_name) != 1:
+        if method is None:
+            method = [m for m in dir(self) if (callable(self.__getattribute__(m)) and re.match(r'^_computation_', m))]
+            if len(method) != 1:
                 raise YARLError("ERROR: Not exactly one method found that starts with '_computation_'! Cannot add "
                                 "computation unless method_name is given explicitly.")
-            method_name = re.sub(r'^_computation_', "", method_name[0])
+            method = re.sub(r'^_computation_', "", method[0])
 
         # TODO: Sanity check the tf methods signature and return type.
         # Compile a list of all input Sockets.
         input_sockets = [self.get_socket(s) for s in inputs]
         output_sockets = [self.get_socket(s) for s in outputs]
         # Add the computation record to all input and output sockets.
-        computation = Computation(method_name, self, input_sockets, output_sockets,
+        computation = Computation(method, self, input_sockets, output_sockets,
                                   flatten_container_spaces, split_container_spaces,
                                   add_auto_key_as_first_param, re_nest_container_spaces)
         for input_socket in input_sockets:
