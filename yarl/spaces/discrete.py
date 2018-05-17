@@ -54,7 +54,7 @@ class Discrete(Space):
         return "uint8"
 
     def __repr__(self):
-        return "Discrete({}{})".format(self.n, "; +batch" if self.add_batch_rank else "")
+        return "Discrete({}{})".format(self.n, "; +batch" if self.has_batch_rank else "")
 
     def __eq__(self, other):
         if not isinstance(other, Discrete):

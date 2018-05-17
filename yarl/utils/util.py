@@ -73,25 +73,33 @@ def get_rank(tensor):
         return tensor.get_shape().ndims
 
 
-def get_shape(op):
+def get_shape(op, flat=False):
     """
     Returns the shape of the tensor as a tuple.
 
     Args:
         op (Union[dictop,tuple,tensor]): The input op.
+        flat (bool): Whether to return the flattened shape (the product of all ints in the shape tuple).
+            Default: False.
 
     Returns:
         tuple: The shape of the given op.
+        int: The flattened dim of the given op (if flat=True).
     """
     # dictop
     if isinstance(op, DictOp):
-        return tuple([get_shape(op[key]) for key in sorted(op.keys())])
+        shape = tuple([get_shape(op[key]) for key in sorted(op.keys())])
     # tuple-op
     elif isinstance(op, tuple):
-        return tuple([get_shape(i) for i in op])
+        shape = tuple([get_shape(i) for i in op])
     # primitive op (e.g. tensorflow)
     else:
-        return tuple(op.get_shape().as_list())
+        shape = tuple(op.get_shape().as_list())
+
+    if flat is False:
+        return shape
+    else:
+        return np.prod(shape)
 
 
 def force_list(elements, to_tuple=False):

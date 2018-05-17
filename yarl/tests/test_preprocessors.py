@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import unittest
 
-from yarl.components.layers import GrayScale
+from yarl.components.layers import GrayScale, Flatten
 from yarl.spaces import *
 from yarl.tests import ComponentTest
 
@@ -60,6 +60,37 @@ class TestPreprocessors(unittest.TestCase):
             ),
             b=np.array([[[3.0, 3.0], [3.0, 3.0]], [[3.0, 3.0], [3.0, 3.0]]]),
             c=0.7
+        )
+
+        test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
+
+    def test_split_computation_on_flatten(self):
+        # last rank is always the color rank (its dim must match len(grayscale-weights))
+        space = Dict.from_spec(dict(
+            a=Tuple(Continuous(shape=(1, 1, 2)), Continuous(shape=(1, 2, 2))),
+            c=dict(type=float, shape=(2,)),
+            add_batch_rank=True
+        ))
+
+        # The Component to test.
+        component_to_test = Flatten()
+
+        # A ComponentTest object.
+        test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
+
+        # Run the test.
+        input_ = dict(
+            a=(
+                np.array([[[[3.0, 5.0]]], [[[1.0, 5.2]]]]), np.array([[[[3.1, 3.2], [3.3, 3.4]]],
+                                                                      [[[3.5, 3.6], [3.7, 3.8]]]])
+            ),
+            c=np.array([[0.1, 0.2], [0.3, 0.4]])
+        )
+        expected = dict(
+            a=(
+                np.array([[3.0, 5.0], [1.0, 5.2]]), np.array([[3.1, 3.2, 3.3, 3.4], [3.5, 3.6, 3.7, 3.8]])
+            ),
+            c=np.array([[0.1, 0.2], [0.3, 0.4]])
         )
 
         test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)

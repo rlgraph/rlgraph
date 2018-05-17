@@ -42,6 +42,7 @@ class LayerComponent(StackComponent):
         """
         self.computation_inputs = kwargs.pop("computation_inputs", 1)
         self.computation_outputs = kwargs.pop("computation_outputs", 1)
+        self.split_container_spaces = kwargs.pop("split_container_spaces", True)
 
         super(LayerComponent, self).__init__(*sub_components, expose_outs=False, **kwargs)
 
@@ -64,7 +65,7 @@ class LayerComponent(StackComponent):
         # socket(s).
         # NOTE: Layers always do split computations on complex input Spaces.
         self.add_computation(sub_components[-1].output_sockets if len(sub_components) > 0 else self.input_sockets,
-                             self.output_sockets, "apply", split_container_spaces=True)
+                             self.output_sockets, "apply", split_container_spaces=self.split_container_spaces)
 
     def _computation_apply(self, *inputs):
         """

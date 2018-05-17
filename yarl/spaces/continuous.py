@@ -114,7 +114,7 @@ class Continuous(Space):
     #        raise YARLError("ERROR: Pytorch not supported yet!")
 
     def __repr__(self):
-        return "{}({}{})".format(type(self).__name__.title(), self.shape, "; +batch" if self.add_batch_rank else "")
+        return "{}({}{})".format(type(self).__name__.title(), self.shape, "; +batch" if self.has_batch_rank else "")
 
     def __eq__(self, other):
         return isinstance(other, Continuous) and np.allclose(self.low, other.low) and np.allclose(self.high, other.high)

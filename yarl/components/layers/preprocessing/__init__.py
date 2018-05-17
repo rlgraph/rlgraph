@@ -22,7 +22,8 @@ from .clamp import Clamp
 from .scale import Scale
 from .grayscale import GrayScale
 from .sequence import Sequence
+from .flatten import Flatten
 
 
-__all__ = ["PreprocessLayer", "Clamp", "Scale", "GrayScale", "Sequence"]
+__all__ = ["PreprocessLayer", "Clamp", "Scale", "GrayScale", "Sequence", "Flatten"]
 

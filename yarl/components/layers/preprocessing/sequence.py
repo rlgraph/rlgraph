@@ -40,7 +40,8 @@ class Sequence(PreprocessLayer):
                 This could be useful if e.g. a grayscale image of w x h pixels is coming from the env
                 (no color channel). The output of the preprocessor would then be of shape [batch] x w x h x [length].
         """
-        super(Sequence, self).__init__(scope=scope, **kwargs)
+        # As we need a buffer variable, we do not split our computations.
+        super(Sequence, self).__init__(scope=scope, split_container_spaces=False, **kwargs)
 
         self.sequence_length = seq_length
         self.add_rank = add_rank
@@ -63,10 +64,16 @@ class Sequence(PreprocessLayer):
     def _computation_reset(self):
         return tf.variables_initializer([self.index])
 
-    def _computation_apply(self, input_):
+    def _computation_apply(self, inputs):
+        """
+        Stitches together the incoming (flattened) inputs by using our buffer (with stored older records).
+
+        Args:
+            inputs (Union[OrderedDict,op]): The flattened input ops.
+        """
         # A normal (index != -1) assign op.
         def normal_assign():
-            return tf.assign(ref=self.buffer[self.index], value=input_[0])
+            return tf.assign(ref=self.buffer[(self.index + 0)], value=input_[0])
 
         # If index is still -1 (after reset):
         # Pre-fill the entire buffer with `self.sequence_length` x input_.

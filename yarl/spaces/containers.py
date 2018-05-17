@@ -58,7 +58,7 @@ class Dict(ContainerSpace, dict):
             value = spec[key]
             # Value is already a Space: Keep it, but maybe add batch-rank.
             if isinstance(value, Space):
-                if self.has_batch_rank is True:
+                if add_batch_rank is True:
                     value.add_batch_rank(add_batch_rank=True)
                 dict_[key] = value
             # Value is a list/tuple -> treat as Tuple space.
@@ -93,7 +93,7 @@ class Dict(ContainerSpace, dict):
 
     @cached_property
     def dtype(self):
-        return DictOp([(key, subspace.dtype()) for key, subspace in self.items()])
+        return DictOp([(key, subspace.dtype) for key, subspace in self.items()])
 
     def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, **kwargs):
         return DictOp([(key, subspace.get_tensor_variable(name + "/" + key, is_input_feed, add_batch_rank, **kwargs))

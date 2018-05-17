@@ -21,12 +21,12 @@ from __future__ import print_function
 from .stack_component import StackComponent
 from .layer_component import LayerComponent
 # Preprocessing.
-from .preprocessing import PreprocessLayer, Clamp, Scale, Sequence, GrayScale
+from .preprocessing import PreprocessLayer, Clamp, Scale, Sequence, GrayScale, Flatten
 # NN-Layers.
 from yarl.components.layers.nn.initializer import Initializer
 from .nn import NNLayer, DenseLayer, Conv2DLayer
 
 __all__ = ["StackComponent", "LayerComponent",
            "Initializer", "NNLayer", "DenseLayer", "Conv2DLayer",
-           "PreprocessLayer", "Clamp", "Scale", "GrayScale", "Sequence"]
+           "PreprocessLayer", "Clamp", "Scale", "Sequence", "GrayScale", "Flatten"]
 

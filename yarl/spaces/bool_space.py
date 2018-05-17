@@ -48,7 +48,7 @@ class Bool(Discrete):
         return "bool"
 
     def __repr__(self):
-        return "Bool({})".format("+batch" if self.add_batch_rank else "")
+        return "Bool({})".format("+batch" if self.has_batch_rank else "")
 
     def sample(self, size=None, seed=None):
         shape = self._get_np_shape(num_samples=size)
