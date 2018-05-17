@@ -41,7 +41,7 @@ class TestSpaces(unittest.TestCase):
             add_batch_rank=True
         )
 
-        samples = space.sample(size=10)
+        samples = space.sample(size=10, horizontal=True)
         for i in range(len(samples)):
-            print(space.contains(samples[i]))
+            self.assertTrue(space.contains(samples[i]))
 

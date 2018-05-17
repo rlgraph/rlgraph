@@ -116,10 +116,18 @@ class Dict(ContainerSpace, dict):
             return False
         return dict(self) == dict(other)
 
-    def sample(self, size=None, seed=None):
+    def sample(self, size=None, seed=None, horizontal=False):
+        """
+        Args:
+            horizontal (bool): False: Sample within this container each child-space `size` times.
+                True: Produce `size` single containers in an np.array of len `size`.
+        """
         if seed is not None:
             np.random.seed(seed)
-        return dict([(key, subspace.sample(size=size)) for key, subspace in self.items()])
+        if horizontal:
+            return np.array([dict([(key, subspace.sample()) for key, subspace in self.items()])] * (size or 1))
+        else:
+            return dict([(key, subspace.sample(size=size)) for key, subspace in self.items()])
 
     def contains(self, sample):
         return isinstance(sample, dict) and all(self[key].contains(sample[key]) for key in self.keys())
@@ -204,13 +212,21 @@ class Tuple(ContainerSpace, tuple):
     def __eq__(self, other):
         return tuple.__eq__(self, other)
 
-    def sample(self, size=None, seed=None):
+    def sample(self, size=None, seed=None, horizontal=False):
+        """
+        Args:
+            horizontal (bool): False: Sample within this container each child-space `size` times.
+                True: Produce `size` single containers in an np.array of len `size`.
+        """
         if seed is not None:
             np.random.seed(seed)
-        return tuple(x.sample(size=size) for x in self)
+        if horizontal:
+            return np.array([tuple(subspace.sample() for subspace in self)] * (size or 1))
+        else:
+            return tuple(x.sample(size=size) for x in self)
 
     def contains(self, sample):
-        return isinstance(sample, (tuple, list)) and len(self) == len(sample) and \
+        return isinstance(sample, (tuple, list, np.ndarray)) and len(self) == len(sample) and \
                all(c.contains(xi) for c, xi in zip(self, sample))
 
     def add_batch_rank(self, add_batch_rank=True):

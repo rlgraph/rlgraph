@@ -57,5 +57,5 @@ class Bool(Discrete):
         return np.random.choice(a=[False, True], size=shape)
 
     def contains(self, sample):
-        return isinstance(sample, bool)
+        return isinstance(sample, (np.bool_, bool))
 

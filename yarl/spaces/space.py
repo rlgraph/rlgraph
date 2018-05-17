@@ -36,7 +36,7 @@ class Space(Specifiable):
             add_batch_rank (bool): Whether to always add a batch rank at the 0th position when creating
                 variables from this Space.
         """
-        self.has_batch = None
+        self.has_batch_rank = None
         self.batch_rank_tuple = None
         self.add_batch_rank(add_batch_rank)
 

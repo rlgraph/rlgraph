@@ -20,6 +20,7 @@ from __future__ import print_function
 import numpy as np
 from cached_property import cached_property
 
+from yarl import YARLError
 from .space import Space
 
 
@@ -50,7 +51,7 @@ class Continuous(Space):
         self.has_flex_bounds = False
 
         # Single float (may be bounded)
-        if shape is None:
+        if shape is None or shape == ():
             if isinstance(low, (int, float)) and isinstance(high, (int, float)):
                 assert low < high
                 self.low = float(low)
@@ -64,6 +65,8 @@ class Continuous(Space):
                 self.low = float("inf")
                 self.high = float("-inf")
             else:
+                if shape == ():
+                    raise YARLError("ERROR: Shape cannot be () if low and/or high are given as shape-tuples!")
                 self.low = np.array(low)
                 self.high = np.array(high)
                 assert self.low.shape == self.high.shape
@@ -116,7 +119,7 @@ class Continuous(Space):
     def __eq__(self, other):
         return isinstance(other, Continuous) and np.allclose(self.low, other.low) and np.allclose(self.high, other.high)
 
-    def sample(self, size=1, seed=None):
+    def sample(self, size=None, seed=None):
         shape = self._get_np_shape(num_samples=size)
         if seed is not None:
             np.random.seed(seed)
