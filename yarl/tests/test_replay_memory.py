@@ -65,9 +65,9 @@ class TestReplayMemory(unittest.TestCase):
         self.assertTrue(size_value == 0)
         self.assertTrue(index_value == 0)
 
-        # insert one more element than capacity
+        # Insert one more element than capacity
         observation = self.record_space.sample(size=self.capacity + 1)
-        result = test.test(out_socket_name="insert", inputs=observation, expected_outputs=[])
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=[])
 
         # TODO fetch index variables here
         size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
@@ -75,3 +75,16 @@ class TestReplayMemory(unittest.TestCase):
         self.assertTrue(size_value == self.capacity)
         # One over capacity
         self.assertTrue(index_value == 1)
+
+    # def test_batch_retrieve(self):
+    #     memory = ReplayMemory(
+    #         capacity=self.capacity,
+    #         next_states=True
+    #     )
+    #     test = ComponentTest(component=memory, input_spaces=dict(records=self.record_space))
+    #     buffer_size, buffer_index = memory.get_variables()
+    #
+    #     # insert one more element than capacity
+    #     observation = self.record_space.sample(size=self.capacity + 1)
+    #     test.test(out_socket_name="get_records", inputs=observation, expected_outputs=[])
+    #
