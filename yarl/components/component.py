@@ -473,6 +473,12 @@ class Component(Specifiable):
         Raises:
             YARLError: If one tries to connect two Sockets of the same Component.
         """
+        # Spec-dicts (for a Space) -> Try to create it first.
+        if isinstance(from_, dict):
+            from_ = Space.from_spec(from_)
+        if isinstance(to_, dict):
+            to_ = Space.from_spec(to_)
+
         # Connect a Space (other must be Socket).
         # Also, there are certain restrictions for the Socket's type.
         if isinstance(from_, Space):
