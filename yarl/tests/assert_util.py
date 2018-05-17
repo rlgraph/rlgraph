@@ -31,19 +31,19 @@ def recursive_assert_almost_equal(x, y, decimal=7):
         y (any): The second value to be compared (to `x`).
         decimal (int): The number of digits after the floating point up to which all numeric values have to match.
     """
-    # a dict type
+    # A dict type.
     if isinstance(x, dict):
         assert isinstance(y, dict), "ERROR: Expected needs to be a dict as well!"
         for k, v in x.items():
             assert k in y, "ERROR: Expected does not have key='{}'!".format(k)
             recursive_assert_almost_equal(v, y[k])
-    # a tuple type
+    # A tuple type.
     elif isinstance(x, tuple):
         assert isinstance(y, tuple), "ERROR: Expected needs to be a tuple as well!"
         assert len(y) == len(x), "ERROR: Expected does not have the same length as " \
                                  "actual ({} vs {})!".format(len(y), len(x))
         for i, v in enumerate(x):
             recursive_assert_almost_equal(v, y[i])
-    # everything else
+    # Everything else.
     else:
         np.testing.assert_almost_equal(x, y, decimal=decimal)

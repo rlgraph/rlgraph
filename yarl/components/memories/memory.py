@@ -51,7 +51,6 @@ class Memory(Component):
         self.add_computation(inputs="records", outputs="insert", method=self._computation_insert)
         self.add_computation(inputs="num_records", outputs="sample", method=self._computation_get_records)
 
-
     def create_variables(self, input_spaces):
         # Store our record-space for convenience.
         self.record_space = input_spaces["records"]

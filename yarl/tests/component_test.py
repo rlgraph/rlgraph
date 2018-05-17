@@ -98,6 +98,7 @@ class ComponentTest(object):
         Returns:
 
         """
+        pass
 
     def get_variable_values(self, variables):
         """
