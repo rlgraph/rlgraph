@@ -628,7 +628,7 @@ class Component(Specifiable):
 
         Args:
             variable (any): Variable to update.
-            indices (array): Indices to update
+            indices (array): Indices to update.
             updates (any):  Update values.
 
         Returns:
@@ -640,23 +640,25 @@ class Component(Specifiable):
     @staticmethod
     def assign_variable(variable, value):
         """
-        Assigns a variable.
+        Assigns a variable to a value.
+
         Args:
-            variable (any):
-            value (any):
+            variable (any): The variable to assign to.
+            value (any): The value to use for the assignment.
 
         Returns:
             Optional[op]: None or the graph operation representing the assginment.
-
         """
         if backend() == "tf":
             return tf.assign(ref=variable, value=value)
 
-    def read_variable(self, variable, indices=None):
+    @staticmethod
+    def read_variable(variable, indices=None):
         """
         Reads a variable.
+
         Args:
-            indices Optional[ndarray, tf.Tensor]: Indices to fetch
+            indices (Optional[ndarray,tf.Tensor]): Indices to fetch.
 
         Returns:
             any: Variable values.

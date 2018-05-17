@@ -36,9 +36,9 @@ class Space(Specifiable):
             add_batch_rank (bool): Whether to always add a batch rank at the 0th position when creating
                 variables from this Space.
         """
-        self.add_batch_rank = None
+        self.has_batch = None
         self.batch_rank_tuple = None
-        self._add_batch_rank(add_batch_rank)
+        self.add_batch_rank(add_batch_rank)
 
     @property
     def shape(self):
@@ -100,7 +100,7 @@ class Space(Specifiable):
         Returns:
             any: A Tensor Variable/Placeholder.
         """
-        add_batch_rank = self.add_batch_rank if add_batch_rank is None else add_batch_rank
+        add_batch_rank = self.has_batch_rank if add_batch_rank is None else add_batch_rank
         batch_rank = () if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,)
         shape = tuple(batch_rank + self.shape)
         if backend() == "tf":
@@ -222,13 +222,13 @@ class Space(Specifiable):
         """
         raise NotImplementedError
 
-    def _add_batch_rank(self, add_batch_rank=False):
+    def add_batch_rank(self, add_batch_rank=True):
         """
         Helper method for ContainerSpaces to add this feature later (after this Space has been constructed).
 
         Args:
             add_batch_rank (bool): See c'tor.
         """
-        self.add_batch_rank = add_batch_rank
-        self.batch_rank_tuple = (None,) if self.add_batch_rank else ()
+        self.has_batch_rank = add_batch_rank
+        self.batch_rank_tuple = (None,) if self.has_batch_rank else ()
 

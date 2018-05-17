@@ -50,8 +50,7 @@ class IntBox(Continuous):
             np.random.seed(seed)
         if self.has_unknown_bounds:
             return np.random.randint(low=0, high=256, size=shape)
-        else:
-            return np.random.randint(low=self.low, high=self.high + 1, size=shape)
+        return np.random.randint(low=self.low, high=self.high + 1, size=shape)
 
     def contains(self, sample):
         # Check for int type in given sample.

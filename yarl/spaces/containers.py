@@ -58,8 +58,8 @@ class Dict(ContainerSpace, dict):
             value = spec[key]
             # Value is already a Space: Keep it, but maybe add batch-rank.
             if isinstance(value, Space):
-                if self.add_batch_rank is True:
-                    value._add_batch_rank(add_batch_rank=True)
+                if self.has_batch_rank is True:
+                    value.add_batch_rank(add_batch_rank=True)
                 dict_[key] = value
             # Value is a list/tuple -> treat as Tuple space.
             elif isinstance(value, (list, tuple)):
@@ -124,6 +124,10 @@ class Dict(ContainerSpace, dict):
     def contains(self, sample):
         return isinstance(sample, dict) and all(self[key].contains(sample[key]) for key in self.keys())
 
+    def add_batch_rank(self, add_batch_rank=True):
+        for v in self.values():
+            v.add_batch_rank(add_batch_rank)
+
 
 class Tuple(ContainerSpace, tuple):
     """
@@ -143,7 +147,7 @@ class Tuple(ContainerSpace, tuple):
             # value is already a Space -> keep it
             if isinstance(value, Space):
                 if add_batch_rank is True:
-                    value._add_batch_rank(add_batch_rank=True)
+                    value.add_batch_rank(add_batch_rank=True)
                 list_.append(value)
             # Value is a list/tuple -> treat as Tuple space.
             elif isinstance(value, (list, tuple)):
@@ -208,4 +212,8 @@ class Tuple(ContainerSpace, tuple):
     def contains(self, sample):
         return isinstance(sample, (tuple, list)) and len(self) == len(sample) and \
                all(c.contains(xi) for c, xi in zip(self, sample))
+
+    def add_batch_rank(self, add_batch_rank=True):
+        for v in self:
+            v.add_batch_rank(add_batch_rank)
 

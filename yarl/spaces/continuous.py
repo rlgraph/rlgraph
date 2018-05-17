@@ -118,7 +118,6 @@ class Continuous(Space):
 
     def sample(self, size=1, seed=None):
         shape = self._get_np_shape(num_samples=size)
-        #shape = self.shape_with_batch_rank
         if seed is not None:
             np.random.seed(seed)
         # No bounds are known: Pretend we are between 0.0 and 1.0.
