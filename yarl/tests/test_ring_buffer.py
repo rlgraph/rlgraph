@@ -20,13 +20,15 @@ from __future__ import print_function
 import unittest
 
 from yarl.components.memories.replay_memory import ReplayMemory
-from yarl.spaces import Dict, Discrete, IntBox
+from yarl.spaces import Dict, IntBox
 from yarl.tests import ComponentTest
 
 
-class TestReplayMemory(unittest.TestCase):
+class TestRingBufferMemory(unittest.TestCase):
     """
-    Tests sampling and insertion behaviour of the replay_memory module.
+    Tests the ring buffer. The ring buffer has very similar tests to
+    the replay memory as it supports similar insertion and retrieval semantics,
+    but needs additional tests on episode indexing and its latest semantics.
     """
 
     record_space = Dict(
@@ -86,10 +88,7 @@ class TestReplayMemory(unittest.TestCase):
             capacity=self.capacity,
             next_states=True
         )
-        test = ComponentTest(component=memory, input_spaces=dict(
-            records=self.record_space,
-            num_records=int
-        ))
+        test = ComponentTest(component=memory, input_spaces=dict(records=self.record_space))
         buffer_size, buffer_index = memory.get_variables()
 
         # Assert nothing in here yet.
@@ -119,3 +118,11 @@ class TestReplayMemory(unittest.TestCase):
         num_records = self.capacity
         batch = test.test(out_socket_name="get_records", inputs=num_records, expected_outputs=None)
         self.assertEqual(self.capacity, len(batch['terminal']))
+
+    def test_episode_semantics(self):
+        # TODO
+        pass
+
+    def test_latest_semantics(self):
+        # TODO
+        pass
