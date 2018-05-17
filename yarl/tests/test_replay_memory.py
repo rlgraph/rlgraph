@@ -94,7 +94,7 @@ class TestReplayMemory(unittest.TestCase):
 
         # Assert nothing in here yet.
         num_records = 1
-        batch = test.test(out_socket_name="get_records", inputs=num_records, expected_outputs=None)
+        batch = test.test(out_socket_name="sample", inputs=dict(num_records=num_records), expected_outputs=None)
         self.assertEqual(0, len(batch['terminal']))
 
         # Insert 2 Elements.
@@ -103,7 +103,7 @@ class TestReplayMemory(unittest.TestCase):
 
         # Assert we can now fetch 2 elements.
         num_records = 2
-        batch = test.test(out_socket_name="get_records", inputs=num_records, expected_outputs=None)
+        batch = test.test(out_socket_name="sample", inputs=num_records, expected_outputs=None)
         self.assertEqual(2, len(batch['terminal']))
 
         # Assert we cannot fetch more than 2 elements because size is 2.
