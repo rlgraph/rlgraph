@@ -100,7 +100,7 @@ class Component(Specifiable):
         # Will be populated by Model after .
         #self.input_spaces = dict()
 
-        # All Variables that are held by this component (and its sub-components) by full name.
+        # All Variables that are held by this component (and its sub-components?) by name.
         # key=full-scope variable name
         # value=the actual variable
         self.variables = dict()
@@ -120,10 +120,12 @@ class Component(Specifiable):
         """
         pass  # Children may overwrite this method.
 
-    def get_variable(self, name="", shape=None, dtype="float",
-                     initializer=None, trainable=True, from_space=None, add_batch_rank=False, flatten=False):
+    def get_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True,
+                     from_space=None, add_batch_rank=False, flatten=False):
         """
         Generates or returns a variable to use in the selected backend.
+        The generated variable is automatically registered in this component's variable registry under
+        its name.
 
         Args:
             name (str): The name under which the variable is registered in this component.
@@ -137,14 +139,19 @@ class Component(Specifiable):
             add_batch_rank (Optional[bool,int]): If from_space is given and is True, will add a 0th rank (None) to
                 the created variable. If it is an int, will add that int instead of None.
                 Default: False.
+            flatten (bool): Whether to produce a flattened OrderedDict with auto-keys
+                (instead of a DictOp/tuple/var).
 
         Returns:
-            Union[variable,dictop,tuple]: The actual variable (dependent on the backend) or - if from
+            Union[OrderedDict,variable,dictop,tuple]: The actual variable (dependent on the backend) or - if from
                 a ContainerSpace - a (flattened or nested) dictop or tuple depending on the Space.
         """
         # Called as getter.
-        #if name in self.variables:
-        #    return self.variables[name]
+        if shape is None and initializer is None:
+            if name not in self.variables:
+                raise KeyError("Variable with name '{}' not found in registry of Component '{}'!".
+                               format(name, self.name))
+            return self.variables[name]
 
         # Called as setter.
         var = None
@@ -172,9 +179,8 @@ class Component(Specifiable):
                     initializer=initializer,
                     trainable=trainable
                 )
-        # TODO: Register a new variable.
-        #if var.name not in self.variables:
-        #    self.variables[var.name] = var
+        # Registers the new variable in this Component.
+        self.variables[name] = var
 
         return var
 
@@ -402,7 +408,7 @@ class Component(Specifiable):
             scope (str): The scope of the new component. If None, use the same scope as this component.
 
         Returns:
-            The copied component object.
+            Component: The copied component object.
         """
         if scope is None:
             scope = self.scope
@@ -594,7 +600,7 @@ class Component(Specifiable):
             socket (Optional[str]): The name of the in-Socket to retrieve.
 
         Returns:
-            The found in-Socket.
+            Socket: The found in-Socket.
         """
         return self.get_socket(socket, type_="in", return_component=True)
 
@@ -607,7 +613,7 @@ class Component(Specifiable):
             socket (Optional[str]): The name of the out-Socket to retrieve.
 
         Returns:
-            The found out-Socket.
+            Socket: The found out-Socket.
         """
         return self.get_socket(socket, type_="out", return_component=True)
 
