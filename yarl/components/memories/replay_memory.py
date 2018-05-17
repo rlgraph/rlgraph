@@ -17,8 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.memories.memory import Memory
 import tensorflow as tf
+
+from yarl import DictOp
+from yarl.components.memories.memory import Memory
 
 
 class ReplayMemory(Memory):
@@ -89,7 +91,7 @@ class ReplayMemory(Memory):
             indices Union[ndarray, tf.Tensor]: Indices to read. Assumed to be not contiguous.
 
         Returns:
-             dict: Record value dict.
+             DictOp: Record value dict.
         """
 
         records = dict()
@@ -102,7 +104,7 @@ class ReplayMemory(Memory):
             # Next states are read via index shift from state variables.
             for state_name in self.states:
                 next_states = self.read_variable(self.record_registry[state_name], next_indices)
-            records["next_states"] = next_states
+            records["/next_states"] = next_states
 
         return records
 

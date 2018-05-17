@@ -93,6 +93,10 @@ class Component(Specifiable):
         # Whether we know already all our in-Sockets' Spaces.
         # Only then can we create our variables. Model will do this.
         self.input_complete = False
+        # Collect Sockets that we need to built later, directly after this component
+        # is input-complete. This input-completeness may happen at another Socket and thus some Sockets
+        # need to be built later.
+        self.sockets_to_do_later = list()
 
         # A dict for looking up which in-Sockets get which Spaces.
         # keys=in-Socket name (of this component); values=Space object associated with this Socket.

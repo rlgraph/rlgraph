@@ -32,11 +32,14 @@ class IntBox(Continuous):
             IntBox(0, 1) # low and high are given as scalars and shape is assumed to be ()
             IntBox(-1, 1, (3,4)) # low and high are scalars, and shape is provided
             IntBox(np.array([-1,-2]), np.array([2,4])) # low and high are arrays of the same shape (no shape given!)
+
+        Args:
+            dtype (str): The underlying data-type of this Space.
         """
         if not isinstance(low, int) or not isinstance(high, int):
             assert low is None or low.shape == high.shape
-        self._dtype = dtype
         super(IntBox, self).__init__(low, high, shape, add_batch_rank=add_batch_rank)
+        self._dtype = dtype
 
     @property
     def dtype(self):

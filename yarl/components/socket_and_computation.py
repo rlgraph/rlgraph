@@ -480,7 +480,7 @@ class Computation(object):
 
         for i, op in enumerate(ops):
             # An OrderedDict: Try to re-nest it and then compare it to input_template_op's structure.
-            if isinstance(op, OrderedDict):
+            if isinstance(op, dict):
                 ret.append(self._re_nest_op(op))  #, input_comparison_op=input_comparison_op))
             # All others are left as-is.
             else:

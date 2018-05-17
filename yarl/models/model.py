@@ -241,6 +241,13 @@ class Model(Specifiable):
                             outgoing.component.create_variables(space_dict)
                             # Do a complete build (over all incoming Sockets as some of these have been waiting).
                             self.partial_input_build(outgoing)
+                            # And all waiting other Sockets (!= outgoing), if any.
+                            for og in outgoing.component.sockets_to_do_later:
+                                self.partial_input_build(og)
+                            # Invalidate to get error if we ever touch it again as an iterator.
+                            outgoing.component.sockets_to_do_later = None
+                        else:
+                            outgoing.component.sockets_to_do_later.append(outgoing)
 
                 # Outgoing is a Computation -> Add the socket to the computations (waiting) inputs.
                 # - If all inputs are complete, build a new op into the graph (via the computation).

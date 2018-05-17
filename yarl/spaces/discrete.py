@@ -26,13 +26,15 @@ class Discrete(Space):
     """
     A discrete space with n possible values represented by integers: {0,1,...,n-1}.
     """
-    def __init__(self, n=None, num_actions=None, add_batch_rank=False):
+    def __init__(self, n=None, num_actions=None, add_batch_rank=False, dtype="int32"):
         """
         Args:
             n (int): The number of discrete values.
             num_actions (int): Obsolete (use `n` instead!) The number of discrete values.
+            dtype (str): The underlying data-type of this Space.
         """
         super(Discrete, self).__init__(add_batch_rank=add_batch_rank)
+        self._dtype = dtype
         if num_actions is not None:
             n = num_actions
         self.n = n or 2
@@ -51,7 +53,7 @@ class Discrete(Space):
 
     @cached_property
     def dtype(self):
-        return "uint8"
+        return self._dtype
 
     def __repr__(self):
         return "Discrete({}{})".format(self.n, "; +batch" if self.has_batch_rank else "")

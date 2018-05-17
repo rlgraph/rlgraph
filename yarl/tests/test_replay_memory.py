@@ -53,7 +53,7 @@ class TestReplayMemory(unittest.TestCase):
 
         # Run the test.
         observation = self.record_space.sample(size=5)
-        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+        test.test(out_socket_name="insert", inputs={"records": observation}, expected_outputs=None)
 
     def test_insert_after_full(self):
         memory = ReplayMemory(
@@ -73,7 +73,7 @@ class TestReplayMemory(unittest.TestCase):
 
         # Insert one more element than capacity
         observation = self.record_space.sample(size=self.capacity + 1)
-        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+        test.test(out_socket_name="insert", inputs=dict(records=observation), expected_outputs=None)
 
         size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
         # Size should be full now

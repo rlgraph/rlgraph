@@ -77,7 +77,8 @@ class Space(Specifiable):
         """
         Returns:
             str: The dtype (as string) of this Space.
-                Can be converted to tf/np/python dtypes via the misc.utils.dtype function.
+                Can be converted to tf/np/python dtypes via the utils.dtype function. Tf seems to understand
+                strings as well, though.
         """
         raise NotImplementedError
 
