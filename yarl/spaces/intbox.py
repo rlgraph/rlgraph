@@ -39,7 +39,7 @@ class IntBox(Continuous):
 
     @property
     def dtype(self):
-        return "uint8"
+        return "int32"
 
     def __eq__(self, other):
         return isinstance(other, IntBox) and np.allclose(self.low, other.low) and np.allclose(self.high, other.high)
