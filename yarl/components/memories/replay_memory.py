@@ -51,7 +51,10 @@ class ReplayMemory(Memory):
         if self.next_states:
             # Next states are not represented as explicit keys in the registry
             # as this would cause extra memory overhead.
-            self.states = self.record_space["states"].keys()
+            self.states = []
+            for state in self.record_space["states"].keys():
+                # TODO see if we need /
+                self.states.append('/states/{}'.format(state))
 
     def _computation_insert(self, records):
         num_records = tf.shape(list(records.keys()))[0]
@@ -90,13 +93,14 @@ class ReplayMemory(Memory):
         """
 
         records = dict()
-        for name, variable in self.record_registry:
+        for name, variable in self.record_registry.items():
             records[name] = self.read_variable(variable, indices)
         if self.next_states:
             next_indices = (indices + 1) % self.capacity
             next_states = dict()
 
             # Next states are read via index shift from state variables.
+            print(self.record_registry)
             for state_name in self.states:
                 next_states = self.read_variable(self.record_registry[state_name], next_indices)
             records["next_states"] = next_states
@@ -109,10 +113,12 @@ class ReplayMemory(Memory):
         # TODO When would we use a replay memory without next-states?
         if self.next_states:
             # Valid indices are non-terminal indices.
-            terminal_indices = self.read_variable(self.record_registry['terminal'])
-            indices = tf.boolean_mask(tensor=indices, mask=tf.logical_not(x=terminal_indices))
+            terminal_indices = self.read_variable(self.record_registry['/terminal'])
+            indices = tf.boolean_mask(tensor=indices, mask=tf.logical_not(x=tf.cast(terminal_indices, dtype=tf.bool)))
+
         # Choose with uniform probability from all valid indices.
-        samples = tf.multinomial(tf.ones_like(indices), num_samples=num_records)
+        probabilities = tf.ones(shape=[num_records, tf.shape(indices)[0]])
+        samples = tf.multinomial(logits=probabilities, num_samples=num_records)
 
         # Slice sampled indices from all indices.
         sampled_indices = indices[tf.cast(samples[0][0], tf.int32)]
