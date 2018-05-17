@@ -20,7 +20,7 @@ from __future__ import print_function
 import tensorflow as tf
 import re
 import copy
-from collections import OrderedDict
+from collections import Hashable
 
 from yarl import YARLError, backend, Specifiable
 from yarl.components.socket_and_computation import Socket, Computation
@@ -475,7 +475,8 @@ class Component(Specifiable):
         """
         # Connect a Space (other must be Socket).
         # Also, there are certain restrictions for the Socket's type.
-        if isinstance(from_, (Space, dict)) or (not isinstance(from_, str) and from_ in Space.__lookup_classes__):
+        if isinstance(from_, (Space, dict)) or \
+                (not isinstance(from_, str) and isinstance(from_, Hashable) and from_ in Space.__lookup_classes__):
             from_ = from_ if isinstance(from_, Space) else Space.from_spec(from_)
             to_socket_obj = self.get_socket(to_)
             assert to_socket_obj.type == "in", "ERROR: Cannot connect a Space to an 'out'-Socket!"
@@ -484,7 +485,8 @@ class Component(Specifiable):
             else:
                 to_socket_obj.disconnect_from(from_)
             return
-        elif isinstance(to_, (Space, dict)) or (not isinstance(to_, str) and to_ in Space.__lookup_classes__):
+        elif isinstance(to_, (Space, dict)) or \
+                (not isinstance(to_, str) and isinstance(to_, Hashable) and to_ in Space.__lookup_classes__):
             to_ = to_ if isinstance(to_, Space) else Space.from_spec(to_)
             from_socket_obj = self.get_socket(from_)
             assert from_socket_obj.type == "out", "ERROR: Cannot connect an 'in'-Socket to a Space!"
