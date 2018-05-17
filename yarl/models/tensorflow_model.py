@@ -72,6 +72,9 @@ class TensorFlowModel(Model):
     def get_variable_values(self, variables):
         return self.monitored_session.run(variables, feed_dict=dict())
 
+    def reset_backend(self):
+        tf.reset_default_graph()
+
     def init_execution(self):
         """
         Creates and stores a tf server (and optionally joins it if we are a parameter-server).
