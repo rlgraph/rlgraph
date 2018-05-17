@@ -473,15 +473,10 @@ class Component(Specifiable):
         Raises:
             YARLError: If one tries to connect two Sockets of the same Component.
         """
-        # Spec-dicts (for a Space) -> Try to create it first.
-        if isinstance(from_, dict):
-            from_ = Space.from_spec(from_)
-        if isinstance(to_, dict):
-            to_ = Space.from_spec(to_)
-
         # Connect a Space (other must be Socket).
         # Also, there are certain restrictions for the Socket's type.
-        if isinstance(from_, Space):
+        if isinstance(from_, (Space, dict)) or (not isinstance(from_, str) and from_ in Space.__lookup_classes__):
+            from_ = from_ if isinstance(from_, Space) else Space.from_spec(from_)
             to_socket_obj = self.get_socket(to_)
             assert to_socket_obj.type == "in", "ERROR: Cannot connect a Space to an 'out'-Socket!"
             if not disconnect:
@@ -489,7 +484,8 @@ class Component(Specifiable):
             else:
                 to_socket_obj.disconnect_from(from_)
             return
-        elif isinstance(to_, Space):
+        elif isinstance(to_, (Space, dict)) or (not isinstance(to_, str) and to_ in Space.__lookup_classes__):
+            to_ = to_ if isinstance(to_, Space) else Space.from_spec(to_)
             from_socket_obj = self.get_socket(from_)
             assert from_socket_obj.type == "out", "ERROR: Cannot connect an 'in'-Socket to a Space!"
             if not disconnect:
@@ -526,7 +522,6 @@ class Component(Specifiable):
     def get_socket(self, socket=None, type_=None, return_component=False):
         """
         Returns a Component/Socket object pair given a specifier.
-        Does all error checking.
 
         Args:
             socket (Optional[Tuple[Component,str],str,Socket]):
@@ -560,8 +555,8 @@ class Component(Specifiable):
             socket_name = socket
             mo = re.match(r'^([\w\-]*)\/(.+)$', socket)
             if mo:
-                assert mo.group(1) in self.sub_components, "ERROR: Sub-component '' does not exist in this component!".\
-                    format(mo.group(1))
+                assert mo.group(1) in self.sub_components, "ERROR: Sub-component '{}' does not exist in " \
+                                                           "this component!".format(mo.group(1))
                 component = self.sub_components[mo.group(1)]
                 socket = mo.group(2)
             else:
@@ -570,7 +565,7 @@ class Component(Specifiable):
         # Socket is given as a Socket object (simple pass-through).
         elif isinstance(socket, Socket):
             if return_component is True:
-                raise YARLError("ERROR: Cannot pass through Socket if parmaater `socket` is given as a Socket object "
+                raise YARLError("ERROR: Cannot pass through Socket if parameter `socket` is given as a Socket object "
                                 "and return_component is True!")
             return socket
         # Socket is given as component/sock-name OR component/sock-obj pair:

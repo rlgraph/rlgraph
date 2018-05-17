@@ -107,7 +107,7 @@ class Specifiable(object):
             ctor = getattr(module, function_name)
 
         if not ctor:
-            raise YARLError('Invalid type: {}'.format(type_))
+            raise YARLError("Invalid type: {}".format(type_))
 
         obj = ctor(**spec)
         assert isinstance(obj, ctor)

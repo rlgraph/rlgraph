@@ -33,9 +33,7 @@ Space.__lookup_classes__ = {
     "continuous": Continuous,
     "float": Continuous,
     float: Continuous,
-    list: Tuple,
     "list": Tuple,
-    tuple: Tuple,
     "tuple": Tuple,
     # "sequence" action type for nlp use cases and combinatorial optimisation.
     "sequence": Tuple,
