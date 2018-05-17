@@ -50,8 +50,7 @@ class TestReplayMemory(unittest.TestCase):
 
         # Run the test.
         observation = self.record_space.sample(size=5)
-        print(observation)
-        result = test.test(out_socket_name="insert", inputs=observation, expected_outputs=[])
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=[])
 
     def test_insert_after_full(self):
         memory = ReplayMemory(

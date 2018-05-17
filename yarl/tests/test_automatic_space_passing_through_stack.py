@@ -30,7 +30,6 @@ class TestAutomaticSpacePassingThroughStack(unittest.TestCase):
 
     def test_two_preprocessors(self):
         # Some crazy Space
-        space = Tuple(Continuous(shape=(2,)), Continuous(shape=(3, 3, 2)))
         space = Dict(
             a=Continuous(shape=(1, 2)),
             b=Continuous(shape=(2, 2, 2)),
@@ -60,7 +59,6 @@ class TestAutomaticSpacePassingThroughStack(unittest.TestCase):
         )
 
         test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
-        #self.assertTrue(result)
 
     def test_sequence_preprocessors(self):
         # some mildly crazy Space
@@ -71,19 +69,14 @@ class TestAutomaticSpacePassingThroughStack(unittest.TestCase):
 
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
 
-        result = test.test(out_socket_name="output", inputs=np.array([[0.1]]),
-                           expected_outputs=np.array([[[0.1], [0.1], [0.1]]]))
-        self.assertTrue(result)
-        result = test.test(out_socket_name="output", inputs=np.array([0.2]),
-                           expected_outputs=np.array([[0.2], [0.1], [0.1]]))
-        self.assertTrue(result)
-        result = test.test(out_socket_name="output", inputs=np.array([0.3]),
-                           expected_outputs=np.array([[0.3], [0.2], [0.1]]))
-        self.assertTrue(result)
-        result = test.test(out_socket_name="output", inputs=np.array([0.4]),
-                           expected_outputs=np.array([[0.4], [0.3], [0.2]]))
-        self.assertTrue(result)
-        result = test.test(out_socket_name="output", inputs=np.array([0.5]),
-                           expected_outputs=np.array([[0.5], [0.4], [0.3]]))
-        self.assertTrue(result)
+        test.test(out_socket_name="output", inputs=np.array([[0.1]]),
+                  expected_outputs=np.array([[[0.1], [0.1], [0.1]]]))
+        test.test(out_socket_name="output", inputs=np.array([0.2]),
+                  expected_outputs=np.array([[0.2], [0.1], [0.1]]))
+        test.test(out_socket_name="output", inputs=np.array([0.3]),
+                  expected_outputs=np.array([[0.3], [0.2], [0.1]]))
+        test.test(out_socket_name="output", inputs=np.array([0.4]),
+                  expected_outputs=np.array([[0.4], [0.3], [0.2]]))
+        test.test(out_socket_name="output", inputs=np.array([0.5]),
+                  expected_outputs=np.array([[0.5], [0.4], [0.3]]))
 

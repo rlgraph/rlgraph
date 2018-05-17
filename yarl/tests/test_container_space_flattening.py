@@ -27,17 +27,17 @@ class TestSpaces(unittest.TestCase):
     def test_container_space_flattening_with_mapping(self):
         space = Tuple(
             Dict(
-                a=Bool(),
+                a=bool,
                 b=Discrete(4),
                 c=Dict(
-                    d=Continuous()
+                    d=Continuous(shape=())
                 )
             ),
             Bool(),
             Discrete(),
             Continuous(shape=(3, 2)),
             Tuple(
-                Bool()
+                Bool(), Bool()
             )
         )
 
@@ -50,7 +50,7 @@ class TestSpaces(unittest.TestCase):
         for k, v in flat_space_and_mapped.items():
             result += "{}:{},".format(k, v)
 
-        expected = "/tuple-0/a:1,/tuple-0/b:4,/tuple-0/c/d:1,/tuple-1:1,/tuple-2:2,/tuple-3:6,/tuple-4/tuple-0:1,"
+        expected = "/[0]/a:1,/[0]/b:4,/[0]/c/d:1,/[1]:1,/[2]:2,/[3]:6,/[4]/[0]:1,/[4]/[1]:1,"
 
         self.assertTrue(result == expected)
 

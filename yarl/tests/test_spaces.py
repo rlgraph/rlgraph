@@ -26,7 +26,7 @@ class TestSpaces(unittest.TestCase):
     """
     Tests creation, sampling and shapes of Spaces.
     """
-    def test_complex_space(self):
+    def test_complex_space_sampling_and_check_via_contains(self):
         """
         Tests a complex Space on sampling and `contains` functionality.
         """
@@ -41,7 +41,7 @@ class TestSpaces(unittest.TestCase):
             add_batch_rank=True
         )
 
-        samples = space.sample(size=10, horizontal=True)
+        samples = space.sample(size=100, horizontal=True)
         for i in range(len(samples)):
             self.assertTrue(space.contains(samples[i]))
 

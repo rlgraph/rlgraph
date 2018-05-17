@@ -26,49 +26,41 @@ from yarl.tests import ComponentTest
 import numpy as np
 
 
-#class TestPreprocessors(unittest.TestCase):
+class TestPreprocessors(unittest.TestCase):
 
-#    def test_split_computation_on_grayscale(self):
-"""space = Dict.from_spec(dict(
-    a=dict(
-        a=Continuous(shape=(1, 1, 3)),  # 2D image
-        b=Continuous(shape=(2, 2, 2, 3)),  # 3D image
-        c=dict(
-            ca=Continuous(shape=(1, 3)),  # 1D image
-            cb=Continuous(shape=(4, 4, 3))  # 2D image
+    def test_split_computation_on_grayscale(self):
+        # last rank is always the color rank (its dim must match len(grayscale-weights))
+        space = Dict.from_spec(dict(
+            a=Tuple(Continuous(shape=(1, 1, 2)), Continuous(shape=(1, 2, 2))),
+            b=Continuous(shape=(2, 2, 2, 2)),
+            c=dict(type=float, shape=(2,))  # single scalar pixel
+        ))
+
+        # The Component to test.
+        component_to_test = GrayScale(weights=(0.5, 0.5), keep_rank=False)
+
+        # A ComponentTest object.
+        test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
+
+        # Run the test.
+        input_ = dict(
+            a=(
+                np.array([[[3.0, 5.0]]]), np.array([[[3.0, 5.0], [1.0, 5.0]]])
+            ),
+            b=np.array([[[[2.0, 4.0], [2.0, 4.0]],
+                         [[2.0, 4.0], [2.0, 4.0]]],
+                        [[[2.0, 4.0], [2.0, 4.0]],
+                         [[2.0, 4.0], [2.0, 4.0]]]]
+                       ),
+            c=np.array([0.6, 0.8])
         )
-    ),
-    b=Continuous(shape=(3,)),  # 0D image (pixel)
-))"""
+        expected = dict(
+            a=(
+                np.array([[4.0]]), np.array([[4.0, 3.0]])
+            ),
+            b=np.array([[[3.0, 3.0], [3.0, 3.0]], [[3.0, 3.0], [3.0, 3.0]]]),
+            c=0.7
+        )
 
-# last rank is always the color rank (its dim must match len(grayscale-weights))
-space = Dict.from_spec(dict(
-    a=Tuple(Continuous(shape=(1, 1, 2)), Continuous(shape=(1, 2, 2))),
-    b=Continuous(shape=(2, 2, 2, 2)),
-))
-
-# The Component to test.
-component_to_test = GrayScale(weights=(0.5, 0.5), keep_rank=True)
-
-# A ComponentTest object.
-test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
-
-# Run the test.
-input_ = dict(
-    a=(
-        np.array([[[3.0, 5.0]]]), np.array([[[3.0, 5.0], [1.0, 5.0]]])
-    ),
-    b=np.array([[[[2.0, 4.0], [2.0, 4.0]], [[2.0, 4.0], [2.0, 4.0]]], [[[2.0, 4.0], [2.0, 4.0]], [[2.0, 4.0], [2.0, 4.0]]]])
-)
-expected = dict(
-    a=(
-        np.array([[4.0]]), np.array([[4.0, 3.0]])
-    ),
-    b=np.array([[[3.0, 3.0], [3.0, 3.0]], [[3.0, 3.0], [3.0, 3.0]]])
-)
-
-result = test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
-assert result, "FAIL!"
-
-print("PASS!")
+        test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
 

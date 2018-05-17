@@ -17,9 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import time
+import numpy as np
 
-from yarl import backend, YARLError
+from yarl import backend, YARLError, DictOp
 from yarl.models.model import Model
 
 
@@ -78,12 +78,10 @@ class ComponentTest(object):
             inputs_as_dict = dict({only_input: inputs})
             inputs = inputs_as_dict
 
-        # TODO: convert python nested lists automatically to numpy?
-
         # Get the outs ..
         outs = self.model.call(sockets=out_socket_name, inputs=inputs)
         # .. and compare them with what we want.
-        return (expected_outputs == outs).all()
+        self._recursive_assert_almost_equal(outs, expected_outputs)
 
     def get_variable_values(self, variables):
         """
@@ -95,3 +93,21 @@ class ComponentTest(object):
             list: Values of the variables provided.
         """
         return self.model.get_variable_values(variables)
+
+    def _recursive_assert_almost_equal(self, actual, expected):
+        # a dict type
+        if isinstance(actual, dict):
+            assert isinstance(expected, dict), "ERROR: Expected needs to be a dict as well!"
+            for k, v in actual.items():
+                assert k in expected, "ERROR: Expected does not have key='{}'!".format(k)
+                self._recursive_assert_almost_equal(v, expected[k])
+        # a tuple type
+        elif isinstance(actual, tuple):
+            assert isinstance(expected, tuple), "ERROR: Expected needs to be a tuple as well!"
+            assert len(expected) == len(actual), "ERROR: Expected does not have the same length as " \
+                                                 "actual ({} vs {})!".format(len(expected), len(actual))
+            for i, v in enumerate(actual):
+                self._recursive_assert_almost_equal(v, expected[i])
+        # everything else
+        else:
+            np.testing.assert_almost_equal(actual, expected, decimal=7)
