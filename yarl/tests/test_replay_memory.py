@@ -90,7 +90,7 @@ class TestReplayMemory(unittest.TestCase):
             records=self.record_space,
             num_records=int
         ))
-        buffer_size, buffer_index = memory.get_variables()
+        #buffer_size, buffer_index = memory.get_variables()
 
         # Assert nothing in here yet.
         num_records = 1
@@ -103,19 +103,19 @@ class TestReplayMemory(unittest.TestCase):
 
         # Assert we can now fetch 2 elements.
         num_records = 2
-        batch = test.test(out_socket_name="sample", inputs=num_records, expected_outputs=None)
+        batch = test.test(out_socket_name="sample", inputs=dict(num_records=num_records), expected_outputs=None)
         self.assertEqual(2, len(batch['terminal']))
 
         # Assert we cannot fetch more than 2 elements because size is 2.
         num_records = 5
-        batch = test.test(out_socket_name="get_records", inputs=num_records, expected_outputs=None)
+        batch = test.test(out_socket_name="get_records", inputs=dict(num_records=num_records), expected_outputs=None)
         self.assertEqual(2, len(batch['terminal']))
 
         # Now insert over capacity.
         observation = self.record_space.sample(size=self.capacity)
-        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+        test.test(out_socket_name="insert", inputs=dict(records=observation), expected_outputs=None)
 
         # Assert we can fetch exactly capacity elements.
         num_records = self.capacity
-        batch = test.test(out_socket_name="get_records", inputs=num_records, expected_outputs=None)
+        batch = test.test(out_socket_name="get_records", inputs=dict(num_records=num_records), expected_outputs=None)
         self.assertEqual(self.capacity, len(batch['terminal']))
