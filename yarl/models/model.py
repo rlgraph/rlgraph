@@ -125,6 +125,13 @@ class Model(Specifiable):
         # TODO mandatory?
         raise NotImplementedError
 
+    def reset_backend(self):
+        """
+        Resets the backend's runtime, e.g. clears any graph, caches,
+        allocated memory etc.
+        """
+        pass
+
     def assemble_graph(self):
         """
         Loops through all our sub-components starting at core and assembles the graph by creating placeholders,
