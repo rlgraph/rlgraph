@@ -147,7 +147,7 @@ class Component(Specifiable):
                 a ContainerSpace - a (flattened or nested) dictop or tuple depending on the Space.
         """
         # Called as getter.
-        if shape is None and initializer is None:
+        if shape is None and initializer is None and from_space is None:
             if name not in self.variables:
                 raise KeyError("Variable with name '{}' not found in registry of Component '{}'!".
                                format(name, self.name))
