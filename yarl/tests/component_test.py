@@ -83,9 +83,21 @@ class ComponentTest(object):
         # .. and compare them with what we want.
         recursive_assert_almost_equal(outs, expected_outputs)
 
+    def variable_test(self, variables, expected_values):
+        """
+
+        Args:
+            variables ():
+            expected_values ():
+
+        Returns:
+
+        """
+
     def get_variable_values(self, variables):
         """
         Executes a session to retrieve the values of the provided variables.
+
         Args:
             variables (list): Variable objects to retrieve from the graph.
 
