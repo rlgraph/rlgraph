@@ -66,7 +66,7 @@ def get_space_from_op(op):
         else:
             shape = get_shape(op)
             add_batch_rank = False
-            if shape[0] is None:
+            if shape is not () and shape[0] is None:
                 shape = shape[1:]
                 add_batch_rank = True
 
