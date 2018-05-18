@@ -19,7 +19,6 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-from yarl import DictOp
 from yarl.components.memories.memory import Memory
 
 
@@ -55,15 +54,16 @@ class ReplayMemory(Memory):
             # as this would cause extra memory overhead.
             self.states = []
             for state in self.record_space["states"].keys():
-                # TODO see if we need /
                 self.states.append('/states/{}'.format(state))
 
     def _computation_insert(self, records):
-        num_records = tf.shape(list(records.keys()))[0]
+        num_records = tf.shape(input=records['/terminal'])[0]
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
         # Updates all the necessary sub-variables in the record.
+        # update_indices = tf.Print(update_indices, [update_indices, index, num_records], summarize=100,
+        #                           message='Update indices / index / num records = ')
         record_updates = list()
         for key in self.record_registry:
             record_updates.append(self.scatter_update_variable(

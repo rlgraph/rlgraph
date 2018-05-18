@@ -103,7 +103,7 @@ class TensorFlowModel(Model):
         self.graph_default_context = self.graph.as_default()
         self.graph_default_context.__enter__()
 
-    def finalize_backend(self):
+    def complete_backend_setup(self):
         # After the graph is built -> Setup saver, summaries, etc..
         hooks = []  # Will be appended to in the following functions.
         self.setup_saver(hooks)
