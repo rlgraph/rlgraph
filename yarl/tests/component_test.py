@@ -41,7 +41,7 @@ class ComponentTest(object):
 
         # Create our Model.
         self.model = Model.from_spec(backend(), execution_spec=dict(seed=self.seed))
-
+        self.model.reset_backend()
         # Add the component to test and expose all its Sockets to the core component of our Model.
         self.core = self.model.get_default_model()
         self.core.add_component(component, expose=True)

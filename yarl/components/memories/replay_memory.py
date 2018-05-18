@@ -126,8 +126,9 @@ class ReplayMemory(Memory):
 
         # Choose with uniform probability from all valid indices.
         # TODO problem - if there are no valid indices, we cannot return anything
-        probabilities = tf.ones(shape=[num_records, tf.shape(indices)[0]])
-        samples = tf.multinomial(logits=probabilities, num_samples=num_records)
+        num_valid_indices = tf.shape(input=indices)[0]
+        probabilities = tf.ones(shape=[num_valid_indices, num_valid_indices])
+        samples = tf.multinomial(logits=probabilities, num_samples=num_valid_indices)
         samples = tf.Print(samples, [samples, tf.shape(samples)], summarize=100, message='samples / shape = ')
 
         # Gather sampled indices from all indices.
