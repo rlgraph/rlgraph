@@ -18,17 +18,17 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
-import numpy as np
+
 from yarl.components.memories.replay_memory import ReplayMemory
 from yarl.spaces import Dict, IntBox
 from yarl.tests import ComponentTest
+from yarl.tests.test_util import non_terminal_records, terminal_records
 
 
 class TestReplayMemory(unittest.TestCase):
     """
     Tests sampling and insertion behaviour of the replay_memory module.
     """
-
     record_space = Dict(
         states=dict(state1=float, state2=float),
         actions=dict(action1=float),
@@ -58,6 +58,9 @@ class TestReplayMemory(unittest.TestCase):
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
 
     def test_insert_after_full(self):
+        """
+        Tests if retrieval correctly manages capacity and zeros out terminals.
+        """
         memory = ReplayMemory(
             capacity=self.capacity,
             next_states=True
@@ -79,7 +82,6 @@ class TestReplayMemory(unittest.TestCase):
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
 
         size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
-
         # Size should be equivalent to capacity when full.
         self.assertTrue(size_value == self.capacity)
 
@@ -87,6 +89,9 @@ class TestReplayMemory(unittest.TestCase):
         self.assertTrue(index_value == 1)
 
     def test_batch_retrieve(self):
+        """
+        Tests if retrieval correctly manages capacity and zeros out terminals.
+        """
         memory = ReplayMemory(
             capacity=self.capacity,
             next_states=True
@@ -97,9 +102,7 @@ class TestReplayMemory(unittest.TestCase):
         ))
 
         # Insert 2 Elements.
-        observation = self.record_space.sample(size=2)
-        print(observation)
-        observation['terminal'] = np.zeros(2)
+        observation = non_terminal_records(self.record_space, 2)
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
 
         # Assert we can now fetch 2 elements.
@@ -113,19 +116,17 @@ class TestReplayMemory(unittest.TestCase):
         batch = test.test(out_socket_name="sample", inputs=num_records, expected_outputs=None)
         self.assertEqual(2, len(batch['terminal']))
 
-        # # Now insert over capacity, note all elements here are non-terminal.
-        observation = self.record_space.sample(size=self.capacity)
-        observation['terminal'] = np.zeros(self.capacity)
+        # Now insert over capacity, note all elements here are non-terminal.
+        observation = non_terminal_records(self.record_space, self.capacity)
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
 
-        # # Assert we can fetch exactly capacity elements.
+        # Assert we can fetch exactly capacity elements.
         num_records = self.capacity
         batch = test.test(out_socket_name="sample", inputs=num_records, expected_outputs=None)
         self.assertEqual(self.capacity, len(batch['terminal']))
 
         # Now insert 5 terminal elements.
-        observation = self.record_space.sample(size=5)
-        observation['terminal'] = np.ones(5)
+        observation = terminal_records(self.record_space, 5)
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
 
         # Try to fetch capacity elements again.
