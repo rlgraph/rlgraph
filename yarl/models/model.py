@@ -97,7 +97,7 @@ class Model(Specifiable):
         self.assemble_graph()
 
         # Set up any remaining session or monitoring configurations.
-        self.finalize_backend()
+        self.complete_backend_setup()
 
     def call(self, sockets, inputs=None):
         """
@@ -185,7 +185,7 @@ class Model(Specifiable):
                     # .. and the out-socket registry.
                     self.out_socket_registry[output_socket.name].update(set(in_socket_names))
 
-    def finalize_backend(self):
+    def complete_backend_setup(self):
         """
         Initializes any remaining backend-specific monitoring or session handling.
         """
@@ -213,6 +213,8 @@ class Model(Specifiable):
 
     def get_default_model(self):
         """
+        Fetches the initially created default container.
+
         Returns:
             Component: The core container component.
         """
