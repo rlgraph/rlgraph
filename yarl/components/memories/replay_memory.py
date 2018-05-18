@@ -109,13 +109,20 @@ class ReplayMemory(Memory):
         return records
 
     def _computation_get_records(self, num_records):
-        indices = tf.range(start=0, limit=self.read_variable(self.size))
+        indices = tf.range(start=0, limit=self.read_variable(self.size) - 1)
 
         # TODO When would we use a replay memory without next-states?
         if self.next_states:
-            # Valid indices are non-terminal indices.
-            terminal_indices = self.read_variable(self.record_registry['/terminal'])
-            indices = tf.boolean_mask(tensor=indices, mask=tf.logical_not(x=tf.cast(terminal_indices, dtype=tf.bool)))
+            # Valid indices are non-terminal indices
+            terminal_indices = self.read_variable(self.record_registry['/terminal'], indices=indices)
+            # terminal_indices = tf.Print(terminal_indices, [terminal_indices], summarize=100, message='terminal_indices = ')
+            # indices = tf.Print(indices, [indices], summarize=100, message='indices = ')
+            mask = tf.logical_not(x=tf.cast(terminal_indices, dtype=tf.bool))
+            # mask = tf.Print(mask, [mask], summarize=100, message= 'mask = ')
+            indices = tf.boolean_mask(
+                tensor=indices,
+                mask=mask
+            )
 
         # Choose with uniform probability from all valid indices.
         probabilities = tf.ones(shape=[num_records, tf.shape(indices)[0]])
