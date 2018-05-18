@@ -73,7 +73,7 @@ def get_rank(tensor):
         return tensor.get_shape().ndims
 
 
-def get_shape(op, flat=False):
+def get_shape(op, flat=False, no_batch=False):
     """
     Returns the shape of the tensor as a tuple.
 
@@ -81,6 +81,7 @@ def get_shape(op, flat=False):
         op (Union[dictop,tuple,tensor]): The input op.
         flat (bool): Whether to return the flattened shape (the product of all ints in the shape tuple).
             Default: False.
+        no_batch (bool): Whether to exclude a possible 0th batch rank (None) from the returned shape.
 
     Returns:
         tuple: The shape of the given op.
@@ -95,6 +96,10 @@ def get_shape(op, flat=False):
     # primitive op (e.g. tensorflow)
     else:
         shape = tuple(op.get_shape().as_list())
+
+    # Remove batch rank?
+    if no_batch is True and shape[0] is None:
+        shape = shape[1:]
 
     if flat is False:
         return shape

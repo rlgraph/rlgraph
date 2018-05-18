@@ -88,9 +88,9 @@ class TestPreprocessors(unittest.TestCase):
         )
         expected = dict(
             a=(
-                np.array([[3.0, 5.0], [1.0, 5.2]]), np.array([[3.1, 3.2, 3.3, 3.4], [3.5, 3.6, 3.7, 3.8]])
+                np.array([[3.0, 5.0], [1.0, 5.2]], dtype=np.float32), np.array([[3.1, 3.2, 3.3, 3.4], [3.5, 3.6, 3.7, 3.8]], dtype=np.float32)
             ),
-            c=np.array([[0.1, 0.2], [0.3, 0.4]])
+            c=np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32)
         )
 
         test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)

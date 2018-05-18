@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from yarl import YARLError
 from yarl.utils.util import DictOp, dtype, get_shape, get_rank
 
 from .space import Space
@@ -42,30 +43,47 @@ def get_space_from_op(op):
     # a Dict
     if isinstance(op, DictOp):
         spec = dict()
+        add_batch_rank = False
         for k, v in op.items():
             spec[k] = get_space_from_op(v)
-        return Dict(spec)
+            if spec[k].has_batch_rank:
+                add_batch_rank = True
+        return Dict(spec, add_batch_rank=add_batch_rank)
     # a Tuple
     elif isinstance(op, tuple):
         spec = list()
+        add_batch_rank = False
         for i in op:
             spec.append(get_space_from_op(i))
-        return Tuple(spec)
+            if spec[-1].has_batch_rank:
+                add_batch_rank = True
+        return Tuple(spec, add_batch_rank=add_batch_rank)
     # primitive Space -> infer from op dtype and shape
     else:
         # No Space: e.g. the tf.no_op.
         if hasattr(op, "dtype") is False:
             return 0
-        # a Continuous
-        elif op.dtype == dtype("float"):
-            return Continuous(shape=get_shape(op))
-        # an IntBox/Discrete
-        # TODO: see whether we can unite these two into a MultiDiscrete Space
-        elif op.dtype == dtype("int"):
-            if get_rank(op) == 1:
-                return Discrete(n=get_shape(op)[0])
+        else:
+            shape = get_shape(op)
+            add_batch_rank = False
+            if shape[0] is None:
+                shape = shape[1:]
+                add_batch_rank = True
+
+            # a Continuous
+            if op.dtype == dtype("float"):
+                return Continuous(shape=shape, add_batch_rank=add_batch_rank)
+            # an IntBox/Discrete
+            elif op.dtype == dtype("int"):
+                # TODO: How do we distinguish these two by a tensor (name/type)?
+                # TODO: Solution: Merge Discrete and IntBox into `IntBox`. Discrete is a special IntBox with shape=() and low=0 and high=n-1
+                if len(shape) == 1:
+                    return Discrete(n=shape[0], add_batch_rank=add_batch_rank)
+                else:
+                    return IntBox(low=0, high=255, shape=shape, add_batch_rank=add_batch_rank)  # low, high=dummy values
+            # a Bool
+            elif op.dtype == dtype("bool"):
+                return Bool(add_batch_rank=add_batch_rank)
             else:
-                return IntBox(low=0, high=255, shape=get_shape(op))  # low, high=dummy values
-        # a Bool
-        elif op.dtype == dtype("bool"):
-            return Bool()
+                raise YARLError("ERROR: Cannot derive Space from op '{}' (unknown type?)!".format(op))
+

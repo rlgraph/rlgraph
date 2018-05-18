@@ -133,6 +133,7 @@ class Dict(ContainerSpace, dict):
         return isinstance(sample, dict) and all(self[key].contains(sample[key]) for key in self.keys())
 
     def add_batch_rank(self, add_batch_rank=True):
+        super(Dict, self).add_batch_rank(add_batch_rank)
         for v in self.values():
             v.add_batch_rank(add_batch_rank)
 
@@ -230,6 +231,7 @@ class Tuple(ContainerSpace, tuple):
                all(c.contains(xi) for c, xi in zip(self, sample))
 
     def add_batch_rank(self, add_batch_rank=True):
+        super(Tuple, self).add_batch_rank(add_batch_rank)
         for v in self:
             v.add_batch_rank(add_batch_rank)
 

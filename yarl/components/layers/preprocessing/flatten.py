@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
+import numpy as np
 
 from yarl.utils.util import get_shape
 from yarl.spaces import Space
@@ -41,5 +42,5 @@ class Flatten(PreprocessLayer):
 
     def _computation_apply(self, input_):
         # TODO: Create computation option to pass input_'s Space along with input_ into these methods.
-        shape = (-1, get_shape(input_[1:], flat=True)) if self.has_batch else tuple([get_shape(input_, flat=True)])
+        shape = (-1, np.prod(get_shape(input_)[1:])) if self.has_batch else tuple([get_shape(input_, flat=True)])
         return tf.reshape(tensor=input_, shape=shape)
