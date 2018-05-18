@@ -31,10 +31,9 @@ class RingBuffer(Memory):
         capacity=1000,
         name="",
         scope="ring-buffer",
-        sub_indexes=None,
         episode_semantics=False
     ):
-        super(RingBuffer, self).__init__(capacity, name, scope, sub_indexes)
+        super(RingBuffer, self).__init__(capacity, name, scope)
         # Variables.
         self.index = None
         self.size = None
@@ -89,7 +88,7 @@ class RingBuffer(Memory):
                 episodes_in_insert_range = tf.reduce_sum(input_tensor=insert_terminal_slice, axis=0)
 
                 # Newly inserted episodes.
-                inserted_episodes = tf.reduce_sum(input_tensor=records['terminal'], axis=0)
+                inserted_episodes = tf.reduce_sum(input_tensor=records['/terminal'], axis=0)
                 num_episode_update = num_episodes - episodes_in_insert_range + inserted_episodes
 
                 # Remove previous episodes in inserted range.
@@ -97,7 +96,7 @@ class RingBuffer(Memory):
                 index_updates.append(self.assign_variable(
                         variable=self.episode_indices[:num_episodes + 1 - episodes_in_insert_range],
                         value=self.episode_indices[episodes_in_insert_range: num_episodes + 1]
-                ))
+                    ))
 
                 # Insert new episodes starting at previous count minus the ones we removed,
                 # ending at previous count minus removed + inserted.
@@ -105,7 +104,7 @@ class RingBuffer(Memory):
                 slice_end = num_episode_update + 1
                 index_updates.append(self.assign_variable(
                     variable=self.episode_indices[slice_start:slice_end],
-                    value=tf.boolean_mask(tensor=update_indices, mask=records['terminal'])
+                    value=tf.boolean_mask(tensor=update_indices, mask=records['/terminal'])
                 ))
 
                 # Assign final new episode count.
@@ -154,4 +153,8 @@ class RingBuffer(Memory):
         limit += tf.where(condition=(start < limit), x=0, y=self.capacity)
 
         indices = tf.range(start=start, limit=limit) % self.capacity
+
         return self.read_records(indices=indices)
+
+    def get_variables(self, names=None):
+        return [self.size, self.index, self.num_episodes, self.episode_indices]

@@ -31,11 +31,11 @@ class Memory(Component):
         capacity=1000,
         name="",
         scope="memory",
-        sub_indexes=None,
     ):
         """
+        Abstract memory.
         Args:
-            capacity (int): The number of records that can be stored in this memory.
+            capacity (int): Maximum capacity.
         """
         super(Memory, self).__init__(name=name, scope=scope)
 
