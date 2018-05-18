@@ -66,10 +66,10 @@ class RingBuffer(Memory):
             )
 
     def _computation_insert(self, records):
-        num_records = tf.shape(list(records.keys()))[0]
+        num_records = tf.shape(input=records['/terminal'])[0]
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
-        insert_terminal_slice = self.read_variable(self.record_registry['terminal'], update_indices)
+        insert_terminal_slice = self.read_variable(self.record_registry['/terminal'], update_indices)
 
         # Updates all the necessary sub-variables in the record.
         record_updates = self.record_space.flatten(mapping=lambda key, primitive: self.scatter_update_variable(
@@ -97,7 +97,7 @@ class RingBuffer(Memory):
                 index_updates.append(self.assign_variable(
                         variable=self.episode_indices[:num_episodes + 1 - episodes_in_insert_range],
                         value=self.episode_indices[episodes_in_insert_range: num_episodes + 1]
-                    ))
+                ))
 
                 # Insert new episodes starting at previous count minus the ones we removed,
                 # ending at previous count minus removed + inserted.
