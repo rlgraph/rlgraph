@@ -157,4 +157,7 @@ class RingBuffer(Memory):
         return self.read_records(indices=indices)
 
     def get_variables(self, names=None):
-        return [self.size, self.index, self.num_episodes, self.episode_indices]
+        if self.episode_semantics:
+            return [self.size, self.index, self.num_episodes, self.episode_indices]
+        else:
+            return [self.size, self.index]

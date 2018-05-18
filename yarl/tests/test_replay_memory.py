@@ -57,9 +57,9 @@ class TestReplayMemory(unittest.TestCase):
         observation = self.record_space.sample(size=100)
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
 
-    def test_insert_after_full(self):
+    def test_capacity(self):
         """
-        Tests if retrieval correctly manages capacity and zeros out terminals.
+        Tests if insert correctly manages capacity.
         """
         memory = ReplayMemory(
             capacity=self.capacity,
