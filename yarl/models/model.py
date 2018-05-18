@@ -65,11 +65,14 @@ class Model(Specifiable):
         # names (inside a call to `self.call`).
         self.input_combinations = dict()
         # Some registries that we need to build the Graph from core.
-        # key=op; value=list of required ops to calculate the key-op
+        # key=op; value=set of required ops to calculate the key-op
         self.op_registry = dict()
         # key=in-Socket name; value=set of alternative ops (dictop/tuple/op) that could go into this socket.
         # Only for very first in-Sockets.
         self.in_socket_registry = dict()
+        # key=out-Socket name; value=set of necessary in-Socket names that we need in order to calculate
+        # the out-Socket's op output.
+        self.out_socket_registry = dict()
         # Maps an out-Socket name+in-Socket/Space-combination to an actual op to fetch from our Graph.
         self.call_registry = dict()  # key=()
 
@@ -103,8 +106,11 @@ class Model(Specifiable):
         Args:
             sockets (Union[str,List[str]]): A name or a list of names of the (out) Sockets to fetch from our core
                 component.
-            inputs (Optional[dict]): Dict specifying the provided inputs for some (in) Sockets. Depending on these
-                given inputs, the correct backend-ops can be selected within the given (out) sockets.
+            inputs (Optional[dict,np.array]): Dict specifying the provided inputs for some in-Sockets (key=in-Socket name,
+                values=the values that should go into this Socket (e.g. numpy arrays)).
+                Depending on these given inputs, the correct backend-ops can be selected within the given out-Sockets.
+                If only one out-Socket is given in `sockets`, and this out-Socket only needs a single in-Socket's data,
+                this in-Socket's data may be given here directly.
 
         Returns:
             Tuple (or single item) containing the results from fetching all the given out-Sockets.
@@ -158,6 +164,8 @@ class Model(Specifiable):
         # Then we will be able to derive the correct op for any given (out-Socket+in-Socket+in-shape)-combination
         # passed into the call method.
         for output_socket in self.core_component.output_sockets:
+            # Create empty out-sock registry entry.
+            self.out_socket_registry[output_socket.name] = set()
             # Loop through this Socket's set of possible ops.
             for op in output_socket.ops:
                 # Get all the (core) in-Socket names (alphabetically sorted) that are required for this op.
@@ -170,8 +178,12 @@ class Model(Specifiable):
                 shape_combinations = itertools.product(*shapes)
                 for shape_combination in shape_combinations:
                     # Do everything by Socket-name (easier to debug).
-                    key = (output_socket.name, tuple([s.name for s in sockets]), shape_combination)
+                    in_socket_names = tuple([s.name for s in sockets])
+                    # Update our call registry.
+                    key = (output_socket.name, in_socket_names, shape_combination)
                     self.call_registry[key] = op
+                    # .. and the out-socket registry.
+                    self.out_socket_registry[output_socket.name].update(set(in_socket_names))
 
     def finalize_backend(self):
         """
@@ -252,7 +264,7 @@ class Model(Specifiable):
                             for og in outgoing.component.sockets_to_do_later:
                                 self.partial_input_build(og)
                             # Invalidate to get error if we ever touch it again as an iterator.
-                            outgoing.component.sockets_to_do_later = None
+                            outgoing.component.sockets_to_do_later = None  # type: list
                         else:
                             outgoing.component.sockets_to_do_later.append(outgoing)
 
@@ -274,19 +286,41 @@ class Model(Specifiable):
                 else:
                     raise YARLError("ERROR: Outgoing connection must be Socket or Computation!")
 
-    def get_execution_inputs(self, socket_names, input_dict=None):
+    def get_execution_inputs(self, output_socket_names, input_dict=None):
         """
         Fetches graph inputs for execution.
 
         Args:
-            socket_names (Union[str,List[str]]): A name or a list of names of the (out) Sockets to fetch from our core
-                component.
-            input_dict (Optional[dict]): Dict specifying the provided inputs for some (in) Sockets.
+            output_socket_names (Union[str,List[str]]): A name or a list of names of the out-Sockets to fetch from
+            our core component.
+            input_dict (Optional[dict,data]): Dict specifying the provided inputs for some in-Sockets.
                 Depending on these given inputs, the correct backend-ops can be selected within the given (out)-Sockets.
 
         Returns:
-            Input-list and feed-dict with relevant args.
+            tuple: fetch-dict, feed-dict with relevant args.
 9       """
+        output_socket_names = force_list(output_socket_names)
+        only_input_socket_name = None  # the name of the only in-Socket possible here
+        # Get only in-Socket ..
+        if len(self.core_component.input_sockets) == 1:
+            only_input_socket_name = self.core_component.input_sockets[0].name
+        # .. or only in-Socket for single(!), given out-Socket.
+        elif len(output_socket_names) == 1 and \
+                len(self.out_socket_registry[output_socket_names[0]]) == 1:
+            only_input_socket_name = next(iter(self.out_socket_registry[output_socket_names[0]]))
+
+        # Check whether data is given directly.
+        if not isinstance(input_dict, dict):
+            if only_input_socket_name is None:
+                raise YARLError("ERROR: Input data (`input_dict`) not given as dict AND more than 1 in-Socket OR more "
+                                "than 1 in-Socket for given out-Socket(s)!")
+            input_dict = {only_input_socket_name: input_dict}
+        # Is a dict: Check whether it's a in-Socket name dict (leave as is) or a data dict (add in-Socket name as key).
+        else:
+            # We have more than one necessary in-Sockets (leave as is) OR
+            # the only necessary in-Socket name is not key of the dict -> wrap it.
+            if only_input_socket_name is not None and only_input_socket_name not in input_dict:
+                input_dict = {only_input_socket_name: input_dict}
 
         # Try all possible input combinations to see whether we got an op for that.
         # Input Socket names will be sorted alphabetically and combined from short sequences up to longer ones.
@@ -302,9 +336,9 @@ class Model(Specifiable):
         # Go through each (core) out-Socket names and collect the correct ops to go into the fetch_list.
         fetch_list = list()
         feed_dict = dict()
-        for socket_name in socket_names:
-            self._get_execution_inputs_for_socket(socket_name, input_combinations, fetch_list, input_dict, feed_dict)
-
+        for out_socket_name in output_socket_names:
+            self._get_execution_inputs_for_socket(out_socket_name, input_combinations, fetch_list,
+                                                  input_dict, feed_dict)
         return fetch_list, feed_dict
 
     def _get_execution_inputs_for_socket(self, socket_name, input_combinations, fetch_list, input_dict, feed_dict):

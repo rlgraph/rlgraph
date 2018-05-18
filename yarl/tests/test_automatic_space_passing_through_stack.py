@@ -58,7 +58,7 @@ class TestAutomaticSpacePassingThroughStack(unittest.TestCase):
                                        [3.0, 3.0, 3.0]])))
         )
 
-        test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
+        test.test(out_socket_name="output", inputs=dict(input=input_), expected_outputs=expected)
 
     def test_sequence_preprocessors(self):
         # some mildly crazy Space
@@ -69,14 +69,14 @@ class TestAutomaticSpacePassingThroughStack(unittest.TestCase):
 
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
 
-        test.test(out_socket_name="output", inputs=np.array([[0.1]]),
+        test.test(out_socket_name="output", inputs=dict(input=np.array([[0.1]])),
                   expected_outputs=np.array([[[0.1], [0.1], [0.1]]]))
-        test.test(out_socket_name="output", inputs=np.array([0.2]),
+        test.test(out_socket_name="output", inputs=dict(input=np.array([0.2])),
                   expected_outputs=np.array([[0.2], [0.1], [0.1]]))
-        test.test(out_socket_name="output", inputs=np.array([0.3]),
+        test.test(out_socket_name="output", inputs=dict(input=np.array([0.3])),
                   expected_outputs=np.array([[0.3], [0.2], [0.1]]))
-        test.test(out_socket_name="output", inputs=np.array([0.4]),
+        test.test(out_socket_name="output", inputs=dict(input=np.array([0.4])),
                   expected_outputs=np.array([[0.4], [0.3], [0.2]]))
-        test.test(out_socket_name="output", inputs=np.array([0.5]),
+        test.test(out_socket_name="output", inputs=dict(input=np.array([0.5])),
                   expected_outputs=np.array([[0.5], [0.4], [0.3]]))
 

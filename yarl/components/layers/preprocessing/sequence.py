@@ -69,24 +69,24 @@ class Sequence(PreprocessLayer):
         Stitches together the incoming (flattened) inputs by using our buffer (with stored older records).
 
         Args:
-            inputs (Union[OrderedDict,op]): The flattened input ops.
+            inputs (Union[OrderedDict,op]): The (un-split) flattened input ops.
         """
         # A normal (index != -1) assign op.
         def normal_assign():
-            return tf.assign(ref=self.buffer[(self.index + 0)], value=input_[0])
+            return tf.assign(ref=self.buffer[(self.index + 0)], value=inputs[0])
 
         # If index is still -1 (after reset):
         # Pre-fill the entire buffer with `self.sequence_length` x input_.
         def after_reset_assign():
-            multiples = (self.sequence_length,) + tuple([1] * (get_rank(input_)-1))
-            return tf.assign(ref=self.buffer, value=tf.tile(input=input_, multiples=multiples))
+            multiples = (self.sequence_length,) + tuple([1] * (get_rank(inputs)-1))
+            return tf.assign(ref=self.buffer, value=tf.tile(input=inputs, multiples=multiples))
 
         # Insert the input at the correct index or fill empty buffer entirely with input.
         insert_input = tf.cond(pred=(self.index >= 0), true_fn=normal_assign, false_fn=after_reset_assign)
 
         # Make sure the input has been inserted ..
         # .. and that the first rank's dynamic size is 1 (single item, no batching).
-        dependencies = [insert_input] + ([tf.assert_equal(x=tf.shape(input=input_)[0], y=1)] if
+        dependencies = [insert_input] + ([tf.assert_equal(x=tf.shape(input=inputs)[0], y=1)] if
                                          self.first_rank_is_batch else [])
         with tf.control_dependencies(control_inputs=tuple(dependencies)):
             # Increase index by 1.
