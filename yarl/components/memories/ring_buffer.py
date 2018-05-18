@@ -43,10 +43,6 @@ class RingBuffer(Memory):
         if self.episode_semantics:
             self.num_episodes = None
             self.episode_indices = None
-        # Add Sockets and Computations.
-        self.define_inputs("records")
-        self.define_outputs("insert")
-        self.add_computation("records", "insert", "insert")
 
     def create_variables(self, input_spaces):
         super(RingBuffer, self).create_variables(input_spaces)
@@ -134,7 +130,7 @@ class RingBuffer(Memory):
              dict: Record value dict.
         """
         records = dict()
-        for name, variable in self.record_registry:
+        for name, variable in self.record_registry.items():
             records[name] = self.read_variable(variable, indices)
         return records
 
@@ -158,5 +154,4 @@ class RingBuffer(Memory):
         limit += tf.where(condition=(start < limit), x=0, y=self.capacity)
 
         indices = tf.range(start=start, limit=limit) % self.capacity
-
         return self.read_records(indices=indices)
