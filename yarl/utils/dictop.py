@@ -30,4 +30,3 @@ class DictOp(dict):
         values are always other dictops, tuples or primitive ops).
         """
         return hash(tuple(sorted(self.items())))
-

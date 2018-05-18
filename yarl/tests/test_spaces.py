@@ -45,3 +45,34 @@ class TestSpaces(unittest.TestCase):
         for i in range(len(samples)):
             self.assertTrue(space.contains(samples[i]))
 
+    def test_container_space_flattening_with_mapping(self):
+        space = Tuple(
+            Dict(
+                a=bool,
+                b=Discrete(4),
+                c=Dict(
+                    d=Continuous(shape=())
+                )
+            ),
+            Bool(),
+            Discrete(),
+            Continuous(shape=(3, 2)),
+            Tuple(
+                Bool(), Bool()
+            )
+        )
+
+        def mapping_func(key, primitive_space):
+            # Just map a primitive Space to its flat_dim property.
+            return primitive_space.flat_dim
+
+        result = ""
+        flat_space_and_mapped = space.flatten(mapping=mapping_func)
+        for k, v in flat_space_and_mapped.items():
+            result += "{}:{},".format(k, v)
+
+        expected = "/_T0_/a:1,/_T0_/b:4,/_T0_/c/d:1,/_T1_:1,/_T2_:2,/_T3_:6,/_T4_/_T0_:1,/_T4_/_T1_:1,"
+
+        self.assertTrue(result == expected)
+
+

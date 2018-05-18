@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from .component_test import ComponentTest
+from .assert_util import recursive_assert_almost_equal
 
-__all__ = ["ComponentTest"]
+__all__ = ["ComponentTest", "recursive_assert_almost_equal"]
 

@@ -44,6 +44,5 @@ class TestNNLayer(unittest.TestCase):
         input_ = np.array([[0.5, 2.0]])
         expected = np.array([[2.5, 2.5]])
 
-        result = test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
-        self.assertTrue(result)
+        test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
 

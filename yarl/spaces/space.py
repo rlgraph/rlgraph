@@ -20,7 +20,6 @@ from __future__ import print_function
 from collections import OrderedDict
 
 from yarl import Specifiable, backend, YARLError
-from yarl.utils.util import force_tuple
 # TODO: make this backend-dependent
 import tensorflow as tf
 

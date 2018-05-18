@@ -17,15 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import YARLError
-from yarl.utils.util import DictOp, dtype, get_shape, get_rank
+from collections import OrderedDict
+import re
 
-from .space import Space
-from .containers import Dict, Tuple
+from yarl.utils.util import YARLError, dtype, get_shape, deep_tuple
+from yarl.utils.dictop import DictOp
+from .containers import Dict, Tuple, _TUPLE_OPEN, _TUPLE_CLOSE
 from .continuous import Continuous
 from .intbox import IntBox
-from .discrete import Discrete
 from .bool_space import Bool
+from .discrete import Discrete
 
 
 def get_space_from_op(op):
@@ -86,4 +87,84 @@ def get_space_from_op(op):
                 return Bool(add_batch_rank=add_batch_rank)
             else:
                 raise YARLError("ERROR: Cannot derive Space from op '{}' (unknown type?)!".format(op))
+
+
+def flatten_op(op, scope_="", list_=None):
+    """
+    Flattens a single ContainerSpace (op) into a python OrderedDict with auto-key generation.
+
+    Args:
+        op (Union[dictop,tuple]): The op to flatten. This can only be a tuple or a dictop.
+        scope_ (str): The recursive scope for auto-key generation.
+        list_ (list): The list of tuples (key, value) to be converted into the final OrderedDict.
+
+    Returns:
+        OrderedDict: The flattened representation of the op.
+    """
+    ret = False
+    # Are we in the non-recursive (first) call?
+    if list_ is None:
+        assert isinstance(op, (DictOp, tuple)), "ERROR: Can only flatten container (dictop/tuple) ops!"
+        list_ = list()
+        ret = True
+
+    if isinstance(op, tuple):
+        scope_ += "/" + _TUPLE_OPEN
+        for i, c in enumerate(op):
+            flatten_op(c, scope_=scope_ + str(i) + _TUPLE_CLOSE, list_=list_)
+    elif isinstance(op, DictOp):
+        scope_ += "/"
+        for k, v in op.items():
+            flatten_op(v, scope_=scope_ + k, list_=list_)
+    else:
+        list_.append((scope_, op))
+
+    # Non recursive (first) call -> Return the final OrderedDict.
+    if ret:
+        return OrderedDict(list_)
+
+
+def re_nest_op(op):
+    base_structure = None
+
+    for k, v in op.items():
+        parent_structure = None
+        parent_key = None
+        current_structure = None
+        type_ = None
+
+        keys = k[1:].split("/")  # skip 1st char (/)
+        for key in keys:
+            mo = re.match(r'^{}(\d+){}$'.format(_TUPLE_OPEN, _TUPLE_CLOSE), key)
+            if mo:
+                type_ = list
+                idx = int(mo.group(1))
+            else:
+                type_ = DictOp
+                idx = key
+
+            if current_structure is None:
+                if base_structure is None:
+                    base_structure = [None] if type_ == list else DictOp()
+                current_structure = base_structure
+            elif parent_key is not None:
+                if isinstance(parent_structure, list) and parent_structure[parent_key] is None or \
+                        isinstance(parent_structure, DictOp) and parent_key not in parent_structure:
+                    current_structure = [None] if type_ == list else DictOp()
+                    parent_structure[parent_key] = current_structure
+                else:
+                    current_structure = parent_structure[parent_key]
+                    if type_ == list and len(current_structure) == idx:
+                        current_structure.append(None)
+
+            parent_structure = current_structure
+            parent_key = idx
+
+        if type_ == list and len(current_structure) == parent_key:
+            current_structure.append(None)
+        current_structure[parent_key] = v
+
+    # Deep conversion from list to tuple.
+    return deep_tuple(base_structure)
+
 

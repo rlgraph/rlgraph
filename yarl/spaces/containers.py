@@ -26,6 +26,12 @@ from yarl.utils.dictop import DictOp
 from .space import Space
 
 
+# Defines how to generate auto-keys for flattened Tuple-Space items.
+# _T\d+_
+_TUPLE_OPEN = "_T"
+_TUPLE_CLOSE = "_"
+
+
 class ContainerSpace(Space):
     """
     A simple placeholder class for Spaces that contain other Spaces.
@@ -200,9 +206,9 @@ class Tuple(ContainerSpace, tuple):
 
     def _flatten(self, mapping, scope_, list_):
         # Iterate through this Tuple.
-        scope_ += "/["
+        scope_ += "/" + _TUPLE_OPEN
         for i, component in enumerate(self):
-            component.flatten(mapping, scope_ + str(i) + "]", list_)
+            component.flatten(mapping, scope_ + str(i) + _TUPLE_CLOSE, list_)
 
     #def get_initializer(self, specification):
     #    return tuple([subspace.get_initializer(specification) for subspace in self])

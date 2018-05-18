@@ -23,9 +23,10 @@ from collections import OrderedDict
 import re
 
 from yarl import YARLError
-from yarl.spaces import Space, get_space_from_op
+from yarl.spaces import Space
+from yarl.utils.util import force_tuple, get_shape
 from yarl.utils.dictop import DictOp
-from yarl.utils.util import force_tuple, get_shape, deep_tuple
+from yarl.spaces.space_utils import flatten_op, get_space_from_op, re_nest_op
 
 
 class Socket(object):
@@ -363,7 +364,7 @@ class Computation(object):
             # self.flatten_container_spaces cannot be False here.
             if isinstance(op, (DictOp, tuple)) and \
                     (self.flatten_container_spaces is True or socket_name in self.flatten_container_spaces):
-                ret.append(self._flatten_op(op))
+                ret.append(flatten_op(op))
             # Primitive ops are left as-is.
             else:
                 ret.append(op)
@@ -371,40 +372,7 @@ class Computation(object):
         # Always return a tuple for indexing into the return values.
         return tuple(ret)
 
-    def _flatten_op(self, op, scope_="", list_=None):
-        """
-        Flattens a single ContainerSpace (op) into a python OrderedDict with auto-key generation.
-
-        Args:
-            op (Union[dictop,tuple]): The op to flatten. This can only be a tuple or a dictop.
-            scope_ (str): The recursive scope for auto-key generation.
-            list_ (list): The list of tuples (key, value) to be converted into the final OrderedDict.
-
-        Returns:
-            OrderedDict: The flattened representation of the op.
-        """
-        ret = False
-        # Are we in the non-recursive (first) call?
-        if list_ is None:
-            assert isinstance(op, (DictOp, tuple)), "ERROR: Can only flatten container (dictop/tuple) ops!"
-            list_ = list()
-            ret = True
-
-        if isinstance(op, tuple):
-            scope_ += "/["
-            for i, c in enumerate(op):
-                self._flatten_op(c, scope_=scope_ + str(i) + "]", list_=list_)
-        elif isinstance(op, DictOp):
-            scope_ += "/"
-            for k, v in op.items():
-                self._flatten_op(v, scope_=scope_ + k, list_=list_)
-        else:
-            list_.append((scope_, op))
-
-        # Non recursive (first) call -> Return the final OrderedDict.
-        if ret:
-            return OrderedDict(list_)
-
+    # TODO: Move this one into op_utils.py as well.
     def split_flattened_ops(self, *ops):
         """
         Splits any (flattened) OrderedDict-type op in ops into its single, primitive ops and passes them
@@ -481,57 +449,13 @@ class Computation(object):
         for i, op in enumerate(ops):
             # An OrderedDict: Try to re-nest it and then compare it to input_template_op's structure.
             if isinstance(op, dict):
-                ret.append(self._re_nest_op(op))  #, input_comparison_op=input_comparison_op))
+                ret.append(re_nest_op(op))  #, input_comparison_op=input_comparison_op))
             # All others are left as-is.
             else:
                 ret.append(op)
 
         # Always return a tuple for indexing into the return values.
         return tuple(ret)
-
-    @staticmethod
-    def _re_nest_op(op):
-        base_structure = None
-
-        for k, v in op.items():
-            parent_structure = None
-            parent_key = None
-            current_structure = None
-            type_ = None
-
-            keys = k[1:].split("/")  # skip 1st char (/)
-            for key in keys:
-                mo = re.match(r'^\[(\d+)\]$', key)
-                if mo:
-                    type_ = list
-                    idx = int(mo.group(1))
-                else:
-                    type_ = DictOp
-                    idx = key
-
-                if current_structure is None:
-                    if base_structure is None:
-                        base_structure = [None] if type_ == list else DictOp()
-                    current_structure = base_structure
-                elif parent_key is not None:
-                    if isinstance(parent_structure, list) and parent_structure[parent_key] is None or \
-                            isinstance(parent_structure, DictOp) and parent_key not in parent_structure:
-                        current_structure = [None] if type_ == list else DictOp()
-                        parent_structure[parent_key] = current_structure
-                    else:
-                        current_structure = parent_structure[parent_key]
-                        if type_ == list and len(current_structure) == idx:
-                            current_structure.append(None)
-
-                parent_structure = current_structure
-                parent_key = idx
-
-            if type_ == list and len(current_structure) == parent_key:
-                current_structure.append(None)
-            current_structure[parent_key] = v
-
-        # Deep conversion from list to tuple.
-        return deep_tuple(base_structure)
 
     def __str__(self):
         return "{}('{}' in=[{}] out=[{}])". \

@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import unittest
 
-from yarl.components.layers import GrayScale, Flatten, Scale, StackComponent
+from yarl.components.layers import GrayScale, Flatten, Scale, StackComponent, Sequence
 from yarl.spaces import *
 from yarl.tests import ComponentTest
 
@@ -130,7 +130,7 @@ class TestPreprocessors(unittest.TestCase):
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
 
         for i in range(3):
-            test.test(out_socket_name="reset", )
+            test.test(out_socket_name="reset")
             test.test(out_socket_name="output", inputs=np.array([[0.1]]),
                       expected_outputs=np.array([[[0.1], [0.1], [0.1]]]))
             test.test(out_socket_name="output", inputs=np.array([0.2]),

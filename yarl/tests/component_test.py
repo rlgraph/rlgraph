@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import backend, YARLError, DictOp
+from yarl import backend
 from yarl.models.model import Model
 
 from .assert_util import recursive_assert_almost_equal
@@ -75,7 +75,7 @@ class ComponentTest(object):
         outs = self.model.call(sockets=out_socket_name, inputs=inputs)
 
         #  Optionally do test asserts here.
-        if expected_outputs:
+        if expected_outputs is not None:
             recursive_assert_almost_equal(outs, expected_outputs)
 
         return outs
