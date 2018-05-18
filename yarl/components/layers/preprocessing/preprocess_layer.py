@@ -29,6 +29,13 @@ class PreprocessLayer(LayerComponent):
     gets called automatically by `apply` after taking care of container inputs.
     It is not required to implement the `reset` logic (or store any state information at all).
     """
+    def __init__(self, scope="pre-process", **kwargs):
+        super(PreprocessLayer, self).__init__(scope=scope, **kwargs)
+
+        # Define the reset operation (no input sockets necessary).
+        self.define_outputs("reset")
+        self.add_computation(None, "reset", self._computation_reset)
+
     def _computation_reset(self):
         """
         Returns:

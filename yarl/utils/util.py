@@ -111,7 +111,8 @@ def force_list(elements, to_tuple=False):
     Makes sure elements is returned as a list, whether elements is a single item, already a list, or a tuple.
 
     Args:
-        elements (any): The input single item, list, or tuple to be converted into a list.
+        elements (Optional[any]): The input single item, list, or tuple to be converted into a list/tuple.
+            If None, returns empty list/tuple.
         to_tuple (bool): Whether to use tuple (instead of list).
 
     Returns:
@@ -121,7 +122,8 @@ def force_list(elements, to_tuple=False):
     ctor = list
     if to_tuple is True:
         ctor = tuple
-    return ctor(elements) if isinstance(elements, (list, tuple)) else ctor([elements])
+    return ctor() if elements is None else ctor(elements) if isinstance(elements, (list, tuple)) \
+        else ctor([elements])
 
 
 force_tuple = partial(force_list, to_tuple=True)

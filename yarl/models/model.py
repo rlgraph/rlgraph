@@ -166,24 +166,29 @@ class Model(Specifiable):
         for output_socket in self.core_component.output_sockets:
             # Create empty out-sock registry entry.
             self.out_socket_registry[output_socket.name] = set()
-            # Loop through this Socket's set of possible ops.
-            for op in output_socket.ops:
-                # Get all the (core) in-Socket names (alphabetically sorted) that are required for this op.
-                sockets = tuple(sorted(list(self.trace_back_sockets({op})), key=lambda s: s.name))
-                # If an in-Socket has more than one connected incoming Space:
-                # Get the shape-combinations for these Sockets.
-                # e.g. Sockets=["a", "b"] (and Space1 -> a, Space2 -> a, Space3 -> b)
-                #   shape-combinations=[(Space1, Space3), (Space2, Space3)]
-                shapes = [[i.shape_with_batch_rank for i in sock.incoming_connections] for sock in sockets]
-                shape_combinations = itertools.product(*shapes)
-                for shape_combination in shape_combinations:
-                    # Do everything by Socket-name (easier to debug).
-                    in_socket_names = tuple([s.name for s in sockets])
-                    # Update our call registry.
-                    key = (output_socket.name, in_socket_names, shape_combination)
-                    self.call_registry[key] = op
-                    # .. and the out-socket registry.
-                    self.out_socket_registry[output_socket.name].update(set(in_socket_names))
+            # One or more in-Sockets.
+            if len(output_socket.ops):
+                # Loop through this Socket's set of possible ops.
+                for op in output_socket.ops:
+                    # Get all the (core) in-Socket names (alphabetically sorted) that are required for this op.
+                    sockets = tuple(sorted(list(self.trace_back_sockets({op})), key=lambda s: s.name))
+                    # If an in-Socket has more than one connected incoming Space:
+                    # Get the shape-combinations for these Sockets.
+                    # e.g. Sockets=["a", "b"] (and Space1 -> a, Space2 -> a, Space3 -> b)
+                    #   shape-combinations=[(Space1, Space3), (Space2, Space3)]
+                    shapes = [[i.shape_with_batch_rank for i in sock.incoming_connections] for sock in sockets]
+                    shape_combinations = itertools.product(*shapes)
+                    for shape_combination in shape_combinations:
+                        # Do everything by Socket-name (easier to debug).
+                        in_socket_names = tuple([s.name for s in sockets])
+                        # Update our call registry.
+                        key = (output_socket.name, in_socket_names, shape_combination)
+                        self.call_registry[key] = op
+                        # .. and the out-socket registry.
+                        self.out_socket_registry[output_socket.name].update(set(in_socket_names))
+            # No in-Socket: Add to call registry anyway.
+            else:
+                self.call_registry[(output_socket.name, (), ())] = op
 
     def complete_backend_setup(self):
         """
@@ -303,37 +308,43 @@ class Model(Specifiable):
 9       """
         output_socket_names = force_list(output_socket_names)
         only_input_socket_name = None  # the name of the only in-Socket possible here
-        # Get only in-Socket ..
-        if len(self.core_component.input_sockets) == 1:
-            only_input_socket_name = self.core_component.input_sockets[0].name
-        # .. or only in-Socket for single(!), given out-Socket.
-        elif len(output_socket_names) == 1 and \
-                len(self.out_socket_registry[output_socket_names[0]]) == 1:
-            only_input_socket_name = next(iter(self.out_socket_registry[output_socket_names[0]]))
+        # Some input is given.
+        if input_dict is not None:
+            # Get only in-Socket ..
+            if len(self.core_component.input_sockets) == 1:
+                only_input_socket_name = self.core_component.input_sockets[0].name
+            # .. or only in-Socket for single(!), given out-Socket.
+            elif len(output_socket_names) == 1 and \
+                    len(self.out_socket_registry[output_socket_names[0]]) == 1:
+                only_input_socket_name = next(iter(self.out_socket_registry[output_socket_names[0]]))
 
-        # Check whether data is given directly.
-        if not isinstance(input_dict, dict):
-            if only_input_socket_name is None:
-                raise YARLError("ERROR: Input data (`input_dict`) not given as dict AND more than 1 in-Socket OR more "
-                                "than 1 in-Socket for given out-Socket(s)!")
-            input_dict = {only_input_socket_name: input_dict}
-        # Is a dict: Check whether it's a in-Socket name dict (leave as is) or a data dict (add in-Socket name as key).
-        else:
-            # We have more than one necessary in-Sockets (leave as is) OR
-            # the only necessary in-Socket name is not key of the dict -> wrap it.
-            if only_input_socket_name is not None and only_input_socket_name not in input_dict:
+            # Check whether data is given directly.
+            if not isinstance(input_dict, dict):
+                if only_input_socket_name is None:
+                    raise YARLError("ERROR: Input data (`input_dict`) not given as dict AND more than 1 in-Socket OR more "
+                                    "than 1 in-Socket for given out-Socket(s)!")
                 input_dict = {only_input_socket_name: input_dict}
+            # Is a dict: Check whether it's a in-Socket name dict (leave as is) or a data dict (add in-Socket name as key).
+            else:
+                # We have more than one necessary in-Sockets (leave as is) OR
+                # the only necessary in-Socket name is not key of the dict -> wrap it.
+                if only_input_socket_name is not None and only_input_socket_name not in input_dict:
+                    input_dict = {only_input_socket_name: input_dict}
 
-        # Try all possible input combinations to see whether we got an op for that.
-        # Input Socket names will be sorted alphabetically and combined from short sequences up to longer ones.
-        # Example: input_dict={A: ..., B: ... C: ...}
-        #   input_combinations=[ABC, AB, AC, BC, A, B, C]
+            # Try all possible input combinations to see whether we got an op for that.
+            # Input Socket names will be sorted alphabetically and combined from short sequences up to longer ones.
+            # Example: input_dict={A: ..., B: ... C: ...}
+            #   input_combinations=[ABC, AB, AC, BC, A, B, C]
 
-        # These combinations have been memoized for fast lookup.
-        key = tuple(sorted(input_dict.keys()))
-        input_combinations = self.input_combinations.get(key)
-        if not input_combinations:
-            raise YARLError("ERROR: Could not find input_combinations for in-Sockets '{}'!".format(key))
+            # These combinations have been memoized for fast lookup.
+            key = tuple(sorted(input_dict.keys()))
+            input_combinations = self.input_combinations.get(key)
+            if not input_combinations:
+                raise YARLError("ERROR: Could not find input_combinations for in-Sockets '{}'!".format(key))
+
+        # No input given (maybe an out-Socket that doesn't require input).
+        else:
+            input_combinations = list(())
 
         # Go through each (core) out-Socket names and collect the correct ops to go into the fetch_list.
         fetch_list = list()
@@ -358,26 +369,32 @@ class Model(Specifiable):
             feed_dict (dict): The feed_dict we are trying to build. When done, needs to map input ops (not Socket names)
                 to data.
         """
-        # Check all (input+shape)-combinations and it we find one that matches what the user passed in as
-        # `input_dict` -> Take that one and move on to the next Socket by returning.
-        for input_combination in input_combinations:
-            # Get all Space-combinations (in-op) for this input combination
-            # (in case an in-Socket has more than one connected incoming Spaces).
-            ops = [self.in_socket_registry[c] for c in input_combination]
-            op_combinations = itertools.product(*ops)
-            for op_combination in op_combinations:
-                # Get the shapes for this op_combination.
-                shapes = tuple(get_shape(op) for op in op_combination)
-                key = (socket_name, input_combination, shapes)
-                # This is a good combination -> Use the looked up op, return to process next out-Socket.
-                if key in self.call_registry:
-                    fetch_list.append(self.call_registry[key])
-                    # Store for which in-Socket we need which in-op to put into the feed_dict.
-                    for in_sock_name, in_op in zip(input_combination, op_combination):
-                        # TODO: in_op may still be a dict or a tuple depending on what Space underlies.
-                        # Need to split into single ops.
-                        feed_dict[in_op] = input_dict[in_sock_name]
-                    return
+        if len(input_combinations) > 0:
+            # Check all (input+shape)-combinations and it we find one that matches what the user passed in as
+            # `input_dict` -> Take that one and move on to the next Socket by returning.
+            for input_combination in input_combinations:
+                # Get all Space-combinations (in-op) for this input combination
+                # (in case an in-Socket has more than one connected incoming Spaces).
+                ops = [self.in_socket_registry[c] for c in input_combination]
+                op_combinations = itertools.product(*ops)
+                for op_combination in op_combinations:
+                    # Get the shapes for this op_combination.
+                    shapes = tuple(get_shape(op) for op in op_combination)
+                    key = (socket_name, input_combination, shapes)
+                    # This is a good combination -> Use the looked up op, return to process next out-Socket.
+                    if key in self.call_registry:
+                        fetch_list.append(self.call_registry[key])
+                        # Store for which in-Socket we need which in-op to put into the feed_dict.
+                        for in_sock_name, in_op in zip(input_combination, op_combination):
+                            # Need to split into single ops.
+                            feed_dict[in_op] = input_dict[in_sock_name]
+                        return
+        # No inputs -> Try whether this output socket comes without any inputs.
+        else:
+            key = (socket_name, (), ())
+            if key in self.call_registry:
+                fetch_list.append(self.call_registry[key])
+                return
 
         raise YARLError("ERROR: No op found for out-Socket '{}' given the input-combinations: {}!".
                         format(socket_name, input_combinations))

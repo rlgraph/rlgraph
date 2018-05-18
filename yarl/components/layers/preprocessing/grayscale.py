@@ -35,7 +35,7 @@ class GrayScale(PreprocessLayer):
                 channels (RGB).
             keep_rank (bool): Whether to keep the color-depth rank in the pre-processed tensor (default: False).
         """
-        super(GrayScale, self).__init__(deterministic=True, scope=scope, **kwargs)
+        super(GrayScale, self).__init__(scope=scope, **kwargs)
         self.weights = weights or (0.299, 0.587, 0.114)  # magic RGB-weights for "natural" gray-scaling results
         self.last_rank = len(self.weights)
         self.keep_rank = keep_rank

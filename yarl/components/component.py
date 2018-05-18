@@ -61,24 +61,22 @@ class Component(Specifiable):
             global_component (bool): In distributed mode, this flag indicates if the component is part of the
                 shared global model or local to the worker. Defaults to False and will be ignored if set to
                 True in non-distributed mode.
-            #deterministic (bool): Flag that indicates, whether this component behaves deterministically.
-            #    As soon as an added sub-component is non-deterministic, this flag switches to False.
-            #seed (Optional[int]): The seed to use (if applicable) to make this component behave deterministically.
-            #    (Default: time()).
+            computation_settings (dict): Dict with possible general Computation settings that should be applied to
+                all of this Component's Computations. See `self.add_computation` and Computation's c'tor for more
+                details.
         """
 
         # Scope if used to create scope hierarchies inside the Graph.
-        self.scope = kwargs.get("scope", "")
+        self.scope = kwargs.pop("scope", "")
         assert re.match(r'^[\w\-]*$', self.scope), \
             "ERROR: scope {} does not match scope-pattern! Needs to be \\w or '-'.".format(self.scope)
         # Names of sub-components that exist (parallelly) inside a containing component must be unique.
-        self.name = kwargs.get("name", self.scope)  # if no name given, use scope
-        self.device = kwargs.get("device")
-        self.global_component = kwargs.get("global_component", False)
-        # Whether this component behaves (or should behave) deterministically.
-        #self.deterministic = kwargs.get("deterministic", False)
-        # NOT YET: We may add per-component seeds later:
-        # self.seed = kwargs.get("seed", time.time())
+        self.name = kwargs.pop("name", self.scope)  # if no name given, use scope
+        self.device = kwargs.pop("device", None)
+        self.global_component = kwargs.pop("global_component", False)
+
+        self.computation_settings = kwargs.pop("computation_settings", {})
+        assert not kwargs
 
         # dict of sub-components that live inside this one (key=sub-component's scope)
         self.sub_components = dict()
@@ -258,8 +256,8 @@ class Component(Specifiable):
                 self.output_sockets.append(sock)
 
     def add_computation(self, inputs, outputs, method=None,
-                        flatten_container_spaces=True, split_container_spaces=False,
-                        add_auto_key_as_first_param=False, re_nest_container_spaces=True):
+                        flatten_container_spaces=None, split_container_spaces=None,
+                        add_auto_key_as_first_param=None, re_nest_container_spaces=None):
         """
         Links a set (A) of sockets via a computation to a set (B) of other sockets via a computation function.
         Any socket in B is thus linked back to all sockets in A (requires all A sockets).
@@ -272,10 +270,15 @@ class Component(Specifiable):
                 The `method`'s signature and number of return values has to match the
                 number of input- and output Sockets provided here.
                 If None, use the only member method that starts with '_computation_' (error otherwise).
-            flatten_container_spaces (Union[bool,Set[str]]): Passed to Computation's c'tor. See Computation for details.
-            split_container_spaces (Union[bool,Set[str]]): Passed to Computation's c'tor. See Computation for details.
-            add_auto_key_as_first_param (bool): Passed to Computation's c'tor. See Computation for details.
-            re_nest_container_spaces (bool): Passed to Computation's c'tor. See Computation for details.
+            flatten_container_spaces (Optional[bool,Set[str]]): Passed to Computation's c'tor. See Computation
+                for details. Overwrites this Component's `self.computation_settings`.
+            split_container_spaces (Optional[bool,Set[str]]): Passed to Computation's c'tor. See Computation
+                for details. Overwrites this Component's `self.computation_settings`.
+            add_auto_key_as_first_param (Optional[bool]): Passed to Computation's c'tor. See Computation for details.
+                Overwrites this Component's `self.computation_settings`.
+            re_nest_container_spaces (Optional[bool]): Passed to Computation's c'tor. See Computation for details.
+                Overwrites this Component's `self.computation_settings`.
+
         Raises:
             YARLError: If method_name is None and not exactly one member method found that starts with `_computation_`.
         """
@@ -295,8 +298,15 @@ class Component(Specifiable):
         output_sockets = [self.get_socket(s) for s in outputs]
         # Add the computation record to all input and output sockets.
         computation = Computation(method, self, input_sockets, output_sockets,
-                                  flatten_container_spaces, split_container_spaces,
-                                  add_auto_key_as_first_param, re_nest_container_spaces)
+                                  flatten_container_spaces if flatten_container_spaces is not None else
+                                    self.computation_settings.get("flatten_container_spaces", True),
+                                  split_container_spaces if split_container_spaces is not None else
+                                    self.computation_settings.get("split_container_spaces", False),
+                                  add_auto_key_as_first_param if add_auto_key_as_first_param is not None else
+                                    self.computation_settings.get("add_auto_key_as_first_param", False),
+                                  re_nest_container_spaces if re_nest_container_spaces is not None else
+                                    self.computation_settings.get("re_nest_container_spaces", True)
+                                  )
         for input_socket in input_sockets:
             input_socket.connect_to(computation)
         for output_socket in output_sockets:

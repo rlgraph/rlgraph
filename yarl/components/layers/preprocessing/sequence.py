@@ -40,8 +40,9 @@ class Sequence(PreprocessLayer):
                 This could be useful if e.g. a grayscale image of w x h pixels is coming from the env
                 (no color channel). The output of the preprocessor would then be of shape [batch] x w x h x [length].
         """
-        # As we need a buffer variable, we do not split our computations.
-        super(Sequence, self).__init__(scope=scope, **kwargs)  #split_container_spaces=False, **kwargs)
+        # Switch on auto-key passing into the computation func as first parameter.
+        super(Sequence, self).__init__(scope=scope, computation_settings=dict(add_auto_key_as_first_param=True),
+                                       **kwargs)
 
         self.sequence_length = seq_length
         self.add_rank = add_rank
@@ -50,9 +51,12 @@ class Sequence(PreprocessLayer):
         self.first_rank_is_batch = None
         # The sequence-buffer where we store previous inputs.
         self.buffer = None
-        # The first flattened key.
+        # The last flattened key (signal to bump index by 1).
+        self.last_key = None
         # The index into the buffer.
         self.index = None
+        # Op to bump the index by 1 (round-robin).
+        self.index_plus_1 = None
 
     def create_variables(self, input_spaces):
         # Cut the "batch rank" (always 1 anyway) and replace it with the "sequence-rank".
@@ -61,38 +65,42 @@ class Sequence(PreprocessLayer):
         self.buffer = self.get_variable(name="buffer", trainable=False,
                                         from_space=in_space, add_batch_rank=self.sequence_length,
                                         flatten=True)
+        self.last_key = next(reversed(self.buffer))
         self.index = self.get_variable(name="index", dtype="int", initializer=-1, trainable=False)
+        self.index_plus_1 = tf.assign(ref=self.index,
+                                      value=((tf.maximum(x=self.index, y=0) + 1) % self.sequence_length))
 
     def _computation_reset(self):
         return tf.variables_initializer([self.index])
 
-    def _computation_apply(self, inputs):
+    def _computation_apply(self, flat_key, input_):
         """
-        Stitches together the incoming (flattened) inputs by using our buffer (with stored older records).
+        Stitches together the incoming inputs by using our buffer (with stored older records).
 
         Args:
-            inputs (OrderedDict): The flattened input ops.
+            flat_key (str): The key of the current input op in the flattened Space.
+            input_ (op): The current input op.
         """
         # A normal (index != -1) assign op.
         def normal_assign():
-            return tf.assign(ref=self.buffer[self.index], value=inputs[0])
+            return tf.assign(ref=self.buffer[flat_key][self.index], value=input_[0])
 
         # If index is still -1 (after reset):
         # Pre-fill the entire buffer with `self.sequence_length` x input_.
         def after_reset_assign():
-            multiples = (self.sequence_length,) + tuple([1] * (get_rank(inputs)-1))
-            return tf.assign(ref=self.buffer, value=tf.tile(input=inputs, multiples=multiples))
+            multiples = (self.sequence_length,) + tuple([1] * (get_rank(input_)-1))
+            return tf.assign(ref=self.buffer[flat_key], value=tf.tile(input=input_, multiples=multiples))
 
         # Insert the input at the correct index or fill empty buffer entirely with input.
         insert_input = tf.cond(pred=(self.index >= 0), true_fn=normal_assign, false_fn=after_reset_assign)
 
         # Make sure the input has been inserted ..
         # .. and that the first rank's dynamic size is 1 (single item, no batching).
-        dependencies = [insert_input] + ([tf.assert_equal(x=tf.shape(input=inputs)[0], y=1)] if
+        dependencies = [insert_input] + ([tf.assert_equal(x=tf.shape(input=input_)[0], y=1)] if
                                          self.first_rank_is_batch else [])
         with tf.control_dependencies(control_inputs=dependencies):
             # Collect the correct previous inputs from the buffer to form the output sequence.
-            n_inputs = [self.buffer[(self.index - n - 1) % self.sequence_length]
+            n_inputs = [self.buffer[flat_key][(self.index - n - 1) % self.sequence_length]
                                  for n in range(self.sequence_length)]
 
             # Add the sequence-rank to the end of our inputs.
@@ -103,9 +111,7 @@ class Sequence(PreprocessLayer):
                 n_inputs = tf.concat(values=n_inputs, axis=-1)
 
         # Increase index by 1.
-        increment_index = tf.assign(ref=self.index,
-                                    value=((tf.maximum(x=self.index, y=0) + 1) % self.sequence_length))
-        with tf.control_dependencies(control_inputs=[increment_index]):
+        with tf.control_dependencies(control_inputs=([self.index_plus_1] if self.last_key == flat_key else [])):
             # Put batch rank back in (buffer does not have it).
             if self.first_rank_is_batch:
                 return tf.expand_dims(input=n_inputs, axis=0, name="apply")
