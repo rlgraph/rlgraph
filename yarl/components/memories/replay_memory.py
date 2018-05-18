@@ -109,14 +109,14 @@ class ReplayMemory(Memory):
         return records
 
     def _computation_get_records(self, num_records):
-        indices = tf.range(start=0, limit=self.read_variable(self.size) - 1)
+        indices = tf.range(start=0, limit=self.read_variable(self.size))
 
         # TODO When would we use a replay memory without next-states?
         if self.next_states:
             # Valid indices are non-terminal indices
             terminal_indices = self.read_variable(self.record_registry['/terminal'], indices=indices)
-            # terminal_indices = tf.Print(terminal_indices, [terminal_indices], summarize=100, message='terminal_indices = ')
-            # indices = tf.Print(indices, [indices], summarize=100, message='indices = ')
+            terminal_indices = tf.Print(terminal_indices, [terminal_indices], summarize=100, message='terminal_indices = ')
+            indices = tf.Print(indices, [indices], summarize=100, message='indices = ')
             mask = tf.logical_not(x=tf.cast(terminal_indices, dtype=tf.bool))
             # mask = tf.Print(mask, [mask], summarize=100, message= 'mask = ')
             indices = tf.boolean_mask(
@@ -125,11 +125,14 @@ class ReplayMemory(Memory):
             )
 
         # Choose with uniform probability from all valid indices.
+        # TODO problem - if there are no valid indices, we cannot return anything
         probabilities = tf.ones(shape=[num_records, tf.shape(indices)[0]])
         samples = tf.multinomial(logits=probabilities, num_samples=num_records)
+        samples = tf.Print(samples, [samples, tf.shape(samples)], summarize=100, message='samples / shape = ')
 
-        # Slice sampled indices from all indices.
-        sampled_indices = indices[tf.cast(samples[0][0], tf.int32)]
+        # Gather sampled indices from all indices.
+        sampled_indices = tf.gather(params=indices, indices=tf.cast(x=samples[0], dtype=tf.int32))
+        sampled_indices = tf.Print(sampled_indices, [sampled_indices], summarize=100, message='sampled indices = ')
 
         return self.read_records(indices=sampled_indices)
 
