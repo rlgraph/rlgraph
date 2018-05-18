@@ -69,7 +69,7 @@ class Sequence(PreprocessLayer):
         Stitches together the incoming (flattened) inputs by using our buffer (with stored older records).
 
         Args:
-            inputs (Union[OrderedDict,op]): The (un-split) flattened input ops.
+            inputs (OrderedDict): The flattened input ops.
         """
         # A normal (index != -1) assign op.
         def normal_assign():
@@ -88,14 +88,9 @@ class Sequence(PreprocessLayer):
         # .. and that the first rank's dynamic size is 1 (single item, no batching).
         dependencies = [insert_input] + ([tf.assert_equal(x=tf.shape(input=inputs)[0], y=1)] if
                                          self.first_rank_is_batch else [])
-        with tf.control_dependencies(control_inputs=tuple(dependencies)):
-            # Increase index by 1.
-            increment_index = tf.assign(ref=self.index,
-                                        value=((tf.maximum(x=self.index, y=0) + 1) % self.sequence_length))
-
-        with tf.control_dependencies(control_inputs=(increment_index,)):
+        with tf.control_dependencies(control_inputs=dependencies):
             # Collect the correct previous inputs from the buffer to form the output sequence.
-            n_inputs = [self.buffer[(self.index - n - 2) % self.sequence_length]
+            n_inputs = [self.buffer[(self.index - n - 1) % self.sequence_length]
                                  for n in range(self.sequence_length)]
 
             # Add the sequence-rank to the end of our inputs.
@@ -105,6 +100,10 @@ class Sequence(PreprocessLayer):
             else:
                 n_inputs = tf.concat(values=n_inputs, axis=-1)
 
-            # Put batch rank back in (buffer does not have it).
-            return tf.expand_dims(input=n_inputs, axis=0)
+            # Increase index by 1.
+            increment_index = tf.assign(ref=self.index,
+                                        value=((tf.maximum(x=self.index, y=0) + 1) % self.sequence_length))
+            with tf.control_dependencies(control_inputs=[increment_index]):
+                # Put batch rank back in (buffer does not have it).
+                return tf.expand_dims(input=n_inputs, axis=0)
 
