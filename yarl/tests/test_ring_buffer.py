@@ -99,7 +99,7 @@ class TestRingBufferMemory(unittest.TestCase):
             records=self.record_space,
             num_records=int
         ))
-        # Internal state variables.
+        # Internal memory variables.
         buffer_size, buffer_index, num_episodes, episode_indices = ring_buffer.get_variables()
         size_value, index_value, num_episodes_value, episode_index_values = test.get_variable_values(
             [buffer_size, buffer_index, num_episodes, episode_indices]
@@ -129,21 +129,28 @@ class TestRingBufferMemory(unittest.TestCase):
         self.assertEqual(num_episodes_value, 0)
         self.assertEqual(np.sum(episode_index_values), 0)
 
-    # def test_episode_indices_when_inserting(self):
-    #     """
-    #     Tests if episodes indices and counts are set correctly when inserting.
-    #     """
-    #
-    #     # # Next, we insert a single terminal record.
-    #     observation = terminal_records(self.record_space, 1)
-    #     test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
-    #     num_episodes, episode_indices = test.get_variable_values([num_episodes, episode_indices])
-    #
-    #     # One episode present.
-    #     self.assertEqual(num_episodes, 1)
-    #     self.assertEqual(sum(np.nonzero(episode_indices)), 1)
-    #
-    #     # Episode index should be.
+    def test_episode_indices_when_inserting(self):
+        """
+        Tests if episodes indices and counts are set correctly when inserting
+        terminals.
+        """
+        ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=True)
+        test = ComponentTest(component=ring_buffer, input_spaces=dict(
+            records=self.record_space,
+            num_records=int
+        ))
+        # Internal memory variables.
+        buffer_size, buffer_index, num_episodes, episode_indices = ring_buffer.get_variables()
+
+        # First, we insert a single terminal record.
+        observation = terminal_records(self.record_space, 1)
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+        size_value, index_value, num_episodes_value, episode_index_values = test.get_variable_values(
+            [buffer_size, buffer_index, num_episodes, episode_indices]
+        )
+        # One episode should be present.
+        self.assertEqual(num_episodes_value, 1)
+        # self.assertEqual(sum(np.nonzero(episode_index_values)), 1)
 
     def test_episode_semantics(self):
         # TODO

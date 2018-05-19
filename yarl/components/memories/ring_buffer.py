@@ -73,70 +73,72 @@ class RingBuffer(Memory):
         insert_terminal_slice = self.read_variable(self.record_registry['/terminal'], update_indices)
         episodes_in_insert_range = tf.reduce_sum(input_tensor=insert_terminal_slice, axis=0)
 
-        # Updates all the necessary sub-variables in the record.
-        record_updates = self.record_space.flatten(mapping=lambda key, primitive: self.scatter_update_variable(
-            variable=self.record_registry[key],
-            indices=update_indices,
-            updates=records[key]
-        ))
-
         # Update indices and size.
-        with tf.control_dependencies(control_inputs=list(record_updates.values())):
-            index_updates = list()
-            if self.episode_semantics:
-                # Episodes before inserting these records.
-                prev_num_episodes = self.read_variable(self.num_episodes)
+        index_updates = list()
+        if self.episode_semantics:
+            # Episodes before inserting these records.
+            prev_num_episodes = self.read_variable(self.num_episodes)
 
-                # Newly inserted episodes.
-                inserted_episodes = tf.reduce_sum(input_tensor=records['/terminal'], axis=0)
-                # prev_num_episodes = tf.Print(prev_num_episodes, [
-                #     prev_num_episodes,
-                #     episodes_in_insert_range,
-                #     inserted_episodes],
-                #     summarize=100, message='previous num eps / prev episodes in insert range / inserted eps = '
-                # )
-                num_episode_update = prev_num_episodes - episodes_in_insert_range + inserted_episodes
+            # Newly inserted episodes.
+            inserted_episodes = tf.reduce_sum(input_tensor=records['/terminal'], axis=0)
+            prev_num_episodes = tf.Print(prev_num_episodes, [
+                prev_num_episodes,
+                episodes_in_insert_range,
+                inserted_episodes],
+                summarize=100, message='previous num eps / prev episodes in insert range / inserted eps = '
+            )
+            num_episode_update = prev_num_episodes - episodes_in_insert_range + inserted_episodes
 
-                # prev_num_episodes = tf.Print(prev_num_episodes, [prev_num_episodes, episodes_in_insert_range],
-                #                             summarize=100, message='num eps, eps in insert range =')
-                # Remove previous episodes in inserted range.
+            # prev_num_episodes = tf.Print(prev_num_episodes, [prev_num_episodes, episodes_in_insert_range],
+            #                             summarize=100, message='num eps, eps in insert range =')
+            # Remove previous episodes in inserted range.
+            index_updates.append(self.assign_variable(
+                    variable=self.episode_indices[:prev_num_episodes + 1 - episodes_in_insert_range],
+                    value=self.episode_indices[episodes_in_insert_range:prev_num_episodes + 1]
+            ))
+
+            # Insert new episodes starting at previous count minus the ones we removed,
+            # ending at previous count minus removed + inserted.
+            slice_start = prev_num_episodes - episodes_in_insert_range - 1
+            slice_end = num_episode_update + 1
+            update_indices = tf.Print(update_indices, [update_indices, tf.shape(update_indices)],
+                                      summarize=100, message='\n update indices / shape = ')
+            slice_start = tf.Print(
+                slice_start, [slice_start, slice_end, self.episode_indices],
+                summarize=100,
+                message='\n slice start/ slice end / episode indices before = '
+            )
+
+            with tf.control_dependencies(index_updates):
+                index_updates = list()
+                mask = tf.boolean_mask(tensor=update_indices, mask=records['/terminal'])
+                mask = tf.Print(mask, [update_indices, records['/terminal']],summarize=100,
+                                message='\n update indices / terminal')
                 index_updates.append(self.assign_variable(
-                        variable=self.episode_indices[:prev_num_episodes + 1 - episodes_in_insert_range],
-                        value=self.episode_indices[episodes_in_insert_range:prev_num_episodes + 1]
+                    variable=self.episode_indices[slice_start:slice_end],
+                    value=mask
+                ))
+                num_episode_update = tf.Print(num_episode_update, [num_episode_update, self.episode_indices],
+                                   summarize=100,  message='\n num episodes / episode indices after: ')
+                # Assign final new episode count.
+                index_updates.append(self.assign_variable(self.num_episodes, num_episode_update))
+
+        index_updates.append(self.assign_variable(variable=self.index, value=(index + num_records) % self.capacity))
+        update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
+        index_updates.append(self.assign_variable(self.size, value=update_size))
+
+        # Updates all the necessary sub-variables in the record.
+        with tf.control_dependencies(index_updates):
+            record_updates = list()
+            for key in self.record_registry:
+                record_updates.append(self.scatter_update_variable(
+                    variable=self.record_registry[key],
+                    indices=update_indices,
+                    updates=records[key]
                 ))
 
-                # Insert new episodes starting at previous count minus the ones we removed,
-                # ending at previous count minus removed + inserted.
-                slice_start = prev_num_episodes - episodes_in_insert_range - 1
-                slice_end = num_episode_update + 1
-                update_indices = tf.Print(update_indices, [update_indices, tf.shape(update_indices)],
-                                          summarize=100, message='\n update indices / shape = ')
-                slice_start = tf.Print(
-                    slice_start, [slice_start, slice_end, self.episode_indices],
-                    summarize=100,
-                    message='\n slice start/ slice end / episode indices before: = \n'
-                )
-
-                with tf.control_dependencies(index_updates):
-                    index_updates = list()
-                    mask = tf.boolean_mask(tensor=update_indices, mask=records['/terminal'])
-                    mask = tf.Print(mask, [update_indices, records['/terminal']],summarize=100,
-                                    message='update indices / terminal')
-                    index_updates.append(self.assign_variable(
-                        variable=self.episode_indices[slice_start:slice_end],
-                        value=mask
-                    ))
-                    num_episode_update = tf.Print(num_episode_update, [self.num_episodes, self.episode_indices],
-                                       summarize=100,  message='\n num episodes / episode indices after: ')
-                    # Assign final new episode count.
-                    index_updates.append(self.assign_variable(self.num_episodes, num_episode_update))
-
-            index_updates.append(self.assign_variable(variable=self.index, value=(index + num_records) % self.capacity))
-            update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
-            index_updates.append(self.assign_variable(self.size, value=update_size))
-
         # Nothing to return.
-        with tf.control_dependencies(control_inputs=index_updates):
+        with tf.control_dependencies(control_inputs=record_updates):
             return tf.no_op()
 
     def read_records(self, indices):

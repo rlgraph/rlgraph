@@ -23,14 +23,14 @@ import numpy as np
 def non_terminal_records(record_space, num_samples):
     """
     Samples a number of records and enforces all terminals to be 0,
-    which is needed for testing memories
+    which is needed for testing memories.
 
     Args:
         record_space (Space): Space to sample from.
         num_samples (int): Number of samples to draw.
 
     Returns:
-        Dict: Sampled records.
+        Dict: Sampled records with all terminal values set to 0.
     """
     record_sample = record_space.sample(size=num_samples)
     record_sample['terminal'] = np.zeros(num_samples)
@@ -41,14 +41,14 @@ def non_terminal_records(record_space, num_samples):
 def terminal_records(record_space, num_samples):
     """
     Samples a number of records and enforces all terminals to be 1,
-    which is needed for testing memories
+    which is needed for testing memories.
 
     Args:
         record_space (Space): Space to sample from.
         num_samples (int): Number of samples to draw.
 
     Returns:
-        Dict: Sampled records.
+        Dict: Sampled records with all terminal values set to 1.
     """
     record_sample = record_space.sample(size=num_samples)
     record_sample['terminal'] = np.ones(num_samples)
