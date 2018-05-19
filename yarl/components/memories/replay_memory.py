@@ -129,15 +129,13 @@ class ReplayMemory(Memory):
         num_valid_indices = tf.shape(input=indices)[0]
         probabilities = tf.ones(shape=[num_valid_indices, num_valid_indices])
         samples = tf.multinomial(logits=probabilities, num_samples=num_valid_indices)
-        samples = tf.Print(samples, [samples, tf.shape(samples)], summarize=100, message='samples / shape = ')
+        # samples = tf.Print(samples, [samples, tf.shape(samples)], summarize=100, message='samples / shape = ')
 
         # Gather sampled indices from all indices.
         sampled_indices = tf.gather(params=indices, indices=tf.cast(x=samples[0], dtype=tf.int32))
-        sampled_indices = tf.Print(sampled_indices, [sampled_indices], summarize=100, message='sampled indices = ')
+        # sampled_indices = tf.Print(sampled_indices, [sampled_indices], summarize=100, message='sampled indices = ')
 
         return self.read_records(indices=sampled_indices)
 
     def get_variables(self, names=None):
-        # TODO: problem is that these are not part of any registry
-        # They also dont belong in the record registry
         return [self.size, self.index]

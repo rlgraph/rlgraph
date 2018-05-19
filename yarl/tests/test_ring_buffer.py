@@ -77,7 +77,7 @@ class TestRingBufferMemory(unittest.TestCase):
 
     def test_capacity_no_episodes(self):
         """
-        Tests if insert correctly manages capacity.
+        Tests if insert correctly manages capacity, no episode indices updated..
         """
         ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=False)
         test = ComponentTest(component=ring_buffer, input_spaces=dict(
@@ -86,6 +86,37 @@ class TestRingBufferMemory(unittest.TestCase):
         ))
         # Internal state variables.
         buffer_size, buffer_index = ring_buffer.get_variables()
+        size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
+
+        # Assert indices 0 before insert.
+        self.assertTrue(size_value == 0)
+        self.assertTrue(index_value == 0)
+
+        # Insert one more element than capacity
+        observation = self.record_space.sample(size=self.capacity + 1)
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+
+        size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
+
+        # Size should be equivalent to capacity when full.
+        self.assertTrue(size_value == self.capacity)
+
+        # Index should be one over capacity due to modulo.
+        self.assertTrue(index_value == 1)
+
+    def test_capacity_with_episodes(self):
+        """
+        Tests if episode variable updates work when meeting capacity.
+
+        Note that this does not test episode semantics itself, which are tested below.
+        """
+        ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=True)
+        test = ComponentTest(component=ring_buffer, input_spaces=dict(
+            records=self.record_space,
+            num_records=int
+        ))
+        # Internal state variables.
+        buffer_size, buffer_index, num_episodes, episode_indices = ring_buffer.get_variables()
         size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
 
         # Assert indices 0 before insert.

@@ -60,8 +60,7 @@ class RingBuffer(Memory):
                 name="episode-indices",
                 shape=(self.capacity,),
                 dtype=int,
-                trainable=False,
-                initializer=0
+                trainable=False
             )
 
     def _computation_insert(self, records):
@@ -81,26 +80,30 @@ class RingBuffer(Memory):
         with tf.control_dependencies(control_inputs=list(record_updates.values())):
             index_updates = list()
             if self.episode_semantics:
-                # Episodes before insert.
-                num_episodes = self.read_variable(self.num_episodes)
+                # Episodes before inserting these records.
+                prev_num_episodes = self.read_variable(self.num_episodes)
 
-                # Episodes in range we inserted to.
+                # Episodes previously existing in the range we inserted to as indicated
+                # by count of terminals in the that slice.
                 episodes_in_insert_range = tf.reduce_sum(input_tensor=insert_terminal_slice, axis=0)
 
                 # Newly inserted episodes.
                 inserted_episodes = tf.reduce_sum(input_tensor=records['/terminal'], axis=0)
-                num_episode_update = num_episodes - episodes_in_insert_range + inserted_episodes
+                num_episode_update = prev_num_episodes - episodes_in_insert_range + inserted_episodes
 
-                # Remove previous episodes in inserted range.
                 # TODO test if these can all update in parallel without problems.
+                # prev_num_episodes = tf.Print(prev_num_episodes, [prev_num_episodes, episodes_in_insert_range],
+                #                             summarize=100, message='num eps, eps in insert range =')
+                # Remove previous episodes in inserted range.
+                # prev_num_episodes = tf
                 index_updates.append(self.assign_variable(
-                        variable=self.episode_indices[:num_episodes + 1 - episodes_in_insert_range],
-                        value=self.episode_indices[episodes_in_insert_range: num_episodes + 1]
-                    ))
+                        variable=self.episode_indices[:prev_num_episodes + 1 - episodes_in_insert_range],
+                        value=self.episode_indices[episodes_in_insert_range:prev_num_episodes + 1]
+                ))
 
                 # Insert new episodes starting at previous count minus the ones we removed,
                 # ending at previous count minus removed + inserted.
-                slice_start = num_episodes - episodes_in_insert_range - 1
+                slice_start = prev_num_episodes - episodes_in_insert_range - 1
                 slice_end = num_episode_update + 1
                 index_updates.append(self.assign_variable(
                     variable=self.episode_indices[slice_start:slice_end],
