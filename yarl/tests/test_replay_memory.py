@@ -74,8 +74,8 @@ class TestReplayMemory(unittest.TestCase):
         size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
 
         # Assert indices 0 before insert.
-        self.assertTrue(size_value == 0)
-        self.assertTrue(index_value == 0)
+        self.assertEqual(size_value, 0)
+        self.assertEqual(index_value, 0)
 
         # Insert one more element than capacity
         observation = self.record_space.sample(size=self.capacity + 1)
@@ -83,10 +83,10 @@ class TestReplayMemory(unittest.TestCase):
 
         size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
         # Size should be equivalent to capacity when full.
-        self.assertTrue(size_value == self.capacity)
+        self.assertEqual(size_value, self.capacity)
 
         # Index should be one over capacity due to modulo.
-        self.assertTrue(index_value == 1)
+        self.assertEqual(index_value, 1)
 
     def test_batch_retrieve(self):
         """
