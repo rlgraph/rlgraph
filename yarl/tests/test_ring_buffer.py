@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
+import numpy as np
 
 from yarl.components.memories.ring_buffer import RingBuffer
 from yarl.spaces import Dict, IntBox
@@ -88,7 +89,8 @@ class TestRingBufferMemory(unittest.TestCase):
 
     def test_capacity_with_episodes(self):
         """
-        Tests if episode variable updates work when meeting capacity.
+        Tests if inserts of non-terminals work when turning
+        on episode semantics.
 
         Note that this does not test episode semantics itself, which are tested below.
         """
@@ -99,12 +101,15 @@ class TestRingBufferMemory(unittest.TestCase):
         ))
         # Internal state variables.
         buffer_size, buffer_index, num_episodes, episode_indices = ring_buffer.get_variables()
-        size_value, index_value, num_episodes_value = test.get_variable_values([buffer_size, buffer_index, num_episodes])
+        size_value, index_value, num_episodes_value, episode_index_values = test.get_variable_values(
+            [buffer_size, buffer_index, num_episodes, episode_indices]
+        )
 
         # Assert indices 0 before insert.
         self.assertEqual(size_value, 0)
         self.assertEqual(index_value, 0)
         self.assertEqual(num_episodes_value, 0)
+        self.assertEqual(np.sum(episode_index_values), 0)
 
         # Insert one more element than capacity. Note: this is different than
         # replay test because due to episode semantics, it matters if
@@ -112,7 +117,9 @@ class TestRingBufferMemory(unittest.TestCase):
         # causes problems if none of the inserted elements are terminal.
         observation = non_terminal_records(self.record_space, self.capacity + 1)
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
-        size_value, index_value, num_episodes_value = test.get_variable_values([buffer_size, buffer_index, num_episodes])
+        size_value, index_value, num_episodes_value, episode_index_values = test.get_variable_values(
+            [buffer_size, buffer_index, num_episodes, episode_indices]
+        )
 
         # Size should be equivalent to capacity when full.
         self.assertEqual(size_value, self.capacity)
@@ -120,11 +127,23 @@ class TestRingBufferMemory(unittest.TestCase):
         # Index should be one over capacity due to modulo.
         self.assertEqual(index_value, 1)
         self.assertEqual(num_episodes_value, 0)
+        self.assertEqual(np.sum(episode_index_values), 0)
 
-        # # Next, we insert a single terminal record.
-        # observation = terminal_records(self.record_space, 1)
-        # test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
-        # num_episodes, episode_indices = test.get_variable_values([num_episodes, episode_indices])
+    # def test_episode_indices_when_inserting(self):
+    #     """
+    #     Tests if episodes indices and counts are set correctly when inserting.
+    #     """
+    #
+    #     # # Next, we insert a single terminal record.
+    #     observation = terminal_records(self.record_space, 1)
+    #     test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+    #     num_episodes, episode_indices = test.get_variable_values([num_episodes, episode_indices])
+    #
+    #     # One episode present.
+    #     self.assertEqual(num_episodes, 1)
+    #     self.assertEqual(sum(np.nonzero(episode_indices)), 1)
+    #
+    #     # Episode index should be.
 
     def test_episode_semantics(self):
         # TODO
