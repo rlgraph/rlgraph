@@ -165,10 +165,10 @@ class Component(Specifiable):
                 # Variables should be returned in a flattened OrderedDict.
                 if flatten:
                     var = from_space.flatten(mapping=lambda k, primitive: primitive.get_tensor_variable(
-                        name=name+k, add_batch_rank=add_batch_rank))
+                        name=name+k, add_batch_rank=add_batch_rank, trainable=trainable))
                 # Normal, nested Variables from a Space (container or primitive).
                 else:
-                    var = from_space.get_tensor_variable(name=name, add_batch_rank=add_batch_rank)
+                    var = from_space.get_tensor_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable)
             else:
                 if initializer is None or isinstance(initializer, tf.keras.initializers.Initializer):
                     shape = tuple((() if add_batch_rank is False else

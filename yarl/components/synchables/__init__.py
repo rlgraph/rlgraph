@@ -17,6 +17,4 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .synchable_component import SynchableComponent
-
 __all__ = ["SynchableComponent"]

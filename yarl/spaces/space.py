@@ -95,7 +95,7 @@ class Space(Specifiable):
                 Default: None.
 
         Keyword Args:
-            To be passed on to backend-specific methods.
+            To be passed on to backend-specific methods (e.g. trainable, etc..).
 
         Returns:
             any: A Tensor Variable/Placeholder.

@@ -21,25 +21,44 @@ import tensorflow as tf
 
 from yarl import YARLError
 from yarl.utils.util import get_shape
-from yarl.components.layers import StackComponent
+from yarl.components import Component
 
 
-class SynchableComponent(StackComponent):
+class Synchronizable(Component):
     """
-    The SynchableComponent adds a simple synchronization API to any Component that exposes this sub-component's
-    interface. This is useful for constructions like a target network in DQN or
+    The Synchronizable adds a simple synchronization API as a mix-in class to arbitrary Components.
+    This is useful for constructions like a target network in DQN or
     for distributed setups where e.g. local policies need to be sync'd from a global model from time to time.
     """
-    def __init__(self, *args, **kwargs):
-        super(SynchableComponent, self).__init__(*args, **kwargs)
+    def __init__(self, collections=None, *args, **kwargs):
+        """
+        Args:
+            collections (set): A set of specifiers (currently only tf), that determine which Variables to synchronize.
+                Default: only-trainable variables.
+        """
+        super(Synchronizable, self).__init__(*args, **kwargs)
 
-    def _computation_sync(self, sync_from):
+        self.collections = collections or set(tf.GraphKeys.TRAINABLE_VARIABLES)
+
+        # Add a simple synching API.
+        # Socket for incoming data (the data that this Component will get overwritten with).
+        self.define_inputs("synch_in")
+        # Socktes for:
+        # a) Outgoing data (to overwrite another Synchronizable Component's data).
+        # b) And the main synch op, actually doing the overwriting from synch_in to our variables.
+        self.define_outputs("synch_out", "synch")
+        # Add the synching operation ..
+        self.add_computation("synch_in", "synch", self._computation_synch)
+        # .. and the sending out data operation.
+        self.add_computation(None, "synch_out", self._computation_synch_out)
+
+    def _computation_synch(self, sync_in):
         """
         Generates the op that syncs this approximators' trainable variable values from another
         FunctionApproximator object.
 
         Args:
-            sync_from (OrderedDict): An OrderedDict of variables (coming from the "sync-from"-Socket) that need to be
+            sync_in (OrderedDict): An OrderedDict of variables (coming from the "sync-from"-Socket) that need to be
                 assigned to their counterparts in this Component. The keys and order in the OrderedDict refer to
                 the names of the trainable variables and must match the names and order of the trainable variables
                 in this component.
@@ -49,7 +68,7 @@ class SynchableComponent(StackComponent):
         """
         # Loop through all incoming vars and our own and collect assign ops.
         syncs = list()
-        for (key_from, var_from), (key_to, var_to) in zip(sync_from, self.get_trainable_variables()):
+        for (key_from, var_from), (key_to, var_to) in zip(sync_in, self.get_trainable_variables()):
             # Sanity checking
             if key_from != key_to:
                 raise YARLError("ERROR: Variable names for synching must match in order and name! "
@@ -64,3 +83,11 @@ class SynchableComponent(StackComponent):
         with tf.control_dependencies(syncs):
             return tf.no_op()
 
+    def _computation_synch_out(self):
+        """
+        Outputs all of this Component's variables that match our collection(s) specifier in a tuple-op.
+
+        Returns:
+            tuple: All our Variables that match the given collection (see c'tor).
+        """
+        return tuple(self.get_variables())
