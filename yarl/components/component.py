@@ -76,7 +76,8 @@ class Component(Specifiable):
         self.global_component = kwargs.pop("global_component", False)
 
         self.computation_settings = kwargs.pop("computation_settings", {})
-        assert not kwargs
+
+        assert not kwargs, "ERROR: kwargs ({}) still contains items!".format(kwargs)
 
         # dict of sub-components that live inside this one (key=sub-component's scope)
         self.sub_components = dict()

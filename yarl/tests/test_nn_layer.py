@@ -34,7 +34,7 @@ class TestNNLayer(unittest.TestCase):
 
         # The Component to test.
         # - fixed 1.0 weights, no biases
-        component_to_test = DenseLayer(input_space=space, units=2, weights_spec=1.0, biases_spec=False)
+        component_to_test = DenseLayer(units=2, weights_spec=1.0, biases_spec=False)
 
         # TODO: get rid of input_space requirement for DenseLayer
         # A ComponentTest object.

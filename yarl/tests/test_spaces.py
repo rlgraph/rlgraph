@@ -71,7 +71,9 @@ class TestSpaces(unittest.TestCase):
         for k, v in flat_space_and_mapped.items():
             result += "{}:{},".format(k, v)
 
-        expected = "/_T0_/a:1,/_T0_/b:4,/_T0_/c/d:1,/_T1_:1,/_T2_:2,/_T3_:6,/_T4_/_T0_:1,/_T4_/_T1_:1,"
+        tuple_txt = [_TUPLE_OPEN, _TUPLE_CLOSE] * 10
+        expected = "/{}0{}/a:1,/{}0{}/b:4,/{}0{}/c/d:1,/{}1{}:1,/{}2{}:2,/{}3{}:6,/{}4{}/{}0{}:1,/{}4{}/{}1{}:1,".\
+            format(*tuple_txt)
 
         self.assertTrue(result == expected)
 

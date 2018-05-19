@@ -36,10 +36,11 @@ class DenseLayer(NNLayer):
             weights_spec (any): A specifier for a weights initializer.
             biases_spec (any): A specifier for a biases initializer. If False, use no biases.
         """
+        self.weights_spec = kwargs.pop("weights_spec", None)
+        self.biases_spec = kwargs.pop("biases_spec", False)
         super(DenseLayer, self).__init__(*sub_components, **kwargs)
-        self.weights_spec = kwargs.get("weights_spec")
+
         self.weights_init = None  # at build time
-        self.biases_spec = kwargs.get("biases_spec", False)
         self.biases_init = None  # at build time
 
         # Number of nodes in this layer.
