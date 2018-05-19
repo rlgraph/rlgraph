@@ -148,9 +148,11 @@ class TestRingBufferMemory(unittest.TestCase):
         size_value, index_value, num_episodes_value, episode_index_values = test.get_variable_values(
             [buffer_size, buffer_index, num_episodes, episode_indices]
         )
+
         # One episode should be present.
         self.assertEqual(num_episodes_value, 1)
-        # self.assertEqual(sum(np.nonzero(episode_index_values)), 1)
+        # However, the index of that episode is 0, so we cannot fetch it.
+        self.assertEqual(sum(episode_index_values), 0)
 
     def test_episode_semantics(self):
         # TODO

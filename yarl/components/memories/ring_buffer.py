@@ -68,11 +68,6 @@ class RingBuffer(Memory):
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
-        # Episodes previously existing in the range we inserted to as indicated
-        # by count of terminals in the that slice.
-        insert_terminal_slice = self.read_variable(self.record_registry['/terminal'], update_indices)
-        episodes_in_insert_range = tf.reduce_sum(input_tensor=insert_terminal_slice, axis=0)
-
         # Update indices and size.
         index_updates = list()
         if self.episode_semantics:
@@ -81,6 +76,12 @@ class RingBuffer(Memory):
 
             # Newly inserted episodes.
             inserted_episodes = tf.reduce_sum(input_tensor=records['/terminal'], axis=0)
+
+            # Episodes previously existing in the range we inserted to as indicated
+            # by count of terminals in the that slice.
+            insert_terminal_slice = self.read_variable(self.record_registry['/terminal'], update_indices)
+            episodes_in_insert_range = tf.reduce_sum(input_tensor=insert_terminal_slice, axis=0)
+
             prev_num_episodes = tf.Print(prev_num_episodes, [
                 prev_num_episodes,
                 episodes_in_insert_range,
@@ -99,8 +100,8 @@ class RingBuffer(Memory):
 
             # Insert new episodes starting at previous count minus the ones we removed,
             # ending at previous count minus removed + inserted.
-            slice_start = prev_num_episodes - episodes_in_insert_range - 1
-            slice_end = num_episode_update + 1
+            slice_start = prev_num_episodes - episodes_in_insert_range
+            slice_end = num_episode_update
             update_indices = tf.Print(update_indices, [update_indices, tf.shape(update_indices)],
                                       summarize=100, message='\n update indices / shape = ')
             slice_start = tf.Print(
@@ -112,14 +113,16 @@ class RingBuffer(Memory):
             with tf.control_dependencies(index_updates):
                 index_updates = list()
                 mask = tf.boolean_mask(tensor=update_indices, mask=records['/terminal'])
-                mask = tf.Print(mask, [update_indices, records['/terminal']],summarize=100,
-                                message='\n update indices / terminal')
+                mask = tf.Print(mask, [mask, update_indices, records['/terminal']],summarize=100,
+                                message='\n mask /  update indices / records-terminal')
+
                 index_updates.append(self.assign_variable(
                     variable=self.episode_indices[slice_start:slice_end],
                     value=mask
                 ))
                 num_episode_update = tf.Print(num_episode_update, [num_episode_update, self.episode_indices],
                                    summarize=100,  message='\n num episodes / episode indices after: ')
+
                 # Assign final new episode count.
                 index_updates.append(self.assign_variable(self.num_episodes, num_episode_update))
 
