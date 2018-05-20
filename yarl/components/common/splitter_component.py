@@ -51,18 +51,18 @@ class SplitterComponent(Component):
         # Insert our simple splitting computation.
         self.add_computation("input", output_names, self._computation_split)
 
-    def _computation_split(self, inputs):
+    def _computation_split(self, input_):
         """
         Splits our inputs into all its primitive Spaces in the "right" order. Returns n single ops.
 
         Args:
-            inputs (OrderedDict): The flattened inputs (each value is one primitive op).
+            input_ (OrderedDict): The flattened inputs (each value is one primitive op).
 
         Returns:
             tuple: The (ordered) tuple of the primitive Spaces.
         """
         ret = list()
-        for op in inputs.values():
+        for op in input_.values():
             ret.append(op)
 
         return tuple(ret)
