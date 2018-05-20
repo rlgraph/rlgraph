@@ -59,7 +59,7 @@ class SplitterComponent(Component):
             inputs (OrderedDict): The flattened inputs (each value is one primitive op).
 
         Returns:
-            The (ordered) tuple of the primitive Spaces.
+            tuple: The (ordered) tuple of the primitive Spaces.
         """
         ret = list()
         for op in inputs.values():

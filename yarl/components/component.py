@@ -559,8 +559,10 @@ class Component(Specifiable):
 
         Args:
             socket (Optional[Tuple[Component,str],str,Socket]):
-                1) The name (str) of a local Socket (including sub-component's ones using the
-                    "sub-comp-nam/socket-name"-notation)
+                1) The name (str) of a local Socket
+                 # OBSOLETE (not supported anymore, as not necessary and conflicts with auto-flatten-keys!):
+                 # (including sub-component's ones using the
+                 # "sub-comp-nam/socket-name"-notation)
                 2) tuple: (Component, Socket-name OR Socket-object)
                 3) Socket: An already given Socket -> return this Socket (throw error if return_component is True).
                 4) None: Return the only Socket available on the given side.
@@ -587,15 +589,16 @@ class Component(Specifiable):
         # Socket is given as string-only: Try to look up socket via this string identifier.
         elif isinstance(socket, str):
             socket_name = socket
-            mo = re.match(r'^([\w\-]*)\/(.+)$', socket)
-            if mo:
-                assert mo.group(1) in self.sub_components, "ERROR: Sub-component '{}' does not exist in " \
-                                                           "this component!".format(mo.group(1))
-                component = self.sub_components[mo.group(1)]
-                socket = mo.group(2)
-            else:
-                component = self
-            socket_obj = self.get_socket_by_name(component, socket, type_=type_)
+            #mo = re.match(r'^([\w\-]*)\/(.+)$', socket)
+            #if mo:
+            #    assert mo.group(1) in self.sub_components, "ERROR: Sub-component '{}' does not exist in " \
+            #                                               "this component!".format(mo.group(1))
+            #    component = self.sub_components[mo.group(1)]
+            #    socket = mo.group(2)
+            #else:
+            #    component = self
+            #socket_obj = self.get_socket_by_name(component, socket, type_=type_)
+            socket_obj = self.get_socket_by_name(self, socket, type_=type_)
         # Socket is given as a Socket object (simple pass-through).
         elif isinstance(socket, Socket):
             if return_component is True:
