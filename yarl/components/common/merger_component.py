@@ -17,3 +17,53 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from yarl.components import Component
+from yarl.spaces import ContainerSpace
+
+
+class MergerComponent(Component):
+    """
+    Merges incoming ops into one flattened ContainerSpace (OrderedDict).
+    """
+    def __init__(self, output_space, scope="merger", input_names=None, **kwargs):
+        """
+        Args:
+            output_space (Space): The output Space to split into its single components. Must be a ContainerSpace.
+            output_names (List[str]): An optional list of out-Socket names to be used instead of the auto-generated keys
+                coming from the flattening operation.
+        """
+        assert isinstance(output_space, ContainerSpace), "ERROR: `input_space` must be a ContainerSpace (Dict or Tuple)!"
+        super(SplitterComponent, self).__init__(scope=scope, **kwargs)
+
+        self.input_space = input_space
+
+        # Define the interface (one input, many outputs named after the auto-keys generated).
+        self.define_inputs("input")
+        flat_dict = input_space.flatten()
+        if output_names is not None:
+            assert len(flat_dict) == len(output_names), "ERROR: Number if given out-names ({}) does not " \
+                                                        "match number of elements in input " \
+                                                        "ContainerSpace ({})!". \
+                format(len(output_names), len(flat_dict))
+        else:
+            output_names = [key for key in flat_dict.keys()]
+        self.define_outputs(*output_names)
+        # Insert our simple splitting computation.
+        self.add_computation("input", output_names, self._computation_split)
+
+    def _computation_merger(self, *inputs):
+        """
+        Splits our inputs into all its primitive Spaces in the "right" order. Returns n single ops.
+
+        Args:
+            *inputs (op): The input ops to be merged back into a flattened OrderedDict structure.
+
+        Returns:
+            OrderedDict: The flat OrderedDict Structure as a merger of all inputs.
+        """
+        ret = list()
+        for op in inputs.values():
+            ret.append(op)
+
+        return tuple(ret)
+
