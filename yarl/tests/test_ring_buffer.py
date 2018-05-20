@@ -148,14 +148,41 @@ class TestRingBufferMemory(unittest.TestCase):
         size_value, index_value, num_episodes_value, episode_index_values = test.get_variable_values(
             [buffer_size, buffer_index, num_episodes, episode_indices]
         )
+
         # One episode should be present.
         self.assertEqual(num_episodes_value, 1)
-        # self.assertEqual(sum(np.nonzero(episode_index_values)), 1)
+        # However, the index of that episode is 0, so we cannot fetch it.
+        self.assertEqual(sum(episode_index_values), 0)
 
-    def test_episode_semantics(self):
-        # TODO
+        # Next, we insert 1 non-terminal, then 1 terminal element.
+        observation = non_terminal_records(self.record_space, 1)
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+        observation = terminal_records(self.record_space, 1)
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+
+        # Now, we expect to have 2 episodes with episode indices at 0 and 2.
+        size_value, index_value, num_episodes_value, episode_index_values = test.get_variable_values(
+            [buffer_size, buffer_index, num_episodes, episode_indices]
+        )
+        print('Episode indices after = {}'.format(episode_index_values))
+        self.assertEqual(num_episodes_value, 2)
+        self.assertEqual(episode_index_values[1], 2)
+
+    def test_only_terminal_with_episodes(self):
+        """
+        Edge case: What if only terminals are inserted when episode
+        semantics are enabled?
+        """
         pass
 
-    def test_latest_semantics(self):
-        # TODO
+    def test_episode_fetching(self):
+        """
+        Test if we can accurately fetch most recent episodes.
+        """
+        pass
+
+    def test_latest_fetching(self):
+        """
+        Tests if we can fetch latest steps.
+        """
         pass
