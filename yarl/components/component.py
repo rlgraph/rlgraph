@@ -31,6 +31,8 @@ from yarl.spaces import Space
 EXPOSE_INS = 0x1  # whether to expose only in-Sockets (in calls to add_components)
 EXPOSE_OUTS = 0x2  # whether to expose only out-Sockets (in calls to add_components)
 
+#DUMMY_NO_IN_SOCKET = "__no_in"
+
 
 class Component(Specifiable):
     """
@@ -87,26 +89,31 @@ class Component(Specifiable):
         self.has_been_added = False
 
         # This Component's in/out-Socket objects.
+        ## For in-Sockets: Create dummy in-Socket for no-op out-Socket connections.
+        #dummy_in_socket = Socket(name=DUMMY_NO_IN_SOCKET, component=self, type_="in")
+        #self.input_sockets = list([dummy_in_socket])
         self.input_sockets = list()
         self.output_sockets = list()
+
         # Whether we know already all our in-Sockets' Spaces.
         # Only then can we create our variables. Model will do this.
         self.input_complete = False
+
         # Collect Sockets that we need to built later, directly after this component
         # is input-complete. This input-completeness may happen at another Socket and thus some Sockets
         # need to be built later.
         self.sockets_to_do_later = list()
 
-        # A dict for looking up which in-Sockets get which Spaces.
-        # keys=in-Socket name (of this component); values=Space object associated with this Socket.
-        # TODO: What about batch- or other additional ranks?
-        # Will be populated by Model after .
-        #self.input_spaces = dict()
+        # Contains our Computations that have no in-Sockets and thus will not be included in the forward search.
+        # Thus, these need to be treated separately.
+        self.no_input_computations = list()
 
         # All Variables that are held by this component (and its sub-components?) by name.
         # key=full-scope variable name
         # value=the actual variable
         self.variables = dict()
+
+        #self.connect(0, DUMMY_NO_IN_SOCKET)
 
     def create_variables(self, input_spaces):
         """
@@ -121,7 +128,7 @@ class Component(Specifiable):
             input_spaces (Dict[str,Space]): A convenience dict with Space/shape information.
                 keys=in-Socket name (str); values=the associated Space
         """
-        pass  # Children may overwrite this method.
+        print("Creating Variables for {}".format(self.name))  # Children may overwrite this method.
 
     def get_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True,
                      from_space=None, add_batch_rank=False, flatten=False):
@@ -159,29 +166,34 @@ class Component(Specifiable):
         # Called as setter.
         var = None
 
-        if backend() == "tf":
-            # TODO: need to discuss what other data we need per variable. Initializer, trainable, etc..
-            if from_space is not None:
-                # Variables should be returned in a flattened OrderedDict.
-                if flatten:
-                    var = from_space.flatten(mapping=lambda k, primitive: primitive.get_tensor_variable(
-                        name=name+k, add_batch_rank=add_batch_rank, trainable=trainable))
-                # Normal, nested Variables from a Space (container or primitive).
-                else:
-                    var = from_space.get_tensor_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable)
+        # TODO: need to discuss what other data we need per variable. Initializer, trainable, etc..
+        # We are creating the variable using a Space as template.
+        if from_space is not None:
+            # Variables should be returned in a flattened OrderedDict.
+            if flatten:
+                var = from_space.flatten(mapping=lambda k, primitive: primitive.get_tensor_variable(
+                    name=name + k, add_batch_rank=add_batch_rank, trainable=trainable))
+            # Normal, nested Variables from a Space (container or primitive).
             else:
-                if initializer is None or isinstance(initializer, tf.keras.initializers.Initializer):
-                    shape = tuple((() if add_batch_rank is False else
-                                     (None,) if add_batch_rank is True else (add_batch_rank,)) + (shape or ()))
-                else:
-                    shape = None
-                var = tf.get_variable(
-                    name=name,
-                    shape=shape,
-                    dtype=util.dtype(dtype),
-                    initializer=initializer,
-                    trainable=trainable
-                )
+                var = from_space.get_tensor_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable)
+        # Direct variable creation (using the backend).
+        elif backend() == "tf":
+            # Provide a shape, if initializer is not given or it is an actual Initializer object (rather than an array
+            # of fixed values, for which we then don't need a shape as it comes with one).
+            if initializer is None or isinstance(initializer, tf.keras.initializers.Initializer):
+                shape = tuple((() if add_batch_rank is False else
+                                 (None,) if add_batch_rank is True else (add_batch_rank,)) + (shape or ()))
+            else:
+                shape = None
+
+            var = tf.get_variable(
+                name=name,
+                shape=shape,
+                dtype=util.dtype(dtype),
+                initializer=initializer,
+                trainable=trainable
+            )
+
         # Registers the new variable in this Component.
         self.variables[name] = var
 
@@ -300,18 +312,23 @@ class Component(Specifiable):
         # Add the computation record to all input and output sockets.
         computation = Computation(method, self, input_sockets, output_sockets,
                                   flatten_container_spaces if flatten_container_spaces is not None else
-                                    self.computation_settings.get("flatten_container_spaces", True),
+                                  self.computation_settings.get("flatten_container_spaces", True),
                                   split_container_spaces if split_container_spaces is not None else
-                                    self.computation_settings.get("split_container_spaces", False),
+                                  self.computation_settings.get("split_container_spaces", False),
                                   add_auto_key_as_first_param if add_auto_key_as_first_param is not None else
-                                    self.computation_settings.get("add_auto_key_as_first_param", False),
+                                  self.computation_settings.get("add_auto_key_as_first_param", False),
                                   re_nest_container_spaces if re_nest_container_spaces is not None else
-                                    self.computation_settings.get("re_nest_container_spaces", True)
+                                  self.computation_settings.get("re_nest_container_spaces", True)
                                   )
+        # Connect the computation to all the given Sockets.
         for input_socket in input_sockets:
             input_socket.connect_to(computation)
         for output_socket in output_sockets:
             output_socket.connect_from(computation)
+
+        # If the Computation has no inputs, we need to build it from no-input.
+        if len(input_sockets) == 0:
+            self.no_input_computations.append(computation)
 
     def add_component(self, component, expose=None):
         """
@@ -694,3 +711,8 @@ class Component(Specifiable):
                 return tf.gather(params=variable, indices=indices)
             else:
                 return variable
+
+    def __str__(self):
+        return "{}('{}' in=[{}] out=[{}])". \
+            format(type(self).__name__, self.name, str(self.input_sockets), str(self.output_sockets))
+

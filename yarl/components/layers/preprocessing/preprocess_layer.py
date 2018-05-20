@@ -17,8 +17,9 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+import tensorflow as tf
+
 from yarl.components.layers import LayerComponent
-from yarl.spaces import Dict, Tuple
 
 
 class PreprocessLayer(LayerComponent):
@@ -44,7 +45,7 @@ class PreprocessLayer(LayerComponent):
             This could be useful if the preprocessor stores certain episode-sequence information
             to do the processing and this information has to be reset after the episode terminates.
         """
-        pass  # Not mandatory.
+        return tf.no_op()  # Not mandatory.
 
     def _computation_apply(self, *inputs):
         """

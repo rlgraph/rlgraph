@@ -19,9 +19,7 @@ from __future__ import print_function
 
 from collections import OrderedDict
 
-from yarl import Specifiable, backend, YARLError
-# TODO: make this backend-dependent
-import tensorflow as tf
+from yarl import backend, YARLError, Specifiable
 
 
 class Space(Specifiable):
@@ -104,24 +102,13 @@ class Space(Specifiable):
         batch_rank = () if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,)
         shape = tuple(batch_rank + self.shape)
         if backend() == "tf":
+            import tensorflow as tf
             if is_input_feed:
                 return tf.placeholder(dtype=self.dtype, shape=shape, name=name)
             else:
                 return tf.get_variable(name, shape=shape, dtype=self.dtype, **kwargs)
         else:
             raise YARLError("ERROR: Pytorch not supported yet!")
-
-    #def get_initializer(self, specification):
-    #    """
-    #    Returns a backend-specific initializer object that matches the space's shape.
-    #
-    #    Args:
-    #        specification (any): The specification to be passed into
-    #
-    #    Returns:
-    #        An Initializer object.
-    #    """
-    #    return None  # optional
 
     def flatten(self, mapping=None, scope_=None, list_=None):
         """

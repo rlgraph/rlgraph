@@ -51,12 +51,6 @@ class Socket(object):
             name (str): The name of this Socket (as it will show in the final call interface).
             component (Component): The Component object that this Socket belongs to.
             type_ (str): The Socket type: "in" or "out".
-            #OBSOLETE: we have the component now!
-            #scope (str): The scope of this Socket (same as the owning Component's scope).
-            #device (str): Device this Socket's component will be assigned to. If None, defaults to CPU.
-            #global_ (bool): In distributed mode, this flag indicates if the Socket's component is part of the
-            #    shared global model or local to the worker. Defaults to False and will be ignored if set to
-            #    True in non-distributed mode.
         """
         # The name of this Socket.
         self.name = name
@@ -131,6 +125,12 @@ class Socket(object):
         Raises:
             YARLError: If there is an attempt to connect more than one Space to this Socket.
         """
+        ## ProtoSpace: Nothing incoming.
+        #if isinstance(incoming, ProtoSpace):
+        #    if self.space is not None:
+        #        raise YARLError("ERROR: A Socket can only have one incoming Space!")
+        #    # Set space to 0 (so it's not None anymore, meaning we are connected).
+        #    self.space = 0
         # Space: generate backend-ops.
         if isinstance(incoming, Space):
             if self.space is not None:
@@ -152,13 +152,17 @@ class Socket(object):
             assert isinstance(computation_in_slot, int) and computation_in_slot >= 0, \
                 "ERROR: If incoming is a Computation, slot must be set and >=0!"
             # Add every nth op from the output of the completed computations to this Socket's set of ops.
-            nth_computed_ops = [outputs[computation_in_slot] for outputs in incoming.processed_ops.values()]
+            nth_computed_ops = list()
+            for outputs in incoming.processed_ops.values():
+                nth_computed_ops.append(outputs[computation_in_slot])
 
             # Store incoming Space.
-            if len(self.ops) == 0:
-                in_space = get_space_from_op(next(iter(nth_computed_ops)))
-                # TODO: check whether all incoming ops have same Space
-                self.space = in_space
+            # TODO: Maybe check whether all incoming ops have same Space.
+            if self.space is None:
+                if len(nth_computed_ops) > 0:
+                    self.space = get_space_from_op(next(iter(nth_computed_ops)))
+                else:
+                    self.space = 0
 
             self.ops.update(nth_computed_ops)
         # Incoming is another Socket -> Simply update ops from this one.
@@ -281,64 +285,83 @@ class Computation(object):
         on how many return values the computation function has).
 
         Args:
-            input_socket (Socket): The incoming Socket (by design, must be type "in").
+            input_socket (Optional[Socket]): The incoming Socket (by design, must be type "in").
+                None, if this Computation has no in-Sockets anyway.
             op_registry (dict): Dict that keeps track of which ops require which other ops to be calculated.
             in_socket_registry (dict): Dict that keeps track of which in-Socket (name) needs which
                 ops (placeholders/feeds).
         """
-        assert isinstance(input_socket, Socket) and input_socket.type == "in", \
+        assert input_socket is None or (isinstance(input_socket, Socket) and input_socket.type == "in"), \
             "ERROR: `input_socket` must be a Socket object and of type 'in'!"
-        # Update waiting_ops.
-        if input_socket.name not in self.waiting_ops:
-            self.waiting_ops[input_socket.name] = set()
-        self.waiting_ops[input_socket.name].update(input_socket.ops)
-        # If "input-complete", pass through computation function.
-        if not self.input_complete:
-            # Check, whether we are input-complete now (whether all required inputs are given).
-            self.input_complete = True
-            for required in self.input_sockets:
-                if required.name not in self.waiting_ops:
-                    self.input_complete = False
-                    break
 
-        # No elif! We have to check again.
-        # We are input-complete: Get all possible combinations of input ops and pass all these combinations through
-        # the function (only those combinations that we didn't do yet).
-        if self.input_complete:
-            # A list of all possible input op combinations.
-            input_combinations = list(itertools.product(*self.waiting_ops.values()))
-            for input_combination in input_combinations:
-                # key = tuple(input_combination)
-                # Make sure we call the computation method only once per input-op combination.
-                if input_combination not in self.processed_ops:
-                    # Build the ops from this input-combination.
-                    # - Flatten complex spaces.
-                    if self.flatten_container_spaces is not False:
-                        flattened_spaces = self.flatten_ops(*input_combination)
-                        if self.split_container_spaces:
-                            # ops is an OrderedDict of return-tuples.
-                            ops = self.split_flattened_ops(*flattened_spaces)
+        if input_socket is not None:
+            # Update waiting_ops.
+            if input_socket.name not in self.waiting_ops:
+                self.waiting_ops[input_socket.name] = set()
+            self.waiting_ops[input_socket.name].update(input_socket.ops)
+            # If "input-complete", pass through computation function.
+            if not self.input_complete:
+                # Check, whether we are input-complete now (whether all required inputs are given).
+                self.input_complete = True
+                for required in self.input_sockets:
+                    if required.name not in self.waiting_ops:
+                        self.input_complete = False
+                        break
+
+            # No elif! We have to check again.
+            # We are input-complete: Get all possible combinations of input ops and pass all these combinations through
+            # the function (only those combinations that we didn't do yet).
+            if self.input_complete:
+                # A list of all possible input op combinations.
+                input_combinations = list(itertools.product(*self.waiting_ops.values()))
+                for input_combination in input_combinations:
+                    # key = tuple(input_combination)
+                    # Make sure we call the computation method only once per input-op combination.
+                    if input_combination not in self.processed_ops:
+                        # Build the ops from this input-combination.
+                        # - Flatten complex spaces.
+                        if self.flatten_container_spaces is not False:
+                            flattened_spaces = self.flatten_ops(*input_combination)
+                            if self.split_container_spaces:
+                                # ops is an OrderedDict of return-tuples.
+                                ops = self.split_flattened_ops(*flattened_spaces)
+                            else:
+                                # ops is a return-tuple or a single op.
+                                # Maybe including flattened OrderedDicts.
+                                ops = self.method(*flattened_spaces)
+
+                            # Need to re-nest?
+                            if self.re_nest_container_spaces:
+                                ops = self.re_nest_ops(*force_tuple(ops))
+
+                        # - Simple case: Just pass in everything as is.
                         else:
-                            # ops is a return-tuple or a single op.
-                            # Maybe including flattened OrderedDicts.
-                            ops = self.method(*flattened_spaces)
+                            ops = self.method(*input_combination)
 
-                        # Need to re-nest?
-                        if self.re_nest_container_spaces:
-                            ops = self.re_nest_ops(*force_tuple(ops))
+                        # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
+                        ops = force_tuple(ops)
 
-                    # - Simple case: Just pass in everything as is.
+                        self.processed_ops[input_combination] = ops
+                        # Keep track of which ops require which other ops.
+                        for op in ops:
+                            op_registry[op] = set(input_combination)
+                    # TODO: Warn for now: should this even happen?
                     else:
-                        ops = self.method(*input_combination)
+                        print("input_combination '{}' already in self.processed_ops!".format(input_combination))
+        # This Computation has no in-Sockets.
+        else:
+            self.input_complete = True
+            # Call the method w/o any parameters.
+            ops = force_tuple(self.method())
+            if ops == ():
+                raise YARLError("ERROR: {}'s computation method '{}' does not return an op!".
+                                format(self.component.name, self.method.__name__))
+            self.processed_ops[()] = ops  # Use empty tuple as input-ops combination.
+            # Tag all out-ops as not requiring any input.
+            for op in ops:
+                op_registry[op] = set()
 
-                    # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
-                    ops = force_tuple(ops)
-
-                    self.processed_ops[input_combination] = ops
-                    # Keep track of which ops require which other ops.
-                    for op in ops:
-                        op_registry[op] = set(input_combination)
-
+        if self.input_complete:
             # Loop through our output Sockets and keep processing them with this computation's outputs.
             for slot, output_socket in enumerate(self.output_sockets):
                 output_socket.update_from_input(self, op_registry, in_socket_registry, slot)

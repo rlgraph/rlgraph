@@ -49,7 +49,7 @@ class ComponentTest(object):
         # Add the input-spaces to the in-Sockets.
         for in_socket in self.core.input_sockets:
             name = in_socket.name
-            assert name in input_spaces, "ERROR: input_spaces does not contain in-Socket name '{}'!".\
+            assert name in input_spaces, "ERROR: `input_spaces` does not contain any data for in-Socket '{}'!".\
                 format(name)
             self.core.connect(input_spaces[name], name)
 

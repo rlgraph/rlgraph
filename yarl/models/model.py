@@ -151,6 +151,9 @@ class Model(Specifiable):
                                 format(socket))
             self.partial_input_build(socket)
 
+        # Build all Computations (in all our sub-Components) that have no inputs.
+        self.build_no_input_computations(self.core_component)
+
         # Memoize possible input-combinations (from all our in-Sockets)
         # so we don't have to do this every time we get a `call`.
         in_names = sorted(list(map(lambda s: s.name, self.core_component.input_sockets)))
@@ -166,29 +169,28 @@ class Model(Specifiable):
         for output_socket in self.core_component.output_sockets:
             # Create empty out-sock registry entry.
             self.out_socket_registry[output_socket.name] = set()
-            # One or more in-Sockets.
-            if len(output_socket.ops):
-                # Loop through this Socket's set of possible ops.
-                for op in output_socket.ops:
-                    # Get all the (core) in-Socket names (alphabetically sorted) that are required for this op.
-                    sockets = tuple(sorted(list(self.trace_back_sockets({op})), key=lambda s: s.name))
-                    # If an in-Socket has more than one connected incoming Space:
-                    # Get the shape-combinations for these Sockets.
-                    # e.g. Sockets=["a", "b"] (and Space1 -> a, Space2 -> a, Space3 -> b)
-                    #   shape-combinations=[(Space1, Space3), (Space2, Space3)]
-                    shapes = [[i.shape_with_batch_rank for i in sock.incoming_connections] for sock in sockets]
-                    shape_combinations = itertools.product(*shapes)
-                    for shape_combination in shape_combinations:
-                        # Do everything by Socket-name (easier to debug).
-                        in_socket_names = tuple([s.name for s in sockets])
-                        # Update our call registry.
-                        key = (output_socket.name, in_socket_names, shape_combination)
-                        self.call_registry[key] = op
-                        # .. and the out-socket registry.
-                        self.out_socket_registry[output_socket.name].update(set(in_socket_names))
-            # No in-Socket: Add to call registry anyway.
-            else:
-                self.call_registry[(output_socket.name, (), ())] = op
+
+            assert len(output_socket.ops) > 0, "ERROR: There must at least be one op for out-Socket '{}'!".\
+                format(output_socket.name)
+
+            # Loop through this Socket's set of possible ops.
+            for op in output_socket.ops:
+                # Get all the (core) in-Socket names (alphabetically sorted) that are required for this op.
+                sockets = tuple(sorted(list(self.trace_back_sockets({op})), key=lambda s: s.name))
+                # If an in-Socket has more than one connected incoming Space:
+                # Get the shape-combinations for these Sockets.
+                # e.g. Sockets=["a", "b"] (and Space1 -> a, Space2 -> a, Space3 -> b)
+                #   shape-combinations=[(Space1, Space3), (Space2, Space3)]
+                shapes = [[i.shape_with_batch_rank for i in sock.incoming_connections] for sock in sockets]
+                shape_combinations = itertools.product(*shapes)
+                for shape_combination in shape_combinations:
+                    # Do everything by Socket-name (easier to debug).
+                    in_socket_names = tuple([s.name for s in sockets])
+                    # Update our call registry.
+                    key = (output_socket.name, in_socket_names, shape_combination)
+                    self.call_registry[key] = op
+                    # .. and the out-socket registry.
+                    self.out_socket_registry[output_socket.name].update(set(in_socket_names))
 
     def complete_backend_setup(self):
         """
@@ -225,6 +227,23 @@ class Model(Specifiable):
         """
         return self.core_component
 
+    def build_no_input_computations(self, sub_component):
+        """
+        Makes sure all no-input Computations of a given Component (and all its sub-Components) are build.
+        These type of Computations would otherwise not be caught our "Socket->forward" build algorithm.
+
+        Args:
+            sub_component (Component): The Component, for which to build all no-input Computations.
+        """
+        # The sub-component itself.
+        for computation in sub_component.no_input_computations:
+            computation.update_from_input(None, self.op_registry, self.in_socket_registry)
+            for slot, out_socket in enumerate(computation.output_sockets):
+                self.partial_input_build(out_socket, computation, slot)
+        # Recurse: The sub-components of the sub-component.
+        for sc in sub_component.sub_components.values():
+            self.build_no_input_computations(sc)
+
     def partial_input_build(self, socket, from_=None, computation_out_slot=None, socket_out_op=None):
         """
         Builds one Socket in terms of its incoming and outgoing connections. Returns if we hit a dead end (computation
@@ -235,6 +254,7 @@ class Model(Specifiable):
             socket (Socket): The Socket object to process.
             from_ (Optional[Computation,Socket]): If we are processing the socket only from one Computation/Socket
                 (ignoring other incoming connections), set this to the Computation/Socket to build from.
+                None for building it from all incoming connections.
             computation_out_slot (Optional[int]): If from_ is a Computation, this holds the out slot from the
                 Computation (index into the computation-returned tuple).
             socket_out_op (Optional[op]): If from_ is a Socket, this holds the op from the from_-Socket that should be
@@ -247,6 +267,7 @@ class Model(Specifiable):
                 # create tf placeholder(s)
                 # example: Space (Dict({"a": Discrete(3), "b": Bool(), "c": Continuous()})) connects to Socket ->
                 # create inputs[name-of-sock] = dict({"a": tf.placeholder(name="", dtype=int, shape=(3,))})
+                # TODO: Think about which calls here to skip (in_ is a Socket? -> most likely already done).
                 socket.update_from_input(in_, self.op_registry, self.in_socket_registry,
                                          computation_out_slot, socket_out_op)
 
@@ -270,8 +291,9 @@ class Model(Specifiable):
                             # And all waiting other Sockets (!= outgoing), if any.
                             for og in outgoing.component.sockets_to_do_later:
                                 self.partial_input_build(og)
-                            # Invalidate to get error if we ever touch it again as an iterator.
+                            # Invalidate to get error if we ever touch this again as an iterator.
                             outgoing.component.sockets_to_do_later = None  # type: list
+                        # Not complete yet. Remember do build this Socket later.
                         else:
                             outgoing.component.sockets_to_do_later.append(outgoing)
 

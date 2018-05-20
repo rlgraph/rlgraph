@@ -58,7 +58,7 @@ class TestPreprocessors(unittest.TestCase):
             b=np.array([[[3.0, 3.0], [3.0, 3.0]], [[3.0, 3.0], [3.0, 3.0]]]),
             c=0.7
         )
-
+        test.test(out_socket_name="reset")
         test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
 
     def test_split_computation_on_flatten(self):
@@ -89,7 +89,7 @@ class TestPreprocessors(unittest.TestCase):
             ),
             c=np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32)
         )
-
+        test.test(out_socket_name="reset")
         test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
 
     def test_two_preprocessors(self):
@@ -118,11 +118,11 @@ class TestPreprocessors(unittest.TestCase):
                                        [3.0, 3.0, 3.0],
                                        [3.0, 3.0, 3.0]])))
         )
-
+        test.test(out_socket_name="reset")
         test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
 
     def test_sequence_preprocessor(self):
-        space = Tuple(Continuous(shape=(1,)), IntBox(shape=(2, 2)), add_batch_rank=True)
+        space = Tuple(Continuous(shape=(1,)), Continuous(shape=(2, 2)), add_batch_rank=True)
 
         # Construct the Component to test (simple Stack).
         component_to_test = Sequence(seq_length=3, add_rank=True)
@@ -131,8 +131,13 @@ class TestPreprocessors(unittest.TestCase):
 
         for i in range(3):
             test.test(out_socket_name="reset")
-            test.test(out_socket_name="output", inputs=np.array([[0.1]]),
-                      expected_outputs=np.array([[[0.1], [0.1], [0.1]]]))
+            test.test(out_socket_name="output", inputs=(np.array([[0.1]]), np.array([[[0.2, 0.3], [0.4, 0.5]]])),
+                      expected_outputs=(np.array([[[0.1], [0.1], [0.1]]]), np.array([[
+                          [[0.2, 0.3], [0.4, 0.5]],
+                          [[0.2, 0.3], [0.4, 0.5]],
+                          [[0.2, 0.3], [0.4, 0.5]]
+                      ]])))
+            """
             test.test(out_socket_name="output", inputs=np.array([0.2]),
                       expected_outputs=np.array([[0.2], [0.1], [0.1]]))
             test.test(out_socket_name="output", inputs=np.array([0.3]),
@@ -141,4 +146,5 @@ class TestPreprocessors(unittest.TestCase):
                       expected_outputs=np.array([[0.4], [0.3], [0.2]]))
             test.test(out_socket_name="output", inputs=np.array([0.5]),
                       expected_outputs=np.array([[0.5], [0.4], [0.3]]))
+            """
 
