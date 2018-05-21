@@ -194,7 +194,24 @@ class TestRingBufferMemory(unittest.TestCase):
         """
         Test if we can accurately fetch most recent episodes.
         """
-        pass
+        ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=True)
+        test = ComponentTest(component=ring_buffer, input_spaces=dict(
+            records=self.record_space,
+            num_records=int,
+            num_episodes=int
+        ))
+
+        buffer_size, buffer_index, num_episodes, episode_indices = ring_buffer.get_variables()
+
+        # Insert 2 non-terminals, 1 terminal
+        observation = non_terminal_records(self.record_space, 2)
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+        observation = terminal_records(self.record_space, 1)
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+
+        # We should now be able to retrieve one episode of length 3.
+        episodes = test.test(out_socket_name="episodes", inputs=1, expected_outputs=None)
+        print(episodes)
 
     def test_latest_fetching(self):
         """

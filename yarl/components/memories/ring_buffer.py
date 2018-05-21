@@ -106,8 +106,8 @@ class RingBuffer(Memory):
             # ending at previous count minus removed + inserted.
             slice_start = prev_num_episodes - episodes_in_insert_range
             slice_end = num_episode_update
-            update_indices = tf.Print(update_indices, [update_indices, tf.shape(update_indices)],
-                                      summarize=100, message='\n update indices / shape = ')
+            # update_indices = tf.Print(update_indices, [update_indices, tf.shape(update_indices)],
+            #                           summarize=100, message='\n update indices / shape = ')
             # slice_start = tf.Print(
             #     slice_start, [slice_start, slice_end, self.episode_indices],
             #     summarize=100,
@@ -117,8 +117,8 @@ class RingBuffer(Memory):
             with tf.control_dependencies(index_updates):
                 index_updates = list()
                 mask = tf.boolean_mask(tensor=update_indices, mask=records['/terminal'])
-                mask = tf.Print(mask, [mask, update_indices, records['/terminal']], summarize=100,
-                    message='\n mask /  update indices / records-terminal')
+                # mask = tf.Print(mask, [mask, update_indices, records['/terminal']], summarize=100,
+                #     message='\n mask /  update indices / records-terminal')
 
                 index_updates.append(self.assign_variable(
                     variable=self.episode_indices[slice_start:slice_end],
@@ -177,13 +177,29 @@ class RingBuffer(Memory):
     def _computation_get_episodes(self, num_episodes):
         stored_episodes = self.read_variable(self.num_episodes)
         available_episodes = tf.minimum(x=num_episodes, y=stored_episodes)
+        available_episodes = tf.Print(available_episodes, [available_episodes, stored_episodes], summarize=100,
+                                      message='\n available eps, stored eps =')
 
-        start = self.episode_indices[stored_episodes - available_episodes - 1] + 1
+        # Say we have two episodes with this layout:
+        # terminals = [0 0 1 0 1]
+        # episode_indices = [2, 4]
+        # If we want to fetch the most recent episode, the start index is:
+        # stored_episodes - 1 - num_episodes = 2 - 1 - 1 = 0, which points to buffer index 2
+        # The next episode starts one element after this, hence + 1.
+        # However, this points to index -1 if stored_episodes = available_episodes,
+        # in this case we want start = 0 to get everything.
+        start = tf.cond(
+            pred=tf.equal(x=stored_episodes, y=available_episodes),
+            true_fn=lambda: 0,
+            false_fn=lambda: self.episode_indices[stored_episodes - available_episodes - 1] + 1
+        )
+
+        # End index is just the pointer to the most recent episode
         limit = self.episode_indices[stored_episodes - 1]
         limit += tf.where(condition=(start < limit), x=0, y=self.capacity)
 
         indices = tf.range(start=start, limit=limit) % self.capacity
-
+        indices = tf.Print(indices, [start, limit, indices], summarize=100, message='\n start, limit, indices = ')
         return self.read_records(indices=indices)
 
     def get_variables(self, names=None):
