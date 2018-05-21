@@ -58,8 +58,11 @@ class Conv2DLayer(NNLayer):
         self.kernel_size = kernel_size if isinstance(kernel_size, tuple) else (kernel_size, kernel_size)
         self.strides = strides if isinstance(strides, tuple) else (strides, strides)
 
-        self.kernel_init = None  # at model-build time
-        self.biases_init = None  # at model-build time
+        # At model-build time.
+        self.kernel_init = None
+        # At model-build time.
+        self.biases_init = None
+
 
     def create_variables(self, input_spaces):
         super(Conv2DLayer, self).create_variables(input_spaces)
@@ -72,11 +75,12 @@ class Conv2DLayer(NNLayer):
         if backend() == "tf":
             import tensorflow as tf
             # TODO: variables registry (variables now exist in tf.layer).
-            self.layer = tf.layers.Conv2D(filters=self.filters, kernel_size=self.kernel_size,
-                                          strides=self.strides, padding=self.padding,
-                                          data_format=self.data_format,
-                                          activation=self.activation,
-                                          use_bias=(self.biases_spec is not False),
-                                          kernel_initializer=self.kernel_init.initializer,
-                                          bias_initializer=self.biases_init.initializer
-                                          )
+            self.layer = tf.layers.Conv2D(
+                filters=self.filters, kernel_size=self.kernel_size,
+                strides=self.strides, padding=self.padding,
+                data_format=self.data_format,
+                activation=self.activation,
+                use_bias=(self.biases_spec is not False),
+                kernel_initializer=self.kernel_init.initializer,
+                bias_initializer=self.biases_init.initializer
+            )
