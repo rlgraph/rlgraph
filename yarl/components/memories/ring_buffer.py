@@ -194,7 +194,7 @@ class RingBuffer(Memory):
             false_fn=lambda: self.episode_indices[stored_episodes - available_episodes - 1] + 1
         )
 
-        # End index is just the pointer to the most recent episode
+        # End index is just the pointer to the most recent episode.
         limit = self.episode_indices[stored_episodes - 1]
         limit += tf.where(condition=(start < limit), x=0, y=self.capacity)
 

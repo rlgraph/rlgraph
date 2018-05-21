@@ -200,9 +200,6 @@ class TestRingBufferMemory(unittest.TestCase):
             num_records=int,
             num_episodes=int
         ))
-
-        buffer_size, buffer_index, num_episodes, episode_indices = ring_buffer.get_variables()
-
         # Insert 2 non-terminals, 1 terminal
         observation = non_terminal_records(self.record_space, 2)
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
@@ -210,8 +207,24 @@ class TestRingBufferMemory(unittest.TestCase):
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
 
         # We should now be able to retrieve one episode of length 3.
-        episodes = test.test(out_socket_name="episodes", inputs=1, expected_outputs=None)
+        episode = test.test(out_socket_name="episodes", inputs=1, expected_outputs=None)
+        self.assertTrue(len(episode['reward']) == 2)
+
+        # We should not be able to retrieve two episodes, and still return just one.
+        episode = test.test(out_socket_name="episodes", inputs=2, expected_outputs=None)
+        self.assertTrue(len(episode['reward']) == 2)
+
+        # Insert 7 non-terminals, 1 terminal -> last terminal is now at buffer index 0 as
+        # we inserted 3 + 8 = 11 elements in total.
+        observation = non_terminal_records(self.record_space, 7)
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+        observation = terminal_records(self.record_space, 1)
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+
+        # Check if we can fetch 2 episodes:
+        episodes = test.test(out_socket_name="episodes", inputs=2, expected_outputs=None)
         print(episodes)
+
 
     def test_latest_fetching(self):
         """
