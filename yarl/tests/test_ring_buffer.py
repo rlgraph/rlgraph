@@ -223,8 +223,15 @@ class TestRingBufferMemory(unittest.TestCase):
 
         # Check if we can fetch 2 episodes:
         episodes = test.test(out_socket_name="episodes", inputs=2, expected_outputs=None)
-        print(episodes)
 
+        # We now expect to have retrieved:
+        # - 10 time steps
+        # - 2 terminal values 1
+        # - Terminal values spaced apart 1 index due to the insertion order
+        self.assertEqual(len(episodes['terminal']), self.capacity)
+        self.assertEqual(sum(episodes['terminal']), 2)
+        self.assertEqual(episodes['terminal'][0], 1)
+        self.assertEqual(episodes['terminal'][2], 1)
 
     def test_latest_fetching(self):
         """

@@ -177,8 +177,8 @@ class RingBuffer(Memory):
     def _computation_get_episodes(self, num_episodes):
         stored_episodes = self.read_variable(self.num_episodes)
         available_episodes = tf.minimum(x=num_episodes, y=stored_episodes)
-        available_episodes = tf.Print(available_episodes, [available_episodes, stored_episodes], summarize=100,
-                                      message='\n available eps, stored eps =')
+        # available_episodes = tf.Print(available_episodes, [available_episodes, stored_episodes], summarize=100,
+        #                               message='\n available eps, stored eps =')
 
         # Say we have two episodes with this layout:
         # terminals = [0 0 1 0 1]
@@ -199,7 +199,7 @@ class RingBuffer(Memory):
         limit += tf.where(condition=(start < limit), x=0, y=self.capacity)
 
         indices = tf.range(start=start, limit=limit) % self.capacity
-        indices = tf.Print(indices, [start, limit, indices], summarize=100, message='\n start, limit, indices = ')
+        # indices = tf.Print(indices, [start, limit, indices], summarize=100, message='\n start, limit, indices = ')
         return self.read_records(indices=indices)
 
     def get_variables(self, names=None):
