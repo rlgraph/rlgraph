@@ -101,7 +101,7 @@ class Memory(Component):
 
     def _computation_update_records(self, update):
         """
-        Optionally ipdates memory records using information such as losses, e.g. to
+        Optionally updates memory records using information such as losses, e.g. to
         compute priorities.
 
         Args:
@@ -110,7 +110,7 @@ class Memory(Component):
         """
         pass
 
-    def get_variables(self, name=None):
+    def get_variables(self, names=None):
         """
         Utility method to retrieve internal variables from the registry
         for debugging purposes.

@@ -233,8 +233,33 @@ class TestRingBufferMemory(unittest.TestCase):
         self.assertEqual(episodes['terminal'][0], 1)
         self.assertEqual(episodes['terminal'][2], 1)
 
-    def test_latest_fetching(self):
+    def test_latest_batch(self):
         """
         Tests if we can fetch latest steps.
         """
-        pass
+        ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=True)
+        test = ComponentTest(component=ring_buffer, input_spaces=dict(
+            records=self.record_space,
+            num_records=int,
+            num_episodes=int
+        ))
+
+        # Insert 5 random elements.
+        observation = non_terminal_records(self.record_space, 5)
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+
+        # First, test if the basic computation works.
+        batch = test.test(out_socket_name="sample", inputs=5, expected_outputs=None)
+        self.assertEqual(len(batch['terminal']), 5)
+
+        # Next, insert capacity more elements:
+        observation = non_terminal_records(self.record_space, self.capacity)
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+
+        # If we now fetch capacity elements, we expect to see exactly the last 10.
+        batch = test.test(out_socket_name="sample", inputs=self.capacity, expected_outputs=None)
+
+        # Assert every inserted element is contained, even if not in same order:
+        retrieved_action = batch['actions']['action1']
+        for action_value in observation['actions']['action1']:
+            self.assertTrue(action_value in retrieved_action)
