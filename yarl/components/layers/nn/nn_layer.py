@@ -39,8 +39,8 @@ class NNLayer(LayerComponent):
         in_space = input_spaces["input"]
         assert not isinstance(in_space, ContainerSpace), "ERROR: Cannot handle container input Spaces " \
                                                          "in layer '{}' (atm; may soon do)!".format(self.name)
-        assert in_space.add_batch_rank,\
-            "ERROR: Space in 'input' Socket to layer '{}' must have a batch rank (0th position)!".format(self.name)
+        assert in_space.has_batch_rank,\
+            "ERROR: Space in Socket 'input' to layer '{}' must have a batch rank (0th position)!".format(self.name)
 
     def _computation_apply(self, input_):
         """

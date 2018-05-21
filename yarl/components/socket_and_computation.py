@@ -251,14 +251,10 @@ class Computation(object):
             self.method = method
             self.name = re.sub(r'^_computation_', "", method.__name__)
 
-        self.input_sockets_test = OrderedDict()
+        self.input_sockets = OrderedDict()
         for i, in_sock in enumerate(input_sockets):
-            self.input_sockets_test[in_sock.name] = dict(socket=in_sock, pos=i, ops=set())
-        #self.input_sockets = input_sockets
+            self.input_sockets[in_sock.name] = dict(socket=in_sock, pos=i, ops=set())
         self.output_sockets = output_sockets
-
-        # Registry for which incoming Sockets we already "have waiting".
-        #OBSOLETE: self.waiting_ops = dict()  # key = Socket object; value = set of ops the key (Socket) carries.
 
         # Whether we have all necessary input-sockets for passing at least one input-op combination through
         # our computation method. As long as this is False, we return prematurely and wait for more ops to come in
@@ -301,7 +297,7 @@ class Computation(object):
 
         if input_socket is not None:
             # Update waiting_ops.
-            record = self.input_sockets_test[input_socket.name]
+            record = self.input_sockets[input_socket.name]
             record["ops"].update(input_socket.ops)
             # Check for input-completeness.
             self.check_input_completeness()
@@ -311,7 +307,7 @@ class Computation(object):
             # the function (only those combinations that we didn't do yet).
             if self.input_complete:
                 # Generate a list of all possible input op combinations.
-                in_ops = [in_sock_rec["ops"] for in_sock_rec in self.input_sockets_test.values()]
+                in_ops = [in_sock_rec["ops"] for in_sock_rec in self.input_sockets.values()]
                 input_combinations = list(itertools.product(*in_ops))
                 for input_combination in input_combinations:
                     # key = tuple(input_combination)
@@ -374,7 +370,7 @@ class Computation(object):
         if not self.input_complete:
             # Check, whether we are input-complete now (whether all in-Sockets have at least one op defined).
             self.input_complete = True
-            for record in self.input_sockets_test.values():
+            for record in self.input_sockets.values():
                 if len(record["ops"]) == 0:
                     self.input_complete = False
                     return
@@ -393,7 +389,7 @@ class Computation(object):
         """
         # The returned sequence of output ops.
         ret = []
-        in_socket_names = self.input_sockets_test.keys()
+        in_socket_names = self.input_sockets.keys()
         for i, op in enumerate(ops):
             # self.flatten_container_spaces cannot be False here.
             if isinstance(op, (DictOp, tuple)) and \

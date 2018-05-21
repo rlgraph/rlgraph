@@ -101,8 +101,31 @@ class TestSplitterMergerComponents(unittest.TestCase):
         flattened_space = space.flatten()
         test = ComponentTest(component=component_to_test, input_spaces=flattened_space)
 
-        # Get a batch of samples.
-        input_ = space.sample()
-        flattened_input = flatten_op(input_)
+        # Get a single sample.
+        sample = space.sample()
+        flattened_input = flatten_op(sample)
 
-        out = test.test(out_socket_name="output", inputs=flattened_input, expected_outputs=input_)
+        test.test(out_socket_name="output", inputs=flattened_input, expected_outputs=sample)
+
+    def test_merger_component_with_custom_names(self):
+        space = Tuple(
+            Dict(a=bool, b=Continuous(shape=(1,))),
+            dict(c=bool, d=float),
+            IntBox(low=0, high=255),
+            dict(e=bool, f=bool),
+            Discrete(6),
+            add_batch_rank=True
+        )
+        component_to_test = MergerComponent(output_space=space, input_names=["tup0a", "tup0b", "tup1c", "tup1d",
+                                                                             "tup2", "tup3e", "tup3f", "tup4"])
+        flattened_space = space.flatten()
+        test = ComponentTest(component=component_to_test, input_spaces=flattened_space)
+
+        # Get a batch of samples.
+        sample = space.sample(size=2)
+        flattened_input = flatten_op(sample)
+        # Change the names from auto-generated to our manual ones.
+
+
+        test.test(out_socket_name="output", inputs=flattened_input, expected_outputs=sample)
+

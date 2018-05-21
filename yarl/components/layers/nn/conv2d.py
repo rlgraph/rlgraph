@@ -27,7 +27,7 @@ class Conv2DLayer(NNLayer):
     """
     A Conv2D NN-layer.
     """
-    def __init__(self, filters, kernel_size, strides, *sub_components, **kwargs):
+    def __init__(self, filters, kernel_size, strides, scope="conv-2d", *sub_components, **kwargs):
         """
         Args:
             filters (int): The number of filters to produce in the channel-rank.
@@ -45,16 +45,20 @@ class Conv2DLayer(NNLayer):
             bias_spec (any): A specifier for the biases-weights initializer. If False, use no biases.
             # TODO: regularization specs
         """
-        super(Conv2DLayer, self).__init__(*sub_components, **kwargs)
+        # Remove kwargs before calling super().
+        self.padding = kwargs.pop("padding", "valid")
+        self.data_format = kwargs.pop("data_format", "channels_last")
+        self.activation = kwargs.pop("activation", None)
+        self.kernel_spec = kwargs.pop("kernel_spec", None)
+        self.biases_spec = kwargs.pop("biases_spec", False)
+
+        super(Conv2DLayer, self).__init__(*sub_components, scope=scope, **kwargs)
+
         self.filters = filters
         self.kernel_size = kernel_size if isinstance(kernel_size, tuple) else (kernel_size, kernel_size)
         self.strides = strides if isinstance(strides, tuple) else (strides, strides)
-        self.padding = kwargs.get("padding")
-        self.data_format = kwargs.get("data_format")
-        self.activation = kwargs.get("activation")
-        self.kernel_spec = kwargs.get("kernel_spec")
+
         self.kernel_init = None  # at model-build time
-        self.biases_spec = kwargs.get("biases_spec", False)
         self.biases_init = None  # at model-build time
 
     def create_variables(self, input_spaces):
@@ -73,6 +77,6 @@ class Conv2DLayer(NNLayer):
                                           data_format=self.data_format,
                                           activation=self.activation,
                                           use_bias=(self.biases_spec is not False),
-                                          kernel_initializer=self.kernel_init,
-                                          bias_initializer=self.biases_init
+                                          kernel_initializer=self.kernel_init.initializer,
+                                          bias_initializer=self.biases_init.initializer
                                           )

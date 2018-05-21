@@ -27,7 +27,7 @@ class DenseLayer(NNLayer):
     """
     A dense (or "fully connected") NN-layer.
     """
-    def __init__(self, units, *sub_components, **kwargs):
+    def __init__(self, units, scope="dense-layer", *sub_components, **kwargs):
         """
         Args:
             units (int): The number of nodes in this layer.
@@ -36,9 +36,11 @@ class DenseLayer(NNLayer):
             weights_spec (any): A specifier for a weights initializer.
             biases_spec (any): A specifier for a biases initializer. If False, use no biases.
         """
+        # Remove kwargs before calling super().
         self.weights_spec = kwargs.pop("weights_spec", None)
         self.biases_spec = kwargs.pop("biases_spec", False)
-        super(DenseLayer, self).__init__(*sub_components, **kwargs)
+
+        super(DenseLayer, self).__init__(*sub_components, scope=scope, **kwargs)
 
         self.weights_init = None  # at build time
         self.biases_init = None  # at build time
