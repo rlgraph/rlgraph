@@ -40,8 +40,9 @@ class DenseLayer(NNLayer):
         self.biases_spec = kwargs.pop("biases_spec", False)
         super(DenseLayer, self).__init__(*sub_components, **kwargs)
 
-        self.weights_init = None  # at build time
-        self.biases_init = None  # at build time
+        # At build time.
+        self.weights_init = None
+        self.biases_init = None
 
         # Number of nodes in this layer.
         self.units = units
@@ -62,8 +63,10 @@ class DenseLayer(NNLayer):
         if backend() == "tf":
             import tensorflow as tf
             # TODO: variables registry (variables now exist in tf.layer).
-            self.layer = tf.layers.Dense(units=self.units,
-                                         kernel_initializer=self.weights_init.initializer,
-                                         use_bias=(self.biases_spec is not False),
-                                         bias_initializer=self.biases_init.initializer)
+            self.layer = tf.layers.Dense(
+                units=self.units,
+                kernel_initializer=self.weights_init.initializer,
+                use_bias=(self.biases_spec is not False),
+                bias_initializer=self.biases_init.initializer
+            )
 

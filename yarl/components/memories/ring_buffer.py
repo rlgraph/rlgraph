@@ -43,6 +43,10 @@ class RingBuffer(Memory):
             self.num_episodes = None
             self.episode_indices = None
 
+            self.define_inputs("num_episodes")
+            self.define_outputs("episodes")
+            self.add_computation(inputs="num_episodes", outputs="episodes", method=self._computation_get_episodes)
+
     def create_variables(self, input_spaces):
         super(RingBuffer, self).create_variables(input_spaces)
 
