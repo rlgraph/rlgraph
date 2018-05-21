@@ -21,7 +21,8 @@ import numpy as np
 import unittest
 
 from yarl.spaces import *
-from yarl.components import SplitterComponent
+from yarl.spaces.space_utils import flatten_op
+from yarl.components import SplitterComponent, MergerComponent
 from .component_test import ComponentTest
 
 
@@ -40,10 +41,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
             g=Tuple(bool, Continuous(shape=())),
             add_batch_rank=True
         )
-
-        # The Component to test.
         component_to_test = SplitterComponent(input_space=space)
-
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
 
         # Get a batch of samples.
@@ -69,12 +67,10 @@ class TestSplitterMergerComponents(unittest.TestCase):
             f=Continuous(shape=(3,2)),
             add_batch_rank=False
         )
-
-        # The Component to test (plus using custom output names).
+        # Using custom output names.
         component_to_test = SplitterComponent(input_space=space, output_names=["atup0bool", "atup1cont", "bcont",
                                                                                "cbool", "dintbox", "eeafloat",
                                                                                "fcont"])
-
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
 
         # Single sample (no batch rank).
@@ -90,4 +86,23 @@ class TestSplitterMergerComponents(unittest.TestCase):
         out = test.test(out_socket_name="cbool", inputs=input_, expected_outputs=np.array(input_["c"]))
         self.assertTrue(isinstance(out.item(), bool))
 
+    def test_merger_component(self):
+        space = Tuple(
+            dict(a=bool, b=float),
+            dict(c=bool),
+            float,
+            IntBox(low=0, high=255),
+            Discrete(2),
+            Continuous(shape=(3, 2)),
+            Dict(d=bool, e=Continuous(shape=())),
+            add_batch_rank=False
+        )
+        component_to_test = MergerComponent(output_space=space)
+        flattened_space = space.flatten()
+        test = ComponentTest(component=component_to_test, input_spaces=flattened_space)
 
+        # Get a batch of samples.
+        input_ = space.sample()
+        flattened_input = flatten_op(input_)
+
+        out = test.test(out_socket_name="output", inputs=flattened_input, expected_outputs=input_)

@@ -104,7 +104,7 @@ def flatten_op(op, scope_="", list_=None):
     ret = False
     # Are we in the non-recursive (first) call?
     if list_ is None:
-        assert isinstance(op, (DictOp, tuple)), "ERROR: Can only flatten container (dictop/tuple) ops!"
+        assert isinstance(op, (dict, tuple)), "ERROR: Can only flatten container (dictop/tuple) ops!"
         list_ = list()
         ret = True
 
@@ -112,10 +112,10 @@ def flatten_op(op, scope_="", list_=None):
         scope_ += "/" + _TUPLE_OPEN
         for i, c in enumerate(op):
             flatten_op(c, scope_=scope_ + str(i) + _TUPLE_CLOSE, list_=list_)
-    elif isinstance(op, DictOp):
+    elif isinstance(op, dict):
         scope_ += "/"
-        for k, v in op.items():
-            flatten_op(v, scope_=scope_ + k, list_=list_)
+        for key in sorted(op.keys()):
+            flatten_op(op[key], scope_=scope_ + key, list_=list_)
     else:
         list_.append((scope_, op))
 
@@ -159,6 +159,8 @@ def re_nest_op(op):
 
             parent_structure = current_structure
             parent_key = idx
+            if isinstance(parent_structure, list) and len(parent_structure) == parent_key:
+                parent_structure.append(None)
 
         if type_ == list and len(current_structure) == parent_key:
             current_structure.append(None)

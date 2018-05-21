@@ -41,7 +41,7 @@ class SplitterComponent(Component):
         self.define_inputs("input")
         flat_dict = input_space.flatten()
         if output_names is not None:
-            assert len(flat_dict) == len(output_names), "ERROR: Number if given out-names ({}) does not " \
+            assert len(flat_dict) == len(output_names), "ERROR: Number of given out-names ({}) does not " \
                                                         "match number of elements in input " \
                                                         "ContainerSpace ({})!". \
                 format(len(output_names), len(flat_dict))

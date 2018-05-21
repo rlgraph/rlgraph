@@ -185,7 +185,9 @@ class Socket(object):
 
 class Computation(object):
     """
-    Class describing a computation happening inside a _computation-func inside a Component.
+    Class describing a computation defined by a _computation-func inside a Component.
+    A Computation is connected to incoming Sockets (these are the input parameters to the _computation-func) and to
+    outgoing Sockets (these are the return values of the _computation func).
     Implements the update_from_input method which checks whether all necessary inputs to a computation function
     are given and - if yes - starts producing output ops from these inputs and the computation to be passed
     on to the outgoing Sockets.
@@ -199,9 +201,9 @@ class Computation(object):
                 of a method in `component` or directly a callable.
             component (Component): The Component object that this Computation belongs to.
             input_sockets (List[Socket]): The required input Sockets to be passed as parameters into the
-                computation function.
+                computation function. In the order of the computation function's parameters.
             output_sockets (List[socket]): The Sockets associated with the return values coming from the computation
-                function.
+                function. In the order of the returned values.
             flatten_container_spaces (Union[bool,Set[str]]): Whether to flatten input ContainerSpaces by creating
                 a flat OrderedDict (with automatic key names) out of Dict/Tuple.
                 Alternatively, can be a set of in-Socket names to flatten.
@@ -249,11 +251,14 @@ class Computation(object):
             self.method = method
             self.name = re.sub(r'^_computation_', "", method.__name__)
 
-        self.input_sockets = input_sockets
+        self.input_sockets_test = OrderedDict()
+        for i, in_sock in enumerate(input_sockets):
+            self.input_sockets_test[in_sock.name] = dict(socket=in_sock, pos=i, ops=set())
+        #self.input_sockets = input_sockets
         self.output_sockets = output_sockets
 
         # Registry for which incoming Sockets we already "have waiting".
-        self.waiting_ops = dict()  # key = Socket object; value = list of ops the key (Socket) carries.
+        #OBSOLETE: self.waiting_ops = dict()  # key = Socket object; value = set of ops the key (Socket) carries.
 
         # Whether we have all necessary input-sockets for passing at least one input-op combination through
         # our computation method. As long as this is False, we return prematurely and wait for more ops to come in
@@ -296,24 +301,18 @@ class Computation(object):
 
         if input_socket is not None:
             # Update waiting_ops.
-            if input_socket.name not in self.waiting_ops:
-                self.waiting_ops[input_socket.name] = set()
-            self.waiting_ops[input_socket.name].update(input_socket.ops)
-            # If "input-complete", pass through computation function.
-            if not self.input_complete:
-                # Check, whether we are input-complete now (whether all required inputs are given).
-                self.input_complete = True
-                for required in self.input_sockets:
-                    if required.name not in self.waiting_ops:
-                        self.input_complete = False
-                        break
+            record = self.input_sockets_test[input_socket.name]
+            record["ops"].update(input_socket.ops)
+            # Check for input-completeness.
+            self.check_input_completeness()
 
             # No elif! We have to check again.
             # We are input-complete: Get all possible combinations of input ops and pass all these combinations through
             # the function (only those combinations that we didn't do yet).
             if self.input_complete:
-                # A list of all possible input op combinations.
-                input_combinations = list(itertools.product(*self.waiting_ops.values()))
+                # Generate a list of all possible input op combinations.
+                in_ops = [in_sock_rec["ops"] for in_sock_rec in self.input_sockets_test.values()]
+                input_combinations = list(itertools.product(*in_ops))
                 for input_combination in input_combinations:
                     # key = tuple(input_combination)
                     # Make sure we call the computation method only once per input-op combination.
@@ -366,6 +365,20 @@ class Computation(object):
             for slot, output_socket in enumerate(self.output_sockets):
                 output_socket.update_from_input(self, op_registry, in_socket_registry, slot)
 
+    def check_input_completeness(self):
+        """
+        Checks whether this Computation is "input-complete" and stores the result in self.input_complete.
+        Input-completeness is reached (only once and then it stays that way) if all in-Sockets to this computation
+        have at least one op defined in their Socket.ops set.
+        """
+        if not self.input_complete:
+            # Check, whether we are input-complete now (whether all in-Sockets have at least one op defined).
+            self.input_complete = True
+            for record in self.input_sockets_test.values():
+                if len(record["ops"]) == 0:
+                    self.input_complete = False
+                    return
+
     def flatten_ops(self, *ops):
         """
         Flattens all ContainerSpace instances in ops into python OrderedDicts with auto-key generation.
@@ -380,13 +393,11 @@ class Computation(object):
         """
         # The returned sequence of output ops.
         ret = []
-
+        in_socket_names = self.input_sockets_test.keys()
         for i, op in enumerate(ops):
-            # The in-Socket name of this op.
-            socket_name = self.input_sockets[i].name
             # self.flatten_container_spaces cannot be False here.
             if isinstance(op, (DictOp, tuple)) and \
-                    (self.flatten_container_spaces is True or socket_name in self.flatten_container_spaces):
+                    (self.flatten_container_spaces is True or in_socket_names[i] in self.flatten_container_spaces):
                 ret.append(flatten_op(op))
             # Primitive ops are left as-is.
             else:

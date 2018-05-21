@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from collections import OrderedDict
+import re
 
 from yarl import backend, YARLError, Specifiable
 
@@ -103,6 +104,8 @@ class Space(Specifiable):
         shape = tuple(batch_rank + self.shape)
         if backend() == "tf":
             import tensorflow as tf
+            # TODO: re-evaluate the cutting of a leading '/_?' (tf doesn't like it)
+            name = re.sub(r'^/_?', "", name)
             if is_input_feed:
                 return tf.placeholder(dtype=self.dtype, shape=shape, name=name)
             else:
@@ -117,13 +120,14 @@ class Space(Specifiable):
         Tuple indexes.
 
         Args:
-            mapping (Optional[callable]): A mapping function that takes a primitive Space and converts it
-                to something else. Default is pass through.
+            mapping (Optional[callable]): A mapping function that takes a flattened auto-generated key and a primitive
+                Space and converts the primitive Space to something else. Default is pass through.
             scope_ (Optional[str]): For recursive calls only. Used for automatic key generation.
             list_ (Optional[list]): For recursive calls only. The list so far.
 
         Returns:
-            OrderedDict: The flattened OrderedDict containing only primitive Spaces.
+            OrderedDict: The flattened OrderedDict using auto-generated keys and containing only primitive Spaces
+                (or whatever the mapping function maps the primitive Spaces to).
         """
         # default: no mapping
         if mapping is None:

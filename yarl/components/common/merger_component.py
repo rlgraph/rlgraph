@@ -44,14 +44,14 @@ class MergerComponent(Component):
         self.define_outputs("output")
         flat_dict = output_space.flatten()
         if input_names is not None:
-            assert len(flat_dict) == len(input_names), "ERROR: Number if given in-names ({}) does not " \
+            assert len(flat_dict) == len(input_names), "ERROR: Number of given in-names ({}) does not " \
                                                        "match number of elements in output " \
                                                        "ContainerSpace ({})!". \
                 format(len(input_names), len(flat_dict))
         else:
             input_names = [key for key in flat_dict.keys()]
         self.define_inputs(*input_names)
-        # Insert our simple splitting computation.
+        # Insert our merging computation.
         self.add_computation(input_names, "output", self._computation_merge)
 
     def _computation_merge(self, *inputs):
