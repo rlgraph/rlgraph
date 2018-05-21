@@ -36,6 +36,7 @@ class TestReplayMemory(unittest.TestCase):
         terminal=IntBox(low=0, high=1),
         add_batch_rank=True
     )
+    memory_variables = ["size", "index"]
     capacity = 10
 
     def test_insert(self):
@@ -70,7 +71,9 @@ class TestReplayMemory(unittest.TestCase):
             num_records=int
         ))
         # Internal state variables.
-        buffer_size, buffer_index = memory.get_variables()
+        memory_variables = memory.get_variables(self.memory_variables)
+        buffer_size = memory_variables['size']
+        buffer_index = memory_variables['index']
         size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
 
         # Assert indices 0 before insert.

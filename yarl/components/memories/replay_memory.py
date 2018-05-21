@@ -45,11 +45,16 @@ class ReplayMemory(Memory):
     def create_variables(self, input_spaces):
         super(ReplayMemory, self).create_variables(input_spaces)
 
+        # Record space must contain 'terminal' for a replay memory.
+        assert 'terminal' in self.record_space
+
         # Main buffer index.
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
         # Number of elements present.
         self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
         if self.next_states:
+            assert 'states' in self.record_space
+
             # Next states are not represented as explicit keys in the registry
             # as this would cause extra memory overhead.
             self.states = []
@@ -136,6 +141,3 @@ class ReplayMemory(Memory):
         # sampled_indices = tf.Print(sampled_indices, [sampled_indices], summarize=100, message='sampled indices = ')
 
         return self.read_records(indices=sampled_indices)
-
-    def get_variables(self, names=None):
-        return [self.size, self.index]

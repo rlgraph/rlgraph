@@ -81,7 +81,7 @@ class Component(Specifiable):
 
         assert not kwargs, "ERROR: kwargs ({}) still contains items!".format(kwargs)
 
-        # dict of sub-components that live inside this one (key=sub-component's scope)
+        # Dict of sub-components that live inside this one (key=sub-component's scope).
         self.sub_components = dict()
 
         # Keep track of whether this Component has already been added to another Component and throw error
@@ -198,6 +198,21 @@ class Component(Specifiable):
         self.variables[name] = var
 
         return var
+
+    def get_variables(self, names):
+        """
+        Utility method to get any component variables by name.
+        Args:
+            names (list): Lookup name strings for variables.
+
+        Returns:
+            dict: A dict mapping variable names to their backend variables.
+        """
+        result = dict()
+        for var_name in names:
+            if var_name in self.variables:
+                result[var_name] = self.variables[var_name]
+        return result
 
     def define_inputs(self, *sockets, **kwargs):
         """

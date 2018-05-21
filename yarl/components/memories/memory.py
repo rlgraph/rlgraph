@@ -54,10 +54,14 @@ class Memory(Component):
     def create_variables(self, input_spaces):
         # Store our record-space for convenience.
         self.record_space = input_spaces["records"]
-        # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
-        self.record_registry = self.get_variable(name="replay-buffer", trainable=False,
-                                                 from_space=self.record_space, flatten=True,
-                                                 add_batch_rank=self.capacity)
+        #
+        #  Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
+        self.record_registry = self.get_variable(
+            name="memory", trainable=False,
+            from_space=self.record_space,
+            flatten=True,
+            add_batch_rank=self.capacity
+        )
 
     def _computation_insert(self, records):
         """
@@ -107,19 +111,5 @@ class Memory(Component):
         Args:
             update (dict): Any information relevant to update records, e.g. losses
                 of most recently read batch of records.
-        """
-        pass
-
-    def get_variables(self, names=None):
-        """
-        Utility method to retrieve internal variables from the registry
-        for debugging purposes.
-
-        Args:
-            names (list): List of variables to retrieve. Variables must be identified via
-                their str name in the registry.
-
-        Returns:
-            list: List of variables which the model can run to fetch their values.
         """
         pass

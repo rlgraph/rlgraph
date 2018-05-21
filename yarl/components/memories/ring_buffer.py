@@ -50,6 +50,9 @@ class RingBuffer(Memory):
     def create_variables(self, input_spaces):
         super(RingBuffer, self).create_variables(input_spaces)
 
+        # Record space must contain 'terminal' for a replay memory.
+        assert 'terminal' in self.record_space
+
         # Main buffer index.
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
         # Number of elements present.
@@ -201,9 +204,3 @@ class RingBuffer(Memory):
         indices = tf.range(start=start, limit=limit) % self.capacity
         # indices = tf.Print(indices, [start, limit, indices], summarize=100, message='\n start, limit, indices = ')
         return self.read_records(indices=indices)
-
-    def get_variables(self, names=None):
-        if self.episode_semantics:
-            return [self.size, self.index, self.num_episodes, self.episode_indices]
-        else:
-            return [self.size, self.index]

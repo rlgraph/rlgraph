@@ -40,7 +40,7 @@ class Synchronizable(Component):
 
         self.collections = collections or set(tf.GraphKeys.TRAINABLE_VARIABLES)
 
-        # Add a simple synching API.
+        # Add a simple syncing API.
         # Socket for incoming data (the data that this Component will get overwritten with).
         self.define_inputs("synch_in")
         # Socktes for:

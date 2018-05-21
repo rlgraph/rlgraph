@@ -126,6 +126,5 @@ class TestSplitterMergerComponents(unittest.TestCase):
         flattened_input = flatten_op(sample)
         # Change the names from auto-generated to our manual ones.
 
-
         test.test(out_socket_name="output", inputs=flattened_input, expected_outputs=sample)
 
