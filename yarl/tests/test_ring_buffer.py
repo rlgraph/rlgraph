@@ -173,7 +173,22 @@ class TestRingBufferMemory(unittest.TestCase):
         Edge case: What if only terminals are inserted when episode
         semantics are enabled?
         """
-        pass
+        ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=True)
+        test = ComponentTest(component=ring_buffer, input_spaces=dict(
+            records=self.record_space,
+            num_records=int
+        ))
+        buffer_size, buffer_index, num_episodes, episode_indices = ring_buffer.get_variables()
+
+        observation = terminal_records(self.record_space, self.capacity)
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+        num_episodes_value, episode_index_values = test.get_variable_values(
+            [num_episodes, episode_indices]
+        )
+        self.assertEqual(num_episodes_value, self.capacity)
+        # Every episode index should correspond to its position
+        for i in range(self.capacity):
+            self.assertEqual(episode_index_values[i], i)
 
     def test_episode_fetching(self):
         """

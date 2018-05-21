@@ -59,5 +59,5 @@ class GrayScale(PreprocessLayer):
                                                                                             self.last_rank)
         weights_reshaped = np.reshape(a=self.weights,
                                       newshape=tuple([1] * (get_rank(images)-1)) + (self.last_rank,))
-        return tf.reduce_sum(weights_reshaped * images, axis=-1, keepdims=self.keep_rank)
+        return tf.reduce_sum(input_tensor=weights_reshaped * images, axis=-1, keepdims=self.keep_rank)
 
