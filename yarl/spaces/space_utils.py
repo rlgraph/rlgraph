@@ -22,7 +22,7 @@ import re
 
 from yarl.utils.util import YARLError, dtype, get_shape, deep_tuple
 from yarl.utils.dictop import DictOp
-from .containers import Dict, Tuple, _TUPLE_OPEN, _TUPLE_CLOSE
+from .containers import Dict, Tuple, TUPLE_OPEN, TUPLE_CLOSE
 from .continuous import Continuous
 from .intbox import IntBox
 from .bool_space import Bool
@@ -104,14 +104,16 @@ def flatten_op(op, scope_="", list_=None):
     ret = False
     # Are we in the non-recursive (first) call?
     if list_ is None:
-        assert isinstance(op, (dict, tuple)), "ERROR: Can only flatten container (dictop/tuple) ops!"
+        # Flatten a primitive op -> return with simple OrderedDict with only-key=""
+        if not isinstance(op, (dict, tuple)):
+            return OrderedDict([("", op)])
         list_ = list()
         ret = True
 
     if isinstance(op, tuple):
-        scope_ += "/" + _TUPLE_OPEN
+        scope_ += "/" + TUPLE_OPEN
         for i, c in enumerate(op):
-            flatten_op(c, scope_=scope_ + str(i) + _TUPLE_CLOSE, list_=list_)
+            flatten_op(c, scope_=scope_ + str(i) + TUPLE_CLOSE, list_=list_)
     elif isinstance(op, dict):
         scope_ += "/"
         for key in sorted(op.keys()):
@@ -124,7 +126,24 @@ def flatten_op(op, scope_="", list_=None):
         return OrderedDict(list_)
 
 
-def re_nest_op(op):
+def unflatten_op(op):
+    """
+    Takes a flattened OrderedDict with auto-generated keys and returns the corresponding
+    unflattened (re-nested) structure (DictOp or tuple).
+    If the only key in the input OrderedDict is "", it returns the primitive op behind
+    that key.
+
+    Args:
+        op (FlattenedOp): The FlattenedOp to be re-nested into a tuple, DictOp or primitive op (UnflattenedOp).
+
+    Returns:
+        UnflattenedOp: The re-nested structure or primitive op.
+    """
+    # Special case: OrderedDict with only 1 primitive op (key="").
+    if len(op) == 1 and "" in op:
+        return op[""]
+
+    # Normal case: OrderedDict that came from a ContainerSpace.
     base_structure = None
 
     for k, v in op.items():
@@ -135,7 +154,7 @@ def re_nest_op(op):
 
         keys = k[1:].split("/")  # skip 1st char (/)
         for key in keys:
-            mo = re.match(r'^{}(\d+){}$'.format(_TUPLE_OPEN, _TUPLE_CLOSE), key)
+            mo = re.match(r'^{}(\d+){}$'.format(TUPLE_OPEN, TUPLE_CLOSE), key)
             if mo:
                 type_ = list
                 idx = int(mo.group(1))

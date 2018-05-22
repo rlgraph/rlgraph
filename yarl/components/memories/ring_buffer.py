@@ -17,8 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.memories.memory import Memory
 import tensorflow as tf
+
+from yarl.spaces.space_utils import DictOp
+from yarl.components.memories.memory import Memory
 
 
 class RingBuffer(Memory):
@@ -45,7 +47,8 @@ class RingBuffer(Memory):
 
             self.define_inputs("num_episodes")
             self.define_outputs("episodes")
-            self.add_computation(inputs="num_episodes", outputs="episodes", method=self._computation_get_episodes)
+            self.add_computation(inputs="num_episodes", outputs="episodes", method=self._computation_get_episodes,
+                                 flatten_ops=False)
 
     def create_variables(self, input_spaces):
         super(RingBuffer, self).create_variables(input_spaces)
@@ -161,7 +164,7 @@ class RingBuffer(Memory):
         Returns:
              dict: Record value dict.
         """
-        records = dict()
+        records = DictOp()
         for name, variable in self.record_registry.items():
             records[name] = self.read_variable(variable, indices)
         return records

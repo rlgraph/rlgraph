@@ -52,7 +52,8 @@ class MergerComponent(Component):
             input_names = [key for key in flat_dict.keys()]
         self.define_inputs(*input_names)
         # Insert our merging computation.
-        self.add_computation(input_names, "output", self._computation_merge)
+        self.add_computation(input_names, "output", self._computation_merge,
+                             flatten_ops=False)
 
     def _computation_merge(self, *inputs):
         """

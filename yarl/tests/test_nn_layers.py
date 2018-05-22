@@ -29,25 +29,27 @@ import numpy as np
 class TestNNLayer(unittest.TestCase):
 
     def test_dense(self):
-        # Dict(a=Continuous(), b=Continuous(), c=Dict(d=Continuous()))
-        space = Continuous(shape=(1, 2))
+        # Space must contain batch dimension (otherwise, NNlayer will complain).
+        space = Continuous(shape=(2,), add_batch_rank=True)
 
         # The Component to test.
         # - fixed 1.0 weights, no biases
         component_to_test = DenseLayer(units=2, weights_spec=1.0, biases_spec=False)
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
 
+        # Batch of size=1 (can increase this to any larger number).
         input_ = np.array([[0.5, 2.0]])
         expected = np.array([[2.5, 2.5]])
         test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
 
     def test_conv2d(self):
+        # Space must contain batch dimension (otherwise, NNlayer will complain).
         space = Continuous(shape=(2, 2, 3), add_batch_rank=True)
 
         component_to_test = Conv2DLayer(filters=4, kernel_size=2, strides=1, kernel_spec=0.5, biases_spec=False)
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
 
-        # 2 samples
+        # Batch of 2 samples.
         input_ = np.array([[[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],  # sample 1 (2x2x3)
                             [[7.0, 8.0, 9.0], [10.0, 11.0, 12.0]]],
                            [[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],  # sample 2 (2x2x3)

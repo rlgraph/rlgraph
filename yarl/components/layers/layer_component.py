@@ -28,7 +28,7 @@ class LayerComponent(StackComponent):
     The final interface will hence consist of the first sub-component's input(s)- and this layer's computation's
     output-socket(s).
     """
-    def __init__(self, *sub_components, **kwargs):
+    def __init__(self, computation_settings=None, *sub_components, **kwargs):
         """
         Args:
             sub_components (List[Component]): The sub-components to immediately place into this one and
@@ -42,9 +42,14 @@ class LayerComponent(StackComponent):
         """
         self.computation_inputs = kwargs.pop("computation_inputs", 1)
         self.computation_outputs = kwargs.pop("computation_outputs", 1)
-        self.split_container_spaces = kwargs.pop("split_container_spaces", True)
+        # By default, switch on splitting for all Layers.
+        if computation_settings is None:
+            computation_settings = dict(split_ops=True)
 
-        super(LayerComponent, self).__init__(*sub_components, expose_outs=False, **kwargs)
+        super(LayerComponent, self).__init__(*sub_components,
+                                             expose_outs=False,
+                                             computation_settings=computation_settings,
+                                             **kwargs)
 
         # No sub-components, just create empty in-Sockets.
         if len(sub_components) == 0:
@@ -65,7 +70,7 @@ class LayerComponent(StackComponent):
         # socket(s).
         # NOTE: Layers always do split computations on complex input Spaces.
         self.add_computation(sub_components[-1].output_sockets if len(sub_components) > 0 else self.input_sockets,
-                             self.output_sockets, "apply", split_container_spaces=self.split_container_spaces)
+                             self.output_sockets, "apply")
 
     def _computation_apply(self, *inputs):
         """

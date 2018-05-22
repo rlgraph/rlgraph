@@ -26,7 +26,7 @@ from yarl import YARLError
 from yarl.spaces import Space
 from yarl.utils.util import force_tuple, get_shape
 from yarl.utils.dictop import DictOp
-from yarl.spaces.space_utils import flatten_op, get_space_from_op, re_nest_op
+from yarl.spaces.space_utils import flatten_op, get_space_from_op, unflatten_op
 
 
 class Socket(object):
@@ -193,8 +193,8 @@ class Computation(object):
     on to the outgoing Sockets.
     """
     def __init__(self, method, component, input_sockets, output_sockets,
-                 flatten_container_spaces=True, split_container_spaces=True,
-                 add_auto_key_as_first_param=False, re_nest_container_spaces=True):
+                 flatten_ops=True, split_ops=True,
+                 add_auto_key_as_first_param=False, unflatten_ops=True):
         """
         Args:
             method (Union[str,callable]): The method of the computation (must be the name (w/o _computation prefix)
@@ -204,11 +204,11 @@ class Computation(object):
                 computation function. In the order of the computation function's parameters.
             output_sockets (List[socket]): The Sockets associated with the return values coming from the computation
                 function. In the order of the returned values.
-            flatten_container_spaces (Union[bool,Set[str]]): Whether to flatten input ContainerSpaces by creating
+            flatten_ops (Union[bool,Set[str]]): Whether to flatten input ContainerSpaces by creating
                 a flat OrderedDict (with automatic key names) out of Dict/Tuple.
                 Alternatively, can be a set of in-Socket names to flatten.
                 (default: True).
-            split_container_spaces (Union[bool,Set[str]]): Whether to flatten, then split all or some input
+            split_ops (Union[bool,Set[str]]): Whether to flatten, then split all or some input
                 ContainerSpaces and send the single, primitive Spaces one by one through the computation.
                 In this case, the computation function needs to expect single, primitive Spaces as input parameters.
                 Example: in-Sockets=A=Dict (container), B=int (primitive)
@@ -216,18 +216,18 @@ class Computation(object):
                         _computation_func(primitive-in-A (Space), B (int))
                         NOTE that B will be the same in all calls for all primitive-in-A's.
                 (default: True).
-            add_auto_key_as_first_param (bool): If `split_container_spaces` is not False, whether to send the
+            add_auto_key_as_first_param (bool): If `split_ops` is not False, whether to send the
                 automatically generated flat key as the very first parameter into each call of the computation func.
                 Example: in-Sockets=A=float (primitive), B=Tuple (container)
                     The computation func should then expect for each primitive Space in B:
                         _computation_func(key, A (float), primitive-in-B (Space))
                         NOTE that A will be the same in all calls for all primitive-in-B's.
                         The key can now be used to index into variables equally structured as B.
-                Has no effect if `split_container_spaces` is False.
+                Has no effect if `split_ops` is False.
                 (default: False).
-            re_nest_container_spaces (bool): Whether to re-establish the originally nested structure of computations
+            unflatten_ops (bool): Whether to re-establish the originally nested structure of computations
                 for an incoming, flattened ContainerSpace.
-                Only relevant if flatten_container_spaces is not False.
+                Only relevant if flatten_ops is not False.
                 (default: True)
 
         Raises:
@@ -237,10 +237,10 @@ class Computation(object):
         # The component object that the method belongs to.
         self.component = component
 
-        self.flatten_container_spaces = flatten_container_spaces
-        self.split_container_spaces = split_container_spaces
+        self.flatten_ops = flatten_ops
+        self.split_ops = split_ops
         self.add_auto_key_as_first_param = add_auto_key_as_first_param
-        self.re_nest_container_spaces = re_nest_container_spaces
+        self.unflatten_ops = unflatten_ops
 
         if isinstance(method, str):
             self.name = method
@@ -314,24 +314,23 @@ class Computation(object):
                     # Make sure we call the computation method only once per input-op combination.
                     if input_combination not in self.processed_ops:
                         # Build the ops from this input-combination.
-                        # - Flatten complex spaces.
-                        if self.flatten_container_spaces is not False:
-                            flattened_spaces = self.flatten_ops(*input_combination)
-                            if self.split_container_spaces:
+                        # - Flatten spaces.
+                        if self.flatten_ops is not False:
+                            flattened_ops = self.flatten_input_ops(*input_combination)
+                            if self.split_ops:
                                 # ops is an OrderedDict of return-tuples.
-                                ops = self.split_flattened_ops(*flattened_spaces)
+                                ops = self.split_flattened_input_ops(*flattened_ops)
                             else:
                                 # ops is a return-tuple or a single op.
                                 # Maybe including flattened OrderedDicts.
-                                ops = self.method(*flattened_spaces)
-
-                            # Need to re-nest?
-                            if self.re_nest_container_spaces:
-                                ops = self.re_nest_ops(*force_tuple(ops))
-
+                                ops = self.method(*flattened_ops)
                         # - Simple case: Just pass in everything as is.
                         else:
                             ops = self.method(*input_combination)
+
+                        # Need to re-nest?
+                        if self.unflatten_ops:
+                            ops = self.unflatten_output_ops(*force_tuple(ops))
 
                         # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
                         ops = force_tuple(ops)
@@ -375,27 +374,26 @@ class Computation(object):
                     self.input_complete = False
                     return
 
-    def flatten_ops(self, *ops):
+    def flatten_input_ops(self, *ops):
         """
         Flattens all ContainerSpace instances in ops into python OrderedDicts with auto-key generation.
-        Primitives ops and ops whose Sockets are not in self.flatten_container_spaces (if its a set)
+        Primitives ops and ops whose Sockets are not in self.flatten_ops (if its a set)
         will be ignored.
 
         Args:
-            *ops (Union[dictop,tuple,op]): The ops to flatten.
+            *ops (Union[DictOp,tuple,op]): The ops to flatten.
 
         Returns:
-            tuple: All *ops as flattened OrderedDicts (or left unchanged if already primitive).
+            tuple: All *ops as flattened OrderedDicts.
         """
         # The returned sequence of output ops.
         ret = []
         in_socket_names = self.input_sockets.keys()
         for i, op in enumerate(ops):
-            # self.flatten_container_spaces cannot be False here.
-            if isinstance(op, (DictOp, tuple)) and \
-                    (self.flatten_container_spaces is True or in_socket_names[i] in self.flatten_container_spaces):
+            # self.flatten_ops cannot be False here.
+            if self.flatten_ops is True or (isinstance(self.flatten_ops, set) and
+                                            in_socket_names[i] in self.flatten_ops):
                 ret.append(flatten_op(op))
-            # Primitive ops are left as-is.
             else:
                 ret.append(op)
 
@@ -403,7 +401,7 @@ class Computation(object):
         return tuple(ret)
 
     # TODO: Move this one into op_utils.py as well.
-    def split_flattened_ops(self, *ops):
+    def split_flattened_input_ops(self, *ops):
         """
         Splits any (flattened) OrderedDict-type op in ops into its single, primitive ops and passes them
         one by one through the computation function. If more than one container op exists in ops,
@@ -457,7 +455,7 @@ class Computation(object):
         else:
             return force_tuple(self.method(*ops))
 
-    def re_nest_ops(self, *ops):
+    def unflatten_output_ops(self, *ops):
         """
         Re-creates the originally nested input structure (as dict/tuple) of the given output ops.
         Process all flattened OrderedDicts with auto-generated keys, and leave the others (primitives)
@@ -466,8 +464,6 @@ class Computation(object):
         Args:
             *ops (Union[OrderedDict,dictop,tuple,op]): The ops that need to be re-nested (only process the OrderedDicts
                 amongst these and ignore all others).
-            #TODO: input_comparison _op (Optional[OrderedDict]): One of the flattened input ops to use for sanity checking.
-            #If not None, all output OrderedDict ops must match this one's key/value structure.
 
         Returns:
             Tuple[Union[dict,tuple,op]]: A tuple containing the ops as they came in, except that all OrderedDicts
@@ -479,7 +475,7 @@ class Computation(object):
         for i, op in enumerate(ops):
             # An OrderedDict: Try to re-nest it and then compare it to input_template_op's structure.
             if isinstance(op, dict):
-                ret.append(re_nest_op(op))  #, input_comparison_op=input_comparison_op))
+                ret.append(unflatten_op(op))
             # All others are left as-is.
             else:
                 ret.append(op)

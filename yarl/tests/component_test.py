@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import backend
+import yarl.utils.util as util
 from yarl.models.model import Model
 
 from .assert_util import recursive_assert_almost_equal
@@ -92,15 +93,16 @@ class ComponentTest(object):
         """
         pass
 
-    def get_variable_values(self, variables):
+    def get_variable_values(self, *variables):
         """
         Executes a session to retrieve the values of the provided variables.
 
         Args:
-            variables (list): Variable objects to retrieve from the graph.
+            variables (Union[variable,List[variable]]): Variable objects to retrieve from
+                the graph.
 
         Returns:
-            list: Values of the variables provided.
+            Values of the variables provided.
         """
-        return self.model.get_variable_values(variables)
+        return self.model.get_variable_values(*variables)
 

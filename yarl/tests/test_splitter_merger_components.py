@@ -23,7 +23,7 @@ import unittest
 from yarl.spaces import *
 from yarl.spaces.space_utils import flatten_op
 from yarl.components import SplitterComponent, MergerComponent
-from .component_test import ComponentTest
+from yarl.tests.component_test import ComponentTest
 
 
 class TestSplitterMergerComponents(unittest.TestCase):
@@ -107,6 +107,8 @@ class TestSplitterMergerComponents(unittest.TestCase):
 
         test.test(out_socket_name="output", inputs=flattened_input, expected_outputs=sample)
 
+    """
+    FINISH THIS WHEN WE NEED IT. Doesn't seem to be clear on how to unflatten from custom names.
     def test_merger_component_with_custom_names(self):
         space = Tuple(
             Dict(a=bool, b=Continuous(shape=(1,))),
@@ -127,4 +129,4 @@ class TestSplitterMergerComponents(unittest.TestCase):
         # Change the names from auto-generated to our manual ones.
 
         test.test(out_socket_name="output", inputs=flattened_input, expected_outputs=sample)
-
+    """

@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.utils.util import force_tuple
+from yarl.utils.util import force_list
 from yarl.models import Model
 import tensorflow as tf
 
@@ -69,6 +69,18 @@ class TensorFlowModel(Model):
             return ret
 
     def get_variable_values(self, variables):
+        """
+        Fetches the given variables from the graph and returns their current values.
+        The returned structure corresponds to the data type and structure of `variables`
+        (e.g. if a dict with variables as values comes in, a dict with the same keys and current values as values
+        is returned).
+
+        Args:
+            variables (any): Any structure that contains variables.
+
+        Returns:
+            any: Values of the given variables in the exact same structure as `variables`.
+        """
         return self.monitored_session.run(variables, feed_dict=dict())
 
     def reset_backend(self):

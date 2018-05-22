@@ -122,29 +122,64 @@ class TestPreprocessors(unittest.TestCase):
         test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
 
     def test_sequence_preprocessor(self):
-        space = Tuple(Continuous(shape=(1,)), Continuous(shape=(2, 2)), add_batch_rank=True)
-
-        # Construct the Component to test (simple Stack).
+        space = Continuous(shape=(1,), add_batch_rank=True)
         component_to_test = Sequence(seq_length=3, add_rank=True)
+        test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
 
+        vars = component_to_test.get_variables("index", "buffer")
+        index, buffer = vars["index"], vars["buffer"]
+
+        for i in range(3):
+            test.test(out_socket_name="reset")
+            index_value, buffer_value = test.get_variable_values([index, buffer])
+            #print("buffer="+str(buffer_value)+"\nindex="+str(index_value))
+            self.assertEqual(index_value, -1)
+            test.test(out_socket_name="output", inputs=np.array([[0.1]]),
+                      expected_outputs=np.array([[[0.1, 0.1, 0.1]]]))
+            index_value, buffer_value = test.get_variable_values([index, buffer])
+            self.assertEqual(index_value, 0)
+            #print("buffer="+str(buffer_value)+"\nindex="+str(index_value))
+            test.test(out_socket_name="output", inputs=np.array([[0.2]]),
+                      expected_outputs=np.array([[[0.1, 0.1, 0.2]]]))
+            index_value, buffer_value = test.get_variable_values([index, buffer])
+            self.assertEqual(index_value, 1)
+            #print("buffer="+str(buffer_value)+"\nindex="+str(index_value))
+            test.test(out_socket_name="output", inputs=np.array([[0.3]]),
+                      expected_outputs=np.array([[[0.1, 0.2, 0.3]]]))
+            index_value, buffer_value = test.get_variable_values([index, buffer])
+            self.assertEqual(index_value, 2)
+            #print("buffer="+str(buffer_value)+"\nindex="+str(index_value))
+            test.test(out_socket_name="output", inputs=np.array([[0.4]]),
+                      expected_outputs=np.array([[[0.2, 0.3, 0.4]]]))
+            index_value, buffer_value = test.get_variable_values([index, buffer])
+            self.assertEqual(index_value, 0)
+            #print("buffer="+str(buffer_value)+"\nindex="+str(index_value))
+            test.test(out_socket_name="output", inputs=np.array([[0.5]]),
+                      expected_outputs=np.array([[[0.3, 0.4, 0.5]]]))
+            index_value, buffer_value = test.get_variable_values([index, buffer])
+            self.assertEqual(index_value, 1)
+            #print("buffer="+str(buffer_value)+"\nindex="+str(index_value))
+
+    def test_sequence_preprocessor_with_container_space(self):
+        # Test with no batch rank.
+        space = Tuple(Continuous(shape=(1,)), Continuous(shape=(2, 2)), add_batch_rank=False)
+
+        component_to_test = Sequence(seq_length=4, add_rank=False)
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
 
         for i in range(3):
             test.test(out_socket_name="reset")
-            test.test(out_socket_name="output", inputs=(np.array([[0.1]]), np.array([[[0.2, 0.3], [0.4, 0.5]]])),
-                      expected_outputs=(np.array([[[0.1], [0.1], [0.1]]]), np.array([[
-                          [[0.2, 0.3], [0.4, 0.5]],
-                          [[0.2, 0.3], [0.4, 0.5]],
-                          [[0.2, 0.3], [0.4, 0.5]]
-                      ]])))
-            """
-            test.test(out_socket_name="output", inputs=np.array([0.2]),
-                      expected_outputs=np.array([[0.2], [0.1], [0.1]]))
-            test.test(out_socket_name="output", inputs=np.array([0.3]),
-                      expected_outputs=np.array([[0.3], [0.2], [0.1]]))
-            test.test(out_socket_name="output", inputs=np.array([0.4]),
-                      expected_outputs=np.array([[0.4], [0.3], [0.2]]))
-            test.test(out_socket_name="output", inputs=np.array([0.5]),
-                      expected_outputs=np.array([[0.5], [0.4], [0.3]]))
-            """
+            test.test(out_socket_name="output", inputs=(np.array([0.5]), np.array([[0.6, 0.7], [0.8, 0.9]])),
+                      expected_outputs=(np.array([0.5, 0.5, 0.5, 0.5]), np.array([[0.6, 0.7] * 4,
+                                                                                  [0.8, 0.9] * 4])))
+            test.test(out_socket_name="output", inputs=(np.array([0.6]), np.array([[1.1, 1.1], [1.1, 1.1]])),
+                      expected_outputs=(np.array([0.5, 0.5, 0.5, 0.6]), np.array([[0.6, 0.7, 0.6, 0.7,
+                                                                                   0.6, 0.7, 1.1, 1.1],
+                                                                                  [0.8, 0.9, 0.8, 0.9,
+                                                                                   0.8, 0.9, 1.1, 1.1]])))
+            test.test(out_socket_name="output", inputs=(np.array([0.7]), np.array([[2.0, 2.1], [2.2, 2.3]])),
+                      expected_outputs=(np.array([0.5, 0.5, 0.6, 0.7]), np.array([[0.6, 0.7, 0.6, 0.7,
+                                                                                   1.1, 1.1, 2.0, 2.1],
+                                                                                  [0.8, 0.9, 0.8, 0.9,
+                                                                                   1.1, 1.1, 2.2, 2.3]])))
 

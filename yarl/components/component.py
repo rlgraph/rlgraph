@@ -31,8 +31,6 @@ from yarl.spaces import Space
 EXPOSE_INS = 0x1  # whether to expose only in-Sockets (in calls to add_components)
 EXPOSE_OUTS = 0x2  # whether to expose only out-Sockets (in calls to add_components)
 
-#DUMMY_NO_IN_SOCKET = "__no_in"
-
 
 class Component(Specifiable):
     """
@@ -199,15 +197,22 @@ class Component(Specifiable):
 
         return var
 
-    def get_variables(self, names):
+    def get_variables(self, *names):
         """
         Utility method to get any component variables by name.
+
         Args:
-            names (list): Lookup name strings for variables.
+            names (List[str]): Lookup name strings for variables. None for all.
 
         Returns:
             dict: A dict mapping variable names to their backend variables.
         """
+        if len(names) == 1 and isinstance(names[0], list):
+            names = names[0]
+        names = util.force_list(names)
+        if len(names) == 0:
+            return self.variables
+
         result = dict()
         for var_name in names:
             if var_name in self.variables:
@@ -284,8 +289,8 @@ class Component(Specifiable):
                 self.output_sockets.append(sock)
 
     def add_computation(self, inputs, outputs, method=None,
-                        flatten_container_spaces=None, split_container_spaces=None,
-                        add_auto_key_as_first_param=None, re_nest_container_spaces=None):
+                        flatten_ops=None, split_ops=None,
+                        add_auto_key_as_first_param=None, unflatten_ops=None):
         """
         Links a set (A) of sockets via a computation to a set (B) of other sockets via a computation function.
         Any socket in B is thus linked back to all sockets in A (requires all A sockets).
@@ -298,13 +303,13 @@ class Component(Specifiable):
                 The `method`'s signature and number of return values has to match the
                 number of input- and output Sockets provided here.
                 If None, use the only member method that starts with '_computation_' (error otherwise).
-            flatten_container_spaces (Optional[bool,Set[str]]): Passed to Computation's c'tor. See Computation
+            flatten_ops (Optional[bool,Set[str]]): Passed to Computation's c'tor. See Computation
                 for details. Overwrites this Component's `self.computation_settings`.
-            split_container_spaces (Optional[bool,Set[str]]): Passed to Computation's c'tor. See Computation
+            split_ops (Optional[bool,Set[str]]): Passed to Computation's c'tor. See Computation
                 for details. Overwrites this Component's `self.computation_settings`.
             add_auto_key_as_first_param (Optional[bool]): Passed to Computation's c'tor. See Computation for details.
                 Overwrites this Component's `self.computation_settings`.
-            re_nest_container_spaces (Optional[bool]): Passed to Computation's c'tor. See Computation for details.
+            unflatten_ops (Optional[bool]): Passed to Computation's c'tor. See Computation for details.
                 Overwrites this Component's `self.computation_settings`.
 
         Raises:
@@ -326,14 +331,14 @@ class Component(Specifiable):
         output_sockets = [self.get_socket(s) for s in outputs]
         # Add the computation record to all input and output sockets.
         computation = Computation(method, self, input_sockets, output_sockets,
-                                  flatten_container_spaces if flatten_container_spaces is not None else
-                                  self.computation_settings.get("flatten_container_spaces", True),
-                                  split_container_spaces if split_container_spaces is not None else
-                                  self.computation_settings.get("split_container_spaces", False),
+                                  flatten_ops if flatten_ops is not None else
+                                  self.computation_settings.get("flatten_ops", True),
+                                  split_ops if split_ops is not None else
+                                  self.computation_settings.get("split_ops", False),
                                   add_auto_key_as_first_param if add_auto_key_as_first_param is not None else
                                   self.computation_settings.get("add_auto_key_as_first_param", False),
-                                  re_nest_container_spaces if re_nest_container_spaces is not None else
-                                  self.computation_settings.get("re_nest_container_spaces", True)
+                                  unflatten_ops if unflatten_ops is not None else
+                                  self.computation_settings.get("unflatten_ops", True)
                                   )
         # Connect the computation to all the given Sockets.
         for input_socket in input_sockets:

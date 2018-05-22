@@ -28,8 +28,8 @@ from .space import Space
 
 # Defines how to generate auto-keys for flattened Tuple-Space items.
 # _T\d+_
-_TUPLE_OPEN = "_T"
-_TUPLE_CLOSE = "_"
+TUPLE_OPEN = "_T"
+TUPLE_CLOSE = "_"
 
 
 class ContainerSpace(Space):
@@ -58,9 +58,9 @@ class Dict(ContainerSpace, dict):
             if not isinstance(key, str):
                 raise YARLError("ERROR: No non-str keys allowed in a Dict-Space!")
             # Prohibit reserved characters (for flattened syntax).
-            if re.search(r'[/\[\]]', key):
-                raise YARLError("ERROR: Keys to Dict() must not contain '/', '[' or ']' characters!")
-
+            if re.search(r'/|{}\d+{}'.format(TUPLE_OPEN, TUPLE_CLOSE), key):
+                raise YARLError("ERROR: Key to Dict must not contain '/' or '{}\d+{}'! Is {}.".
+                                format(TUPLE_OPEN, TUPLE_CLOSE, key))
             value = spec[key]
             # Value is already a Space: Keep it, but maybe add batch-rank.
             if isinstance(value, Space):
@@ -206,9 +206,9 @@ class Tuple(ContainerSpace, tuple):
 
     def _flatten(self, mapping, scope_, list_):
         # Iterate through this Tuple.
-        scope_ += "/" + _TUPLE_OPEN
+        scope_ += "/" + TUPLE_OPEN
         for i, component in enumerate(self):
-            component.flatten(mapping, scope_ + str(i) + _TUPLE_CLOSE, list_)
+            component.flatten(mapping, scope_ + str(i) + TUPLE_CLOSE, list_)
 
     #def get_initializer(self, specification):
     #    return tuple([subspace.get_initializer(specification) for subspace in self])
