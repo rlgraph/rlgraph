@@ -147,12 +147,11 @@ class Component(Specifiable):
             add_batch_rank (Optional[bool,int]): If from_space is given and is True, will add a 0th rank (None) to
                 the created variable. If it is an int, will add that int instead of None.
                 Default: False.
-            flatten (bool): Whether to produce a flattened OrderedDict with auto-keys
-                (instead of a DictOp/tuple/var).
+            flatten (bool): Whether to produce a FlattenedDataOp with auto-keys.
 
         Returns:
-            Union[OrderedDict,variable,dictop,tuple]: The actual variable (dependent on the backend) or - if from
-                a ContainerSpace - a (flattened or nested) dictop or tuple depending on the Space.
+            DataOp: The actual variable (dependent on the backend) or - if from
+                a ContainerSpace - a FlattenedDataOp or ContainerDataOp depending on the Space.
         """
         # Called as getter.
         if shape is None and initializer is None and from_space is None:

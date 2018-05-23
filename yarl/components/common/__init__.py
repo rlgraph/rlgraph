@@ -17,8 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .splitter_component import SplitterComponent
-from .merger_component import MergerComponent
+from .splitter import SplitterComponent
+from .merger import MergerComponent
 
 
 __all__ = ["SplitterComponent", "MergerComponent"]

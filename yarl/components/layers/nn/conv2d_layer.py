@@ -55,8 +55,8 @@ class Conv2DLayer(NNLayer):
         super(Conv2DLayer, self).__init__(*sub_components, scope=scope, **kwargs)
 
         self.filters = filters
-        self.kernel_size = kernel_size if isinstance(kernel_size, tuple) else (kernel_size, kernel_size)
-        self.strides = strides if isinstance(strides, tuple) else (strides, strides)
+        self.kernel_size = kernel_size if isinstance(kernel_size, (tuple, list)) else (kernel_size, kernel_size)
+        self.strides = strides if isinstance(strides, (tuple, list)) else (strides, strides)
 
         # At model-build time.
         self.kernel_init = None

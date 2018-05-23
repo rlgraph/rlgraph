@@ -25,7 +25,7 @@ import re
 from yarl import YARLError
 from yarl.spaces import Space
 from yarl.utils.util import force_tuple, get_shape
-from yarl.utils.dictop import DictOp
+from yarl.utils.ops import FlattenedDataOp
 from yarl.spaces.space_utils import flatten_op, get_space_from_op, unflatten_op
 
 
@@ -204,13 +204,12 @@ class Computation(object):
                 computation function. In the order of the computation function's parameters.
             output_sockets (List[socket]): The Sockets associated with the return values coming from the computation
                 function. In the order of the returned values.
-            flatten_ops (Union[bool,Set[str]]): Whether to flatten input ContainerSpaces by creating
-                a flat OrderedDict (with automatic key names) out of Dict/Tuple.
-                Alternatively, can be a set of in-Socket names to flatten.
+            flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
+                a FlattenedDataOp (with automatic key names).
+                Can also be a set of in-Socket names to flatten explicitly (True for all).
                 (default: True).
-            split_ops (Union[bool,Set[str]]): Whether to flatten, then split all or some input
-                ContainerSpaces and send the single, primitive Spaces one by one through the computation.
-                In this case, the computation function needs to expect single, primitive Spaces as input parameters.
+            split_ops (Union[bool,Set[str]]): Whether to split all or some of the already flattened DataOps
+                and send the SingleDataOps one by one through the computation.
                 Example: in-Sockets=A=Dict (container), B=int (primitive)
                     The computation func should then expect for each primitive Space in A:
                         _computation_func(primitive-in-A (Space), B (int))
@@ -225,9 +224,8 @@ class Computation(object):
                         The key can now be used to index into variables equally structured as B.
                 Has no effect if `split_ops` is False.
                 (default: False).
-            unflatten_ops (bool): Whether to re-establish the originally nested structure of computations
-                for an incoming, flattened ContainerSpace.
-                Only relevant if flatten_ops is not False.
+            unflatten_ops (bool): Whether to re-establish a nested structure of computations
+                for a returned FlattenedDataOp.
                 (default: True)
 
         Raises:
@@ -314,21 +312,19 @@ class Computation(object):
                     # Make sure we call the computation method only once per input-op combination.
                     if input_combination not in self.processed_ops:
                         # Build the ops from this input-combination.
-                        # - Flatten spaces.
+                        # - Flatten input items.
                         if self.flatten_ops is not False:
                             flattened_ops = self.flatten_input_ops(*input_combination)
+                            # Split into SingleDataOps?
                             if self.split_ops:
-                                # ops is an OrderedDict of return-tuples.
                                 ops = self.split_flattened_input_ops(*flattened_ops)
                             else:
-                                # ops is a return-tuple or a single op.
-                                # Maybe including flattened OrderedDicts.
                                 ops = self.method(*flattened_ops)
-                        # - Simple case: Just pass in everything as is.
+                        # - Just pass in everything as is.
                         else:
                             ops = self.method(*input_combination)
 
-                        # Need to re-nest?
+                        # Need to un-flatten return values?
                         if self.unflatten_ops:
                             ops = self.unflatten_output_ops(*force_tuple(ops))
 
@@ -376,15 +372,15 @@ class Computation(object):
 
     def flatten_input_ops(self, *ops):
         """
-        Flattens all ContainerSpace instances in ops into python OrderedDicts with auto-key generation.
-        Primitives ops and ops whose Sockets are not in self.flatten_ops (if its a set)
+        Flattens all DataOps in ops into FlattenedDataOp with auto-key generation.
+        Ops whose Sockets are not in self.flatten_ops (if its a set)
         will be ignored.
 
         Args:
-            *ops (Union[DictOp,tuple,op]): The ops to flatten.
+            *ops (DataOp): The items to flatten.
 
         Returns:
-            tuple: All *ops as flattened OrderedDicts.
+            tuple: All *ops as FlattenedDataOp.
         """
         # The returned sequence of output ops.
         ret = []
@@ -403,41 +399,40 @@ class Computation(object):
     # TODO: Move this one into op_utils.py as well.
     def split_flattened_input_ops(self, *ops):
         """
-        Splits any (flattened) OrderedDict-type op in ops into its single, primitive ops and passes them
-        one by one through the computation function. If more than one container op exists in ops,
-        these must have the exact same key/value structure and sequence.
+        Splits any FlattenedDataOp in ops into its SingleDataOps and passes them
+        one by one through the computation function. If more than one FlattenedDataOp exists in ops,
+        these must have the exact same keys.
         If self.add_auto_key_as_first_param is True: Pass in auto-key as very first parameter into each
             call to computation func.
 
         Args:
-            *ops (any): The input ops into this Computation. Some of these may be flattened container ops (OrderedDict).
+            *ops (FlattenedDataOp): The input items into this Computation. Must be already flattened.
 
         Returns:
-            OrderedDict: The flattened, sorted, generated ops (if at least one in ops is already a flattened
-                OrderedDict.
-            tuple(ops): If no flattened OrderedDict is in ops.
+            FlattenedDataOp: The sorted results.
+            Tuple[DataOps]: If no FlattenedDataOp is in ops.
 
         Raises:
-            YARLError: If there are more than 1 flattened ops in ops and their keys and value-types don't match 100%.
+            YARLError: If there are more than 1 flattened ops in ops and their keys don't match 100%.
         """
-        # Collect OrderedDicts (these are the flattened ones) for checking their structures (must match).
-        flattened = [op.items() for op in ops if isinstance(op, OrderedDict)]
+        # Collect FlattenedDataOp for checking their keys (must match).
+        flattened = [op.items() for op in ops if isinstance(op, FlattenedDataOp)]
         # If it's more than 1, make sure they match. If they don't match: raise Error.
         if len(flattened) > 1:
             # Loop through the first one and make sure all others match.
             for key, value in flattened[0]:
                 for other in flattened[1:]:
-                    k_other, v_other = next(other)
-                    if k_other != key or get_shape(v_other) != get_shape(value):
-                        raise YARLError("ERROR: Flattened ops dont match in structure (key={})!".format(key))
+                    k_other, v_other = next(iter(other))
+                    if key != k_other:  # or get_shape(v_other) != get_shape(value):
+                        raise YARLError("ERROR: Flattened ops have a key mismatch ({} vs {})!".format(key, k_other))
 
-        # We have (matching) container ops: Split the calls.
+        # We have (matching) ContainerDataOps: Split the calls.
         if len(flattened) > 0:
-            # The first op that is an OrderedDict.
-            guide_op = next(op for op in ops if isinstance(op, OrderedDict))
+            # The first op that is a FlattenedDataOp.
+            guide_op = next(op for op in ops if isinstance(op, FlattenedDataOp))
             # Re-create our iterators.
-            flattened = [op.items() if isinstance(op, OrderedDict) else op for op in ops]
-            collected_returns = OrderedDict()
+            flattened = [op.items() if isinstance(op, FlattenedDataOp) else op for op in ops]
+            collected_returns = FlattenedDataOp()
             # Do the single split calls to our computation func.
             for key, value in guide_op.items():
                 # Prep input params for a single call.
@@ -445,7 +440,7 @@ class Computation(object):
                 # Pull along the other ops' values for the guide_op's current key
                 # (all container ops match structure-wise).
                 for other in flattened[1:]:
-                    v_other = next(other)[1] if isinstance(other, OrderedDict) else other
+                    v_other = next(iter(other))[1]  # if isinstance(other, odict_items) else other
                     params.append(v_other)
                 # Now do the single call.
                 collected_returns[key] = self.method(*params)
@@ -457,24 +452,23 @@ class Computation(object):
 
     def unflatten_output_ops(self, *ops):
         """
-        Re-creates the originally nested input structure (as dict/tuple) of the given output ops.
-        Process all flattened OrderedDicts with auto-generated keys, and leave the others (primitives)
-        untouched.
+        Re-creates the originally nested input structure (as DataOpDict/DataOpTuple) of the given output ops.
+        Process all FlattenedDataOp with auto-generated keys, and leave the others untouched.
 
         Args:
-            *ops (Union[OrderedDict,dictop,tuple,op]): The ops that need to be re-nested (only process the OrderedDicts
+            *ops (DataOp): The ops that need to be re-nested (only process the FlattenedDataOp
                 amongst these and ignore all others).
 
         Returns:
-            Tuple[Union[dict,tuple,op]]: A tuple containing the ops as they came in, except that all OrderedDicts
-                have been re-nested into their original (dict/tuple) container structures.
+            Tuple[DataOp]: A tuple containing the ops as they came in, except that all FlattenedDataOp
+                have been un-flattened (re-nested) into their original ContainerDataOp structures.
         """
         # The returned sequence of output ops.
         ret = []
 
         for i, op in enumerate(ops):
-            # An OrderedDict: Try to re-nest it and then compare it to input_template_op's structure.
-            if isinstance(op, dict):
+            # A FlattenedDataOp: Try to re-nest it and then compare it to input_template_op's structure.
+            if isinstance(op, dict):  # allow any dict to be un-flattened
                 ret.append(unflatten_op(op))
             # All others are left as-is.
             else:

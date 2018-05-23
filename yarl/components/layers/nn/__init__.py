@@ -20,6 +20,7 @@ from __future__ import print_function
 from .initializer import Initializer
 from .nn_layer import NNLayer
 from .dense_layer import DenseLayer
-from .conv2d import Conv2DLayer
+from .conv2d_layer import Conv2DLayer
+from .concat_layer import ConcatLayer
 
-__all__ = ["Initializer", "NNLayer", "DenseLayer", "Conv2DLayer"]
+__all__ = ["Initializer", "NNLayer", "DenseLayer", "Conv2DLayer", "ConcatLayer"]

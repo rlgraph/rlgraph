@@ -17,10 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections import OrderedDict
 import re
+from collections import OrderedDict
 
 from yarl import backend, YARLError, Specifiable
+#from yarl.utils.ops import FlattenedDataOp
 
 
 class Space(Specifiable):
@@ -115,7 +116,7 @@ class Space(Specifiable):
 
     def flatten(self, mapping=None, scope_=None, list_=None):
         """
-        A mapping function to flatten this Space into a flat OrderedDict whose only values are
+        A mapping function to flatten this Space into an OrderedDict whose only values are
         primitive (non-container) Spaces. The keys are created automatically from Dict keys and
         Tuple indexes.
 
@@ -126,7 +127,7 @@ class Space(Specifiable):
             list_ (Optional[list]): For recursive calls only. The list so far.
 
         Returns:
-            OrderedDict: The flattened OrderedDict using auto-generated keys and containing only primitive Spaces
+            OrderedDict: The OrderedDict using auto-generated keys and containing only primitive Spaces
                 (or whatever the mapping function maps the primitive Spaces to).
         """
         # default: no mapping
@@ -143,7 +144,7 @@ class Space(Specifiable):
 
         self._flatten(mapping, scope_, list_)
 
-        # Non recursive (first) call -> Return the final OrderedDict.
+        # Non recursive (first) call -> Return the final FlattenedDataOp.
         if ret:
             return OrderedDict(list_)
 
@@ -155,7 +156,7 @@ class Space(Specifiable):
         Args:
             mapping (callable): The mapping function to use on a primitive (non-container) Space.
             scope_ (str): The key to use to store the mapped result in list_ (which will be converted into
-                an OrderedDict at the very end).
+                an FlattenedDataOp at the very end).
             list_ (list): The list to append the mapped results to (under key=`scope_`).
         """
         list_.append(tuple([scope_, mapping(scope_, self)]))

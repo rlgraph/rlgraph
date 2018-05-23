@@ -36,20 +36,26 @@ class NNLayer(LayerComponent):
         Do some sanity checking on the incoming Space:
         Must not be Container (for now) and must have a batch rank.
         """
-        in_space = input_spaces["input"]
-        assert not isinstance(in_space, ContainerSpace), "ERROR: Cannot handle container input Spaces " \
-                                                         "in layer '{}' (atm; may soon do)!".format(self.name)
-        assert in_space.has_batch_rank,\
-            "ERROR: Space in Socket 'input' to layer '{}' must have a batch rank (0th position)!".format(self.name)
+        super(NNLayer, self).create_variables(input_spaces)
 
-    def _computation_apply(self, input_):
+        # Loop through all our in-Sockets and sanity check each one of them for:
+        for in_sock in self.input_sockets:
+            in_space = input_spaces[in_sock.name]
+            # a) Must not be  ContainerSpace (not supported yet for NNLayers, doesn't seem to make sense).
+            assert not isinstance(in_space, ContainerSpace), "ERROR: Cannot handle container input Spaces " \
+                                                             "in layer '{}' (atm; may soon do)!".format(self.name)
+            # b) All input Spaces need batch ranks (we are passing through NNs after all).
+            assert in_space.has_batch_rank,\
+                "ERROR: Space in Socket 'input' to layer '{}' must have a batch rank (0th position)!".format(self.name)
+
+    def _computation_apply(self, *inputs):
         """
-        The actual calculation on a single, primitive input Space.
+        The actual calculation on one or more input Ops.
 
         Args:
-            input_ (op): The input to the layer.
+            inputs (FlattenedOp): The flattened input(s) to the layer.
 
         Returns:
-            The output after having pushed the input through the layer.
+            The output(s) after having pushed the input(s) through the layer.
         """
-        return self.layer.apply(input_)
+        return self.layer.apply(*inputs)

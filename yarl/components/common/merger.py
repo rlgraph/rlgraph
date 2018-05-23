@@ -17,15 +17,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections import OrderedDict
-
 from yarl.components import Component
 from yarl.spaces import ContainerSpace
+from yarl.utils.ops import FlattenedDataOp
 
 
 class MergerComponent(Component):
     """
-    Merges incoming ops into one flattened ContainerSpace (OrderedDict).
+    Merges incoming items into one FlattenedDataOp.
     """
     def __init__(self, output_space, scope="merger", input_names=None, **kwargs):
         """
@@ -57,15 +56,15 @@ class MergerComponent(Component):
 
     def _computation_merge(self, *inputs):
         """
-        Merges the inputs into a single merged and flattened output (OrderedDict) into all its primitive Spaces in the "right" order. Returns n single ops.
+        Merges the inputs into a single FlattenedDataOp.
 
         Args:
-            *inputs (op): The input ops to be merged back into a flattened OrderedDict structure.
+            *inputs (DataOp): The input items to be merged back into a FlattenedDataOp.
 
         Returns:
-            OrderedDict: The flat OrderedDict Structure as a merger of all inputs.
+            FlattenedDataOp: The FlattenedDataOp as a merger of all inputs.
         """
-        ret = OrderedDict()
+        ret = FlattenedDataOp()
         for i, op in enumerate(inputs):
             ret[self.input_sockets[i].name] = op
 

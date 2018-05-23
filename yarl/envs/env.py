@@ -56,7 +56,8 @@ class Env(Specifiable):
             kwargs (any): The action(s) to be executed by the environment. Actions have to be members of this
                 Environment's action_space (a call to self.action_space.contains(action) must return True)
 
-        Returns: A tuple of (state after(!) executing the given actions(s), reward, is-terminal, info).
+        Returns:
+            tuple: A tuple of (state after(!) executing the given actions(s), reward, is-terminal, info).
         """
         raise NotImplementedError
 

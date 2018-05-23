@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-from yarl.spaces.space_utils import DictOp
+from yarl.spaces.space_utils import FlattenedDataOp
 from yarl.components.memories.memory import Memory
 
 
@@ -159,12 +159,12 @@ class RingBuffer(Memory):
         Obtains record values for the provided indices.
 
         Args:
-            indices Union[ndarray, tf.Tensor]: Indices to read. Assumed to be not contiguous.
+            indices (Union[ndarray,tf.Tensor]): Indices to read. Assumed to be not contiguous.
 
         Returns:
-             dict: Record value dict.
+             FlattenedDataOp: Record value dict.
         """
-        records = DictOp()
+        records = FlattenedDataOp()
         for name, variable in self.record_registry.items():
             records[name] = self.read_variable(variable, indices)
         return records

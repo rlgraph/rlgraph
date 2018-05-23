@@ -43,7 +43,7 @@ class Synchronizable(Component):
         # Add a simple syncing API.
         # Socket for incoming data (the data that this Component will get overwritten with).
         self.define_inputs("synch_in")
-        # Socktes for:
+        # Sockets for:
         # a) Outgoing data (to overwrite another Synchronizable Component's data).
         # b) And the main synch op, actually doing the overwriting from synch_in to our variables.
         self.define_outputs("synch_out", "synch")

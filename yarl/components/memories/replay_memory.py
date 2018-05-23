@@ -18,8 +18,10 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
+import re
 
 from yarl.components.memories.memory import Memory
+from yarl.utils.ops import DataOpDict, FlattenedDataOp
 
 
 class ReplayMemory(Memory):
@@ -57,9 +59,9 @@ class ReplayMemory(Memory):
 
             # Next states are not represented as explicit keys in the registry
             # as this would cause extra memory overhead.
-            self.states = []
-            for state in self.record_space["states"].keys():
-                self.states.append('/states/{}'.format(state))
+            self.states = ["/states{}".format(flat_key) for flat_key in self.record_space["states"].flatten().keys()]
+            #for state in self.record_space["states"].keys():
+            #    self.states.append('/states/{}'.format(state))
 
     def _computation_insert(self, records):
         num_records = tf.shape(input=records['/terminal'])[0]
@@ -93,23 +95,23 @@ class ReplayMemory(Memory):
         Obtains record values for the provided indices.
 
         Args:
-            indices Union[ndarray, tf.Tensor]: Indices to read. Assumed to be not contiguous.
+            indices (Union[ndarray,tf.Tensor]): Indices to read. Assumed to be not contiguous.
 
         Returns:
-             DictOp: Record value dict.
+             FlattenedDataOp: Record value dict.
         """
 
-        records = dict()
+        records = FlattenedDataOp()
         for name, variable in self.record_registry.items():
             records[name] = self.read_variable(variable, indices)
         if self.next_states:
             next_indices = (indices + 1) % self.capacity
-            next_states = dict()
 
             # Next states are read via index shift from state variables.
             for state_name in self.states:
                 next_states = self.read_variable(self.record_registry[state_name], next_indices)
-            records["/next_states"] = next_states
+                next_state_name = re.sub(r'^/states/', "/next_states/", state_name)
+                records[next_state_name] = next_states
 
         return records
 

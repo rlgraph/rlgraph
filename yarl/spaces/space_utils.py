@@ -17,12 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections import OrderedDict
 import re
 
-from yarl.utils.util import YARLError, dtype, get_shape, deep_tuple
-from yarl.utils.dictop import DictOp
-from .containers import Dict, Tuple, TUPLE_OPEN, TUPLE_CLOSE
+from yarl.utils.util import YARLError, dtype, get_shape
+from yarl.utils.ops import DataOp, ContainerDataOp, DataOpDict, DataOpTuple, FlattenedDataOp
+from .containers import Dict, Tuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE
 from .continuous import Continuous
 from .intbox import IntBox
 from .bool_space import Bool
@@ -31,18 +30,18 @@ from .discrete import Discrete
 
 def get_space_from_op(op):
     """
-    Tries to re-create a Space object given some op (dictop, tuple, op).
+    Tries to re-create a Space object given some DataOp.
     This is useful for shape inference when passing a Socket's ops through a Computation and
     auto-inferring the resulting shape/Space.
 
     Args:
-        op (Union[dictop,tuple,op]): The op to create a corresponding Space for.
+        op (DataOp): The op to create a corresponding Space for.
 
     Returns:
         Space: The inferred Space object.
     """
     # a Dict
-    if isinstance(op, DictOp):
+    if isinstance(op, DataOpDict):
         spec = dict()
         add_batch_rank = False
         for k, v in op.items():
@@ -51,7 +50,7 @@ def get_space_from_op(op):
                 add_batch_rank = True
         return Dict(spec, add_batch_rank=add_batch_rank)
     # a Tuple
-    elif isinstance(op, tuple):
+    elif isinstance(op, DataOpTuple):
         spec = list()
         add_batch_rank = False
         for i in op:
@@ -91,59 +90,61 @@ def get_space_from_op(op):
 
 def flatten_op(op, scope_="", list_=None):
     """
-    Flattens a single ContainerSpace (op) into a python OrderedDict with auto-key generation.
+    Flattens a single ContainerDataOp or a native python dict/tuple into a FlattenedDataOp with auto-key generation.
 
     Args:
-        op (Union[dictop,tuple]): The op to flatten. This can only be a tuple or a dictop.
+        op (Union[ContainerDataOp,dict,tuple]): The item to flatten.
         scope_ (str): The recursive scope for auto-key generation.
-        list_ (list): The list of tuples (key, value) to be converted into the final OrderedDict.
+        list_ (list): The list of tuples (key, value) to be converted into the final FlattenedDataOp.
 
     Returns:
-        OrderedDict: The flattened representation of the op.
+        FlattenedDataOp: The flattened representation of the op.
     """
     ret = False
+
     # Are we in the non-recursive (first) call?
     if list_ is None:
-        # Flatten a primitive op -> return with simple OrderedDict with only-key=""
-        if not isinstance(op, (dict, tuple)):
-            return OrderedDict([("", op)])
+        # Flatten a SingleDataOp -> return FlattenedDataOp with only-key=""
+        if not isinstance(op, (ContainerDataOp, dict, tuple)):
+            return FlattenedDataOp([("", op)])
         list_ = list()
         ret = True
 
-    if isinstance(op, tuple):
-        scope_ += "/" + TUPLE_OPEN
-        for i, c in enumerate(op):
-            flatten_op(c, scope_=scope_ + str(i) + TUPLE_CLOSE, list_=list_)
-    elif isinstance(op, dict):
+    if isinstance(op, dict):
         scope_ += "/"
         for key in sorted(op.keys()):
             flatten_op(op[key], scope_=scope_ + key, list_=list_)
+    elif isinstance(op, tuple):
+        scope_ += "/" + FLAT_TUPLE_OPEN
+        for i, c in enumerate(op):
+            flatten_op(c, scope_=scope_ + str(i) + FLAT_TUPLE_CLOSE, list_=list_)
     else:
+        assert not isinstance(op, (dict, tuple, list))
         list_.append((scope_, op))
 
-    # Non recursive (first) call -> Return the final OrderedDict.
+    # Non recursive (first) call -> Return the final FlattenedDataOp.
     if ret:
-        return OrderedDict(list_)
+        return FlattenedDataOp(list_)
 
 
 def unflatten_op(op):
     """
-    Takes a flattened OrderedDict with auto-generated keys and returns the corresponding
-    unflattened (re-nested) structure (DictOp or tuple).
-    If the only key in the input OrderedDict is "", it returns the primitive op behind
+    Takes a FlattenedDataOp with auto-generated keys and returns the corresponding
+    unflattened DataOp.
+    If the only key in the input FlattenedDataOp is "", it returns the SingleDataOp under
     that key.
 
     Args:
-        op (FlattenedOp): The FlattenedOp to be re-nested into a tuple, DictOp or primitive op (UnflattenedOp).
+        op (FlattenedDataOp): The item to be unflattened (re-nested) into any DataOp.
 
     Returns:
-        UnflattenedOp: The re-nested structure or primitive op.
+        DataOp: The flattened (re-nested) item.
     """
-    # Special case: OrderedDict with only 1 primitive op (key="").
+    # Special case: FlattenedDataOp with only 1 SingleDataOp (key="").
     if len(op) == 1 and "" in op:
         return op[""]
 
-    # Normal case: OrderedDict that came from a ContainerSpace.
+    # Normal case: FlattenedDataOp that came from a ContainerItem.
     base_structure = None
 
     for k, v in op.items():
@@ -154,22 +155,22 @@ def unflatten_op(op):
 
         keys = k[1:].split("/")  # skip 1st char (/)
         for key in keys:
-            mo = re.match(r'^{}(\d+){}$'.format(TUPLE_OPEN, TUPLE_CLOSE), key)
+            mo = re.match(r'^{}(\d+){}$'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), key)
             if mo:
                 type_ = list
                 idx = int(mo.group(1))
             else:
-                type_ = DictOp
+                type_ = DataOpDict
                 idx = key
 
             if current_structure is None:
                 if base_structure is None:
-                    base_structure = [None] if type_ == list else DictOp()
+                    base_structure = [None] if type_ == list else DataOpDict()
                 current_structure = base_structure
             elif parent_key is not None:
                 if isinstance(parent_structure, list) and parent_structure[parent_key] is None or \
-                        isinstance(parent_structure, DictOp) and parent_key not in parent_structure:
-                    current_structure = [None] if type_ == list else DictOp()
+                        isinstance(parent_structure, DataOpDict) and parent_key not in parent_structure:
+                    current_structure = [None] if type_ == list else DataOpDict()
                     parent_structure[parent_key] = current_structure
                 else:
                     current_structure = parent_structure[parent_key]
@@ -189,3 +190,23 @@ def unflatten_op(op):
     return deep_tuple(base_structure)
 
 
+def deep_tuple(x):
+    """
+    Converts an input list of list (of list, etc..) into the respective nested DataOpTuple.
+
+    Args:
+        x (list): The input list to be converted into a tuple.
+
+    Returns:
+        tuple: The corresponding tuple to x.
+    """
+    # A list -> convert to DataOpTuple.
+    if isinstance(x, list):
+        return DataOpTuple(list(map(deep_tuple, x)))
+    # A dict -> leave type as is and keep converting recursively.
+    elif isinstance(x, dict):
+        # type(x) b/c x could be DataOpDict as well.
+        return type(x)(dict(map(lambda i: (i[0], deep_tuple(i[1])), x.items())))
+    # A primitive -> keep as is.
+    else:
+        return x

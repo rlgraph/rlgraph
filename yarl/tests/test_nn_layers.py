@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import unittest
 
-from yarl.components.layers import DenseLayer, Conv2DLayer
+from yarl.components.layers import DenseLayer, Conv2DLayer, ConcatLayer
 from yarl.spaces import Continuous
 from yarl.tests import ComponentTest
 
@@ -59,4 +59,24 @@ class TestNNLayer(unittest.TestCase):
                              [[[3.9, 3.9, 3.9, 3.9]]],  # output 2 (1x1x4)
                              ])
         test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
+
+    def test_concat(self):
+        # Spaces must contain batch dimension (otherwise, NNlayer will complain).
+        space0 = Continuous(shape=(2, 3), add_batch_rank=True)
+        space1 = Continuous(shape=(2, 1), add_batch_rank=True)
+        space2 = Continuous(shape=(2, 2), add_batch_rank=True)
+
+        component_to_test = ConcatLayer(computation_inputs=3)
+        test = ComponentTest(component=component_to_test, input_spaces=dict(input0=space0,
+                                                                            input1=space1, input2=space2))
+
+        # Batch of 2 samples to concatenate.
+        inputs = dict(input0=np.array([[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], [[1.1, 2.1, 3.1], [4.1, 5.1, 6.1]]]),
+                      input1=np.array([[[1.0], [2.0]], [[3.0], [4.0]]]),
+                      input2=np.array([[[1.2, 2.2], [3.2, 4.2]], [[1.3, 2.3], [3.3, 4.3]]]))
+        expected = np.array([[[1.0, 2.0, 3.0, 1.0, 1.2, 2.2],
+                       [4.0, 5.0, 6.0, 2.0, 3.2, 4.2]],
+                      [[1.1, 2.1, 3.1, 3.0, 1.3, 2.3],
+                       [4.1, 5.1, 6.1, 4.0, 3.3, 4.3]]], dtype=np.float32)
+        test.test(out_socket_name="output", inputs=inputs, expected_outputs=expected)
 

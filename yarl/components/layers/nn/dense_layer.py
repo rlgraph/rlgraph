@@ -55,7 +55,7 @@ class DenseLayer(NNLayer):
         in_space = input_spaces["input"]
 
         # Create weights.
-        weights_shape = (in_space.shape[0], self.units)  # [0] b/c `in_space.shape` does not include batch-rank
+        weights_shape = (in_space.shape[0], self.units)  # [0] b/c Space.shape never includes batch-rank
         self.weights_init = Initializer.from_spec(shape=weights_shape, specification=self.weights_spec)
         # And maybe biases.
         biases_shape = (self.units,)

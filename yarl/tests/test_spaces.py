@@ -71,7 +71,7 @@ class TestSpaces(unittest.TestCase):
         for k, v in flat_space_and_mapped.items():
             result += "{}:{},".format(k, v)
 
-        tuple_txt = [TUPLE_OPEN, TUPLE_CLOSE] * 10
+        tuple_txt = [FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE] * 10
         expected = "/{}0{}/a:1,/{}0{}/b:4,/{}0{}/c/d:1,/{}1{}:1,/{}2{}:2,/{}3{}:6,/{}4{}/{}0{}:1,/{}4{}/{}1{}:1,".\
             format(*tuple_txt)
 

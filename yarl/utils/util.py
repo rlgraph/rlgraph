@@ -40,7 +40,8 @@ def dtype(dtype_, to="tf"):
             pytorch data-type, or python numerical type.
         to (str): Either one of 'tf' (tensorflow), 'pt' (pytorch), or 'np' (numpy). Default="tf".
 
-    Returns: TensorFlow or Numpy data type (depending on `to` parameter).
+    Returns:
+        TensorFlow or Numpy data type (depending on `to` parameter).
     """
     # generic backend
     if dtype_ in ["float", "float32", float, np.float32, be.float32]:
@@ -77,7 +78,7 @@ def get_shape(op, flat=False, no_batch=False):
     Returns the shape of the tensor as a tuple.
 
     Args:
-        op (Union[dictop,tuple,tensor]): The input op.
+        op (DataOp): The input op.
         flat (bool): Whether to return the flattened shape (the product of all ints in the shape tuple).
             Default: False.
         no_batch (bool): Whether to exclude a possible 0th batch rank (None) from the returned shape.
@@ -127,25 +128,6 @@ def force_list(elements, to_tuple=False):
 
 
 force_tuple = partial(force_list, to_tuple=True)
-
-
-def deep_tuple(x):
-    """
-    Converts an input list of list (of list, etc..) into the respective nested tuple.
-
-    Args:
-        x (list): The input list to be converted into a tuple.
-
-    Returns:
-        tuple: The corresponding tuple to x.
-    """
-    if isinstance(x, list):
-        return tuple(map(deep_tuple, x))
-    elif isinstance(x, dict):
-        # type(x) b/c x could be DictOp we well.
-        return type(x)(dict(map(lambda i: (i[0], deep_tuple(i[1])), x.items())))
-    else:
-        return x
 
 
 def default_dict(original, defaults):

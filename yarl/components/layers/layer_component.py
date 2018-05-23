@@ -72,6 +72,12 @@ class LayerComponent(StackComponent):
         self.add_computation(sub_components[-1].output_sockets if len(sub_components) > 0 else self.input_sockets,
                              self.output_sockets, "apply")
 
+    def create_variables(self, input_spaces):
+        # Make sure the number of items in the connected input_space matches what we said about our computation_inputs.
+        assert len(input_spaces) == self.computation_inputs, \
+            "ERROR: `computation_inputs` ({}) does not match the " \
+            "number of items in `input_spaces` ({})!".format(self.computation_inputs, len(input_spaces))
+
     def _computation_apply(self, *inputs):
         """
         This is where the computation of this layer goes.

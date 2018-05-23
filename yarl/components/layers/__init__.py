@@ -24,9 +24,9 @@ from .layer_component import LayerComponent
 from .preprocessing import PreprocessLayer, Clamp, Scale, Sequence, GrayScale, Flatten
 # NN-Layers.
 from yarl.components.layers.nn.initializer import Initializer
-from .nn import NNLayer, DenseLayer, Conv2DLayer
+from .nn import NNLayer, DenseLayer, Conv2DLayer, ConcatLayer
 
 __all__ = ["StackComponent", "LayerComponent",
-           "Initializer", "NNLayer", "DenseLayer", "Conv2DLayer",
+           "Initializer", "NNLayer", "DenseLayer", "Conv2DLayer", "ConcatLayer",
            "PreprocessLayer", "Clamp", "Scale", "Sequence", "GrayScale", "Flatten"]
 

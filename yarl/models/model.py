@@ -67,7 +67,7 @@ class Model(Specifiable):
         # Some registries that we need to build the Graph from core.
         # key=op; value=set of required ops to calculate the key-op
         self.op_registry = dict()
-        # key=in-Socket name; value=set of alternative ops (dictop/tuple/op) that could go into this socket.
+        # key=in-Socket name; value=set of alternative DataOps that could go into this socket.
         # Only for very first in-Sockets.
         self.in_socket_registry = dict()
         # key=out-Socket name; value=set of necessary in-Socket names that we need in order to calculate

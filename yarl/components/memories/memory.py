@@ -69,8 +69,8 @@ class Memory(Component):
         Inserts one or more complex records.
 
         Args:
-            records (OrderedDict): OrderedDict containing record data. Keys must match keys in flattened record
-                space, values must be tensors. Use the Component's flatten options to .
+            records (FlattenedDataOp): FlattenedDataOp containing record data. Keys must match keys in record
+                space.
         """
         raise NotImplementedError
 
@@ -82,7 +82,8 @@ class Memory(Component):
         Args:
             num_records (int): Number of records to return.
 
-        Returns: The retrieved records.
+        Returns:
+            DataOpDict: The retrieved records.
         """
         raise NotImplementedError
 

@@ -22,14 +22,14 @@ from cached_property import cached_property
 import re
 
 from yarl import YARLError
-from yarl.utils.dictop import DictOp
+from yarl.utils.ops import DataOpDict, DataOpTuple
 from .space import Space
 
 
 # Defines how to generate auto-keys for flattened Tuple-Space items.
 # _T\d+_
-TUPLE_OPEN = "_T"
-TUPLE_CLOSE = "_"
+FLAT_TUPLE_OPEN = "_T"
+FLAT_TUPLE_CLOSE = "_"
 
 
 class ContainerSpace(Space):
@@ -58,9 +58,9 @@ class Dict(ContainerSpace, dict):
             if not isinstance(key, str):
                 raise YARLError("ERROR: No non-str keys allowed in a Dict-Space!")
             # Prohibit reserved characters (for flattened syntax).
-            if re.search(r'/|{}\d+{}'.format(TUPLE_OPEN, TUPLE_CLOSE), key):
+            if re.search(r'/|{}\d+{}'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), key):
                 raise YARLError("ERROR: Key to Dict must not contain '/' or '{}\d+{}'! Is {}.".
-                                format(TUPLE_OPEN, TUPLE_CLOSE, key))
+                                format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, key))
             value = spec[key]
             # Value is already a Space: Keep it, but maybe add batch-rank.
             if isinstance(value, Space):
@@ -99,11 +99,11 @@ class Dict(ContainerSpace, dict):
 
     @cached_property
     def dtype(self):
-        return DictOp([(key, subspace.dtype) for key, subspace in self.items()])
+        return DataOpDict([(key, subspace.dtype) for key, subspace in self.items()])
 
     def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, **kwargs):
-        return DictOp([(key, subspace.get_tensor_variable(name + "/" + key, is_input_feed, add_batch_rank, **kwargs))
-                       for key, subspace in self.items()])
+        return DataOpDict([(key, subspace.get_tensor_variable(name + "/" + key, is_input_feed, add_batch_rank, **kwargs))
+                           for key, subspace in self.items()])
 
     def _flatten(self, mapping, scope_, list_):
         # Iterate through this Dict.
@@ -198,17 +198,17 @@ class Tuple(ContainerSpace, tuple):
 
     @cached_property
     def dtype(self):
-        return tuple([c.dtype for c in self])
+        return DataOpTuple([c.dtype for c in self])
 
     def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, **kwargs):
-        return tuple([subspace.get_tensor_variable(name+"/"+str(i), is_input_feed, add_batch_rank, **kwargs)
-                      for i, subspace in enumerate(self)])
+        return DataOpTuple([subspace.get_tensor_variable(name+"/"+str(i), is_input_feed, add_batch_rank, **kwargs)
+                            for i, subspace in enumerate(self)])
 
     def _flatten(self, mapping, scope_, list_):
         # Iterate through this Tuple.
-        scope_ += "/" + TUPLE_OPEN
+        scope_ += "/" + FLAT_TUPLE_OPEN
         for i, component in enumerate(self):
-            component.flatten(mapping, scope_ + str(i) + TUPLE_CLOSE, list_)
+            component.flatten(mapping, scope_ + str(i) + FLAT_TUPLE_CLOSE, list_)
 
     #def get_initializer(self, specification):
     #    return tuple([subspace.get_initializer(specification) for subspace in self])
