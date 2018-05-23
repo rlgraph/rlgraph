@@ -18,34 +18,44 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-import re
 
 from yarl.components.memories.memory import Memory
-from yarl.utils.ops import DataOpDict, FlattenedDataOp
 
 
-class ReplayMemory(Memory):
+class PrioritizedReplay(Memory):
     """
-    Implements a standard replay memory to sample randomized batches.
+    Implements pure TensorFlow prioritized replay.
     """
-
     def __init__(
         self,
         capacity=1000,
         name="",
-        scope="replay-memory",
-        next_states=True
+        scope="prioritized-replay",
+        next_states=True,
+        alpha=1.0
     ):
-        super(ReplayMemory, self).__init__(capacity, name, scope)
+        super(PrioritizedReplay, self).__init__(capacity, name, scope)
 
         # Variables.
         self.index = None
         self.size = None
         self.states = None
         self.next_states = next_states
+        assert alpha > 0.0
+        # Priority weight.
+        self.alpha = alpha
+        self.define_inputs("update")
+        self.define_outputs("update_records")
+
+        self.add_computation(
+            inputs="update",
+            outputs="update_records",
+            method=self._computation_update_records,
+            flatten_ops=False
+        )
 
     def create_variables(self, input_spaces):
-        super(ReplayMemory, self).create_variables(input_spaces)
+        super(PrioritizedReplay, self).create_variables(input_spaces)
 
         # Record space must contain 'terminal' for a replay memory.
         assert 'terminal' in self.record_space
@@ -54,14 +64,23 @@ class ReplayMemory(Memory):
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
         # Number of elements present.
         self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
+
+        # TODO additional variables for prioritization?
+
         if self.next_states:
             assert 'states' in self.record_space
 
             # Next states are not represented as explicit keys in the registry
             # as this would cause extra memory overhead.
-            self.states = ["/states{}".format(flat_key) for flat_key in self.record_space["states"].flatten().keys()]
+            self.states = []
+            for state in self.record_space["states"].keys():
+                self.states.append('/states/{}'.format(state))
 
     def _computation_insert(self, records):
+        # TODO insert is same as replay, although we may want to check for priority here ->
+        # depends on usage
+
+        # TODO override priority values with max value
         num_records = tf.shape(input=records['/terminal'])[0]
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
@@ -88,56 +107,12 @@ class ReplayMemory(Memory):
         with tf.control_dependencies(control_inputs=index_updates):
             return tf.no_op()
 
-    def read_records(self, indices):
-        """
-        Obtains record values for the provided indices.
-
-        Args:
-            indices (Union[ndarray,tf.Tensor]): Indices to read. Assumed to be not contiguous.
-
-        Returns:
-             FlattenedDataOp: Record value dict.
-        """
-
-        records = FlattenedDataOp()
-        for name, variable in self.record_registry.items():
-            records[name] = self.read_variable(variable, indices)
-        if self.next_states:
-            next_indices = (indices + 1) % self.capacity
-
-            # Next states are read via index shift from state variables.
-            for state_name in self.states:
-                next_states = self.read_variable(self.record_registry[state_name], next_indices)
-                next_state_name = re.sub(r'^/states/', "/next_states/", state_name)
-                records[next_state_name] = next_states
-
-        return records
-
     def _computation_get_records(self, num_records):
-        indices = tf.range(start=0, limit=self.read_variable(self.size))
+        # 1. execute sampling loop via
+        # - sampling probability mass
+        # - obtaining index from prefix sum
+        # -> can be vectorized?
+        pass
 
-        # TODO When would we use a replay memory without next-states?
-        if self.next_states:
-            # Valid indices are non-terminal indices
-            terminal_indices = self.read_variable(self.record_registry['/terminal'], indices=indices)
-            terminal_indices = tf.Print(terminal_indices, [terminal_indices], summarize=100, message='terminal_indices = ')
-            indices = tf.Print(indices, [indices], summarize=100, message='indices = ')
-            mask = tf.logical_not(x=tf.cast(terminal_indices, dtype=tf.bool))
-            # mask = tf.Print(mask, [mask], summarize=100, message= 'mask = ')
-            indices = tf.boolean_mask(
-                tensor=indices,
-                mask=mask
-            )
-
-        # Choose with uniform probability from all valid indices.
-        # TODO problem - if there are no valid indices, we cannot return anything
-        num_valid_indices = tf.shape(input=indices)[0]
-        probabilities = tf.ones(shape=[num_valid_indices, num_valid_indices])
-        samples = tf.multinomial(logits=probabilities, num_samples=num_valid_indices)
-        # samples = tf.Print(samples, [samples, tf.shape(samples)], summarize=100, message='samples / shape = ')
-
-        # Gather sampled indices from all indices.
-        sampled_indices = tf.gather(params=indices, indices=tf.cast(x=samples[0], dtype=tf.int32))
-        # sampled_indices = tf.Print(sampled_indices, [sampled_indices], summarize=100, message='sampled indices = ')
-
-        return self.read_records(indices=sampled_indices)
+    def _computation_update_records(self, update):
+        pass
