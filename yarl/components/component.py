@@ -34,7 +34,7 @@ EXPOSE_OUTS = 0x2  # whether to expose only out-Sockets (in calls to add_compone
 
 class Component(Specifiable):
     """
-    Base class for a graph component (such as a layer, an entire function approximator, a memory, an optimizer, etc..).
+    Base class for a graph component (such as a layer, an entire function approximator, a memory, an optimizers, etc..).
 
     A component can contain other components and/or its own computation (e.g. tf ops and tensors).
     A component's sub-components are connected to each other via in- and out-Sockets (similar to LEGO blocks

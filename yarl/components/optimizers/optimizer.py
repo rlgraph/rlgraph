@@ -20,14 +20,14 @@ from __future__ import print_function
 from yarl.components import Component
 
 
-class OptimizerComponent(Component):
+class Optimizer(Component):
     """
     A component that takes a tuple of variables as in-Sockets and optimizes them according to some loss function
     or another criterion or method.
     """
 
     def __init__(self, scope="optimizer", *args, **kwargs):
-        super(OptimizerComponent, self).__init__(scope=scope, *args, **kwargs)
+        super(Optimizer, self).__init__(scope=scope, *args, **kwargs)
 
         self.define_inputs("time_step", "variables")
         self.define_outputs("step")
@@ -46,20 +46,3 @@ class OptimizerComponent(Component):
             Op: A list of delta tensors corresponding to the updates for each optimized variable.
         """
         raise NotImplementedError
-
-    def apply_step(self, variables, deltas):
-        """
-        Applies the given (and already calculated) step deltas to the variable values.
-
-        Args:
-            variables: List of variables.
-            deltas: List of deltas of same length.
-
-        Returns:
-            The step-applied operation. A tf.group of tf.assign_add ops.
-        """
-        if len(variables) != len(deltas):
-            raise YARLError("Invalid variables and deltas lists.")
-        return tf.group(
-            *(tf.assign_add(ref=variable, value=delta) for variable, delta in zip(variables, deltas))
-        )

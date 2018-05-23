@@ -17,18 +17,3 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .initializer import Initializer
-from .nn_layer import NNLayer
-from .dense_layer import DenseLayer
-from .conv2d_layer import Conv2DLayer
-from .concat_layer import ConcatLayer
-
-
-NNLayer.__lookup_classes__ = dict(
-    dense=DenseLayer,
-    fc=DenseLayer,
-    conv2d=Conv2DLayer,
-    concat=ConcatLayer
-)
-
-__all__ = ["Initializer", "NNLayer", "DenseLayer", "Conv2DLayer", "ConcatLayer"]

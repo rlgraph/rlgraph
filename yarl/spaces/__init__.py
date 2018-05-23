@@ -21,7 +21,7 @@ from .intbox import IntBox
 from .containers import ContainerSpace, Dict, Tuple, FLAT_TUPLE_CLOSE, FLAT_TUPLE_OPEN
 
 
-Space.__lookup_classes__ = {
+Space.__lookup_classes__ = dict({
     "bool": Bool,
     bool: Bool,
     "discrete": Discrete,
@@ -38,7 +38,7 @@ Space.__lookup_classes__ = {
     "sequence": Tuple,
     dict: Dict,
     "dict": Dict
-}
+})
 
 __all__ = ["Space", "Discrete", "Bool", "Continuous", "IntBox", "ContainerSpace", "Dict", "Tuple",
            "FLAT_TUPLE_CLOSE", "FLAT_TUPLE_OPEN"]

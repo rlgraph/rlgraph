@@ -25,5 +25,13 @@ from .sequence import Sequence
 from .flatten import Flatten
 
 
+PreprocessLayer.__lookup_classes__ = dict(
+    clamp=Clamp,
+    scale=Scale,
+    grayscale=GrayScale,
+    sequence=Sequence,
+    flatten=Flatten
+)
+
 __all__ = ["PreprocessLayer", "Clamp", "Scale", "GrayScale", "Sequence", "Flatten"]
 
