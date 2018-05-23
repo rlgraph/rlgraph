@@ -108,7 +108,7 @@ class ReplayMemory(Memory):
 
             # Next states are read via index shift from state variables.
             for state_name in self.states:
-                next_states = self.read_variable(self.record_registry[state_name], next_indices)
+                next_states[state_name] = self.read_variable(self.record_registry[state_name], next_indices)
             records["/next_states"] = next_states
 
         return records

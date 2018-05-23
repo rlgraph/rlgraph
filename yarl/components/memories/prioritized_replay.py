@@ -30,7 +30,7 @@ class PrioritizedReplay(Memory):
         self,
         capacity=1000,
         name="",
-        scope="replay-memory",
+        scope="prioritized-replay",
         next_states=True,
         alpha=1.0
     ):
@@ -46,6 +46,7 @@ class PrioritizedReplay(Memory):
         self.alpha = alpha
         self.define_inputs("update")
         self.define_outputs("update_records")
+
         self.add_computation(
             inputs="update",
             outputs="update_records",
@@ -74,9 +75,6 @@ class PrioritizedReplay(Memory):
             self.states = []
             for state in self.record_space["states"].keys():
                 self.states.append('/states/{}'.format(state))
-
-    def _computation_get_records(self, num_records):
-        pass
 
     def _computation_insert(self, records):
         # TODO insert is same as replay, although we may want to check for priority here ->
@@ -109,6 +107,12 @@ class PrioritizedReplay(Memory):
         with tf.control_dependencies(control_inputs=index_updates):
             return tf.no_op()
 
+    def _computation_get_records(self, num_records):
+        # 1. execute sampling loop via
+        # - sampling probability mass
+        # - obtaining index from prefix sum
+        # -> can be vectorized?
+        pass
 
     def _computation_update_records(self, update):
         pass
