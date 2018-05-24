@@ -23,13 +23,26 @@ import tensorflow as tf
 class SegmentTree(object):
     """
     Segment tree for prioritized replay.
+
+    TODO check how to manage as component.
     """
     def __init__(
         self,
+        store_variable,
         capacity=1048
     ):
+        """
+        Helper to represent a segment tree in pure TensorFlow.
+
+        Args:
+            store_variable (tf.Variable): TensorFlow variable to use for storage.
+            capacity (int): Capacity of the segment tree.
+        """
+        self.values = store_variable
         self.capacity = capacity
 
+    # TODO note we do not want to override _setitem_ because of TF
+    # variable/tensor semantics -> variables cannot be assigned without tf.assign
     def insert(self, index, element):
         """
         Inserts an element into the segment tree by determining
@@ -53,11 +66,23 @@ class SegmentTree(object):
         """
         pass
 
-    def reduce(self, start, limit):
+    def reduce_sum(self, start, limit):
         """
-        #TODO figure out how to optimize this in tensorflow.
+        Applies sum() to specified segment.
 
-        Applies reduce op to specified segment.
+        Args:
+            start (int): Start index to apply reduction to.
+            limit (end): End index to apply reduction to.
+
+        Returns:
+            any: Result of reduce
+
+        """
+        pass
+
+    def reduce_min(self, start, limit):
+        """
+        Applies min() to specified segment.
 
         Args:
             start (int): Start index to apply reduction to.

@@ -18,8 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-
+import numpy as np
 from yarl.components.memories.memory import Memory
+from yarl.components.memories.segment_tree import SegmentTree
 
 
 class PrioritizedReplay(Memory):
@@ -44,6 +45,8 @@ class PrioritizedReplay(Memory):
         assert alpha > 0.0
         # Priority weight.
         self.alpha = alpha
+        self.max_priority = 1.0
+
         self.define_inputs("update")
         self.define_outputs("update_records")
 
@@ -65,7 +68,28 @@ class PrioritizedReplay(Memory):
         # Number of elements present.
         self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
 
-        # TODO additional variables for prioritization?
+        # Segment tree must be full binary tree.
+        self.priority_capacity = 1
+        while self.priority_capacity < self.capacity:
+            self.priority_capacity *= 2
+
+        # 1. Create a variable for a sum-segment tree.
+        self.sum_segment_buffer = self.get_variable(
+                name="sum-segment-tree",
+                shape=(2 * self.priority_capacity,),
+                dtype=tf.float32,
+                trainable=False
+        )
+        self.sum_segment_tree = SegmentTree(self.sum_segment_buffer, self.priority_capacity)
+
+        # 2. Create a variable for a min-segment tree.
+        self.min_segment_buffer = self.get_variable(
+                name="min-segment-tree",
+                dtype=tf.float32,
+                trainable=False,
+                initializer=tf.constant_initializer(np.full((2 * self.priority_capacity,), float('inf')))
+        )
+        self.min_segment_tree = SegmentTree(self.min_segment_buffer, self.priority_capacity)
 
         if self.next_states:
             assert 'states' in self.record_space
