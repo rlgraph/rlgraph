@@ -86,12 +86,10 @@ class Component(Specifiable):
         # if this is done twice. Each Component should only be added once to some container Component for cleanlyness.
         self.has_been_added = False
 
-        # This Component's in/out-Socket objects.
-        ## For in-Sockets: Create dummy in-Socket for no-op out-Socket connections.
-        #dummy_in_socket = Socket(name=DUMMY_NO_IN_SOCKET, component=self, type_="in")
-        #self.input_sockets = list([dummy_in_socket])
-        self.input_sockets = list()
-        self.output_sockets = list()
+        # This Component's Socket objects by functionality.
+        self.input_sockets = list()  # the exposed in-Sockets
+        self.output_sockets = list()  # the exposed out-Sockets
+        self.internal_sockets = list()  # internal (non-exposed) in/out-Sockets (e.g. used to connect 2 Computations)
 
         # Whether we know already all our in-Sockets' Spaces.
         # Only then can we create our variables. Model will do this.
@@ -258,15 +256,18 @@ class Component(Specifiable):
         Keyword Args:
             type (str): Either "in" or "out". If no type given, try to infer type by the name.
                 If name contains "input" -> type is "in", if name contains "output" -> type is "out".
+            internal (bool): True if this is an internal (non-exposed) Socket (e.g. used for connecting
+                2 Computations directly with each other).
 
         Raises:
             YARLError: If type is not given and cannot be inferred.
         """
         type_ = kwargs.pop("type", kwargs.pop("type_", None))
+        internal = kwargs.pop("internal", False)
         assert not kwargs
 
         # Make sure we don't add two sockets with the same name.
-        all_names = [sock.name for sock in self.input_sockets + self.output_sockets]
+        all_names = [sock.name for sock in self.input_sockets + self.output_sockets + self.internal_sockets]
 
         for name in sockets:
             # Try to infer type by socket name (if name contains 'input' or 'output').
@@ -282,7 +283,9 @@ class Component(Specifiable):
             all_names.append(name)
 
             sock = Socket(name=name, component=self, type_=type_)
-            if type_ == "in":
+            if internal:
+                self.internal_sockets.append(sock)
+            elif type_ == "in":
                 self.input_sockets.append(sock)
             else:
                 self.output_sockets.append(sock)
@@ -329,9 +332,10 @@ class Component(Specifiable):
         # TODO: Make it possible to connect a computation to constant values.
         # TODO: Make it possible to call other computations within a computation and to call a sub-component's computation within a computation.
         # TODO: Sanity check the tf methods signature and return type.
-        # Compile a list of all input Sockets.
-        input_sockets = [self.get_socket(s) for s in inputs]
-        output_sockets = [self.get_socket(s) for s in outputs]
+        # Compile a list of all needed Sockets and create internal ones if they do not exist yet.
+        # External Sockets (in/out) must exist already or we will get an error.
+        input_sockets = [self.get_socket(s, create_internal_if_not_found=True) for s in inputs]
+        output_sockets = [self.get_socket(s, create_internal_if_not_found=True) for s in outputs]
         # Add the computation record to all input and output sockets.
         computation = Computation(method, self, input_sockets, output_sockets,
                                   flatten_ops if flatten_ops is not None else
@@ -576,7 +580,7 @@ class Component(Specifiable):
             from_socket_obj.connect_to(to_socket_obj)
             to_socket_obj.connect_from(from_socket_obj)
 
-    def get_socket(self, socket=None, type_=None, return_component=False):
+    def get_socket(self, socket=None, type_=None, create_internal_if_not_found=False):
         """
         Returns a Component/Socket object pair given a specifier.
 
@@ -584,16 +588,19 @@ class Component(Specifiable):
             socket (Optional[Tuple[Component,str],str,Socket]):
                 1) The name (str) of a local Socket.
                 2) tuple: (Component, Socket-name OR Socket-object)
-                3) Socket: An already given Socket -> return this Socket (throw error if return_component is True).
+                3) Socket: An already given Socket -> return this Socket.
                 4) None: Return the only Socket available on the given side.
             type_ (Optional[str]): Type of the Socket. If None, Socket could be either
                 'in' or 'out'. This must be given if the only-Socket is wanted (socket is None).
-            return_component (bool): Whether also to return the Socket's component as a second element in a tuple.
-                Will be ignored if socket is None (then the Component is always assumed to be self, anyway).
+            create_internal_if_not_found (bool): Whether to automatically create an internal Socket if the Socket
+                cannot be found (in)
 
         Returns:
             Socket: Only the Socket found.
             Tuple[Socket,Component]: Retrieved Socket object, Component that the retrieved Socket belongs to.
+
+        Raises:
+            YARLError: If the Socket cannot be found and create_internal_if_not_found is False.
         """
 
         # Return the only Socket of this component on given side (type_ must be given in this case as 'in' or 'out').
@@ -606,24 +613,13 @@ class Component(Specifiable):
 
             assert len(list_) == 1, "ERROR: More than one {}-Socket! Cannot return only-Socket.".format(type_)
             return list_[0]
-        # Socket is given as string-only: Try to look up socket via this string identifier.
+        # Socket is given as str: Try to look up socket by name.
         elif isinstance(socket, str):
             socket_name = socket
-            #mo = re.match(r'^([\w\-]*)\/(.+)$', socket)
-            #if mo:
-            #    assert mo.group(1) in self.sub_components, "ERROR: Sub-component '{}' does not exist in " \
-            #                                               "this component!".format(mo.group(1))
-            #    component = self.sub_components[mo.group(1)]
-            #    socket = mo.group(2)
-            #else:
-            #    component = self
-            #socket_obj = self.get_socket_by_name(component, socket, type_=type_)
+            component = self
             socket_obj = self.get_socket_by_name(self, socket, type_=type_)
         # Socket is given as a Socket object (simple pass-through).
         elif isinstance(socket, Socket):
-            if return_component is True:
-                raise YARLError("ERROR: Cannot pass through Socket if parameter `socket` is given as a Socket object "
-                                "and return_component is True!")
             return socket
         # Socket is given as component/sock-name OR component/sock-obj pair:
         # Could be ours, external, but also one of our sub-component's.
@@ -647,7 +643,7 @@ class Component(Specifiable):
             raise YARLError("ERROR: No '{}'-socket named '{}' found in {}!". \
                             format("??" if type_ is None else type_, socket_name, component.name))
 
-        return socket_obj if not return_component else (component, socket_obj)
+        return socket_obj
 
     def get_input(self, socket=None):
         """
@@ -660,7 +656,7 @@ class Component(Specifiable):
         Returns:
             Socket: The found in-Socket.
         """
-        return self.get_socket(socket, type_="in", return_component=True)
+        return self.get_socket(socket, type_="in")
 
     def get_output(self, socket=None):
         """
@@ -673,7 +669,7 @@ class Component(Specifiable):
         Returns:
             Socket: The found out-Socket.
         """
-        return self.get_socket(socket, type_="out", return_component=True)
+        return self.get_socket(socket, type_="out")
 
     @staticmethod
     def get_socket_by_name(component, name, type_=None):

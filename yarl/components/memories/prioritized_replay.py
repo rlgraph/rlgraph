@@ -20,6 +20,7 @@ from __future__ import print_function
 import re
 import tensorflow as tf
 import numpy as np
+
 from yarl.components.memories.memory import Memory
 from yarl.components.memories.segment_tree import SegmentTree
 from yarl.utils.ops import FlattenedDataOp
