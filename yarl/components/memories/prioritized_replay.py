@@ -133,8 +133,23 @@ class PrioritizedReplay(Memory):
             update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
             index_updates.append(self.assign_variable(self.size, value=update_size))
 
-        # Nothing to return.
+        # TODO update semgent tree
+        # Note: Cannot concurrently modify, so need iterative insert
+
+        def insert_body(i, assignments):
+            with tf.control_dependencies(control_inputs=assignments):
+                assignments = self.sum_segment_tree.insert(index=update_indices[i], element=self.max_priority)
+                assignments.extend(self.min_segment_tree.insert(index=update_indices[i], element=self.max_priority))
+            return i + 1, assignments
+
+        def cond(i):
+            return i < num_records - 1
+
         with tf.control_dependencies(control_inputs=index_updates):
+            _, assignments = tf.while_loop(cond=cond, body=insert_body, loop_vars=(0, list()))
+
+        # Nothing to return.
+        with tf.control_dependencies(control_inputs=assignments):
             return tf.no_op()
 
     def _computation_get_records(self, num_records):
