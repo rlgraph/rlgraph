@@ -295,8 +295,8 @@ class Component(Specifiable):
         Any socket in B is thus linked back to all sockets in A (requires all A sockets).
 
         Args:
-            inputs (Union[str|List[str]]): List or single input Socket specifiers to link from.
-            outputs (Union[str|List[str]]): List or single output Socket specifiers to link to.
+            inputs (Optional[str,List[str]]): List or single input Socket specifiers to link from.
+            outputs (Optional[str,List[str]]): List or single output Socket specifiers to link to.
             method (Optional[str,callable]): The name of the template method to use for linking
                 (without the _computation_ prefix) or the method itself (callable).
                 The `method`'s signature and number of return values has to match the
@@ -320,10 +320,14 @@ class Component(Specifiable):
         if method is None:
             method = [m for m in dir(self) if (callable(self.__getattribute__(m)) and re.match(r'^_computation_', m))]
             if len(method) != 1:
-                raise YARLError("ERROR: Not exactly one method found that starts with '_computation_'! Cannot add "
-                                "computation unless method_name is given explicitly.")
+                raise YARLError("ERROR: Not exactly one method found in {} that starts with '_computation_'! "
+                                "Cannot add computation unless method_name is given explicitly.".format(self.name))
             method = re.sub(r'^_computation_', "", method[0])
 
+        # TODO: For each input and output: create a socket automatically and connect it - only if given - to the given input/output sockets (that must already exist!).
+        # TODO: Change self.connect to be able to connect to a computation's socket.
+        # TODO: Make it possible to connect a computation to constant values.
+        # TODO: Make it possible to call other computations within a computation and to call a sub-component's computation within a computation.
         # TODO: Sanity check the tf methods signature and return type.
         # Compile a list of all input Sockets.
         input_sockets = [self.get_socket(s) for s in inputs]
@@ -356,7 +360,7 @@ class Component(Specifiable):
         them depending on the specs in `expose`).
 
         Args:
-            component (Component): The GrsphComponent object to add to this one.
+            component (Component): The Component object to add to this one.
             expose (any): Specifies, which of the Sockets of the added sub-component should be "forwarded" to this
                 (containing) component via new Sockets of this component.
                 For example: We are adding a sub-component with the Sockets: "input" and "output".
@@ -718,7 +722,8 @@ class Component(Specifiable):
         Reads a variable.
 
         Args:
-            indices (Optional[ndarray,tf.Tensor]): Indices to fetch.
+            variable (DataOp): The variable whose value to read.
+            indices (Optional[np.ndarray,tf.Tensor]): Indices (if any) to fetch from the variable.
 
         Returns:
             any: Variable values.

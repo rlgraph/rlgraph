@@ -17,31 +17,63 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import backend
-from yarl.components.layers import LayerComponent
+from yarl.components import Component
 
 
-class Distribution(LayerComponent):
+class Distribution(Component):
     """
-    A distribution wrapper class that can incorporate a backend-specific distribution object.
+    A distribution wrapper class that can incorporate a backend-specific distribution object that gets its parameters
+    from an external source (e.g. a NN).
     """
-    def __init__(self, *sub_components, class_=None, **kwargs):
-        """
-        Keyword Args:
-            class (class): The wrapped tf.layers class to use.
-            **kwargs (any): Kwargs to be passed to the native backend's layers's constructor.
-        """
-        assert class_, "ERROR: class_ parameter needs to be given as kwarg in c'tor of {}!".format(type(self).__name__)
+    def __init__(self, scope="distribution", **kwargs):
+        super(Distribution, self).__init__(scope=scope, **kwargs)
 
-        super(Distribution, self).__init__(*sub_components, **kwargs)
-        self.class_ = class_(**kwargs)
-        self.kwargs = kwargs
+        # Define a generic Distribution interface.
+        self.define_inputs("raw_input", "num_samples")
+        self.define_outputs("sample")
+        self.add_computation("raw_input", "distribution", self._computation_parameterize)
+        self.add_computation(["distribution", "num_samples"], "sample", self._computation_sample)
+        self.add_computation("distribution", "entropy", self._computation_entropy)
 
-    def _computation_apply(self, input_):
+    def _computation_parameterize(self, raw_input):
         """
-        Only can make_template from this function after(!) we know what the "output"?? socket's shape will be.
-        """
-        if backend() == "tf":
-            return self.class_(input_, **self.kwargs)
+        Parameterizes this distribution (normally from an NN-output vector). Returns the backend-distribution object
+        (a DataOp).
 
+        Args:
+            raw_input (DataOp): The input used to parameterize this distribution. This is normally a NN-output layer
+                that, for example, can hold the two values for mean and variance for a univariate Gaussian
+                distribution.
+
+        Returns:
+            DataOp: The parameterized backend-specific distribution object.
+        """
+        raise NotImplementedError
+
+    def _computation_sample(self, distribution, num_samples):
+        """
+        Takes a sample of size n from the distribution.
+
+        Args:
+            distribution (DataOp): The (already parameterized) backend-specific distribution DataOp to use for
+                sampling.
+            num_samples (int): The number of single samples to take.
+
+        Returns:
+            DataOp: The taken sample(s).
+        """
+        raise NotImplementedError
+
+    def _computation_entropy(self, distribution):
+        """
+        Returns the DataOp holding the entropy value of the distribution.
+
+        Args:
+            distribution (DataOp): The (already parameterized) backend-specific distribution whose entropy to
+                calculate.
+
+        Returns:
+            DataOp: The distribution's entropy.
+        """
+        raise NotImplementedError
 
