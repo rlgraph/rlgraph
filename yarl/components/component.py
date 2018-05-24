@@ -639,9 +639,15 @@ class Component(Specifiable):
             else:
                 socket_obj = self.get_socket_by_name(component, socket[1], type_=type_)
 
+        # No Socket found.
         if socket_obj is None:
-            raise YARLError("ERROR: No '{}'-socket named '{}' found in {}!". \
-                            format("??" if type_ is None else type_, socket_name, component.name))
+            # Create new internal one?
+            if create_internal_if_not_found is True:
+                socket_obj = self.add_sockets(name=socket_name, type_=type_, internal=True)
+            # Error.
+            else:
+                raise YARLError("ERROR: No '{}'-socket named '{}' found in {}!". \
+                                format("??" if type_ is None else type_, socket_name, component.name))
 
         return socket_obj
 
@@ -673,6 +679,17 @@ class Component(Specifiable):
 
     @staticmethod
     def get_socket_by_name(component, name, type_=None):
+        """
+        Returns a Socket object of the given component by the name of the Socket. Or None if no Socket could be found.
+
+        Args:
+            component (Component): The Component object to search.
+            name (str): The name of the Socket we are looking for.
+            type_ (str): The type ("in" or "out") of the Socket we are looking for. Use None for any type.
+
+        Returns:
+            Optional[Socket]: The found Socket or None if no Socket by the given name was found in `component`.
+        """
         if type_ != "in":
             socket_obj = next((x for x in component.output_sockets if x.name == name), None)
             if type_ is None and not socket_obj:
