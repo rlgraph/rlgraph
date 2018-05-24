@@ -28,17 +28,17 @@ class SegmentTree(object):
     """
     def __init__(
         self,
-        store_variable,
+        storage_variable,
         capacity=1048
     ):
         """
         Helper to represent a segment tree in pure TensorFlow.
 
         Args:
-            store_variable (tf.Variable): TensorFlow variable to use for storage.
+            storage_variable (tf.Variable): TensorFlow variable to use for storage.
             capacity (int): Capacity of the segment tree.
         """
-        self.values = store_variable
+        self.values = storage_variable
         self.capacity = capacity
 
     # TODO note we do not want to override _setitem_ because of TF
@@ -62,6 +62,17 @@ class SegmentTree(object):
             index (int):
 
         Returns: The element.
+
+        """
+        return self.values[self.capacity + index]
+
+    def index_of_prefixsum(self, prefix_sum):
+        """
+
+        Args:
+            prefix_sum:
+
+        Returns:
 
         """
         pass

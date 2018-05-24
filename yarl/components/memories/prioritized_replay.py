@@ -17,13 +17,18 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import re
 import tensorflow as tf
 import numpy as np
 from yarl.components.memories.memory import Memory
 from yarl.components.memories.segment_tree import SegmentTree
+from yarl.utils.ops import FlattenedDataOp
 
 
 class PrioritizedReplay(Memory):
+    # XXX: this could maybe later inherit from replay buffer, is kept separate for now
+    # until design fully clear.
+
     """
     Implements pure TensorFlow prioritized replay.
     """
@@ -87,6 +92,7 @@ class PrioritizedReplay(Memory):
                 name="min-segment-tree",
                 dtype=tf.float32,
                 trainable=False,
+                # Neutral element of min()
                 initializer=tf.constant_initializer(np.full((2 * self.priority_capacity,), float('inf')))
         )
         self.min_segment_tree = SegmentTree(self.min_segment_buffer, self.priority_capacity)
@@ -132,11 +138,42 @@ class PrioritizedReplay(Memory):
             return tf.no_op()
 
     def _computation_get_records(self, num_records):
-        # 1. execute sampling loop via
-        # - sampling probability mass
-        # - obtaining index from prefix sum
-        # -> can be vectorized?
-        pass
+        # Sum total mass.
+        current_size = self.read_variable(self.size)
+        prob_sum = self.sum_segment_tree.reduce_sum(start=0, limit=current_size - 1)
+
+        # Sample the entire batch.
+        sample = prob_sum * tf.random_uniform(shape=(num_records, ))
+
+        # Vectorized search loop searches through tree in parallel.
+        sample_indices = self.sum_segment_tree.index_of_prefixsum(sample)
+
+        # TODO what about filtering terminals?
+        # - Searching prefix sum/resampling too expensive.
+        return self.read_records(indices=sample_indices)
+
+    def read_records(self, indices):
+        """
+        Obtains record values for the provided indices.
+
+        Args:
+            indices (Union[ndarray,tf.Tensor]): Indices to read. Assumed to be not contiguous.
+
+        Returns:
+             FlattenedDataOp: Record value dict.
+        """
+        records = FlattenedDataOp()
+        for name, variable in self.record_registry.items():
+            records[name] = self.read_variable(variable, indices)
+        if self.next_states:
+            next_indices = (indices + 1) % self.capacity
+
+            # Next states are read via index shift from state variables.
+            for state_name in self.states:
+                next_states = self.read_variable(self.record_registry[state_name], next_indices)
+                next_state_name = re.sub(r'^/states/', "/next_states/", state_name)
+                records[next_state_name] = next_states
+        return records
 
     def _computation_update_records(self, update):
         pass
