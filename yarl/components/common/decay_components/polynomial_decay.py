@@ -17,10 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .decay import DecayComponent
+from yarl import backend
+
+from .decay_component import DecayComponent
 
 
-class LinearDecay(DecayComponent):
+class PolynomialDecay(DecayComponent):
     """
     Component that takes a time input and outputs a linearly decaying value (using init-, and final values).
     The formula is:
@@ -31,20 +33,18 @@ class LinearDecay(DecayComponent):
     - from=start value
     - to=end value
     """
-    def __init__(self, from_=1.0, to_=0.1, start_timestep=0, num_timesteps=10000,
-                 scope="linear-decay", **kwargs):
+    def __init__(self, power=1.0, scope="polynomial-decay", **kwargs):
         """
         Args:
-            from_ (float): The max value returned between 0 and `start_timestep`.
-            to_ (float): The min value returned from [`start_timestep`+`num_timesteps`] onwards.
-            start_timestep (int): The timestep at which to start the decay process.
-            num_timesteps (int): The number of time steps over which to decay. Outputs will be stationary before and
-                after this decaying period.
+            power (float): The polynomial power to use (e.g. 1.0 for linear).
         """
-        super(LinearDecay, self).__init__(from_=from_, to_=to_, start_timestep=start_timestep,
-                                          num_timesteps=num_timesteps, scope=scope, **kwargs)
+        super(PolynomialDecay, self).__init__(scope=scope, **kwargs)
 
-    def decay(self, time_step):
-        progress = time_step / self.num_timesteps
-        return progress * (self.from_ - self.to_) + self.to_
+        self.power = power
+
+    def decay(self, time_steps_in_decay_window):
+        if backend() == "tf":
+            import tensorflow as tf
+            return tf.train.polynomial_decay(self.from_, time_steps_in_decay_window, self.num_timesteps,
+                                             self.to_, power=self.power)
 

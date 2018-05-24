@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 
+from yarl.utils import util
 from yarl.components import Component
 
 
@@ -26,7 +27,7 @@ class DecayComponent(Component):
     """
     A base class Component that takes a time input and outputs some decaying-over-time value.
     """
-    def __init__(self, from_=1.0, to_=0.1, start_timestep=0, num_timesteps=10000, scope="decay", **kwargs):
+    def __init__(self, scope="decay", **kwargs):
         """
         Args:
             from_ (float): The max value returned between 0 and `start_timestep`.
@@ -34,36 +35,40 @@ class DecayComponent(Component):
             start_timestep (int): The timestep at which to start the decay process.
             num_timesteps (int): The number of time steps over which to decay. Outputs will be stationary before and
                 after this decaying period.
+
+        Keyword Args:
+
         """
         super(DecayComponent, self).__init__(scope=scope, **kwargs)
 
-        self.from_ = from_
-        self.to_ = to_
-        self.start_timestep = start_timestep
-        self.num_timesteps = num_timesteps
+        self.from_ = kwargs.get("from", 1.0)
+        self.to_ = kwargs.get("to", 0.1)
+        self.start_timestep = kwargs.get("start_timestep", 0)
+        self.num_timesteps = kwargs.get("num_timesteps", 10000)
 
         # Our interface.
         self.define_inputs("time_step")
         self.define_outputs("value")
         self.add_computation("time_step", "value", self._computation_value)
 
-    def decay(self, time_step):
+    def decay(self, time_steps_in_decay_window):
         """
         The function that returns the DataOp to actually compute the decay during the decay time period.
 
         Args:
-            time_step (DataOp): The int DataOp that holds the time_step.
+            time_steps_in_decay_window (DataOp): The time-step value (already cast to float) based on
+                `self.start_timestep` (not the global time-step value).
+                E.g. time_step=10.0 if global-timestep=100 and `self.start_timestep`=90.
+
         Returns:
-            DataOp: The decay'd value (may be based on self.time_step) DataOp
+            DataOp: The decay'd value (may be based on time_steps_in_decay_window).
         """
         raise NotImplementedError
 
     def _computation_value(self, time_step):
         """
         Args:
-            time_step (DataOp): The time-step value (already cast to float) based on `self.start_timestep`
-                (not the global time-step value).
-                E.g. time_step=10.0 if global-timestep=100 and `self.start_timestep`=90.
+            time_step (DataOp): The int-type DataOp that holds the current global time_step.
 
         Returns:
             DataOp: The decay'd value depending on the current time step.

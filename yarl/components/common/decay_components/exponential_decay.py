@@ -17,7 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .decay import DecayComponent
+from yarl import backend
+
+from .decay_component import DecayComponent
 
 
 class ExponentialDecay(DecayComponent):
@@ -32,8 +34,7 @@ class ExponentialDecay(DecayComponent):
     - from=start value
     - to=end value
     """
-    def __init__(self, from_=1.0, to_=0.1, start_timestep=0, num_timesteps=10000,
-                 half_life=None, num_half_lives=10, scope="exponential-decay", **kwargs):
+    def __init__(self, half_life=None, num_half_lives=10, scope="exponential-decay", **kwargs):
         """
         Args:
             half_life (Optional[int]): The half life period in number of timesteps. Use `num_half_lives` for a relative
@@ -41,14 +42,13 @@ class ExponentialDecay(DecayComponent):
             num_half_lives (Optional[int]): The number of sub-periods into which `num_timesteps` will be divided, each
                 division being the length of time in which we decay 50%. This is an alternative to `half_life`.
         """
-        assert half_life is not None or num_half_lives is not None
+        assert isinstance(half_life, int) or isinstance(num_half_lives, int)
 
-        super(ExponentialDecay, self).__init__(from_=from_, to_=to_, start_timestep=start_timestep,
-                                               num_timesteps=num_timesteps, scope=scope, **kwargs)
+        super(ExponentialDecay, self).__init__(scope=scope, **kwargs)
 
         self.half_life_timesteps = half_life if half_life is not None else self.num_timesteps / num_half_lives
 
-    def decay(self, time_step):
-        exp = - time_step / self.half_life_timesteps
-        return (2 ** exp) * (self.from_ - self.to_) + self.to_
-
+    def decay(self, time_steps_in_decay_window):
+        if backend() == "tf":
+            import tensorflow as tf
+            return tf.train.exponential_decay(self.from_, time_steps_in_decay_window, self.half_life_timesteps, 0.5)
