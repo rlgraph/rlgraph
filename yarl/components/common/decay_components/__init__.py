@@ -17,3 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from .exponential_decay import ExponentialDecay
+from .linear_decay import LinearDecay
+
+__all__ = ["ExponentialDecay", "LinearDecay"]
+

@@ -578,10 +578,7 @@ class Component(Specifiable):
 
         Args:
             socket (Optional[Tuple[Component,str],str,Socket]):
-                1) The name (str) of a local Socket
-                 # OBSOLETE (not supported anymore, as not necessary and conflicts with auto-flatten-keys!):
-                 # (including sub-component's ones using the
-                 # "sub-comp-nam/socket-name"-notation)
+                1) The name (str) of a local Socket.
                 2) tuple: (Component, Socket-name OR Socket-object)
                 3) Socket: An already given Socket -> return this Socket (throw error if return_component is True).
                 4) None: Return the only Socket available on the given side.

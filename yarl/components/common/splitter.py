@@ -21,7 +21,7 @@ from yarl.components import Component
 from yarl.spaces import ContainerSpace
 
 
-class SplitterComponent(Component):
+class Splitter(Component):
     """
     Splits an incoming container Space into all its single primitive Spaces.
     """
@@ -33,7 +33,7 @@ class SplitterComponent(Component):
                 coming from the flattening operation.
         """
         assert isinstance(input_space, ContainerSpace), "ERROR: `input_space` must be a ContainerSpace (Dict or Tuple)!"
-        super(SplitterComponent, self).__init__(scope=scope, **kwargs)
+        super(Splitter, self).__init__(scope=scope, **kwargs)
 
         self.input_space = input_space
 

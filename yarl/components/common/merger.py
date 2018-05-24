@@ -22,7 +22,7 @@ from yarl.spaces import ContainerSpace
 from yarl.utils.ops import FlattenedDataOp
 
 
-class MergerComponent(Component):
+class Merger(Component):
     """
     Merges incoming items into one FlattenedDataOp.
     """
@@ -35,7 +35,7 @@ class MergerComponent(Component):
         """
         assert isinstance(output_space, ContainerSpace), "ERROR: `output_space` must be a ContainerSpace " \
                                                          "(Dict or Tuple)!"
-        super(MergerComponent, self).__init__(scope=scope, **kwargs)
+        super(Merger, self).__init__(scope=scope, **kwargs)
 
         self.output_space = output_space
 

@@ -17,9 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .splitter import SplitterComponent
-from .merger import MergerComponent
+from .splitter import Splitter
+from .merger import Merger
+from .decay_components import ExponentialDecay, LinearDecay
 
-
-__all__ = ["SplitterComponent", "MergerComponent"]
+__all__ = ["Splitter", "Merger", "ExponentialDecay", "LinearDecay"]
 

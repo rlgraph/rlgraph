@@ -22,7 +22,7 @@ import unittest
 
 from yarl.spaces import *
 from yarl.spaces.space_utils import flatten_op
-from yarl.components import SplitterComponent, MergerComponent
+from yarl.components import Splitter, Merger
 from yarl.tests.component_test import ComponentTest
 
 
@@ -41,7 +41,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
             g=Tuple(bool, Continuous(shape=())),
             add_batch_rank=True
         )
-        component_to_test = SplitterComponent(input_space=space)
+        component_to_test = Splitter(input_space=space)
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
 
         # Get a batch of samples.
@@ -68,7 +68,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
             add_batch_rank=False
         )
         # Using custom output names.
-        component_to_test = SplitterComponent(input_space=space, output_names=["atup0bool", "atup1cont", "bcont",
+        component_to_test = Splitter(input_space=space, output_names=["atup0bool", "atup1cont", "bcont",
                                                                                "cbool", "dintbox", "eeafloat",
                                                                                "fcont"])
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
@@ -97,7 +97,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
             Dict(d=bool, e=Continuous(shape=())),
             add_batch_rank=False
         )
-        component_to_test = MergerComponent(output_space=space)
+        component_to_test = Merger(output_space=space)
         flattened_space = space.flatten()
         test = ComponentTest(component=component_to_test, input_spaces=flattened_space)
 
@@ -118,7 +118,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
             Discrete(6),
             add_batch_rank=True
         )
-        component_to_test = MergerComponent(output_space=space, input_names=["tup0a", "tup0b", "tup1c", "tup1d",
+        component_to_test = Merger(output_space=space, input_names=["tup0a", "tup0b", "tup1c", "tup1d",
                                                                              "tup2", "tup3e", "tup3f", "tup4"])
         flattened_space = space.flatten()
         test = ComponentTest(component=component_to_test, input_spaces=flattened_space)
