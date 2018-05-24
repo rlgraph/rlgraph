@@ -30,6 +30,8 @@ if backend() == "tf":
 else:
     import pytorch as be
 
+SMALL_NUMBER = 1e-6
+
 
 def dtype(dtype_, to="tf"):
     """

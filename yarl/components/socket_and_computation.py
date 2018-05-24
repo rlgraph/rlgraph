@@ -249,9 +249,11 @@ class Computation(object):
             self.method = method
             self.name = re.sub(r'^_computation_', "", method.__name__)
 
+        # Dict-records for input-sockets (by name) to keep information on their position and "op-completeness".
         self.input_sockets = OrderedDict()
         for i, in_sock in enumerate(input_sockets):
             self.input_sockets[in_sock.name] = dict(socket=in_sock, pos=i, ops=set())
+        # Just a list of Socket objects.
         self.output_sockets = output_sockets
 
         # Whether we have all necessary input-sockets for passing at least one input-op combination through

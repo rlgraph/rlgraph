@@ -72,11 +72,16 @@ class Sequence(PreprocessLayer):
 
     def _computation_apply(self, inputs):
         """
-        Stitches together the incoming inputs by using our buffer (with stored older records).
+        Sequences (stitches) together the incoming inputs by using our buffer (with stored older records).
+        Sequencing happens within the last rank if `self.add_rank` is False, otherwise a new rank is added at the end for
+        the sequencing.
 
         Args:
-            inputs (FlatOp): The flattened OrderedDict of input ops to be sequenced.
-                One sequence is generated separately for each primitive tensor in inputs.
+            inputs (FlattenedDataOp): The FlattenedDataOp to be sequenced.
+                One sequence is generated separately for each SingleDataOp in inputs.
+
+        Returns:
+            FlattenedDataOp: The FlattenedDataOp holding the sequenced SingleDataOps as values.
         """
         # A normal (index != -1) assign op.
         def normal_assign():
@@ -116,8 +121,7 @@ class Sequence(PreprocessLayer):
             sequences = OrderedDict()
             # Collect the correct previous inputs from the buffer to form the output sequence.
             for key in inputs.keys():
-                n_in = [self.buffer[key][(self.index + n) % self.sequence_length]
-                        for n in range(self.sequence_length)]
+                n_in = [self.buffer[key][(self.index + n) % self.sequence_length] for n in range(self.sequence_length)]
 
                 # Add the sequence-rank to the end of our inputs.
                 if self.add_rank:

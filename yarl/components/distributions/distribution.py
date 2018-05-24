@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl.components import Component
+from yarl.spaces import ContainerSpace
 
 
 class Distribution(Component):
@@ -30,18 +31,28 @@ class Distribution(Component):
 
         # Define a generic Distribution interface.
         self.define_inputs("raw_input", "num_samples")
-        self.define_outputs("sample")
+        self.define_outputs("sample", "entropy")
+        # "distribution" will be an internal Socket used to connect the Computations with each other.
         self.add_computation("raw_input", "distribution", self._computation_parameterize)
         self.add_computation(["distribution", "num_samples"], "sample", self._computation_sample)
         self.add_computation("distribution", "entropy", self._computation_entropy)
 
-    def _computation_parameterize(self, raw_input):
+    def create_variables(self, input_spaces):
+        in_space = input_spaces["raw_input"]
+        # a) Must not be ContainerSpace (not supported yet for Distributions, doesn't seem to make sense).
+        assert not isinstance(in_space, ContainerSpace), "ERROR: Cannot handle container input Spaces " \
+                                                         "in distribution '{}' (atm; may soon do)!".format(self.name)
+        # b) All input Spaces need batch ranks.
+        assert in_space.has_batch_rank,\
+            "ERROR: Space in Socket 'input' to layer '{}' must have a batch rank (0th position)!".format(self.name)
+
+    def _computation_parameterize(self, flat_input):
         """
         Parameterizes this distribution (normally from an NN-output vector). Returns the backend-distribution object
         (a DataOp).
 
         Args:
-            raw_input (DataOp): The input used to parameterize this distribution. This is normally a NN-output layer
+            flat_input (DataOp): The input used to parameterize this distribution. This is normally a NN-output layer
                 that, for example, can hold the two values for mean and variance for a univariate Gaussian
                 distribution.
 
@@ -56,13 +67,13 @@ class Distribution(Component):
 
         Args:
             distribution (DataOp): The (already parameterized) backend-specific distribution DataOp to use for
-                sampling.
+                sampling. This is simply the output of `self._computation_parameterize`.
             num_samples (int): The number of single samples to take.
 
         Returns:
             DataOp: The taken sample(s).
         """
-        raise NotImplementedError
+        return distribution.sample(shape=(num_samples,))
 
     def _computation_entropy(self, distribution):
         """
@@ -70,10 +81,9 @@ class Distribution(Component):
 
         Args:
             distribution (DataOp): The (already parameterized) backend-specific distribution whose entropy to
-                calculate.
+                calculate. This is simply the output of `self._computation_parameterize`.
 
         Returns:
             DataOp: The distribution's entropy.
         """
-        raise NotImplementedError
-
+        return distribution.entropy()

@@ -327,11 +327,9 @@ class Component(Specifiable):
                                 "Cannot add computation unless method_name is given explicitly.".format(self.name))
             method = re.sub(r'^_computation_', "", method[0])
 
-        # TODO: For each input and output: create a socket automatically and connect it - only if given - to the given input/output sockets (that must already exist!).
-        # TODO: Change self.connect to be able to connect to a computation's socket.
         # TODO: Make it possible to connect a computation to constant values.
         # TODO: Make it possible to call other computations within a computation and to call a sub-component's computation within a computation.
-        # TODO: Sanity check the tf methods signature and return type.
+        # TODO: Sanity check the tf methods signature (and return values from docstring?).
         # Compile a list of all needed Sockets and create internal ones if they do not exist yet.
         # External Sockets (in/out) must exist already or we will get an error.
         input_sockets = [self.get_socket(s, create_internal_if_not_found=True) for s in inputs]

@@ -19,5 +19,8 @@ from __future__ import print_function
 
 from .distribution import Distribution
 
-__all__ = ["Distribution"]
+from .bernoulli import Bernoulli
+from .categorical import Categorical
+
+__all__ = ["Distribution", "Bernoulli", "Categorical"]
 

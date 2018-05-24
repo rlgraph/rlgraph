@@ -23,6 +23,7 @@ import logging
 from yarl.utils.yarl_error import YARLError
 from yarl.utils.backend import backend
 from yarl.utils.specifiable import Specifiable
+from yarl.utils.util import SMALL_NUMBER
 
 # Libraries should add NullHandler() by default, as its the application code's
 # responsibility to configure log handlers.
@@ -37,4 +38,4 @@ except ImportError:
 logging.getLogger(__name__).addHandler(NullHandler())
 
 
-__all__ = ["YARLError", "Specifiable", "__version__", "backend"]
+__all__ = ["YARLError", "Specifiable", "__version__", "backend", "SMALL_NUMBER"]
