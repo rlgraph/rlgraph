@@ -37,6 +37,12 @@ class ReplayMemory(Memory):
         next_states=True
     ):
         super(ReplayMemory, self).__init__(capacity, name, scope)
+        self.add_computation(
+            inputs="num_records",
+            outputs="sample",
+            method=self._computation_get_records,
+            flatten_ops=False
+        )
 
         # Variables.
         self.index = None
@@ -80,7 +86,7 @@ class ReplayMemory(Memory):
         # Update indices and size.
         with tf.control_dependencies(control_inputs=record_updates):
             index_updates = list()
-            index_updates.append(self.assign_variable(variable=self.index, value=(index + num_records) % self.capacity))
+            index_updates.append(self.assign_variable(ref=self.index, value=(index + num_records) % self.capacity))
             update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
             index_updates.append(self.assign_variable(self.size, value=update_size))
 

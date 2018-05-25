@@ -60,6 +60,7 @@ class Sequence(PreprocessLayer):
     def create_variables(self, input_spaces):
         in_space = input_spaces["input"]
         self.first_rank_is_batch = in_space.has_batch_rank
+
         # Cut the "batch rank" (always 1 anyway) and replace it with the "sequence-rank".
         self.buffer = self.get_variable(name="buffer", trainable=False,
                                         from_space=in_space, add_batch_rank=self.sequence_length,
@@ -88,7 +89,9 @@ class Sequence(PreprocessLayer):
             assigns = list()
             for k, v in inputs.items():
                 # [0]=skip batch (which must be len=1 anyway)
-                assigns.append(tf.assign(ref=self.buffer[k][self.index], value=v[0] if self.first_rank_is_batch else v))
+                assigns.append(self.assign_variable(
+                    ref=self.buffer[k][self.index], value=v[0] if self.first_rank_is_batch else v)
+                )
             return assigns
 
         # If index is still -1 (after reset):
@@ -99,7 +102,10 @@ class Sequence(PreprocessLayer):
                 multiples = (self.sequence_length,) + tuple([1] * (get_rank(v) -
                                                                    (1 if self.first_rank_is_batch else 0)))
                 in_ = v if self.first_rank_is_batch else tf.expand_dims(v, 0)
-                assigns.append(tf.assign(ref=self.buffer[k], value=tf.tile(input=in_, multiples=multiples)))
+                assigns.append(self.assign_variable(
+                    ref=self.buffer[k],
+                    value=tf.tile(input=in_, multiples=multiples)
+                ))
             return assigns
 
         # Insert the input at the correct index or fill empty buffer entirely with input.
@@ -115,7 +121,7 @@ class Sequence(PreprocessLayer):
         # Make sure the input has been inserted ..
         with tf.control_dependencies(control_inputs=dependencies):
             # Before increasing by 1.
-            index_plus_1 = tf.assign(ref=self.index, value=((self.index + 1) % self.sequence_length))
+            index_plus_1 = self.assign_variable(ref=self.index, value=((self.index + 1) % self.sequence_length))
 
         with tf.control_dependencies(control_inputs=[index_plus_1]):
             sequences = OrderedDict()

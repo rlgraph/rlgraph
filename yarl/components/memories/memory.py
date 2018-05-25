@@ -49,8 +49,6 @@ class Memory(Component):
         self.define_outputs("insert", "sample")
 
         self.add_computation(inputs="records", outputs="insert", method=self._computation_insert)
-        self.add_computation(inputs="num_records", outputs="sample", method=self._computation_get_records,
-                             flatten_ops=False)
 
     def create_variables(self, input_spaces):
         # Store our record-space for convenience.
@@ -105,13 +103,14 @@ class Memory(Component):
         # Optional?
         pass
 
-    def _computation_update_records(self, update):
+    def _computation_update_records(self, indices, update):
         """
         Optionally updates memory records using information such as losses, e.g. to
         compute priorities.
 
         Args:
-            update (dict): Any information relevant to update records, e.g. losses
+            indices Union(ndarray, tf.Tensor):
+            update (any): Any information relevant to update records, e.g. losses
                 of most recently read batch of records.
         """
         pass

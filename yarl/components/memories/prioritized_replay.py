@@ -51,10 +51,15 @@ class PrioritizedReplay(Memory):
         assert alpha > 0.0
         # Priority weight.
         self.alpha = alpha
-        self.max_priority = 1.0
 
         self.define_inputs("update")
         self.define_outputs("update_records")
+        self.add_computation(
+            inputs="num_records",
+            outputs=["sample", "indices"],
+            method=self._computation_get_records,
+            flatten_ops=False
+        )
 
         self.add_computation(
             inputs="update",
@@ -73,6 +78,8 @@ class PrioritizedReplay(Memory):
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
         # Number of elements present.
         self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
+
+        self.max_priority = self.get_variable(name="max-priority", dtype=float, trainable=False, initializer=1.0)
 
         # Segment tree must be full binary tree.
         self.priority_capacity = 1
@@ -130,7 +137,7 @@ class PrioritizedReplay(Memory):
         # Update indices and size.
         with tf.control_dependencies(control_inputs=record_updates):
             index_updates = list()
-            index_updates.append(self.assign_variable(variable=self.index, value=(index + num_records) % self.capacity))
+            index_updates.append(self.assign_variable(ref=self.index, value=(index + num_records) % self.capacity))
             update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
             index_updates.append(self.assign_variable(self.size, value=update_size))
 
@@ -191,5 +198,6 @@ class PrioritizedReplay(Memory):
                 records[next_state_name] = next_states
         return records
 
-    def _computation_update_records(self, update):
+    def _computation_update_records(self, indices, update):
+        #
         pass

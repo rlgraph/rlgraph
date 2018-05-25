@@ -36,6 +36,13 @@ class RingBuffer(Memory):
         episode_semantics=False
     ):
         super(RingBuffer, self).__init__(capacity, name, scope)
+        self.add_computation(
+            inputs="num_records",
+            outputs="sample",
+            method=self._computation_get_records,
+            flatten_ops=False
+        )
+
         # Variables.
         self.index = None
         self.size = None
@@ -104,7 +111,7 @@ class RingBuffer(Memory):
             #                             summarize=100, message='num eps, eps in insert range =')
             # Remove previous episodes in inserted range.
             index_updates.append(self.assign_variable(
-                    variable=self.episode_indices[:prev_num_episodes + 1 - episodes_in_insert_range],
+                    ref=self.episode_indices[:prev_num_episodes + 1 - episodes_in_insert_range],
                     value=self.episode_indices[episodes_in_insert_range:prev_num_episodes + 1]
             ))
 
@@ -127,7 +134,7 @@ class RingBuffer(Memory):
                 #     message='\n mask /  update indices / records-terminal')
 
                 index_updates.append(self.assign_variable(
-                    variable=self.episode_indices[slice_start:slice_end],
+                    ref=self.episode_indices[slice_start:slice_end],
                     value=mask
                 ))
                 # num_episode_update = tf.Print(num_episode_update, [num_episode_update, self.episode_indices],
@@ -136,7 +143,7 @@ class RingBuffer(Memory):
                 # Assign final new episode count.
                 index_updates.append(self.assign_variable(self.num_episodes, num_episode_update))
 
-        index_updates.append(self.assign_variable(variable=self.index, value=(index + num_records) % self.capacity))
+        index_updates.append(self.assign_variable(ref=self.index, value=(index + num_records) % self.capacity))
         update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
         index_updates.append(self.assign_variable(self.size, value=update_size))
 

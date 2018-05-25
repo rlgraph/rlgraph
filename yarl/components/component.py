@@ -717,19 +717,19 @@ class Component(Specifiable):
             return tf.scatter_update(ref=variable, indices=indices, updates=updates)
 
     @staticmethod
-    def assign_variable(variable, value):
+    def assign_variable(ref, value):
         """
         Assigns a variable to a value.
 
         Args:
-            variable (any): The variable to assign to.
+            ref (any): The variable to assign to.
             value (any): The value to use for the assignment.
 
         Returns:
             Optional[op]: None or the graph operation representing the assginment.
         """
         if backend() == "tf":
-            return tf.assign(ref=variable, value=value)
+            return tf.assign(ref=ref, value=value)
 
     @staticmethod
     def read_variable(variable, indices=None):

@@ -21,7 +21,7 @@ import re
 
 from yarl.utils.util import YARLError, dtype, get_shape
 from yarl.utils.ops import DataOp, ContainerDataOp, DataOpDict, DataOpTuple, FlattenedDataOp
-from spaces import *
+from yarl.spaces import *
 
 
 def get_space_from_op(op):
