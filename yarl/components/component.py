@@ -75,6 +75,7 @@ class Component(Specifiable):
         self.device = kwargs.pop("device", None)
         self.global_component = kwargs.pop("global_component", False)
 
+        # TODO: get rid of this again and add the 4 settings as single parameters to this c'tor.
         self.computation_settings = kwargs.pop("computation_settings", {})
 
         assert not kwargs, "ERROR: kwargs ({}) still contains items!".format(kwargs)
@@ -641,7 +642,8 @@ class Component(Specifiable):
         if socket_obj is None:
             # Create new internal one?
             if create_internal_if_not_found is True:
-                socket_obj = self.add_sockets(name=socket_name, type_=type_, internal=True)
+                self.add_sockets(socket_name, type_="in", internal=True)
+                socket_obj = self.get_socket(socket_name)
             # Error.
             else:
                 raise YARLError("ERROR: No '{}'-socket named '{}' found in {}!". \
@@ -689,11 +691,13 @@ class Component(Specifiable):
             Optional[Socket]: The found Socket or None if no Socket by the given name was found in `component`.
         """
         if type_ != "in":
-            socket_obj = next((x for x in component.output_sockets if x.name == name), None)
+            socket_obj = next((x for x in component.output_sockets +
+                               component.internal_sockets if x.name == name), None)
             if type_ is None and not socket_obj:
                 socket_obj = next((x for x in component.input_sockets if x.name == name), None)
         else:
-            socket_obj = next((x for x in component.input_sockets if x.name == name), None)
+            socket_obj = next((x for x in component.input_sockets +
+                               component.internal_sockets if x.name == name), None)
         return socket_obj
 
     @staticmethod
@@ -749,5 +753,6 @@ class Component(Specifiable):
 
     def __str__(self):
         return "{}('{}' in=[{}] out=[{}])". \
-            format(type(self).__name__, self.name, str(self.input_sockets), str(self.output_sockets))
+            format(type(self).__name__, self.name, str(list(map(str, self.input_sockets))),
+                   str(list(map(str, self.output_sockets))))
 

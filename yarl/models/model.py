@@ -64,16 +64,17 @@ class Model(Specifiable):
         # A dict used for lookup of all combinations that are possible for a given set of given in-Socket
         # names (inside a call to `self.call`).
         self.input_combinations = dict()
-        # Some registries that we need to build the Graph from core.
-        # key=op; value=set of required ops to calculate the key-op
+
+        # Some registries that we need in order to build the Graph from core:
+        # key=DataOp; value=set of required DataOps OR core's in-Sockets to calculate the key-DataOp
         self.op_registry = dict()
         # key=in-Socket name; value=set of alternative DataOps that could go into this socket.
-        # Only for very first in-Sockets.
+        #   Only for very first in-Sockets.
         self.in_socket_registry = dict()
         # key=out-Socket name; value=set of necessary in-Socket names that we need in order to calculate
-        # the out-Socket's op output.
+        #   the out-Socket's op output.
         self.out_socket_registry = dict()
-        # Maps an out-Socket name+in-Socket/Space-combination to an actual op to fetch from our Graph.
+        # Maps an out-Socket name+in-Socket/Space-combination to an actual DataOp to fetch from our Graph.
         self.call_registry = dict()  # key=()
 
         # Computation graph.
@@ -434,15 +435,15 @@ class Model(Specifiable):
         # Recursively lookup op in op_registry until we hit a Socket.
         new_trace_set = set()
         for op in trace_set:
-            if op not in self.op_registry:
-                if op not in self.in_socket_registry:
-                    raise YARLError("ERROR: op {} could not be found in op_registry or in_socket_registry of model!".
-                                    format(op.name))
-                # Already a Socket -> add to new set and continue.
-                else:
-                    new_trace_set.add(op)
-                    continue
-            new_trace_set.update(self.op_registry[op])
+            if isinstance(op, Socket):
+                if op.name not in self.in_socket_registry:
+                    raise YARLError("ERROR: in-Socket '{}' could not be found in in_socket_registry of "
+                                    "model!".format(op.name))
+                new_trace_set.add(op)
+            elif op not in self.op_registry:
+                raise YARLError("ERROR: DataOp '{}' could not be found in op_registry of model!".format(op))
+            else:
+                new_trace_set.update(self.op_registry[op])
         if all([isinstance(i, Socket) for i in new_trace_set]):
             return new_trace_set
         else:

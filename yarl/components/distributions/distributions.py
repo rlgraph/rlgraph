@@ -41,7 +41,7 @@ class Distribution(Component):
         entropy (float): The entropy value of the distribution.
     """
     def __init__(self, scope="distribution", **kwargs):
-        super(Distribution, self).__init__(scope=scope, **kwargs)
+        super(Distribution, self).__init__(scope=scope, computation_settings=dict(split_ops=True), **kwargs)
 
         # Define a generic Distribution interface.
         self.define_inputs("parameters", "max_likelihood")
@@ -90,9 +90,10 @@ class Distribution(Component):
         Returns:
             DataOp: The taken sample(s).
         """
-        return tf.where(condition=max_likelihood,
-                        x=partial(self._max_likelihood, distribution),
-                        y=partial(self._sampled, distribution))
+        return tf.cond(pred=max_likelihood,
+                       true_fn=lambda: self._max_likelihood(distribution),
+                       false_fn=lambda: self._sampled(distribution)
+                       )
 
     def _max_likelihood(self, distribution):
         """
@@ -157,7 +158,7 @@ class Bernoulli(Distribution):
         return tf.distributions.Bernoulli(probs=prob, dtype=dtype("bool"))
 
     def _max_likelihood(self, distribution):
-        return distribution.prob >= 0.5
+        return distribution.prob(True) >= 0.5
 
 
 class Categorical(Distribution):

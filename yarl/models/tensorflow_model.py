@@ -107,13 +107,13 @@ class TensorFlowModel(Model):
                 quit()
 
     def setup_graph(self):
-        # Set the random seed graph-wide.
-        if self.seed is not None:
-            tf.set_random_seed(self.seed)
         # Generate the tf-Graph object and enter its scope as default graph.
         self.graph = tf.Graph()
         self.graph_default_context = self.graph.as_default()
         self.graph_default_context.__enter__()
+        # Set the random seed graph-wide.
+        if self.seed is not None:
+            tf.set_random_seed(self.seed)
 
     def complete_backend_setup(self):
         # After the graph is built -> Setup saver, summaries, etc..

@@ -56,9 +56,10 @@ def get_space_from_op(op):
         return Tuple(spec, add_batch_rank=add_batch_rank)
     # primitive Space -> infer from op dtype and shape
     else:
-        # No Space: e.g. the tf.no_op.
-        if hasattr(op, "dtype") is False:
+        # No Space: e.g. the tf.no_op, a distribution (anything that's not a tensor).
+        if hasattr(op, "dtype") is False or not hasattr(op, "get_shape"):
             return 0
+        # Some tensor: can be converted into a BoxSpace.
         else:
             shape = get_shape(op)
             add_batch_rank = False
