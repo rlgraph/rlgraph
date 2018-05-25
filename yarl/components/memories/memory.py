@@ -103,13 +103,14 @@ class Memory(Component):
         # Optional?
         pass
 
-    def _computation_update_records(self, update):
+    def _computation_update_records(self, indices, update):
         """
         Optionally updates memory records using information such as losses, e.g. to
         compute priorities.
 
         Args:
-            update (dict): Any information relevant to update records, e.g. losses
+            indices Union(ndarray, tf.Tensor):
+            update (any): Any information relevant to update records, e.g. losses
                 of most recently read batch of records.
         """
         pass
