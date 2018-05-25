@@ -28,8 +28,8 @@ from yarl.utils import util
 from yarl.spaces import Space
 
 # some settings flags
-EXPOSE_INS = 0x1  # whether to expose only in-Sockets (in calls to add_components)
-EXPOSE_OUTS = 0x2  # whether to expose only out-Sockets (in calls to add_components)
+CONNECT_INS = 0x1  # whether to expose only in-Sockets (in calls to add_components)
+CONNECT_OUTS = 0x2  # whether to expose only out-Sockets (in calls to add_components)
 
 
 class Component(Specifiable):
@@ -355,54 +355,54 @@ class Component(Specifiable):
         if len(input_sockets) == 0:
             self.no_input_computations.append(computation)
 
-    def add_component(self, component, expose=None):
+    def add_component(self, component, connect=None):
         """
-        Adds a single ModelComponent as sub-component to this one, thereby exposing certain Sockets of the
-        sub-component to the interface of this component by creating the corresponding Sockets (and maybe renaming
-        them depending on the specs in `expose`).
+        Adds a single ModelComponent as sub-component to this one, thereby connecting certain Sockets of the
+        sub-component to the Sockets of this component by creating the corresponding Sockets (and maybe renaming
+        them depending on the specs in `connect`).
 
         Args:
             component (Component): The Component object to add to this one.
-            expose (any): Specifies, which of the Sockets of the added sub-component should be "forwarded" to this
-                (containing) component via new Sockets of this component.
+            connect (any): Specifies, which of the Sockets of the added sub-component should be connected to this
+                (containing) component via connecting to (sometimes new) Sockets of this component.
                 For example: We are adding a sub-component with the Sockets: "input" and "output".
-                expose="input": Only the "input" Socket is exposed into this component's interface (with name "input").
-                expose={"input", "exposed-in"}: Only the "input" Socket is exposed into this component's interface as
-                    new name "exposed-in".
-                expose=("input", {"output": "exposed-out"}): The "input" Socket is exposed into this
-                    component's interface. The output Socket as well, but under the name "exposed-out".
-                expose=["input", "output"]: Both "input" and "output" Socket are exposed into this component's
+                connect="input": Only the "input" Socket is connected to this component's "input" Socket.
+                connect={"input", "exposed-in"}: Only the "input" Socket is connected to this component's Socket named
+                    "exposed-in".
+                connect=("input", {"output": "exposed-out"}): The "input" Socket is connected to this
+                    component's "input". The output Socket to a Socket named "exposed-out".
+                connect=["input", "output"]: Both "input" and "output" Sockets are connected into this component's
                     interface (with their original names "input" and "output").
-                expose=EXPOSE_INS: All in-Sockets will be exposed.
-                expose=EXPOSE_OUTS: All out-Sockets will be exposed.
-                expose=True: All sockets (in and out) will be exposed.
+                connect=CONNECT_INS: All in-Sockets of `component` will be connected.
+                connect=CONNECT_OUTS: All out-Sockets of `component` will be connected.
+                connect=True: All sockets of `component` (in and out) will be connected.
         """
-        # Preprocess the expose spec.
-        expose_spec = dict()
-        if expose is not None:
+        # Preprocess the connect spec.
+        connect_spec = dict()
+        if connect is not None:
             # More than one socket needs to be exposed.
-            if isinstance(expose, (list, tuple)):
-                for e in expose:
+            if isinstance(connect, (list, tuple)):
+                for e in connect:
                     if isinstance(e, str):
-                        expose_spec[e] = e  # leave name
+                        connect_spec[e] = e  # leave name
                     elif isinstance(e, (tuple, list)):
-                        expose_spec[e[0]] = e[1]  # change name from 1st element to 2nd element in tuple/list
+                        connect_spec[e[0]] = e[1]  # change name from 1st element to 2nd element in tuple/list
                     elif isinstance(e, dict):
                         for old, new in e.items():
-                            expose_spec[old] = new  # change name from dict-key to dict-value
+                            connect_spec[old] = new  # change name from dict-key to dict-value
             else:
-                # Expose all Sockets if expose=True|EXPOSE_INS|EXPOSE_OUTS.
-                expose_list = list()
-                if expose == EXPOSE_INS or expose is True:
-                    expose_list.extend(component.input_sockets)
-                if expose == EXPOSE_OUTS or expose is True:
-                    expose_list.extend(component.output_sockets)
-                if len(expose_list) > 0:
-                    for sock in expose_list:
-                        expose_spec[sock.name] = sock.name
+                # Expose all Sockets if connect=True|CONNECT_INS|CONNECT_OUTS.
+                connect_list = list()
+                if connect == CONNECT_INS or connect is True:
+                    connect_list.extend(component.input_sockets)
+                if connect == CONNECT_OUTS or connect is True:
+                    connect_list.extend(component.output_sockets)
+                if len(connect_list) > 0:
+                    for sock in connect_list:
+                        connect_spec[sock.name] = sock.name
                 # Single socket (given as string) needs to be exposed (and keep its name).
                 else:
-                    expose_spec[expose] = expose  # leave name
+                    connect_spec[connect] = connect  # leave name
 
         # Make sure no two components with the same name are added to this one (own scope doesn't matter).
         if component.name in self.sub_components:
@@ -419,7 +419,7 @@ class Component(Specifiable):
         #    self.deterministic = False
 
         # Expose all Sockets in exposed_spec (create and connect them correctly).
-        for socket_name, exposed_name in expose_spec.items():
+        for socket_name, exposed_name in connect_spec.items():
             socket = self.get_socket_by_name(component, socket_name)  # type: Socket
             if socket is None:
                 raise YARLError("ERROR: Could not find Socket '{}' in input/output sockets of component '{}'!".

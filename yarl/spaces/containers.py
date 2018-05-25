@@ -36,7 +36,15 @@ class ContainerSpace(Space):
     """
     A simple placeholder class for Spaces that contain other Spaces.
     """
-    pass
+    def sample(self, size=None, horizontal=False):
+        """
+        Child classes must overwrite this one again with support for the `horizontal` parameter.
+
+        Args:
+            horizontal (bool): False: Within this container, sample each child-space `size` times.
+                True: Produce `size` single containers in an np.array of len `size`.
+        """
+        raise NotImplementedError
 
 
 class Dict(ContainerSpace, dict):
@@ -111,9 +119,6 @@ class Dict(ContainerSpace, dict):
         for key in sorted(self.keys()):
             self[key].flatten(mapping, scope_ + key, list_)
 
-    #def get_initializer(self, specification):
-    #    return dict([(key, subspace.get_initializer(specification)) for key, subspace in self.items()])
-
     def __repr__(self):
         return "Dict({})".format([(key, self[key].__repr__()) for key in self.keys()])
 
@@ -122,14 +127,7 @@ class Dict(ContainerSpace, dict):
             return False
         return dict(self) == dict(other)
 
-    def sample(self, size=None, seed=None, horizontal=False):
-        """
-        Args:
-            horizontal (bool): False: Sample within this container each child-space `size` times.
-                True: Produce `size` single containers in an np.array of len `size`.
-        """
-        if seed is not None:
-            np.random.seed(seed)
+    def sample(self, size=None, horizontal=False):
         if horizontal:
             return np.array([dict([(key, subspace.sample()) for key, subspace in self.items()])] * (size or 1))
         else:
@@ -210,23 +208,13 @@ class Tuple(ContainerSpace, tuple):
         for i, component in enumerate(self):
             component.flatten(mapping, scope_ + str(i) + FLAT_TUPLE_CLOSE, list_)
 
-    #def get_initializer(self, specification):
-    #    return tuple([subspace.get_initializer(specification) for subspace in self])
-
     def __repr__(self):
         return "Tuple({})".format(tuple([cmp.__repr__() for cmp in self]))
 
     def __eq__(self, other):
         return tuple.__eq__(self, other)
 
-    def sample(self, size=None, seed=None, horizontal=False):
-        """
-        Args:
-            horizontal (bool): False: Sample within this container each child-space `size` times.
-                True: Produce `size` single containers in an np.array of len `size`.
-        """
-        if seed is not None:
-            np.random.seed(seed)
+    def sample(self, size=None, horizontal=False):
         if horizontal:
             return np.array([tuple(subspace.sample() for subspace in self)] * (size or 1))
         else:

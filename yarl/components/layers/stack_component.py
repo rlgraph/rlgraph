@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components import Component, EXPOSE_INS, EXPOSE_OUTS
+from yarl.components import Component, CONNECT_INS, CONNECT_OUTS
 
 
 class StackComponent(Component):
@@ -53,8 +53,8 @@ class StackComponent(Component):
         # Add all sub-components into the stack obeying the settings for connecting the first component's input
         # Sockets and the last Component's output Socket.
         self.add_components(*sub_components, expose=dict({
-            sub_components[0].name: EXPOSE_INS if expose_ins else False,
-            sub_components[-1].name: EXPOSE_OUTS if expose_outs else False
+            sub_components[0].name: CONNECT_INS if expose_ins else False,
+            sub_components[-1].name: CONNECT_OUTS if expose_outs else False
         }))
 
         # Now connect all sub-components with each other.

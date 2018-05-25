@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .component import Component, EXPOSE_INS, EXPOSE_OUTS
+from .component import Component, CONNECT_INS, CONNECT_OUTS
 from .socket_and_computation import Socket, Computation
 from .common import Splitter, Merger
 
@@ -27,6 +27,6 @@ Component.__lookup_classes__ = dict(
 )
 
 __all__ = ["Component", "Splitter", "Merger",
-           "EXPOSE_INS", "EXPOSE_OUTS",
+           "CONNECT_INS", "CONNECT_OUTS",
            "Computation", "Socket"]
 
