@@ -24,13 +24,13 @@ from yarl.components.distributions import Bernoulli
 
 
 class ActionHeadComponent(Component):
-    def __init__(self, action_space, add_softmax=False, picking_strategy="max-likelihood", epsilon_component=None,
+    def __init__(self, action_space, add_softmax=False, policy="max-likelihood", epsilon_component=None,
                  noise_spec=None, scope="action-head", **kwargs):
         """
         Args:
             action_space (Space): The action Space. Outputs of the "action" Socket must be members of this Space.
             add_softmax (bool): Whether to softmax the NN outputs (before further processing them).
-            picking_strategy (str): One of: "max-likelihood", "random", "sample".
+            policy (str): One of: "max-likelihood", "random", "sample".
             epsilon_component (Component): The sub-Component for epsilon-based exploration (e.g. a DecayComponent).
             #noise_spec (dict): The specification dict for a noise generator that adds noise to the NN's output.
         """
@@ -41,7 +41,7 @@ class ActionHeadComponent(Component):
         self.action_space = action_space
         assert self.action_space.has_batch_rank, "ERROR: `action_space` does not have batch rank!"
 
-        self.picking_strategy = picking_strategy
+        self.policy = policy
         self.epsilon_component = epsilon_component
         self.noise_spec = noise_spec
 
