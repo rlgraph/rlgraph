@@ -37,6 +37,9 @@ class PolynomialDecay(DecayComponent):
         """
         Args:
             power (float): The polynomial power to use (e.g. 1.0 for linear).
+
+        Keyword Args:
+            see DecayComponent
         """
         super(PolynomialDecay, self).__init__(scope=scope, **kwargs)
 

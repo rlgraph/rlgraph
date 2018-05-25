@@ -41,6 +41,9 @@ class ExponentialDecay(DecayComponent):
                 measure against `num_timesteps`.
             num_half_lives (Optional[int]): The number of sub-periods into which `num_timesteps` will be divided, each
                 division being the length of time in which we decay 50%. This is an alternative to `half_life`.
+
+        Keyword Args:
+            see DecayComponent
         """
         assert isinstance(half_life, int) or isinstance(num_half_lives, int)
 

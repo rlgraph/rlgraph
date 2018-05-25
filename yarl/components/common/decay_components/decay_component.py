@@ -29,15 +29,12 @@ class DecayComponent(Component):
     """
     def __init__(self, scope="decay", **kwargs):
         """
-        Args:
+        Keyword Args:
             from_ (float): The max value returned between 0 and `start_timestep`.
             to_ (float): The min value returned from [`start_timestep`+`num_timesteps`] onwards.
             start_timestep (int): The timestep at which to start the decay process.
             num_timesteps (int): The number of time steps over which to decay. Outputs will be stationary before and
                 after this decaying period.
-
-        Keyword Args:
-
         """
         super(DecayComponent, self).__init__(scope=scope, **kwargs)
 

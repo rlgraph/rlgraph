@@ -57,9 +57,9 @@ class ActionHeadComponent(Component):
         # Add epsilon Component and connect accordingly.
         if self.epsilon_component is not None:
             self.add_component(self.epsilon_component, connect=CONNECT_INS)
-            self.connect(self.epsilon_component.get_input("value"), "epsilon")
-            self.add_computation(["time_step", "nn_output", self.epsilon_component.get_output("epsilon")],
-                                 "action", self._computation_act)
+            #self.connect(self.epsilon_component.get_output("do_explore"), "epsilon")
+            #self.add_computation(["time_step", "nn_output", self.epsilon_component.get_output("epsilon")],
+            #                     "action", self._computation_act)
         # Else, set epsilon to 0.0 (no epsilon-based exploration).
         else:
             self.add_computation(["time_step", "nn_output", 0.0], "action", self._computation_act)
