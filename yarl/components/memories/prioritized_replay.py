@@ -146,8 +146,16 @@ class PrioritizedReplay(Memory):
 
         def insert_body(i, assignments):
             with tf.control_dependencies(control_inputs=assignments):
-                assignments = self.sum_segment_tree.insert(index=update_indices[i], element=self.max_priority)
-                assignments.extend(self.min_segment_tree.insert(index=update_indices[i], element=self.max_priority))
+                assignments = self.sum_segment_tree.insert(
+                    index=update_indices[i],
+                    element=self.max_priority,
+                    insert_op=tf.add
+                )
+                assignments.extend(self.min_segment_tree.insert(
+                    index=update_indices[i],
+                    element=self.max_priority,
+                    insert_op=tf.minimum
+                ))
             return i + 1, assignments
 
         def cond(i):
@@ -206,8 +214,8 @@ class PrioritizedReplay(Memory):
         def insert_body(i, max_priority, assignments, ):
             with tf.control_dependencies(control_inputs=assignments):
                 priority = tf.pow(x=update[i], y=self.alpha)
-                assignments = self.sum_segment_tree.insert(index=indices[i], element=priority)
-                assignments.extend(self.min_segment_tree.insert(index=indices[i], element=priority))
+                assignments = self.sum_segment_tree.insert(index=indices[i], element=priority, insert_op=tf.add)
+                assignments.extend(self.min_segment_tree.insert(index=indices[i], element=priority, insert_op=tf.minimum))
                 max_priority = tf.maximum(x=max_priority, y=priority)
             return i + 1, max_priority, assignments
 

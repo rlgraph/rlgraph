@@ -43,7 +43,7 @@ class SegmentTree(object):
 
     # TODO note we do not want to override _setitem_ because of TF
     # variable/tensor semantics -> variables cannot be assigned without tf.assign
-    def insert(self, index, element):
+    def insert(self, index, element, insert_op=tf.add):
         """
         Inserts an element into the segment tree by determining
         its position in the tree.
@@ -51,6 +51,7 @@ class SegmentTree(object):
         Args:
             index (int): Insertion index.
             element (any): Element to insert.
+            op Union(tf.add, tf.min): Insert operation on the tree.
         """
         pass
 
