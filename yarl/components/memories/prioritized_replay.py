@@ -199,5 +199,23 @@ class PrioritizedReplay(Memory):
         return records
 
     def _computation_update_records(self, indices, update):
-        #
-        pass
+        num_records = tf.shape(input=indices)[0]
+        max_priority = 0.0
+
+        # Update has to be sequential.
+        def insert_body(i, max_priority, assignments, ):
+            with tf.control_dependencies(control_inputs=assignments):
+                priority = tf.pow(x=update[i], y=self.alpha)
+                assignments = self.sum_segment_tree.insert(index=indices[i], element=priority)
+                assignments.extend(self.min_segment_tree.insert(index=indices[i], element=priority))
+                max_priority = tf.maximum(x=max_priority, y=priority)
+            return i + 1, max_priority, assignments
+
+        def cond(i):
+            return i < num_records - 1
+
+        _, max_priority, assignments = tf.while_loop(cond=cond, body=insert_body, loop_vars=(0, max_priority, list()))
+
+        assignments.append(self.assign_variable(ref=self.max_priority, value=max_priority))
+        with tf.control_dependencies(control_inputs=assignments):
+            return tf.no_op()
