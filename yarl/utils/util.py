@@ -31,6 +31,7 @@ else:
     import pytorch as be
 
 SMALL_NUMBER = 1e-6
+LARGE_INTEGER = 100000000
 
 
 def dtype(dtype_, to="tf"):

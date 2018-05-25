@@ -17,45 +17,24 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import random
 import numpy as np
 
-from yarl.spaces import Discrete
+from yarl.utils.util import dtype
+
+from .box_space import BoxSpace
 
 
-class Bool(Discrete):
-    """
-    A Bool space is a special case of Discrete where n = 2, the possible values are True or False,
-    and the flattened representation is a 1D vector of dim = 1 (not 2!) ([0]=False or [1]=True)
-    """
-    def __init__(self, add_batch_rank=False):
-        super(Bool, self).__init__(n=2, add_batch_rank=add_batch_rank)
+class BoolBox(BoxSpace):
+    def __init__(self, shape=None, add_batch_rank=False):
+        super(BoolBox, self).__init__(low=False, high=True, shape=shape, add_batch_rank=add_batch_rank, dtype="bool")
 
-    @property
-    def shape(self):
-        return ()
-
-    @property
-    def shape_with_batch_rank(self):
-        return self.batch_rank_tuple
-
-    @property
-    def flat_dim(self):
-        return 1
-
-    @property
-    def dtype(self):
-        return "bool"
-
-    def __repr__(self):
-        return "Bool({})".format("+batch" if self.has_batch_rank else "")
-
-    def sample(self, size=None, seed=None):
+    def sample(self, size=None):
         shape = self._get_np_shape(num_samples=size)
-        if seed is not None:
-            random.seed(seed)
         return np.random.choice(a=[False, True], size=shape)
 
     def contains(self, sample):
-        return isinstance(sample, (np.bool_, bool))
+        if self.shape == ():
+            return isinstance(sample, (bool, np.bool_))
+        else:
+            return dtype(sample.dtype, "np") == np.bool_
 

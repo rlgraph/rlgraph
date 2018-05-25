@@ -21,11 +21,7 @@ import re
 
 from yarl.utils.util import YARLError, dtype, get_shape
 from yarl.utils.ops import DataOp, ContainerDataOp, DataOpDict, DataOpTuple, FlattenedDataOp
-from .containers import Dict, Tuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE
-from .continuous import Continuous
-from .intbox import IntBox
-from .bool_space import Bool
-from .discrete import Discrete
+from spaces import *
 
 
 def get_space_from_op(op):
@@ -70,20 +66,15 @@ def get_space_from_op(op):
                 shape = shape[1:]
                 add_batch_rank = True
 
-            # a Continuous
+            # a FloatBox
             if op.dtype == dtype("float"):
-                return Continuous(shape=shape, add_batch_rank=add_batch_rank)
-            # an IntBox/Discrete
+                return FloatBox(shape=shape, add_batch_rank=add_batch_rank)
+            # an IntBox
             elif op.dtype == dtype("int"):
-                # TODO: How do we distinguish these two by a tensor (name/type)?
-                # TODO: Solution: Merge Discrete and IntBox into `IntBox`. Discrete is a special IntBox with shape=() and low=0 and high=n-1
-                if len(shape) == 1:
-                    return Discrete(n=shape[0], add_batch_rank=add_batch_rank)
-                else:
-                    return IntBox(low=0, high=255, shape=shape, add_batch_rank=add_batch_rank)  # low, high=dummy values
-            # a Bool
+                return IntBox(shape=shape, add_batch_rank=add_batch_rank)  # low, high=dummy values
+            # a BoolBox
             elif op.dtype == dtype("bool"):
-                return Bool(add_batch_rank=add_batch_rank)
+                return BoolBox(add_batch_rank=add_batch_rank)
             else:
                 raise YARLError("ERROR: Cannot derive Space from op '{}' (unknown type?)!".format(op))
 

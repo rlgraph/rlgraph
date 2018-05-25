@@ -21,9 +21,10 @@ import numpy as np
 from cached_property import cached_property
 
 from yarl import YARLError
-from .space import Space
+from spaces.space import Space
 
 
+# OBSOLETE: This should be replaced by the new generic Box class.
 class Continuous(Space):
     """
     A box in R^n (each coordinate is bounded).

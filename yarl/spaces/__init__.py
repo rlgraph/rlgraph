@@ -13,25 +13,29 @@
 # limitations under the License.
 # ==============================================================================
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 from .space import Space
-from .discrete import Discrete
-from .bool_space import Bool
-from .continuous import Continuous
-from .intbox import IntBox
+from .box_space import BoxSpace
+from .float_box import FloatBox
+from .int_box import IntBox
+from .bool_box import BoolBox
 from .containers import ContainerSpace, Dict, Tuple, FLAT_TUPLE_CLOSE, FLAT_TUPLE_OPEN
 
 
 Space.__lookup_classes__ = dict({
-    "bool": Bool,
-    bool: Bool,
-    "discrete": Discrete,
+    "bool": BoolBox,
+    bool: BoolBox,
+    #"discrete": Discrete, OBSOLETE
     "int": IntBox,
     int: IntBox,
     "intbox": IntBox,
     "multidiscrete": IntBox,
-    "continuous": Continuous,
-    "float": Continuous,
-    float: Continuous,
+    "continuous": FloatBox,
+    "float": FloatBox,
+    float: FloatBox,
     "list": Tuple,
     "tuple": Tuple,
     # "sequence" action type for nlp use cases and combinatorial optimisation.
@@ -40,8 +44,6 @@ Space.__lookup_classes__ = dict({
     "dict": Dict
 })
 
-__all__ = ["Space", "Discrete", "Bool", "Continuous", "IntBox", "ContainerSpace", "Dict", "Tuple",
-           "FLAT_TUPLE_CLOSE", "FLAT_TUPLE_OPEN"]
-
-
+__all__ = ["Space", "BoxSpace", "FloatBox", "IntBox", "BoolBox",
+           "ContainerSpace", "Dict", "Tuple", "FLAT_TUPLE_CLOSE", "FLAT_TUPLE_OPEN"]
 

@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .space import Space
+from spaces.space import Space
 import numpy as np
 from cached_property import cached_property
 

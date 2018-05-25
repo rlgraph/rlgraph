@@ -17,25 +17,26 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-__version__ = '0.0.1'
+import numpy as np
 
-import logging
-from yarl.utils.yarl_error import YARLError
-from yarl.utils.backend import backend
-from yarl.utils.specifiable import Specifiable
-from yarl.utils.util import SMALL_NUMBER, LARGE_INTEGER
-
-# Libraries should add NullHandler() by default, as its the application code's
-# responsibility to configure log handlers.
-# https://docs.python.org/3/howto/logging.html#configuring-logging-for-a-library
-try:
-    from logging import NullHandler
-except ImportError:
-    class NullHandler(logging.Handler):
-        def emit(self, record):
-            pass
-
-logging.getLogger(__name__).addHandler(NullHandler())
+from .box_space import BoxSpace
 
 
-__all__ = ["YARLError", "Specifiable", "__version__", "backend", "SMALL_NUMBER", "LARGE_INTEGER"]
+class FloatBox(BoxSpace):
+    def __init__(self, low=None, high=None, shape=None, add_batch_rank=False):
+        if low is None:
+            assert high is None, "ERROR: If `low` is None, `high` must be None as well!"
+            low = float("-inf")
+            high = float("inf")
+            self.unbounded = True
+        else:
+            self.unbounded = False
+
+        super(FloatBox, self).__init__(low=low, high=high, shape=shape, add_batch_rank=add_batch_rank, dtype="float")
+
+    def sample(self, size=None):
+        shape = self._get_np_shape(num_samples=size)
+        if self.unbounded:
+            return np.random.uniform(size=shape)
+        return np.random.uniform(low=self.low, high=self.high, size=shape)
+

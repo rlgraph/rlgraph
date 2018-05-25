@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 
 from yarl.components.layers import DenseLayer, Conv2DLayer, ConcatLayer
-from yarl.spaces import Continuous
+from yarl.spaces import FloatBox
 from yarl.tests import ComponentTest
 
 import numpy as np
@@ -30,7 +30,7 @@ class TestNNLayer(unittest.TestCase):
 
     def test_dense(self):
         # Space must contain batch dimension (otherwise, NNlayer will complain).
-        space = Continuous(shape=(2,), add_batch_rank=True)
+        space = FloatBox(shape=(2,), add_batch_rank=True)
 
         # The Component to test.
         # - fixed 1.0 weights, no biases
@@ -44,7 +44,7 @@ class TestNNLayer(unittest.TestCase):
 
     def test_conv2d(self):
         # Space must contain batch dimension (otherwise, NNlayer will complain).
-        space = Continuous(shape=(2, 2, 3), add_batch_rank=True)
+        space = FloatBox(shape=(2, 2, 3), add_batch_rank=True)
 
         component_to_test = Conv2DLayer(filters=4, kernel_size=2, strides=1, kernel_spec=0.5, biases_spec=False)
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
@@ -62,9 +62,9 @@ class TestNNLayer(unittest.TestCase):
 
     def test_concat(self):
         # Spaces must contain batch dimension (otherwise, NNlayer will complain).
-        space0 = Continuous(shape=(2, 3), add_batch_rank=True)
-        space1 = Continuous(shape=(2, 1), add_batch_rank=True)
-        space2 = Continuous(shape=(2, 2), add_batch_rank=True)
+        space0 = FloatBox(shape=(2, 3), add_batch_rank=True)
+        space1 = FloatBox(shape=(2, 1), add_batch_rank=True)
+        space2 = FloatBox(shape=(2, 2), add_batch_rank=True)
 
         component_to_test = ConcatLayer(computation_inputs=3)
         test = ComponentTest(component=component_to_test, input_spaces=dict(input0=space0,

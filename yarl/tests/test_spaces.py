@@ -26,6 +26,32 @@ class TestSpaces(unittest.TestCase):
     """
     Tests creation, sampling and shapes of Spaces.
     """
+    def test_box_spaces(self):
+        for class_ in [FloatBox, IntBox, BoolBox]:
+            for add_batch_rank in [False, True]:
+                if class_ != BoolBox:
+                    for low, high in [(None, None), (-1.0, 10.0), ((1.0, 2.0), (3.0, 4.0)),
+                                  (((1.0, 2.0, 3.0), (4.0, 5.0, 6.0)), ((7.0, 8.0, 9.0), (10.0, 11.0, 12.0)))]:
+                        space = class_(low=low, high=high, add_batch_rank=add_batch_rank)
+                        if add_batch_rank is False:
+                            sample = space.sample()
+                            self.assertTrue(space.contains(sample))
+                        else:
+                            for batch_size in range(1, 4):
+                                samples = space.sample(size=batch_size)
+                                for s in samples:
+                                    self.assertTrue(space.contains(s))
+                else:
+                    space = class_(add_batch_rank=add_batch_rank)
+                    if add_batch_rank is False:
+                        sample = space.sample()
+                        self.assertTrue(space.contains(sample))
+                    else:
+                        for batch_size in range(1, 4):
+                            samples = space.sample(size=batch_size)
+                            for s in samples:
+                                self.assertTrue(space.contains(s))
+
     def test_complex_space_sampling_and_check_via_contains(self):
         """
         Tests a complex Space on sampling and `contains` functionality.
@@ -35,9 +61,9 @@ class TestSpaces(unittest.TestCase):
             b=dict(ba=float),
             c=float,
             d=IntBox(low=0, high=1),
-            e=Discrete(5),
-            f=Continuous(shape=(2,2)),
-            g=Tuple(float, Continuous(shape=())),
+            e=IntBox(5),
+            f=FloatBox(shape=(2,2)),
+            g=Tuple(float, FloatBox(shape=())),
             add_batch_rank=True
         )
 
@@ -49,16 +75,16 @@ class TestSpaces(unittest.TestCase):
         space = Tuple(
             Dict(
                 a=bool,
-                b=Discrete(4),
+                b=IntBox(4),
                 c=Dict(
-                    d=Continuous(shape=())
+                    d=FloatBox(shape=())
                 )
             ),
-            Bool(),
-            Discrete(),
-            Continuous(shape=(3, 2)),
+            BoolBox(),
+            IntBox(2),
+            FloatBox(shape=(3, 2)),
             Tuple(
-                Bool(), Bool()
+                BoolBox(), BoolBox()
             )
         )
 
@@ -72,7 +98,7 @@ class TestSpaces(unittest.TestCase):
             result += "{}:{},".format(k, v)
 
         tuple_txt = [FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE] * 10
-        expected = "/{}0{}/a:1,/{}0{}/b:4,/{}0{}/c/d:1,/{}1{}:1,/{}2{}:2,/{}3{}:6,/{}4{}/{}0{}:1,/{}4{}/{}1{}:1,".\
+        expected = "/{}0{}/a:1,/{}0{}/b:1,/{}0{}/c/d:1,/{}1{}:1,/{}2{}:1,/{}3{}:6,/{}4{}/{}0{}:1,/{}4{}/{}1{}:1,".\
             format(*tuple_txt)
 
         self.assertTrue(result == expected)

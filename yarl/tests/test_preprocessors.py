@@ -31,8 +31,8 @@ class TestPreprocessors(unittest.TestCase):
     def test_split_computation_on_grayscale(self):
         # last rank is always the color rank (its dim must match len(grayscale-weights))
         space = Dict.from_spec(dict(
-            a=Tuple(Continuous(shape=(1, 1, 2)), Continuous(shape=(1, 2, 2))),
-            b=Continuous(shape=(2, 2, 2, 2)),
+            a=Tuple(FloatBox(shape=(1, 1, 2)), FloatBox(shape=(1, 2, 2))),
+            b=FloatBox(shape=(2, 2, 2, 2)),
             c=dict(type=float, shape=(2,))  # single scalar pixel
         ))
 
@@ -63,8 +63,8 @@ class TestPreprocessors(unittest.TestCase):
 
     def test_split_computation_on_flatten(self):
         space = Dict.from_spec(dict(
-            a=Tuple(Continuous(shape=(1, 1, 2)), Continuous(shape=(1, 2, 2))),
-            b=Continuous(shape=(2, 2, 3)),
+            a=Tuple(FloatBox(shape=(1, 1, 2)), FloatBox(shape=(1, 2, 2))),
+            b=FloatBox(shape=(2, 2, 3)),
             c=dict(type=float, shape=(2,)),
             add_batch_rank=True
         ))
@@ -94,9 +94,9 @@ class TestPreprocessors(unittest.TestCase):
 
     def test_two_preprocessors(self):
         space = Dict(
-            a=Continuous(shape=(1, 2)),
-            b=Continuous(shape=(2, 2, 2)),
-            c=Tuple(Continuous(shape=(2,)), Dict(ca=Continuous(shape=(3, 3, 2))))
+            a=FloatBox(shape=(1, 2)),
+            b=FloatBox(shape=(2, 2, 2)),
+            c=Tuple(FloatBox(shape=(2,)), Dict(ca=FloatBox(shape=(3, 3, 2))))
         )
 
         # Construct the Component to test (simple Stack).
@@ -122,7 +122,7 @@ class TestPreprocessors(unittest.TestCase):
         test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
 
     def test_sequence_preprocessor(self):
-        space = Continuous(shape=(1,), add_batch_rank=True)
+        space = FloatBox(shape=(1,), add_batch_rank=True)
         component_to_test = Sequence(seq_length=3, add_rank=True)
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
 
@@ -162,7 +162,7 @@ class TestPreprocessors(unittest.TestCase):
 
     def test_sequence_preprocessor_with_container_space(self):
         # Test with no batch rank.
-        space = Tuple(Continuous(shape=(1,)), Continuous(shape=(2, 2)), add_batch_rank=False)
+        space = Tuple(FloatBox(shape=(1,)), FloatBox(shape=(2, 2)), add_batch_rank=False)
 
         component_to_test = Sequence(seq_length=4, add_rank=False)
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))

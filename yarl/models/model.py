@@ -265,7 +265,7 @@ class Model(Specifiable):
             incoming_connections = from_ or socket.incoming_connections
             for in_ in force_list(incoming_connections):
                 # create tf placeholder(s)
-                # example: Space (Dict({"a": Discrete(3), "b": Bool(), "c": Continuous()})) connects to Socket ->
+                # example: Space (Dict({"a": IntBox(3), "b": BoolBox(), "c": FloatBox()})) connects to Socket ->
                 # create inputs[name-of-sock] = dict({"a": tf.placeholder(name="", dtype=int, shape=(3,))})
                 # TODO: Think about which calls here to skip (in_ is a Socket? -> most likely already done).
                 socket.update_from_input(in_, self.op_registry, self.in_socket_registry,

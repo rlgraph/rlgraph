@@ -21,7 +21,7 @@ import re
 from collections import OrderedDict
 
 from yarl import backend, YARLError, Specifiable
-#from yarl.utils.ops import FlattenedDataOp
+from yarl.utils.util import dtype
 
 
 class Space(Specifiable):
@@ -35,6 +35,7 @@ class Space(Specifiable):
             add_batch_rank (bool): Whether to always add a batch rank at the 0th position when creating
                 variables from this Space.
         """
+        self._shape = None
         self.has_batch_rank = None
         self.batch_rank_tuple = None
         self.add_batch_rank(add_batch_rank)
@@ -108,9 +109,9 @@ class Space(Specifiable):
             # TODO: re-evaluate the cutting of a leading '/_?' (tf doesn't like it)
             name = re.sub(r'^/_?', "", name)
             if is_input_feed:
-                return tf.placeholder(dtype=self.dtype, shape=shape, name=name)
+                return tf.placeholder(dtype=dtype(self.dtype), shape=shape, name=name)
             else:
-                return tf.get_variable(name, shape=shape, dtype=self.dtype, **kwargs)
+                return tf.get_variable(name, shape=shape, dtype=dtype(self.dtype), **kwargs)
         else:
             raise YARLError("ERROR: Pytorch not supported yet!")
 
@@ -167,14 +168,13 @@ class Space(Specifiable):
     def __eq__(self, other):
         raise NotImplementedError
 
-    def sample(self, size=None, seed=None):
+    def sample(self, size=None):
         """
-        Uniformly randomly samples an element from this space. This is more for testing purposes, e.g. to simulate
+        Uniformly randomly samples an element from this space. This is for testing purposes, e.g. to simulate
         a random environment.
 
         Args:
             size (Union[int,iterable,tuple]): Output shape of the sample.
-            seed (Optional[int]): The random seed to use.
         Returns:
             any: The sampled element.
         """

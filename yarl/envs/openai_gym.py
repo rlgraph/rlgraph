@@ -23,7 +23,7 @@ import time
 from yarl import YARLError
 from yarl.utils.util import dtype
 from yarl.envs import Env
-from yarl.spaces import Discrete, Continuous, Bool, Dict, IntBox, Tuple
+from yarl.spaces import *
 
 
 class OpenAIGymEnv(Env):
@@ -96,19 +96,19 @@ class OpenAIGymEnv(Env):
         """
         if isinstance(space, gym.spaces.Discrete):
             if space.n == 2:
-                return Bool()
+                return BoolBox()
             else:
-                return Discrete(space.n)
+                return IntBox(space.n)
         elif isinstance(space, gym.spaces.MultiBinary):
-            return IntBox(low=0, high=1, shape=(space.n,))
+            return BoolBox(shape=(space.n,))
         elif isinstance(space, gym.spaces.MultiDiscrete):
             return IntBox(low=np.zeros((space.nvec.ndim,), dtype("uint8", "np")), high=space.nvec)
         elif isinstance(space, gym.spaces.Box):
-            return Continuous(low=space.low, high=space.high)
+            return FloatBox(low=space.low, high=space.high)
         elif isinstance(space, gym.spaces.Tuple):
-            return Tuple(*space.spaces)
+            return Tuple(*[OpenAIGymEnv.translate_space(s) for s in space.spaces])
         elif isinstance(space, gym.spaces.Dict):
-            return Dict(list(space.spaces))
+            return Dict({k: OpenAIGymEnv.translate_space(v) for k, v in space.spaces.items()})
         else:
             raise YARLError("Unknown openAI gym Space class for observation_space!")
 

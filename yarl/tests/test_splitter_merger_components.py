@@ -36,9 +36,9 @@ class TestSplitterMergerComponents(unittest.TestCase):
             b=dict(ba=bool),
             c=float,
             d=IntBox(low=0, high=255),
-            e=Discrete(2),
-            f=Continuous(shape=(3,2)),
-            g=Tuple(bool, Continuous(shape=())),
+            e=IntBox(2),
+            f=FloatBox(shape=(3,2)),
+            g=Tuple(bool, FloatBox(shape=())),
             add_batch_rank=True
         )
         component_to_test = Splitter(input_space=space)
@@ -59,12 +59,12 @@ class TestSplitterMergerComponents(unittest.TestCase):
 
     def test_splitter_component_with_custom_names(self):
         space = Dict(
-            a=Tuple(bool, Continuous(shape=())),
-            b=Continuous(shape=()),
+            a=Tuple(bool, FloatBox(shape=())),
+            b=FloatBox(shape=()),
             c=bool,
             d=IntBox(low=0, high=255),
             e=dict(ea=float),
-            f=Continuous(shape=(3,2)),
+            f=FloatBox(shape=(3,2)),
             add_batch_rank=False
         )
         # Using custom output names.
@@ -92,9 +92,9 @@ class TestSplitterMergerComponents(unittest.TestCase):
             dict(c=bool),
             float,
             IntBox(low=0, high=255),
-            Discrete(2),
-            Continuous(shape=(3, 2)),
-            Dict(d=bool, e=Continuous(shape=())),
+            IntBox(2),
+            FloatBox(shape=(3, 2)),
+            Dict(d=bool, e=FloatBox(shape=())),
             add_batch_rank=False
         )
         component_to_test = Merger(output_space=space)
@@ -111,11 +111,11 @@ class TestSplitterMergerComponents(unittest.TestCase):
     FINISH THIS WHEN WE NEED IT. Doesn't seem to be clear on how to unflatten from custom names.
     def test_merger_component_with_custom_names(self):
         space = Tuple(
-            Dict(a=bool, b=Continuous(shape=(1,))),
+            Dict(a=bool, b=FloatBox(shape=(1,))),
             dict(c=bool, d=float),
             IntBox(low=0, high=255),
             dict(e=bool, f=bool),
-            Discrete(6),
+            IntBox(6),
             add_batch_rank=True
         )
         component_to_test = Merger(output_space=space, input_names=["tup0a", "tup0b", "tup1c", "tup1d",

@@ -21,6 +21,7 @@ from .continuous import Continuous
 import numpy as np
 
 
+# OBSOLETE: This should be replaced by the new generic Box class.
 class IntBox(Continuous):
     """
     A box in Z^n (only integers; each coordinate is bounded)
