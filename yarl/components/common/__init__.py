@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from .splitter import Splitter
 from .merger import Merger
-from .decay_components import ExponentialDecay, LinearDecay
+from .decay_components import ExponentialDecay, PolynomialDecay
 
-__all__ = ["Splitter", "Merger", "ExponentialDecay", "LinearDecay"]
+__all__ = ["Splitter", "Merger", "ExponentialDecay", "PolynomialDecay"]
 

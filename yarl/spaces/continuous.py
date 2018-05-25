@@ -50,7 +50,7 @@ class Continuous(Space):
         self.has_unknown_bounds = False
         self.has_flex_bounds = False
 
-        # Single float (may be bounded)
+        # Single value (may be bounded)
         if shape is None or shape == ():
             if isinstance(low, (int, float)) and isinstance(high, (int, float)):
                 assert low < high
@@ -106,12 +106,6 @@ class Continuous(Space):
     @property
     def bounds(self):
         return self.low, self.high
-
-    #def get_initializer(self, specification):
-    #    if backend() == "tf":
-    #        return Initializer.from_spec(shape=self.shape, specification=specification)
-    #    else:
-    #        raise YARLError("ERROR: Pytorch not supported yet!")
 
     def __repr__(self):
         return "{}({}{})".format(type(self).__name__.title(), self.shape, "; +batch" if self.has_batch_rank else "")
