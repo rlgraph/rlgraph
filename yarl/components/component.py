@@ -195,27 +195,33 @@ class Component(Specifiable):
 
         return var
 
-    def get_variables(self, *names):
+    def get_variables(self, *names,  **kwargs):
         """
-        Utility method to get any component variables by name.
+        Utility method to get one or more component variable(s) by name(s).
 
         Args:
             names (List[str]): Lookup name strings for variables. None for all.
 
+        Keyword Args:
+            collections (set): A set of collections to which the variables have to belong in order to be returned here.
+                Default: tf.GraphKeys.TRAINABLE_VARIABLES
+
         Returns:
             dict: A dict mapping variable names to their backend variables.
         """
+        collection = kwargs.pop("collection", None)
+        assert not kwargs, "{}".format(kwargs)
+
         if len(names) == 1 and isinstance(names[0], list):
             names = names[0]
         names = util.force_list(names)
+        # Return all variables of this Component (for some collection).
         if len(names) == 0:
-            return self.variables
+            collection_variables = tf.get_collection(collection)
+            return {v.name: v for v in collection_variables if v.name in self.variables}
 
-        result = dict()
-        for var_name in names:
-            if var_name in self.variables:
-                result[var_name] = self.variables[var_name]
-        return result
+        # Return only variables of this Component by name.
+        return {n: self.variables[n] for n in names if n in self.variables}
 
     def define_inputs(self, *sockets, **kwargs):
         """

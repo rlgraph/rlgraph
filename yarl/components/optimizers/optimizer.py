@@ -24,8 +24,14 @@ class Optimizer(Component):
     """
     A component that takes a tuple of variables as in-Sockets and optimizes them according to some loss function
     or another criterion or method.
-    """
 
+    API:
+    ins:
+        time_step (int): The current time-step.
+        variables (tuple): The tuple of (trainable) variables to be optimized.
+    outs:
+        step (tuple): The tuple of delta tensors to be added to each of the variables in the `variables` in-Socket.
+    """
     def __init__(self, scope="optimizer", *args, **kwargs):
         super(Optimizer, self).__init__(scope=scope, *args, **kwargs)
 
@@ -43,6 +49,6 @@ class Optimizer(Component):
             variables (DataOpTuple): The list of variables to be optimized.
 
         Returns:
-            Op: A list of delta tensors corresponding to the updates for each optimized variable.
+            DataOpTuple: A list of delta tensors corresponding to the updates for each optimized variable.
         """
         raise NotImplementedError

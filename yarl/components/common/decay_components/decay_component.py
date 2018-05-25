@@ -17,8 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
-
+from yarl import backend
 from yarl.utils import util
 from yarl.components import Component
 
@@ -70,14 +69,16 @@ class DecayComponent(Component):
         Returns:
             DataOp: The decay'd value depending on the current time step.
         """
-        return tf.cond(pred=(time_step <= self.start_timestep),
-                       # We are still in pre-decay time.
-                       true_fn=lambda: self.from_,
-                       false_fn=lambda: tf.cond(pred=(time_step >= self.start_timestep + self.num_timesteps),
-                                                # We are in post-decay time.
-                                                true_fn=lambda: self.to_,
-                                                # We are inside the decay time window.
-                                                false_fn=lambda: self.decay(tf.cast(x=time_step - self.start_timestep,
-                                                                                    dtype=util.dtype("float"))))
-                       )
+        if backend() == "tf":
+            import tensorflow as tf
+            return tf.cond(pred=(time_step <= self.start_timestep),
+                           # We are still in pre-decay time.
+                           true_fn=lambda: self.from_,
+                           false_fn=lambda: tf.cond(pred=(time_step >= self.start_timestep + self.num_timesteps),
+                                                    # We are in post-decay time.
+                                                    true_fn=lambda: self.to_,
+                                                    # We are inside the decay time window.
+                                                    false_fn=lambda: self.decay(tf.cast(x=time_step - self.start_timestep,
+                                                                                        dtype=util.dtype("float"))))
+                           )
 

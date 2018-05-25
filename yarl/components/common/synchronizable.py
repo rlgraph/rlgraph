@@ -34,11 +34,10 @@ class Synchronizable(Component):
         """
         Args:
             collections (set): A set of specifiers (currently only tf), that determine which Variables to synchronize.
-                Default: only-trainable variables.
         """
         super(Synchronizable, self).__init__(*args, **kwargs)
 
-        self.collections = collections or set(tf.GraphKeys.TRAINABLE_VARIABLES)
+        self.collections = collections
 
         # Add a simple syncing API.
         # Socket for incoming data (the data that this Component will get overwritten with).
@@ -68,7 +67,7 @@ class Synchronizable(Component):
         """
         # Loop through all incoming vars and our own and collect assign ops.
         syncs = list()
-        for (key_from, var_from), (key_to, var_to) in zip(sync_in, self.get_trainable_variables()):
+        for (key_from, var_from), (key_to, var_to) in zip(sync_in, self.get_variables(collections=self.collections)):
             # Sanity checking
             if key_from != key_to:
                 raise YARLError("ERROR: Variable names for synching must match in order and name! "
@@ -90,4 +89,4 @@ class Synchronizable(Component):
         Returns:
             tuple: All our Variables that match the given collection (see c'tor).
         """
-        return tuple(self.get_variables())
+        return tuple(self.get_variables(collections=self.collections))

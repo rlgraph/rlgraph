@@ -17,12 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .distributions import Distribution, Bernoulli, Categorical
+from .loss_function import LossFunction
 
-Distribution.__lookup_classes__ = dict(
-    bernoulli=Bernoulli,
-    categorical=Categorical
-)
-
-__all__ = ["Distribution", "Bernoulli", "Categorical"]
-
+__all__ = ["LossFunction"]

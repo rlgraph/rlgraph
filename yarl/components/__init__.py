@@ -19,14 +19,14 @@ from __future__ import print_function
 
 from .component import Component, CONNECT_INS, CONNECT_OUTS
 from .socket_and_computation import Socket, Computation
-from .common import Splitter, Merger
+#from .common import Splitter, Merger, DecayComponent, PolynomialDecay, ExponentialDecay
 
 
 Component.__lookup_classes__ = dict(
     component=Component
 )
 
-__all__ = ["Component", "Splitter", "Merger",
+__all__ = ["Component", #"Splitter", "Merger",
            "CONNECT_INS", "CONNECT_OUTS",
            "Computation", "Socket"]
 
