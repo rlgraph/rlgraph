@@ -36,6 +36,13 @@ class RingBuffer(Memory):
         episode_semantics=False
     ):
         super(RingBuffer, self).__init__(capacity, name, scope)
+        self.add_computation(
+            inputs="num_records",
+            outputs="sample",
+            method=self._computation_get_records,
+            flatten_ops=False
+        )
+
         # Variables.
         self.index = None
         self.size = None

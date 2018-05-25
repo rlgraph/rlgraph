@@ -37,6 +37,12 @@ class ReplayMemory(Memory):
         next_states=True
     ):
         super(ReplayMemory, self).__init__(capacity, name, scope)
+        self.add_computation(
+            inputs="num_records",
+            outputs="sample",
+            method=self._computation_get_records,
+            flatten_ops=False
+        )
 
         # Variables.
         self.index = None
