@@ -110,23 +110,58 @@ class SegmentTree(object):
         Args:
             start (int): Start index to apply reduction to.
             limit (end): End index to apply reduction to.
-            reduce_op (Union(tf.add, tf.min)): Reduce op to apply.
+            reduce_op (Union(tf.add, tf.minimum, tf.maximum)): Reduce op to apply.
 
         Returns:
             Number: Result of reduce operation
         """
         # Init result with neutral element of reduce op.
+        # Note that all of these are commutative reduce ops.
         if reduce_op == tf.add:
             result = 0
         elif reduce_op == tf.minimum:
-            result = float('max')
+            result = float('inf')
+        elif reduce_op == tf.maximum:
+            result = float('-inf')
+        else:
+            raise ValueError("Unsupported reduce OP. Support ops are [tf.add, tf.minimum, tf.maximum]")
 
+        start += self.capacity
+        limit += self.capacity
 
-        # int query(int l, int r) {  // sum on interval [l, r)
-        #  int res = 0;
-        #  for (l += n, r += n; l < r; l >>= 1, r >>= 1) {
-        #    if (l&1) res += t[l++];
-        #    if (r&1) res += t[--r];
-        #  }
-        #  return res;
-        # }
+        def reduce_body(start, limit, result):
+            start_mod = tf.mod(x=start, y=2)
+
+            def update_start_fn(start, result):
+                result = reduce_op(x=result, y=self.values[start])
+                start += 1
+                return start, result
+
+            start, result = tf.cond(
+                pred=start_mod == 0,
+                true_fn=lambda: (start, result),
+                false_fn=update_start_fn(start, result)
+            )
+
+            end_mod = tf.mod(x=limit, y=2)
+
+            def update_limit_fn(limit, result):
+                limit -= 1
+                result = reduce_op(x=result, y=self.values[limit])
+
+                return limit, result
+
+            limit, result = tf.cond(
+                pred=end_mod == 0,
+                true_fn=lambda: (start, result),
+                false_fn=update_limit_fn(limit, result)
+            )
+
+            return start / 2, limit / 2, result
+
+        def cond(start, limit, result):
+            return start < limit
+
+        _, _, result = tf.while_loop(cond=cond, body=reduce_body, loop_vars=(start, limit, result))
+
+        return result
