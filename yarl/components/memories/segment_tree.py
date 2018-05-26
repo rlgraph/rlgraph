@@ -51,7 +51,7 @@ class SegmentTree(object):
         Args:
             index (int): Insertion index.
             element (any): Element to insert.
-            op Union(tf.add, tf.min): Insert operation on the tree.
+            insert_op (Union(tf.add, tf.min)): Insert operation on the tree.
         """
         index += self.capacity
         assignments = list()
@@ -103,30 +103,30 @@ class SegmentTree(object):
         """
         pass
 
-    def reduce_sum(self, start, limit):
+    def reduce(self, start, limit, reduce_op=tf.add):
         """
-        Applies sum() to specified segment.
+        Applies an operation to specified segment.
 
         Args:
             start (int): Start index to apply reduction to.
             limit (end): End index to apply reduction to.
+            reduce_op (Union(tf.add, tf.min)): Reduce op to apply.
 
         Returns:
-            any: Result of reduce
-
+            Number: Result of reduce operation
         """
-        pass
+        # Init result with neutral element of reduce op.
+        if reduce_op == tf.add:
+            result = 0
+        elif reduce_op == tf.minimum:
+            result = float('max')
 
-    def reduce_min(self, start, limit):
-        """
-        Applies min() to specified segment.
 
-        Args:
-            start (int): Start index to apply reduction to.
-            limit (end): End index to apply reduction to.
-
-        Returns:
-            any: Result of reduce
-
-        """
-        pass
+        # int query(int l, int r) {  // sum on interval [l, r)
+        #  int res = 0;
+        #  for (l += n, r += n; l < r; l >>= 1, r >>= 1) {
+        #    if (l&1) res += t[l++];
+        #    if (r&1) res += t[--r];
+        #  }
+        #  return res;
+        # }

@@ -158,7 +158,7 @@ class PrioritizedReplay(Memory):
                 ))
             return i + 1, assignments
 
-        def cond(i):
+        def cond(i, assignments):
             return i < num_records - 1
 
         with tf.control_dependencies(control_inputs=index_updates):
@@ -171,7 +171,7 @@ class PrioritizedReplay(Memory):
     def _computation_get_records(self, num_records):
         # Sum total mass.
         current_size = self.read_variable(self.size)
-        prob_sum = self.sum_segment_tree.reduce_sum(start=0, limit=current_size - 1)
+        prob_sum = self.sum_segment_tree.reduce(start=0, limit=current_size - 1)
 
         # Sample the entire batch.
         sample = prob_sum * tf.random_uniform(shape=(num_records, ))
@@ -211,15 +211,23 @@ class PrioritizedReplay(Memory):
         max_priority = 0.0
 
         # Update has to be sequential.
-        def insert_body(i, max_priority, assignments, ):
+        def insert_body(i, max_priority, assignments):
             with tf.control_dependencies(control_inputs=assignments):
                 priority = tf.pow(x=update[i], y=self.alpha)
-                assignments = self.sum_segment_tree.insert(index=indices[i], element=priority, insert_op=tf.add)
-                assignments.extend(self.min_segment_tree.insert(index=indices[i], element=priority, insert_op=tf.minimum))
+                assignments = self.sum_segment_tree.insert(
+                    index=indices[i],
+                    element=priority,
+                    insert_op=tf.add
+                )
+                assignments.extend(self.min_segment_tree.insert(
+                    index=indices[i],
+                    element=priority,
+                    insert_op=tf.minimum
+                ))
                 max_priority = tf.maximum(x=max_priority, y=priority)
             return i + 1, max_priority, assignments
 
-        def cond(i):
+        def cond(i, max_priority, assignments):
             return i < num_records - 1
 
         _, max_priority, assignments = tf.while_loop(cond=cond, body=insert_body, loop_vars=(0, max_priority, list()))
