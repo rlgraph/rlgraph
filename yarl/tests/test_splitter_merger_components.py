@@ -20,9 +20,9 @@ from __future__ import print_function
 import numpy as np
 import unittest
 
+from yarl.components.common import Splitter, Merger
 from yarl.spaces import *
 from yarl.spaces.space_utils import flatten_op
-from yarl.components import Splitter, Merger
 from yarl.tests.component_test import ComponentTest
 
 

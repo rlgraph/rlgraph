@@ -342,16 +342,26 @@ class Component(Specifiable):
         input_sockets = [self.get_socket(s, create_internal_if_not_found=True) for s in inputs]
         output_sockets = [self.get_socket(s, create_internal_if_not_found=True) for s in outputs]
         # Add the computation record to all input and output sockets.
-        computation = Computation(method, self, input_sockets, output_sockets,
-                                  flatten_ops if flatten_ops is not None else
-                                  self.computation_settings.get("flatten_ops", True),
-                                  split_ops if split_ops is not None else
-                                  self.computation_settings.get("split_ops", False),
-                                  add_auto_key_as_first_param if add_auto_key_as_first_param is not None else
-                                  self.computation_settings.get("add_auto_key_as_first_param", False),
-                                  unflatten_ops if unflatten_ops is not None else
-                                  self.computation_settings.get("unflatten_ops", True)
-                                  )
+        # Fetch default params.
+        if not flatten_ops:
+            flatten_ops = self.computation_settings.get("flatten_ops", True)
+        if not split_ops:
+            split_ops = self.computation_settings.get("split_ops", False)
+        if not add_auto_key_as_first_param:
+            add_auto_key_as_first_param = self.computation_settings.get("add_auto_key_as_first_param", False)
+        if not unflatten_ops:
+            unflatten_ops = self.computation_settings.get("unflatten_ops", True)
+
+        computation = Computation(
+            method=method,
+            component=self,
+            input_sockets=input_sockets,
+            output_sockets=output_sockets,
+            flatten_ops=flatten_ops,
+            split_ops=split_ops,
+            add_auto_key_as_first_param=add_auto_key_as_first_param,
+            unflatten_ops=unflatten_ops
+        )
         # Connect the computation to all the given Sockets.
         for input_socket in input_sockets:
             input_socket.connect_to(computation)
