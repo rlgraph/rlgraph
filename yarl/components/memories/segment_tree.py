@@ -153,7 +153,7 @@ class SegmentTree(object):
 
             limit, result = tf.cond(
                 pred=end_mod == 0,
-                true_fn=lambda: (start, result),
+                true_fn=lambda: (limit, result),
                 false_fn=update_limit_fn(limit, result)
             )
 
