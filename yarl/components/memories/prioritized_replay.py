@@ -143,7 +143,6 @@ class PrioritizedReplay(Memory):
 
         # TODO update semgent tree
         # Note: Cannot concurrently modify, so need iterative insert
-
         def insert_body(i, assignments):
             with tf.control_dependencies(control_inputs=assignments):
                 assignments = self.sum_segment_tree.insert(

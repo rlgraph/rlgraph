@@ -66,7 +66,7 @@ class SegmentTree(object):
             with tf.control_dependencies(control_inputs=assignments):
                 update_val = insert_op(
                     x=self.values[2 * loop_update_index],
-                    y=self.values[2 * loop_update_index]
+                    y=self.values[2 * loop_update_index + 1]
                 )
                 assignments.append(tf.assign(ref=self.values, value=update_val))
 
@@ -94,14 +94,46 @@ class SegmentTree(object):
 
     def index_of_prefixsum(self, prefix_sum):
         """
+        Find the highest index which satisfies the condition that the sum
+        over all elements from 0 till the index is <= prefix_sum.
 
         Args:
-            prefix_sum:
+            prefix_sum (float): Upper bound on prefix we are allowed to select.
 
         Returns:
-
+            int: Index satisfying prefix sum condition.
         """
-        pass
+        assert_ops = list()
+        # 0 <= prefix_sum <= sum(priorities)
+        assert_ops.append(tf.Assert(condition=tf.less_equal(x=prefix_sum, y=tf.reduce_sum(input_tensor=self.values))))
+        assert_ops.append(tf.Assert(condition=tf.greater_equal(x=prefix_sum, y=0.0)))
+        index = 1
+
+        def search_body(index, prefix_sum):
+            # Is the value at position 2 * index > prefix sum?
+            compare_value = self.values[2 * index]
+
+            def update_prefix_sum_fn(index, prefix_sum):
+                # 'Use up' values in this segment, then jump to next.
+                prefix_sum -= self.values[2 * index]
+                return 2 * index + 1, prefix_sum
+
+            index, prefix_sum = tf.cond(
+                pred=compare_value > prefix_sum,
+                # If over prefix sum, jump index.
+                true_fn=lambda: (2 * index, prefix_sum),
+                # Else adjust prefix sum until done.
+                false_fn=update_prefix_sum_fn(index, prefix_sum)
+            )
+            return index, prefix_sum
+
+        def cond(index, prefix_sum):
+            return index < self.capacity
+
+        with tf.control_dependencies(control_inputs=assert_ops):
+            index, _ = tf.while_loop(cond=cond, body=search_body, loop_vars=[index, prefix_sum])
+
+        return index - self.capacity
 
     def reduce(self, start, limit, reduce_op=tf.add):
         """
@@ -156,7 +188,6 @@ class SegmentTree(object):
                 true_fn=lambda: (limit, result),
                 false_fn=update_limit_fn(limit, result)
             )
-
             return start / 2, limit / 2, result
 
         def cond(start, limit, result):
