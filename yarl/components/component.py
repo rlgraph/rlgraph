@@ -343,13 +343,13 @@ class Component(Specifiable):
         output_sockets = [self.get_socket(s, create_internal_if_not_found=True) for s in outputs]
         # Add the computation record to all input and output sockets.
         # Fetch default params.
-        if not flatten_ops:
+        if flatten_ops is None:
             flatten_ops = self.computation_settings.get("flatten_ops", True)
-        if not split_ops:
+        if split_ops is None:
             split_ops = self.computation_settings.get("split_ops", False)
-        if not add_auto_key_as_first_param:
+        if add_auto_key_as_first_param is None:
             add_auto_key_as_first_param = self.computation_settings.get("add_auto_key_as_first_param", False)
-        if not unflatten_ops:
+        if unflatten_ops is None:
             unflatten_ops = self.computation_settings.get("unflatten_ops", True)
 
         computation = Computation(
