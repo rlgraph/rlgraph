@@ -142,7 +142,6 @@ class PrioritizedReplay(Memory):
             update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
             index_updates.append(self.assign_variable(self.size, value=update_size))
 
-        # TODO update semgent tree
         # Note: Cannot concurrently modify, so need iterative insert
         def insert_body(i, assignments):
             with tf.control_dependencies(control_inputs=assignments):

@@ -57,7 +57,7 @@ class SegmentTree(object):
         assignments = list()
 
         # TODO replace with component assign utility.
-        assignments.append(tf.assign(ref=self.values, value=element))
+        assignments.append(tf.scatter_update(ref=self.values, indices=index, value=element))
 
         # Search and update values while index >=1
         loop_update_index = index / 2
