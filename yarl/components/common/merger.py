@@ -35,7 +35,7 @@ class Merger(Component):
         """
         assert isinstance(output_space, ContainerSpace), "ERROR: `output_space` must be a ContainerSpace " \
                                                          "(Dict or Tuple)!"
-        super(Merger, self).__init__(scope=scope, **kwargs)
+        super(Merger, self).__init__(scope=scope, computation_settings=dict(flatten_ops=False), **kwargs)
 
         self.output_space = output_space
 
