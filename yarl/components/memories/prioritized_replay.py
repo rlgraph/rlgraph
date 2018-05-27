@@ -52,17 +52,17 @@ class PrioritizedReplay(Memory):
         # Priority weight.
         self.alpha = alpha
 
-        self.define_inputs("update")
-        self.define_outputs("update_records")
+        self.define_inputs("indices", "update")
+        self.define_outputs("sample_indices", "update_records")
         self.add_computation(
             inputs="num_records",
-            outputs=["sample", "indices"],
+            outputs=["sample", "sample_indices"],
             method=self._computation_get_records,
             flatten_ops=False
         )
 
         self.add_computation(
-            inputs="update",
+            inputs=["indices", "update"],
             outputs="update_records",
             method=self._computation_update_records,
             flatten_ops=False
@@ -101,6 +101,7 @@ class PrioritizedReplay(Memory):
                 dtype=tf.float32,
                 trainable=False,
                 # Neutral element of min()
+                shape=(2 * self.priority_capacity,),
                 initializer=tf.constant_initializer(np.full((2 * self.priority_capacity,), float('inf')))
         )
         self.min_segment_tree = SegmentTree(self.min_segment_buffer, self.priority_capacity)
