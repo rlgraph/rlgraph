@@ -60,7 +60,7 @@ class SegmentTree(object):
         assignments.append(tf.scatter_update(ref=self.values, indices=index, updates=element))
 
         # Search and update values while index >=1
-        loop_update_index = index / 2
+        loop_update_index = tf.div(x=index, y=2)
 
         def insert_body(loop_update_index, assignments):
             with tf.control_dependencies(control_inputs=assignments):
