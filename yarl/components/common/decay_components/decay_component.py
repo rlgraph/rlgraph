@@ -25,6 +25,12 @@ from yarl.components import Component
 class DecayComponent(Component):
     """
     A base class Component that takes a time input and outputs some decaying-over-time value.
+
+    API:
+    ins:
+        time_step (int): The current time step.
+    outs:
+        value (float): The current decayed value based on the time step and c'tor settings.
     """
     def __init__(self, scope="decay", **kwargs):
         """
@@ -35,12 +41,12 @@ class DecayComponent(Component):
             num_timesteps (int): The number of time steps over which to decay. Outputs will be stationary before and
                 after this decaying period.
         """
-        super(DecayComponent, self).__init__(scope=scope, **kwargs)
+        self.from_ = kwargs.pop("from_", kwargs.pop("from", 1.0))
+        self.to_ = kwargs.pop("to_", kwargs.pop("to", 0.1))
+        self.start_timestep = kwargs.pop("start_timestep", 0)
+        self.num_timesteps = kwargs.pop("num_timesteps", 10000)
 
-        self.from_ = kwargs.get("from", 1.0)
-        self.to_ = kwargs.get("to", 0.1)
-        self.start_timestep = kwargs.get("start_timestep", 0)
-        self.num_timesteps = kwargs.get("num_timesteps", 10000)
+        super(DecayComponent, self).__init__(scope=scope, computation_settings=dict(flatten_ops=False), **kwargs)
 
         # Our interface.
         self.define_inputs("time_step")

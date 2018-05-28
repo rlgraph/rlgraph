@@ -19,9 +19,8 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-from functools import partial
-
-from yarl.utils.util import dtype
+from yarl import backend
+from yarl.utils import util
 from yarl.components import Component
 from yarl.spaces import ContainerSpace
 
@@ -60,15 +59,15 @@ class Distribution(Component):
         assert in_space.has_batch_rank,\
             "ERROR: Space in Socket 'input' to layer '{}' must have a batch rank (0th position)!".format(self.name)
 
-    def _computation_parameterize(self, parameters):
+    def _computation_parameterize(self, *parameters):
         """
         Parameterizes this distribution (normally from an NN-output vector). Returns the backend-distribution object
         (a DataOp).
 
         Args:
-            parameters (DataOp): The input used to parameterize this distribution. This is normally a cleaned up
-                NN-output that, for example, can hold the two values for mean and variance for a univariate Gaussian
-                distribution.
+            *parameters (DataOp): The input(s) used to parameterize this distribution. This is normally a cleaned up
+                single NN-output that (e.g.: the two values for mean and variance for a univariate Gaussian
+                distribution).
 
         Returns:
             DataOp: The parameterized backend-specific distribution object.
@@ -91,11 +90,11 @@ class Distribution(Component):
             DataOp: The taken sample(s).
         """
         return tf.cond(pred=max_likelihood,
-                       true_fn=lambda: self._max_likelihood(distribution),
-                       false_fn=lambda: self._sampled(distribution)
+                       true_fn=lambda: self.max_likelihood(distribution),
+                       false_fn=lambda: self.sampled(distribution)
                        )
 
-    def _max_likelihood(self, distribution):
+    def max_likelihood(self, distribution):
         """
         Returns the maximum-likelihood value for a given distribution.
 
@@ -109,7 +108,7 @@ class Distribution(Component):
         raise NotImplementedError
 
     @staticmethod
-    def _sampled(distribution):
+    def sampled(distribution):
         """
         Returns an actual sample for a given distribution.
 
@@ -155,9 +154,9 @@ class Bernoulli(Distribution):
         ## Clamp to avoid 0.0 or 1.0 probabilities (adds numerical stability).
         #p = tf.clip_by_value(p, clip_value_min=SMALL_NUMBER, clip_value_max=(1.0 - SMALL_NUMBER))
 
-        return tf.distributions.Bernoulli(probs=prob, dtype=dtype("bool"))
+        return tf.distributions.Bernoulli(probs=prob, dtype=util.dtype("bool"))
 
-    def _max_likelihood(self, distribution):
+    def max_likelihood(self, distribution):
         return distribution.prob(True) >= 0.5
 
 
@@ -170,8 +169,8 @@ class Categorical(Distribution):
         super(Categorical, self).__init__(scope=scope, **kwargs)
 
     def _computation_parameterize(self, probs):
-        return tf.distributions.Categorical(probs=probs, dtype=dtype("int"))
+        return tf.distributions.Categorical(probs=probs, dtype=util.dtype("int"))
 
-    def _max_likelihood(self, distribution):
-        return tf.argmax(input=distribution.probs, axis=-1, output_type=dtype("int"))
+    def max_likelihood(self, distribution):
+        return tf.argmax(input=distribution.probs, axis=-1, output_type=util.dtype("int"))
 

@@ -17,8 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import backend
+from functools import partial
 
+from yarl import backend
 from .decay_component import DecayComponent
 
 
@@ -51,3 +52,5 @@ class PolynomialDecay(DecayComponent):
             return tf.train.polynomial_decay(self.from_, time_steps_in_decay_window, self.num_timesteps,
                                              self.to_, power=self.power)
 
+
+LinearDecay = partial(PolynomialDecay, power=1.0)

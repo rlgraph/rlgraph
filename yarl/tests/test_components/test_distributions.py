@@ -40,7 +40,7 @@ class TestDistributions(unittest.TestCase):
         test = ComponentTest(component=bernoulli, input_spaces=dict(parameters=param_space,
                                                                     max_likelihood=max_likelihood_space))
 
-        # Batch of size=1 (deterministic).
+        # Batch of size=1 and deterministic.
         input_ = {
             "parameters": np.array([[0.5, 0.99, 0.0, 0.2, 0.3]]),
             "max_likelihood": True
@@ -48,7 +48,7 @@ class TestDistributions(unittest.TestCase):
         expected = np.array([[True, True, False, False, False]])
         test.test(out_socket_name="draw", inputs=input_, expected_outputs=expected)
 
-        # Batch of size=2 (non-deterministic) -> expect always the same result when we seed tf (done automatically
+        # Batch of size=2 and non-deterministic -> expect always the same result when we seed tf (done automatically
         # by the ComponentTest object).
         input_ = {
             "parameters": np.array([[0.1, 0.3, 0.6, 0.71, 0.001], [0.9, 0.998, 0.9999, 0.0001, 0.345678]]),
@@ -67,7 +67,7 @@ class TestDistributions(unittest.TestCase):
         test = ComponentTest(component=categorical, input_spaces=dict(parameters=param_space,
                                                                       max_likelihood=max_likelihood_space))
 
-        # Batch of size=1 (deterministic).
+        # Batch of size=1 and deterministic.
         input_ = {
             "parameters": np.array([[[0.5, 0.25, 0.25],
                                      [0.98, 0.01, 0.01],
@@ -80,7 +80,7 @@ class TestDistributions(unittest.TestCase):
         expected = np.array([[0, 0, 1, 2, 2]])
         test.test(out_socket_name="draw", inputs=input_, expected_outputs=expected)
 
-        # Batch of size=2 (non-deterministic) -> expect always the same result when we seed tf (done automatically
+        # Batch of size=2 and non-deterministic -> expect always the same result when we seed tf (done automatically
         # by the ComponentTest object).
         input_ = {
             "parameters": np.array([[[0.3, 0.25, 0.45],
