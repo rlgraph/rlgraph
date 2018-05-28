@@ -54,31 +54,27 @@ class SegmentTree(object):
             insert_op (Union(tf.add, tf.min)): Insert operation on the tree.
         """
         index += self.capacity
-        assignments = list()
+        assignments = tf.assign(ref=self.values[index], value=element)
 
         # TODO replace with component assign utility.
-        assignments.append(tf.assign(ref=self.values[index], value=element))
 
         # Search and update values while index >=1
         loop_update_index = tf.div(x=index, y=2)
 
-        def insert_body(loop_update_index, assignments):
-            with tf.control_dependencies(control_inputs=assignments):
-                update_val = insert_op(
-                    x=self.values[2 * loop_update_index],
-                    y=self.values[2 * loop_update_index + 1]
-                )
-                assignments.append(tf.assign(ref=self.values[loop_update_index], value=update_val))
+        def insert_body(loop_update_index):
+            update_val = insert_op(
+                x=self.values[2 * loop_update_index],
+                y=self.values[2 * loop_update_index + 1]
+            )
+            assignment = tf.assign(ref=self.values[loop_update_index], value=update_val)
+            with tf.control_dependencies(control_inputs=[assignment]):
+                return tf.div(x=loop_update_index, y=2)
 
-            return tf.div(x=loop_update_index, y=2), assignments
-
-        def cond(loop_update_index, assignments):
+        def cond(loop_update_index):
             return loop_update_index >= 1
 
-        with tf.control_dependencies(control_inputs=assignments):
-            _, assignments = tf.while_loop(cond=cond, body=insert_body, loop_vars=(loop_update_index, list()))
-
-        return assignments
+        with tf.control_dependencies(control_inputs=[assignments]):
+            return tf.while_loop(cond=cond, body=insert_body, loop_vars=(loop_update_index))
 
     def get(self, index):
         """
