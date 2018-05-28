@@ -17,21 +17,38 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
+import numpy as np
 
+from yarl import YARLError, backend
 from yarl.components import Component, CONNECT_INS
-from yarl.components.distributions import Bernoulli
+from yarl.components.distributions import Categorical
+from yarl.spaces import IntBox, FloatBox
+from .epsilon_exploration import EpsilonExploration
 
 
 class ActionHeadComponent(Component):
-    def __init__(self, action_space, add_softmax=False, policy="max-likelihood", epsilon_component=None,
+    """
+    A Component that can be plugged on top of an NN-action output as is to produce action choices.
+    It includes noise and epsilon-based exploration options as well as drawing actions from different,
+    possible NN-specified distributions - either by sampling or by deterministically choosing the max-likelihood
+    value.
+
+    API:
+    ins:
+        time_step (int): The current global time step (used to determine the extend of the exploration).
+        nn_output (any): The NN-output specifying the parameters of an action distribution.
+    outs:
+        action (any): A single action chose according to our exploration settings and NN-output.
+        # TODO: actions (any): A batch of actions taken from a batch of NN-outputs without any exploration.
+    """
+    def __init__(self, action_space, add_softmax=False, policy="max-likelihood", epsilon_spec=None,
                  noise_spec=None, scope="action-head", **kwargs):
         """
         Args:
             action_space (Space): The action Space. Outputs of the "action" Socket must be members of this Space.
             add_softmax (bool): Whether to softmax the NN outputs (before further processing them).
-            policy (str): One of: "max-likelihood", "random", "sample".
-            epsilon_component (Component): The sub-Component for epsilon-based exploration (e.g. a DecayComponent).
+            policy (str): One of: "max-likelihood", "sample".
+            epsilon_spec (any): The spec or Component object itself to construct an EpsilonExploration Component.
             #noise_spec (dict): The specification dict for a noise generator that adds noise to the NN's output.
         """
         super(ActionHeadComponent, self).__init__(scope=scope, **kwargs)
@@ -41,28 +58,34 @@ class ActionHeadComponent(Component):
         self.action_space = action_space
         assert self.action_space.has_batch_rank, "ERROR: `action_space` does not have batch rank!"
 
-        self.policy = policy
-        self.epsilon_component = epsilon_component
-        self.noise_spec = noise_spec
-
-        # The Bernoulli Distribution to check, whether to do (epsilon) exploration or not.
-        self.epsilon_component = Bernoulli()
         # The Distribution to sample (or pick) actions from.
-        self.action_distribution = None
+        # Discrete action space -> Categorical distribution.
+        if isinstance(self.action_space, IntBox):
+            self.action_distribution = Categorical()
+        else:
+            raise YARLError("ERROR: Space of out-Socket `action` is of type {} and not allowed in {} Component!".
+                            format(type(self.action_space).__name__, self.name))
 
-        # We only need the global timestep and the NN output to determine an action.
+        self.policy = policy
+        self.epsilon_exploration = Component.from_spec(type=EpsilonExploration, spec=epsilon_spec)
+
         self.define_inputs("time_step", "nn_output")
         self.define_outputs("action")
 
+        # Add action-distribution component and connect accordingly.
+        self.add_component(self.action_distribution,
+                           connect=dict(params="nn_output",
+                                        max_likelihood=True if self.policy == "max-likelihood" else False)
+                           )
+
         # Add epsilon Component and connect accordingly.
-        if self.epsilon_component is not None:
-            self.add_component(self.epsilon_component, connect=CONNECT_INS)
-            #self.connect(self.epsilon_component.get_output("do_explore"), "epsilon")
-            #self.add_computation(["time_step", "nn_output", self.epsilon_component.get_output("epsilon")],
-            #                     "action", self._computation_act)
-        # Else, set epsilon to 0.0 (no epsilon-based exploration).
-        else:
-            self.add_computation(["time_step", "nn_output", 0.0], "action", self._computation_act)
+        if self.epsilon_exploration is not None:
+            self.add_component(self.epsilon_exploration, connect="time_step")
+
+        # Add our own computation and connect its output to the "action" Socket.
+        self.add_computation(inputs=[(self.epsilon_exploration, "do_explore"), (self.action_distribution, "draw")],
+                             outputs="action",
+                             method=self._computation_pick)
 
     def create_variables(self, input_spaces):
         flat_action_space = input_spaces["nn_output"]
@@ -70,33 +93,23 @@ class ActionHeadComponent(Component):
             "ERROR: The flat_dims of incoming NN-output ({}) and our action_space ({}) don't match!". \
             format(flat_action_space.flat_dim, self.action_space.flat_dim)
 
-        #if self.epsilon_component is not None:
-        # Now that we know the NN's output shape, we can generate our distributions.
-        #if self.epsilon_component is not None:
-            #self.epsilon_distribution
-
-    def _computation_act(self, time_step, nn_output, epsilon):
+    def _computation_pick(self, do_explore, action):
         """
         Args:
-            time_step (DataOp): The time-step information needed to figure out the amount and nature of exploration.
-            nn_output (DataOp): The output from the neural network (policy, Q-net, etc..).
+            do_explore (DataOp): The bool coming from the epsilon-exploration component specifying
+                whether to use exploration or not.
+            action (DataOp): The output from our action-distribution (parameterized by the neural network) and
+                drawn either by sampling or by max-likelihood picking.
 
         Returns:
             DataOp: The DataOp representing the action. This will match the shape of self.action_space.
         """
-        # Reshape NN-output.
-        reshaped_nn_output = tf.reshape(nn_output, self.action_space.shape_with_batch_rank)
-
-        # Pass NN-output through softmax first?
-        if self.add_softmax:
-            nn_output = tf.nn.softmax(nn_output)  # axis -1 ok?
-
-        # Sample our epsilon-defined Bernoulli distribution.
-        do_explore = False
-        if self.epsilon_component is not None:
-            pass
-            #do_explore =
-
+        logits = np.ones((1,) + self.action_space.shape)  # add artificial batch rank
+        if backend() == "tf":
+            import tensorflow as tf
+            return tf.cond(do_explore,
+                           true_fn=lambda: tf.multinomial(logits=logits, num_samples=1),
+                           false_fn=lambda: action)
 
 
 """        

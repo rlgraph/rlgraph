@@ -174,9 +174,14 @@ class Space(Specifiable):
         a random environment.
 
         Args:
-            size (Union[int,iterable,tuple]): Output shape of the sample.
+            size (Optional[int]): The number of samples or batch size to sample.
+                If size is > 1: Returns a batch of size samples with the 0th rank being the batch rank
+                    (even if `self.has_batch_rank` is False).
+                If size is None or (1 and self.has_batch_rank is False): Returns a single sample w/o batch rank.
+                If size is 1 and self.has_batch_rank is True: Returns a single sample w/ the batch rank.
+
         Returns:
-            any: The sampled element.
+            any: The sampled element(s).
         """
         raise NotImplementedError
 
@@ -187,13 +192,13 @@ class Space(Specifiable):
 
         Args:
             num_samples (Optional[int]): Number of samples to pull. If None or 0, pull 1 sample, but without batch rank
-                (no matter what the value of self.add_batch_rank is).
+                (no matter what the value of `self.has_batch_rank` is).
 
         Returns:
             Tuple[int]: Shape to use for numpy random sampling.
         """
         # No batch rank.
-        if not num_samples or (num_samples == 1 and not self.add_batch_rank):
+        if not num_samples or (num_samples == 1 and not self.has_batch_rank):
             if len(self.shape) == 0:
                 return None
             else:
