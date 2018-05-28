@@ -18,14 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 import itertools
-#from tensorflow.contrib import autograph
 from collections import OrderedDict
 import re
 
 from yarl import YARLError
 from yarl.spaces import Space
-from yarl.utils.util import force_tuple, get_shape
-from yarl.utils.ops import FlattenedDataOp
+from yarl.utils.util import force_tuple
+from yarl.utils.ops import SingleDataOp, FlattenedDataOp
 from yarl.spaces.space_utils import flatten_op, get_space_from_op, unflatten_op
 
 
@@ -58,13 +57,6 @@ class Socket(object):
         self.type = type_
         # The Component that this Socket belongs to.
         self.component = component
-
-        ## TODO: remove the following again and get them from the component. Store the component in the Socket.
-        ## The scope of this socket (important for computations and variable creation).
-        #self.scope = scope
-        ## The device to use when placing ops that come after this Socket into the Graph.
-        #self.device = device
-        #self.global_ = global_
 
         # Which other socket(s), space(s), computation(s) are we connected to on the incoming and outgoing side?
         # - Records in these lists have a parallel relationship (they are all alternatives to each other).
@@ -101,10 +93,18 @@ class Socket(object):
 
     def connect_from(self, from_):
         if from_ not in self.incoming_connections:
+            # We need to set this flag here to be able to determine, whether a computation is a no-input
+            # (or constant-values-only) computation.
+            if isinstance(from_, SingleDataOp):
+                #self.constant_value = True
+                self.component.no_input_entry_points.append(self)
             self.incoming_connections.append(from_)
 
     def disconnect_from(self, from_):
         if from_ in self.incoming_connections:
+            if isinstance(from_, SingleDataOp):
+                #self.constant_value = False
+                self.component.no_input_entry_points.remove(self)
             self.incoming_connections.remove(from_)
 
     def update_from_input(self, incoming, op_registry, in_socket_registry, computation_in_slot=None,
@@ -125,25 +125,17 @@ class Socket(object):
         Raises:
             YARLError: If there is an attempt to connect more than one Space to this Socket.
         """
-        ## ProtoSpace: Nothing incoming.
-        #if isinstance(incoming, ProtoSpace):
-        #    if self.space is not None:
-        #        raise YARLError("ERROR: A Socket can only have one incoming Space!")
-        #    # Set space to 0 (so it's not None anymore, meaning we are connected).
-        #    self.space = 0
         # Space: generate backend-ops.
         if isinstance(incoming, Space):
             if self.space is not None:
                 raise YARLError("ERROR: A Socket can only have one incoming Space!")
-            # TODO: Add batch dimension-option.
-            # NOTE: op could be dictop or tuple as well.
             op = incoming.get_tensor_variable(name=self.name, is_input_feed=True)
-            # Add new op to our set of (alternative) ops.
+            # Add new DataOp to our set of (alternative) DataOps.
             self.ops.add(op)
             # Keep track of which Spaces can go (alternatively) into this Socket.
             in_socket_registry[self.name] = {op} if self.name not in in_socket_registry \
                 else (in_socket_registry[self.name] | {op})
-            # Remember, that this op goes into a Socket at the very beginning of the Graph (e.g. a tf.placeholder).
+            # Remember, that this DataOp goes into a Socket at the very beginning of the Graph (e.g. a tf.placeholder).
             op_registry[op] = {self}
             # Store this Space as our incoming Space.
             self.space = incoming
@@ -166,17 +158,23 @@ class Socket(object):
 
             self.ops.update(nth_computed_ops)
         # Incoming is another Socket -> Simply update ops from this one.
-        else:
-            assert isinstance(incoming, Socket), "ERROR: Incoming must be Space, Computation, or another Socket!"
+        elif isinstance(incoming, Socket):
             # Update given op or all (it's a set, so no harm).
             self.ops.update(socket_in_op or incoming.ops)
             self.space = incoming.space
-            # Check whether our Component now has all it's Sockets with a Space-information.
-            self.component.input_complete = True
-            for in_sock in self.component.input_sockets:
-                if in_sock.space is None:
-                    self.component.input_complete = False
-                    break
+            self.component.check_input_completeness()
+        # Constant DataOp with a value.
+        elif isinstance(incoming, SingleDataOp):
+            self.ops.update([incoming])
+            if len(self.ops) > 1:
+                raise YARLError("ERROR: A constant-value Socket may only have one such incoming value! Socket '{}' "
+                                "already has {} other incoming connections.".format(self.name,
+                                                                                    len(self.incoming_connections)))
+            self.space = get_space_from_op(incoming)
+            self.component.check_input_completeness()
+        else:
+            raise YARLError("ERROR: Incoming must be another Socket, a Space, a Computation, or a constant numeric "
+                            "scalar value or array!")
 
     def __str__(self):
         return "{}-Socket('{}/{}'{})".format(self.type, self.component.scope, self.name,
@@ -310,21 +308,37 @@ class Computation(object):
                 in_ops = [in_sock_rec["ops"] for in_sock_rec in self.input_sockets.values()]
                 input_combinations = list(itertools.product(*in_ops))
                 for input_combination in input_combinations:
+                    input_combination_wo_constant_values = (
+                        op for op in input_combination if not isinstance(op, SingleDataOp)
+                                                          or op.constant_value is None
+                    )
+
                     # key = tuple(input_combination)
                     # Make sure we call the computation method only once per input-op combination.
-                    if input_combination not in self.processed_ops:
+                    if input_combination_wo_constant_values not in self.processed_ops:
+                        # Replace constant-value Sockets with their SingleDataOp's constant numpy values.
+                        input_combination_w_constant_values = [
+                            op.constant_value if isinstance(op, SingleDataOp) and op.constant_value is not None
+                            else op for op in input_combination
+                        ]
                         # Build the ops from this input-combination.
                         # - Flatten input items.
                         if self.flatten_ops is not False:
-                            flattened_ops = self.flatten_input_ops(*input_combination)
+                            flattened_ops = self.flatten_input_ops(*input_combination_w_constant_values)
                             # Split into SingleDataOps?
                             if self.split_ops:
-                                ops = self.split_flattened_input_ops(*flattened_ops)
+                                call_params = self.split_flattened_input_ops(*flattened_ops)
+                                if isinstance(call_params, FlattenedDataOp):
+                                    ops = FlattenedDataOp()
+                                    for key, params in call_params.items():
+                                        ops[key] = self.method(*params)
+                                else:
+                                    ops = self.method(*call_params)
                             else:
                                 ops = self.method(*flattened_ops)
                         # - Just pass in everything as is.
                         else:
-                            ops = self.method(*input_combination)
+                            ops = self.method(*input_combination_w_constant_values)
 
                         # Need to un-flatten return values?
                         if self.unflatten_ops:
@@ -333,10 +347,10 @@ class Computation(object):
                         # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
                         ops = force_tuple(ops)
 
-                        self.processed_ops[input_combination] = ops
+                        self.processed_ops[input_combination_wo_constant_values] = ops
                         # Keep track of which ops require which other ops.
                         for op in ops:
-                            op_registry[op] = set(input_combination)
+                            op_registry[op] = set(input_combination_wo_constant_values)
                     # TODO: Warn for now: should this even happen?
                     else:
                         print("input_combination '{}' already in self.processed_ops!".format(input_combination))
@@ -408,11 +422,11 @@ class Computation(object):
             call to computation func.
 
         Args:
-            *ops (FlattenedDataOp): The input items into this Computation. Must be already flattened.
+            *ops (DataOp): The input items into this Computation.
 
         Returns:
-            FlattenedDataOp: The sorted results.
-            Tuple[DataOps]: If no FlattenedDataOp is in ops.
+            FlattenedDataOp: The sorted parameter tuples (by flat-key) to use in the calls to the computation method.
+            Tuple[DataOp]: If no FlattenedDataOp is in ops.
 
         Raises:
             YARLError: If there are more than 1 flattened ops in ops and their keys don't match 100%.
@@ -434,7 +448,7 @@ class Computation(object):
             guide_op = next(op for op in ops if isinstance(op, FlattenedDataOp))
             # Re-create our iterators.
             flattened = [op.items() if isinstance(op, FlattenedDataOp) else op for op in ops]
-            collected_returns = FlattenedDataOp()
+            collected_call_params = FlattenedDataOp()
             # Do the single split calls to our computation func.
             for key, value in guide_op.items():
                 # Prep input params for a single call.
@@ -445,14 +459,14 @@ class Computation(object):
                     v_other = next(iter(other))[1]  # if isinstance(other, odict_items) else other
                     params.append(v_other)
                 # Now do the single call.
-                collected_returns[key] = self.method(*params)
-
-            return collected_returns
+                collected_call_params[key] = params
+            return collected_call_params
         # We don't have any container ops: No splitting possible. Return as is.
         else:
-            return force_tuple(self.method(*ops))
+            return ops
 
-    def unflatten_output_ops(self, *ops):
+    @staticmethod
+    def unflatten_output_ops(*ops):
         """
         Re-creates the originally nested input structure (as DataOpDict/DataOpTuple) of the given output ops.
         Process all FlattenedDataOp with auto-generated keys, and leave the others untouched.

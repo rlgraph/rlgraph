@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
+
 from .space import Space
 from .box_space import BoxSpace
 from .float_box import FloatBox
@@ -28,14 +30,17 @@ from .containers import ContainerSpace, Dict, Tuple, FLAT_TUPLE_CLOSE, FLAT_TUPL
 Space.__lookup_classes__ = dict({
     "bool": BoolBox,
     bool: BoolBox,
+    np.bool_: BoolBox,
     #"discrete": Discrete, OBSOLETE
     "int": IntBox,
     int: IntBox,
+    np.int32: IntBox,
     "intbox": IntBox,
     "multidiscrete": IntBox,
     "continuous": FloatBox,
     "float": FloatBox,
     float: FloatBox,
+    np.float32: FloatBox,
     "list": Tuple,
     "tuple": Tuple,
     # "sequence" action type for nlp use cases and combinatorial optimisation.

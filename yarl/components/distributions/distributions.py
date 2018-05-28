@@ -55,9 +55,9 @@ class Distribution(Component):
         # a) Must not be ContainerSpace (not supported yet for Distributions, doesn't seem to make sense).
         assert not isinstance(in_space, ContainerSpace), "ERROR: Cannot handle container input Spaces " \
                                                          "in distribution '{}' (atm; may soon do)!".format(self.name)
-        # b) All input Spaces need batch ranks.
-        assert in_space.has_batch_rank,\
-            "ERROR: Space in Socket 'input' to layer '{}' must have a batch rank (0th position)!".format(self.name)
+        ## b) All input Spaces need batch ranks.
+        #assert in_space.has_batch_rank,\
+        #    "ERROR: Space in Socket 'input' to layer '{}' must have a batch rank (0th position)!".format(self.name)
 
     def _computation_parameterize(self, *parameters):
         """

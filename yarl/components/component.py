@@ -21,8 +21,11 @@ import tensorflow as tf
 import re
 import copy
 from collections import Hashable
+import numpy as np
+import uuid
 
 from yarl import YARLError, backend, Specifiable
+from yarl.utils.ops import SingleDataOp
 from yarl.components.socket_and_computation import Socket, Computation
 from yarl.utils import util
 from yarl.spaces import Space
@@ -103,14 +106,12 @@ class Component(Specifiable):
 
         # Contains our Computations that have no in-Sockets and thus will not be included in the forward search.
         # Thus, these need to be treated separately.
-        self.no_input_computations = list()
+        self.no_input_entry_points = list()
 
         # All Variables that are held by this component (and its sub-components?) by name.
         # key=full-scope variable name
         # value=the actual variable
         self.variables = dict()
-
-        #self.connect(0, DUMMY_NO_IN_SOCKET)
 
     def create_variables(self, input_spaces):
         """
@@ -162,7 +163,6 @@ class Component(Specifiable):
         # Called as setter.
         var = None
 
-        # TODO: need to discuss what other data we need per variable. Initializer, trainable, etc..
         # We are creating the variable using a Space as template.
         if from_space is not None:
             # Variables should be returned in a flattened OrderedDict.
@@ -253,12 +253,13 @@ class Component(Specifiable):
         # TODO: E.g.: NN-fc-out layer -> Action Space (then the out layer would know how many units it needs).
         self.add_sockets(*sockets, type="out")
 
-    def add_sockets(self, *sockets, **kwargs):
+    def add_socket(self, name, value=None, **kwargs):
         """
         Adds new input/output Sockets to this component.
 
         Args:
-            *sockets (List[str]): List of names for the Sockets to be created.
+            name (str): The name for the Socket to be created.
+            value (Optional[numeric]): The constant value of the Socket (if this should be a constant-value Socket).
 
         Keyword Args:
             type (str): Either "in" or "out". If no type given, try to infer type by the name.
@@ -276,26 +277,49 @@ class Component(Specifiable):
         # Make sure we don't add two sockets with the same name.
         all_names = [sock.name for sock in self.input_sockets + self.output_sockets + self.internal_sockets]
 
-        for name in sockets:
-            # Try to infer type by socket name (if name contains 'input' or 'output').
+        # Try to infer type by socket name (if name contains 'input' or 'output').
+        if type_ is None:
+            mo = re.search(r'([\d_]|\b)(in|out)put([\d_]|\b)', name)
+            if mo:
+                type_ = mo.group(2)
             if type_ is None:
-                mo = re.search(r'([\d_]|\b)(in|out)put([\d_]|\b)', name)
-                if mo:
-                    type_ = mo.group(2)
-                if type_ is None:
-                    raise YARLError("ERROR: Cannot infer socket type (in/out) from socket name: '{}'!".format(name))
+                raise YARLError("ERROR: Cannot infer socket type (in/out) from socket name: '{}'!".format(name))
 
-            if name in all_names:
-                raise YARLError("ERROR: Socket of name '{}' already exists in component '{}'!".format(name, self.name))
-            all_names.append(name)
+        if name in all_names:
+            raise YARLError("ERROR: Socket of name '{}' already exists in component '{}'!".format(name, self.name))
 
-            sock = Socket(name=name, component=self, type_=type_)
-            if internal:
-                self.internal_sockets.append(sock)
-            elif type_ == "in":
-                self.input_sockets.append(sock)
-            else:
-                self.output_sockets.append(sock)
+        sock = Socket(name=name, component=self, type_=type_)
+
+        if internal:
+            self.internal_sockets.append(sock)
+        elif type_ == "in":
+            self.input_sockets.append(sock)
+        else:
+            self.output_sockets.append(sock)
+
+        # A constant value Socket.
+        if value is not None:
+            op = SingleDataOp(constant_value=value)
+            sock.connect_from(op)
+
+    def add_sockets(self, *socket_names, **kwargs):
+        """
+        Adds new input/output Sockets to this component.
+
+        Args:
+            *socket_names (List[str]): List of names for the Sockets to be created.
+
+        Keyword Args:
+            type (str): Either "in" or "out". If no type given, try to infer type by the name.
+                If name contains "input" -> type is "in", if name contains "output" -> type is "out".
+            internal (bool): True if this is an internal (non-exposed) Socket (e.g. used for connecting
+                2 Computations directly with each other).
+
+        Raises:
+            YARLError: If type is not given and cannot be inferred.
+        """
+        for name in socket_names:
+            self.add_socket(name, **kwargs)
 
     def add_computation(self, inputs, outputs, method=None,
                         flatten_ops=None, split_ops=None,
@@ -334,7 +358,6 @@ class Component(Specifiable):
                                 "Cannot add computation unless method_name is given explicitly.".format(self.name))
             method = re.sub(r'^_computation_', "", method[0])
 
-        # TODO: Make it possible to connect a computation to constant values.
         # TODO: Make it possible to call other computations within a computation and to call a sub-component's computation within a computation.
         # TODO: Sanity check the tf methods signature (and return values from docstring?).
         # Compile a list of all needed Sockets and create internal ones if they do not exist yet.
@@ -368,15 +391,18 @@ class Component(Specifiable):
         for output_socket in output_sockets:
             output_socket.connect_from(computation)
 
-        # If the Computation has no inputs, we need to build it from no-input.
+        # If the Computation has no inputs or only constant value inputs, we need to build it from no-input.
         if len(input_sockets) == 0:
-            self.no_input_computations.append(computation)
+            self.no_input_entry_points.append(computation)
 
     def add_component(self, component, connect=None):
         """
-        Adds a single ModelComponent as sub-component to this one, thereby connecting certain Sockets of the
-        sub-component to the Sockets of this component by creating the corresponding Sockets (and maybe renaming
-        them depending on the specs in `connect`).
+        Adds a single Component as a sub-component to this one, thereby connecting certain Sockets of the
+        sub-component to the Sockets of this component.
+        - If to-be-connected Sockets of this Component do not exist yet, they will be created automatically
+            (and maybe renamed depending on the `connect` spec).
+        - Alternatively, in-Sockets of the sub-component may be added directly to constant values. In this case,
+            no new Sockets need to be generated.
 
         Args:
             component (Component): The Component object to add to this one.
@@ -393,6 +419,9 @@ class Component(Specifiable):
                 connect=CONNECT_INS: All in-Sockets of `component` will be connected.
                 connect=CONNECT_OUTS: All out-Sockets of `component` will be connected.
                 connect=True: All sockets of `component` (in and out) will be connected.
+                connect={"input": np.array([[1, 2], [3, 4]])}: Connects the "input" Socket of the sub-component
+                    to a constant value DataOp with the given numpy value. This also works for python primitives
+                    (float, int, and bool).
         """
         # Preprocess the connect spec.
         connect_spec = dict()
@@ -407,6 +436,9 @@ class Component(Specifiable):
                     elif isinstance(e, dict):
                         for old, new in e.items():
                             connect_spec[old] = new  # change name from dict-key to dict-value
+            elif isinstance(connect, dict):
+                for old, new in connect.items():
+                    connect_spec[old] = new  # change name from dict-key to dict-value
             else:
                 # Expose all Sockets if connect=True|CONNECT_INS|CONNECT_OUTS.
                 connect_list = list()
@@ -430,26 +462,28 @@ class Component(Specifiable):
                             "Each Component can only be added once to a parent.".format(component.name))
         component.has_been_added = True
         self.sub_components[component.name] = component
-        ## As soon as a non-deterministic sub-component comes in, we stop being deterministic as well
-        ## (if we haven't already).
-        #if component.deterministic is False:
-        #    self.deterministic = False
 
         # Expose all Sockets in exposed_spec (create and connect them correctly).
-        for socket_name, exposed_name in connect_spec.items():
+        for socket_name, exposed_name_or_value in connect_spec.items():
             socket = self.get_socket_by_name(component, socket_name)  # type: Socket
             if socket is None:
                 raise YARLError("ERROR: Could not find Socket '{}' in input/output sockets of component '{}'!".
                                 format(socket_name, self.name))
-            new_socket = self.get_socket_by_name(self, exposed_name)
+            new_socket = self.get_socket_by_name(self, exposed_name_or_value)
             # Doesn't exist yet -> add it.
             if new_socket is None:
-                self.add_sockets(exposed_name, type=socket.type)
+                # A constant value Socket -> create artificial name and connect directly with constant op (on python
+                # side, not a constant in the graph).
+                if not isinstance(exposed_name_or_value, str):
+                    exposed_name_or_value = SingleDataOp(constant_value=exposed_name_or_value)
+                else:
+                    self.add_socket(exposed_name_or_value, type=socket.type)
+
             # Connect the two Sockets.
             if socket.type == "in":
-                self.connect(exposed_name, [component, socket_name])
+                self.connect(exposed_name_or_value, [component, socket])
             else:
-                self.connect([component, socket_name], exposed_name)
+                self.connect([component, socket], exposed_name_or_value)
 
     def add_components(self, *components, **kwargs):
         """
@@ -459,16 +493,21 @@ class Component(Specifiable):
             *components (Component): The list of ModelComponent objects to be added into this one.
 
         Keyword Args:
-            expose (Union[dict,tuple,str]): Expose-spec for the component(s) to be passed to self.add_component().
-                If more than one sub-components are added in the call and expose is a dict, lookup each component's
-                name in that dict and pass the found value to self.add_component. If expose is not a dict, pass it
+            connect (Union[dict,tuple,str]): Connection-spec for the component(s) to be passed to self.add_component().
+                If more than one sub-components are added in the call and `connect` is a dict, lookup each component's
+                name in that dict and pass the found value to self.add_component. If `connect` is not a dict, pass it
                 as-is for each of the added sub-components.
         """
-        expose = kwargs.pop("expose", None)
+        connect = kwargs.pop("connect", None)
         assert not kwargs
 
         for c in components:
-            self.add_component(c, expose.get(c.name) if isinstance(expose, dict) else expose)
+            connect_ = None
+            # If `connect` is a dict, it may be a dict with keys=component name but could also be a dict
+            # with keys=Sockets to be renamed. Figure this out here and pass it to `self.add_component` accordingly.
+            if isinstance(connect, dict):
+                connect_ = connect.get(c.name)
+            self.add_component(c, (connect_ or connect))
 
     def copy(self, name=None, scope=None):
         """
@@ -549,9 +588,9 @@ class Component(Specifiable):
         """
         # Connect a Space (other must be Socket).
         # Also, there are certain restrictions for the Socket's type.
-        if isinstance(from_, (Space, dict)) or \
+        if isinstance(from_, (Space, dict, SingleDataOp)) or \
                 (not isinstance(from_, str) and isinstance(from_, Hashable) and from_ in Space.__lookup_classes__):
-            from_ = from_ if isinstance(from_, Space) else Space.from_spec(from_)
+            from_ = from_ if isinstance(from_, (Space, SingleDataOp)) else Space.from_spec(from_)
             to_socket_obj = self.get_socket(to_)
             assert to_socket_obj.type == "in", "ERROR: Cannot connect a Space to an 'out'-Socket!"
             if not disconnect:
@@ -617,6 +656,7 @@ class Component(Specifiable):
         Raises:
             YARLError: If the Socket cannot be found and create_internal_if_not_found is False.
         """
+        constant_dataop = None  # possible constant value for a new Socket
 
         # Return the only Socket of this component on given side (type_ must be given in this case as 'in' or 'out').
         if socket is None:
@@ -636,6 +676,13 @@ class Component(Specifiable):
         # Socket is given as a Socket object (simple pass-through).
         elif isinstance(socket, Socket):
             return socket
+        # Socket is a constant value Socket defined by its value -> create this Socket with
+        # a unique name and connect it to a constant value DataOp.
+        elif isinstance(socket, (int, float, bool, np.ndarray)):
+            socket_name = self.name + "-" + str(uuid.uuid1())
+            component = self
+            socket_obj = None
+            constant_dataop = SingleDataOp(constant_value=socket)
         # Socket is given as component/sock-name OR component/sock-obj pair:
         # Could be ours, external, but also one of our sub-component's.
         else:
@@ -658,7 +705,7 @@ class Component(Specifiable):
         if socket_obj is None:
             # Create new internal one?
             if create_internal_if_not_found is True:
-                self.add_sockets(socket_name, type_="in", internal=True)
+                self.add_socket(socket_name, value=constant_dataop, type_="in", internal=True)
                 socket_obj = self.get_socket(socket_name)
             # Error.
             else:
@@ -766,6 +813,19 @@ class Component(Specifiable):
                 return tf.gather(params=variable, indices=indices)
             else:
                 return variable
+
+    def check_input_completeness(self):
+        """
+        Checks whether this Component is "input-complete" and stores the result in self.input_complete.
+        Input-completeness is reached (only once and then it stays that way) if all in-Sockets to this component
+        have at least one op defined in their Socket.ops set.
+        """
+        if not self.input_complete:
+            # Check whether we now have all in-Sockets with a Space-information.
+            self.input_complete = True
+            for in_sock in self.input_sockets:
+                if in_sock.space is None:
+                    self.input_complete = False
 
     def __str__(self):
         return "{}('{}' in=[{}] out=[{}])". \

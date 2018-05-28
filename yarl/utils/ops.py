@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
+import numpy as np
 
 from collections import OrderedDict
 
@@ -34,7 +34,11 @@ class SingleDataOp(DataOp):
     A placeholder class for a simple (non-container) Tensor going into a computation or coming out of a computation,
     or a tf.no_op-like item.
     """
-    pass
+    def __init__(self, constant_value=None):
+        # Numpy'ize scalar values (tf doesn't sometimes like python primitives).
+        if isinstance(constant_value, (float, int, bool)):
+            constant_value = np.array(constant_value)
+        self.constant_value = constant_value
 
 
 class ContainerDataOp(DataOp):
@@ -76,6 +80,7 @@ class FlattenedDataOp(DataOp, OrderedDict):
     An OrderedDict-type placeholder class that only contains str as keys and SingleDataOps
     (as opposed to ContainerDataOps) as values.
     """
+
     # TODO: enforce str as keys?
     pass
 

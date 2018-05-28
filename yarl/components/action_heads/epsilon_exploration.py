@@ -34,8 +34,8 @@ class EpsilonExploration(Component):
     ins:
         time_step (int): The current time step.
     outs:
-        do_explore (bool): The decision whether to explore (pick uniformly randomly) or whether to use a
-            sample (or max-likelihood value) from a distribution.
+        do_explore (bool): The decision whether to explore (do_explore=True; pick uniformly randomly) or
+            whether to use a sample (or max-likelihood value) from a distribution (do_explore=False).
     """
     def __init__(self, decay_component=None, scope="epsilon-exploration", **kwargs):
         super(EpsilonExploration, self).__init__(scope=scope, **kwargs)
@@ -49,7 +49,7 @@ class EpsilonExploration(Component):
         self.add_component(self.decay_component, connect="time_step")  # create our own "time_step" in-Socket.
 
         # Add the Bernoulli Distribution and make do_explore our only output.
-        self.add_component(self.bernoulli_component, connect=dict(sample="do_explore", max_likelihood=False))
+        self.add_component(self.bernoulli_component, connect=dict(draw="do_explore", max_likelihood=False))
 
-        # Connect the two.
+        # Connect the two: Feed the epsilon-value from the decay component as prob-parameter into Bernoulli.
         self.connect((self.decay_component, "value"), (self.bernoulli_component, "parameters"))

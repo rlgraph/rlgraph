@@ -52,7 +52,7 @@ class StackComponent(Component):
 
         # Add all sub-components into the stack obeying the settings for connecting the first component's input
         # Sockets and the last Component's output Socket.
-        self.add_components(*sub_components, expose=dict({
+        self.add_components(*sub_components, connect=dict({
             sub_components[0].name: CONNECT_INS if expose_ins else False,
             sub_components[-1].name: CONNECT_OUTS if expose_outs else False
         }))

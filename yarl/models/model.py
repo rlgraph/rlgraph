@@ -153,7 +153,7 @@ class Model(Specifiable):
             self.partial_input_build(socket)
 
         # Build all Computations (in all our sub-Components) that have no inputs.
-        self.build_no_input_computations(self.core_component)
+        self.build_no_inputs(self.core_component)
 
         # Memoize possible input-combinations (from all our in-Sockets)
         # so we don't have to do this every time we get a `call`.
@@ -228,7 +228,7 @@ class Model(Specifiable):
         """
         return self.core_component
 
-    def build_no_input_computations(self, sub_component):
+    def build_no_inputs(self, sub_component):
         """
         Makes sure all no-input Computations of a given Component (and all its sub-Components) are build.
         These type of Computations would otherwise not be caught our "Socket->forward" build algorithm.
@@ -237,13 +237,24 @@ class Model(Specifiable):
             sub_component (Component): The Component, for which to build all no-input Computations.
         """
         # The sub-component itself.
-        for computation in sub_component.no_input_computations:
-            computation.update_from_input(None, self.op_registry, self.in_socket_registry)
-            for slot, out_socket in enumerate(computation.output_sockets):
-                self.partial_input_build(out_socket, computation, slot)
+        for entry_point in sub_component.no_input_entry_points:
+            if isinstance(entry_point, Computation):
+                entry_point.update_from_input(None, self.op_registry, self.in_socket_registry)
+                for slot, out_socket in enumerate(entry_point.output_sockets):
+                    self.partial_input_build(out_socket, entry_point, slot)
+            else:
+                assert isinstance(entry_point, Socket)
+                assert len(entry_point.incoming_connections) == 1
+                entry_point.update_from_input(entry_point.incoming_connections[0], self.op_registry,
+                                              self.in_socket_registry)
+                if entry_point.component.input_complete:
+                    self.component_complete(entry_point)
+                else:
+                    self.partial_input_build(entry_point)
+
         # Recurse: The sub-components of the sub-component.
         for sc in sub_component.sub_components.values():
-            self.build_no_input_computations(sc)
+            self.build_no_inputs(sc)
 
     def partial_input_build(self, socket, from_=None, computation_out_slot=None, socket_out_op=None):
         """
@@ -280,20 +291,11 @@ class Model(Specifiable):
                         self.partial_input_build(outgoing, from_=socket, socket_out_op=socket_out_op)
                     # Component is not complete yet:
                     else:
-                        # Add one Socket (Space) information.
+                        # Add one Socket information.
                         outgoing.update_from_input(socket, self.op_registry, self.in_socket_registry)
                         # Check now for input-completeness of this component.
                         if outgoing.component.input_complete:
-                            # Create the Component's variables.
-                            space_dict = {in_s.name: in_s.space for in_s in outgoing.component.input_sockets}
-                            outgoing.component.create_variables(space_dict)
-                            # Do a complete build (over all incoming Sockets as some of these have been waiting).
-                            self.partial_input_build(outgoing)
-                            # And all waiting other Sockets (!= outgoing), if any.
-                            for og in outgoing.component.sockets_to_do_later:
-                                self.partial_input_build(og)
-                            # Invalidate to get error if we ever touch this again as an iterator.
-                            outgoing.component.sockets_to_do_later = None  # type: list
+                            self.component_complete(outgoing)
                         # Not complete yet. Remember do build this Socket later.
                         else:
                             outgoing.component.sockets_to_do_later.append(outgoing)
@@ -421,6 +423,18 @@ class Model(Specifiable):
 
         raise YARLError("ERROR: No op found for out-Socket '{}' given the input-combinations: {}!".
                         format(socket_name, input_combinations))
+
+    def component_complete(self, last_in_socket):
+        # Create the Component's variables.
+        space_dict = {in_s.name: in_s.space for in_s in last_in_socket.component.input_sockets}
+        last_in_socket.component.create_variables(space_dict)
+        # Do a complete build (over all incoming Sockets as some of these have been waiting).
+        self.partial_input_build(last_in_socket)
+        # And all waiting other Sockets (!= outgoing), if any.
+        for og in last_in_socket.component.sockets_to_do_later:
+            self.partial_input_build(og)
+        # Invalidate to get error if we ever touch this again as an iterator.
+            last_in_socket.component.sockets_to_do_later = None  # type: list
 
     def trace_back_sockets(self, trace_set):
         """

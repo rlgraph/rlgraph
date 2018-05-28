@@ -18,9 +18,10 @@ from __future__ import division
 from __future__ import print_function
 
 import re
+import numpy as np
 
 from yarl.utils.util import YARLError, dtype, get_shape
-from yarl.utils.ops import DataOp, ContainerDataOp, DataOpDict, DataOpTuple, FlattenedDataOp
+from yarl.utils.ops import SingleDataOp, ContainerDataOp, DataOpDict, DataOpTuple, FlattenedDataOp
 from yarl.spaces import *
 
 
@@ -56,8 +57,13 @@ def get_space_from_op(op):
         return Tuple(spec, add_batch_rank=add_batch_rank)
     # primitive Space -> infer from op dtype and shape
     else:
+        # Simple constant value DataOp (python type or an np.ndarray).
+        if isinstance(op, SingleDataOp) and op.constant_value is not None:
+            value = op.constant_value
+            if isinstance(value, np.ndarray):
+                return BoxSpace.from_spec(spec=dtype(value.dtype, "np"), shape=value.shape)
         # No Space: e.g. the tf.no_op, a distribution (anything that's not a tensor).
-        if hasattr(op, "dtype") is False or not hasattr(op, "get_shape"):
+        elif hasattr(op, "dtype") is False or not hasattr(op, "get_shape"):
             return 0
         # Some tensor: can be converted into a BoxSpace.
         else:
@@ -76,8 +82,8 @@ def get_space_from_op(op):
             # a BoolBox
             elif op.dtype == dtype("bool"):
                 return BoolBox(add_batch_rank=add_batch_rank)
-            else:
-                raise YARLError("ERROR: Cannot derive Space from op '{}' (unknown type?)!".format(op))
+
+    raise YARLError("ERROR: Cannot derive Space from op '{}' (unknown type?)!".format(op))
 
 
 def flatten_op(op, scope_="", list_=None):

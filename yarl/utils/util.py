@@ -46,18 +46,19 @@ def dtype(dtype_, to="tf"):
     Returns:
         TensorFlow or Numpy data type (depending on `to` parameter).
     """
+    # bool: tensorflow
+    if backend() == "tf":
+        if dtype_ in ["bool", bool, np.bool_, be.bool]:
+            return np.bool_ if to == "np" else be.bool
+    # bool: pytorch backend (not supported)
+    elif dtype_ in ["bool", bool, np.bool_]:
+        return np.bool_ if to == "np" else tf.bool
+
     # generic backend
     if dtype_ in ["float", "float32", float, np.float32, be.float32]:
         return np.float32 if to == "np" else tf.float32
     elif dtype_ in ["int", "int32", int, np.int32, be.int32]:
         return np.int32 if to == "np" else tf.int32
-    # bool: tensorflow
-    elif backend() == "tf":
-        if dtype_ in ["bool", bool, np.bool, be.bool]:
-            return np.bool if to == "np" else be.bool
-    # bool: pytorch backend (not supported)
-    elif dtype_ in ["bool", bool, np.bool]:
-        return np.bool if to == "np" else tf.bool
 
     raise YARLError("Error: Type conversion to '{}' for type '{}' not supported.".format(to, str(dtype_)))
 
