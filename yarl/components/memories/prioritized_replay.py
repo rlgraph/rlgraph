@@ -145,6 +145,7 @@ class PrioritizedReplay(Memory):
         # Note: Cannot concurrently modify, so need iterative insert
         def insert_body(i, assignments):
             with tf.control_dependencies(control_inputs=assignments):
+                # assignments = list()
                 assignments = self.sum_segment_tree.insert(
                     index=update_indices[i],
                     element=self.max_priority,
@@ -234,3 +235,4 @@ class PrioritizedReplay(Memory):
         assignments.append(self.assign_variable(ref=self.max_priority, value=max_priority))
         with tf.control_dependencies(control_inputs=assignments):
             return tf.no_op()
+
