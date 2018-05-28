@@ -54,13 +54,12 @@ class SegmentTree(object):
             insert_op (Union(tf.add, tf.min)): Insert operation on the tree.
         """
         index += self.capacity
-        assignments = tf.assign(ref=self.values[index], value=element)
+        assignment = tf.assign(ref=self.values[index], value=element)
 
         # TODO replace with component assign utility.
 
         # Search and update values while index >=1
         loop_update_index = tf.div(x=index, y=2)
-
         def insert_body(loop_update_index):
             update_val = insert_op(
                 x=self.values[2 * loop_update_index],
@@ -73,8 +72,8 @@ class SegmentTree(object):
         def cond(loop_update_index):
             return loop_update_index >= 1
 
-        with tf.control_dependencies(control_inputs=[assignments]):
-            return tf.while_loop(cond=cond, body=insert_body, loop_vars=(loop_update_index))
+        with tf.control_dependencies(control_inputs=[assignment]):
+            return tf.while_loop(cond=cond, body=insert_body, loop_vars=[loop_update_index])
 
     def get(self, index):
         """
