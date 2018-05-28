@@ -71,6 +71,10 @@ class Socket(object):
         # TODO: Make sure all incoming connections have the same Space.
         self.space = None
 
+        ## Support for in-Sockets that always feed a constant value. Useful for setting default parameters for
+        ## _computation functions.
+        #self.constant_value = False
+
         # The set of (alternative) ops (dictop, tuple or primitive) that this socket carries. Populated at build time.
         self.ops = set()
 
@@ -308,10 +312,10 @@ class Computation(object):
                 in_ops = [in_sock_rec["ops"] for in_sock_rec in self.input_sockets.values()]
                 input_combinations = list(itertools.product(*in_ops))
                 for input_combination in input_combinations:
-                    input_combination_wo_constant_values = (
+                    input_combination_wo_constant_values = tuple([
                         op for op in input_combination if not isinstance(op, SingleDataOp)
                                                           or op.constant_value is None
-                    )
+                    ])
 
                     # key = tuple(input_combination)
                     # Make sure we call the computation method only once per input-op combination.
