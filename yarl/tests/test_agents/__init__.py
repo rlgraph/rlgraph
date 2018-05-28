@@ -17,8 +17,3 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .test_components import ComponentTest
-from .test_util import recursive_assert_almost_equal
-
-__all__ = ["ComponentTest", "recursive_assert_almost_equal"]
-

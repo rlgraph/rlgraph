@@ -18,10 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import backend
-import yarl.utils.util as util
 from yarl.models.model import Model
 
-from .assert_util import recursive_assert_almost_equal
+from tests.test_util import recursive_assert_almost_equal
 
 
 class ComponentTest(object):

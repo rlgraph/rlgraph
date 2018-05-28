@@ -54,3 +54,32 @@ def terminal_records(record_space, num_samples):
     record_sample['terminal'] = np.ones(num_samples)
 
     return record_sample
+
+
+def recursive_assert_almost_equal(x, y, decimal=7):
+    """
+    Checks two structures (dict, DataOpDict, tuple, list, np.array, float, int, etc..) for (almost!) numeric identity.
+    All numbers in the two structures have to match up to `decimal` digits after the floating point.
+    Uses assertions (not boolean return).
+
+    Args:
+        x (any): The first value to be compared (to `y`).
+        y (any): The second value to be compared (to `x`).
+        decimal (int): The number of digits after the floating point up to which all numeric values have to match.
+    """
+    # A dict type.
+    if isinstance(x, dict):
+        assert isinstance(y, dict), "ERROR: If x is dict, y needs to be a dict as well!"
+        for k, v in x.items():
+            assert k in y, "ERROR: y does not have x's key='{}'!".format(k)
+            recursive_assert_almost_equal(v, y[k], decimal=decimal)
+    # A tuple type.
+    elif isinstance(x, tuple):
+        assert isinstance(y, tuple), "ERROR: If x is tuple, y needs to be a tuple as well!"
+        assert len(y) == len(x), "ERROR: y does not have the same length as " \
+                                 "x ({} vs {})!".format(len(y), len(x))
+        for i, v in enumerate(x):
+            recursive_assert_almost_equal(v, y[i], decimal=decimal)
+    # Everything else.
+    else:
+        np.testing.assert_almost_equal(x, y, decimal=decimal)
