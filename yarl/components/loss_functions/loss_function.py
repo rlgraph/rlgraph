@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
+from yarl import backend
 from yarl.components import Component
 
 
@@ -29,23 +29,47 @@ class LossFunction(Component):
     ins:
         various inputs (depending on specific loss function type (the Agent))
     outs:
-        loss (SingleDataOp): The average loss value (per single item in a batch).
+        loss (SingleDataOp): The average loss value (over all single items in a batch).
+        loss_per_item (SingleDataOp): The loss value vector holding single loss values (one per item in a batch).
     """
-    def __init__(self, scope="loss-function", **kwargs):
-        super(LossFunction, self).__init__(scope=scope, **kwargs)
-        # Build our interface.
-        # To be done by child classes.
-
-    def _computation_loss(self, *inputs):
+    def __init__(self, *inputs, scope="loss-function", **kwargs):
         """
-        The actual loss function that an optimizer will try to minimize.
+        Args:
+            *inputs (str): The names of our in-Sockets.
+        """
+        super(LossFunction, self).__init__(scope=scope, **kwargs)
+
+        # Build our interface.
+        self.inputs = inputs
+        self.define_inputs(*self.inputs)
+        self.define_outputs("loss", "loss_per_item")
+        self.add_computation(self.inputs, "loss_per_item", self._computation_loss_per_item)
+        self.add_computation("loss_per_item", "loss", self._computation_loss)
+
+    def _computation_loss_per_item(self, *inputs):
+        """
+        Returns the single loss values (one for each item in a batch).
 
         Args:
-            *inputs (DataOpTuple): The various inputs that this loss function needs to calculate the loss.
+            *inputs (DataOpTuple): The various inputs that this function needs to calculate the loss.
 
         Returns:
-            SingleDataOp: The loss tensor.
+            SingleDataOp: The tensor specifying the loss per item. The batch dimension of this tensor corresponds
+                to the number of items in the batch.
         """
         raise NotImplementedError
 
+    def _computation_loss(self, loss_per_item):
+        """
+        The actual loss function that an optimizer will try to minimize. This is usually the average over a batch.
+
+        Args:
+            loss_per_item (SingleDataOp): The output of our loss_per_item computation.
+
+        Returns:
+            SingleDataOp: The final loss tensor holding the average loss over the entire batch.
+        """
+        if backend() == "tf":
+            import tensorflow as tf
+            return tf.reduce_mean(loss_per_item, axis=0)
 
