@@ -118,7 +118,7 @@ class SegmentTree(object):
                 # If over prefix sum, jump index.
                 true_fn=lambda: (2 * index, prefix_sum),
                 # Else adjust prefix sum until done.
-                false_fn=update_prefix_sum_fn(index, prefix_sum)
+                false_fn=lambda: update_prefix_sum_fn(index, prefix_sum)
             )
             return index, prefix_sum
 
@@ -145,7 +145,7 @@ class SegmentTree(object):
         # Init result with neutral element of reduce op.
         # Note that all of these are commutative reduce ops.
         if reduce_op == tf.add:
-            result = 0
+            result = 0.0
         elif reduce_op == tf.minimum:
             result = float('inf')
         elif reduce_op == tf.maximum:
@@ -167,7 +167,7 @@ class SegmentTree(object):
             start, result = tf.cond(
                 pred=start_mod == 0,
                 true_fn=lambda: (start, result),
-                false_fn=update_start_fn(start, result)
+                false_fn=lambda: update_start_fn(start, result)
             )
 
             end_mod = tf.mod(x=limit, y=2)
@@ -181,9 +181,9 @@ class SegmentTree(object):
             limit, result = tf.cond(
                 pred=end_mod == 0,
                 true_fn=lambda: (limit, result),
-                false_fn=update_limit_fn(limit, result)
+                false_fn=lambda: update_limit_fn(limit, result)
             )
-            return start / 2, limit / 2, result
+            return tf.div(x=start, y=2), tf.div(x=limit, y=2), result
 
         def cond(start, limit, result):
             return start < limit
