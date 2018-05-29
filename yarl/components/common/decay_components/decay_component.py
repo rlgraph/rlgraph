@@ -46,7 +46,8 @@ class DecayComponent(Component):
         self.start_timestep = kwargs.pop("start_timestep", 0)
         self.num_timesteps = kwargs.pop("num_timesteps", 10000)
 
-        super(DecayComponent, self).__init__(scope=scope, graph_fn_settings=dict(flatten_ops=False), **kwargs)
+        # We only have time-step as input: Do not flatten.
+        super(DecayComponent, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
 
         # Our interface.
         self.define_inputs("time_step")

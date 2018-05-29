@@ -43,12 +43,9 @@ class LayerComponent(StackComponent):
         self.num_graph_fn_inputs = kwargs.pop("num_graph_fn_inputs", 1)
         self.num_graph_fn_outputs = kwargs.pop("num_graph_fn_outputs", 1)
         # By default, switch on splitting for all Layers.
-        if graph_fn_settings is None:
-            graph_fn_settings = dict(split_ops=True)
-
         super(LayerComponent, self).__init__(*sub_components,
                                              expose_outs=False,
-                                             graph_fn_settings=graph_fn_settings,
+                                             split_ops=kwargs.pop("split_ops", True),
                                              **kwargs)
 
         # No sub-components, just create empty in-Sockets.

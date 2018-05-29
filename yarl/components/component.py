@@ -64,9 +64,10 @@ class Component(Specifiable):
             global_component (bool): In distributed mode, this flag indicates if the component is part of the
                 shared global model or local to the worker. Defaults to False and will be ignored if set to
                 True in non-distributed mode.
-            graph_fn_settings (dict): Dict with possible general GraphFunction settings that should be applied to
-                all of this Component's GraphFunctions. See `self.add_graph_fn` and GraphFunction's c'tor for more
-                details.
+            flatten_ops (bool): See `self.add_graph_fn` and GraphFunction's c'tor for more details.
+            split_ops (bool): See `self.add_graph_fn` and GraphFunction's c'tor for more details.
+            add_auto_key_as_first_param (bool): See `self.add_graph_fn` and GraphFunction's c'tor for more details.
+            unflatten_ops (bool): See `self.add_graph_fn` and GraphFunction's c'tor for more details.
         """
 
         # Scope if used to create scope hierarchies inside the Graph.
@@ -78,8 +79,10 @@ class Component(Specifiable):
         self.device = kwargs.pop("device", None)
         self.global_component = kwargs.pop("global_component", False)
 
-        # TODO: get rid of this again and add the 4 settings as single parameters to this c'tor.
-        self.graph_fn_settings = kwargs.pop("graph_fn_settings", {})
+        self.flatten_ops = kwargs.pop("flatten_ops", True)
+        self.split_ops = kwargs.pop("split_ops", False)
+        self.add_auto_key_as_first_param = kwargs.pop("add_auto_key_as_first_param", False)
+        self.unflatten_ops = kwargs.pop("unflatten_ops", True)
 
         assert not kwargs, "ERROR: kwargs ({}) still contains items!".format(kwargs)
 
@@ -360,13 +363,13 @@ class Component(Specifiable):
                 number of input- and output Sockets provided here.
                 If None, use the only member method that starts with '_graph_' (error otherwise).
             flatten_ops (Optional[bool,Set[str]]): Passed to GraphFunction's c'tor. See GraphFunction
-                for details. Overwrites this Component's `self.graph_fn_settings`.
+                for details. Overwrites this Component's `self.flatten_ops`.
             split_ops (Optional[bool,Set[str]]): Passed to GraphFunction's c'tor. See GraphFunction
-                for details. Overwrites this Component's `self.graph_fn_settings`.
+                for details. Overwrites this Component's `self.split_ops`.
             add_auto_key_as_first_param (Optional[bool]): Passed to GraphFunction's c'tor. See GraphFunction for details.
-                Overwrites this Component's `self.graph_fn_settings`.
+                Overwrites this Component's `self.add_auto_key_as_first_param`.
             unflatten_ops (Optional[bool]): Passed to GraphFunction's c'tor. See GraphFunction for details.
-                Overwrites this Component's `self.graph_fn_settings`.
+                Overwrites this Component's `self.unflatten_ops`.
 
         Raises:
             YARLError: If method_name is None and not exactly one member method found that starts with `_graph_`.
@@ -390,13 +393,13 @@ class Component(Specifiable):
         # Add the graph_fn record to all input and output sockets.
         # Fetch default params.
         if flatten_ops is None:
-            flatten_ops = self.graph_fn_settings.get("flatten_ops", True)
+            flatten_ops = self.flatten_ops
         if split_ops is None:
-            split_ops = self.graph_fn_settings.get("split_ops", False)
+            split_ops = self.split_ops
         if add_auto_key_as_first_param is None:
-            add_auto_key_as_first_param = self.graph_fn_settings.get("add_auto_key_as_first_param", False)
+            add_auto_key_as_first_param = self.add_auto_key_as_first_param
         if unflatten_ops is None:
-            unflatten_ops = self.graph_fn_settings.get("unflatten_ops", True)
+            unflatten_ops = self.unflatten_ops
 
         graph_fn = GraphFunction(
             method=method,
