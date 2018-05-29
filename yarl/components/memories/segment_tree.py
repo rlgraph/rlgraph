@@ -103,10 +103,7 @@ class SegmentTree(object):
         # 0 <= prefix_sum <= sum(priorities)
         priority_sum = tf.reduce_sum(input_tensor=self.values, axis=0)
         priority_sum_tensor = tf.fill(dims=tf.shape(prefix_sum), value=priority_sum)
-        print('priority sum tensor: {}'.format(priority_sum_tensor))
-        print('prefix sum: {}'.format(prefix_sum))
         assert_ops.append(tf.Assert(
-            # TODO need to use refuce all
             condition=tf.reduce_all(input_tensor=tf.less_equal(x=prefix_sum, y=priority_sum_tensor)),
             data=[prefix_sum]
         ))
@@ -140,7 +137,7 @@ class SegmentTree(object):
             return index, prefix_sum
 
         def cond(index, prefix_sum):
-            return index < capacity
+            return tf.reduce_all(input_tensor=tf.less(x=index, y=capacity))
 
         with tf.control_dependencies(control_inputs=assert_ops):
             index, _ = tf.while_loop(cond=cond, body=search_body, loop_vars=[index, prefix_sum])
