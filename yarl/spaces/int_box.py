@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+from cached_property import cached_property
 
 from yarl import LARGE_INTEGER
 from yarl.utils.util import dtype
@@ -48,6 +49,16 @@ class IntBox(BoxSpace):
             low = 0
 
         super(IntBox, self).__init__(low=low, high=high, shape=shape, add_batch_rank=add_batch_rank, dtype="int")
+
+    @cached_property
+    def flat_dim_with_categories(self):
+        """
+        If we were to flatten this Space and also consider each single possible int value (assuming global bounds)
+        as one category, what would the dimension have to be to represent this Space.
+        """
+        if self.global_bounds is False:
+            return None
+        return int(np.prod(self.shape) * self.global_bounds[1])
 
     def sample(self, size=None):
         shape = self._get_np_shape(num_samples=size)
