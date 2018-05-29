@@ -18,11 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 from .distributions import Distribution, Bernoulli, Categorical
+from .nn_output_cleanup import NNOutputCleanup
 
 Distribution.__lookup_classes__ = dict(
     bernoulli=Bernoulli,
-    categorical=Categorical
+    categorical=Categorical,
+    nn_output_cleanup=NNOutputCleanup
 )
 
-__all__ = ["Distribution", "Bernoulli", "Categorical"]
+__all__ = ["Distribution", "Bernoulli", "Categorical", "NNOutputCleanup"]
 

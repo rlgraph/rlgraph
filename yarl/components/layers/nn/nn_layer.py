@@ -53,7 +53,7 @@ class NNLayer(LayerComponent):
         The actual calculation on one or more input Ops.
 
         Args:
-            inputs (FlattenedOp): The flattened input(s) to the layer.
+            inputs (SingleDataOp): The single (non-container) input(s) to the layer.
 
         Returns:
             The output(s) after having pushed the input(s) through the layer.

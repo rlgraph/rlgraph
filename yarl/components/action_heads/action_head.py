@@ -20,9 +20,9 @@ from __future__ import print_function
 import numpy as np
 
 from yarl import YARLError, backend
-from yarl.components import Component, CONNECT_INS
-from yarl.components.distributions import Categorical
-from yarl.spaces import IntBox, FloatBox
+from yarl.components import Component
+from yarl.components.distributions import Categorical, NNOutputCleanup
+from yarl.spaces import IntBox
 from .epsilon_exploration import EpsilonExploration
 
 
@@ -61,6 +61,7 @@ class ActionHeadComponent(Component):
         # The Distribution to sample (or pick) actions from.
         # Discrete action space -> Categorical distribution.
         if isinstance(self.action_space, IntBox):
+            self.nn_cleanup = NNOutputCleanup(self.action_space)
             self.action_distribution = Categorical()
         else:
             raise YARLError("ERROR: Space of out-Socket `action` is of type {} and not allowed in {} Component!".
@@ -72,9 +73,12 @@ class ActionHeadComponent(Component):
         self.define_inputs("time_step", "nn_output")
         self.define_outputs("action")
 
-        # Add action-distribution component and connect accordingly.
+        # Add NN-cleanup component and connect to our "nn_output" in-Socket.
+        self.add_component(self.nn_cleanup, connect="nn_output")
+
+        # Add action-distribution component and connect to the NN-cleanup.
         self.add_component(self.action_distribution,
-                           connect=dict(params="nn_output",
+                           connect=dict(parameters=(self.nn_cleanup, "parameters"),
                                         max_likelihood=True if self.policy == "max-likelihood" else False)
                            )
 
