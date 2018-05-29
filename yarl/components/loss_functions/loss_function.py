@@ -32,12 +32,12 @@ class LossFunction(Component):
         loss (SingleDataOp): The average loss value (over all single items in a batch).
         loss_per_item (SingleDataOp): The loss value vector holding single loss values (one per item in a batch).
     """
-    def __init__(self, *inputs, scope="loss-function", **kwargs):
+    def __init__(self, *inputs, **kwargs):
         """
         Args:
             *inputs (str): The names of our in-Sockets.
         """
-        super(LossFunction, self).__init__(scope=scope, **kwargs)
+        super(LossFunction, self).__init__(scope=kwargs.pop("scope", "loss-function"), **kwargs)
 
         # Build our interface.
         self.inputs = inputs

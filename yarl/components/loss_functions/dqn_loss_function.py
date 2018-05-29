@@ -31,7 +31,7 @@ class DQNLossFunction(LossFunction):
         super(DQNLossFunction, self).__init__(scope=scope, **kwargs)
         self.discount = discount
 
-    def _computation_loss_per_item(self, q_values, actions, rewards, q_values_s_):
+    def _graph_fn_loss_per_item(self, q_values, actions, rewards, q_values_s_):
         """
         Args:
             q_values (DataOp): The Q-values representing the expected accumulated discounted return when in s and

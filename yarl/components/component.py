@@ -500,11 +500,11 @@ class Component(Specifiable):
 
         # Expose all Sockets in exposed_spec (create and connect them correctly).
         for sub_component_sock, other_sock in connect_spec.items():
-            socket = self.get_socket(component, sub_component_sock)  # type: Socket
+            socket = self.get_socket((component, sub_component_sock))  # type: Socket
             if socket is None:
                 raise YARLError("ERROR: Could not find Socket '{}' in input/output sockets of component '{}'!".
                                 format(sub_component_sock, component.name))
-            new_socket = self.get_socket(self, other_sock)
+            new_socket = self.get_socket_by_name(self, other_sock)
             # Doesn't exist yet -> add it.
             if new_socket is None:
                 # A constant value Socket -> create artificial name and connect directly with constant op (on python
