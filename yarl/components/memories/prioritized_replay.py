@@ -180,7 +180,7 @@ class PrioritizedReplay(Memory):
         sample_indices = tf.map_fn(fn=self.sum_segment_tree.index_of_prefixsum, elems=sample, dtype=tf.int32)
         # sample_indices = self.sum_segment_tree.index_of_prefixsum(sample)
         # - Searching prefix sum/resampling too expensive.
-        return self.read_records(indices=sample_indices)
+        return self.read_records(indices=sample_indices), sample_indices
 
     def read_records(self, indices):
         """
