@@ -46,12 +46,12 @@ class DecayComponent(Component):
         self.start_timestep = kwargs.pop("start_timestep", 0)
         self.num_timesteps = kwargs.pop("num_timesteps", 10000)
 
-        super(DecayComponent, self).__init__(scope=scope, computation_settings=dict(flatten_ops=False), **kwargs)
+        super(DecayComponent, self).__init__(scope=scope, graph_fn_settings=dict(flatten_ops=False), **kwargs)
 
         # Our interface.
         self.define_inputs("time_step")
         self.define_outputs("value")
-        self.add_computation("time_step", "value", self._computation_value)
+        self.add_graph_fn("time_step", "value", self._graph_fn_value)
 
     def decay(self, time_steps_in_decay_window):
         """
@@ -67,7 +67,7 @@ class DecayComponent(Component):
         """
         raise NotImplementedError
 
-    def _computation_value(self, time_step):
+    def _graph_fn_value(self, time_step):
         """
         Args:
             time_step (DataOp): The int-type DataOp that holds the current global time_step.

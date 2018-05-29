@@ -26,7 +26,7 @@ class PreprocessLayer(LayerComponent):
     """
     A LayerComponent that can serve as a preprocessing layer and also can act on complex container input
     spaces (Dict or Tuple).
-    Do not override the `apply` computation method. Instead, override the `preprocess` method, which
+    Do not override the `apply` graph_fn method. Instead, override the `preprocess` method, which
     gets called automatically by `apply` after taking care of container inputs.
     It is not required to implement the `reset` logic (or store any state information at all).
     """
@@ -35,9 +35,9 @@ class PreprocessLayer(LayerComponent):
 
         # Define the reset operation (no input sockets necessary).
         self.define_outputs("reset")
-        self.add_computation(None, "reset", self._computation_reset)
+        self.add_graph_fn(None, "reset", self._graph_fn_reset)
 
-    def _computation_reset(self):
+    def _graph_fn_reset(self):
         """
         Returns:
             An op that resets this processor to some initial state.
@@ -47,7 +47,7 @@ class PreprocessLayer(LayerComponent):
         """
         return tf.no_op()  # Not mandatory.
 
-    def _computation_apply(self, *inputs):
+    def _graph_fn_apply(self, *inputs):
         """
         Args:
             inputs (any): The input to be "pre-processed".

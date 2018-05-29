@@ -33,7 +33,7 @@ class Scale(PreprocessLayer):
         super(Scale, self).__init__(scope=scope, **kwargs)
         self.scaling_factor = scaling_factor
 
-    def _computation_apply(self, tensor):
+    def _graph_fn_apply(self, tensor):
         """
         Simply multiplies the input with our scaling factor.
 

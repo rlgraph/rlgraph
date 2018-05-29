@@ -36,10 +36,10 @@ class RingBuffer(Memory):
         episode_semantics=False
     ):
         super(RingBuffer, self).__init__(capacity, name, scope)
-        self.add_computation(
+        self.add_graph_fn(
             inputs="num_records",
             outputs="sample",
-            method=self._computation_get_records,
+            method=self._graph_fn_get_records,
             flatten_ops=False
         )
 
@@ -54,7 +54,7 @@ class RingBuffer(Memory):
 
             self.define_inputs("num_episodes")
             self.define_outputs("episodes")
-            self.add_computation(inputs="num_episodes", outputs="episodes", method=self._computation_get_episodes,
+            self.add_graph_fn(inputs="num_episodes", outputs="episodes", method=self._graph_fn_get_episodes,
                                  flatten_ops=False)
 
     def create_variables(self, input_spaces):
@@ -80,7 +80,7 @@ class RingBuffer(Memory):
                 trainable=False
             )
 
-    def _computation_insert(self, records):
+    def _graph_fn_insert(self, records):
         num_records = tf.shape(input=records['/terminal'])[0]
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
@@ -176,7 +176,7 @@ class RingBuffer(Memory):
             records[name] = self.read_variable(variable, indices)
         return records
 
-    def _computation_get_records(self, num_records):
+    def _graph_fn_get_records(self, num_records):
         stored_records = self.read_variable(self.size)
         index = self.read_variable(self.index)
 
@@ -187,7 +187,7 @@ class RingBuffer(Memory):
         # TODO zeroing out terminals per flag?
         return self.read_records(indices=indices)
 
-    def _computation_get_episodes(self, num_episodes):
+    def _graph_fn_get_episodes(self, num_episodes):
         stored_episodes = self.read_variable(self.num_episodes)
         available_episodes = tf.minimum(x=num_episodes, y=stored_episodes)
         # available_episodes = tf.Print(available_episodes, [available_episodes, stored_episodes], summarize=100,

@@ -30,7 +30,7 @@ from yarl.spaces.space_utils import flatten_op, get_space_from_op, unflatten_op
 
 class Socket(object):
     """
-    A Socket object describes a connection to other Sockets, Computations, or Spaces inside and between ModelComponents.
+    A Socket object describes a connection to other Sockets, GraphFunctions, or Spaces inside and between ModelComponents.
     One Socket either carries:
 
     - a single op (e.g. some tensor)
@@ -39,10 +39,10 @@ class Socket(object):
 
     Also, each of the above possibilities can have many parallel solutions. These splits happen e.g. if two Sockets
     connect to the same target Socket. In this case, the target Socket's inputs are treated as possible alternatives
-    and the Socket then implicitly produces two outputs that it further passes on to the next Sockets/Computations.
+    and the Socket then implicitly produces two outputs that it further passes on to the next Sockets/GraphFunctions.
 
-    When connected to a computation object, a Socket always represents one of the input parameters to the computation
-    method. Also, each returned value of a computation method corresponds to one Socket.
+    When connected to a GraphFunction object, a Socket always represents one of the input parameters to the graph_fn
+    method. Also, each returned value of a graph_fn method corresponds to one Socket.
     """
     def __init__(self, name, component, type_="in"):
         """
@@ -58,12 +58,12 @@ class Socket(object):
         # The Component that this Socket belongs to.
         self.component = component
 
-        # Which other socket(s), space(s), computation(s) are we connected to on the incoming and outgoing side?
+        # Which other socket(s), space(s), graph_fn(s) are we connected to on the incoming and outgoing side?
         # - Records in these lists have a parallel relationship (they are all alternatives to each other).
         # - Each record is either:
         #   - another Socket
         #   - a Space
-        #   - a dict of: {computation-method, slot for this socket, [required input sockets], [output sockets]}
+        #   - a dict of: {graph_fn-method, slot for this socket, [required input sockets], [output sockets]}
         self.incoming_connections = list()
         self.outgoing_connections = list()
 
@@ -72,7 +72,7 @@ class Socket(object):
         self.space = None
 
         ## Support for in-Sockets that always feed a constant value. Useful for setting default parameters for
-        ## _computation functions.
+        ## _graph functions.
         #self.constant_value = False
 
         # The set of (alternative) ops (dictop, tuple or primitive) that this socket carries. Populated at build time.
@@ -97,31 +97,29 @@ class Socket(object):
 
     def connect_from(self, from_):
         if from_ not in self.incoming_connections:
-            # We need to set this flag here to be able to determine, whether a computation is a no-input
-            # (or constant-values-only) computation.
+            # We need to set this flag here to be able to determine, whether a graph_fn is a no-input
+            # (or constant-values-only) graph_fn.
             if isinstance(from_, SingleDataOp):
-                #self.constant_value = True
                 self.component.no_input_entry_points.append(self)
             self.incoming_connections.append(from_)
 
     def disconnect_from(self, from_):
         if from_ in self.incoming_connections:
             if isinstance(from_, SingleDataOp):
-                #self.constant_value = False
                 self.component.no_input_entry_points.remove(self)
             self.incoming_connections.remove(from_)
 
-    def update_from_input(self, incoming, op_registry, in_socket_registry, computation_in_slot=None,
+    def update_from_input(self, incoming, op_registry, in_socket_registry, graph_fn_in_slot=None,
                           socket_in_op=None):
         """
-        Updates this socket based on an incoming connection (from a Space or Computation or another Socket).
+        Updates this socket based on an incoming connection (from a Space or GraphFunction or another Socket).
 
         Args:
-            incoming (Union[Space,Computation,Socket]): The incoming item.
+            incoming (Union[Space,GraphFunction,Socket]): The incoming item.
             op_registry (dict): Dict that keeps track of which ops require which other ops to be calculated.
             in_socket_registry (dict): Dict that keeps track of which very in-Socket (name) needs which
                 ops (placeholders/feeds).
-            computation_in_slot (Optional[int]): If incoming is a Computation, which output slot does this Socket
+            graph_fn_in_slot (Optional[int]): If incoming is a GraphFunction, which output slot does this Socket
                 connect to?
             socket_in_op (Optional[op]): If incoming is a Socket, this may hold a single op that we should
                 build from. If None and incoming is Socket, update all.
@@ -143,14 +141,14 @@ class Socket(object):
             op_registry[op] = {self}
             # Store this Space as our incoming Space.
             self.space = incoming
-        # Computation: Connect this Socket to the nth op coming out of the Computation function.
-        elif isinstance(incoming, Computation):
-            assert isinstance(computation_in_slot, int) and computation_in_slot >= 0, \
-                "ERROR: If incoming is a Computation, slot must be set and >=0!"
-            # Add every nth op from the output of the completed computations to this Socket's set of ops.
+        # GraphFunction: Connect this Socket to the nth op coming out of the GraphFunction function.
+        elif isinstance(incoming, GraphFunction):
+            assert isinstance(graph_fn_in_slot, int) and graph_fn_in_slot >= 0, \
+                "ERROR: If incoming is a GraphFunction, slot must be set and >=0!"
+            # Add every nth op from the output of the completed call to graph_fn to this Socket's set of ops.
             nth_computed_ops = list()
             for outputs in incoming.processed_ops.values():
-                nth_computed_ops.append(outputs[computation_in_slot])
+                nth_computed_ops.append(outputs[graph_fn_in_slot])
 
             # Store incoming Space.
             # TODO: Maybe check whether all incoming ops have same Space.
@@ -177,7 +175,7 @@ class Socket(object):
             self.space = get_space_from_op(incoming)
             self.component.check_input_completeness()
         else:
-            raise YARLError("ERROR: Incoming must be another Socket, a Space, a Computation, or a constant numeric "
+            raise YARLError("ERROR: Incoming must be another Socket, a Space, a GraphFunction, or a constant numeric "
                             "scalar value or array!")
 
     def __str__(self):
@@ -185,13 +183,13 @@ class Socket(object):
                                              " dev='{}'".format(self.component.device) if self.component.device else "")
 
 
-class Computation(object):
+class GraphFunction(object):
     """
-    Class describing a computation defined by a _computation-func inside a Component.
-    A Computation is connected to incoming Sockets (these are the input parameters to the _computation-func) and to
-    outgoing Sockets (these are the return values of the _computation func).
-    Implements the update_from_input method which checks whether all necessary inputs to a computation function
-    are given and - if yes - starts producing output ops from these inputs and the computation to be passed
+    Class describing a segment of the graph defined by a _graph_fn-method inside a Component.
+    A GraphFunction is connected to incoming Sockets (these are the input parameters to the _graph-func) and to
+    outgoing Sockets (these are the return values of the _graph func).
+    Implements the update_from_input method which checks whether all necessary inputs to a graph_fn
+    are given and - if yes - starts producing output ops from these inputs and the graph_fn to be passed
     on to the outgoing Sockets.
     """
     def __init__(self, method, component, input_sockets, output_sockets,
@@ -199,39 +197,39 @@ class Computation(object):
                  add_auto_key_as_first_param=False, unflatten_ops=True):
         """
         Args:
-            method (Union[str,callable]): The method of the computation (must be the name (w/o _computation prefix)
+            method (Union[str,callable]): The method of the graph_fn (must be the name (w/o _graph prefix)
                 of a method in `component` or directly a callable.
-            component (Component): The Component object that this Computation belongs to.
+            component (Component): The Component object that this GraphFunction belongs to.
             input_sockets (List[Socket]): The required input Sockets to be passed as parameters into the
-                computation function. In the order of the computation function's parameters.
-            output_sockets (List[socket]): The Sockets associated with the return values coming from the computation
-                function. In the order of the returned values.
+                graph_fn. In the order of graph_fn's parameters.
+            output_sockets (List[socket]): The Sockets associated with the return values coming from the graph_fn.
+                In the order of the returned values.
             flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
                 a FlattenedDataOp (with automatic key names).
                 Can also be a set of in-Socket names to flatten explicitly (True for all).
                 (default: True).
             split_ops (Union[bool,Set[str]]): Whether to split all or some of the already flattened DataOps
-                and send the SingleDataOps one by one through the computation.
+                and send the SingleDataOps one by one through the graph_fn.
                 Example: in-Sockets=A=Dict (container), B=int (primitive)
-                    The computation func should then expect for each primitive Space in A:
-                        _computation_func(primitive-in-A (Space), B (int))
+                    The graph_fn should then expect for each primitive Space in A:
+                        _graph_func(primitive-in-A (Space), B (int))
                         NOTE that B will be the same in all calls for all primitive-in-A's.
                 (default: True).
             add_auto_key_as_first_param (bool): If `split_ops` is not False, whether to send the
-                automatically generated flat key as the very first parameter into each call of the computation func.
+                automatically generated flat key as the very first parameter into each call of the graph_fn.
                 Example: in-Sockets=A=float (primitive), B=Tuple (container)
-                    The computation func should then expect for each primitive Space in B:
-                        _computation_func(key, A (float), primitive-in-B (Space))
+                    The graph_fn should then expect for each primitive Space in B:
+                        _graph_func(key, A (float), primitive-in-B (Space))
                         NOTE that A will be the same in all calls for all primitive-in-B's.
                         The key can now be used to index into variables equally structured as B.
                 Has no effect if `split_ops` is False.
                 (default: False).
-            unflatten_ops (bool): Whether to re-establish a nested structure of computations
-                for a returned FlattenedDataOp.
+            unflatten_ops (bool): Whether to re-establish a nested structure of DataOps
+                for graph_fn-returned FlattenedDataOps.
                 (default: True)
 
         Raises:
-            YARLError: If a computation method with the given name cannot be found in the component.
+            YARLError: If a graph_fn with the given name cannot be found in the component.
         """
 
         # The component object that the method belongs to.
@@ -244,12 +242,12 @@ class Computation(object):
 
         if isinstance(method, str):
             self.name = method
-            self.method = getattr(self.component, "_computation_" + method, None)
+            self.method = getattr(self.component, "_graph_fn_" + method, None)
             if not self.method:
-                raise YARLError("ERROR: No `_computation_...` method with name '{}' found!".format(method))
+                raise YARLError("ERROR: No `_graph_fn_...` method with name '{}' found!".format(method))
         else:
             self.method = method
-            self.name = re.sub(r'^_computation_', "", method.__name__)
+            self.name = re.sub(r'^_graph_', "", method.__name__)
 
         # Dict-records for input-sockets (by name) to keep information on their position and "op-completeness".
         self.input_sockets = OrderedDict()
@@ -276,7 +274,7 @@ class Computation(object):
     #        method (callable): Function object containing computations and potentially control flow.
     #
     #    Returns:
-    #        Computation graph object.
+    #        GraphFunction graph object.
     #    """
     #    return method  # not mandatory
 
@@ -289,7 +287,7 @@ class Computation(object):
 
         Args:
             input_socket (Optional[Socket]): The incoming Socket (by design, must be type "in").
-                None, if this Computation has no in-Sockets anyway.
+                None, if this GraphFunction has no in-Sockets anyway.
             op_registry (dict): Dict that keeps track of which ops require which other ops to be calculated.
             in_socket_registry (dict): Dict that keeps track of which in-Socket (name) needs which
                 ops (placeholders/feeds).
@@ -358,7 +356,7 @@ class Computation(object):
                     # TODO: Warn for now: should this even happen?
                     else:
                         print("input_combination '{}' already in self.processed_ops!".format(input_combination))
-        # This Computation has no in-Sockets.
+        # This GraphFunction has no in-Sockets.
         else:
             self.input_complete = True
             # Call the method w/o any parameters.
@@ -378,7 +376,7 @@ class Computation(object):
 
     def check_input_completeness(self):
         """
-        Checks whether this Computation is "input-complete" and stores the result in self.input_complete.
+        Checks whether this GraphFunction is "input-complete" and stores the result in self.input_complete.
         Input-completeness is reached (only once and then it stays that way) if all in-Sockets to this computation
         have at least one op defined in their Socket.ops set.
         """
@@ -426,7 +424,7 @@ class Computation(object):
             call to computation func.
 
         Args:
-            *ops (DataOp): The input items into this Computation.
+            *ops (DataOp): The input items into this GraphFunction.
 
         Returns:
             FlattenedDataOp: The sorted parameter tuples (by flat-key) to use in the calls to the computation method.
@@ -502,7 +500,7 @@ class Computation(object):
             format(type(self).__name__, self.name, str(self.input_sockets), str(self.output_sockets))
 
 
-#class TfComputation(Computation):
+#class TfGraphFunction(GraphFunction):
 #    """
 #    TensorFlow computation.
 #    """

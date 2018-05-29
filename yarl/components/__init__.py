@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from .component import Component, CONNECT_INS, CONNECT_OUTS
-from .socket_and_computation import Socket, Computation
+from .socket_and_graph_fn import Socket, GraphFunction
 #from .common import Splitter, Merger, DecayComponent, PolynomialDecay, ExponentialDecay
 
 
@@ -28,5 +28,5 @@ Component.__lookup_classes__ = dict(
 
 __all__ = ["Component", #"Splitter", "Merger",
            "CONNECT_INS", "CONNECT_OUTS",
-           "Computation", "Socket"]
+           "GraphFunction", "Socket"]
 

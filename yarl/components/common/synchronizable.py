@@ -47,11 +47,11 @@ class Synchronizable(Component):
         # b) And the main synch op, actually doing the overwriting from synch_in to our variables.
         self.define_outputs("synch_out", "synch")
         # Add the synching operation ..
-        self.add_computation("synch_in", "synch", self._computation_synch)
+        self.add_graph_fn("synch_in", "synch", self._graph_fn_synch)
         # .. and the sending out data operation.
-        self.add_computation(None, "synch_out", self._computation_synch_out)
+        self.add_graph_fn(None, "synch_out", self._graph_fn_synch_out)
 
-    def _computation_synch(self, sync_in):
+    def _graph_fn_synch(self, sync_in):
         """
         Generates the op that syncs this approximators' trainable variable values from another
         FunctionApproximator object.
@@ -82,7 +82,7 @@ class Synchronizable(Component):
         with tf.control_dependencies(syncs):
             return tf.no_op()
 
-    def _computation_synch_out(self):
+    def _graph_fn_synch_out(self):
         """
         Outputs all of this Component's variables that match our collection(s) specifier in a tuple-op.
 

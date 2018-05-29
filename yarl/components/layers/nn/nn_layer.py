@@ -48,7 +48,7 @@ class NNLayer(LayerComponent):
             assert in_space.has_batch_rank,\
                 "ERROR: Space in Socket 'input' to layer '{}' must have a batch rank (0th position)!".format(self.name)
 
-    def _computation_apply(self, *inputs):
+    def _graph_fn_apply(self, *inputs):
         """
         The actual calculation on one or more input Ops.
 

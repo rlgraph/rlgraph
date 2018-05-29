@@ -40,15 +40,15 @@ class Distribution(Component):
         entropy (float): The entropy value of the distribution.
     """
     def __init__(self, scope="distribution", **kwargs):
-        super(Distribution, self).__init__(scope=scope, computation_settings=dict(split_ops=True), **kwargs)
+        super(Distribution, self).__init__(scope=scope, graph_fn_settings=dict(split_ops=True), **kwargs)
 
         # Define a generic Distribution interface.
         self.define_inputs("parameters", "max_likelihood")
         self.define_outputs("draw", "entropy")
-        # "distribution" will be an internal Socket used to connect the Computations with each other.
-        self.add_computation("parameters", "distribution", self._computation_parameterize)
-        self.add_computation(["distribution", "max_likelihood"], "draw", self._computation_draw)
-        self.add_computation("distribution", "entropy", self._computation_entropy)
+        # "distribution" will be an internal Socket used to connect the GraphFunctions with each other.
+        self.add_graph_fn("parameters", "distribution", self._graph_fn_parameterize)
+        self.add_graph_fn(["distribution", "max_likelihood"], "draw", self._graph_fn_draw)
+        self.add_graph_fn("distribution", "entropy", self._graph_fn_entropy)
 
     def create_variables(self, input_spaces):
         in_space = input_spaces["parameters"]
@@ -59,7 +59,7 @@ class Distribution(Component):
         #assert in_space.has_batch_rank,\
         #    "ERROR: Space in Socket 'input' to layer '{}' must have a batch rank (0th position)!".format(self.name)
 
-    def _computation_parameterize(self, *parameters):
+    def _graph_fn_parameterize(self, *parameters):
         """
         Parameterizes this distribution (normally from an NN-output vector). Returns the backend-distribution object
         (a DataOp).
@@ -74,14 +74,14 @@ class Distribution(Component):
         """
         raise NotImplementedError
 
-    def _computation_draw(self, distribution, max_likelihood):
+    def _graph_fn_draw(self, distribution, max_likelihood):
         """
         Takes a sample from the (already parameterized) distribution. The parameterization also includes a possible
         batch size.
 
         Args:
             distribution (DataOp): The (already parameterized) backend-specific distribution DataOp to use for
-                sampling. This is simply the output of `self._computation_parameterize`.
+                sampling. This is simply the output of `self._graph_fn_parameterize`.
             max_likelihood (bool): Whether to return the maximum-likelihood result, instead of a random sample.
                 Can be used to pick deterministic actions from discrete ("greedy") or continuous (mean-value)
                 distributions.
@@ -100,7 +100,7 @@ class Distribution(Component):
 
         Args:
             distribution (DataOp): The (already parameterized) backend-specific distribution whose max-likelihood value
-                to calculate. This is simply the output of `self._computation_parameterize`.
+                to calculate. This is simply the output of `self._graph_fn_parameterize`.
 
         Returns:
             DataOp: The max-likelihood value.
@@ -114,7 +114,7 @@ class Distribution(Component):
 
         Args:
             distribution (DataOp): The (already parameterized) backend-specific distribution from which a sample
-                should be drawn. This is simply the output of `self._computation_parameterize`.
+                should be drawn. This is simply the output of `self._graph_fn_parameterize`.
 
         Returns:
             DataOp: The drawn sample.
@@ -122,13 +122,13 @@ class Distribution(Component):
         return distribution.sample()
 
     @staticmethod
-    def _computation_entropy(distribution):
+    def _graph_fn_entropy(distribution):
         """
         Returns the DataOp holding the entropy value of the distribution.
 
         Args:
             distribution (DataOp): The (already parameterized) backend-specific distribution whose entropy to
-                calculate. This is simply the output of `self._computation_parameterize`.
+                calculate. This is simply the output of `self._graph_fn_parameterize`.
 
         Returns:
             DataOp: The distribution's entropy.
@@ -143,7 +143,7 @@ class Bernoulli(Distribution):
     def __init__(self, scope="bernoulli", **kwargs):
         super(Bernoulli, self).__init__(scope=scope, **kwargs)
 
-    def _computation_parameterize(self, prob):
+    def _graph_fn_parameterize(self, prob):
         """
         Args:
             prob (DataOp): The p value (probability that distribution returns True).
@@ -168,7 +168,7 @@ class Categorical(Distribution):
     def __init__(self, scope="categorical", **kwargs):
         super(Categorical, self).__init__(scope=scope, **kwargs)
 
-    def _computation_parameterize(self, probs):
+    def _graph_fn_parameterize(self, probs):
         return tf.distributions.Categorical(probs=probs, dtype=util.dtype("int"))
 
     def max_likelihood(self, distribution):

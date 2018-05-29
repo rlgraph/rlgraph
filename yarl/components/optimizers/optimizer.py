@@ -37,9 +37,9 @@ class Optimizer(Component):
 
         self.define_inputs("time_step", "variables")
         self.define_outputs("step")
-        self.add_computation(["time_step", "variables"], "step", self._computation_step)
+        self.add_graph_fn(["time_step", "variables"], "step", self._graph_fn_step)
 
-    def _computation_step(self, time_step, variables):
+    def _graph_fn_step(self, time_step, variables):
         """
         Performs a single optimization step on the incoming variables depending on this Component's setup and
         maybe the time-step

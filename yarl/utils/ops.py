@@ -31,7 +31,7 @@ class DataOp(object):
 
 class SingleDataOp(DataOp):
     """
-    A placeholder class for a simple (non-container) Tensor going into a computation or coming out of a computation,
+    A placeholder class for a simple (non-container) Tensor going into a GraphFunction or coming out of a GraphFunction,
     or a tf.no_op-like item.
     """
     def __init__(self, constant_value=None):

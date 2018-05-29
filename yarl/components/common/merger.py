@@ -35,7 +35,7 @@ class Merger(Component):
         """
         assert isinstance(output_space, ContainerSpace), "ERROR: `output_space` must be a ContainerSpace " \
                                                          "(Dict or Tuple)!"
-        super(Merger, self).__init__(scope=scope, computation_settings=dict(flatten_ops=False), **kwargs)
+        super(Merger, self).__init__(scope=scope, graph_fn_settings=dict(flatten_ops=False), **kwargs)
 
         self.output_space = output_space
 
@@ -50,11 +50,11 @@ class Merger(Component):
         else:
             input_names = [key for key in flat_dict.keys()]
         self.define_inputs(*input_names)
-        # Insert our merging computation.
-        self.add_computation(input_names, "output", self._computation_merge,
+        # Insert our merging GraphFunction.
+        self.add_graph_fn(input_names, "output", self._graph_fn_merge,
                              flatten_ops=False)
 
-    def _computation_merge(self, *inputs):
+    def _graph_fn_merge(self, *inputs):
         """
         Merges the inputs into a single FlattenedDataOp.
 

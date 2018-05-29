@@ -26,7 +26,7 @@ import uuid
 
 from yarl import YARLError, backend, Specifiable
 from yarl.utils.ops import SingleDataOp
-from yarl.components.socket_and_computation import Socket, Computation
+from yarl.components.socket_and_graph_fn import Socket, GraphFunction
 from yarl.utils import util
 from yarl.spaces import Space
 
@@ -39,7 +39,7 @@ class Component(Specifiable):
     """
     Base class for a graph component (such as a layer, an entire function approximator, a memory, an optimizers, etc..).
 
-    A component can contain other components and/or its own computation (e.g. tf ops and tensors).
+    A component can contain other components and/or its own graph-logic (e.g. tf ops).
     A component's sub-components are connected to each other via in- and out-Sockets (similar to LEGO blocks
     and deepmind's sonnet).
 
@@ -47,8 +47,8 @@ class Component(Specifiable):
     different sub-components and between a sub-component and this one and between this component
      and an external component.
 
-    A component also has a variable registry, saving the component's structure and variable-values to disk,
-    adding computation to a component via tf.make_template calls.
+    A component also has a variable registry, the ability to save the component's structure and variable-values to disk,
+    and supports adding its graph_fns to the overall computation graph.
     """
     def __init__(self, *args, **kwargs):
         """
@@ -64,8 +64,8 @@ class Component(Specifiable):
             global_component (bool): In distributed mode, this flag indicates if the component is part of the
                 shared global model or local to the worker. Defaults to False and will be ignored if set to
                 True in non-distributed mode.
-            computation_settings (dict): Dict with possible general Computation settings that should be applied to
-                all of this Component's Computations. See `self.add_computation` and Computation's c'tor for more
+            graph_fn_settings (dict): Dict with possible general GraphFunction settings that should be applied to
+                all of this Component's GraphFunctions. See `self.add_graph_fn` and GraphFunction's c'tor for more
                 details.
         """
 
@@ -79,7 +79,7 @@ class Component(Specifiable):
         self.global_component = kwargs.pop("global_component", False)
 
         # TODO: get rid of this again and add the 4 settings as single parameters to this c'tor.
-        self.computation_settings = kwargs.pop("computation_settings", {})
+        self.graph_fn_settings = kwargs.pop("graph_fn_settings", {})
 
         assert not kwargs, "ERROR: kwargs ({}) still contains items!".format(kwargs)
 
@@ -93,7 +93,7 @@ class Component(Specifiable):
         # This Component's Socket objects by functionality.
         self.input_sockets = list()  # the exposed in-Sockets
         self.output_sockets = list()  # the exposed out-Sockets
-        self.internal_sockets = list()  # internal (non-exposed) in/out-Sockets (e.g. used to connect 2 Computations)
+        self.internal_sockets = list()  # internal (non-exposed) in/out-Sockets (e.g. used to connect 2 GraphFunctions)
 
         # Whether we know already all our in-Sockets' Spaces.
         # Only then can we create our variables. Model will do this.
@@ -104,7 +104,7 @@ class Component(Specifiable):
         # need to be built later.
         self.sockets_to_do_later = list()
 
-        # Contains our Computations that have no in-Sockets and thus will not be included in the forward search.
+        # Contains our GraphFunctions that have no in-Sockets and thus will not be included in the forward search.
         # Thus, these need to be treated separately.
         self.no_input_entry_points = list()
 
@@ -116,7 +116,7 @@ class Component(Specifiable):
     def create_variables(self, input_spaces):
         """
         Should create all variables that are needed within this component,
-        unless a variable is only needed inside a single computation method (_computation_-method), in which case,
+        unless a variable is only needed inside a single _graph_fn-method, in which case,
         it should be created there.
         Variables must be created via the backend-agnostic self.get_variable-method.
 
@@ -265,7 +265,7 @@ class Component(Specifiable):
             type (str): Either "in" or "out". If no type given, try to infer type by the name.
                 If name contains "input" -> type is "in", if name contains "output" -> type is "out".
             internal (bool): True if this is an internal (non-exposed) Socket (e.g. used for connecting
-                2 Computations directly with each other).
+                2 GraphFunctions directly with each other).
 
         Raises:
             YARLError: If type is not given and cannot be inferred.
@@ -313,7 +313,7 @@ class Component(Specifiable):
             type (str): Either "in" or "out". If no type given, try to infer type by the name.
                 If name contains "input" -> type is "in", if name contains "output" -> type is "out".
             internal (bool): True if this is an internal (non-exposed) Socket (e.g. used for connecting
-                2 Computations directly with each other).
+                2 GraphFunctions directly with each other).
 
         Raises:
             YARLError: If type is not given and cannot be inferred.
@@ -321,61 +321,61 @@ class Component(Specifiable):
         for name in socket_names:
             self.add_socket(name, **kwargs)
 
-    def add_computation(self, inputs, outputs, method=None,
+    def add_graph_fn(self, inputs, outputs, method=None,
                         flatten_ops=None, split_ops=None,
                         add_auto_key_as_first_param=None, unflatten_ops=None):
         """
-        Links a set (A) of sockets via a computation to a set (B) of other sockets via a computation function.
+        Links a set (A) of sockets via a graph_fn to a set (B) of other sockets via a graph_fn function.
         Any socket in B is thus linked back to all sockets in A (requires all A sockets).
 
         Args:
             inputs (Optional[str,List[str]]): List or single input Socket specifiers to link from.
             outputs (Optional[str,List[str]]): List or single output Socket specifiers to link to.
             method (Optional[str,callable]): The name of the template method to use for linking
-                (without the _computation_ prefix) or the method itself (callable).
+                (without the _graph_ prefix) or the method itself (callable).
                 The `method`'s signature and number of return values has to match the
                 number of input- and output Sockets provided here.
-                If None, use the only member method that starts with '_computation_' (error otherwise).
-            flatten_ops (Optional[bool,Set[str]]): Passed to Computation's c'tor. See Computation
-                for details. Overwrites this Component's `self.computation_settings`.
-            split_ops (Optional[bool,Set[str]]): Passed to Computation's c'tor. See Computation
-                for details. Overwrites this Component's `self.computation_settings`.
-            add_auto_key_as_first_param (Optional[bool]): Passed to Computation's c'tor. See Computation for details.
-                Overwrites this Component's `self.computation_settings`.
-            unflatten_ops (Optional[bool]): Passed to Computation's c'tor. See Computation for details.
-                Overwrites this Component's `self.computation_settings`.
+                If None, use the only member method that starts with '_graph_' (error otherwise).
+            flatten_ops (Optional[bool,Set[str]]): Passed to GraphFunction's c'tor. See GraphFunction
+                for details. Overwrites this Component's `self.graph_fn_settings`.
+            split_ops (Optional[bool,Set[str]]): Passed to GraphFunction's c'tor. See GraphFunction
+                for details. Overwrites this Component's `self.graph_fn_settings`.
+            add_auto_key_as_first_param (Optional[bool]): Passed to GraphFunction's c'tor. See GraphFunction for details.
+                Overwrites this Component's `self.graph_fn_settings`.
+            unflatten_ops (Optional[bool]): Passed to GraphFunction's c'tor. See GraphFunction for details.
+                Overwrites this Component's `self.graph_fn_settings`.
 
         Raises:
-            YARLError: If method_name is None and not exactly one member method found that starts with `_computation_`.
+            YARLError: If method_name is None and not exactly one member method found that starts with `_graph_`.
         """
         inputs = util.force_list(inputs)
         outputs = util.force_list(outputs)
 
         if method is None:
-            method = [m for m in dir(self) if (callable(self.__getattribute__(m)) and re.match(r'^_computation_', m))]
+            method = [m for m in dir(self) if (callable(self.__getattribute__(m)) and re.match(r'^_graph_', m))]
             if len(method) != 1:
-                raise YARLError("ERROR: Not exactly one method found in {} that starts with '_computation_'! "
-                                "Cannot add computation unless method_name is given explicitly.".format(self.name))
-            method = re.sub(r'^_computation_', "", method[0])
+                raise YARLError("ERROR: Not exactly one method found in {} that starts with '_graph_'! "
+                                "Cannot add graph_fn unless method_name is given explicitly.".format(self.name))
+            method = re.sub(r'^_graph_', "", method[0])
 
-        # TODO: Make it possible to call other computations within a computation and to call a sub-component's computation within a computation.
+        # TODO: Make it possible to call other graph_fns within a graph_fn and to call a sub-component's graph_fn within a graph_fn.
         # TODO: Sanity check the tf methods signature (and return values from docstring?).
         # Compile a list of all needed Sockets and create internal ones if they do not exist yet.
         # External Sockets (in/out) must exist already or we will get an error.
         input_sockets = [self.get_socket(s, create_internal_if_not_found=True) for s in inputs]
         output_sockets = [self.get_socket(s, create_internal_if_not_found=True) for s in outputs]
-        # Add the computation record to all input and output sockets.
+        # Add the graph_fn record to all input and output sockets.
         # Fetch default params.
         if flatten_ops is None:
-            flatten_ops = self.computation_settings.get("flatten_ops", True)
+            flatten_ops = self.graph_fn_settings.get("flatten_ops", True)
         if split_ops is None:
-            split_ops = self.computation_settings.get("split_ops", False)
+            split_ops = self.graph_fn_settings.get("split_ops", False)
         if add_auto_key_as_first_param is None:
-            add_auto_key_as_first_param = self.computation_settings.get("add_auto_key_as_first_param", False)
+            add_auto_key_as_first_param = self.graph_fn_settings.get("add_auto_key_as_first_param", False)
         if unflatten_ops is None:
-            unflatten_ops = self.computation_settings.get("unflatten_ops", True)
+            unflatten_ops = self.graph_fn_settings.get("unflatten_ops", True)
 
-        computation = Computation(
+        graph_fn = GraphFunction(
             method=method,
             component=self,
             input_sockets=input_sockets,
@@ -385,15 +385,15 @@ class Component(Specifiable):
             add_auto_key_as_first_param=add_auto_key_as_first_param,
             unflatten_ops=unflatten_ops
         )
-        # Connect the computation to all the given Sockets.
+        # Connect the graph_fn to all the given Sockets.
         for input_socket in input_sockets:
-            input_socket.connect_to(computation)
+            input_socket.connect_to(graph_fn)
         for output_socket in output_sockets:
-            output_socket.connect_from(computation)
+            output_socket.connect_from(graph_fn)
 
-        # If the Computation has no inputs or only constant value inputs, we need to build it from no-input.
+        # If the GraphFunction has no inputs or only constant value inputs, we need to build it from no-input.
         if len(input_sockets) == 0:
-            self.no_input_entry_points.append(computation)
+            self.no_input_entry_points.append(graph_fn)
 
     def add_component(self, component, connect=None):
         """

@@ -72,16 +72,16 @@ class NNOutputCleanup(Component):
                                     [log(b) for _ in range(self.target_space.flat_dim) for b in bias])
             self.add_component(bias_layer, connect=dict(input="nn_output"))
             # Place our cleanup after the bias layer.
-            self.add_computation((bias_layer, "output"), "parameters", self._computation_cleanup)
+            self.add_graph_fn((bias_layer, "output"), "parameters", self._graph_fn_cleanup)
         # Place our cleanup directly after the nn-output.
         else:
-            self.add_computation("nn_outputs", "parameters", self._computation_cleanup)
+            self.add_graph_fn("nn_outputs", "parameters", self._graph_fn_cleanup)
 
     def create_variables(self, input_spaces):
         input_space = input_spaces["nn_output"]  # type: Space
         assert input_space.has_batch_rank, "ERROR: Incoming Space `nn_output` must have a batch rank!"
 
-    def _computation_cleanup(self, nn_outputs_plus_bias):
+    def _graph_fn_cleanup(self, nn_outputs_plus_bias):
         """
         Cleans up the output coming from a NN and gets it ready for some Distribution Component (creates distribution
         parameters from the NN-output).

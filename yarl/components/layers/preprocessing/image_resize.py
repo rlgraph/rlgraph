@@ -37,7 +37,7 @@ class ImageResize(PreprocessLayer):
         self.width = width
         self.height = height
 
-    def _computation_apply(self, images):
+    def _graph_fn_apply(self, images):
         """
         Images come in with either a batch dimension or not.
         However, this

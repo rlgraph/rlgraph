@@ -66,7 +66,7 @@ class TestNNLayer(unittest.TestCase):
         space1 = FloatBox(shape=(2, 1), add_batch_rank=True)
         space2 = FloatBox(shape=(2, 2), add_batch_rank=True)
 
-        component_to_test = ConcatLayer(computation_inputs=3)
+        component_to_test = ConcatLayer(num_graph_fn_inputs=3)
         test = ComponentTest(component=component_to_test, input_spaces=dict(input0=space0,
                                                                             input1=space1, input2=space2))
 

@@ -28,7 +28,7 @@ import numpy as np
 
 class TestPreprocessors(unittest.TestCase):
 
-    def test_split_computation_on_grayscale(self):
+    def test_split_graph_on_grayscale(self):
         # last rank is always the color rank (its dim must match len(grayscale-weights))
         space = Dict.from_spec(dict(
             a=Tuple(FloatBox(shape=(1, 1, 2)), FloatBox(shape=(1, 2, 2))),
@@ -61,7 +61,7 @@ class TestPreprocessors(unittest.TestCase):
         test.test(out_socket_name="reset")
         test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
 
-    def test_split_computation_on_flatten(self):
+    def test_split_graph_on_flatten(self):
         space = Dict.from_spec(dict(
             a=Tuple(FloatBox(shape=(1, 1, 2)), FloatBox(shape=(1, 2, 2))),
             b=FloatBox(shape=(2, 2, 3)),

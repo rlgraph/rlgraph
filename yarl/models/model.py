@@ -21,7 +21,7 @@ import tensorflow as tf
 import itertools
 
 from yarl import YARLError, Specifiable
-from yarl.components import Component, Socket, Computation
+from yarl.components import Component, Socket, GraphFunction
 from yarl.utils.util import all_combinations, force_list, get_shape
 from yarl.utils.input_parsing import parse_saver_spec, parse_summary_spec, parse_execution_spec
 
@@ -142,7 +142,7 @@ class Model(Specifiable):
     def assemble_graph(self):
         """
         Loops through all our sub-components starting at core and assembles the graph by creating placeholders,
-        following Socket->Socket connections and running through our Computations.
+        following Socket->Socket connections and running through our GraphFunctions.
         """
         # Loop through the given input sockets and connect them from left to right.
         for socket in self.core_component.input_sockets:
@@ -152,7 +152,7 @@ class Model(Specifiable):
                                 format(socket))
             self.partial_input_build(socket)
 
-        # Build all Computations (in all our sub-Components) that have no inputs.
+        # Build all GraphFunctions (in all our sub-Components) that have no inputs.
         self.build_no_inputs(self.core_component)
 
         # Memoize possible input-combinations (from all our in-Sockets)
@@ -230,15 +230,15 @@ class Model(Specifiable):
 
     def build_no_inputs(self, sub_component):
         """
-        Makes sure all no-input Computations of a given Component (and all its sub-Components) are build.
-        These type of Computations would otherwise not be caught our "Socket->forward" build algorithm.
+        Makes sure all no-input GraphFunctions of a given Component (and all its sub-Components) are build.
+        These type of GraphFunctions would otherwise not be caught our "Socket->forward" build algorithm.
 
         Args:
-            sub_component (Component): The Component, for which to build all no-input Computations.
+            sub_component (Component): The Component, for which to build all no-input GraphFunctions.
         """
         # The sub-component itself.
         for entry_point in sub_component.no_input_entry_points:
-            if isinstance(entry_point, Computation):
+            if isinstance(entry_point, GraphFunction):
                 entry_point.update_from_input(None, self.op_registry, self.in_socket_registry)
                 for slot, out_socket in enumerate(entry_point.output_sockets):
                     self.partial_input_build(out_socket, entry_point, slot)
@@ -256,19 +256,19 @@ class Model(Specifiable):
         for sc in sub_component.sub_components.values():
             self.build_no_inputs(sc)
 
-    def partial_input_build(self, socket, from_=None, computation_out_slot=None, socket_out_op=None):
+    def partial_input_build(self, socket, from_=None, graph_fn_out_slot=None, socket_out_op=None):
         """
-        Builds one Socket in terms of its incoming and outgoing connections. Returns if we hit a dead end (computation
+        Builds one Socket in terms of its incoming and outgoing connections. Returns if we hit a dead end (graph_fn
         that's not complete yet) OR the very end of the graph.
         Recursively calls itself for any encountered Sockets on the way through the Component(s).
 
         Args:
             socket (Socket): The Socket object to process.
-            from_ (Optional[Computation,Socket]): If we are processing the socket only from one Computation/Socket
-                (ignoring other incoming connections), set this to the Computation/Socket to build from.
+            from_ (Optional[GraphFunction,Socket]): If we are processing the socket only from one GraphFunction/Socket
+                (ignoring other incoming connections), set this to the GraphFunction/Socket to build from.
                 None for building it from all incoming connections.
-            computation_out_slot (Optional[int]): If from_ is a Computation, this holds the out slot from the
-                Computation (index into the computation-returned tuple).
+            graph_fn_out_slot (Optional[int]): If from_ is a GraphFunction, this holds the out slot from the
+                GraphFunction (index into the graph_fn-returned tuple).
             socket_out_op (Optional[op]): If from_ is a Socket, this holds the op from the from_-Socket that should be
                 built from.
         """
@@ -281,7 +281,7 @@ class Model(Specifiable):
                 # create inputs[name-of-sock] = dict({"a": tf.placeholder(name="", dtype=int, shape=(3,))})
                 # TODO: Think about which calls here to skip (in_ is a Socket? -> most likely already done).
                 socket.update_from_input(in_, self.op_registry, self.in_socket_registry,
-                                         computation_out_slot, socket_out_op)
+                                         graph_fn_out_slot, socket_out_op)
 
             for outgoing in socket.outgoing_connections:
                 # Outgoing is another Socket (other Component) -> recurse.
@@ -300,23 +300,23 @@ class Model(Specifiable):
                         else:
                             outgoing.component.sockets_to_do_later.append(outgoing)
 
-                # Outgoing is a Computation -> Add the socket to the computations (waiting) inputs.
-                # - If all inputs are complete, build a new op into the graph (via the computation).
-                elif isinstance(outgoing, Computation):
-                    computation = outgoing
-                    # We have to specify the device here (only a Computation actually adds something to the graph).
+                # Outgoing is a GraphFunction -> Add the socket to the GraphFunction's (waiting) inputs.
+                # - If all inputs are complete, build a new op into the graph (via the graph_fn).
+                elif isinstance(outgoing, GraphFunction):
+                    graph_fn = outgoing
+                    # We have to specify the device here (only a GraphFunction actually adds something to the graph).
                     if socket.component.device:
-                        self.assign_device(computation, socket, socket.component.device)
+                        self.assign_device(graph_fn, socket, socket.component.device)
                     else:
                         # TODO fetch default device?
-                        computation.update_from_input(socket, self.op_registry, self.in_socket_registry)
+                        graph_fn.update_from_input(socket, self.op_registry, self.in_socket_registry)
 
-                    # Keep moving through this computations out-Sockets (if input-complete).
-                    if computation.input_complete:
-                        for slot, out_socket in enumerate(computation.output_sockets):
-                            self.partial_input_build(out_socket, computation, slot)
+                    # Keep moving through this graph_fn's out-Sockets (if input-complete).
+                    if graph_fn.input_complete:
+                        for slot, out_socket in enumerate(graph_fn.output_sockets):
+                            self.partial_input_build(out_socket, graph_fn, slot)
                 else:
-                    raise YARLError("ERROR: Outgoing connection must be Socket or Computation!")
+                    raise YARLError("ERROR: Outgoing connection must be Socket or GraphFunction!")
 
     def get_execution_inputs(self, output_socket_names, input_dict=None):
         """
@@ -475,12 +475,12 @@ class Model(Specifiable):
         """
         pass
 
-    def assign_device(self, computation, socket, assigned_device):
+    def assign_device(self, graph_fn, socket, assigned_device):
         """
         Assigns device to socket.
         Args:
-            computation (Computation): Computation to assign device to.
-            socket (Socket): Socket used on Computation
+            graph_fn (GraphFunction): GraphFunction to assign device to.
+            socket (Socket): Socket used on GraphFunction
             assigned_device (str): Device identifier.
         """
         # If this is called, the backend should implement it, otherwise device

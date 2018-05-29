@@ -54,17 +54,17 @@ class PrioritizedReplay(Memory):
 
         self.define_inputs("indices", "update")
         self.define_outputs("sample_indices", "update_records")
-        self.add_computation(
+        self.add_graph_fn(
             inputs="num_records",
             outputs=["sample", "sample_indices"],
-            method=self._computation_get_records,
+            method=self._graph_fn_get_records,
             flatten_ops=False
         )
 
-        self.add_computation(
+        self.add_graph_fn(
             inputs=["indices", "update"],
             outputs="update_records",
-            method=self._computation_update_records,
+            method=self._graph_fn_update_records,
             flatten_ops=False
         )
 
@@ -115,7 +115,7 @@ class PrioritizedReplay(Memory):
             for state in self.record_space["states"].keys():
                 self.states.append('/states/{}'.format(state))
 
-    def _computation_insert(self, records):
+    def _graph_fn_insert(self, records):
         # TODO insert is same as replay, although we may want to check for priority here ->
         # depends on usage
 
@@ -168,7 +168,7 @@ class PrioritizedReplay(Memory):
         with tf.control_dependencies(control_inputs=[index]):
             return tf.no_op()
 
-    def _computation_get_records(self, num_records):
+    def _graph_fn_get_records(self, num_records):
         # Sum total mass.
         current_size = self.read_variable(self.size)
         prob_sum = self.sum_segment_tree.reduce(start=0, limit=current_size - 1)
@@ -206,7 +206,7 @@ class PrioritizedReplay(Memory):
                 records[next_state_name] = next_states
         return records
 
-    def _computation_update_records(self, indices, update):
+    def _graph_fn_update_records(self, indices, update):
         num_records = tf.shape(input=indices)[0]
         max_priority = 0.0
 

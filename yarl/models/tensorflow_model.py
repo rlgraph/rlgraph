@@ -217,8 +217,8 @@ class TensorFlowModel(Model):
         self.monitored_session.__enter__()
         self.session = self.monitored_session._tf_sess()
 
-    def assign_device(self, computation, socket, assigned_device):
+    def assign_device(self, graph_fn, socket, assigned_device):
         # TODO potentially validate device exists via fetching local devices.
         # Otherwise, what happens if device assigned not recognized?
         with tf.device(assigned_device):
-            computation.update_from_input(socket, self.op_registry, self.in_socket_registry)
+            graph_fn.update_from_input(socket, self.op_registry, self.in_socket_registry)

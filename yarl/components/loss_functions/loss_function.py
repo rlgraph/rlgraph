@@ -43,10 +43,10 @@ class LossFunction(Component):
         self.inputs = inputs
         self.define_inputs(*self.inputs)
         self.define_outputs("loss", "loss_per_item")
-        self.add_computation(self.inputs, "loss_per_item", self._computation_loss_per_item)
-        self.add_computation("loss_per_item", "loss", self._computation_loss)
+        self.add_graph_fn(self.inputs, "loss_per_item", self._graph_fn_loss_per_item)
+        self.add_graph_fn("loss_per_item", "loss", self._graph_fn_loss)
 
-    def _computation_loss_per_item(self, *inputs):
+    def _graph_fn_loss_per_item(self, *inputs):
         """
         Returns the single loss values (one for each item in a batch).
 
@@ -59,12 +59,12 @@ class LossFunction(Component):
         """
         raise NotImplementedError
 
-    def _computation_loss(self, loss_per_item):
+    def _graph_fn_loss(self, loss_per_item):
         """
         The actual loss function that an optimizer will try to minimize. This is usually the average over a batch.
 
         Args:
-            loss_per_item (SingleDataOp): The output of our loss_per_item computation.
+            loss_per_item (SingleDataOp): The output of our loss_per_item graph_fn.
 
         Returns:
             SingleDataOp: The final loss tensor holding the average loss over the entire batch.

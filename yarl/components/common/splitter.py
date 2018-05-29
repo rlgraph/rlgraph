@@ -48,10 +48,10 @@ class Splitter(Component):
         else:
             output_names = [key for key in flat_dict.keys()]
         self.define_outputs(*output_names)
-        # Insert our simple splitting computation.
-        self.add_computation("input", output_names, self._computation_split)
+        # Insert our simple splitting graph_fn.
+        self.add_graph_fn("input", output_names, self._graph_fn_split)
 
-    def _computation_split(self, input_):
+    def _graph_fn_split(self, input_):
         """
         Splits our inputs into all its primitive Spaces in the "right" order. Returns n single ops.
 

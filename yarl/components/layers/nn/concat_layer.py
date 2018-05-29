@@ -26,18 +26,18 @@ from .nn_layer import NNLayer
 class ConcatLayer(NNLayer):
     """
     A simple concatenation layer wrapper. The ConcatLayer is a LayerComponent without sub-components but with n
-    inputs and 1 output, where the in-Sockets's data are concatenated into one out-Socket by our Computation.
+    inputs and 1 output, where the in-Sockets's data are concatenated into one out-Socket by our GraphFunction.
     """
-    def __init__(self, axis=-1, scope="concat-layer", computation_inputs=2, **kwargs):
+    def __init__(self, axis=-1, scope="concat-layer", num_graph_fn_inputs=2, **kwargs):
         """
         Args:
             axis (int): The axis along which to concatenate. Use negative numbers to count from end.
                 All inputs to this layer must have the same shape, except for the `axis` rank.
-            computation_inputs (int): The number of inputs to concatenate (this is how many in-Sockets will be created).
+            num_graph_fn_inputs (int): The number of inputs to concatenate (this is how many in-Sockets will be created).
         """
-        # Set up the super class as one that takes `computation_inputs` inputs in its computation and produces 1 output.
+        # Set up the super class as one that takes `num_graph_fn_inputs` inputs in its computation and produces 1 output.
         super(ConcatLayer, self).__init__(scope=scope,
-                                          computation_inputs=computation_inputs, computation_outputs=1,
+                                          num_graph_fn_inputs=num_graph_fn_inputs, num_graph_fn_outputs=1,
                                           **kwargs)
         self.axis = axis
 
@@ -49,6 +49,6 @@ class ConcatLayer(NNLayer):
             import tensorflow as tf
             self.layer = tf.keras.layers.Concatenate(axis=self.axis)
 
-    def _computation_apply(self, *inputs):
+    def _graph_fn_apply(self, *inputs):
         return self.layer.apply(force_list(inputs))
 

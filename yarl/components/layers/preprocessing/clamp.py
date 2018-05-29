@@ -36,5 +36,5 @@ class Clamp(PreprocessLayer):
         self.min_ = min_
         self.max_ = max_
 
-    def _computation_apply(self, input_):
+    def _graph_fn_apply(self, input_):
         return tf.clip_by_value(t=input_, clip_value_min=self.min_, clip_value_max=self.max_)

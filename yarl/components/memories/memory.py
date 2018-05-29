@@ -44,11 +44,11 @@ class Memory(Component):
         self.record_registry = None
         self.capacity = capacity
 
-        # Add default Sockets and the insert Computation.
+        # Add default Sockets and insert GraphFunction.
         self.define_inputs("records", "num_records")
         self.define_outputs("insert", "sample")
 
-        self.add_computation(inputs="records", outputs="insert", method=self._computation_insert)
+        self.add_graph_fn(inputs="records", outputs="insert", method=self._graph_fn_insert)
 
     def create_variables(self, input_spaces):
         # Store our record-space for convenience.
@@ -62,7 +62,7 @@ class Memory(Component):
             add_batch_rank=self.capacity
         )
 
-    def _computation_insert(self, records):
+    def _graph_fn_insert(self, records):
         """
         Inserts one or more complex records.
 
@@ -72,7 +72,7 @@ class Memory(Component):
         """
         raise NotImplementedError
 
-    def _computation_get_records(self, num_records):
+    def _graph_fn_get_records(self, num_records):
         """
         Returns a number of records according to the retrieval strategy implemented by
         the memory.
@@ -85,7 +85,7 @@ class Memory(Component):
         """
         raise NotImplementedError
 
-    def _computation_get_episodes(self, num_episodes):
+    def _graph_fn_get_episodes(self, num_episodes):
         """
         Retrieves a given number of episodes.
 
@@ -96,14 +96,14 @@ class Memory(Component):
         """
         pass
 
-    def _computation_clear(self):
+    def _graph_fn_clear(self):
         """
         Removes all entries from memory.
         """
         # Optional?
         pass
 
-    def _computation_update_records(self, indices, update):
+    def _graph_fn_update_records(self, indices, update):
         """
         Optionally updates memory records using information such as losses, e.g. to
         compute priorities.

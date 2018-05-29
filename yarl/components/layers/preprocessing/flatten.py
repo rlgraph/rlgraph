@@ -40,7 +40,7 @@ class Flatten(PreprocessLayer):
         in_space = input_spaces["input"]  # type: Space
         self.has_batch = in_space.has_batch_rank
 
-    def _computation_apply(self, input_):
-        # TODO: Create computation option to pass input_'s Space along with input_ into these methods.
+    def _graph_fn_apply(self, input_):
+        # TODO: Create GraphFunction option to pass input_'s Space along with input_ into these methods.
         shape = (-1, np.prod(get_shape(input_)[1:])) if self.has_batch else tuple([get_shape(input_, flat=True)])
         return tf.reshape(tensor=input_, shape=shape)

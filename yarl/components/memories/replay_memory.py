@@ -37,10 +37,10 @@ class ReplayMemory(Memory):
         next_states=True
     ):
         super(ReplayMemory, self).__init__(capacity, name, scope)
-        self.add_computation(
+        self.add_graph_fn(
             inputs="num_records",
             outputs="sample",
-            method=self._computation_get_records,
+            method=self._graph_fn_get_records,
             flatten_ops=False
         )
 
@@ -67,7 +67,7 @@ class ReplayMemory(Memory):
             # as this would cause extra memory overhead.
             self.states = ["/states{}".format(flat_key) for flat_key in self.record_space["states"].flatten().keys()]
 
-    def _computation_insert(self, records):
+    def _graph_fn_insert(self, records):
         num_records = tf.shape(input=records['/terminal'])[0]
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
@@ -119,7 +119,7 @@ class ReplayMemory(Memory):
 
         return records
 
-    def _computation_get_records(self, num_records):
+    def _graph_fn_get_records(self, num_records):
         indices = tf.range(start=0, limit=self.read_variable(self.size))
 
         # TODO When would we use a replay memory without next-states?

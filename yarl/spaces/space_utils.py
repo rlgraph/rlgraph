@@ -28,7 +28,7 @@ from yarl.spaces import *
 def get_space_from_op(op):
     """
     Tries to re-create a Space object given some DataOp.
-    This is useful for shape inference when passing a Socket's ops through a Computation and
+    This is useful for shape inference when passing a Socket's ops through a GraphFunction and
     auto-inferring the resulting shape/Space.
 
     Args:

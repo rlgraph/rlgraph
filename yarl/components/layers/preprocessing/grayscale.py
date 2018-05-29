@@ -40,7 +40,7 @@ class GrayScale(PreprocessLayer):
         self.last_rank = len(self.weights)
         self.keep_rank = keep_rank
 
-    def _computation_apply(self, images):
+    def _graph_fn_apply(self, images):
         """
         Gray-scales images of arbitrary rank.
         Normally, the images' rank is 3 (width/height/colors), but can also be: batch/width/height/colors, or any other.

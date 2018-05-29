@@ -86,10 +86,10 @@ class ActionHeadComponent(Component):
         if self.epsilon_exploration is not None:
             self.add_component(self.epsilon_exploration, connect="time_step")
 
-        # Add our own computation and connect its output to the "action" Socket.
-        self.add_computation(inputs=[(self.epsilon_exploration, "do_explore"), (self.action_distribution, "draw")],
+        # Add our own graph_fn and connect its output to the "action" Socket.
+        self.add_graph_fn(inputs=[(self.epsilon_exploration, "do_explore"), (self.action_distribution, "draw")],
                              outputs="action",
-                             method=self._computation_pick)
+                             method=self._graph_fn_pick)
 
     def create_variables(self, input_spaces):
         flat_action_space = input_spaces["nn_output"]
@@ -97,7 +97,7 @@ class ActionHeadComponent(Component):
             "ERROR: The flat_dims of incoming NN-output ({}) and our action_space ({}) don't match!". \
             format(flat_action_space.flat_dim, self.action_space.flat_dim)
 
-    def _computation_pick(self, do_explore, action):
+    def _graph_fn_pick(self, do_explore, action):
         """
         Args:
             do_explore (DataOp): The bool coming from the epsilon-exploration component specifying
@@ -123,7 +123,7 @@ class ActionHeadComponent(Component):
         epsilon-strategy=[greedy|sample|random])
     in: network-output (q-values or probs), time-step
     out: "act"
-    _computation_act: use sub-exploration-component with connected  time-step to calculate epsilon:
+    _graph_act: use sub-exploration-component with connected  time-step to calculate epsilon:
         if explore: pick random action from some distribution (needs to be specified in c'tor?).
         else: pick greedy action (or some other strategy) according to network-output.
 

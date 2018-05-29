@@ -44,7 +44,7 @@ class Sequence(PreprocessLayer):
         """
         # Switch off split (it's switched on for all LayerComponents by default).
         # -> accept any Space -> flatten to OrderedDict -> input & return OrderedDict -> re-nest.
-        super(Sequence, self).__init__(scope=scope, computation_settings=dict(split_ops=False),
+        super(Sequence, self).__init__(scope=scope, graph_fn_settings=dict(split_ops=False),
                                        **kwargs)
 
         self.sequence_length = seq_length
@@ -68,10 +68,10 @@ class Sequence(PreprocessLayer):
         # Our index. Points to the slot where we insert next (-1 after reset).
         self.index = self.get_variable(name="index", dtype="int", initializer=-1, trainable=False)
 
-    def _computation_reset(self):
+    def _graph_fn_reset(self):
         return tf.variables_initializer([self.index])
 
-    def _computation_apply(self, inputs):
+    def _graph_fn_apply(self, inputs):
         """
         Sequences (stitches) together the incoming inputs by using our buffer (with stored older records).
         Sequencing happens within the last rank if `self.add_rank` is False, otherwise a new rank is added at the end for
