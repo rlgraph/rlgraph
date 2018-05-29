@@ -421,7 +421,7 @@ class Component(Specifiable):
         if len(input_sockets) == 0:
             self.no_input_entry_points.append(graph_fn)
 
-    def add_component(self, component, connect=None):
+    def add_component(self, component, connections=None):
         """
         Adds a single Component as a sub-component to this one, thereby connecting certain Sockets of the
         sub-component to the Sockets of this component.
@@ -432,53 +432,32 @@ class Component(Specifiable):
 
         Args:
             component (Component): The Component object to add to this one.
-            connect (any): Specifies, which of the Sockets of the added sub-component should be connected to this
-                (containing) component via connecting to (sometimes new) Sockets of this component.
-                For example: We are adding a sub-component with the Sockets: "input" and "output".
-                connect="input": Only the "input" Socket is connected to this component's "input" Socket.
-                connect={"input", "exposed-in"}: Only the "input" Socket is connected to this component's Socket named
-                    "exposed-in".
-                connect=("input", {"output": "exposed-out"}): The "input" Socket is connected to this
-                    component's "input". The output Socket to a Socket named "exposed-out".
-                connect=["input", "output"]: Both "input" and "output" Sockets are connected into this component's
-                    interface (with their original names "input" and "output").
-                connect=CONNECT_INS: All in-Sockets of `component` will be connected.
-                connect=CONNECT_OUTS: All out-Sockets of `component` will be connected.
-                connect=True: All sockets of `component` (in and out) will be connected.
-                connect={"input": np.array([[1, 2], [3, 4]])}: Connects the "input" Socket of the sub-component
-                    to a constant value DataOp with the given numpy value. This also works for python primitives
-                    (float, int, and bool).
-        """
-        # Preprocess the connect spec.
-        connect_spec = dict()
-        if connect is not None:
-            # More than one socket needs to be exposed.
-            if isinstance(connect, (list, tuple)):
-                for e in connect:
-                    if isinstance(e, str):
-                        connect_spec[e] = e  # leave name
-                    elif isinstance(e, (tuple, list)):
-                        connect_spec[e[0]] = e[1]  # change name from 1st element to 2nd element in tuple/list
-                    elif isinstance(e, dict):
-                        for old, new in e.items():
-                            connect_spec[old] = new  # change name from dict-key to dict-value
-            elif isinstance(connect, dict):
-                for old, new in connect.items():
-                    connect_spec[old] = new  # change name from dict-key to dict-value
-            else:
-                # Expose all Sockets if connect=True|CONNECT_INS|CONNECT_OUTS.
-                connect_list = list()
-                if connect == CONNECT_INS or connect is True:
-                    connect_list.extend(component.input_sockets)
-                if connect == CONNECT_OUTS or connect is True:
-                    connect_list.extend(component.output_sockets)
-                if len(connect_list) > 0:
-                    for sock in connect_list:
-                        connect_spec[sock.name] = sock.name
-                # Single socket (given as string) needs to be exposed (and keep its name).
-                else:
-                    connect_spec[connect] = connect  # leave name
+            connections (Optional[list,bool,str,CONNECT_INS,CONNECT_OUTS]): Specifies, which of the Sockets of the
+                added sub-component should be connected to which other Sockets.
+                If `connections` is a list, each item in `connections` is:
+                - a tuple: Connect the sub-component's Socket specified by the first item in the tuple to
+                    the Socket (or a constant value) specified by the second item in the tuple.
+                - a single string: Connect the sub-component's Socket specified by the string (name) to a Socket
+                    of the parent Component of the same name (will be created if it doesn't exist).
+                If `connections` is a string: Only the Socket with the given name is connected to this component's
+                    Socket with the same name.
+                If `connections` is CONNECT_INS: All in-Sockets of `component` will be connected to their respective
+                    counterparts in this Component.
+                If `connections` is CONNECT_OUTS: All out-Sockets of `component` will be connected to their respective
+                    counterparts in this Component.
+                If `connections` is True: All sockets of `component` (in and out) will be connected to their respective
+                    counterparts in this Component.
 
+                For example: We are adding a sub-component with the Sockets: "input" and "output".
+                connections=[("input", "exposed-in")]: Only the "input" Socket is connected to this component's Socket
+                    named "exposed-in".
+                connections=["input", ("output": "exposed-out")]: The "input" Socket is connected to this
+                    component's "input". The output Socket to a Socket named "exposed-out".
+                connections=["input", "output"]: Both "input" and "output" Sockets are connected into this component's
+                    interface (with their original names "input" and "output").
+                connections=[("input", np.array([[1, 2], [3, 4]]))]: Connect the "input" Socket of `component` with
+                    the given constant value.
+        """
         # Make sure no two components with the same name are added to this one (own scope doesn't matter).
         if component.name in self.sub_components:
             raise YARLError("ERROR: Sub-Component with name '{}' already exists in this one!".format(component.name))
@@ -489,27 +468,57 @@ class Component(Specifiable):
         component.has_been_added = True
         self.sub_components[component.name] = component
 
+        # Preprocess the connections spec.
+        connect_spec = dict()
+        if connections is not None:
+            # More than one socket needs to be exposed.
+            if isinstance(connections, list):
+                for e in connections:
+                    if isinstance(e, str):
+                        connect_spec[e] = e  # leave name
+                    elif isinstance(e, (tuple, list)):
+                        connect_spec[e[0]] = e[1]  # change name from 1st element to 2nd element in tuple/list
+                    #elif isinstance(e, dict):
+                    #    for old, new in e.items():
+                    #        connect_spec[old] = new  # change name from dict-key to dict-value
+            #elif isinstance(connections, dict):
+            #    for old, new in connections.items():
+            #        connect_spec[old] = new  # change name from dict-key to dict-value
+            else:
+                # Expose all Sockets if connections=True|CONNECT_INS|CONNECT_OUTS.
+                connect_list = list()
+                if connections == CONNECT_INS or connections is True:
+                    connect_list.extend(component.input_sockets)
+                if connections == CONNECT_OUTS or connections is True:
+                    connect_list.extend(component.output_sockets)
+                if len(connect_list) > 0:
+                    for sock in connect_list:
+                        connect_spec[sock.name] = sock.name
+                # Single socket (given as string) needs to be exposed (and keep its name).
+                else:
+                    connect_spec[connections] = connections  # leave name
+
         # Expose all Sockets in exposed_spec (create and connect them correctly).
-        for socket_name, exposed_name_or_value in connect_spec.items():
-            socket = self.get_socket_by_name(component, socket_name)  # type: Socket
+        for sub_component_sock, other_sock in connect_spec.items():
+            socket = self.get_socket(component, sub_component_sock)  # type: Socket
             if socket is None:
                 raise YARLError("ERROR: Could not find Socket '{}' in input/output sockets of component '{}'!".
-                                format(socket_name, self.name))
-            new_socket = self.get_socket_by_name(self, exposed_name_or_value)
+                                format(sub_component_sock, component.name))
+            new_socket = self.get_socket(self, other_sock)
             # Doesn't exist yet -> add it.
             if new_socket is None:
                 # A constant value Socket -> create artificial name and connect directly with constant op (on python
                 # side, not a constant in the graph).
-                if not isinstance(exposed_name_or_value, str):
-                    exposed_name_or_value = SingleDataOp(constant_value=exposed_name_or_value)
+                if not isinstance(other_sock, str):
+                    other_sock = SingleDataOp(constant_value=other_sock)
                 else:
-                    self.add_socket(exposed_name_or_value, type=socket.type)
+                    self.add_socket(other_sock, type=socket.type)
 
             # Connect the two Sockets.
             if socket.type == "in":
-                self.connect(exposed_name_or_value, [component, socket])
+                self.connect(other_sock, [component, socket])
             else:
-                self.connect([component, socket], exposed_name_or_value)
+                self.connect([component, socket], other_sock)
 
     def add_components(self, *components, **kwargs):
         """

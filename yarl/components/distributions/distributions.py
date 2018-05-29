@@ -40,7 +40,7 @@ class Distribution(Component):
         entropy (float): The entropy value of the distribution.
     """
     def __init__(self, scope="distribution", **kwargs):
-        super(Distribution, self).__init__(scope=scope, **kwargs)
+        super(Distribution, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
 
         # Define a generic Distribution interface.
         self.define_inputs("parameters", "max_likelihood")
@@ -186,7 +186,7 @@ class Normal(Distribution):
     """
     def __init__(self, scope="normal", **kwargs):
         # Do not flatten incoming DataOps as we need more than one parameter in our parameterize graph_fn.
-        super(Normal, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
+        super(Normal, self).__init__(scope=scope, **kwargs)
 
     def check_input_spaces(self, input_spaces):
         # Must be a Tuple of len 2 (loc and scale).

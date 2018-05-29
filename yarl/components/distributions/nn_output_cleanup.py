@@ -70,7 +70,7 @@ class NNOutputCleanup(Component):
         if bias is not None:
             bias_layer = DenseLayer(units=self.num_categories_per_dim, biases_spec=bias if np.isscalar(bias) else
                                     [log(b) for _ in range(self.target_space.flat_dim) for b in bias])
-            self.add_component(bias_layer, connect=dict(input="nn_output"))
+            self.add_component(bias_layer, connections=dict(input="nn_output"))
             # Place our cleanup after the bias layer.
             self.add_graph_fn((bias_layer, "output"), "parameters", self._graph_fn_cleanup)
         # Place our cleanup directly after the nn-output.

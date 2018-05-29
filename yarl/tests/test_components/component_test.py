@@ -44,7 +44,7 @@ class ComponentTest(object):
         self.model.reset_backend()
         # Add the component to test and expose all its Sockets to the core component of our Model.
         self.core = self.model.get_default_model()
-        self.core.add_component(component, connect=True)
+        self.core.add_component(component, connections=True)
 
         # Add the input-spaces to the in-Sockets.
         for in_socket in self.core.input_sockets:

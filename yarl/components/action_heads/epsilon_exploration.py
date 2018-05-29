@@ -46,10 +46,11 @@ class EpsilonExploration(Component):
         self.bernoulli_component = Bernoulli()
 
         # Add the decay component and make time_step our (only) input.
-        self.add_component(self.decay_component, connect="time_step")  # create our own "time_step" in-Socket.
+        self.add_component(self.decay_component, connections="time_step")  # create our own "time_step" in-Socket.
 
         # Add the Bernoulli Distribution and make do_explore our only output.
-        self.add_component(self.bernoulli_component, connect=dict(draw="do_explore", max_likelihood=False))
+        self.add_component(self.bernoulli_component, connections=dict(draw="do_explore", max_likelihood=False))
 
         # Connect the two: Feed the epsilon-value from the decay component as prob-parameter into Bernoulli.
         self.connect((self.decay_component, "value"), (self.bernoulli_component, "parameters"))
+

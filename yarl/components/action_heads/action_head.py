@@ -21,12 +21,12 @@ import numpy as np
 
 from yarl import YARLError, backend
 from yarl.components import Component
-from yarl.components.distributions import Categorical, NNOutputCleanup
-from yarl.spaces import IntBox
+from yarl.components.distributions import Categorical, Normal, NNOutputCleanup
+from yarl.spaces import IntBox, FloatBox
 from .epsilon_exploration import EpsilonExploration
 
 
-class ActionHeadComponent(Component):
+class ActionHead(Component):
     """
     A Component that can be plugged on top of an NN-action output as is to produce action choices.
     It includes noise and epsilon-based exploration options as well as drawing actions from different,
@@ -51,7 +51,7 @@ class ActionHeadComponent(Component):
             epsilon_spec (any): The spec or Component object itself to construct an EpsilonExploration Component.
             #noise_spec (dict): The specification dict for a noise generator that adds noise to the NN's output.
         """
-        super(ActionHeadComponent, self).__init__(scope=scope, **kwargs)
+        super(ActionHead, self).__init__(scope=scope, **kwargs)
 
         self.add_softmax = add_softmax
 
@@ -61,41 +61,42 @@ class ActionHeadComponent(Component):
         # The Distribution to sample (or pick) actions from.
         # Discrete action space -> Categorical distribution.
         if isinstance(self.action_space, IntBox):
-            self.nn_cleanup = NNOutputCleanup(self.action_space)
             self.action_distribution = Categorical()
+        elif isinstance(self.action_space, FloatBox):
+            self.action_distribution = Normal()
         else:
             raise YARLError("ERROR: Space of out-Socket `action` is of type {} and not allowed in {} Component!".
                             format(type(self.action_space).__name__, self.name))
 
+        self.nn_cleanup = NNOutputCleanup(self.action_space)
         self.policy = policy
-        self.epsilon_exploration = Component.from_spec(type=EpsilonExploration, spec=epsilon_spec)
+        self.epsilon_exploration = EpsilonExploration.from_spec(epsilon_spec)
 
         self.define_inputs("time_step", "nn_output")
         self.define_outputs("action")
 
         # Add NN-cleanup component and connect to our "nn_output" in-Socket.
-        self.add_component(self.nn_cleanup, connect="nn_output")
+        self.add_component(self.nn_cleanup, connections="nn_output")
 
         # Add action-distribution component and connect to the NN-cleanup.
         self.add_component(self.action_distribution,
-                           connect=dict(parameters=(self.nn_cleanup, "parameters"),
-                                        max_likelihood=True if self.policy == "max-likelihood" else False)
-                           )
+                           connections=[("parameters", self.nn_cleanup.get_output("parameters")),
+                                        ("max_likelihood", True if self.policy == "max-likelihood" else False)])
 
         # Add epsilon Component and connect accordingly.
         if self.epsilon_exploration is not None:
-            self.add_component(self.epsilon_exploration, connect="time_step")
+            self.add_component(self.epsilon_exploration, connections="time_step")
 
         # Add our own graph_fn and connect its output to the "action" Socket.
         self.add_graph_fn(inputs=[(self.epsilon_exploration, "do_explore"), (self.action_distribution, "draw")],
-                             outputs="action",
-                             method=self._graph_fn_pick)
+                          outputs="action",
+                          method=self._graph_fn_pick)
 
     def check_input_spaces(self, input_spaces):
         flat_action_space = input_spaces["nn_output"]
-        assert flat_action_space.flat_dim == self.action_space.flat_dim, \
-            "ERROR: The flat_dims of incoming NN-output ({}) and our action_space ({}) don't match!". \
-            format(flat_action_space.flat_dim, self.action_space.flat_dim)
+        assert flat_action_space.flat_dim == self.action_space.flat_dim_with_categories, \
+            "ERROR: `flat_dims` of incoming NN-output ({}) and `flat_dim_with_categories` of our action_space ({}) " \
+            "don't match!".format(flat_action_space.flat_dim, self.action_space.flat_dim_with_categories)
 
     def _graph_fn_pick(self, do_explore, action):
         """
