@@ -21,7 +21,7 @@ import unittest
 
 import tensorflow as tf
 
-from yarl.components.distributions import Bernoulli, Categorical
+from yarl.components.distributions import *
 from yarl.spaces import *
 from yarl.tests import ComponentTest
 
@@ -33,12 +33,10 @@ class TestDistributions(unittest.TestCase):
     def test_bernoulli(self):
         # Create 5 bernoulli distributions (or a multiple thereof if we use batch-size > 1).
         param_space = FloatBox(shape=(5,), add_batch_rank=True)
-        max_likelihood_space = BoolBox()
 
         # The Component to test.
         bernoulli = Bernoulli()
-        test = ComponentTest(component=bernoulli, input_spaces=dict(parameters=param_space,
-                                                                    max_likelihood=max_likelihood_space))
+        test = ComponentTest(component=bernoulli, input_spaces=dict(parameters=param_space, max_likelihood=BoolBox()))
 
         # Batch of size=1 and deterministic.
         input_ = {
@@ -60,12 +58,10 @@ class TestDistributions(unittest.TestCase):
     def test_categorical(self):
         # Create 5 categorical distributions of 3 categories each.
         param_space = FloatBox(shape=(5, 3), add_batch_rank=True)
-        max_likelihood_space = BoolBox()
 
         # The Component to test.
         categorical = Categorical()
-        test = ComponentTest(component=categorical, input_spaces=dict(parameters=param_space,
-                                                                      max_likelihood=max_likelihood_space))
+        test = ComponentTest(component=categorical, input_spaces=dict(parameters=param_space, max_likelihood=BoolBox()))
 
         # Batch of size=1 and deterministic.
         input_ = {
@@ -101,3 +97,30 @@ class TestDistributions(unittest.TestCase):
         expected = np.array([[0, 0, 1, 1, 0], [0, 2, 1, 2, 1]])
         test.test(out_socket_name="draw", inputs=input_, expected_outputs=expected)
 
+    def test_normal(self):
+        # Create 5 normal distributions (2 parameters (mean and stddev) each).
+        param_space = Tuple(FloatBox(shape=(5,)), FloatBox(shape=(5,)), add_batch_rank=True)
+
+        # The Component to test.
+        normal = Normal()
+        test = ComponentTest(component=normal, input_spaces=dict(parameters=param_space, max_likelihood=BoolBox()))
+
+        # Batch of size=2 and deterministic.
+        input_ = {
+            "parameters": (np.array([[1.0, 0.0001, 2.25632, 100, 30.0], [1000.65, 999.0001, 23.2, 45.5, 1.233434545]]),
+                           np.array([[1.0, 0.01, 0.6, 0.25, 0.3], [5, 100.1, 0.12, 0.0001, 30.2]])),
+            "max_likelihood": True
+        }
+        expected = np.array([[1.0, 0.000099999997, 2.25632, 100.0, 30.0],
+                             [1000.65, 999.00012, 23.200001, 45.5, 1.2334346]], dtype=np.float32)
+        test.test(out_socket_name="draw", inputs=input_, expected_outputs=expected)
+
+        # Batch of size=1 and non-deterministic -> expect always the same result when we seed tf (done automatically
+        # by the ComponentTest object).
+        input_ = {
+            "parameters": (np.array([[2.0, 1.0001, 45.252, 150.5, 33.0]]),
+                           np.array([[2.0, 0.01, 0.698, 0.2, 33.00]])),
+            "max_likelihood": False
+        }
+        expected = np.array([[1.2594558, 0.9901044, 45.16246, 150.69202, 36.30979]], dtype=np.float32)
+        test.test(out_socket_name="draw", inputs=input_, expected_outputs=expected)

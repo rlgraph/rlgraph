@@ -22,7 +22,7 @@ import tensorflow as tf
 from yarl import backend
 from yarl.utils import util
 from yarl.components import Component
-from yarl.spaces import ContainerSpace
+from yarl.spaces import ContainerSpace, Tuple
 
 
 class Distribution(Component):
@@ -40,7 +40,7 @@ class Distribution(Component):
         entropy (float): The entropy value of the distribution.
     """
     def __init__(self, scope="distribution", **kwargs):
-        super(Distribution, self).__init__(scope=scope, graph_fn_settings=dict(split_ops=True), **kwargs)
+        super(Distribution, self).__init__(scope=scope, **kwargs)
 
         # Define a generic Distribution interface.
         self.define_inputs("parameters", "max_likelihood")
@@ -50,14 +50,11 @@ class Distribution(Component):
         self.add_graph_fn(["distribution", "max_likelihood"], "draw", self._graph_fn_draw)
         self.add_graph_fn("distribution", "entropy", self._graph_fn_entropy)
 
-    def create_variables(self, input_spaces):
+    def check_input_spaces(self, input_spaces):
         in_space = input_spaces["parameters"]
-        # a) Must not be ContainerSpace (not supported yet for Distributions, doesn't seem to make sense).
+        # Must not be ContainerSpace (not supported yet for Distributions, doesn't seem to make sense).
         assert not isinstance(in_space, ContainerSpace), "ERROR: Cannot handle container input Spaces " \
                                                          "in distribution '{}' (atm; may soon do)!".format(self.name)
-        ## b) All input Spaces need batch ranks.
-        #assert in_space.has_batch_rank,\
-        #    "ERROR: Space in Socket 'input' to layer '{}' must have a batch rank (0th position)!".format(self.name)
 
     def _graph_fn_parameterize(self, *parameters):
         """
@@ -89,10 +86,12 @@ class Distribution(Component):
         Returns:
             DataOp: The taken sample(s).
         """
-        return tf.cond(pred=max_likelihood,
-                       true_fn=lambda: self.max_likelihood(distribution),
-                       false_fn=lambda: self.sampled(distribution)
-                       )
+        if backend() == "tf":
+            import tensorflow as tf
+            return tf.cond(pred=max_likelihood,
+                           true_fn=lambda: self.max_likelihood(distribution),
+                           false_fn=lambda: self.sampled(distribution)
+                           )
 
     def max_likelihood(self, distribution):
         """
@@ -153,8 +152,9 @@ class Bernoulli(Distribution):
         #p = tf.sigmoid(x=flat_input)
         ## Clamp to avoid 0.0 or 1.0 probabilities (adds numerical stability).
         #p = tf.clip_by_value(p, clip_value_min=SMALL_NUMBER, clip_value_max=(1.0 - SMALL_NUMBER))
-
-        return tf.distributions.Bernoulli(probs=prob, dtype=util.dtype("bool"))
+        if backend() == "tf":
+            import tensorflow as tf
+            return tf.distributions.Bernoulli(probs=prob, dtype=util.dtype("bool"))
 
     def max_likelihood(self, distribution):
         return distribution.prob(True) >= 0.5
@@ -169,10 +169,14 @@ class Categorical(Distribution):
         super(Categorical, self).__init__(scope=scope, **kwargs)
 
     def _graph_fn_parameterize(self, probs):
-        return tf.distributions.Categorical(probs=probs, dtype=util.dtype("int"))
+        if backend() == "tf":
+            import tensorflow as tf
+            return tf.distributions.Categorical(probs=probs, dtype=util.dtype("int"))
 
     def max_likelihood(self, distribution):
-        return tf.argmax(input=distribution.probs, axis=-1, output_type=util.dtype("int"))
+        if backend() == "tf":
+            import tensorflow as tf
+            return tf.argmax(input=distribution.probs, axis=-1, output_type=util.dtype("int"))
 
 
 class Normal(Distribution):
@@ -181,10 +185,19 @@ class Normal(Distribution):
     for picking one of the n categories.
     """
     def __init__(self, scope="normal", **kwargs):
-        super(Normal, self).__init__(scope=scope, **kwargs)
+        # Do not flatten incoming DataOps as we need more than one parameter in our parameterize graph_fn.
+        super(Normal, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
 
-    def _graph_fn_parameterize(self, loc, scale):
-        return tf.distributions.Normal(loc=loc, scale=scale)
+    def check_input_spaces(self, input_spaces):
+        # Must be a Tuple of len 2 (loc and scale).
+        in_space = input_spaces["parameters"]
+        assert isinstance(in_space, Tuple) and len(in_space) == 2,\
+            "ERROR: Normal Distribution ({}) needs an incoming Tuple with len=2!".format(self.name)
+
+    def _graph_fn_parameterize(self, loc_and_scale):
+        if backend() == "tf":
+            import tensorflow as tf
+            return tf.distributions.Normal(loc=loc_and_scale[0], scale=loc_and_scale[1])
 
     def max_likelihood(self, distribution):
         return distribution.mean()
