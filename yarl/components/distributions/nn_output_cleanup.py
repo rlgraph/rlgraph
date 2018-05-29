@@ -77,7 +77,7 @@ class NNOutputCleanup(Component):
         else:
             self.add_graph_fn("nn_outputs", "parameters", self._graph_fn_cleanup)
 
-    def create_variables(self, input_spaces):
+    def check_input_spaces(self, input_spaces):
         input_space = input_spaces["nn_output"]  # type: Space
         assert input_space.has_batch_rank, "ERROR: Incoming Space `nn_output` must have a batch rank!"
 

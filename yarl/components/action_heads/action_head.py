@@ -91,7 +91,7 @@ class ActionHeadComponent(Component):
                              outputs="action",
                              method=self._graph_fn_pick)
 
-    def create_variables(self, input_spaces):
+    def check_input_spaces(self, input_spaces):
         flat_action_space = input_spaces["nn_output"]
         assert flat_action_space.flat_dim == self.action_space.flat_dim, \
             "ERROR: The flat_dims of incoming NN-output ({}) and our action_space ({}) don't match!". \

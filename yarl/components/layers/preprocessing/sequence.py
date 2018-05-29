@@ -50,7 +50,7 @@ class Sequence(PreprocessLayer):
         self.sequence_length = seq_length
         self.add_rank = add_rank
 
-        # Whether the first rank of the inputs is the batch dimension (known at create_variables time).
+        # Whether the first rank of the inputs is the batch dimension (known at build time).
         self.first_rank_is_batch = None
         # The sequence-buffer where we store previous inputs.
         self.buffer = None

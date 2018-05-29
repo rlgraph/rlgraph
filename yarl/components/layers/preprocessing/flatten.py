@@ -35,7 +35,7 @@ class Flatten(PreprocessLayer):
         super(Flatten, self).__init__(scope=scope, **kwargs)
         self.has_batch = None
 
-    def create_variables(self, input_spaces):
+    def check_input_spaces(self, input_spaces):
         # Check whether our input space has-batch or not and store this information here.
         in_space = input_spaces["input"]  # type: Space
         self.has_batch = in_space.has_batch_rank

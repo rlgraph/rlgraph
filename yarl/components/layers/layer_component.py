@@ -72,7 +72,7 @@ class LayerComponent(StackComponent):
         self.add_graph_fn(sub_components[-1].output_sockets if len(sub_components) > 0 else self.input_sockets,
                              self.output_sockets, "apply")
 
-    def create_variables(self, input_spaces):
+    def check_input_spaces(self, input_spaces):
         # Make sure the number of items in the connected input_space matches what we said about our num_graph_fn_inputs.
         assert len(input_spaces) == self.num_graph_fn_inputs, \
             "ERROR: `num_graph_fn_inputs` ({}) does not match the " \

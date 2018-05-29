@@ -113,6 +113,29 @@ class Component(Specifiable):
         # value=the actual variable
         self.variables = dict()
 
+    def when_input_complete(self, input_spaces):
+        """
+        Wrapper that calls both `create_variables` and `assert_input_spaces` in sequence and passes the dict with
+        the input_spaces for each in-Socket (kay=Socket's name) as parameter.
+
+        Args:
+            input_spaces (Dict[str,Space]): A dict with Space/shape information.
+                keys=in-Socket name (str); values=the associated Space
+        """
+        self.check_input_spaces(input_spaces)
+        self.create_variables(input_spaces)
+
+    def check_input_spaces(self, input_spaces):
+        """
+        Should check on the nature of all in-Sockets Spaces of this Component. This method is called automatically
+        by the Model when all these Spaces are know during the Model's build time.
+
+        Args:
+            input_spaces (Dict[str,Space]): A dict with Space/shape information.
+                keys=in-Socket name (str); values=the associated Space
+        """
+        pass
+
     def create_variables(self, input_spaces):
         """
         Should create all variables that are needed within this component,
@@ -123,7 +146,7 @@ class Component(Specifiable):
         Note that for different scopes in which this component is being used, variables will not(!) be shared.
 
         Args:
-            input_spaces (Dict[str,Space]): A convenience dict with Space/shape information.
+            input_spaces (Dict[str,Space]): A dict with Space/shape information.
                 keys=in-Socket name (str); values=the associated Space
         """
         print("Creating Variables for {}".format(self.name))  # Children may overwrite this method.

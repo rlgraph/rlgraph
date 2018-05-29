@@ -427,7 +427,7 @@ class Model(Specifiable):
     def component_complete(self, last_in_socket):
         # Create the Component's variables.
         space_dict = {in_s.name: in_s.space for in_s in last_in_socket.component.input_sockets}
-        last_in_socket.component.create_variables(space_dict)
+        last_in_socket.component.when_input_complete(space_dict)
         # Do a complete build (over all incoming Sockets as some of these have been waiting).
         self.partial_input_build(last_in_socket)
         # And all waiting other Sockets (!= outgoing), if any.

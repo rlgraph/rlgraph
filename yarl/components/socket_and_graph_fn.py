@@ -212,14 +212,14 @@ class GraphFunction(object):
                 and send the SingleDataOps one by one through the graph_fn.
                 Example: in-Sockets=A=Dict (container), B=int (primitive)
                     The graph_fn should then expect for each primitive Space in A:
-                        _graph_func(primitive-in-A (Space), B (int))
+                        _graph_fn(primitive-in-A (Space), B (int))
                         NOTE that B will be the same in all calls for all primitive-in-A's.
                 (default: True).
             add_auto_key_as_first_param (bool): If `split_ops` is not False, whether to send the
                 automatically generated flat key as the very first parameter into each call of the graph_fn.
                 Example: in-Sockets=A=float (primitive), B=Tuple (container)
                     The graph_fn should then expect for each primitive Space in B:
-                        _graph_func(key, A (float), primitive-in-B (Space))
+                        _graph_fn(key, A (float), primitive-in-B (Space))
                         NOTE that A will be the same in all calls for all primitive-in-B's.
                         The key can now be used to index into variables equally structured as B.
                 Has no effect if `split_ops` is False.

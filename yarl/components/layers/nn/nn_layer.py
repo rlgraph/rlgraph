@@ -31,13 +31,11 @@ class NNLayer(LayerComponent):
         # The wrapped layer object.
         self.layer = None
 
-    def create_variables(self, input_spaces):
+    def check_input_spaces(self, input_spaces):
         """
         Do some sanity checking on the incoming Space:
         Must not be Container (for now) and must have a batch rank.
         """
-        super(NNLayer, self).create_variables(input_spaces)
-
         # Loop through all our in-Sockets and sanity check each one of them for:
         for in_sock in self.input_sockets:
             in_space = input_spaces[in_sock.name]
