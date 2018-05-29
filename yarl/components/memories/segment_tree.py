@@ -89,47 +89,58 @@ class SegmentTree(object):
 
     def index_of_prefixsum(self, prefix_sum):
         """
-        Find the highest index which satisfies the condition that the sum
-        over all elements from 0 till the index is <= prefix_sum.
+        Identifies the highest index which satisfies the condition that the sum
+        over all elements from 0 till the index is <= prefix_sum. Note that
+        this takes a tensor and performs the lookups in parallel.
 
         Args:
-            prefix_sum (float): Upper bound on prefix we are allowed to select.
+            prefix_sum (tf.Tensor): Upper bound on prefix we are allowed to select.
 
         Returns:
-            int: Index satisfying prefix sum condition.
+            tf.Tensor: Index/indices satisfying prefix sum condition.
         """
         assert_ops = list()
         # 0 <= prefix_sum <= sum(priorities)
+        priority_sum = tf.reduce_sum(input_tensor=self.values, axis=0)
+        priority_sum_tensor = tf.fill(dims=tf.shape(prefix_sum), value=priority_sum)
+        print('priority sum tensor: {}'.format(priority_sum_tensor))
+        print('prefix sum: {}'.format(prefix_sum))
         assert_ops.append(tf.Assert(
-            condition=tf.less_equal(x=prefix_sum, y=tf.reduce_sum(input_tensor=self.values)),
+            # TODO need to use refuce all
+            condition=tf.reduce_all(input_tensor=tf.less_equal(x=prefix_sum, y=priority_sum_tensor)),
             data=[prefix_sum]
         ))
-        assert_ops.append(tf.Assert(
-            condition=tf.greater_equal(x=prefix_sum, y=0.0),
-            data=[prefix_sum]
-        ))
-        index = 1
+
+        # Vectorized loop -> initialize all indices matching elements in prefix-sum,
+        index = tf.ones_like(tensor=prefix_sum, dtype=tf.int32)
+        capacity = tf.fill(dims=tf.shape(index), value=self.capacity)
 
         def search_body(index, prefix_sum):
             # Is the value at position 2 * index > prefix sum?
             compare_value = self.values[2 * index]
 
+            # def update_prefix_sum_fn(index, prefix_sum):
+            #     # 'Use up' values in this segment, then jump to next.
+            #     prefix_sum -= self.values[2 * index]
+            #     return 2 * index + 1, prefix_sum
+
             def update_prefix_sum_fn(index, prefix_sum):
                 # 'Use up' values in this segment, then jump to next.
-                prefix_sum -= self.values[2 * index]
+                priority_values = tf.gather(params=self.values, indices=2 * index)
+                prefix_sum -= priority_values
                 return 2 * index + 1, prefix_sum
 
-            index, prefix_sum = tf.cond(
-                pred=compare_value > prefix_sum,
+            index, prefix_sum = tf.where(
+                condition=compare_value > prefix_sum,
                 # If over prefix sum, jump index.
-                true_fn=lambda: (2 * index, prefix_sum),
+                x=lambda: (2 * index, prefix_sum),
                 # Else adjust prefix sum until done.
-                false_fn=lambda: update_prefix_sum_fn(index, prefix_sum)
+                y=lambda: update_prefix_sum_fn(index, prefix_sum)
             )
             return index, prefix_sum
 
         def cond(index, prefix_sum):
-            return index < self.capacity
+            return index < capacity
 
         with tf.control_dependencies(control_inputs=assert_ops):
             index, _ = tf.while_loop(cond=cond, body=search_body, loop_vars=[index, prefix_sum])
