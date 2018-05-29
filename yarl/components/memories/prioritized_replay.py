@@ -177,8 +177,9 @@ class PrioritizedReplay(Memory):
         sample = prob_sum * tf.random_uniform(shape=(num_records, ))
 
         # Vectorized search loop searches through tree in parallel.
-        sample_indices = self.sum_segment_tree.index_of_prefixsum(sample)
-
+        sample_indices = tf.map_fn(fn=self.sum_segment_tree.index_of_prefixsum, elems=sample)
+        # sample_indices = self.sum_segment_tree.index_of_prefixsum(sample)
+        print('sample indices = {}'.format(sample_indices))
         # TODO what about filtering terminals?
         # - Searching prefix sum/resampling too expensive.
         return self.read_records(indices=sample_indices)
