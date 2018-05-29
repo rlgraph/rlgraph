@@ -50,7 +50,7 @@ class TestPrioritizedReplay(unittest.TestCase):
         test = ComponentTest(component=memory, input_spaces=dict(
             records=self.record_space,
             num_records=int,
-            indices=FloatBox(shape=(), add_batch_rank=True),
+            indices=IntBox(shape=(), add_batch_rank=True),
             update=FloatBox(shape=(), add_batch_rank=True)
         ))
 

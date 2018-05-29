@@ -210,28 +210,35 @@ class PrioritizedReplay(Memory):
         max_priority = 0.0
 
         # Update has to be sequential.
-        def insert_body(i, max_priority, assignments):
-            with tf.control_dependencies(control_inputs=assignments):
-                priority = tf.pow(x=update[i], y=self.alpha)
-                assignments = self.sum_segment_tree.insert(
-                    index=indices[i],
-                    element=priority,
-                    insert_op=tf.add
-                )
-                assignments.extend(self.min_segment_tree.insert(
-                    index=indices[i],
-                    element=priority,
-                    insert_op=tf.minimum
-                ))
-                max_priority = tf.maximum(x=max_priority, y=priority)
-            return i + 1, max_priority, assignments
+        def insert_body(i, max_priority):
+            priority = tf.pow(x=update[i], y=self.alpha)
 
-        def cond(i, max_priority, assignments):
+            sum_insert = self.sum_segment_tree.insert(
+                index=indices[i],
+                element=priority,
+                insert_op=tf.add
+            )
+            min_insert = self.min_segment_tree.insert(
+                index=indices[i],
+                element=priority,
+                insert_op=tf.minimum
+            )
+            # Keep trick of current max priority element.
+            max_priority = tf.maximum(x=max_priority, y=priority)
+
+            with tf.control_dependencies(control_inputs=[tf.group(sum_insert, min_insert)]):
+                return i + 1, max_priority
+
+        def cond(i, max_priority):
             return i < num_records - 1
 
-        _, max_priority, assignments = tf.while_loop(cond=cond, body=insert_body, loop_vars=(0, max_priority, list()))
+        _, max_priority = tf.while_loop(
+            cond=cond,
+            body=insert_body,
+            loop_vars=(0, max_priority)
+        )
 
-        assignments.append(self.assign_variable(ref=self.max_priority, value=max_priority))
-        with tf.control_dependencies(control_inputs=assignments):
+        assignment = self.assign_variable(ref=self.max_priority, value=max_priority)
+        with tf.control_dependencies(control_inputs=[assignment]):
             return tf.no_op()
 
