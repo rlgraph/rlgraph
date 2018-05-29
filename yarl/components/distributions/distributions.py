@@ -174,3 +174,17 @@ class Categorical(Distribution):
     def max_likelihood(self, distribution):
         return tf.argmax(input=distribution.probs, axis=-1, output_type=util.dtype("int"))
 
+
+class Normal(Distribution):
+    """
+    A categorical distribution object defined by a n values {p0, p1, ...} that add up to 1, the probabilities
+    for picking one of the n categories.
+    """
+    def __init__(self, scope="normal", **kwargs):
+        super(Normal, self).__init__(scope=scope, **kwargs)
+
+    def _graph_fn_parameterize(self, loc, scale):
+        return tf.distributions.Normal(loc=loc, scale=scale)
+
+    def max_likelihood(self, distribution):
+        return distribution.mean()
