@@ -51,7 +51,7 @@ class SegmentTree(object):
         Args:
             index (int): Insertion index.
             element (any): Element to insert.
-            insert_op (Union(tf.add, tf.min)): Insert operation on the tree.
+            insert_op (Union(tf.add, tf.minimum, tf, maximum)): Insert operation on the tree.
         """
         index += self.capacity
         assignment = tf.assign(ref=self.values[index], value=element)
@@ -100,8 +100,14 @@ class SegmentTree(object):
         """
         assert_ops = list()
         # 0 <= prefix_sum <= sum(priorities)
-        assert_ops.append(tf.Assert(condition=tf.less_equal(x=prefix_sum, y=tf.reduce_sum(input_tensor=self.values))))
-        assert_ops.append(tf.Assert(condition=tf.greater_equal(x=prefix_sum, y=0.0)))
+        assert_ops.append(tf.Assert(
+            condition=tf.less_equal(x=prefix_sum, y=tf.reduce_sum(input_tensor=self.values)),
+            data=[prefix_sum]
+        ))
+        assert_ops.append(tf.Assert(
+            condition=tf.greater_equal(x=prefix_sum, y=0.0),
+            data=[prefix_sum]
+        ))
         index = 1
 
         def search_body(index, prefix_sum):
@@ -165,7 +171,7 @@ class SegmentTree(object):
                 return start, result
 
             start, result = tf.cond(
-                pred=start_mod == 0,
+                pred=tf.equal(x=start_mod, y=0),
                 true_fn=lambda: (start, result),
                 false_fn=lambda: update_start_fn(start, result)
             )
@@ -179,7 +185,7 @@ class SegmentTree(object):
                 return limit, result
 
             limit, result = tf.cond(
-                pred=end_mod == 0,
+                pred=tf.equal(x=end_mod, y=0),
                 true_fn=lambda: (limit, result),
                 false_fn=lambda: update_limit_fn(limit, result)
             )
