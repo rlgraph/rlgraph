@@ -39,7 +39,7 @@ class LossFunction(Component):
         """
         super(LossFunction, self).__init__(scope=kwargs.pop("scope", "loss-function"), **kwargs)
 
-        # Build our interface.
+        # Build our interface with a flexible number of in-Sockets.
         self.inputs = inputs
         self.define_inputs(*self.inputs)
         self.define_outputs("loss", "loss_per_item")

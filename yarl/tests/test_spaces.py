@@ -27,11 +27,15 @@ class TestSpaces(unittest.TestCase):
     Tests creation, sampling and shapes of Spaces.
     """
     def test_box_spaces(self):
+        """
+        Tests all BoxSpaces via sample/contains loop. With and without batch-rank,
+        different batch sizes, and different los/high combinations (including no bounds).
+        """
         for class_ in [FloatBox, IntBox, BoolBox]:
             for add_batch_rank in [False, True]:
                 if class_ != BoolBox:
                     for low, high in [(None, None), (-1.0, 10.0), ((1.0, 2.0), (3.0, 4.0)),
-                                  (((1.0, 2.0, 3.0), (4.0, 5.0, 6.0)), ((7.0, 8.0, 9.0), (10.0, 11.0, 12.0)))]:
+                                      (((1.0, 2.0, 3.0), (4.0, 5.0, 6.0)), ((7.0, 8.0, 9.0), (10.0, 11.0, 12.0)))]:
                         space = class_(low=low, high=high, add_batch_rank=add_batch_rank)
                         if add_batch_rank is False:
                             sample = space.sample()

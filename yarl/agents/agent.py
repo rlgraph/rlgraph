@@ -18,6 +18,10 @@ from __future__ import division
 from __future__ import print_function
 from yarl import Specifiable, backend
 from yarl.utils.input_parsing import parse_execution_spec
+from yarl.components import Component
+from yarl.components.layers import StackComponent
+from yarl.components.neural_networks import NeuralNetwork
+from yarl.components.optimizers import Optimizer
 from yarl.models import Model
 from yarl.spaces import Space
 
@@ -26,55 +30,61 @@ class Agent(Specifiable):
     """
     Generic agent defining YARL-API operations.
     """
-
     def __init__(
         self,
         states_spec,
         actions_spec,
         network_spec,
-        states_preprocessing=None,
+        preprocessing_spec=None,
         exploration=None,
         execution=None,
-        optimizer=None
+        optimizer_spec=None
     ):
         """
         Generic agent which parses and sanitizes configuration specs.
 
         Args:
-            states_spec: Dict specifying state space names, types and dimensions.
-            actions_spec: Dict specifying action space names, types and dimensions.
-            network_spec:
-            states_preprocessing:
+            states_spec (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
+            actions_spec (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
+            network_spec (Union[dict,NeuralNetwork]): Spec dict for a NeuralNetwork Component or the NeuralNetwork
+                object itself.
+            preprocessing_spec (Optional[dict]):
             exploration:
             execution:
-            optimizer:
+            optimizer_spec:
         """
         self.state_space = Space.from_spec(states_spec)
         self.action_space = Space.from_spec(actions_spec)
-        self.network_spec = network_spec
+        self.neural_network = NeuralNetwork.from_spec(network_spec)
 
-        # TODO if none apply defaults
-        self.states_preprocessing_spec = states_preprocessing
+        self.preprocessor_stack = StackComponent.from_spec(preprocessing_spec)
         self.exploration_spec = exploration
         self.execution_spec = parse_execution_spec(execution)
-        self.optimizer_spec = optimizer
+        self.optimizer = Optimizer.from_spec(optimizer_spec)
 
         # Create our Model.
-        self.model = Model.from_spec(backend(), execution_spec=self.execution_spec)
+        self.model = Model.from_spec(backend(), execution_spec=self.execution_spec)  # type: Model
 
         # Build a custom, agent-specific algorithm.
-        self.build_graph()
+        self.build_graph(self.model.core_component)
         # Ask our Model to actually build the Graph.
         self.model.build()
 
-    def build_graph(self):
+    def build_graph(self, core):
         """
         Assembles the computation graph by combining specified graph components
         and converting non-graph components if using AutoGraph.
 
         Each agent implements this to combine its necessary graph components.
+
+        Args:
+            core (Component): The core Component of the Model we are building. All Components this Agent needs must go
+                in there via `core.add_component()`.
         """
         raise NotImplementedError
+
+    def build_preprocessor(self, core):
+        core.add_component(self.preprocessor_stack, connections=[("")])
 
     def get_action(self, states, deterministic=False):
         """
@@ -87,7 +97,6 @@ class Agent(Specifiable):
 
         Returns: Actions dict.
         """
-
         raise NotImplementedError
 
     def observe(self, states, actions, internals, reward, terminal):

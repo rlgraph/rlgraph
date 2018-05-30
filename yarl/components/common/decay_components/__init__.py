@@ -22,6 +22,7 @@ from .exponential_decay import ExponentialDecay
 from .polynomial_decay import PolynomialDecay, LinearDecay
 
 DecayComponent.__lookup_classes__ = dict(
+    linear=LinearDecay,
     exponential=ExponentialDecay,
     polynomial=PolynomialDecay
 )

@@ -53,4 +53,5 @@ class PolynomialDecay(DecayComponent):
                                              self.to_, power=self.power)
 
 
+# Create an alias for LinearDecay
 LinearDecay = partial(PolynomialDecay, power=1.0)

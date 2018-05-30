@@ -27,7 +27,9 @@ import numpy as np
 
 
 class TestNNLayer(unittest.TestCase):
-
+    """
+    Tests for the different NNLayer Components. Each layer is tested separately.
+    """
     def test_dense(self):
         # Space must contain batch dimension (otherwise, NNlayer will complain).
         space = FloatBox(shape=(2,), add_batch_rank=True)
@@ -44,7 +46,7 @@ class TestNNLayer(unittest.TestCase):
 
     def test_conv2d(self):
         # Space must contain batch dimension (otherwise, NNlayer will complain).
-        space = FloatBox(shape=(2, 2, 3), add_batch_rank=True)
+        space = FloatBox(shape=(2, 2, 3), add_batch_rank=True)  # e.g. a simple 3-color image
 
         component_to_test = Conv2DLayer(filters=4, kernel_size=2, strides=1, kernel_spec=0.5, biases_spec=False)
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))

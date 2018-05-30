@@ -17,3 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from .neural_network import NeuralNetwork
+
+NeuralNetwork.__lookup_classes__ = dict(
+    neural_network=NeuralNetwork
+)
+
+__all__ = ["NeuralNetwork"]
+

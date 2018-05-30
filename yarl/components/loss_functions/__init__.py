@@ -18,5 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from .loss_function import LossFunction
+from .dqn_loss_function import DQNLossFunction
 
-__all__ = ["LossFunction"]
+__all__ = ["LossFunction", "DQNLossFunction"]
