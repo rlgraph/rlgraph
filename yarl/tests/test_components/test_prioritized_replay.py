@@ -122,10 +122,10 @@ class TestPrioritizedReplay(unittest.TestCase):
         print('Result batch = {}'.format(batch))
         self.assertEqual(2, len(batch['terminal']))
 
-        # Assert we cannot fetch more than 2 elements because size is 2.
+        # We allow repeat indices in sampling.
         num_records = 5
         batch = test.test(out_socket_name="sample", inputs=num_records, expected_outputs=None)
-        self.assertEqual(2, len(batch['terminal']))
+        self.assertEqual(5, len(batch['terminal']))
 
         # Now insert over capacity, note all elements here are non-terminal.
         observation = non_terminal_records(self.record_space, self.capacity)
