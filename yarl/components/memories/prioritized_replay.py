@@ -144,15 +144,16 @@ class PrioritizedReplay(Memory):
 
         # Note: Cannot concurrently modify, so need iterative insert
         def insert_body(i):
+            weight = tf.pow(x=self.max_priority, y=self.alpha)
             sum_insert = self.sum_segment_tree.insert(
                 index=update_indices[i],
-                element=self.max_priority,
+                element=weight,
                 insert_op=tf.add
             )
 
             min_insert = self.min_segment_tree.insert(
                 index=update_indices[i],
-                element=self.max_priority,
+                element=weight,
                 insert_op=tf.minimum
             )
             with tf.control_dependencies(control_inputs=[tf.group(sum_insert, min_insert)]):
@@ -180,6 +181,9 @@ class PrioritizedReplay(Memory):
         sample_indices = tf.map_fn(fn=self.sum_segment_tree.index_of_prefixsum, elems=sample, dtype=tf.int32)
         # sample_indices = self.sum_segment_tree.index_of_prefixsum(sample)
         # - Searching prefix sum/resampling too expensive.
+        sample_indices = tf.Print(sample_indices, [sample_indices], summarize=1000,
+                                  message='sample indices in retrieve = ')
+
         return self.read_records(indices=sample_indices), sample_indices
 
     def read_records(self, indices):
