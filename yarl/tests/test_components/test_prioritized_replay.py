@@ -36,7 +36,7 @@ class TestPrioritizedReplay(unittest.TestCase):
         terminal=IntBox(low=0, high=1),
         add_batch_rank=True
     )
-    memory_variables = ["size", "index"]
+    memory_variables = ["size", "index", "max-priority"]
     capacity = 10
 
     def test_insert(self):
@@ -56,3 +56,43 @@ class TestPrioritizedReplay(unittest.TestCase):
 
         observation = self.record_space.sample(size=1)
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+
+    def test_capacity(self):
+        """
+        Tests if insert correctly manages capacity.
+        """
+        memory = PrioritizedReplay(
+            capacity=self.capacity,
+            next_states=True
+        )
+        test = ComponentTest(component=memory, input_spaces=dict(
+            records=self.record_space,
+            num_records=int,
+            indices=IntBox(shape=(), add_batch_rank=True),
+            update=FloatBox(shape=(), add_batch_rank=True)
+        ))
+
+        # Internal state variables.
+        memory_variables = memory.get_variables(self.memory_variables)
+        buffer_size = memory_variables['size']
+        buffer_index = memory_variables['index']
+        max_priority = memory_variables['max-priority']
+
+        size_value, index_value, max_priority_value = test.get_variable_values(
+            [buffer_size, buffer_index, max_priority])
+
+        # Assert indices 0 before insert.
+        self.assertEqual(size_value, 0)
+        self.assertEqual(index_value, 0)
+        self.assertEqual(max_priority_value, 1.0)
+
+        # Insert one more element than capacity
+        observation = self.record_space.sample(size=self.capacity + 1)
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+
+        size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
+        # Size should be equivalent to capacity when full.
+        self.assertEqual(size_value, self.capacity)
+
+        # Index should be one over capacity due to modulo.
+        self.assertEqual(index_value, 1)
