@@ -40,13 +40,19 @@ class TestActionHead(unittest.TestCase):
         test = ComponentTest(component=action_head, input_spaces=dict(nn_output=nn_output_space,
                                                                       time_step=int))
 
-        # NN-output (batch-size=2).
-        inputs = np.array([[[0.5, 0.25, 0.25],
-                                     [0.98, 0.01, 0.01],
-                                     [0.0, 0.6, 0.4],
-                                     [0.2, 0.25, 0.55],
-                                     [0.3, 0.3, 0.4]
-                                     ]])
-        expected = np.array([[0, 0, 1, 2, 2]])
-        test.test(out_socket_name="draw", inputs=inputs, expected_outputs=expected)
+        # NN-output (batch-size=2, 20 output nodes to cover the 2x2x5 action space).
+        inputs = dict(nn_output=np.array([[100.0, 50.0, 25.0, 12.5, 6.25,
+                                           200.0, 100.0, 50.0, 25.0, 12.5,
+                                           1.0, 1.0, 1.0, 25.0, 1.0,
+                                           1.0, 2.0, 2.0, 1.0, 0.5,
+                                           ],
+                                          [123.4, 34.7, 98.2, 1.2, 120.0,
+                                           200.0, 200.0, 0.00009, 10.0, 300.0,
+                                           0.567, 0.678, 0.789, 0.8910, 0.91011,
+                                           0.1, 0.1, 0.2, 0.1, 0.5,
+                                           ]
+                                          ]),
+                      time_step=10000)
+        expected = np.array([[[0, 0], [3, 1]], [[0, 4], [4, 4]]])
+        test.test(out_socket_name="action", inputs=inputs, expected_outputs=expected)
 

@@ -38,6 +38,7 @@ class Space(Specifiable):
         self._shape = None
         self.has_batch_rank = None
         self.batch_rank_tuple = None
+        self.batch_rank_tuple_m1 = None  # using -1 instead of None for tf ops
         self.add_batch_rank(add_batch_rank)
 
     @property
@@ -52,7 +53,15 @@ class Space(Specifiable):
     def shape_with_batch_rank(self):
         """
         Returns:
-            tuple: The shape of this Space as a tuple including a possible batch_rank as the 0th rank.
+            tuple: The shape of this Space as a tuple including a possible batch_rank as `None` (0th rank).
+        """
+        raise NotImplementedError
+
+    @property
+    def shape_with_batch_rank_m1(self):
+        """
+        Returns:
+            tuple: The shape of this Space as a tuple including a possible batch_rank as -1 (0th rank).
         """
         raise NotImplementedError
 
@@ -228,4 +237,5 @@ class Space(Specifiable):
         """
         self.has_batch_rank = add_batch_rank
         self.batch_rank_tuple = (None,) if self.has_batch_rank else ()
+        self.batch_rank_tuple_m1 = (-1,) if self.has_batch_rank else ()
 

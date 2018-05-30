@@ -90,6 +90,12 @@ class BoxSpace(Space):
         return tuple(self.batch_rank_tuple + self.shape)
 
     @cached_property
+    def shape_with_batch_rank_m1(self):
+        if self.shape == ():
+            return self.batch_rank_tuple_m1
+        return tuple(self.batch_rank_tuple_m1 + self.shape)
+
+    @cached_property
     def flat_dim(self):
         return int(np.prod(self.shape))  # also works for shape=()
 

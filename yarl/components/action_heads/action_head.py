@@ -17,9 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
-
 from yarl import YARLError, backend
+from yarl.utils.util import dtype
 from yarl.components import Component
 from yarl.components.distributions import Categorical, Normal, NNOutputCleanup
 from yarl.spaces import IntBox, FloatBox
@@ -51,7 +50,7 @@ class ActionHead(Component):
             epsilon_spec (any): The spec or Component object itself to construct an EpsilonExploration Component.
             #noise_spec (dict): The specification dict for a noise generator that adds noise to the NN's output.
         """
-        super(ActionHead, self).__init__(scope=scope, **kwargs)
+        super(ActionHead, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
 
         self.add_softmax = add_softmax
 
@@ -76,7 +75,7 @@ class ActionHead(Component):
         self.define_outputs("action")
 
         # Add NN-cleanup component and connect to our "nn_output" in-Socket.
-        self.add_component(self.nn_cleanup, connections="nn_output")
+        self.add_component(self.nn_cleanup, connections=["nn_output"])
 
         # Add action-distribution component and connect to the NN-cleanup.
         self.add_component(self.action_distribution,
@@ -85,7 +84,7 @@ class ActionHead(Component):
 
         # Add epsilon Component and connect accordingly.
         if self.epsilon_exploration is not None:
-            self.add_component(self.epsilon_exploration, connections="time_step")
+            self.add_component(self.epsilon_exploration, connections=["time_step"])
 
         # Add our own graph_fn and connect its output to the "action" Socket.
         self.add_graph_fn(inputs=[(self.epsilon_exploration, "do_explore"), (self.action_distribution, "draw")],
@@ -109,11 +108,13 @@ class ActionHead(Component):
         Returns:
             DataOp: The DataOp representing the action. This will match the shape of self.action_space.
         """
-        logits = np.ones((1,) + self.action_space.shape)  # add artificial batch rank
         if backend() == "tf":
             import tensorflow as tf
             return tf.cond(do_explore,
-                           true_fn=lambda: tf.multinomial(logits=logits, num_samples=1),
+                           # add artificial batch rank
+                           true_fn=lambda: tf.random_uniform(shape=(1,) + self.action_space.shape,
+                                                             maxval=self.nn_cleanup.num_categories_per_dim,
+                                                             dtype=dtype("int")),
                            false_fn=lambda: action)
 
 

@@ -29,13 +29,8 @@ class TensorFlowModel(Model):
     Uses a finalized tf.Graph and runs it inside a tf.Session object,
     which can be used to fulfil `call` requests.
     """
-    def __init__(self, name="tf-model", saver_spec=None, summary_spec=None, execution_spec=None):
-        super(TensorFlowModel, self).__init__(
-            name=name,
-            saver_spec=saver_spec,
-            summary_spec=summary_spec,
-            execution_spec=execution_spec
-        )
+    def __init__(self, name="tf-model", **kwargs):
+        super(TensorFlowModel, self).__init__(name=name, **kwargs)
         # TODO should this be in the core component?
         self.global_training_timestep = None
 
@@ -61,7 +56,7 @@ class TensorFlowModel(Model):
         self.graph_default_context = None
 
     def call(self, sockets, inputs=None):
-        fetch_list, feed_dict = self.get_execution_inputs(output_socket_names=sockets, input_dict=inputs)
+        fetch_list, feed_dict = self.get_execution_inputs(output_socket_names=sockets, inputs=inputs)
         ret = self.monitored_session.run(fetch_list, feed_dict=feed_dict)
         if len(fetch_list) == 1:
             return ret[0]

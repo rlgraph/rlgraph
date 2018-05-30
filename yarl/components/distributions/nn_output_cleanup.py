@@ -21,10 +21,9 @@ import numpy as np
 from math import log
 
 from yarl import backend, YARLError, SMALL_NUMBER
-from yarl.utils.util import get_shape
 from yarl.components import Component
 from yarl.components.layers import DenseLayer
-from yarl.spaces import Space, IntBox
+from yarl.spaces import Space, IntBox, ContainerSpace
 
 
 class NNOutputCleanup(Component):
@@ -47,7 +46,7 @@ class NNOutputCleanup(Component):
             bias (any): An optional bias that will be added to the output of the network.
             TODO: For now, only IntBoxes -> Categorical are supported. We'll add support for continuous action spaces later
         """
-        super(NNOutputCleanup, self).__init__(scope=scope, **kwargs)
+        super(NNOutputCleanup, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
 
         self.target_space = target_space
 
@@ -75,11 +74,16 @@ class NNOutputCleanup(Component):
             self.add_graph_fn((bias_layer, "output"), "parameters", self._graph_fn_cleanup)
         # Place our cleanup directly after the nn-output.
         else:
-            self.add_graph_fn("nn_outputs", "parameters", self._graph_fn_cleanup)
+            self.add_graph_fn("nn_output", "parameters", self._graph_fn_cleanup)
 
     def check_input_spaces(self, input_spaces):
-        input_space = input_spaces["nn_output"]  # type: Space
-        assert input_space.has_batch_rank, "ERROR: Incoming Space `nn_output` must have a batch rank!"
+        in_space = input_spaces["nn_output"]  # type: Space
+        # a) Must not be  ContainerSpace (not supported yet for NNLayers, doesn't seem to make sense).
+        assert not isinstance(in_space, ContainerSpace), "ERROR: Cannot handle container input Spaces " \
+                                                         "in NNOutputCleanup '{}' (atm; may soon do)!".format(self.name)
+        # b) All input Spaces need batch ranks (we are passing through NNs after all).
+        assert in_space.has_batch_rank, "ERROR: Space in Socket 'input' to NNOutputCleanup '{}' must have a batch " \
+                                        "rank (0th position)!".format(self.name)
 
     def _graph_fn_cleanup(self, nn_outputs_plus_bias):
         """
@@ -97,7 +101,7 @@ class NNOutputCleanup(Component):
         #    nn_outputs = self.bias_layer.call("apply", inputs=nn_outputs)
 
         # Reshape logits to action shape
-        shape = self.target_space.shape_with_batch_rank + (self.num_categories_per_dim,)
+        shape = self.target_space.shape_with_batch_rank_m1 + (self.num_categories_per_dim,)
         if backend() == "tf":
             import tensorflow as tf
             logits = tf.reshape(tensor=nn_outputs_plus_bias, shape=shape)

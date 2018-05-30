@@ -89,6 +89,9 @@ class Component(Specifiable):
         # Dict of sub-components that live inside this one (key=sub-component's scope).
         self.sub_components = dict()
 
+        # Simple list of all GraphFunction objects that have ever been added to this Component.
+        self.graph_fns = list()
+
         # Keep track of whether this Component has already been added to another Component and throw error
         # if this is done twice. Each Component should only be added once to some container Component for cleanlyness.
         self.has_been_added = False
@@ -348,8 +351,8 @@ class Component(Specifiable):
             self.add_socket(name, **kwargs)
 
     def add_graph_fn(self, inputs, outputs, method=None,
-                        flatten_ops=None, split_ops=None,
-                        add_auto_key_as_first_param=None, unflatten_ops=None):
+                     flatten_ops=None, split_ops=None,
+                     add_auto_key_as_first_param=None, unflatten_ops=None):
         """
         Links a set (A) of sockets via a graph_fn to a set (B) of other sockets via a graph_fn function.
         Any socket in B is thus linked back to all sockets in A (requires all A sockets).
@@ -411,6 +414,8 @@ class Component(Specifiable):
             add_auto_key_as_first_param=add_auto_key_as_first_param,
             unflatten_ops=unflatten_ops
         )
+        self.graph_fns.append(graph_fn)
+
         # Connect the graph_fn to all the given Sockets.
         for input_socket in input_sockets:
             input_socket.connect_to(graph_fn)
@@ -504,15 +509,16 @@ class Component(Specifiable):
             if socket is None:
                 raise YARLError("ERROR: Could not find Socket '{}' in input/output sockets of component '{}'!".
                                 format(sub_component_sock, component.name))
-            new_socket = self.get_socket_by_name(self, other_sock)
-            # Doesn't exist yet -> add it.
-            if new_socket is None:
-                # A constant value Socket -> create artificial name and connect directly with constant op (on python
-                # side, not a constant in the graph).
-                if not isinstance(other_sock, str):
-                    other_sock = SingleDataOp(constant_value=other_sock)
-                else:
-                    self.add_socket(other_sock, type=socket.type)
+            if not isinstance(other_sock, Socket):
+                new_socket = self.get_socket_by_name(self, other_sock)
+                # Doesn't exist yet -> add it.
+                if new_socket is None:
+                    # A constant value Socket -> create artificial name and connect directly with constant op (on python
+                    # side, not a constant in the graph).
+                    if not isinstance(other_sock, str):
+                        other_sock = SingleDataOp(constant_value=other_sock)
+                    else:
+                        self.add_socket(other_sock, type=socket.type)
 
             # Connect the two Sockets.
             if socket.type == "in":

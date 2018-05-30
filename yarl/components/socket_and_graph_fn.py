@@ -286,15 +286,12 @@ class GraphFunction(object):
         on how many return values the computation function has).
 
         Args:
-            input_socket (Optional[Socket]): The incoming Socket (by design, must be type "in").
+            input_socket (Optional[Socket]): The incoming Socket (OBSOLETE: by design, must be type "in").
                 None, if this GraphFunction has no in-Sockets anyway.
             op_registry (dict): Dict that keeps track of which ops require which other ops to be calculated.
             in_socket_registry (dict): Dict that keeps track of which in-Socket (name) needs which
                 ops (placeholders/feeds).
         """
-        assert input_socket is None or (isinstance(input_socket, Socket) and input_socket.type == "in"), \
-            "ERROR: `input_socket` must be a Socket object and of type 'in'!"
-
         if input_socket is not None:
             # Update waiting_ops.
             record = self.input_sockets[input_socket.name]
@@ -368,11 +365,6 @@ class GraphFunction(object):
             # Tag all out-ops as not requiring any input.
             for op in ops:
                 op_registry[op] = set()
-
-        if self.input_complete:
-            # Loop through our output Sockets and keep processing them with this computation's outputs.
-            for slot, output_socket in enumerate(self.output_sockets):
-                output_socket.update_from_input(self, op_registry, in_socket_registry, slot)
 
     def check_input_completeness(self):
         """

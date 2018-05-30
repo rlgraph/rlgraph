@@ -36,7 +36,8 @@ class Model(Specifiable):
 
     The Agent/Algo can use the Model's core-Component's exposed Sockets to reinforcement learn.
     """
-    def __init__(self, name="model", saver_spec=None, summary_spec=None, execution_spec=None):
+    def __init__(self, name="model", saver_spec=None, summary_spec=None, execution_spec=None,
+                 debug_trace=False):
         """
         Args:
             name (str): The name of this model.
@@ -44,6 +45,7 @@ class Model(Specifiable):
             summary_spec (dict): The specification dict for summary generation.
             execution_spec (dict): The specification dict for the execution types (local vs distributed, etc..) and
                 settings (cluster types, etc..).
+            debug_trace (bool): Whether to print out debug information during building. Default: False.
         """
         # The name of this model. Our core Component gets this name.
         self.name = name
@@ -52,6 +54,8 @@ class Model(Specifiable):
         self.execution_spec = parse_execution_spec(execution_spec)  # sanitize again (after Agent); one never knows
         # Default single-process execution.
         self.execution_mode = self.execution_spec.get("mode", "single")
+        self.debug_trace = debug_trace
+
         self.seed = self.execution_spec.get("seed")
 
         self.session_config = self.execution_spec["session_config"]
@@ -154,6 +158,9 @@ class Model(Specifiable):
 
         # Build all GraphFunctions (in all our sub-Components) that have no inputs.
         self.build_no_inputs(self.core_component)
+
+        # Check whether all our components and graph_fns are input-complete.
+        self.sanity_check_build()
 
         # Memoize possible input-combinations (from all our in-Sockets)
         # so we don't have to do this every time we get a `call`.
@@ -272,6 +279,8 @@ class Model(Specifiable):
             socket_out_op (Optional[op]): If from_ is a Socket, this holds the op from the from_-Socket that should be
                 built from.
         """
+        if self.debug_trace:
+            print("Building Socket {} partially:".format(str(socket)))
         with tf.variable_scope(socket.component.scope):
             # Loop through this socket's incoming connections (or just process from_).
             incoming_connections = from_ or socket.incoming_connections
@@ -280,10 +289,14 @@ class Model(Specifiable):
                 # example: Space (Dict({"a": IntBox(3), "b": BoolBox(), "c": FloatBox()})) connects to Socket ->
                 # create inputs[name-of-sock] = dict({"a": tf.placeholder(name="", dtype=int, shape=(3,))})
                 # TODO: Think about which calls here to skip (in_ is a Socket? -> most likely already done).
+                if self.debug_trace:
+                    print("\tupdating from input {}".format(str(in_)))
                 socket.update_from_input(in_, self.op_registry, self.in_socket_registry,
                                          graph_fn_out_slot, socket_out_op)
 
             for outgoing in socket.outgoing_connections:
+                if self.debug_trace:
+                    print("\tlooking at outgoing connection {}".format(str(outgoing)))
                 # Outgoing is another Socket (other Component) -> recurse.
                 if isinstance(outgoing, Socket):
                     # This component is already complete. Do only a partial build.
@@ -292,12 +305,19 @@ class Model(Specifiable):
                     # Component is not complete yet:
                     else:
                         # Add one Socket information.
+                        if self.debug_trace:
+                            print("\t\tnot input-compelte yet -> updating from input {}".format(str(socket)))
                         outgoing.update_from_input(socket, self.op_registry, self.in_socket_registry)
                         # Check now for input-completeness of this component.
                         if outgoing.component.input_complete:
+                            if self.debug_trace:
+                                print("\t\t\tnow input-complete ...")
                             self.component_complete(outgoing)
                         # Not complete yet. Remember do build this Socket later.
                         else:
+                            if self.debug_trace:
+                                print("\t\t\tstill not complete -> add Socket {} for processing later.".
+                                      format(outgoing))
                             outgoing.component.sockets_to_do_later.append(outgoing)
 
                 # Outgoing is a GraphFunction -> Add the socket to the GraphFunction's (waiting) inputs.
@@ -309,32 +329,75 @@ class Model(Specifiable):
                         self.assign_device(graph_fn, socket, socket.component.device)
                     else:
                         # TODO fetch default device?
+                        if self.debug_trace:
+                            print("\t\tis a graph_fn ... calling `update_from_input`")
                         graph_fn.update_from_input(socket, self.op_registry, self.in_socket_registry)
 
                     # Keep moving through this graph_fn's out-Sockets (if input-complete).
                     if graph_fn.input_complete:
+                        if self.debug_trace:
+                            print("\t\tgraph_fn is now input-complete -> building all outgoing Sockets")
                         for slot, out_socket in enumerate(graph_fn.output_sockets):
                             self.partial_input_build(out_socket, graph_fn, slot)
                 else:
                     raise YARLError("ERROR: Outgoing connection must be Socket or GraphFunction!")
 
-    def get_execution_inputs(self, output_socket_names, input_dict=None):
+    def sanity_check_build(self, component=None):
+        """
+        Checks whether all our sub-components and graph_fns are input-complete and raises detailed error messages
+        if not.
+
+        Args:
+            component (Component): The Component to analyze for input-completeness.
+        """
+        component = component or self.core_component
+
+        # Check all the component's graph_fns for input-completeness.
+        for graph_fn in component.graph_fns:
+            if graph_fn.input_complete is False:
+                # Look for the missing in-Socket and raise an Error.
+                for in_sock_name, in_sock_record in graph_fn.input_sockets.items():
+                    if len(in_sock_record["ops"]) == 0:
+                        print("ERROR: in-Socket '{}' of GraphFunction '{}' of Component '{}' does not have "
+                              "any incoming ops!".format(in_sock_name, graph_fn.name, component.name))
+
+        # Check component's sub-components for input-completeness (recursively).
+        for sub_component in component.sub_components.values():  # type: Component
+            if sub_component.input_complete is False:
+                # Look for the missing Socket and raise an Error.
+                for in_sock in sub_component.input_sockets:
+                    if len(in_sock.incoming_connections) == 0:
+                        print("ERROR: in-Socket '{}' of Component '{}' does not have any incoming "
+                              "connections!".format(in_sock.name, sub_component.name))
+            # Recursively call this method on all the sub-component's sub-components.
+            self.sanity_check_build(sub_component)
+
+    def get_execution_inputs(self, output_socket_names, inputs=None):
         """
         Fetches graph inputs for execution.
 
         Args:
             output_socket_names (Union[str,List[str]]): A name or a list of names of the out-Sockets to fetch from
             our core component.
-            input_dict (Optional[dict,data]): Dict specifying the provided inputs for some in-Sockets.
+            inputs (Optional[dict,data]): Dict specifying the provided inputs for some in-Sockets.
                 Depending on these given inputs, the correct backend-ops can be selected within the given (out)-Sockets.
+                Alternatively, can pass in data directly (not as a dict), but only if there is only one in-Socket in the
+                Model or only one of the in-Sockets is needed for the given out-Sockets.
 
         Returns:
             tuple: fetch-dict, feed-dict with relevant args.
 9       """
         output_socket_names = force_list(output_socket_names)
+
+        # Sanity check out-Socket names.
+        for out_sock_name in output_socket_names:
+            if out_sock_name not in self.out_socket_registry:
+                raise YARLError("ERROR: Out-Socket '{}' not found in Model! Make sure you are fetching by the "
+                                "correct out-Socket name.".format(out_sock_name))
+
         only_input_socket_name = None  # the name of the only in-Socket possible here
         # Some input is given.
-        if input_dict is not None:
+        if inputs is not None:
             # Get only in-Socket ..
             if len(self.core_component.input_sockets) == 1:
                 only_input_socket_name = self.core_component.input_sockets[0].name
@@ -344,28 +407,31 @@ class Model(Specifiable):
                 only_input_socket_name = next(iter(self.out_socket_registry[output_socket_names[0]]))
 
             # Check whether data is given directly.
-            if not isinstance(input_dict, dict):
+            if not isinstance(inputs, dict):
                 if only_input_socket_name is None:
-                    raise YARLError("ERROR: Input data (`input_dict`) not given as dict AND more than 1 in-Socket OR more "
-                                    "than 1 in-Socket for given out-Socket(s)!")
-                input_dict = {only_input_socket_name: input_dict}
-            # Is a dict: Check whether it's a in-Socket name dict (leave as is) or a data dict (add in-Socket name as key).
+                    raise YARLError("ERROR: Input data (`inputs`) given directly (not as dict) AND more than one "
+                                    "in-Socket in Model OR more than one in-Socket needed for given out-Sockets '{}'!".
+                                    format(output_socket_names))
+                inputs = {only_input_socket_name: inputs}
+            # Is a dict: Check whether it's a in-Socket name dict (leave as is) or a
+            # data dict (add in-Socket name as key).
             else:
                 # We have more than one necessary in-Sockets (leave as is) OR
                 # the only necessary in-Socket name is not key of the dict -> wrap it.
-                if only_input_socket_name is not None and only_input_socket_name not in input_dict:
-                    input_dict = {only_input_socket_name: input_dict}
+                if only_input_socket_name is not None and only_input_socket_name not in inputs:
+                    inputs = {only_input_socket_name: inputs}
 
             # Try all possible input combinations to see whether we got an op for that.
             # Input Socket names will be sorted alphabetically and combined from short sequences up to longer ones.
-            # Example: input_dict={A: ..., B: ... C: ...}
+            # Example: inputs={A: ..., B: ... C: ...}
             #   input_combinations=[ABC, AB, AC, BC, A, B, C]
 
             # These combinations have been memoized for fast lookup.
-            key = tuple(sorted(input_dict.keys()))
+            key = tuple(sorted(inputs.keys()))
             input_combinations = self.input_combinations.get(key)
             if not input_combinations:
-                raise YARLError("ERROR: Could not find input_combinations for in-Sockets '{}'!".format(key))
+                raise YARLError("ERROR: At least one of the given in-Socket names {} seems to be non-existent "
+                                "in Model!".format(key))
 
         # No input given (maybe an out-Socket that doesn't require input).
         else:
@@ -376,7 +442,7 @@ class Model(Specifiable):
         feed_dict = dict()
         for out_socket_name in output_socket_names:
             self._get_execution_inputs_for_socket(out_socket_name, input_combinations, fetch_list,
-                                                  input_dict, feed_dict)
+                                                  inputs, feed_dict)
         return fetch_list, feed_dict
 
     def _get_execution_inputs_for_socket(self, socket_name, input_combinations, fetch_list, input_dict, feed_dict):
@@ -425,16 +491,20 @@ class Model(Specifiable):
                         format(socket_name, input_combinations))
 
     def component_complete(self, last_in_socket):
+        if self.debug_trace:
+            print("Component {} is input-complete. Calling `when_input_complete`.".format(str(last_in_socket.component.name)))
         # Create the Component's variables.
         space_dict = {in_s.name: in_s.space for in_s in last_in_socket.component.input_sockets}
         last_in_socket.component.when_input_complete(space_dict)
+        if self.debug_trace:
+            print(".. and building all in-Sockets ...")
         # Do a complete build (over all incoming Sockets as some of these have been waiting).
         self.partial_input_build(last_in_socket)
         # And all waiting other Sockets (!= outgoing), if any.
         for og in last_in_socket.component.sockets_to_do_later:
             self.partial_input_build(og)
         # Invalidate to get error if we ever touch this again as an iterator.
-            last_in_socket.component.sockets_to_do_later = None  # type: list
+        last_in_socket.component.sockets_to_do_later = None
 
     def trace_back_sockets(self, trace_set):
         """
