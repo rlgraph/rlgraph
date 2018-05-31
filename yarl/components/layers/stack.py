@@ -20,7 +20,7 @@ from __future__ import print_function
 from yarl.components import Component, CONNECT_INS, CONNECT_OUTS
 
 
-class StackComponent(Component):
+class Stack(Component):
     """
     A component container stack that incorporates one or more sub-components which are all automatically connected
     to each other (in the sequence they are given in the c'tor) and then exposed as this component's
@@ -45,7 +45,7 @@ class StackComponent(Component):
         expose_ins = kwargs.pop("expose_ins", True)
         expose_outs = kwargs.pop("expose_outs", True)
 
-        super(StackComponent, self).__init__(**kwargs)
+        super(Stack, self).__init__(**kwargs)
         # An empty Stack is the same as a base Component object.
         if len(sub_components) == 0:
             return

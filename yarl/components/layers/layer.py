@@ -17,12 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.layers.stack_component import StackComponent
+from yarl.components.layers.stack import Stack
 
 
-class LayerComponent(StackComponent):
+class Layer(Stack):
     """
-    A StackComponent that has its own graph_fn logic (e.g. a NN layer) but - just like a StackComponent - can
+    A Stack that has its own graph_fn logic (e.g. a NN layer) but - just like a Stack - can
     also be constructed via nested sub-components that are first automatically connected to each other
     (in the sequence they are given in this c'tor) and then connected to this component's graph_fn unit.
     The final interface will hence consist of the first sub-component's input(s)- and this layer's graph_fn's
@@ -43,8 +43,8 @@ class LayerComponent(StackComponent):
         self.num_graph_fn_inputs = kwargs.pop("num_graph_fn_inputs", 1)
         self.num_graph_fn_outputs = kwargs.pop("num_graph_fn_outputs", 1)
         # By default, switch on splitting for all Layers.
-        super(LayerComponent, self).__init__(*sub_components, expose_outs=False,
-                                             split_ops=kwargs.pop("split_ops", True), **kwargs)
+        super(Layer, self).__init__(*sub_components, expose_outs=False,
+                                    split_ops=kwargs.pop("split_ops", True), **kwargs)
 
         # No sub-components, just create empty in-Sockets.
         if len(sub_components) == 0:
@@ -65,7 +65,7 @@ class LayerComponent(StackComponent):
         # socket(s).
         # NOTE: Layers always split graph_fns on complex input Spaces.
         self.add_graph_fn(sub_components[-1].output_sockets if len(sub_components) > 0 else self.input_sockets,
-                             self.output_sockets, "apply")
+                          self.output_sockets, "apply")
 
     def check_input_spaces(self, input_spaces):
         # Make sure the number of items in the connected input_space matches what we said about our num_graph_fn_inputs.

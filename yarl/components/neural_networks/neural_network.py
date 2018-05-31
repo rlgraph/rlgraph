@@ -17,12 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.layers import StackComponent
+from yarl.components.layers import Stack
 from yarl.components.common import Synchronizable
 
 
-class NeuralNetwork(StackComponent, Synchronizable):
+class NeuralNetwork(Stack, Synchronizable):
     """
-    Simple placeholder class that's a Synchronizable and a StackComponent.
+    Simple placeholder class that's a Synchronizable and a Stack Component.
     """
     pass

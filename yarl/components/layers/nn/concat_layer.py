@@ -25,7 +25,7 @@ from .nn_layer import NNLayer
 
 class ConcatLayer(NNLayer):
     """
-    A simple concatenation layer wrapper. The ConcatLayer is a LayerComponent without sub-components but with n
+    A simple concatenation layer wrapper. The ConcatLayer is a Layer without sub-components but with n
     inputs and 1 output, where the in-Sockets's data are concatenated into one out-Socket by our GraphFunction.
     """
     def __init__(self, axis=-1, scope="concat-layer", num_graph_fn_inputs=2, **kwargs):

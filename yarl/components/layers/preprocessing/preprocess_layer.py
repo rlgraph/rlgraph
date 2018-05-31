@@ -19,12 +19,12 @@ from __future__ import division
 
 import tensorflow as tf
 
-from yarl.components.layers import LayerComponent
+from yarl.components.layers import Layer
 
 
-class PreprocessLayer(LayerComponent):
+class PreprocessLayer(Layer):
     """
-    A LayerComponent that can serve as a preprocessing layer and also can act on complex container input
+    A Layer that can serve as a preprocessing layer and also can act on complex container input
     spaces (Dict or Tuple).
     Do not override the `apply` graph_fn method. Instead, override the `preprocess` method, which
     gets called automatically by `apply` after taking care of container inputs.

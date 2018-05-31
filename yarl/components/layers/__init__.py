@@ -18,15 +18,15 @@ from __future__ import division
 from __future__ import print_function
 
 # Basics.
-from .stack_component import StackComponent
-from .layer_component import LayerComponent
+from .stack import Stack
+from .layer import Layer
 # Preprocessing.
 from .preprocessing import PreprocessLayer, Clamp, Scale, Sequence, GrayScale, Flatten
 # NN-Layers.
 from yarl.components.layers.nn.initializer import Initializer
 from .nn import NNLayer, DenseLayer, Conv2DLayer, ConcatLayer
 
-__all__ = ["StackComponent", "LayerComponent",
+__all__ = ["Stack", "Layer",
            "Initializer", "NNLayer", "DenseLayer", "Conv2DLayer", "ConcatLayer",
            "PreprocessLayer", "Clamp", "Scale", "Sequence", "GrayScale", "Flatten"]
 

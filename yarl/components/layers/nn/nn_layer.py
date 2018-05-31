@@ -17,11 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.layers.layer_component import LayerComponent
+from yarl.components.layers.layer import Layer
 from yarl.spaces import ContainerSpace
 
 
-class NNLayer(LayerComponent):
+class NNLayer(Layer):
     """
     A generic NN-layer object.
     """

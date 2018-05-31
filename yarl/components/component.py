@@ -550,7 +550,7 @@ class Component(Specifiable):
                 connect_ = connect.get(c.name)
             self.add_component(c, (connect_ or connect))
 
-    def copy(self, name=None, scope=None):
+    def copy(self, name=None, scope=None, device=None, global_component=False):
         """
         Copies this component and returns a new component with possibly another name and another scope.
         The new component has its own variables (they are not shared with the variables of this component)
@@ -558,8 +558,11 @@ class Component(Specifiable):
         are being copied (but without their connections).
 
         Args:
-            name (str): The name of the new component. If None, use the value of scope.
-            scope (str): The scope of the new component. If None, use the same scope as this component.
+            name (str): The name of the new Component. If None, use the value of scope.
+            scope (str): The scope of the new Component. If None, use the same scope as this component.
+            device (str): The device of the new Component. If None, use the same device as this one.
+            global_component (Optional[bool]): Whether the new Component is global or not. If None, use the same
+                setting as this one.
 
         Returns:
             Component: The copied component object.
@@ -568,11 +571,17 @@ class Component(Specifiable):
             scope = self.scope
         if name is None:
             name = scope
+        if device is None:
+            device = self.device
+        if global_component is None:
+            global_component = self.global_component
 
         # Simply deepcopy self and change name and scope.
         new_component = copy.deepcopy(self)
         new_component.name = name
         new_component.scope = scope
+        new_component.device = device
+        new_component.global_component = global_component
 
         # Then cut all the new_component's outside connections (no need to worry about the other side as
         # they were not notified of the copied Sockets).
