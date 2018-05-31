@@ -23,7 +23,7 @@ import numpy as np
 from yarl.components.memories import PrioritizedReplay
 from yarl.spaces import Dict, IntBox, FloatBox
 from yarl.tests import ComponentTest
-from yarl.tests.test_util import non_terminal_records, terminal_records
+from yarl.tests.test_util import non_terminal_records
 
 
 class TestPrioritizedReplay(unittest.TestCase):
@@ -38,7 +38,12 @@ class TestPrioritizedReplay(unittest.TestCase):
         add_batch_rank=True
     )
     memory_variables = ["size", "index", "max-priority"]
+
     capacity = 10
+    alpha = 1.0
+    beta = 1.0
+
+    max_priority = 1.0
 
     def test_insert(self):
         """
@@ -46,7 +51,9 @@ class TestPrioritizedReplay(unittest.TestCase):
         """
         memory = PrioritizedReplay(
             capacity=self.capacity,
-            next_states=True
+            next_states=True,
+            alpha=self.alpha,
+            beta=self.beta
         )
         test = ComponentTest(component=memory, input_spaces=dict(
             records=self.record_space,
@@ -64,7 +71,9 @@ class TestPrioritizedReplay(unittest.TestCase):
         """
         memory = PrioritizedReplay(
             capacity=self.capacity,
-            next_states=True
+            next_states=True,
+            alpha=self.alpha,
+            beta=self.beta
         )
         test = ComponentTest(component=memory, input_spaces=dict(
             records=self.record_space,
@@ -104,7 +113,9 @@ class TestPrioritizedReplay(unittest.TestCase):
         """
         memory = PrioritizedReplay(
             capacity=self.capacity,
-            next_states=True
+            next_states=True,
+            alpha=self.alpha,
+            beta=self.beta
         )
         test = ComponentTest(component=memory, input_spaces=dict(
             records=self.record_space,
@@ -168,3 +179,44 @@ class TestPrioritizedReplay(unittest.TestCase):
         )
         # Does not return anything
         test.test(out_socket_name=["update_records"], inputs=input_params, expected_outputs=None)
+
+    def test_segment_tree_insert_values(self):
+        """
+        Tests if segment tree inserts into correct positions.
+        """
+        memory = PrioritizedReplay(
+            capacity=self.capacity,
+            next_states=True,
+            alpha=self.alpha,
+            beta=self.beta
+        )
+        test = ComponentTest(component=memory, input_spaces=dict(
+            records=self.record_space,
+            num_records=int,
+            indices=IntBox(shape=(), add_batch_rank=True),
+            update=FloatBox(shape=(), add_batch_rank=True)
+        ))
+        priority_capacity = 1
+        while priority_capacity < self.capacity:
+            priority_capacity *= 2
+
+        memory_variables = memory.get_variables(["sum-segment-tree", "min-segment-tree"])
+        sum_segment_tree = memory_variables['sum-segment-tree']
+        min_segment_tree = memory_variables['min-segment-tree']
+
+        sum_segment_values, min_segment_values = test.get_variable_values([sum_segment_tree, min_segment_tree])
+
+        self.assertEqual(sum(sum_segment_values), 0)
+        self.assertEqual(sum(min_segment_values), float('inf'))
+        self.assertEqual(len(sum_segment_values), 2 * priority_capacity)
+        self.assertEqual(len(min_segment_values), 2 * priority_capacity)
+
+        # Insert 1 Element.
+        observation = non_terminal_records(self.record_space, 1)
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+
+        # Fetch segment tree.
+        sum_segment_values, min_segment_values = test.get_variable_values([sum_segment_tree, min_segment_tree])
+
+        # Check insert positions
+        print(sum_segment_values)

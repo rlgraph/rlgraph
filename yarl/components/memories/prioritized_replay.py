@@ -131,10 +131,6 @@ class PrioritizedReplay(Memory):
                 self.states.append('/states/{}'.format(state))
 
     def _graph_fn_insert(self, records):
-        # TODO insert is same as replay, although we may want to check for priority here ->
-        # depends on usage
-
-        # TODO override priority values with max value
         num_records = tf.shape(input=records['/terminal'])[0]
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
@@ -175,7 +171,7 @@ class PrioritizedReplay(Memory):
                 return i + 1
 
         def cond(i):
-            return i < num_records - 1
+            return i < num_records
 
         with tf.control_dependencies(control_inputs=index_updates):
             index = tf.while_loop(cond=cond, body=insert_body, loop_vars=[0])
