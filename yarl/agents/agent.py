@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from yarl import Specifiable, backend
-from yarl.utils.input_parsing import parse_execution_spec
+from yarl.utils.input_parsing import parse_execution_spec, parse_update_spec
 from yarl.components import Component
 from yarl.components.layers import Stack
 from yarl.components.neural_networks import NeuralNetwork
@@ -30,37 +30,31 @@ class Agent(Specifiable):
     """
     Generic agent defining YARL-API operations.
     """
-    def __init__(
-        self,
-        states_spec,
-        actions_spec,
-        network_spec,
-        preprocessing_spec=None,
-        exploration=None,
-        execution=None,
-        optimizer_spec=None
-    ):
+    def __init__(self, states_spec, actions_spec, network_spec=None, preprocessing_spec=None, exploration_spec=None,
+                 execution_spec=None, optimizer_spec=None, update_spec=None):
         """
         Generic agent which parses and sanitizes configuration specs.
 
         Args:
             states_spec (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
             actions_spec (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
-            network_spec (Union[dict,NeuralNetwork]): Spec dict for a NeuralNetwork Component or the NeuralNetwork
+            network_spec (Optional[dict,NeuralNetwork]): Spec dict for a NeuralNetwork Component or the NeuralNetwork
                 object itself.
-            preprocessing_spec (Optional[dict]):
-            exploration:
-            execution:
+            preprocessing_spec (Optional[dict]): The spec dict for the different necessary states preprocessing steps.
+            exploration_spec (Optional[dict]):
+            execution_spec (Optional[dict]):
             optimizer_spec:
+            update_spec (Optional[dict]):
         """
         self.state_space = Space.from_spec(states_spec)
         self.action_space = Space.from_spec(actions_spec)
         self.neural_network = NeuralNetwork.from_spec(network_spec)
 
         self.preprocessor_stack = Stack.from_spec(preprocessing_spec)
-        self.exploration_spec = exploration
-        self.execution_spec = parse_execution_spec(execution)
+        self.exploration_spec = exploration_spec
+        self.execution_spec = parse_execution_spec(execution_spec)
         self.optimizer = Optimizer.from_spec(optimizer_spec)
+        self.update_spec = parse_update_spec(update_spec)
 
         # Create our Model.
         self.model = Model.from_spec(backend, execution_spec=self.execution_spec)  # type: Model

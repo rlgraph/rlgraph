@@ -22,7 +22,7 @@ from yarl.components.common import Merger, Splitter
 from yarl.components.memories import Memory
 from yarl.components.action_heads import ActionHead
 from yarl.components.loss_functions import DQNLossFunction
-from yarl.spaces import Dict
+from yarl.spaces import Dict, IntBox
 
 
 class DQNAgent(Agent):
@@ -49,12 +49,14 @@ class DQNAgent(Agent):
 
         # The target network (is synched from q-net every n steps).
         self.target_net = None
+        # The global copy of the q-net (if we are running in distributed mode).
+        self.global_qnet = None
+
         self.action_head = ActionHead(action_space=self.action_space, epsilon_spec=self.exploration_spec)
         self.record_space = Dict(states=self.state_space, actions=self.action_space, rewards=float, terminal=IntBox(1))
         self.input_names = ["state", "action", "reward", "terminal"]
         self.merger = Merger(output_space=self.record_space, input_names=self.input_names)
         self.splitter = Splitter(input_space=self.record_space)
-
         self.loss_function = DQNLossFunction(double_q=self.double_q)
 
     def build_graph(self, core):
@@ -77,32 +79,47 @@ class DQNAgent(Agent):
         core.add_components(self.memory, self.merger, self.splitter)
 
         # Add the loss function and optimizer.
-        # TODO: loss function should go into optimizer
-        core.add_component(self.optimizer)
+        core.add_components(self.loss_function, self.optimizer)
 
-        # Now connect everything.
-        # - state into preprocessor -> into qnet
+        # Now connect everything ...
+
+        # States into preprocessor -> into qnet
         core.connect("state", (self.preprocessor_stack, "input"))
-        core.connect((self.preprocessor_stack, "output"), (self.neural_network, "input"))
+        core.connect((self.preprocessor_stack, "output"), (self.neural_network, "input"), label="from_env")
 
-        # - Network output into ActionHead's "nn_output" Socket -> into "act".
-        core.connect((self.neural_network, "output"), (self.action_head, "nn_output"))
+        # Network output into ActionHead's "nn_output" Socket -> into "act".
+        core.connect((self.neural_network, "output"), (self.action_head, "nn_output"), label="from_env")
         core.connect((self.action_head, "nn_output"), "act")
 
-        # - state, action, reward, terminal into merger
+        # Actions, rewards, terminals into Merger.
         for in_ in self.input_names:
-            core.connect(in_, (self.merger, in_))
-        # - Merger's "output" into Memory's "records".
+            if in_ != "states":
+                core.connect(in_, (self.merger, in_))
+        # Preprocessed states into Merger.
+        core.connect((self.preprocessor_stack, "output"), (self.merger, "states"))
+        # Merger's "output" into Memory's "records".
         core.connect((self.merger, "output"), (self.memory, "records"))
+        # Memory's "add_records" functionality.
+        core.connect((self.memory, "add_records"), "add_records")
 
+        # Memory's "sample" (to Splitter) and "num_records" (constant batch-size value).
+        core.connect((self.memory, "sample"), (self.splitter, "input"))
+        core.connect(self.update_spec["batch_size"], (self.memory, "num_records"))
 
-        # - state into qnet
-        core.connect("state", (self.neural_network, "input"))
-        # - state into qnet
-        core.connect("state", (self.neural_network, "input"))
-        # - state into qnet
-        core.connect("state", (self.neural_network, "input"))
-        # - state into qnet
-        core.connect("state", (self.neural_network, "input"))
+        # Splitter's outputs.
+        core.connect((self.splitter, "states"), (self.neural_network, "input"), label="from_memory")
+        core.connect((self.splitter, "actions"), (self.loss_function, "actions"))
+        core.connect((self.splitter, "rewards"), (self.loss_function, "rewards"))
+        core.connect((self.splitter, "next_states"), (self.target_net, "input"))
 
+        # Loss-function needs both q-values (qnet and target).
+        core.connect((self.neural_network, "output"), (self.loss_function, "q_values"), label="from_memory")
+        core.connect((self.target_net, "output"), (self.loss_function, "q_values_s_"))
 
+        # Connect the Optimizer.
+        core.connect((self.loss_function, "loss"), (self.optimizer, "loss"))
+        core.connect((self.optimizer, "step"), "learn")
+
+        # Add synching capability for target-net.
+        core.connect((self.neural_network, "synch_out"), (self.target_net, "synch_in"))
+        core.connect((self.target_net, "synch_in"), "synch_target_qnet")
