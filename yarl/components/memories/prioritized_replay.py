@@ -105,7 +105,8 @@ class PrioritizedReplay(Memory):
                 name="sum-segment-tree",
                 shape=(2 * self.priority_capacity,),
                 dtype=tf.float32,
-                trainable=False
+                trainable=False,
+                initializer=tf.zeros_initializer()
         )
         self.sum_segment_tree = SegmentTree(self.sum_segment_buffer, self.priority_capacity)
 
