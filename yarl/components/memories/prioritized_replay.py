@@ -39,8 +39,18 @@ class PrioritizedReplay(Memory):
         name="",
         scope="prioritized-replay",
         next_states=True,
-        alpha=1.0
+        alpha=1.0,
+        beta=0.0
     ):
+        """
+        Creates a prioritized replay.
+
+        Args:
+            alpha (float): Degree to which prioritization is applied, 0.0 implies no
+                prioritization (uniform), 1.0 full prioritization.
+            beta (float): Importance weight factor, 0.0 for no importance correction, 1.0
+                for full correction.
+        """
         super(PrioritizedReplay, self).__init__(capacity, name, scope)
 
         # Variables.
@@ -51,12 +61,13 @@ class PrioritizedReplay(Memory):
         assert alpha > 0.0
         # Priority weight.
         self.alpha = alpha
+        self.beta = beta
 
         self.define_inputs("indices", "update")
-        self.define_outputs("sample_indices", "update_records")
+        self.define_outputs("sample_indices", "update_records", "weights")
         self.add_graph_fn(
             inputs="num_records",
-            outputs=["sample", "sample_indices"],
+            outputs=["sample", "sample_indices", "weights"],
             method=self._graph_fn_get_records,
             flatten_ops=False
         )
@@ -181,6 +192,9 @@ class PrioritizedReplay(Memory):
         sample_indices = tf.map_fn(fn=self.sum_segment_tree.index_of_prefixsum, elems=sample, dtype=tf.int32)
         # sample_indices = self.sum_segment_tree.index_of_prefixsum(sample)
         # - Searching prefix sum/resampling too expensive.
+
+        # min_prob = self.min_segment_tree.get_min_value()
+
         sample_indices = tf.Print(sample_indices, [sample_indices], summarize=1000,
                                   message='sample indices in retrieve = ')
 

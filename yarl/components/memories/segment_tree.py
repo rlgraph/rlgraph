@@ -198,3 +198,9 @@ class SegmentTree(object):
         _, _, result = tf.while_loop(cond=cond, body=reduce_body, loop_vars=(start, limit, result))
 
         return result
+
+    def get_min_value(self):
+        """
+        Returns min value of storage variable.
+        """
+        return tf.reduce_min(self.values, axis=0)
