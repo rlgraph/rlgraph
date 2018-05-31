@@ -30,8 +30,17 @@ class Agent(Specifiable):
     """
     Generic agent defining YARL-API operations.
     """
-    def __init__(self, states_spec, actions_spec, network_spec=None, preprocessing_spec=None, exploration_spec=None,
-                 execution_spec=None, optimizer_spec=None, update_spec=None):
+    def __init__(
+        self,
+        states_spec,
+        actions_spec,
+        network_spec=None,
+        preprocessing_spec=None,
+        exploration_spec=None,
+        execution_spec=None,
+        optimizer_spec=None,
+        update_spec=None
+    ):
         """
         Generic agent which parses and sanitizes configuration specs.
 

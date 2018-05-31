@@ -58,6 +58,8 @@ class PrioritizedReplay(Memory):
         self.size = None
         self.states = None
         self.next_states = next_states
+
+        # TODO check if we allow 0.0 as well.
         assert alpha > 0.0
         # Priority weight.
         self.alpha = alpha
@@ -195,11 +197,11 @@ class PrioritizedReplay(Memory):
         # Importance correction.
         total_prob = self.sum_segment_tree.reduce(start=0, limit=self.priority_capacity - 1)
         min_prob = self.min_segment_tree.get_min_value() / total_prob
-        max_weight = tf.pow(x=min_prob * current_size, y=-self.beta)
+        max_weight = tf.pow(x=min_prob * tf.cast(current_size, tf.float32), y=-self.beta)
 
         def importance_sampling_fn(sample_index):
             sample_prob = self.sum_segment_tree.get(sample_index) / stored_elements_prob_sum
-            weight = tf.pow(x=sample_prob * current_size, y=-self.beta)
+            weight = tf.pow(x=sample_prob * tf.cast(current_size, tf.float32), y=-self.beta)
 
             return weight / max_weight
 
@@ -211,7 +213,6 @@ class PrioritizedReplay(Memory):
             elems=sample_indices,
             dtype=tf.float32
         )
-
         return self.read_records(indices=sample_indices), sample_indices, corrected_weights
 
     def read_records(self, indices):

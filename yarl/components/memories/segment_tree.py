@@ -182,7 +182,6 @@ class SegmentTree(object):
             def update_limit_fn(limit, result):
                 limit -= 1
                 result = reduce_op(x=result, y=self.values[limit])
-
                 return limit, result
 
             limit, result = tf.cond(
