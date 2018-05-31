@@ -63,7 +63,7 @@ class ComponentTest(object):
         Does one test pass through the component to test.
 
         Args:
-            out_socket_name (str): The name of the out-Socket to trigger (only one at a time for now).
+            out_socket_name Union([str, dict, list]): The name of the out-Sockets to trigger.
             inputs (Optional[dict,np.ndarray]): Dict with the in-Socket names as keys and the data (np.arrays,
                 dicts, tuples) as values. Alternatively - if there is only one possible in-Socket - can pass in
                 the data directly. None if no in-Socket is needed.

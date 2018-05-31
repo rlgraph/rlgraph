@@ -67,6 +67,7 @@ class PrioritizedReplay(Memory):
 
         self.define_inputs("indices", "update")
         self.define_outputs("sample_indices", "update_records", "weights")
+
         self.add_graph_fn(
             inputs="num_records",
             outputs=["sample", "sample_indices", "weights"],

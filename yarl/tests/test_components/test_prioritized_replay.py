@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
+import numpy as np
 
 from yarl.components.memories import PrioritizedReplay
 from yarl.spaces import Dict, IntBox, FloatBox
@@ -156,5 +157,14 @@ class TestPrioritizedReplay(unittest.TestCase):
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
 
         # Fetch elements and their indices.
-        batch = test.test(out_socket_name=["sample", "sample_indices"], inputs=5, expected_outputs=None)
-        print(batch)
+        num_records = 5
+        batch = test.test(out_socket_name=["sample", "sample_indices"], inputs=dict(num_records=num_records), expected_outputs=None)
+        indices = batch[1]
+        self.assertEqual(num_records, len(indices))
+
+        input_params = dict(
+            indices=indices,
+            update=np.asarray([0.1, 0.2, 0.3, 0.5, 1.0])
+        )
+        # Does not return anything
+        test.test(out_socket_name=["update_records"], inputs=input_params, expected_outputs=None)
