@@ -19,9 +19,10 @@ from __future__ import print_function
 
 import numpy as np
 
-from yarl import backend, YARLError
-from yarl.utils.specifiable import Specifiable
-from yarl.utils.util import dtype
+from .backend_system import backend
+from .yarl_error import YARLError
+from .specifiable import Specifiable
+from .util import dtype
 
 
 class Initializer(Specifiable):
@@ -39,7 +40,7 @@ class Initializer(Specifiable):
         # The actual underlying initializer object.
         self.initializer = None
 
-        if backend() == "tf":
+        if backend == "tf":
             import tensorflow as tf
         else:
             tf = None

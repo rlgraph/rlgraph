@@ -22,7 +22,7 @@ import json
 import os
 import yaml
 
-from yarl import YARLError
+from .yarl_error import YARLError
 
 
 class Specifiable(object):

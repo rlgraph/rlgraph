@@ -45,7 +45,7 @@ class ConcatLayer(NNLayer):
         super(ConcatLayer, self).create_variables(input_spaces)
 
         # Wrapper for backend.
-        if backend() == "tf":
+        if backend == "tf":
             import tensorflow as tf
             self.layer = tf.keras.layers.Concatenate(axis=self.axis)
 

@@ -56,3 +56,5 @@ class TestActionHead(unittest.TestCase):
         expected = np.array([[[0, 0], [3, 1]], [[0, 4], [4, 4]]])
         test.test(out_socket_name="action", inputs=inputs, expected_outputs=expected)
 
+    def test_action_head_with_continuous_action_space(self):
+        pass

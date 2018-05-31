@@ -20,22 +20,22 @@ from __future__ import print_function
 from .yarl_error import YARLError
 
 
-__backend__ = "tf"  # default backend ('tf' for tensorflow or 'pt' for PyTorch)
+backend = "tf"  # default backend ('tf' for tensorflow or 'pt' for PyTorch)
 
 
-def backend(backend_=None):
+def set_backend(backend_=None):
     """
     Gets or sets the computation backend for YARL.
 
     Args:
         backend_ (str): So far, only 'tf' supported.
     """
-    global __backend__
+    global backend
 
     if backend_ is not None:
-        __backend__ = backend_
+        backend = backend_
         # Try TensorFlow
-        if backend_ == "tf":
+        if backend == "tf":
             try:
                 import tensorflow
             except ModuleNotFoundError as e:
@@ -43,10 +43,7 @@ def backend(backend_=None):
                                 "Please install tensorflow first via `pip install tensorflow` or "
                                 "`pip install tensorflow-gpu`.")
         # TODO: remove once pytorch done.
-        elif backend_ == "pt":
+        elif backend == "pt":
             raise YARLError("INIT ERROR: Backend 'PyTorch' not supported in YARL prototype. Use 'tf' instead.")
         else:
             raise YARLError("INIT ERROR: Backend '{}' not supported! Use 'tf' for tensorflow or 'pt' for PyTorch.")
-
-    # As getter: Just return the Backend.
-    return __backend__

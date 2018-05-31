@@ -17,11 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import re
 from collections import OrderedDict
 
-from yarl import backend, YARLError, Specifiable
-from yarl.utils.util import dtype
+from yarl import Specifiable
 
 
 class Space(Specifiable):
@@ -105,24 +103,12 @@ class Space(Specifiable):
                 Default: None.
 
         Keyword Args:
-            To be passed on to backend-specific methods (e.g. trainable, etc..).
+            To be passed on to backend-specific methods (e.g. trainable, initializer, etc..).
 
         Returns:
             any: A Tensor Variable/Placeholder.
         """
-        add_batch_rank = self.has_batch_rank if add_batch_rank is None else add_batch_rank
-        batch_rank = () if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,)
-        shape = tuple(batch_rank + self.shape)
-        if backend() == "tf":
-            import tensorflow as tf
-            # TODO: re-evaluate the cutting of a leading '/_?' (tf doesn't like it)
-            name = re.sub(r'^/_?', "", name)
-            if is_input_feed:
-                return tf.placeholder(dtype=dtype(self.dtype), shape=shape, name=name)
-            else:
-                return tf.get_variable(name, shape=shape, dtype=dtype(self.dtype), **kwargs)
-        else:
-            raise YARLError("ERROR: Pytorch not supported yet!")
+        raise NotImplementedError
 
     def flatten(self, mapping=None, scope_=None, list_=None):
         """

@@ -108,7 +108,7 @@ class ActionHead(Component):
         Returns:
             DataOp: The DataOp representing the action. This will match the shape of self.action_space.
         """
-        if backend() == "tf":
+        if backend == "tf":
             import tensorflow as tf
             return tf.cond(do_explore,
                            # add artificial batch rank

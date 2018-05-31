@@ -19,7 +19,7 @@ from __future__ import print_function
 from yarl import Specifiable, backend
 from yarl.utils.input_parsing import parse_execution_spec
 from yarl.components import Component
-from yarl.components.layers import StackComponent
+from yarl.components.layers import Stack
 from yarl.components.neural_networks import NeuralNetwork
 from yarl.components.optimizers import Optimizer
 from yarl.models import Model
@@ -57,13 +57,13 @@ class Agent(Specifiable):
         self.action_space = Space.from_spec(actions_spec)
         self.neural_network = NeuralNetwork.from_spec(network_spec)
 
-        self.preprocessor_stack = StackComponent.from_spec(preprocessing_spec)
+        self.preprocessor_stack = Stack.from_spec(preprocessing_spec)
         self.exploration_spec = exploration
         self.execution_spec = parse_execution_spec(execution)
         self.optimizer = Optimizer.from_spec(optimizer_spec)
 
         # Create our Model.
-        self.model = Model.from_spec(backend(), execution_spec=self.execution_spec)  # type: Model
+        self.model = Model.from_spec(backend, execution_spec=self.execution_spec)  # type: Model
 
         # Build a custom, agent-specific algorithm.
         self.build_graph(self.model.core_component)

@@ -47,7 +47,7 @@ class PolynomialDecay(DecayComponent):
         self.power = power
 
     def decay(self, time_steps_in_decay_window):
-        if backend() == "tf":
+        if backend == "tf":
             import tensorflow as tf
             return tf.train.polynomial_decay(self.from_, time_steps_in_decay_window, self.num_timesteps,
                                              self.to_, power=self.power)

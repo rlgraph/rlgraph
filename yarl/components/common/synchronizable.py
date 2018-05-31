@@ -17,9 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
-
-from yarl import YARLError
+from yarl import YARLError, backend
 from yarl.utils.util import get_shape
 from yarl.components import Component
 
@@ -30,26 +28,33 @@ class Synchronizable(Component):
     This is useful for constructions like a target network in DQN or
     for distributed setups where e.g. local policies need to be sync'd from a global model from time to time.
     """
-    def __init__(self, collections=None, *args, **kwargs):
+    def __init__(self, collections=None, writable=True, *args, **kwargs):
         """
         Args:
             collections (set): A set of specifiers (currently only tf), that determine which Variables to synchronize.
+            writable (bool): Whether this Component is synchronizable/writable by another Synchronizable.
+                If False, this Component can only push out its own values (and thus overwrite other Synchronizables).
+                Default: True.
         """
         super(Synchronizable, self).__init__(*args, **kwargs)
 
         self.collections = collections
+        self.writable = writable
 
         # Add a simple syncing API.
-        # Socket for incoming data (the data that this Component will get overwritten with).
-        self.define_inputs("synch_in")
-        # Sockets for:
-        # a) Outgoing data (to overwrite another Synchronizable Component's data).
-        # b) And the main synch op, actually doing the overwriting from synch_in to our variables.
-        self.define_outputs("synch_out", "synch")
-        # Add the synching operation ..
-        self.add_graph_fn("synch_in", "synch", self._graph_fn_synch)
-        # .. and the sending out data operation.
+        # Outgoing data (to overwrite another Synchronizable Component's data).
+        self.define_outputs("synch_out")
+        # Add the sending out data operation.
         self.add_graph_fn(None, "synch_out", self._graph_fn_synch_out)
+
+        # The synch op, actually doing the overwriting from synch_in to our variables.
+        # This is only possible if `self.writable` is True (default).
+        if self.writable is True:
+            # Socket for incoming data (the data that this Component will get overwritten with).
+            self.define_inputs("synch_in")
+            self.define_outputs("synch")
+            # Add the synching operation.
+            self.add_graph_fn("synch_in", "synch", self._graph_fn_synch)
 
     def _graph_fn_synch(self, sync_in):
         """
@@ -79,8 +84,10 @@ class Synchronizable(Component):
             syncs.append(self.assign_variable(var_to, var_from))
 
         # Bundle everything into one "sync"-op.
-        with tf.control_dependencies(syncs):
-            return tf.no_op()
+        if backend == "tf":
+            import tensorflow as tf
+            with tf.control_dependencies(syncs):
+                return tf.no_op()
 
     def _graph_fn_synch_out(self):
         """

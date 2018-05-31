@@ -20,10 +20,8 @@ from __future__ import print_function
 __version__ = '0.0.1'
 
 import logging
-from yarl.utils.yarl_error import YARLError
-from yarl.utils.backend import backend
-from yarl.utils.specifiable import Specifiable
-from yarl.utils.util import SMALL_NUMBER, LARGE_INTEGER
+# Convenience imports.
+from yarl.utils import YARLError, backend, Specifiable, LARGE_INTEGER, SMALL_NUMBER
 
 # Libraries should add NullHandler() by default, as its the application code's
 # responsibility to configure log handlers.

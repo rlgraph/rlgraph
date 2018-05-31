@@ -52,6 +52,6 @@ class ExponentialDecay(DecayComponent):
         self.half_life_timesteps = half_life if half_life is not None else self.num_timesteps / num_half_lives
 
     def decay(self, time_steps_in_decay_window):
-        if backend() == "tf":
+        if backend == "tf":
             import tensorflow as tf
             return tf.train.exponential_decay(self.from_, time_steps_in_decay_window, self.half_life_timesteps, 0.5)

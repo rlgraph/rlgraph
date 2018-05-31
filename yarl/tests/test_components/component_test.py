@@ -28,12 +28,13 @@ class ComponentTest(object):
     A very simple (and limited) Model-wrapper to test a single component in a very easy and straightforward
     way.
     """
-    def __init__(self, component, input_spaces, seed=10, debug_trace=True):
+    def __init__(self, component, input_spaces=None, seed=10, debug_trace=True):
         """
         Args:
             component (Component): The Component to be tested (may contain sub-components).
-            input_spaces (dict): Dict with component's in-Socket names as keys and Space objects as values.
-                Describes the input Spaces for the component.
+            input_spaces (Optional[dict]): Dict with component's in-Socket names as keys and Space objects as values.
+                Describes the input Spaces for the component. None if the Component to be tested has no
+                in-Sockets.
             seed (Optional[int]): The seed to use for random-seeding the Model object.
                 If None, do not seed the Graph (things may behave non-deterministically).
             debug_trace (bool): Whether to print out debug information during Model's building procedure. Default: True.
@@ -41,7 +42,7 @@ class ComponentTest(object):
         self.seed = seed
 
         # Create our Model.
-        self.model = Model.from_spec(backend(), execution_spec=dict(seed=self.seed), debug_trace=debug_trace)
+        self.model = Model.from_spec(backend, execution_spec=dict(seed=self.seed), debug_trace=debug_trace)
         self.model.reset_backend()
         # Add the component to test and expose all its Sockets to the core component of our Model.
         self.core = self.model.get_default_model()

@@ -76,7 +76,7 @@ class DecayComponent(Component):
         Returns:
             DataOp: The decay'd value depending on the current time step.
         """
-        if backend() == "tf":
+        if backend == "tf":
             import tensorflow as tf
             return tf.cond(pred=(time_step <= self.start_timestep),
                            # We are still in pre-decay time.

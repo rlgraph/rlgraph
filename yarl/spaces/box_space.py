@@ -19,7 +19,10 @@ from __future__ import print_function
 
 import numpy as np
 from cached_property import cached_property
+import re
 
+from yarl import backend, YARLError
+from yarl.utils import dtype, Initializer
 from .space import Space
 
 
@@ -116,6 +119,25 @@ class BoxSpace(Space):
             to all dimensions.
         """
         return self._global_bounds
+
+    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, **kwargs):
+        add_batch_rank = self.has_batch_rank if add_batch_rank is None else add_batch_rank
+        batch_rank = () if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,)
+        shape = tuple(batch_rank + self.shape)
+        if backend == "tf":
+            import tensorflow as tf
+            # TODO: re-evaluate the cutting of a leading '/_?' (tf doesn't like it)
+            name = re.sub(r'^/_?', "", name)
+            if is_input_feed:
+                return tf.placeholder(dtype=dtype(self.dtype), shape=shape, name=name)
+            else:
+                # TODO: what about initializer spec?
+                yarl_initializer = Initializer.from_spec(shape=shape, specification=kwargs.get("initializer"))
+                return tf.get_variable(name, shape=shape, dtype=dtype(self.dtype),
+                                       initializer=yarl_initializer.initializer,
+                                       **kwargs)
+        else:
+            raise YARLError("ERROR: Pytorch not supported yet!")
 
     def __repr__(self):
         return "{}({}{})".format(type(self).__name__.title(), self.shape, "; +batch" if self.has_batch_rank else "")

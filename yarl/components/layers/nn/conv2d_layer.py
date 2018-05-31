@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from yarl import backend
 
-from .initializer import Initializer
+from utils.initializer import Initializer
 from .nn_layer import NNLayer
 
 
@@ -72,7 +72,7 @@ class Conv2DLayer(NNLayer):
         self.biases_init = Initializer.from_spec(shape=self.kernel_size, specification=self.biases_spec)
 
         # Wrapper for backend.
-        if backend() == "tf":
+        if backend == "tf":
             import tensorflow as tf
             # TODO: variables registry (variables now exist in tf.layer).
             self.layer = tf.layers.Conv2D(

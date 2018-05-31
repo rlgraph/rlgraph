@@ -22,10 +22,10 @@ import numpy as np
 import itertools
 from functools import partial
 
-from .backend import backend
+from .backend_system import backend
 from .yarl_error import YARLError
 
-if backend() == "tf":
+if backend == "tf":
     import tensorflow as be
 else:
     import pytorch as be
@@ -47,7 +47,7 @@ def dtype(dtype_, to="tf"):
         TensorFlow or Numpy data type (depending on `to` parameter).
     """
     # bool: tensorflow
-    if backend() == "tf":
+    if backend == "tf":
         if dtype_ in ["bool", bool, np.bool_, be.bool]:
             return np.bool_ if to == "np" else be.bool
     # bool: pytorch backend (not supported)
@@ -73,7 +73,7 @@ def get_rank(tensor):
     Returns:
         The rank of the given tensor.
     """
-    if backend() == "tf":
+    if backend == "tf":
         return tensor.get_shape().ndims
 
 

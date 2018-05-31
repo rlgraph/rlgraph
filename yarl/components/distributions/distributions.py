@@ -86,7 +86,7 @@ class Distribution(Component):
         Returns:
             DataOp: The taken sample(s).
         """
-        if backend() == "tf":
+        if backend == "tf":
             import tensorflow as tf
             return tf.cond(pred=max_likelihood,
                            true_fn=lambda: self.max_likelihood(distribution),
@@ -152,7 +152,7 @@ class Bernoulli(Distribution):
         #p = tf.sigmoid(x=flat_input)
         ## Clamp to avoid 0.0 or 1.0 probabilities (adds numerical stability).
         #p = tf.clip_by_value(p, clip_value_min=SMALL_NUMBER, clip_value_max=(1.0 - SMALL_NUMBER))
-        if backend() == "tf":
+        if backend == "tf":
             import tensorflow as tf
             return tf.distributions.Bernoulli(probs=prob, dtype=util.dtype("bool"))
 
@@ -169,12 +169,12 @@ class Categorical(Distribution):
         super(Categorical, self).__init__(scope=scope, **kwargs)
 
     def _graph_fn_parameterize(self, probs):
-        if backend() == "tf":
+        if backend == "tf":
             import tensorflow as tf
             return tf.distributions.Categorical(probs=probs, dtype=util.dtype("int"))
 
     def max_likelihood(self, distribution):
-        if backend() == "tf":
+        if backend == "tf":
             import tensorflow as tf
             return tf.argmax(input=distribution.probs, axis=-1, output_type=util.dtype("int"))
 
@@ -195,7 +195,7 @@ class Normal(Distribution):
             "ERROR: Normal Distribution ({}) needs an incoming Tuple with len=2!".format(self.name)
 
     def _graph_fn_parameterize(self, loc_and_scale):
-        if backend() == "tf":
+        if backend == "tf":
             import tensorflow as tf
             return tf.distributions.Normal(loc=loc_and_scale[0], scale=loc_and_scale[1])
 

@@ -202,7 +202,7 @@ class Component(Specifiable):
             else:
                 var = from_space.get_tensor_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable)
         # Direct variable creation (using the backend).
-        elif backend() == "tf":
+        elif backend == "tf":
             # Provide a shape, if initializer is not given or it is an actual Initializer object (rather than an array
             # of fixed values, for which we then don't need a shape as it comes with one).
             if initializer is None or isinstance(initializer, tf.keras.initializers.Initializer):
@@ -238,7 +238,7 @@ class Component(Specifiable):
         Returns:
             dict: A dict mapping variable names to their backend variables.
         """
-        collection = kwargs.pop("collection", None)
+        collections = kwargs.pop("collections", None)
         assert not kwargs, "{}".format(kwargs)
 
         if len(names) == 1 and isinstance(names[0], list):
@@ -246,7 +246,7 @@ class Component(Specifiable):
         names = util.force_list(names)
         # Return all variables of this Component (for some collection).
         if len(names) == 0:
-            collection_variables = tf.get_collection(collection)
+            collection_variables = tf.get_collection(collections)
             return {v.name: v for v in collection_variables if v.name in self.variables}
 
         # Return only variables of this Component by name.
@@ -826,7 +826,7 @@ class Component(Specifiable):
         Returns:
             Optional[op]: The graph operation representing the update (or None).
         """
-        if backend() == "tf":
+        if backend == "tf":
             return tf.scatter_update(ref=variable, indices=indices, updates=updates)
 
     @staticmethod
@@ -841,7 +841,7 @@ class Component(Specifiable):
         Returns:
             Optional[op]: None or the graph operation representing the assginment.
         """
-        if backend() == "tf":
+        if backend == "tf":
             return tf.assign(ref=ref, value=value)
 
     @staticmethod
@@ -856,7 +856,7 @@ class Component(Specifiable):
         Returns:
             any: Variable values.
         """
-        if backend() == "tf":
+        if backend == "tf":
             if indices is not None:
                 # Could be redundant, question is if there may be special read operations
                 # in other backends, or read from remote variable requiring extra args.

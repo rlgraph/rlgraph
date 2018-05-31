@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import unittest
 
-from yarl.components.layers import GrayScale, Flatten, Scale, StackComponent, Sequence
+from yarl.components.layers import GrayScale, Flatten, Scale, Stack, Sequence
 from yarl.spaces import *
 from yarl.tests import ComponentTest
 
@@ -102,7 +102,7 @@ class TestPreprocessors(unittest.TestCase):
         # Construct the Component to test (simple Stack).
         scale = Scale(scaling_factor=2)
         gray = GrayScale(weights=(0.5, 0.5), keep_rank=False)
-        test = ComponentTest(component=StackComponent(scale, gray), input_spaces=dict(input=space))
+        test = ComponentTest(component=Stack(scale, gray), input_spaces=dict(input=space))
 
         input_ = dict(
             a=np.array([[3.0, 5.0]]),

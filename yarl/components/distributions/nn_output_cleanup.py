@@ -102,7 +102,7 @@ class NNOutputCleanup(Component):
 
         # Reshape logits to action shape
         shape = self.target_space.shape_with_batch_rank_m1 + (self.num_categories_per_dim,)
-        if backend() == "tf":
+        if backend == "tf":
             import tensorflow as tf
             logits = tf.reshape(tensor=nn_outputs_plus_bias, shape=shape)
 
