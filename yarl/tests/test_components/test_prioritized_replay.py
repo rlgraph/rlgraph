@@ -219,9 +219,31 @@ class TestPrioritizedReplay(unittest.TestCase):
         # Check insert positions
         # Initial insert is at priority capacity
         print(sum_segment_values)
-        print(priority_capacity)
+        print(min_segment_values)
         start = priority_capacity
+
         while start >= 1:
             self.assertEqual(sum_segment_values[start], 1.0)
+            self.assertEqual(min_segment_values[start], 1.0)
             start = int(start / 2)
-        #print(' val at {}'.format(sum_segment_values[priority_capacity / 2]))
+
+        # Insert another Element.
+        observation = non_terminal_records(self.record_space, 1)
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+
+        # Fetch segment tree.
+        sum_segment_values, min_segment_values = test.get_variable_values([sum_segment_tree, min_segment_tree])
+        print(sum_segment_values)
+        print(min_segment_values)
+
+        # Index shifted 1
+        start = priority_capacity + 1
+        self.assertEqual(sum_segment_values[start], 1.0)
+        self.assertEqual(min_segment_values[start], 1.0)
+        start = int(start / 2)
+        while start >= 1:
+            # 1 + 1 is 2 on the segment.
+            self.assertEqual(sum_segment_values[start], 2.0)
+            # min is still 1.
+            self.assertEqual(min_segment_values[start], 1.0)
+            start = int(start / 2)
