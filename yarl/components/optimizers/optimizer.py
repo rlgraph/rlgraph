@@ -27,19 +27,44 @@ class Optimizer(Component):
 
     API:
     ins:
-        time_step (int): The current time-step.
         variables (tuple): The tuple of (trainable) variables to be optimized.
+        *inputs (any): Other necessary inputs for the specific type of optimizer (e.g. a time-step).
     outs:
-        step (tuple): The tuple of delta tensors to be added to each of the variables in the `variables` in-Socket.
+        deltas (tuple): The tuple of delta tensors to be added to each of the variables in the `variables` in-Socket.
+        step (tuple): Same as `deltas`, but also triggers actually applying the deltas to the `variables`.
     """
-    def __init__(self, scope="optimizer", *args, **kwargs):
-        super(Optimizer, self).__init__(scope=scope, *args, **kwargs)
+    def __init__(self, learning_rate, loss_function, *inputs, **kwargs):
+        """
+        Args:
+            learning_rate (float): The learning rate to use.
+            loss_function (Component): The LossFunction (Component) to minimize.
+        """
+        super(Optimizer, self).__init__(scope=kwargs.pop("scope", "optimizer"), **kwargs)
 
-        self.define_inputs("time_step", "variables")
-        self.define_outputs("step")
-        self.add_graph_fn(["time_step", "variables"], "step", self._graph_fn_step)
+        self.learning_rate = learning_rate
+        self.loss_function = loss_function
 
-    def _graph_fn_step(self, time_step, variables):
+        # Define our interface.
+        self.define_inputs("variables", *inputs)
+        self.define_outputs("deltas", "step")
+        self.add_graph_fn(["variables"] + inputs, "deltas", self._graph_fn_calculate_deltas)
+        self.add_graph_fn(["variables", "deltas"], "step", self._graph_fn_apply_deltas)
+
+    def _graph_fn_calculate_deltas(self, *inputs):
+        """
+        Performs a single optimization step on the incoming variables depending on this Component's setup and
+        maybe the time-step
+
+        Args:
+            time_step (SingleDataOp): The time-step tensor.
+            variables (DataOpTuple): The list of variables to be optimized.
+
+        Returns:
+            DataOpTuple: A list of delta tensors corresponding to the updates for each optimized variable.
+        """
+        raise NotImplementedError
+
+    def _graph_fn_apply_deltas(self, variables, deltas):
         """
         Performs a single optimization step on the incoming variables depending on this Component's setup and
         maybe the time-step
