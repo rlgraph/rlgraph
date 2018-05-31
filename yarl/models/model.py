@@ -398,7 +398,7 @@ class Model(Specifiable):
         # Sanity check out-Socket names.
         for out_sock_name in output_socket_names:
             if out_sock_name not in self.out_socket_registry:
-                raise YARLError("ERROR: Out-Socket '{}' not found in Model! Make sure you are fetching by the "
+                raise YARLError("ERROR: Out-Socket '{}' not found in Model! Make sure you are fetching by the \n"
                                 "correct out-Socket name.".format(out_sock_name))
 
         only_input_socket_name = None  # the name of the only in-Socket possible here
@@ -415,7 +415,7 @@ class Model(Specifiable):
             # Check whether data is given directly.
             if not isinstance(inputs, dict):
                 if only_input_socket_name is None:
-                    raise YARLError("ERROR: Input data (`inputs`) given directly (not as dict) AND more than one "
+                    raise YARLError("ERROR: Input data (`inputs`) given directly (not as dict) AND more than one \n"
                                     "in-Socket in Model OR more than one in-Socket needed for given out-Sockets '{}'!".
                                     format(output_socket_names))
                 inputs = {only_input_socket_name: inputs}
@@ -463,8 +463,8 @@ class Model(Specifiable):
             fetch_list (list): Appends to this list, which ops to actually fetch.
             input_dict (Optional[dict]): Dict specifying the provided inputs for some (core) in-Sockets.
                 Passed through directly from the call method.
-            feed_dict (dict): The feed_dict we are trying to build. When done, needs to map input ops (not Socket names)
-                to data.
+            feed_dict (dict): The feed_dict we are trying to build. When done,
+                needs to map input ops (not Socket names) to data.
         """
         if len(input_combinations) > 0:
             # Check all (input+shape)-combinations and it we find one that matches what the user passed in as

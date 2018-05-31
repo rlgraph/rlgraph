@@ -29,10 +29,11 @@ class Splitter(Component):
         """
         Args:
             input_space (Space): The input Space to split into its single components. Must be a ContainerSpace.
-            output_names (List[str]): An optional list of out-Socket names to be used instead of the auto-generated keys
-                coming from the flattening operation.
+            output_names (List[str]): An optional list of out-Socket names to be used instead of
+                the auto-generated keys coming from the flattening operation.
         """
-        assert isinstance(input_space, ContainerSpace), "ERROR: `input_space` must be a ContainerSpace (Dict or Tuple)!"
+        assert isinstance(input_space, ContainerSpace), \
+            "ERROR: `input_space` must be a ContainerSpace (Dict or Tuple)!"
         super(Splitter, self).__init__(scope=scope, **kwargs)
 
         self.input_space = input_space

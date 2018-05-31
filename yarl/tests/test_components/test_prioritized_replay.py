@@ -135,3 +135,26 @@ class TestPrioritizedReplay(unittest.TestCase):
         num_records = self.capacity
         batch = test.test(out_socket_name="sample", inputs=num_records, expected_outputs=None)
         self.assertEqual(self.capacity, len(batch['terminal']))
+
+    def test_update_records(self):
+        """
+        Tests update records logic.
+        """
+        memory = PrioritizedReplay(
+            capacity=self.capacity,
+            next_states=True
+        )
+        test = ComponentTest(component=memory, input_spaces=dict(
+            records=self.record_space,
+            num_records=int,
+            indices=IntBox(shape=(), add_batch_rank=True),
+            update=FloatBox(shape=(), add_batch_rank=True)
+        ))
+
+        # Insert a few Elements.
+        observation = non_terminal_records(self.record_space, 5)
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+
+        # Fetch elements and their indices.
+        batch = test.test(out_socket_name=["sample", "sample_indices"], inputs=5, expected_outputs=None)
+        print(batch)
