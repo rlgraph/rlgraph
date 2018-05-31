@@ -238,11 +238,17 @@ class Model(Specifiable):
     def build_no_inputs(self, sub_component):
         """
         Makes sure all no-input GraphFunctions of a given Component (and all its sub-Components) are build.
-        These type of GraphFunctions would otherwise not be caught our "Socket->forward" build algorithm.
+        These type of GraphFunctions would otherwise not be caught by our "Socket->forward" build algorithm.
 
         Args:
             sub_component (Component): The Component, for which to build all no-input GraphFunctions.
         """
+        # Check whether this sub-component has in-Sockets and if not, call `when_input_complete` first.
+        if len(sub_component.input_sockets) == 0:
+            sub_component.check_input_completeness()
+            assert sub_component.input_complete
+            sub_component.when_input_complete(input_spaces=dict())
+
         # The sub-component itself.
         for entry_point in sub_component.no_input_entry_points:
             if isinstance(entry_point, GraphFunction):
