@@ -35,7 +35,7 @@ def parse_execution_spec(execution_spec):
     Parses execution parameters and inserts default values where necessary.
 
     Args:
-        execution_spec: Execution spec dict. Must specify an execution mode
+        execution_spec (Optional[dict]): Execution spec dict. Must specify an execution mode
             "single" or "distributed". If mode "distributed", must specify a "distributed_spec"
             containing:
              - a key cluster_spec mapping to a ClusterSpec object,
@@ -44,9 +44,10 @@ def parse_execution_spec(execution_spec):
              - a boolean "global_shared_memory" to indicate if data collection is shared globally
                or workers collect and update locally. Defaults to true.
 
-    Returns: The sanitized execution_spec dict.
+    Returns:
+        dict: The sanitized execution_spec dict.
     """
-    # If no spec given,
+    # If no spec given.
     default_spec = dict(
         mode="single",
         distributed_spec=None,
@@ -70,3 +71,24 @@ def parse_execution_spec(execution_spec):
         execution_spec["session_config"] = execution_spec.get("session_config")
 
     return execution_spec
+
+
+def parse_update_spec(update_spec):
+    """
+    Parses update/learning parameters and inserts default values where necessary.
+
+    Args:
+        update_spec (Optional[dict]): Update/Learning spec dict.
+
+    Returns:
+        dict: The sanitized update_spec dict.
+    """
+    # If no spec given.
+    default_spec = dict(
+       unit="timesteps",
+       batch_size=64,
+       frequency=4
+    )
+    update_spec = default_dict(update_spec, default_spec)
+
+    return update_spec
