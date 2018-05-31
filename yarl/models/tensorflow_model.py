@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.utils.util import force_list
 from yarl.models import Model
 import tensorflow as tf
 
@@ -137,6 +136,17 @@ class TensorFlowModel(Model):
             write_meta_graph=True,
             write_state=True
         )
+
+    def export_graph_definition(self, filename):
+        """
+        Exports TensorFlow meta graph to file.
+
+        Args:
+            filename (str): File to save meta graph. Should end in .meta
+        """
+        if not filename.endswith('.meta'):
+            print('Warning: filename for TensorFlow meta graph should end with .meta.')
+        self.saver.export_meta_graph(filename=filename)
 
     def setup_saver(self, hooks):
         """

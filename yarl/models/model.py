@@ -136,6 +136,15 @@ class Model(Specifiable):
         # TODO mandatory?
         raise NotImplementedError
 
+    def export_graph_definition(self, filename):
+        """
+        Exports graph definition to specified file.
+
+        Args:
+            filename (str): File to save graph definition to.
+        """
+        pass
+
     def reset_backend(self):
         """
         Resets the backend's runtime, e.g. clears any graph, caches,

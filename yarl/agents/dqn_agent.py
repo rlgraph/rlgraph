@@ -47,7 +47,7 @@ class DQNAgent(Agent):
         self.double_q = double_q
         self.duelling_q = duelling_q
 
-        # The target network (is synched from q-net every n steps).
+        # The target network (is synced from q-net every n steps).
         self.target_net = None
         # The global copy of the q-net (if we are running in distributed mode).
         self.global_qnet = None
@@ -120,6 +120,6 @@ class DQNAgent(Agent):
         core.connect((self.loss_function, "loss"), (self.optimizer, "loss"))
         core.connect((self.optimizer, "step"), "learn")
 
-        # Add synching capability for target-net.
+        # Add syncing capability for target-net.
         core.connect((self.neural_network, "synch_out"), (self.target_net, "synch_in"))
         core.connect((self.target_net, "synch_in"), "synch_target_qnet")

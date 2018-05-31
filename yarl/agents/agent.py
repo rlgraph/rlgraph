@@ -134,14 +134,15 @@ class Agent(Specifiable):
         """
         pass
 
-    def export_graph(self, path=None):
+    def export_graph(self, filename=None):
         """
         Any algorithm defined as a full-graph, as opposed to mixed (mixed Python and graph control flow)
         should be able to export its graph for deployment.
+
         Args:
-            path (str): Export path.
+            filename (str): Export path. Depending on the backend, different filetypes may be required.
         """
-        self.model.save_meta(path)
+        self.model.export_graph_definition(filename)
 
     def store_model(self, path=None, add_timestep=True):
         """
