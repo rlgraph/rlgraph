@@ -59,7 +59,6 @@ class SegmentTree(object):
 
         assignment = tf.assign(ref=self.values[index], value=element)
 
-
         # TODO replace with component assign utility.
         # Search and update values while index >=1
         loop_update_index = tf.div(x=index, y=2)

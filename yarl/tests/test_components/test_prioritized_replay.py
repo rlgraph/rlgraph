@@ -203,14 +203,12 @@ class TestPrioritizedReplay(unittest.TestCase):
         memory_variables = memory.get_variables(["sum-segment-tree", "min-segment-tree"])
         sum_segment_tree = memory_variables['sum-segment-tree']
         min_segment_tree = memory_variables['min-segment-tree']
-
         sum_segment_values, min_segment_values = test.get_variable_values([sum_segment_tree, min_segment_tree])
 
         self.assertEqual(sum(sum_segment_values), 0)
         self.assertEqual(sum(min_segment_values), float('inf'))
         self.assertEqual(len(sum_segment_values), 2 * priority_capacity)
         self.assertEqual(len(min_segment_values), 2 * priority_capacity)
-
         # Insert 1 Element.
         observation = non_terminal_records(self.record_space, 1)
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
@@ -219,4 +217,11 @@ class TestPrioritizedReplay(unittest.TestCase):
         sum_segment_values, min_segment_values = test.get_variable_values([sum_segment_tree, min_segment_tree])
 
         # Check insert positions
+        # Initial insert is at priority capacity
         print(sum_segment_values)
+        print(priority_capacity)
+        start = priority_capacity
+        while start >= 1:
+            self.assertEqual(sum_segment_values[start], 1.0)
+            start = int(start / 2)
+        #print(' val at {}'.format(sum_segment_values[priority_capacity / 2]))
