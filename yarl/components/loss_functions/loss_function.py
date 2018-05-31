@@ -69,7 +69,7 @@ class LossFunction(Component):
         Returns:
             SingleDataOp: The final loss tensor holding the average loss over the entire batch.
         """
-        if backend() == "tf":
+        if backend == "tf":
             import tensorflow as tf
             return tf.reduce_mean(loss_per_item, axis=0)
 

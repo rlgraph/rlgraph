@@ -84,7 +84,7 @@ class Agent(Specifiable):
         raise NotImplementedError
 
     def build_preprocessor(self, core):
-        core.add_component(self.preprocessor_stack, connections=[("")])
+        core.add_component(self.preprocessor_stack)
 
     def get_action(self, states, deterministic=False):
         """

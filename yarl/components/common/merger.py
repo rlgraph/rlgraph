@@ -50,9 +50,10 @@ class Merger(Component):
                 format(len(input_names), len(flat_dict))
         else:
             input_names = [key for key in flat_dict.keys()]
-        self.define_inputs(*input_names)
+        self.input_names = input_names
+        self.define_inputs(*self.input_names)
         # Insert our merging GraphFunction.
-        self.add_graph_fn(input_names, "output", self._graph_fn_merge,
+        self.add_graph_fn(self.input_names, "output", self._graph_fn_merge,
                              flatten_ops=False)
 
     def _graph_fn_merge(self, *inputs):
