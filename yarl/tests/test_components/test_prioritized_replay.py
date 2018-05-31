@@ -96,3 +96,42 @@ class TestPrioritizedReplay(unittest.TestCase):
 
         # Index should be one over capacity due to modulo.
         self.assertEqual(index_value, 1)
+
+    def test_batch_retrieve(self):
+        """
+        Tests if retrieval correctly manages capacity.
+        """
+        memory = PrioritizedReplay(
+            capacity=self.capacity,
+            next_states=True
+        )
+        test = ComponentTest(component=memory, input_spaces=dict(
+            records=self.record_space,
+            num_records=int,
+            indices=IntBox(shape=(), add_batch_rank=True),
+            update=FloatBox(shape=(), add_batch_rank=True)
+        ))
+
+        # Insert 2 Elements.
+        observation = non_terminal_records(self.record_space, 2)
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+
+        # Assert we can now fetch 2 elements.
+        num_records = 2
+        batch = test.test(out_socket_name="sample", inputs=num_records, expected_outputs=None)
+        print('Result batch = {}'.format(batch))
+        self.assertEqual(2, len(batch['terminal']))
+
+        # We allow repeat indices in sampling.
+        num_records = 5
+        batch = test.test(out_socket_name="sample", inputs=num_records, expected_outputs=None)
+        self.assertEqual(5, len(batch['terminal']))
+
+        # Now insert over capacity, note all elements here are non-terminal.
+        observation = non_terminal_records(self.record_space, self.capacity)
+        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+
+        # Assert we can fetch exactly capacity elements.
+        num_records = self.capacity
+        batch = test.test(out_socket_name="sample", inputs=num_records, expected_outputs=None)
+        self.assertEqual(self.capacity, len(batch['terminal']))
