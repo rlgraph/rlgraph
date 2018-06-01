@@ -86,31 +86,31 @@ class Specifiable(object):
             type_ = spec
             spec = kwargs
 
-        ctor = None
+        constructor = None
         # Default case: same class
         if type_ is None:
-            ctor = cls
+            constructor = cls
         # type_ is already a created object of this class -> Take it as is.
         elif isinstance(type_, cls):
             return type_
         # Case c) identifier in cls.__lookup_classes__
         elif cls.__lookup_classes__ is not None and isinstance(cls.__lookup_classes__, dict) and \
                 type_ in cls.__lookup_classes__:
-            ctor = cls.__lookup_classes__[type_]
+            constructor = cls.__lookup_classes__[type_]
         # Case a) python callable
         elif callable(type_):
-            ctor = type_
+            constructor = type_
         # Case b) a string of a python callable
         elif isinstance(type_, str) and type_.find('.') != -1:
             module_name, function_name = type_.rsplit(".", 1)
             module = importlib.import_module(module_name)
-            ctor = getattr(module, function_name)
+            constructor = getattr(module, function_name)
 
-        if not ctor:
+        if not constructor:
             raise YARLError("Invalid type: {}".format(type_))
 
-        obj = ctor(**spec)
-        assert isinstance(obj, ctor)
+        obj = constructor(**spec)
+        assert isinstance(obj, constructor)
 
         return obj
 

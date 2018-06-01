@@ -24,6 +24,7 @@ from yarl.components.neural_networks import NeuralNetwork
 from yarl.components.optimizers import Optimizer
 from yarl.models import Model
 from yarl.spaces import Space
+import logging
 
 
 class Agent(Specifiable):
@@ -55,8 +56,12 @@ class Agent(Specifiable):
             optimizer_spec:
             update_spec (Optional[dict]):
         """
+        self.logger = logging.getLogger(__name__)
+
         self.state_space = Space.from_spec(states_spec)
+        self.logger.info("Parsed state space definition: {}".format(self.state_space))
         self.action_space = Space.from_spec(actions_spec)
+        self.logger.info("Parsed action space definition: {}".format(self.action_space))
         self.neural_network = NeuralNetwork.from_spec(network_spec)
 
         self.preprocessor_stack = Stack.from_spec(preprocessing_spec)
