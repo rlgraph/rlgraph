@@ -75,9 +75,11 @@ class TensorFlowModel(Model):
         Returns:
             any: Values of the given variables in the exact same structure as `variables`.
         """
+        self.logger.debug('Fetching values of variables {} from graph.'.format(variables))
         return self.monitored_session.run(variables, feed_dict=dict())
 
     def reset_backend(self):
+        self.logger.debug("Resetting TensorFlow default graph.")
         tf.reset_default_graph()
 
     def init_execution(self):
@@ -86,6 +88,7 @@ class TensorFlowModel(Model):
         Only relevant, if we are running in distributed mode.
         """
         if self.execution_mode == "distributed":
+            self.logger.info("Setting up distributed TensorFlow execution mode.")
             # Create the Server object.
             self.server = tf.train.Server(
                 server_or_cluster_def=self.distributed_spec["cluster_spec"],
@@ -97,6 +100,7 @@ class TensorFlowModel(Model):
             )
             if self.distributed_spec["job"] == "ps":
                 # Just join and be done.
+                self.logger.info("Job is parameter server, joining and waiting.")
                 self.server.join()
                 quit()
 
@@ -107,6 +111,7 @@ class TensorFlowModel(Model):
         self.graph_default_context.__enter__()
         # Set the random seed graph-wide.
         if self.seed is not None:
+            self.logger.info("Initializing TensorFlow graph with seed {}".format(self.seed))
             tf.set_random_seed(self.seed)
 
     def complete_backend_setup(self):
@@ -136,6 +141,7 @@ class TensorFlowModel(Model):
             write_meta_graph=True,
             write_state=True
         )
+        self.logger.info("Stored model to path: {}".format(path))
 
     def export_graph_definition(self, filename):
         """
@@ -145,7 +151,7 @@ class TensorFlowModel(Model):
             filename (str): File to save meta graph. Should end in .meta
         """
         if not filename.endswith('.meta'):
-            print('Warning: filename for TensorFlow meta graph should end with .meta.')
+            self.logger.warn('Filename for TensorFlow meta graph should end with .meta.')
         self.saver.export_meta_graph(filename=filename)
 
     def setup_saver(self, hooks):
@@ -192,6 +198,7 @@ class TensorFlowModel(Model):
             hooks (list): A list of session hooks to use.
         """
         if self.execution_mode == "distributed":
+            self.logger.info("Setting up distributed TensorFlow session.")
             session_creator = tf.train.ChiefSessionCreator(
                 scaffold=self.scaffold,
                 master=self.server.target,
@@ -205,6 +212,7 @@ class TensorFlowModel(Model):
                 stop_grace_period_secs=120  # Default value.
             )
         else:
+            self.logger.info("Setting up singular monitored session for non-distributed mode.")
             self.monitored_session = tf.train.SingularMonitoredSession(
                 hooks=hooks,
                 scaffold=self.scaffold,
@@ -226,4 +234,6 @@ class TensorFlowModel(Model):
         # TODO potentially validate device exists via fetching local devices.
         # Otherwise, what happens if device assigned not recognized?
         with tf.device(assigned_device):
+            self.logger.debug("Assigning device {} to graph_fn {} via socket  {}".format(
+                assigned_device, graph_fn, socket))
             graph_fn.update_from_input(socket, self.op_registry, self.in_socket_registry)

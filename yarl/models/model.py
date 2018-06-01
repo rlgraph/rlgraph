@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 import itertools
-
+import logging
 from yarl import YARLError, Specifiable
 from yarl.components import Component, Socket, GraphFunction
 from yarl.utils.util import all_combinations, force_list, get_shape
@@ -36,8 +36,13 @@ class Model(Specifiable):
 
     The Agent/Algo can use the Model's core-Component's exposed Sockets to reinforcement learn.
     """
-    def __init__(self, name="model", saver_spec=None, summary_spec=None, execution_spec=None,
-                 debug_trace=False):
+    def __init__(
+        self,
+        name="model",
+        saver_spec=None,
+        summary_spec=None,
+        execution_spec=None
+    ):
         """
         Args:
             name (str): The name of this model.
@@ -45,17 +50,15 @@ class Model(Specifiable):
             summary_spec (dict): The specification dict for summary generation.
             execution_spec (dict): The specification dict for the execution types (local vs distributed, etc..) and
                 settings (cluster types, etc..).
-            debug_trace (bool): Whether to print out debug information during building. Default: False.
         """
         # The name of this model. Our core Component gets this name.
+        self.logger = logging.getLogger(__name__)
         self.name = name
         self.saver_spec = parse_saver_spec(saver_spec)
         self.summary_spec = parse_summary_spec(summary_spec)
         self.execution_spec = parse_execution_spec(execution_spec)  # sanitize again (after Agent); one never knows
         # Default single-process execution.
         self.execution_mode = self.execution_spec.get("mode", "single")
-        self.debug_trace = debug_trace
-
         self.seed = self.execution_spec.get("seed")
 
         self.session_config = self.execution_spec["session_config"]
@@ -294,8 +297,7 @@ class Model(Specifiable):
             socket_out_op (Optional[op]): If from_ is a Socket, this holds the op from the from_-Socket that should be
                 built from.
         """
-        if self.debug_trace:
-            print("Building Socket {} partially:".format(str(socket)))
+        self.logger.debug("Building Socket {} partially:".format(str(socket)))
 
         # Loop through this socket's incoming connections (or just process from_).
         incoming_connections = from_ or socket.incoming_connections
@@ -304,14 +306,12 @@ class Model(Specifiable):
             # example: Space (Dict({"a": IntBox(3), "b": BoolBox(), "c": FloatBox()})) connects to Socket ->
             # create inputs[name-of-sock] = dict({"a": tf.placeholder(name="", dtype=int, shape=(3,))})
             # TODO: Think about which calls here to skip (in_ is a Socket? -> most likely already done).
-            if self.debug_trace:
-                print("\tupdating from input {}".format(str(in_)))
+            self.logger.debug("\tupdating from input {}".format(str(in_)))
             socket.update_from_input(in_, self.op_registry, self.in_socket_registry,
                                      graph_fn_out_slot, socket_out_op)
 
         for outgoing in socket.outgoing_connections:
-            if self.debug_trace:
-                print("\tlooking at outgoing connection {}".format(str(outgoing)))
+            self.logger.debug("\tlooking at outgoing connection {}".format(str(outgoing)))
             # Outgoing is another Socket (other Component) -> recurse.
             if isinstance(outgoing, Socket):
                 # This component is already complete. Do only a partial build.
@@ -320,19 +320,16 @@ class Model(Specifiable):
                 # Component is not complete yet:
                 else:
                     # Add one Socket information.
-                    if self.debug_trace:
-                        print("\t\tnot input-compelte yet -> updating from input {}".format(str(socket)))
+                    self.logger.debug("\t\tnot input-compelte yet -> updating from input {}".format(str(socket)))
                     outgoing.update_from_input(socket, self.op_registry, self.in_socket_registry)
                     # Check now for input-completeness of this component.
                     if outgoing.component.input_complete:
-                        if self.debug_trace:
-                            print("\t\t\tnow input-complete ...")
+                        self.logger.debug("\t\t\tnow input-complete ...")
                         self.component_complete(outgoing)
                     # Not complete yet. Remember do build this Socket later.
                     else:
-                        if self.debug_trace:
-                            print("\t\t\tstill not complete -> add Socket {} for processing later.".
-                                  format(outgoing))
+                        self.logger.debug(
+                            "\t\t\tstill not complete -> add Socket {} for processing later.".format(outgoing))
                         outgoing.component.sockets_to_do_later.append(outgoing)
 
             # Outgoing is a GraphFunction -> Add the socket to the GraphFunction's (waiting) inputs.
@@ -344,14 +341,12 @@ class Model(Specifiable):
                     self.assign_device(graph_fn, socket, socket.component.device)
                 else:
                     # TODO fetch default device?
-                    if self.debug_trace:
-                        print("\t\tis a graph_fn ... calling `update_from_input`")
+                    self.logger.debug("\t\tis a graph_fn ... calling `update_from_input`")
                     graph_fn.update_from_input(socket, self.op_registry, self.in_socket_registry)
 
                 # Keep moving through this graph_fn's out-Sockets (if input-complete).
                 if graph_fn.input_complete:
-                    if self.debug_trace:
-                        print("\t\tgraph_fn is now input-complete -> building all outgoing Sockets")
+                    self.logger.debug("\t\tgraph_fn is now input-complete -> building all outgoing Sockets")
                     for slot, out_socket in enumerate(graph_fn.output_sockets):
                         self.partial_input_build(out_socket, graph_fn, slot)
             else:
@@ -506,13 +501,11 @@ class Model(Specifiable):
                         format(socket_name, input_combinations))
 
     def component_complete(self, last_in_socket):
-        if self.debug_trace:
-            print("Component {} is input-complete. Calling `when_input_complete`.".format(str(last_in_socket.component.name)))
+        self.logger.debug("Component {} is input-complete. Calling `when_input_complete`.".format(str(last_in_socket.component.name)))
         # Create the Component's variables.
         space_dict = {in_s.name: in_s.space for in_s in last_in_socket.component.input_sockets}
         last_in_socket.component.when_input_complete(space_dict)
-        if self.debug_trace:
-            print(".. and building all in-Sockets ...")
+        self.logger.debug(".. and building all in-Sockets.")
         # Do a complete build (over all incoming Sockets as some of these have been waiting).
         self.partial_input_build(last_in_socket)
         # And all waiting other Sockets (!= outgoing), if any.

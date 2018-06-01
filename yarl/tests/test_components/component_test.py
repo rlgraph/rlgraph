@@ -21,6 +21,20 @@ from yarl import backend
 from yarl.models.model import Model
 
 from yarl.tests.test_util import recursive_assert_almost_equal
+import logging
+import sys
+
+# Logging config for testing.
+logging_formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s',
+                                      datefmt='%y-%m-%d %H:%M:%S')
+root_logger = logging.getLogger('')
+tf_logger = logging.getLogger('tensorflow')
+tf_logger.setLevel(level=logging.DEBUG)
+print_logging_handler = logging.StreamHandler(stream=sys.stdout)
+print_logging_handler.setFormatter(logging_formatter)
+print_logging_handler.setLevel(level=logging.DEBUG)
+root_logger.setLevel(level=logging.DEBUG)
+root_logger.addHandler(print_logging_handler)
 
 
 class ComponentTest(object):
@@ -42,7 +56,7 @@ class ComponentTest(object):
         self.seed = seed
 
         # Create our Model.
-        self.model = Model.from_spec(backend, execution_spec=dict(seed=self.seed), debug_trace=debug_trace)
+        self.model = Model.from_spec(backend, execution_spec=dict(seed=self.seed))
         self.model.reset_backend()
         # Add the component to test and expose all its Sockets to the core component of our Model.
         self.core = self.model.get_default_model()
