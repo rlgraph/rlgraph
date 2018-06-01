@@ -200,7 +200,8 @@ class Component(Specifiable):
                     name=name + k, add_batch_rank=add_batch_rank, trainable=trainable))
             # Normal, nested Variables from a Space (container or primitive).
             else:
-                var = from_space.get_tensor_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable)
+                var = from_space.get_tensor_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable,
+                                                     initializer=initializer)
         # Direct variable creation (using the backend).
         elif backend == "tf":
             # Provide a shape, if initializer is not given or it is an actual Initializer object (rather than an array
@@ -238,7 +239,7 @@ class Component(Specifiable):
         Returns:
             dict: A dict mapping variable names to their backend variables.
         """
-        collections = kwargs.pop("collections", None)
+        collections = kwargs.pop("collections", None) or tf.GraphKeys.TRAINABLE_VARIABLES
         assert not kwargs, "{}".format(kwargs)
 
         if len(names) == 1 and isinstance(names[0], list):
@@ -247,7 +248,12 @@ class Component(Specifiable):
         # Return all variables of this Component (for some collection).
         if len(names) == 0:
             collection_variables = tf.get_collection(collections)
-            return {v.name: v for v in collection_variables if v.name in self.variables}
+            ret = dict()
+            for v in collection_variables:
+                lookup = re.sub(r':\d+$', "", v.name)
+                if lookup in self.variables:
+                    ret[lookup] = v
+            return ret
 
         # Return only variables of this Component by name.
         return {n: self.variables[n] for n in names if n in self.variables}

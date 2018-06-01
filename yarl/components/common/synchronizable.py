@@ -17,7 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from collections import OrderedDict
+
 from yarl import YARLError, backend
+from yarl.utils.ops import DataOpTuple
 from yarl.utils.util import get_shape
 from yarl.components import Component
 
@@ -94,6 +97,10 @@ class Synchronizable(Component):
         Outputs all of this Component's variables that match our collection(s) specifier in a tuple-op.
 
         Returns:
-            tuple: All our Variables that match the given collection (see c'tor).
+            DataOpTuple: All our Variables that match the given collection (see c'tor).
         """
-        return tuple(self.get_variables(collections=self.collections))
+        variables_dict = self.get_variables(collections=self.collections)
+        ordered_dict = OrderedDict(sorted(variables_dict.items()))
+        # Need to use DataOpTuple to enforce everything being returned in one out-Socket.
+        ret = DataOpTuple(list(ordered_dict.values()))
+        return ret

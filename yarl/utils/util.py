@@ -24,6 +24,7 @@ from functools import partial
 
 from .backend_system import backend
 from .yarl_error import YARLError
+from .ops import DataOpTuple
 
 if backend == "tf":
     import tensorflow as be
@@ -127,7 +128,8 @@ def force_list(elements, to_tuple=False):
     ctor = list
     if to_tuple is True:
         ctor = tuple
-    return ctor() if elements is None else ctor(elements) if isinstance(elements, (list, tuple)) \
+    return ctor() if elements is None else ctor(elements) \
+        if isinstance(elements, (list, tuple)) and not isinstance(elements, DataOpTuple) \
         else ctor([elements])
 
 

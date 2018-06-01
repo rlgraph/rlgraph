@@ -74,13 +74,13 @@ def get_space_from_op(op):
                 add_batch_rank = True
 
             # a FloatBox
-            if op.dtype == dtype("float"):
+            if op.dtype.base_dtype == dtype("float"):
                 return FloatBox(shape=shape, add_batch_rank=add_batch_rank)
             # an IntBox
-            elif op.dtype == dtype("int"):
+            elif op.dtype.base_dtype == dtype("int"):
                 return IntBox(shape=shape, add_batch_rank=add_batch_rank)  # low, high=dummy values
             # a BoolBox
-            elif op.dtype == dtype("bool"):
+            elif op.dtype.base_dtype == dtype("bool"):
                 return BoolBox(add_batch_rank=add_batch_rank)
 
     raise YARLError("ERROR: Cannot derive Space from op '{}' (unknown type?)!".format(op))

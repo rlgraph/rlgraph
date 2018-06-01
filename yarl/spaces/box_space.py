@@ -132,7 +132,7 @@ class BoxSpace(Space):
                 return tf.placeholder(dtype=dtype(self.dtype), shape=shape, name=name)
             else:
                 # TODO: what about initializer spec?
-                yarl_initializer = Initializer.from_spec(shape=shape, specification=kwargs.get("initializer"))
+                yarl_initializer = Initializer.from_spec(shape=shape, specification=kwargs.pop("initializer", None))
                 return tf.get_variable(name, shape=shape, dtype=dtype(self.dtype),
                                        initializer=yarl_initializer.initializer,
                                        **kwargs)

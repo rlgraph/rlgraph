@@ -27,16 +27,19 @@ from .component_test import ComponentTest
 
 
 class MySyncComp(Synchronizable):
-
+    """
+    The Component to test. Synchronizable is only a mix-in class.
+    """
     def __init__(self, **kwargs):
         super(MySyncComp, self).__init__(**kwargs)
         self.space = FloatBox(shape=(4, 5))
-        self.dummy_var = None
+        self.dummy_var_1 = None
+        self.dummy_var_2 = None
 
     def create_variables(self, input_spaces):
         # create some dummy var to synch from/to.
-        self.dummy_var = self.space.get_tensor_variable(name="variable_to_synch",
-                                                        initializer=1.0)
+        self.dummy_var_1 = self.get_variable(name="variable_to_synch", from_space=self.space, initializer=1.0)
+        self.dummy_var_2 = self.get_variable(name="variable_to_synch2", from_space=self.space, initializer=0.0)
 
 
 class TestSynchronizableComponent(unittest.TestCase):
@@ -47,6 +50,8 @@ class TestSynchronizableComponent(unittest.TestCase):
         test = ComponentTest(component=component_to_test)
 
         # Test pulling the variable values from the synch_out socket.
-        expected = np.ones(shape=(component_to_test.space.shape))
-        test.test(out_socket_name="synch_out", inputs=None, expected_outputs=expected)
-
+        expected1 = np.ones(shape=component_to_test.space.shape)
+        expected2 = np.zeros(shape=component_to_test.space.shape)
+        test.test(out_socket_name="synch_out", inputs=None, expected_outputs=(expected1, expected2))
+        #self.assertEqual(out1, expected1)
+        #self.assertEqual(out2, expected2)
