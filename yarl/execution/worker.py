@@ -16,37 +16,49 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+import logging
 
 
-class Executor(object):
+class Worker(object):
     """
     Generic executor to run simulator environments..
     """
 
-    def __init__(self, environment, agent):
+    def __init__(self, environment, agent, repeat_actions):
         """
         Initializes an executor
         Args:
-            environment (env):
-            agent (Agent):
+            environment (env): Environment to execute.
+            agent (Agent): Agent to execute environment on.
+            repeat_actions (int): How often actions are repeated after retrieving them from the agent.
         """
+        self.logger = logging.getLogger(__name__)
         self.environment = environment
         self.agent = agent
+        self.repeat_actions = repeat_actions
 
-    def execute_timesteps(self, num_timesteps):
+    def execute_timesteps(self, num_timesteps, deterministic):
         """
         Executes environment for a fixed number of timesteps.
+
         Args:
             num_timesteps (int): Number of time steps to execute.
+            deterministic (bool): Indicates deterministic execution.
+        Returns:
+            dict: Execution statistics.
         """
         raise NotImplementedError
 
-    def execute_episodes(self, num_episodes, max_timesteps_per_episode):
+    def execute_episodes(self, num_episodes, max_timesteps_per_episode, deterministic):
         """
         Executes environment for a fixed number of episodes.
 
         Args:
             num_episodes (int): Number of episodes to execute.
             max_timesteps_per_episode: Maximum length per episode.
+            deterministic (bool): Indicates deterministic execution.
+
+        Returns:
+            dict: Execution statistics.
         """
         raise NotImplementedError

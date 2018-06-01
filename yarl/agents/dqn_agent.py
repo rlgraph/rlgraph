@@ -123,3 +123,6 @@ class DQNAgent(Agent):
         # Add syncing capability for target-net.
         core.connect((self.neural_network, "synch_out"), (self.target_net, "synch_in"))
         core.connect((self.target_net, "synch_in"), "synch_target_qnet")
+
+    def __repr__(self):
+        return "dqn_agent"
