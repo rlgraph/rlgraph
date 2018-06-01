@@ -78,7 +78,7 @@ class ComponentTest(object):
 
         #  Optionally do test asserts here.
         if expected_outputs is not None:
-            recursive_assert_almost_equal(outs, expected_outputs)
+            self.assert_equal(outs, expected_outputs)
 
         return outs
 
@@ -106,4 +106,11 @@ class ComponentTest(object):
             Values of the variables provided.
         """
         return self.model.get_variable_values(*variables)
+
+    @staticmethod
+    def assert_equal(outs, expected_outputs):
+        """
+        Convenience wrapper: See implementation of `recursive_assert_almost_equal` for details.
+        """
+        recursive_assert_almost_equal(outs, expected_outputs)
 

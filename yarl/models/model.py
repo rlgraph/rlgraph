@@ -296,66 +296,66 @@ class Model(Specifiable):
         """
         if self.debug_trace:
             print("Building Socket {} partially:".format(str(socket)))
-        with tf.variable_scope(socket.component.scope):
-            # Loop through this socket's incoming connections (or just process from_).
-            incoming_connections = from_ or socket.incoming_connections
-            for in_ in force_list(incoming_connections):
-                # create tf placeholder(s)
-                # example: Space (Dict({"a": IntBox(3), "b": BoolBox(), "c": FloatBox()})) connects to Socket ->
-                # create inputs[name-of-sock] = dict({"a": tf.placeholder(name="", dtype=int, shape=(3,))})
-                # TODO: Think about which calls here to skip (in_ is a Socket? -> most likely already done).
-                if self.debug_trace:
-                    print("\tupdating from input {}".format(str(in_)))
-                socket.update_from_input(in_, self.op_registry, self.in_socket_registry,
-                                         graph_fn_out_slot, socket_out_op)
 
-            for outgoing in socket.outgoing_connections:
-                if self.debug_trace:
-                    print("\tlooking at outgoing connection {}".format(str(outgoing)))
-                # Outgoing is another Socket (other Component) -> recurse.
-                if isinstance(outgoing, Socket):
-                    # This component is already complete. Do only a partial build.
-                    if outgoing.component.input_complete:
-                        self.partial_input_build(outgoing, from_=socket, socket_out_op=socket_out_op)
-                    # Component is not complete yet:
-                    else:
-                        # Add one Socket information.
-                        if self.debug_trace:
-                            print("\t\tnot input-compelte yet -> updating from input {}".format(str(socket)))
-                        outgoing.update_from_input(socket, self.op_registry, self.in_socket_registry)
-                        # Check now for input-completeness of this component.
-                        if outgoing.component.input_complete:
-                            if self.debug_trace:
-                                print("\t\t\tnow input-complete ...")
-                            self.component_complete(outgoing)
-                        # Not complete yet. Remember do build this Socket later.
-                        else:
-                            if self.debug_trace:
-                                print("\t\t\tstill not complete -> add Socket {} for processing later.".
-                                      format(outgoing))
-                            outgoing.component.sockets_to_do_later.append(outgoing)
+        # Loop through this socket's incoming connections (or just process from_).
+        incoming_connections = from_ or socket.incoming_connections
+        for in_ in force_list(incoming_connections):
+            # create tf placeholder(s)
+            # example: Space (Dict({"a": IntBox(3), "b": BoolBox(), "c": FloatBox()})) connects to Socket ->
+            # create inputs[name-of-sock] = dict({"a": tf.placeholder(name="", dtype=int, shape=(3,))})
+            # TODO: Think about which calls here to skip (in_ is a Socket? -> most likely already done).
+            if self.debug_trace:
+                print("\tupdating from input {}".format(str(in_)))
+            socket.update_from_input(in_, self.op_registry, self.in_socket_registry,
+                                     graph_fn_out_slot, socket_out_op)
 
-                # Outgoing is a GraphFunction -> Add the socket to the GraphFunction's (waiting) inputs.
-                # - If all inputs are complete, build a new op into the graph (via the graph_fn).
-                elif isinstance(outgoing, GraphFunction):
-                    graph_fn = outgoing
-                    # We have to specify the device here (only a GraphFunction actually adds something to the graph).
-                    if socket.component.device:
-                        self.assign_device(graph_fn, socket, socket.component.device)
-                    else:
-                        # TODO fetch default device?
-                        if self.debug_trace:
-                            print("\t\tis a graph_fn ... calling `update_from_input`")
-                        graph_fn.update_from_input(socket, self.op_registry, self.in_socket_registry)
-
-                    # Keep moving through this graph_fn's out-Sockets (if input-complete).
-                    if graph_fn.input_complete:
-                        if self.debug_trace:
-                            print("\t\tgraph_fn is now input-complete -> building all outgoing Sockets")
-                        for slot, out_socket in enumerate(graph_fn.output_sockets):
-                            self.partial_input_build(out_socket, graph_fn, slot)
+        for outgoing in socket.outgoing_connections:
+            if self.debug_trace:
+                print("\tlooking at outgoing connection {}".format(str(outgoing)))
+            # Outgoing is another Socket (other Component) -> recurse.
+            if isinstance(outgoing, Socket):
+                # This component is already complete. Do only a partial build.
+                if outgoing.component.input_complete:
+                    self.partial_input_build(outgoing, from_=socket, socket_out_op=socket_out_op)
+                # Component is not complete yet:
                 else:
-                    raise YARLError("ERROR: Outgoing connection must be Socket or GraphFunction!")
+                    # Add one Socket information.
+                    if self.debug_trace:
+                        print("\t\tnot input-compelte yet -> updating from input {}".format(str(socket)))
+                    outgoing.update_from_input(socket, self.op_registry, self.in_socket_registry)
+                    # Check now for input-completeness of this component.
+                    if outgoing.component.input_complete:
+                        if self.debug_trace:
+                            print("\t\t\tnow input-complete ...")
+                        self.component_complete(outgoing)
+                    # Not complete yet. Remember do build this Socket later.
+                    else:
+                        if self.debug_trace:
+                            print("\t\t\tstill not complete -> add Socket {} for processing later.".
+                                  format(outgoing))
+                        outgoing.component.sockets_to_do_later.append(outgoing)
+
+            # Outgoing is a GraphFunction -> Add the socket to the GraphFunction's (waiting) inputs.
+            # - If all inputs are complete, build a new op into the graph (via the graph_fn).
+            elif isinstance(outgoing, GraphFunction):
+                graph_fn = outgoing
+                # We have to specify the device here (only a GraphFunction actually adds something to the graph).
+                if socket.component.device:
+                    self.assign_device(graph_fn, socket, socket.component.device)
+                else:
+                    # TODO fetch default device?
+                    if self.debug_trace:
+                        print("\t\tis a graph_fn ... calling `update_from_input`")
+                    graph_fn.update_from_input(socket, self.op_registry, self.in_socket_registry)
+
+                # Keep moving through this graph_fn's out-Sockets (if input-complete).
+                if graph_fn.input_complete:
+                    if self.debug_trace:
+                        print("\t\tgraph_fn is now input-complete -> building all outgoing Sockets")
+                    for slot, out_socket in enumerate(graph_fn.output_sockets):
+                        self.partial_input_build(out_socket, graph_fn, slot)
+            else:
+                raise YARLError("ERROR: Outgoing connection must be Socket or GraphFunction!")
 
     def sanity_check_build(self, component=None):
         """

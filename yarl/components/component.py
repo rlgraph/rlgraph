@@ -74,6 +74,9 @@ class Component(Specifiable):
         self.scope = kwargs.pop("scope", "")
         assert re.match(r'^[\w\-]*$', self.scope), \
             "ERROR: scope {} does not match scope-pattern! Needs to be \\w or '-'.".format(self.scope)
+        # The global scope string defining the exact nexted position of this Component in the Graph.
+        # e.g. "/core/component1/sub-component-a"
+        self.global_scope = self.scope
         # Names of sub-components that exist (parallelly) inside a containing component must be unique.
         self.name = kwargs.pop("name", self.scope)  # if no name given, use scope
         self.device = kwargs.pop("device", None)
@@ -129,7 +132,10 @@ class Component(Specifiable):
                 keys=in-Socket name (str); values=the associated Space
         """
         self.check_input_spaces(input_spaces)
-        self.create_variables(input_spaces)
+        print("Creating Variables for {} in current name scope: {}".format(self.name,
+                                                                           tf.contrib.framework.get_name_scope()))
+        with tf.variable_scope(self.global_scope):
+            self.create_variables(input_spaces)
 
     def check_input_spaces(self, input_spaces):
         """
@@ -155,7 +161,7 @@ class Component(Specifiable):
             input_spaces (Dict[str,Space]): A dict with Space/shape information.
                 keys=in-Socket name (str); values=the associated Space
         """
-        print("Creating Variables for {}".format(self.name))  # Children may overwrite this method.
+        pass
 
     def get_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True,
                      from_space=None, add_batch_rank=False, flatten=False):
@@ -187,6 +193,7 @@ class Component(Specifiable):
             if name not in self.variables:
                 raise KeyError("Variable with name '{}' not found in registry of Component '{}'!".
                                format(name, self.name))
+            # TODO: Maybe try both the pure name AND the name with global-scope in front.
             return self.variables[name]
 
         # Called as setter.
@@ -221,7 +228,8 @@ class Component(Specifiable):
             )
 
         # Registers the new variable in this Component.
-        self.variables[name] = var
+        key = ((self.global_scope + "/") if self.global_scope else "") + name
+        self.variables[key] = var
 
         return var
 
@@ -235,11 +243,17 @@ class Component(Specifiable):
         Keyword Args:
             collections (set): A set of collections to which the variables have to belong in order to be returned here.
                 Default: tf.GraphKeys.TRAINABLE_VARIABLES
+            custom_scope_separator (str): The separator to use in the returned dict for scopes.
+                Default: '/'.
+            no_scopes (bool): Whether to use keys in the returned dict that include the global-scopes of the Variables.
+                Default: True.
 
         Returns:
             dict: A dict mapping variable names to their backend variables.
         """
         collections = kwargs.pop("collections", None) or tf.GraphKeys.TRAINABLE_VARIABLES
+        custom_scope_separator = kwargs.pop("custom_scope_separator", "/")
+        no_scopes = kwargs.pop("no_scopes", True)
         assert not kwargs, "{}".format(kwargs)
 
         if len(names) == 1 and isinstance(names[0], list):
@@ -252,11 +266,25 @@ class Component(Specifiable):
             for v in collection_variables:
                 lookup = re.sub(r':\d+$', "", v.name)
                 if lookup in self.variables:
-                    ret[lookup] = v
+                    if no_scopes:
+                        ret[re.sub(r'^.+/', "", lookup)] = v
+                    else:
+                        # Replace the scope separator with a custom one.
+                        ret[re.sub(r'/', custom_scope_separator, lookup)] = v
             return ret
-
         # Return only variables of this Component by name.
-        return {n: self.variables[n] for n in names if n in self.variables}
+        else:
+            ret = dict()
+            for name in names:
+                global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
+                if name in self.variables:
+                    ret[re.sub(r'/', custom_scope_separator, name)] = self.variables[name]
+                elif global_scope_name in self.variables:
+                    if no_scopes:
+                        ret[name] = self.variables[global_scope_name]
+                    else:
+                        ret[re.sub(r'/', custom_scope_separator, global_scope_name)] = self.variables[global_scope_name]
+            return ret
 
     def define_inputs(self, *sockets, **kwargs):
         """
@@ -479,6 +507,9 @@ class Component(Specifiable):
         component.has_been_added = True
         self.sub_components[component.name] = component
 
+        # Fix the sub-component's (and sub-sub-component's etc..) scope(s).
+        self.propagate_scope(component)
+
         # Preprocess the connections spec.
         connect_spec = dict()
         if connections is not None:
@@ -489,12 +520,6 @@ class Component(Specifiable):
                         connect_spec[e] = e  # leave name
                     elif isinstance(e, (tuple, list)):
                         connect_spec[e[0]] = e[1]  # change name from 1st element to 2nd element in tuple/list
-                    #elif isinstance(e, dict):
-                    #    for old, new in e.items():
-                    #        connect_spec[old] = new  # change name from dict-key to dict-value
-            #elif isinstance(connections, dict):
-            #    for old, new in connections.items():
-            #        connect_spec[old] = new  # change name from dict-key to dict-value
             else:
                 # Expose all Sockets if connections=True|CONNECT_INS|CONNECT_OUTS.
                 connect_list = list()
@@ -555,6 +580,19 @@ class Component(Specifiable):
             if isinstance(connect, dict):
                 connect_ = connect.get(c.name)
             self.add_component(c, (connect_ or connect))
+
+    def propagate_scope(self, sub_component):
+        """
+        Fixes all the sub-Component's (and its sub-Component's) global_scopes.
+
+        Args:
+            sub_component (Component): The Component object whose global_scope needs to be updated.
+        """
+        if self.global_scope:
+            sub_component.global_scope = self.global_scope + (("/"+sub_component.scope) if sub_component.scope else "")
+        # recurse
+        for sc in sub_component.sub_components.values():
+            sub_component.propagate_scope(sc)
 
     def copy(self, name=None, scope=None, device=None, global_component=False):
         """

@@ -20,7 +20,7 @@ from __future__ import print_function
 from collections import OrderedDict
 
 from yarl import YARLError, backend
-from yarl.utils.ops import DataOpTuple
+from yarl.utils.ops import DataOpDict
 from yarl.utils.util import get_shape
 from yarl.components import Component
 
@@ -39,7 +39,7 @@ class Synchronizable(Component):
                 If False, this Component can only push out its own values (and thus overwrite other Synchronizables).
                 Default: True.
         """
-        super(Synchronizable, self).__init__(*args, **kwargs)
+        super(Synchronizable, self).__init__(flatten_ops=kwargs.pop("flatten_ops", False), *args, **kwargs)
 
         self.collections = collections
         self.writable = writable
@@ -47,8 +47,9 @@ class Synchronizable(Component):
         # Add a simple syncing API.
         # Outgoing data (to overwrite another Synchronizable Component's data).
         self.define_outputs("synch_out")
-        # Add the sending out data operation.
-        self.add_graph_fn(None, "synch_out", self._graph_fn_synch_out)
+        # Add the sending-out-data operation.
+        self.add_graph_fn(None, "own_vars", self._graph_fn_synch_out)
+        self.connect("own_vars", "synch_out")
 
         # The synch op, actually doing the overwriting from synch_in to our variables.
         # This is only possible if `self.writable` is True (default).
@@ -57,30 +58,34 @@ class Synchronizable(Component):
             self.define_inputs("synch_in")
             self.define_outputs("synch")
             # Add the synching operation.
-            self.add_graph_fn("synch_in", "synch", self._graph_fn_synch)
+            self.add_graph_fn(["synch_in", "own_vars"], "synch", self._graph_fn_synch)
 
-    def _graph_fn_synch(self, sync_in):
+    def _graph_fn_synch(self, sync_in, own_vars):
         """
         Generates the op that syncs this approximators' trainable variable values from another
         FunctionApproximator object.
 
         Args:
-            sync_in (OrderedDict): An OrderedDict of variables (coming from the "sync-from"-Socket) that need to be
-                assigned to their counterparts in this Component. The keys and order in the OrderedDict refer to
-                the names of the trainable variables and must match the names and order of the trainable variables
-                in this component.
+            sync_in (DataOpDict): An dict of variables (coming from the "sync_out"-Socket) that need to be
+                assigned to their counterparts in this Component. The keys in the dicts refer to
+                the names of the variables and must match the names and variables of this component.
 
         Returns:
             op: The single op that executes the syncing.
         """
         # Loop through all incoming vars and our own and collect assign ops.
         syncs = list()
-        for (key_from, var_from), (key_to, var_to) in zip(sync_in, self.get_variables(collections=self.collections)):
+        # Sanity checking
+        syncs_from, syncs_to = (sync_in.items(), own_vars.items())
+        if len(syncs_from) != len(syncs_to):
+            raise YARLError("ERROR: Number of Variables to synch must match! "
+                            "We have {} syncs_from and {} syncs_to.".format(len(syncs_from), len(syncs_to)))
+        for (key_from, var_from), (key_to, var_to) in zip(syncs_from, syncs_to):
             # Sanity checking
-            if key_from != key_to:
-                raise YARLError("ERROR: Variable names for synching must match in order and name! "
-                                "Mismatch at from={} and to={}.".format(key_from, key_to))
-            elif get_shape(var_from) != get_shape(var_to):
+            #if key_from != key_to:
+            #    raise YARLError("ERROR: Variable names for synching must match in order and name! "
+            #                    "Mismatch at from={} and to={}.".format(key_from, key_to))
+            if get_shape(var_from) != get_shape(var_to):
                 raise YARLError("ERROR: Variable shapes for synching must match! "
                                 "Shape mismatch between from={} ({}) and to={} ({}).".
                                 format(key_from, get_shape(var_from), key_to, get_shape(var_to)))
@@ -97,10 +102,10 @@ class Synchronizable(Component):
         Outputs all of this Component's variables that match our collection(s) specifier in a tuple-op.
 
         Returns:
-            DataOpTuple: All our Variables that match the given collection (see c'tor).
+            DataOpDict: Dict with keys=variable names and values=variable (SingleDataOp).
+                Only Variables that match the given collection (see c'tor) are part of the dict.
         """
-        variables_dict = self.get_variables(collections=self.collections)
-        ordered_dict = OrderedDict(sorted(variables_dict.items()))
-        # Need to use DataOpTuple to enforce everything being returned in one out-Socket.
-        ret = DataOpTuple(list(ordered_dict.values()))
-        return ret
+        # Must use custom_scope_separator here b/c YARL doesn't allow Dict with '/'-chars in the keys.
+        # '/' could collide with a FlattenedDataOp's keys and mess up the un-flatten process.
+        variables_dict = self.get_variables(collections=self.collections, custom_scope_separator="-")
+        return DataOpDict(variables_dict)
