@@ -67,7 +67,11 @@ class Agent(Specifiable):
         self.preprocessor_stack = Stack.from_spec(preprocessing_spec)
         self.exploration_spec = exploration_spec
         self.execution_spec = parse_execution_spec(execution_spec)
-        self.optimizer = Optimizer.from_spec(optimizer_spec)
+        if optimizer_spec:
+            self.optimizer = Optimizer.from_spec(optimizer_spec)
+        else:
+            # TODO set to some default
+            self.optimizer = None
         self.update_spec = parse_update_spec(update_spec)
 
         # Create our Model.
