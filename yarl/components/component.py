@@ -132,8 +132,8 @@ class Component(Specifiable):
                 keys=in-Socket name (str); values=the associated Space
         """
         self.check_input_spaces(input_spaces)
-        print("Creating Variables for {} in current name scope: {}".format(self.name,
-                                                                           tf.contrib.framework.get_name_scope()))
+        #print("Creating Variables for {} in current name scope: {}".format(self.name,
+        #                                                                   tf.contrib.framework.get_name_scope()))
         with tf.variable_scope(self.global_scope):
             self.create_variables(input_spaces)
 

@@ -82,21 +82,15 @@ class BoxSpace(Space):
                 self.low = low + np.zeros(self.shape)
                 self.high = high + np.zeros(self.shape)
 
-    @cached_property
+    @property
     def shape(self):
         return self._shape
 
-    @cached_property
-    def shape_with_batch_rank(self):
-        if self.shape == ():
-            return self.batch_rank_tuple
-        return tuple(self.batch_rank_tuple + self.shape)
-
-    @cached_property
-    def shape_with_batch_rank_m1(self):
-        if self.shape == ():
-            return self.batch_rank_tuple_m1
-        return tuple(self.batch_rank_tuple_m1 + self.shape)
+    def get_shape(self, with_batch_rank=False, **kwargs):
+        if with_batch_rank is not False:
+            return (((None,) if with_batch_rank is True else (with_batch_rank,))
+                    if self.has_batch_rank else ()) + self.shape
+        return self.shape
 
     @cached_property
     def flat_dim(self):

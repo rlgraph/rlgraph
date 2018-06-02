@@ -35,31 +35,29 @@ class Space(Specifiable):
         """
         self._shape = None
         self.has_batch_rank = None
-        self.batch_rank_tuple = None
-        self.batch_rank_tuple_m1 = None  # using -1 instead of None for tf ops
         self.add_batch_rank(add_batch_rank)
 
     @property
     def shape(self):
         """
         Returns:
+            tuple: The shape of this Space as a tuple. Without batch (or other) ranks.
+        """
+        raise NotImplementedError
+
+    def get_shape(self, with_batch_rank=False, **kwargs):
+        """
+        Returns the shape of this Space as a tuple with certain additional ranks at the front (batch) or the back
+        (e.g. categories).
+
+        Args:
+            with_batch_rank (Union[bool,int]): Whether to include a possible batch-rank as `None` at 0th position.
+                If `with_batch_rank` is -1, the possible batch-rank is returned as -1 (instead of None) at the 0th
+                position.
+                Default: False.
+
+        Returns:
             tuple: The shape of this Space as a tuple.
-        """
-        raise NotImplementedError
-
-    @property
-    def shape_with_batch_rank(self):
-        """
-        Returns:
-            tuple: The shape of this Space as a tuple including a possible batch_rank as `None` (0th rank).
-        """
-        raise NotImplementedError
-
-    @property
-    def shape_with_batch_rank_m1(self):
-        """
-        Returns:
-            tuple: The shape of this Space as a tuple including a possible batch_rank as -1 (0th rank).
         """
         raise NotImplementedError
 
@@ -214,14 +212,11 @@ class Space(Specifiable):
         """
         raise NotImplementedError
 
-    def add_batch_rank(self, add_batch_rank=True):
+    def add_batch_rank(self, add_batch_rank=False):
         """
-        Helper method for ContainerSpaces to add this feature later (after this Space has been constructed).
+        Recursively changes the add_batch_rank property of all child Spaces in this ContainerSpace.
 
         Args:
-            add_batch_rank (bool): See c'tor.
+            add_batch_rank (bool): Whether this ContainerSpace and all it's children should have a batch rank.
         """
         self.has_batch_rank = add_batch_rank
-        self.batch_rank_tuple = (None,) if self.has_batch_rank else ()
-        self.batch_rank_tuple_m1 = (-1,) if self.has_batch_rank else ()
-

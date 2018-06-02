@@ -101,7 +101,7 @@ class NNOutputCleanup(Component):
         #    nn_outputs = self.bias_layer.call("apply", inputs=nn_outputs)
 
         # Reshape logits to action shape
-        shape = self.target_space.shape_with_batch_rank_m1 + (self.num_categories_per_dim,)
+        shape = self.target_space.get_shape(with_batch_rank=-1) + (self.num_categories_per_dim,)
         if backend == "tf":
             import tensorflow as tf
             logits = tf.reshape(tensor=nn_outputs_plus_bias, shape=shape)

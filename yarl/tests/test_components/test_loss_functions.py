@@ -32,7 +32,7 @@ class TestLossFunctions(unittest.TestCase):
         # Create a shape=(2,) 4-action discrete-space.
         # Thus, each action pick consists of 2 composite-actions chosen from a set of 4 possible single actions.
         action_space = IntBox(4, shape=(2,), add_batch_rank=True)
-        q_values_space = FloatBox(shape=action_space.shape, add_batch_rank=True)
+        q_values_space = FloatBox(shape=action_space.get_shape(with_category_rank=True), add_batch_rank=True)
 
         dqn_loss_function = DQNLossFunction(discount=1.0)  # gamma=1.0: keep it simple
         test = ComponentTest(component=dqn_loss_function,

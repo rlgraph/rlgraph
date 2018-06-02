@@ -49,6 +49,13 @@ class IntBox(BoxSpace):
             low = 0
 
         super(IntBox, self).__init__(low=low, high=high, shape=shape, add_batch_rank=add_batch_rank, dtype="int")
+        self.num_categories = None if self.global_bounds is False else self.global_bounds[1]
+
+    def get_shape(self, with_batch_rank=False, with_category_rank=False, **kwargs):
+        shape = super(IntBox, self).get_shape(with_batch_rank=with_batch_rank)
+        if with_category_rank is not False:
+            return shape + ((self.num_categories,) if self.num_categories is not None else ())
+        return shape
 
     @cached_property
     def flat_dim_with_categories(self):

@@ -201,7 +201,7 @@ class Model(Specifiable):
                 # Get the shape-combinations for these Sockets.
                 # e.g. Sockets=["a", "b"] (and Space1 -> a, Space2 -> a, Space3 -> b)
                 #   shape-combinations=[(Space1, Space3), (Space2, Space3)]
-                shapes = [[i.shape_with_batch_rank for i in sock.incoming_connections] for sock in sockets]
+                shapes = [[i.get_shape(with_batch_rank=True) for i in sock.incoming_connections] for sock in sockets]
                 shape_combinations = itertools.product(*shapes)
                 for shape_combination in shape_combinations:
                     # Do everything by Socket-name (easier to debug).
