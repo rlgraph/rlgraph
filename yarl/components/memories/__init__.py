@@ -26,7 +26,9 @@ from .prioritized_replay import PrioritizedReplay
 Memory.__lookup_classes__ = dict(
     replay=ReplayMemory,
     replay_buffer=ReplayMemory,
+    replay_memory=ReplayMemory,
     ring_buffer=RingBuffer,
+    prioritized=PrioritizedReplay,
     prioritized_replay=PrioritizedReplay,
     prioritized_replay_buffer=PrioritizedReplay
 )

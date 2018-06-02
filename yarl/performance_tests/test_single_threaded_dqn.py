@@ -29,13 +29,22 @@ class TestSingleThreadedDQN(unittest.TestCase):
     # TODO test on the relevant Atari environments.
     env = OpenAIGymEnv(gym_env='Pong-v0')
 
-    def test_full_atari_throughput(self):
+    # TODO define classic atari dqn network.
+    network = list()
+
+    def test_replay_memory_atari_throughput(self):
         """
-        Tests throughput on standard Atari envs.
+        Tests throughput on standard Atari envs using the replay memory.
         """
         agent = DQNAgent(
             states_spec=self.env.observation_space,
-            action_spec=self.env.action_space
+            action_spec=self.env.action_space,
+            network_spec=self.network,
+            memory_spec=dict(
+                type='replay_memory',
+                capacity=100000,
+                next_states=True
+            )
         )
         worker = SingleThreadedWorker(
             environment=self.env,
@@ -44,9 +53,29 @@ class TestSingleThreadedDQN(unittest.TestCase):
         )
 
         result = worker.execute_timesteps(num_timesteps=1000000, deterministic=False)
+        print('Agent throughput = {} ops/s'.format(result['ops_per_second']))
+        print('Environment throughput = {} frames/s'.format(result['env_frames_per_second']))
 
-    def test_act_throughput(self):
+    def test_prioritized_replay_atari_throughput(self):
         """
-        Tests act only throughput.
+        Tests throughput on standard Atari envs using the prioritized replay memory.
         """
-        pass
+        agent = DQNAgent(
+            states_spec=self.env.observation_space,
+            action_spec=self.env.action_space,
+            network_spec=self.network,
+            memory_spec=dict(
+                type='prioritized',
+                capacity=100000,
+                next_states=True
+            )
+        )
+        worker = SingleThreadedWorker(
+            environment=self.env,
+            agent=agent,
+            repeat_actions=1
+        )
+
+        result = worker.execute_timesteps(num_timesteps=1000000, deterministic=False)
+        print('Agent throughput = {} ops/s'.format(result['ops_per_second']))
+        print('Environment throughput = {} frames/s'.format(result['env_frames_per_second']))
