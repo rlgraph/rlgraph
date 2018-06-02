@@ -28,11 +28,11 @@ class SingleThreadedWorker(Worker):
     def __init__(self, **kwargs):
         super(SingleThreadedWorker, self).__init__(**kwargs)
 
-        self.logger.info("Initialized single-threaded executor with environment id {} and agent {}".format(
+        self.logger.info("Initialized single-threaded executor with\n environment id {} and agent {}".format(
             self.environment, self.agent
         ))
 
-    def execute_timesteps(self, num_timesteps, deterministic):
+    def execute_timesteps(self, num_timesteps, deterministic=False):
         executed = 0
         episode_rewards = []
         episode_durations = []
@@ -43,19 +43,20 @@ class SingleThreadedWorker(Worker):
             episode_reward = 0
             episode_step = 0
             terminal = False
-            episode_start= time.monotonic()
+            episode_start = time.monotonic()
+            state = self.environment.reset()
 
             while True:
                 reward = 0
                 actions = self.agent.get_action(states=state, deterministic=deterministic)
 
                 for repeat in xrange(self.repeat_actions):
-                    state, terminal, step_reward = self.environment.step(actions=actions)
+                    state, terminal, step_reward, info = self.environment.step(actions=actions)
                     reward += step_reward
                     if terminal or executed >= num_timesteps:
                         break
 
-                self.agent.observe(states=state, actions=actions, reward=reward, terminal=terminal)
+                self.agent.observe(states=state, actions=actions, internals=None, reward=reward, terminal=terminal)
                 episode_reward += reward
                 executed += 1
                 episode_step += 1
@@ -77,13 +78,14 @@ class SingleThreadedWorker(Worker):
 
         return dict(
             runtime=end,
+            episodes_executed=len(episode_durations),
             mean_episode_runtime=np.mean(episode_durations),
             mean_episode_reward=np.mean(episode_rewards),
             max_episode_reward=np.max(episode_rewards),
             final_episode_reward=episode_rewards[-1]
         )
 
-    def execute_episodes(self, num_episodes, max_timesteps_per_episode, deterministic):
+    def execute_episodes(self, num_episodes, max_timesteps_per_episode, deterministic=False):
         executed = 0
         episodes_executed = 0
         episode_rewards = []
@@ -96,18 +98,19 @@ class SingleThreadedWorker(Worker):
             episode_step = 0
             terminal = False
             episode_start= time.monotonic()
+            state = self.environment.reset()
 
             while True:
                 reward = 0
                 actions = self.agent.get_action(states=state, deterministic=deterministic)
 
                 for repeat in xrange(self.repeat_actions):
-                    state, terminal, step_reward = self.environment.step(actions=actions)
+                    state, terminal, step_reward, info = self.environment.step(actions=actions)
                     reward += step_reward
-                    if terminal or episodes_executed >=num_episodes:
+                    if terminal or episodes_executed >= num_episodes:
                         break
 
-                self.agent.observe(states=state, actions=actions, reward=reward, terminal=terminal)
+                self.agent.observe(states=state, actions=actions, internals=None, reward=reward, terminal=terminal)
                 episode_reward += reward
                 executed += 1
                 episode_step += 1
@@ -130,6 +133,7 @@ class SingleThreadedWorker(Worker):
 
         return dict(
             runtime=end,
+            timesteps_executed=executed,
             mean_episode_runtime=np.mean(episode_durations),
             mean_episode_reward=np.mean(episode_rewards),
             max_episode_reward=np.max(episode_rewards),
