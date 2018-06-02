@@ -52,7 +52,7 @@ class SingleThreadedWorker(Worker):
                 actions = self.agent.get_action(states=state, deterministic=deterministic)
 
                 for repeat in xrange(self.repeat_actions):
-                    state, terminal, step_reward, info = self.environment.step(actions=actions)
+                    state, step_reward, terminal, info = self.environment.step(actions=actions)
                     env_frames += 1
                     reward += step_reward
                     if terminal or executed >= num_timesteps:
@@ -113,7 +113,7 @@ class SingleThreadedWorker(Worker):
                 actions = self.agent.get_action(states=state, deterministic=deterministic)
 
                 for repeat in xrange(self.repeat_actions):
-                    state, terminal, step_reward, info = self.environment.step(actions=actions)
+                    state, step_reward, terminal, info = self.environment.step(actions=actions)
                     env_frames += 1
                     reward += step_reward
                     if terminal or episodes_executed >= num_episodes:
