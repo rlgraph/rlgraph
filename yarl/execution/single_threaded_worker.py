@@ -34,6 +34,7 @@ class SingleThreadedWorker(Worker):
 
     def execute_timesteps(self, num_timesteps, deterministic=False):
         executed = 0
+        env_frames = 0
         episode_rewards = []
         episode_durations = []
         episode_steps = []
@@ -52,6 +53,7 @@ class SingleThreadedWorker(Worker):
 
                 for repeat in xrange(self.repeat_actions):
                     state, terminal, step_reward, info = self.environment.step(actions=actions)
+                    env_frames += 1
                     reward += step_reward
                     if terminal or executed >= num_timesteps:
                         break
@@ -71,14 +73,18 @@ class SingleThreadedWorker(Worker):
 
         end = time.monotonic() - start
         self.logger.info("Finished executing {} time steps in {} s".format(num_timesteps, end))
-        # TODO check how we define frames regarding action repeat.
+        self.logger.info("Episodes steps executed: {}".format(len(episode_durations)))
         self.logger.info("Throughput: {} ops/s".format(num_timesteps / end))
         self.logger.info("Mean episode reward: {}".format(np.mean(episode_rewards)))
         self.logger.info("Final episode reward: {}".format(episode_rewards[-1]))
 
         return dict(
             runtime=end,
+            # Agent act/observe throughput.
             ops_per_second=(num_timesteps / end),
+            # Env frames including action repeats.
+            env_frames=env_frames,
+            env_frames_per_second=(env_frames / end),
             episodes_executed=len(episode_durations),
             mean_episode_runtime=np.mean(episode_durations),
             mean_episode_reward=np.mean(episode_rewards),
@@ -88,6 +94,7 @@ class SingleThreadedWorker(Worker):
 
     def execute_episodes(self, num_episodes, max_timesteps_per_episode, deterministic=False):
         executed = 0
+        env_frames = 0
         episodes_executed = 0
         episode_rewards = []
         episode_durations = []
@@ -107,6 +114,7 @@ class SingleThreadedWorker(Worker):
 
                 for repeat in xrange(self.repeat_actions):
                     state, terminal, step_reward, info = self.environment.step(actions=actions)
+                    env_frames += 1
                     reward += step_reward
                     if terminal or episodes_executed >= num_episodes:
                         break
@@ -127,14 +135,19 @@ class SingleThreadedWorker(Worker):
 
         end = time.monotonic() - start
         self.logger.info("Finished executing {} episodes in {} s".format(num_episodes, end))
-        # TODO check how we define frames regarding action repeat.
         self.logger.info("Throughput: {} ops/s".format(executed / end))
+        self.logger.info("Time steps executed: {}".format(executed))
+
         self.logger.info("Mean episode reward: {}".format(np.mean(episode_rewards)))
         self.logger.info("Final episode reward: {}".format(episode_rewards[-1]))
 
         return dict(
             runtime=end,
+            # Agent act/observe throughput.
             ops_per_second=(executed / end),
+            # Env frames including action repeats.
+            env_frames=env_frames,
+            env_frames_per_second=(env_frames / end),
             timesteps_executed=executed,
             mean_episode_runtime=np.mean(episode_durations),
             mean_episode_reward=np.mean(episode_rewards),
