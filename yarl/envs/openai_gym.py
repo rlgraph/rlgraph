@@ -77,9 +77,6 @@ class OpenAIGymEnv(Env):
         actions = kwargs.get("actions")
         if self.visualize:
             self.gym_env.render()
-        ## if the actions is not unique, that is, if the actions is a dict
-        #if isinstance(actions, dict):
-        #    actions = [actions['action{}'.format(n)] for n in range(len(actions))]
         state, reward, terminal, info = self.gym_env.step(actions)
         return state, reward, terminal, info
 

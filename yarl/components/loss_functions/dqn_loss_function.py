@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from yarl import backend
 from yarl.components.loss_functions import LossFunction
+from yarl.spaces import IntBox
 
 
 class DQNLossFunction(LossFunction):
@@ -27,6 +28,7 @@ class DQNLossFunction(LossFunction):
     L = Expectation-over-uniform-batch(r + gamma x maxa'Qt(s',a') - Qn(s,a))²
     Where Qn is the "normal" Q-network and Qt is the "target" net (which is a little behind Qn for stability purposes).
     """
+
     def __init__(self, discount=0.98, double_q=False, scope="dqn-loss-function", **kwargs):
         """
         Args:
@@ -37,6 +39,8 @@ class DQNLossFunction(LossFunction):
         super(DQNLossFunction, self).__init__("q_values", "actions", "rewards", "q_values_s_", scope=scope, **kwargs)
         self.discount = discount  # TODO: maybe move this to parent?
         self.double_q = double_q
+
+        self.num_actions = None
 
     def check_input_spaces(self, input_spaces):
         """
@@ -49,32 +53,44 @@ class DQNLossFunction(LossFunction):
             assert in_space.has_batch_rank, "ERROR: Space in Socket '{}' to DQNLossFunction must have a " \
                                             "batch rank (0th position)!".format(in_sock.name, self.name)
 
-    def _graph_fn_loss_per_item(self, q_values, actions, rewards, q_values_s_):
+        action_space = input_spaces["actions"]
+        # Check for IntBox and global_bounds.
+        assert isinstance(action_space, IntBox) and action_space.flat_dim_with_categories is not None, \
+            "ERROR: action_space for DQN must be IntBox (for now) and have a global upper bound!"
+        self.num_actions = action_space.global_bounds[1]
+
+    def create_variables(self, input_spaces):
+        """
+        Creates the gather_nd indices needed to pull the correct Q(s,a) values (depending on the actually
+        taken actions) from the q-values output of the neural network(s).
+        """
+        action_space = input_spaces["actions"]
+        self.num_actions = action_space.shape_
+        # self.batch_indexes_flat = product(*[ for _ in action_space.shape_with_batch_rank])
+
+    def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, q_values_sp):
         """
         Args:
-            q_values (DataOp): The Q-values representing the expected accumulated discounted returns when in s and
-                taking different actions a.
-            actions (DataOp): The actions that were actually taken in states s (from a memory).
-            rewards (DataOp): The rewards that we received after having taken a in s (from a memory).
-            q_values_s_ (DataOp): The Q-values representing the expected accumulated discounted returns when in s'
+            q_values_s (SingleDataOp): The Q-values representing the expected accumulated discounted returns when in
+                s and taking different actions a.
+            actions (SingleDataOp): The actions that were actually taken in states s (from a memory).
+            rewards (SingleDataOp): The rewards that we received after having taken a in s (from a memory).
+            q_values_sp (SingleDataOp): The Q-values representing the expected accumulated discounted returns when in s'
                 and taking different actions a'.
 
         Returns:
-            DataOp: The average loss value of the batch.
+            SingleDataOp: The loss values vector (one single value for each batch item).
         """
         if backend == "tf":
             import tensorflow as tf
 
-            batch_size = tf.shape(q_values)[0]
+            # Q(s',a') -> Use the max(a') one.
+            q_sp_ap_values = tf.reduce_max(q_values_sp, axis=-1)
 
-            # q_values are reduced by index using gather_nd, but keep in mind it could be done as well
-            # via one_hot->matmul->reduce_sum.
+            # Q(s,a) -> Use the Q-value of the action actually taken before.
+            one_hot = tf.one_hot(indices=actions, depth=self.num_actions)
+            q_s_a_values = tf.reduce_sum(input_tensor=(q_values_s * one_hot), axis=-1)
 
-            # TODO: What if action space is complex? Pretend that q_values are already re-shaped according to action-Space.
-            # Construct gather indexes from actions.
-            batch_indexes = tf.expand_dims(tf.range(start=0, limit=batch_size), axis=1)
-            gather_indexes = tf.concat([batch_indexes] + actions, axis=1)
             # Calculate the TD-delta (target - current estimate).
-            td_delta = (rewards + self.discount * tf.reduce_max(q_values_s_, axis=-1)) - \
-                       tf.gather_nd(q_values, gather_indexes)
+            td_delta = (rewards + self.discount * q_sp_ap_values) - q_s_a_values
             return tf.pow(td_delta, 2)
