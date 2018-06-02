@@ -78,6 +78,7 @@ class SingleThreadedWorker(Worker):
 
         return dict(
             runtime=end,
+            ops_per_second=(num_timesteps / end),
             episodes_executed=len(episode_durations),
             mean_episode_runtime=np.mean(episode_durations),
             mean_episode_reward=np.mean(episode_rewards),
@@ -133,6 +134,7 @@ class SingleThreadedWorker(Worker):
 
         return dict(
             runtime=end,
+            ops_per_second=(executed / end),
             timesteps_executed=executed,
             mean_episode_runtime=np.mean(episode_durations),
             mean_episode_reward=np.mean(episode_rewards),

@@ -20,20 +20,30 @@ from __future__ import print_function
 import unittest
 
 from yarl.agents.dqn_agent import DQNAgent
+from yarl.envs import OpenAIGymEnv
+from yarl.execution.single_threaded_worker import SingleThreadedWorker
 
 
 class TestSingleThreadedDQN(unittest.TestCase):
 
-    env = ''
-    agent = DQNAgent(
+    # TODO test on the relevant Atari environments.
+    env = OpenAIGymEnv(gym_env='Pong-v0')
 
-    )
+    def test_full_atari_throughput(self):
+        """
+        Tests throughput on standard Atari envs.
+        """
+        agent = DQNAgent(
+            states_spec=self.env.observation_space,
+            action_spec=self.env.action_space
+        )
+        worker = SingleThreadedWorker(
+            environment=self.env,
+            agent=agent,
+            repeat_actions=1
+        )
 
-    def test_full_throughput(self):
-        """
-        Tests throughput.
-        """
-        pass
+        result = worker.execute_timesteps(num_timesteps=1000000, deterministic=False)
 
     def test_act_throughput(self):
         """
