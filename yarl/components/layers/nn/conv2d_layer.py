@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from yarl import backend
 
-from utils.initializer import Initializer
+from yarl.utils.initializer import Initializer
 from .nn_layer import NNLayer
 
 

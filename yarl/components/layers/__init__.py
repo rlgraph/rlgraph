@@ -23,10 +23,9 @@ from .layer import Layer
 # Preprocessing.
 from .preprocessing import PreprocessLayer, Clamp, Scale, Sequence, GrayScale, Flatten
 # NN-Layers.
-from utils.initializer import Initializer
+from yarl.utils.initializer import Initializer
 from .nn import NNLayer, DenseLayer, Conv2DLayer, ConcatLayer
 
-__all__ = ["Stack", "Layer",
-           "Initializer", "NNLayer", "DenseLayer", "Conv2DLayer", "ConcatLayer",
+__all__ = ["Stack", "Layer", "Initializer", "NNLayer", "DenseLayer", "Conv2DLayer", "ConcatLayer",
            "PreprocessLayer", "Clamp", "Scale", "Sequence", "GrayScale", "Flatten"]
 
