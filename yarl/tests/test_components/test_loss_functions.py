@@ -50,8 +50,10 @@ class TestLossFunctions(unittest.TestCase):
             q_values_s_=np.array([[[12.0, -8.0, 7.8, 4.0], [16.2, -2.6, -6.001, 90.1]],
                                [[5.1, -12.1, 8.5, 3.1], [22.3, 10.5, 1.098, -89.2]]]),
         )
-        expected_loss_per_item = np.array([100, 100])
-        expected_loss = 50.0
+        # Batch size=2: Expect 2 values in the `loss_per_item` out-Socket.
+        expected_loss_per_item = np.array([1.177221, 629.2822], dtype=np.float32)
         test.test(out_socket_name="loss_per_item", inputs=input_, expected_outputs=expected_loss_per_item)
+        # Just expect the mean over the batch.
+        expected_loss = expected_loss_per_item.mean()
         test.test(out_socket_name="loss", inputs=input_, expected_outputs=expected_loss)
 

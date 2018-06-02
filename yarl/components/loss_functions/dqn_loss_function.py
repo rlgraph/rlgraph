@@ -36,11 +36,12 @@ class DQNLossFunction(LossFunction):
             double_q (bool): Whether to use the double DQN loss function (see DQNAgent [2]).
         """
         # Pass our in-Socket names to parent c'tor.
-        super(DQNLossFunction, self).__init__("q_values", "actions", "rewards", "q_values_s_", scope=scope, **kwargs)
+        super(DQNLossFunction, self).__init__("q_values", "actions", "rewards", "q_values_s_", scope=scope,
+                                              flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
         self.discount = discount  # TODO: maybe move this to parent?
         self.double_q = double_q
 
-        self.num_actions = None
+        self.action_space = None
 
     def check_input_spaces(self, input_spaces):
         """
@@ -53,20 +54,11 @@ class DQNLossFunction(LossFunction):
             assert in_space.has_batch_rank, "ERROR: Space in Socket '{}' to DQNLossFunction must have a " \
                                             "batch rank (0th position)!".format(in_sock.name, self.name)
 
-        action_space = input_spaces["actions"]
-        # Check for IntBox and global_bounds.
-        assert isinstance(action_space, IntBox) and action_space.flat_dim_with_categories is not None, \
-            "ERROR: action_space for DQN must be IntBox (for now) and have a global upper bound!"
-        self.num_actions = action_space.global_bounds[1]
-
-    def create_variables(self, input_spaces):
-        """
-        Creates the gather_nd indices needed to pull the correct Q(s,a) values (depending on the actually
-        taken actions) from the q-values output of the neural network(s).
-        """
-        action_space = input_spaces["actions"]
-        self.num_actions = action_space.shape_
-        # self.batch_indexes_flat = product(*[ for _ in action_space.shape_with_batch_rank])
+        self.action_space = input_spaces["actions"]
+        # Check for IntBox and num_categories.
+        assert isinstance(self.action_space, IntBox) and self.action_space.num_categories is not None, \
+            "ERROR: action_space for DQN must be IntBox (for now) and have a `num_categories` attribute that's " \
+            "not None!"
 
     def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, q_values_sp):
         """
@@ -88,9 +80,10 @@ class DQNLossFunction(LossFunction):
             q_sp_ap_values = tf.reduce_max(q_values_sp, axis=-1)
 
             # Q(s,a) -> Use the Q-value of the action actually taken before.
-            one_hot = tf.one_hot(indices=actions, depth=self.num_actions)
+            one_hot = tf.one_hot(indices=actions, depth=self.action_space.num_categories)
             q_s_a_values = tf.reduce_sum(input_tensor=(q_values_s * one_hot), axis=-1)
 
             # Calculate the TD-delta (target - current estimate).
             td_delta = (rewards + self.discount * q_sp_ap_values) - q_s_a_values
-            return tf.pow(td_delta, 2)
+            average_over_actions = tf.reduce_mean(td_delta, axis=-1)
+            return tf.pow(average_over_actions, 2)
