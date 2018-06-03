@@ -19,24 +19,41 @@ from __future__ import print_function
 
 import unittest
 
-from yarl.components.action_heads import ActionHead
+from yarl.components.common.decay_components import LinearDecay
+from yarl.components.explorations import Exploration, EpsilonExploration
 from yarl.spaces import *
 from yarl.tests import ComponentTest
 
 import numpy as np
 
 
-class TestActionHead(unittest.TestCase):
+class TestExplorations(unittest.TestCase):
 
-    def test_action_head_with_discrete_action_space(self):
+    def test_epsilon_exploration(self):
+        # Decaying a value always without batch dimension (does not make sense for global time step).
+        time_step_space = IntBox(add_batch_rank=False)
 
+        # The Component(s) to test.
+        decay_component = LinearDecay(from_=1.0, to_=0.0, start_timestep=0, num_timesteps=1000)
+        epsilon_component = EpsilonExploration(decay_component=decay_component)
+        test = ComponentTest(component=epsilon_component, input_spaces=dict(time_step=time_step_space))
+
+        # Values to pass as single items.
+        input_ = np.array([0, 1, 2, 25, 50, 100, 110, 112, 120, 130, 150, 180, 190, 195, 200, 201, 210, 250, 386,
+                           670, 789, 900, 923, 465, 894, 91, 1000])
+        expected = np.array([True, True, True, True, True, True, False, True, True, True, True, True, True, True, True,
+                             True, True, False, False, True, False, False, False, False, False, True, False])
+        for i, e in zip(input_, expected):
+            test.test(out_socket_name="do_explore", inputs=i, expected_outputs=e)
+
+    def test_exploration_with_discrete_action_space(self):
         # 2x2 action-pick, each action with 5 categories.
         space = IntBox(5, shape=(2, 2), add_batch_rank=True)
         # Our NN must output this Space then:
         nn_output_space = FloatBox(shape=(space.flat_dim_with_categories,), add_batch_rank=True)
 
         # The Component to test.
-        action_head = ActionHead(action_space=space)
+        action_head = Exploration(action_space=space)
         test = ComponentTest(component=action_head, input_spaces=dict(nn_output=nn_output_space,
                                                                       time_step=int))
 

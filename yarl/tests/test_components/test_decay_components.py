@@ -21,7 +21,6 @@ import unittest
 import numpy as np
 
 from yarl.components.common.decay_components import *
-from yarl.components.action_heads.epsilon_exploration import EpsilonExploration
 from yarl.spaces import *
 
 from .component_test import ComponentTest
@@ -29,37 +28,33 @@ from .component_test import ComponentTest
 
 class TestDecayComponents(unittest.TestCase):
     """
-    Tests creation, sampling and shapes of Spaces.
+    Tests YARL's decay components.
     """
-    def test_linear_decay(self):
-        # Decaying a value always without batch dimension (does not make sense for global time step).
-        time_step_space = IntBox(1000, add_batch_rank=False)
 
+    # Decaying a value always without batch dimension (does not make sense for global time step).
+    time_step_space = IntBox(1000, add_batch_rank=False)
+
+    def test_linear_decay(self):
         # The Component to test.
         decay_component = LinearDecay(from_=1.0, to_=0.0, start_timestep=100, num_timesteps=100)
-        test = ComponentTest(component=decay_component, input_spaces=dict(time_step=time_step_space))
+        test = ComponentTest(component=decay_component, input_spaces=dict(time_step=self.time_step_space))
 
         # Values to pass as single items.
         input_ = np.array([0, 1, 2, 25, 50, 100, 110, 112, 120, 130, 150, 180, 190, 195, 200, 201, 210, 250, 1000])
         expected = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.9, 0.88, 0.8, 0.7, 0.5, 0.2, 0.1, 0.05, 0.0, 0.0, 0.0,
-                              0.0, 0.0])
+                             0.0, 0.0])
         for i, e in zip(input_, expected):
             test.test(out_socket_name="value", inputs=i, expected_outputs=e)
 
-    def test_epsilon_exploration(self):
-        # Decaying a value always without batch dimension (does not make sense for global time step).
-        time_step_space = IntBox(add_batch_rank=False)
-
-        # The Component(s) to test.
-        decay_component = LinearDecay(from_=1.0, to_=0.0, start_timestep=0, num_timesteps=1000)
-        epsilon_component = EpsilonExploration(decay_component=decay_component)
-        test = ComponentTest(component=epsilon_component, input_spaces=dict(time_step=time_step_space))
+    def test_exponential_decay(self):
+        # The Component to test.
+        decay_component = ExponentialDecay(from_=1.0, to_=0.0, start_timestep=100, num_timesteps=100)
+        test = ComponentTest(component=decay_component, input_spaces=dict(time_step=self.time_step_space))
 
         # Values to pass as single items.
-        input_ = np.array([0, 1, 2, 25, 50, 100, 110, 112, 120, 130, 150, 180, 190, 195, 200, 201, 210, 250, 386,
-                           670, 789, 900, 923, 465, 894, 91, 1000])
-        expected = np.array([True, True, True, True, True, True, True, True, True, True, False, True, True, True, True,
-                             False, False, True, False, False, False, False, False, True, False, False, False])
+        input_ = np.array([0, 1, 2, 25, 50, 100, 110, 112, 120, 130, 150, 180, 190, 195, 200, 201, 210, 250, 1000])
+        expected = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.9, 0.88, 0.8, 0.7, 0.5, 0.2, 0.1, 0.05, 0.0, 0.0, 0.0,
+                             0.0, 0.0])
         for i, e in zip(input_, expected):
-            test.test(out_socket_name="do_explore", inputs=i, expected_outputs=e)
+            test.test(out_socket_name="value", inputs=i, expected_outputs=e)
 

@@ -17,15 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .decay_component import DecayComponent
-from .exponential_decay import ExponentialDecay
-from .polynomial_decay import PolynomialDecay, LinearDecay
+from .exploration import Exploration
+from .epsilon_exploration import EpsilonExploration
 
-DecayComponent.__lookup_classes__ = dict(
-    linear=LinearDecay,
-    exponential=ExponentialDecay,
-    polynomial=PolynomialDecay
-)
-
-__all__ = ["DecayComponent", "ExponentialDecay", "PolynomialDecay", "LinearDecay"]
+__all__ = ["Exploration", "EpsilonExploration"]
 

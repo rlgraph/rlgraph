@@ -20,84 +20,63 @@ from __future__ import print_function
 from yarl import YARLError, backend
 from yarl.utils.util import dtype
 from yarl.components import Component
-from yarl.components.distributions import Categorical, Normal, NNOutputCleanup
-from yarl.spaces import IntBox, FloatBox
+from yarl.spaces import Space, IntBox
 from .epsilon_exploration import EpsilonExploration
 
 
-class ActionHead(Component):
+class Exploration(Component):
     """
-    A Component that can be plugged on top of an NN-action output as is to produce action choices.
-    It includes noise and epsilon-based exploration options as well as drawing actions from different,
-    possible NN-specified distributions - either by sampling or by deterministically choosing the max-likelihood
-    value.
+    A Component that can be plugged on top of a Policy's output to produce action choices.
+    It includes noise and/or epsilon-based exploration options as well as an out-Socket to draw actions from
+    the Policy's distribution - either by sampling or by deterministically choosing the max-likelihood value.
 
     API:
     ins:
         time_step (int): The current global time step (used to determine the extend of the exploration).
-        nn_output (any): The NN-output specifying the parameters of an action distribution.
+        sample_deterministic (any): The Policy's deterministic (max-likelihood) "sampling" output.
+        sample_stochastic (any): The Policy's stochastic sampling output.
     outs:
-        action (any): A single action chose according to our exploration settings and NN-output.
+        action (any): A single action choice according to our exploration settings and Policy's distribution.
         # TODO: actions (any): A batch of actions taken from a batch of NN-outputs without any exploration.
     """
-    def __init__(self, action_space, add_softmax=False, policy="max-likelihood", epsilon_spec=None,
-                 noise_spec=None, scope="action-head", **kwargs):
+    def __init__(self, action_space, non_explore_behavior="max-likelihood", epsilon_spec=None, noise_spec=None,
+                 scope="exploration", **kwargs):
         """
         Args:
-            action_space (Space): The action Space. Outputs of the "action" Socket must be members of this Space.
-            add_softmax (bool): Whether to softmax the NN outputs (before further processing them).
-            policy (str): One of: "max-likelihood", "sample".
+            action_space (IntBox): The action Space.
+            non_explore_behavior (str): One of:
+                max-likelihood: When not exploring, pick an action deterministically (max-likelihood) from the
+                    Policy's distribution.
+                sample: When not exploring, pick an action stochastically according to the Policy's distribution.
+                random: When not exploring, pick an action randomly.
             epsilon_spec (any): The spec or Component object itself to construct an EpsilonExploration Component.
-            #noise_spec (dict): The specification dict for a noise generator that adds noise to the NN's output.
+            noise_spec (dict): The specification dict for a noise generator that adds noise to the NN's output.
         """
-        super(ActionHead, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
-
-        self.add_softmax = add_softmax
+        super(Exploration, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
 
         self.action_space = action_space
+        # TODO: Extend this component for continuous action spaces using noise-based exploration.
+        assert isinstance(self.action_space, IntBox), "ERROR: Only IntBox Spaces supported in Exploration Component " \
+                                                      "so far!"
         assert self.action_space.has_batch_rank, "ERROR: `action_space` does not have batch rank!"
-
-        # The Distribution to sample (or pick) actions from.
-        # Discrete action space -> Categorical distribution.
-        if isinstance(self.action_space, IntBox):
-            self.action_distribution = Categorical()
-        elif isinstance(self.action_space, FloatBox):
-            self.action_distribution = Normal()
-        else:
-            raise YARLError("ERROR: Space of out-Socket `action` is of type {} and not allowed in {} Component!".
-                            format(type(self.action_space).__name__, self.name))
-
-        self.nn_cleanup = NNOutputCleanup(self.action_space)
-        self.policy = policy
+        #
+        self.non_explore_behavior = non_explore_behavior
         self.epsilon_exploration = EpsilonExploration.from_spec(epsilon_spec)
 
-        self.define_inputs("time_step", "nn_output")
+        self.define_inputs("time_step", "sample_deterministic", "sample_stochastic")
         self.define_outputs("action")
-
-        # Add NN-cleanup component and connect to our "nn_output" in-Socket.
-        self.add_component(self.nn_cleanup, connections=["nn_output"])
-
-        # Add action-distribution component and connect to the NN-cleanup.
-        self.add_component(self.action_distribution,
-                           connections=[("parameters", self.nn_cleanup.get_output("parameters")),
-                                        ("max_likelihood", True if self.policy == "max-likelihood" else False)])
 
         # Add epsilon Component and connect accordingly.
         if self.epsilon_exploration is not None:
             self.add_component(self.epsilon_exploration, connections=["time_step"])
 
         # Add our own graph_fn and connect its output to the "action" Socket.
-        self.add_graph_fn(inputs=[(self.epsilon_exploration, "do_explore"), (self.action_distribution, "draw")],
+        self.add_graph_fn(inputs=[(self.epsilon_exploration, "do_explore"),
+                                  "sample_deterministic", "sample_stochastic"],
                           outputs="action",
                           method=self._graph_fn_pick)
 
-    def check_input_spaces(self, input_spaces):
-        flat_action_space = input_spaces["nn_output"]
-        assert flat_action_space.flat_dim == self.action_space.flat_dim_with_categories, \
-            "ERROR: `flat_dims` of incoming NN-output ({}) and `flat_dim_with_categories` of our action_space ({}) " \
-            "don't match!".format(flat_action_space.flat_dim, self.action_space.flat_dim_with_categories)
-
-    def _graph_fn_pick(self, do_explore, action):
+    def _graph_fn_pick(self, do_explore, sample_deterministic, sample_stochastic):
         """
         Args:
             do_explore (DataOp): The bool coming from the epsilon-exploration component specifying
@@ -111,11 +90,12 @@ class ActionHead(Component):
         if backend == "tf":
             import tensorflow as tf
             return tf.cond(do_explore,
-                           # add artificial batch rank
+                           # (1,) = Adding artificial batch rank.
                            true_fn=lambda: tf.random_uniform(shape=(1,) + self.action_space.shape,
-                                                             maxval=self.nn_cleanup.num_categories_per_dim,
+                                                             maxval=self.action_space.num_categories,
                                                              dtype=dtype("int")),
-                           false_fn=lambda: action)
+                           false_fn=lambda: sample_deterministic if self.non_explore_behavior == "max-likelihood"
+                           else sample_stochastic)
 
 
 """        

@@ -20,7 +20,14 @@ from __future__ import print_function
 from .splitter import Splitter
 from .merger import Merger
 from .synchronizable import Synchronizable
-from .decay_components import DecayComponent, ExponentialDecay, PolynomialDecay
+from .decay_components import DecayComponent, LinearDecay, PolynomialDecay, ExponentialDecay
 
-__all__ = ["Splitter", "Merger", "Synchronizable", "DecayComponent", "ExponentialDecay", "PolynomialDecay"]
+DecayComponent.__lookup_classes__ = dict(
+    linear=LinearDecay,
+    exponential=ExponentialDecay,
+    polynomial=PolynomialDecay
+)
+
+__all__ = ["Splitter", "Merger", "Synchronizable", "DecayComponent", "ExponentialDecay",
+           "LinearDecay", "PolynomialDecay"]
 

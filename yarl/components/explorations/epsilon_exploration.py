@@ -27,8 +27,8 @@ class EpsilonExploration(Component):
     A component to handle epsilon-exploration functionality. It takes the current time step and outputs a bool
     on whether to explore (uniformly random) or not (greedy or sampling).
     The time step is used by a epsilon-decay component to determine the current epsilon value between 1.0
-    and 0.0. The result of this decay is the probability, with which we output "True" (meaning: yes, do explore),
-    vs "False" (meaning, no don't explore).
+    and 0.0. The result of this decay is the probability, with which we output "True" (meaning: do explore),
+    vs "False" (meaning: do not explore).
 
     API:
     ins:
@@ -40,7 +40,7 @@ class EpsilonExploration(Component):
     def __init__(self, decay_component=None, scope="epsilon-exploration", **kwargs):
         super(EpsilonExploration, self).__init__(scope=scope, **kwargs)
 
-        # Our (epsilon) Decay-Component
+        # Our (epsilon) Decay-Component.
         self.decay_component = decay_component or PolynomialDecay()
         # Our Bernoulli distribution to figure out whether we should explore or not.
         self.bernoulli_component = Bernoulli()
@@ -53,3 +53,4 @@ class EpsilonExploration(Component):
 
         # Connect the two: Feed the epsilon-value from the decay component as prob-parameter into Bernoulli.
         self.connect((self.decay_component, "value"), (self.bernoulli_component, "parameters"))
+
