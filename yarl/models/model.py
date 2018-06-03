@@ -589,3 +589,4 @@ class Model(Specifiable):
         Returns:
             dict: Dict mapping device identifiers (keys) to assigned components (list of component names).
         """
+        pass
