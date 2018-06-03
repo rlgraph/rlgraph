@@ -96,8 +96,8 @@ class Component(Specifiable):
         self.graph_fns = list()
 
         # Keep track of whether this Component has already been added to another Component and throw error
-        # if this is done twice. Each Component should only be added once to some container Component for cleanlyness.
-        self.has_been_added = False
+        # if this is done twice. Each Component can only be added once to a parent Component.
+        self.parent_component = None  # type: Component
 
         # This Component's Socket objects by functionality.
         self.input_sockets = list()  # the exposed in-Sockets
@@ -167,8 +167,8 @@ class Component(Specifiable):
                      from_space=None, add_batch_rank=False, flatten=False):
         """
         Generates or returns a variable to use in the selected backend.
-        The generated variable is automatically registered in this component's variable registry under
-        its name.
+        The generated variable is automatically registered in this component's (and all parent components')
+        variable-registry under its global-scoped name.
 
         Args:
             name (str): The name under which the variable is registered in this component.
@@ -227,9 +227,10 @@ class Component(Specifiable):
                 trainable=trainable
             )
 
-        # Registers the new variable in this Component.
+        # Registers the new variable in this Component and all its parent Components.
         key = ((self.global_scope + "/") if self.global_scope else "") + name
         self.variables[key] = var
+        self.propagate_variable(key, var)
 
         return var
 
@@ -501,10 +502,10 @@ class Component(Specifiable):
         if component.name in self.sub_components:
             raise YARLError("ERROR: Sub-Component with name '{}' already exists in this one!".format(component.name))
         # Make sure each Component can only be added once to a parent/container Component.
-        elif component.has_been_added is True:
+        elif component.parent_component is not None:
             raise YARLError("ERROR: Sub-Component with name '{}' has already been added once to a container Component! "
                             "Each Component can only be added once to a parent.".format(component.name))
-        component.has_been_added = True
+        component.parent_component = self
         self.sub_components[component.name] = component
 
         # Fix the sub-component's (and sub-sub-component's etc..) scope(s).
@@ -590,9 +591,24 @@ class Component(Specifiable):
         """
         if self.global_scope:
             sub_component.global_scope = self.global_scope + (("/"+sub_component.scope) if sub_component.scope else "")
-        # recurse
+        # Recurse.
         for sc in sub_component.sub_components.values():
             sub_component.propagate_scope(sc)
+
+    def propagate_variable(self, key, variable):
+        """
+        Propagates a variable from this Component into all its parents variable registries.
+
+        Args:
+            key (str): The key (global-scope name) of the variable.
+            variable (SingleDataOp): The variable to propagate.
+        """
+        # Add to parent's variable registry.
+        assert key not in self.parent_component.variables, "ERROR: Variable registry of '{}' already has a variable " \
+                                                           "under key '{}'!".format(self.parent_component.name, key)
+        self.parent_component.variables[key] = variable
+        # Recurse up the container hierarchy.
+        self.parent_component.propagate_variable(key, variable)
 
     def copy(self, name=None, scope=None, device=None, global_component=False):
         """
@@ -668,7 +684,7 @@ class Component(Specifiable):
         """
         self._connect_disconnect(from_, to_, disconnect=True)
 
-    def _connect_disconnect(self, from_, to_, disconnect=False):
+    def _connect_disconnect(self, from_, to_, disconnect=False, label=None):
         """
         Actual private implementer for `connect` and `disconnect`.
 
@@ -676,6 +692,8 @@ class Component(Specifiable):
             from_ (any): The specifier of the connector (e.g. incoming Socket, an incoming Space).
             to_ (any): The specifier of the connectee (e.g. another Socket).
             disconnect (bool): Only used internally. Whether to actually disconnect (instead of connect).
+            label (Optional[str]): An optional label for the connection. The label will be passed along the ops
+                through the computations and must be used to specify the exact op if there is an ambiguity.
 
         Raises:
             YARLError: If one tries to connect two Sockets of the same Component.
@@ -688,9 +706,9 @@ class Component(Specifiable):
             to_socket_obj = self.get_socket(to_)
             assert to_socket_obj.type == "in", "ERROR: Cannot connect a Space to an 'out'-Socket!"
             if not disconnect:
-                to_socket_obj.connect_from(from_)
+                to_socket_obj.connect_from(from_, label=label)
             else:
-                to_socket_obj.disconnect_from(from_)
+                to_socket_obj.disconnect_from(from_, label=label)
             return
         elif isinstance(to_, (Space, dict)) or \
                 (not isinstance(to_, str) and isinstance(to_, Hashable) and to_ in Space.__lookup_classes__):
@@ -703,14 +721,14 @@ class Component(Specifiable):
                 from_socket_obj.disconnect_to(to_)
             return
 
-        # Get only-out Socket.
+        # Get only out-Socket.
         if isinstance(from_, Component):
             from_socket_obj = from_.get_socket(type_="out")
         # Regular Socket->Socket connection.
         else:
             from_socket_obj = self.get_socket(from_)
 
-        # Get only-in Socket.
+        # Get only in-Socket.
         if isinstance(to_, Component):
             to_socket_obj = to_.get_socket(type_="in")
         else:
@@ -723,10 +741,10 @@ class Component(Specifiable):
                 raise YARLError("ERROR: Cannot connect two Sockets that belong to the same Component!")
 
             from_socket_obj.disconnect_to(to_socket_obj)
-            to_socket_obj.disconnect_from(from_socket_obj)
+            to_socket_obj.disconnect_from(from_socket_obj, label=label)
         else:
             from_socket_obj.connect_to(to_socket_obj)
-            to_socket_obj.connect_from(from_socket_obj)
+            to_socket_obj.connect_from(from_socket_obj, label=label)
 
     def get_socket(self, socket=None, type_=None, create_internal_if_not_found=False):
         """

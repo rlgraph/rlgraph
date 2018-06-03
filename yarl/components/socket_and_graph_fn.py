@@ -78,7 +78,7 @@ class Socket(object):
         # The set of (alternative) ops (dictop, tuple or primitive) that this socket carries. Populated at build time.
         self.ops = set()
 
-    # A+B -> comp -> C+D -> C -> E (which also gets an alternative input from G) AND D -> F
+    # A+B -> graph_fn -> C+D -> C -> E (which also gets an alternative input from G) AND D -> F
     # A arrives -> wait (no B yet)
     # b arrives -> comp(A,b) -> C1+D1(given A+b)
     # a arrives -> comp(a,b) -> C2+D2(given a+b)
@@ -95,7 +95,14 @@ class Socket(object):
         if to_ in self.outgoing_connections:
             self.outgoing_connections.remove(to_)
 
-    def connect_from(self, from_):
+    def connect_from(self, from_, label=None):
+        """
+        TODO:
+        
+        Args:
+            from_ (): 
+            label (str): 
+        """
         if from_ not in self.incoming_connections:
             # We need to set this flag here to be able to determine, whether a graph_fn is a no-input
             # (or constant-values-only) graph_fn.
@@ -103,7 +110,7 @@ class Socket(object):
                 self.component.no_input_entry_points.append(self)
             self.incoming_connections.append(from_)
 
-    def disconnect_from(self, from_):
+    def disconnect_from(self, from_, label=None):
         if from_ in self.incoming_connections:
             if isinstance(from_, SingleDataOp):
                 self.component.no_input_entry_points.remove(self)

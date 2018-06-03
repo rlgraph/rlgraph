@@ -160,13 +160,14 @@ class Distribution(Component):
     @staticmethod
     def _graph_fn_kl_divergence(distribution_a, distribution_b):
         """
-        Kullback-leiber divergence between two distribution objects.
+        Kullback-Leibler divergence between two distribution objects.
+
         Args:
             distribution_a (tf.Distribution): A Distribution object.
             distribution_b (tf.Distribution): A distribution object.
 
         Returns:
-            tf.Tensor: (batch-wise) KL-divergence between the two distributions.
+            DataOp: (batch-wise) KL-divergence between the two distributions.
         """
         if backend == "tf":
             import tensorflow as tf
