@@ -19,8 +19,10 @@ from __future__ import print_function
 
 import unittest
 
+from yarl.components import Component
 from yarl.components.common.decay_components import LinearDecay
 from yarl.components.explorations import Exploration, EpsilonExploration
+from yarl.components.distributions import NNOutputCleanup, Categorical
 from yarl.spaces import *
 from yarl.tests import ComponentTest
 
@@ -49,15 +51,26 @@ class TestExplorations(unittest.TestCase):
     def test_exploration_with_discrete_action_space(self):
         # 2x2 action-pick, each action with 5 categories.
         space = IntBox(5, shape=(2, 2), add_batch_rank=True)
-        # Our NN must output this Space then:
+        # Our distribution to go into the Exploration object.
+        distribution = Categorical()
+        nn_output_cleanup = NNOutputCleanup(target_space=space)
         nn_output_space = FloatBox(shape=(space.flat_dim_with_categories,), add_batch_rank=True)
-
+        exploration = Exploration(action_space=space)
         # The Component to test.
-        action_head = Exploration(action_space=space)
-        test = ComponentTest(component=action_head, input_spaces=dict(nn_output=nn_output_space,
-                                                                      time_step=int))
+        component_to_test = Component(scope="categorical-plus-exploration")
+        component_to_test.define_inputs("nn_output", "time_step")
+        component_to_test.define_outputs("action")
+        component_to_test.add_components(nn_output_cleanup, distribution, exploration)
+        component_to_test.connect("nn_output", [nn_output_cleanup, "nn_output"])
+        component_to_test.connect([nn_output_cleanup, "parameters"], [distribution, "parameters"])
+        component_to_test.connect([distribution, "sample_deterministic"], [exploration, "sample_deterministic"])
+        component_to_test.connect([distribution, "sample_stochastic"], [exploration, "sample_stochastic"])
+        component_to_test.connect("time_step", [exploration, "time_step"])
+        component_to_test.connect([exploration, "action"], "action")
+        test = ComponentTest(component=component_to_test, input_spaces=dict(nn_output=nn_output_space,
+                                                                            time_step=int))
 
-        # NN-output (batch-size=2, 20 output nodes to cover the 2x2x5 action space).
+        # Parameters for Categorical (batch-size=2, 2x2x5 action space).
         inputs = dict(nn_output=np.array([[100.0, 50.0, 25.0, 12.5, 6.25,
                                            200.0, 100.0, 50.0, 25.0, 12.5,
                                            1.0, 1.0, 1.0, 25.0, 1.0,
@@ -73,5 +86,6 @@ class TestExplorations(unittest.TestCase):
         expected = np.array([[[0, 0], [3, 1]], [[0, 4], [4, 4]]])
         test.test(out_socket_name="action", inputs=inputs, expected_outputs=expected)
 
-    def test_action_head_with_continuous_action_space(self):
+    def test_exploration_with_continuous_action_space(self):
         pass
+

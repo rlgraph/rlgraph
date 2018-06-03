@@ -368,17 +368,18 @@ class Model(Specifiable):
                 # Look for the missing in-Socket and raise an Error.
                 for in_sock_name, in_sock_record in graph_fn.input_sockets.items():
                     if len(in_sock_record["ops"]) == 0:
-                        print("ERROR: in-Socket '{}' of GraphFunction '{}' of Component '{}' does not have "
-                              "any incoming ops!".format(in_sock_name, graph_fn.name, component.name))
+                        logging.warning("in-Socket '{}' of GraphFunction '{}' of Component '{}' does not have "
+                                        "any incoming ops!".format(in_sock_name, graph_fn.name, component.name))
 
         # Check component's sub-components for input-completeness (recursively).
         for sub_component in component.sub_components.values():  # type: Component
             if sub_component.input_complete is False:
+                logging.warning("Component '{}' is not input-complete. The following Sockets do not "
+                                "have incoming connections:".format(sub_component.name))
                 # Look for the missing Socket and raise an Error.
                 for in_sock in sub_component.input_sockets:
                     if len(in_sock.incoming_connections) == 0:
-                        print("ERROR: in-Socket '{}' of Component '{}' does not have any incoming "
-                              "connections!".format(in_sock.name, sub_component.name))
+                        logging.warning("\t'{}'".format(in_sock.name))
             # Recursively call this method on all the sub-component's sub-components.
             self.sanity_check_build(sub_component)
 

@@ -34,27 +34,44 @@ class Distribution(Component):
     ins:
         parameters (numeric): The parameters of the distribution (e.g. mean and variance for a Gaussian).
             The Space of parameters must have a batch-rank.
-        max_likelihood (bool): Whether to sample or to get the max-likelihood value (deterministic).
+        Optional:
+            max_likelihood (bool): Whether to sample or to get the max-likelihood value (deterministic) when
+                using the "draw" out-Socket. This Socket is optional and can be switched on via the constructor parameter:
+                "expose_draw"=True.
     outs:
         sample_stochastic (numeric): Returns a stochastic sample from the distribution.
         sample_deterministic (numeric): Returns the max-likelihood value (deterministic) from the distribution.
-        draw (numeric): Draws a sample from the distribution (if max_likelihood is True, this is will be
-            a deterministic draw, otherwise a stochastic sample).
         entropy (float): The entropy value of the distribution.
+        Optional:
+            draw (numeric): Draws a sample from the distribution (if max_likelihood is True, this is will be
+                a deterministic draw, otherwise a stochastic sample). This Socket is optional and can be switched on via
+                the constructor parameter: "expose_draw"=True. By default, this Socket is not exposed.
     """
-    def __init__(self, scope="distribution", **kwargs):
+    def __init__(self, expose_draw=False, scope="distribution", **kwargs):
+        """
+        Args:
+            expose_draw (bool): Whether this Component should expose an out-Socket named "draw"
+                (needing also a 'max_likelihood' in-Socket). This additional out-Socket either returns a
+                stochastic or a deterministic sample from the distribution, depending on the provided
+                "max_likelihood" in-Socket bool value.
+                Default: False.
+        """
         super(Distribution, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
 
         # Define a generic Distribution interface.
-        self.define_inputs("parameters", "max_likelihood")
-        self.define_outputs("draw", "entropy", "sample_stochastic", "sample_deterministic")
+        self.define_inputs("parameters")
+        self.define_outputs("sample_stochastic", "sample_deterministic", "entropy")
         # "distribution" will be an internal Socket used to connect the GraphFunctions with each other.
         self.add_graph_fn("parameters", "distribution", self._graph_fn_parameterize)
-        self.add_graph_fn(["distribution", "max_likelihood"], "draw", self._graph_fn_draw)
         self.add_graph_fn("distribution", "sample_stochastic", self._graph_fn_sample_stochastic)
         self.add_graph_fn("distribution", "sample_deterministic", self._graph_fn_sample_deterministic)
-        self.add_graph_fn(["distribution", "max_likelihood"], "draw", self._graph_fn_draw)
         self.add_graph_fn("distribution", "entropy", self._graph_fn_entropy)
+
+        # If we need the flexible out-Socket "draw", add it here and connect it.
+        if expose_draw is True:
+            self.define_inputs("max_likelihood")
+            self.define_outputs("draw")
+            self.add_graph_fn(["distribution", "max_likelihood"], "draw", self._graph_fn_draw)
 
     def check_input_spaces(self, input_spaces):
         in_space = input_spaces["parameters"]

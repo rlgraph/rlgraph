@@ -35,7 +35,7 @@ class TestDistributions(unittest.TestCase):
         param_space = FloatBox(shape=(5,), add_batch_rank=True)
 
         # The Component to test.
-        bernoulli = Bernoulli()
+        bernoulli = Bernoulli(expose_draw=True)  # add the "draw" Socket
         test = ComponentTest(component=bernoulli, input_spaces=dict(parameters=param_space, max_likelihood=BoolBox()))
 
         # Batch of size=1 and deterministic.
@@ -54,10 +54,10 @@ class TestDistributions(unittest.TestCase):
             "parameters": np.array([[0.1, 0.3, 0.6, 0.71, 0.001], [0.9, 0.998, 0.9999, 0.0001, 0.345678]]),
             "max_likelihood": False
         }
-        expected = np.array([[False, True, True, True, False], [True, True, True, False, True]])
+        expected = np.array([[False, False, False, True, False], [True, True, True, False, True]])
         test.test(out_socket_name="draw", inputs=input_, expected_outputs=expected)
         # Try the same on the sample_stochastic out-Socket without the max_likelihood input..
-        expected = np.array([[False, False, False, True, False], [True, True, True, False, False]])
+        expected = np.array([[False, False, True, True, False], [True, True, True, False, False]])
         test.test(out_socket_name="sample_stochastic", inputs=input_["parameters"], expected_outputs=expected)
 
     def test_categorical(self):
@@ -65,7 +65,7 @@ class TestDistributions(unittest.TestCase):
         param_space = FloatBox(shape=(5, 3), add_batch_rank=True)
 
         # The Component to test.
-        categorical = Categorical()
+        categorical = Categorical(expose_draw=True)  # add the "draw" Socket
         test = ComponentTest(component=categorical, input_spaces=dict(parameters=param_space, max_likelihood=BoolBox()))
 
         # Batch of size=1 and deterministic.
@@ -100,17 +100,53 @@ class TestDistributions(unittest.TestCase):
                                     ]),
             "max_likelihood": False
         }
-        expected = np.array([[2, 0, 2, 1, 0], [0, 2, 0, 2, 2]])
+        expected = np.array([[1, 0, 2, 1, 0], [2, 2, 0, 2, 0]])
         test.test(out_socket_name="draw", inputs=input_, expected_outputs=expected)
-        expected = np.array([[0, 0, 2, 1, 0], [2, 2, 0, 2, 0]])
+        expected = np.array([[1, 2, 1, 1, 2], [2, 2, 0, 0, 1]])
         test.test(out_socket_name="sample_stochastic", inputs=input_["parameters"], expected_outputs=expected)
+
+    def test_categorical_without_draw_socket(self):
+        # Create 5 categorical distributions of 2 categories each.
+        param_space = FloatBox(shape=(5, 2), add_batch_rank=True)
+
+        # The Component to test.
+        categorical = Categorical()  # no "draw" Socket
+        test = ComponentTest(component=categorical, input_spaces=dict(parameters=param_space))
+
+        # Batch of size=1 and deterministic.
+        input_ = np.array([[[0.5, 0.5],
+                            [0.98, 0.02],
+                            [0.0, 1.0],
+                            [0.2, 0.8],
+                            [0.3, 0.6]
+                            ]])
+        expected = np.array([[0, 0, 1, 1, 1]])
+        test.test(out_socket_name="sample_deterministic", inputs=input_, expected_outputs=expected)
+
+        # Batch of size=2 and non-deterministic -> expect always the same result when we seed tf (done automatically
+        # by the ComponentTest object).
+        input_ = np.array([[[0.25, 0.75],
+                            [0.96, 0.04],
+                            [0.5, 0.5],
+                            [0.05, 0.95],
+                            [0.6, 0.4]
+                            ],
+                           [[0.65, 0.35],
+                            [0.0002, 0.9998],
+                            [0.82, 0.18],
+                            [0.5001, 0.4999],
+                            [0.333, 0.667]
+                            ]
+                           ])
+        expected = np.array([[1, 0, 0, 1, 0], [0, 1, 0, 0, 1]])
+        test.test(out_socket_name="sample_stochastic", inputs=input_, expected_outputs=expected)
 
     def test_normal(self):
         # Create 5 normal distributions (2 parameters (mean and stddev) each).
         param_space = Tuple(FloatBox(shape=(5,)), FloatBox(shape=(5,)), add_batch_rank=True)
 
         # The Component to test.
-        normal = Normal()
+        normal = Normal(expose_draw=True)  # add the "draw" Socket
         test = ComponentTest(component=normal, input_spaces=dict(parameters=param_space, max_likelihood=BoolBox()))
 
         # Batch of size=2 and deterministic.
@@ -131,7 +167,7 @@ class TestDistributions(unittest.TestCase):
                            np.array([[2.0, 0.01, 0.698, 0.2, 33.00]])),
             "max_likelihood": False
         }
-        expected = np.array([[3.6626518, 1.0136144, 45.32793, 150.71884, 10.735527]], dtype=np.float32)
+        expected = np.array([[-1.860959, 0.9959144, 44.71664, 150.7269, 27.35314]], dtype=np.float32)
         test.test(out_socket_name="draw", inputs=input_, expected_outputs=expected)
-        expected = np.array([[2.2191696, 0.9887564, 44.80277, 150.44943, 38.97615]], dtype=np.float32)
+        expected = np.array([[1.3808961, 0.9986517, 46.074947, 150.49863, 112.33245]], dtype=np.float32)
         test.test(out_socket_name="sample_stochastic", inputs=input_["parameters"], expected_outputs=expected)

@@ -56,10 +56,8 @@ class NNOutputCleanup(Component):
         # Discrete action space. Make sure, all dimensions have the same bounds and the lower bound is 0.
         if self.target_space.global_bounds is False:
             raise YARLError("ERROR: `target_space` must not have individual lower and upper bounds!")
-        elif self.target_space.global_bounds[0] != 0:
-            raise YARLError("ERROR: `target_space` must have a lower bound of 0!")
-
-        self.num_categories_per_dim = self.target_space.global_bounds[1] - self.target_space.global_bounds[0]
+        elif self.target_space.num_categories == 0:
+            raise YARLError("ERROR: `target_space` must have a `num_categories` of larger 0!")
 
         # Define our interface.
         self.define_inputs("nn_output")
@@ -67,7 +65,7 @@ class NNOutputCleanup(Component):
 
         # If we have a bias layer, connect it before the actual cleanup.
         if bias is not None:
-            bias_layer = DenseLayer(units=self.num_categories_per_dim, biases_spec=bias if np.isscalar(bias) else
+            bias_layer = DenseLayer(units=self.target_space.num_categories, biases_spec=bias if np.isscalar(bias) else
                                     [log(b) for _ in range(self.target_space.flat_dim) for b in bias])
             self.add_component(bias_layer, connections=dict(input="nn_output"))
             # Place our cleanup after the bias layer.
@@ -91,20 +89,17 @@ class NNOutputCleanup(Component):
         parameters from the NN-output).
 
         Args:
-            nn_outputs (SingleDataOp): The flattened data coming from an NN, but already biased?.
+            nn_outputs_plus_bias (SingleDataOp): The already biased (optional) and flattened data coming from an NN.
 
         Returns:
             SingleDataOp: The parameters, ready to be passed to a Distribution object's in-Socket "parameters".
         """
-        # Apply optional bias.
-        #if self.bias_layer is not None:
-        #    nn_outputs = self.bias_layer.call("apply", inputs=nn_outputs)
-
         # Reshape logits to action shape
-        shape = self.target_space.get_shape(with_batch_rank=-1) + (self.num_categories_per_dim,)
+        shape = self.target_space.get_shape(with_batch_rank=-1, with_category_rank=True)
         if backend == "tf":
             import tensorflow as tf
             logits = tf.reshape(tensor=nn_outputs_plus_bias, shape=shape)
 
             # Convert logits into probabilities and clamp them at SMALL_NUMBER.
             return tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
+
