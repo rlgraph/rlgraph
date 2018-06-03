@@ -36,7 +36,10 @@ class Distribution(Component):
             The Space of parameters must have a batch-rank.
         max_likelihood (bool): Whether to sample or to get the max-likelihood value (deterministic).
     outs:
-        draw (numeric): Draws a sample from the distribution.
+        sample_stochastic (numeric): Returns a stochastic sample from the distribution.
+        sample_deterministic (numeric): Returns the max-likelihood value (deterministic) from the distribution.
+        draw (numeric): Draws a sample from the distribution (if max_likelihood is True, this is will be
+            a deterministic draw, otherwise a stochastic sample).
         entropy (float): The entropy value of the distribution.
     """
     def __init__(self, scope="distribution", **kwargs):
@@ -44,9 +47,12 @@ class Distribution(Component):
 
         # Define a generic Distribution interface.
         self.define_inputs("parameters", "max_likelihood")
-        self.define_outputs("draw", "entropy")
+        self.define_outputs("draw", "entropy", "sample_stochastic", "sample_deterministic")
         # "distribution" will be an internal Socket used to connect the GraphFunctions with each other.
         self.add_graph_fn("parameters", "distribution", self._graph_fn_parameterize)
+        self.add_graph_fn(["distribution", "max_likelihood"], "draw", self._graph_fn_draw)
+        self.add_graph_fn("distribution", "sample_stochastic", self._graph_fn_sample_stochastic)
+        self.add_graph_fn("distribution", "sample_deterministic", self._graph_fn_sample_deterministic)
         self.add_graph_fn(["distribution", "max_likelihood"], "draw", self._graph_fn_draw)
         self.add_graph_fn("distribution", "entropy", self._graph_fn_entropy)
 
@@ -89,11 +95,11 @@ class Distribution(Component):
         if backend == "tf":
             import tensorflow as tf
             return tf.cond(pred=max_likelihood,
-                           true_fn=lambda: self.max_likelihood(distribution),
-                           false_fn=lambda: self.sampled(distribution)
+                           true_fn=lambda: self._graph_fn_sample_deterministic(distribution),
+                           false_fn=lambda: self._graph_fn_sample_stochastic(distribution)
                            )
 
-    def max_likelihood(self, distribution):
+    def _graph_fn_sample_deterministic(self, distribution):
         """
         Returns the maximum-likelihood value for a given distribution.
 
@@ -107,7 +113,7 @@ class Distribution(Component):
         raise NotImplementedError
 
     @staticmethod
-    def sampled(distribution):
+    def _graph_fn_sample_stochastic(distribution):
         """
         Returns an actual sample for a given distribution.
 
@@ -156,7 +162,7 @@ class Bernoulli(Distribution):
             import tensorflow as tf
             return tf.distributions.Bernoulli(probs=prob, dtype=util.dtype("bool"))
 
-    def max_likelihood(self, distribution):
+    def _graph_fn_sample_deterministic(self, distribution):
         return distribution.prob(True) >= 0.5
 
 
@@ -173,7 +179,7 @@ class Categorical(Distribution):
             import tensorflow as tf
             return tf.distributions.Categorical(probs=probs, dtype=util.dtype("int"))
 
-    def max_likelihood(self, distribution):
+    def _graph_fn_sample_deterministic(self, distribution):
         if backend == "tf":
             import tensorflow as tf
             return tf.argmax(input=distribution.probs, axis=-1, output_type=util.dtype("int"))
@@ -199,5 +205,5 @@ class Normal(Distribution):
             import tensorflow as tf
             return tf.distributions.Normal(loc=loc_and_scale[0], scale=loc_and_scale[1])
 
-    def max_likelihood(self, distribution):
+    def _graph_fn_sample_deterministic(self, distribution):
         return distribution.mean()
