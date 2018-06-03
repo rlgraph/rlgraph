@@ -43,7 +43,7 @@ class EpsilonExploration(Component):
         # Our (epsilon) Decay-Component.
         self.decay_component = decay_component or PolynomialDecay()
         # Our Bernoulli distribution to figure out whether we should explore or not.
-        self.bernoulli_component = Bernoulli()
+        self.bernoulli_component = Bernoulli(expose_draw=True)
 
         # Add the decay component and make time_step our (only) input.
         self.add_component(self.decay_component, connections=["time_step"])  # create our own "time_step" in-Socket.
