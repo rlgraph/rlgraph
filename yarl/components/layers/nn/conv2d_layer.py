@@ -41,8 +41,10 @@ class Conv2DLayer(NNLayer):
             data_format (str): One of 'channels_last' (default) or 'channels_first'. Specifies which rank (first or
                 last) is the color-channel. If the input Space is with batch, the batch always has the first rank.
             activation (Optional[op]): The activation function to use. Default: None.
-            kernel_spec (any): A specifier for the kernel-weights initializer.
-            bias_spec (any): A specifier for the biases-weights initializer. If False, use no biases.
+            kernel_spec (any): A specifier for the kernel-weights initializer. Use None for the default initializer.
+                Default: None.
+            bias_spec (any): A specifier for the biases-weights initializer. Use None for the default initializer.
+                If False, uses no biases. Default: False.
             # TODO: regularization specs
         """
         # Remove kwargs before calling super().
@@ -63,9 +65,10 @@ class Conv2DLayer(NNLayer):
         # At model-build time.
         self.biases_init = None
 
-
     def create_variables(self, input_spaces):
         super(Conv2DLayer, self).create_variables(input_spaces)
+
+        in_space = input_spaces["input"]
 
         # Create kernel and biases initializers.
         self.kernel_init = Initializer.from_spec(shape=self.kernel_size, specification=self.kernel_spec)
@@ -74,7 +77,6 @@ class Conv2DLayer(NNLayer):
         # Wrapper for backend.
         if backend == "tf":
             import tensorflow as tf
-            # TODO: variables registry (variables now exist in tf.layer).
             self.layer = tf.layers.Conv2D(
                 filters=self.filters, kernel_size=self.kernel_size,
                 strides=self.strides, padding=self.padding,
@@ -84,3 +86,9 @@ class Conv2DLayer(NNLayer):
                 kernel_initializer=self.kernel_init.initializer,
                 bias_initializer=self.biases_init.initializer
             )
+
+            # Now build the layer so that its variables get created.
+            self.layer.build(in_space.shape)
+            # Register the generated variables with our registry.
+            self.register_variables(*self.layer.variables)
+

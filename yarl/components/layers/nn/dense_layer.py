@@ -64,11 +64,14 @@ class DenseLayer(NNLayer):
         # Wrapper for backend.
         if backend == "tf":
             import tensorflow as tf
-            # TODO: variables registry (variables now exist in tf.layer).
             self.layer = tf.layers.Dense(
                 units=self.units,
                 kernel_initializer=self.weights_init.initializer,
                 use_bias=(self.biases_spec is not False),
-                bias_initializer=self.biases_init.initializer
+                bias_initializer=self.biases_init.initializer,
             )
 
+            # Now build the layer so that its variables get created.
+            self.layer.build(in_space.shape)
+            # Register the generated variables with our registry.
+            self.register_variables(*self.layer.variables)

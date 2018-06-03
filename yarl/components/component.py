@@ -163,6 +163,20 @@ class Component(Specifiable):
         """
         pass
 
+    def register_variables(self, *variables):
+        """
+        Adds already created Variables to our registry. This could be useful if the variables are not created
+        by our own `self.get_variable` method, but by some backend-specific object (e.g. tf.layers).
+
+        Args:
+            variables (SingleDataOp): The Variable objects to register.
+        """
+        for var in variables:
+            ## Use our global_scope plus the var's name without anything in between.
+            ## e.g. var.name = "dense-layer/dense/kernel:0" -> key = "dense-layer/kernel"
+            #key = re.sub(var.name)
+            self.variables[var.name] = var
+
     def get_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True,
                      from_space=None, add_batch_rank=False, flatten=False):
         """
@@ -246,15 +260,15 @@ class Component(Specifiable):
                 Default: tf.GraphKeys.TRAINABLE_VARIABLES
             custom_scope_separator (str): The separator to use in the returned dict for scopes.
                 Default: '/'.
-            no_scopes (bool): Whether to use keys in the returned dict that include the global-scopes of the Variables.
-                Default: True.
+            global_scope (bool): Whether to use keys in the returned dict that include the global-scopes of the
+                Variables. Default: False.
 
         Returns:
             dict: A dict mapping variable names to their backend variables.
         """
         collections = kwargs.pop("collections", None) or tf.GraphKeys.TRAINABLE_VARIABLES
         custom_scope_separator = kwargs.pop("custom_scope_separator", "/")
-        no_scopes = kwargs.pop("no_scopes", True)
+        global_scope = kwargs.pop("global_scope", True)
         assert not kwargs, "{}".format(kwargs)
 
         if len(names) == 1 and isinstance(names[0], list):
@@ -267,11 +281,11 @@ class Component(Specifiable):
             for v in collection_variables:
                 lookup = re.sub(r':\d+$', "", v.name)
                 if lookup in self.variables:
-                    if no_scopes:
-                        ret[re.sub(r'^.+/', "", lookup)] = v
-                    else:
+                    if global_scope:
                         # Replace the scope separator with a custom one.
                         ret[re.sub(r'/', custom_scope_separator, lookup)] = v
+                    else:
+                        ret[re.sub(r'^.+/', "", lookup)] = v
             return ret
         # Return only variables of this Component by name.
         else:
@@ -281,10 +295,10 @@ class Component(Specifiable):
                 if name in self.variables:
                     ret[re.sub(r'/', custom_scope_separator, name)] = self.variables[name]
                 elif global_scope_name in self.variables:
-                    if no_scopes:
-                        ret[name] = self.variables[global_scope_name]
-                    else:
+                    if global_scope:
                         ret[re.sub(r'/', custom_scope_separator, global_scope_name)] = self.variables[global_scope_name]
+                    else:
+                        ret[name] = self.variables[global_scope_name]
             return ret
 
     def define_inputs(self, *sockets, **kwargs):

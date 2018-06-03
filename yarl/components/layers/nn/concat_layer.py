@@ -35,7 +35,8 @@ class ConcatLayer(NNLayer):
                 All inputs to this layer must have the same shape, except for the `axis` rank.
             num_graph_fn_inputs (int): The number of inputs to concatenate (this is how many in-Sockets will be created).
         """
-        # Set up the super class as one that takes `num_graph_fn_inputs` inputs in its computation and produces 1 output.
+        # Set up the super class as one that takes `num_graph_fn_inputs` inputs in its computation and
+        # produces 1 output.
         super(ConcatLayer, self).__init__(scope=scope,
                                           num_graph_fn_inputs=num_graph_fn_inputs, num_graph_fn_outputs=1,
                                           **kwargs)
