@@ -38,9 +38,8 @@ class ConcatLayer(NNLayer):
         """
         # Set up the super class as one that takes `num_graph_fn_inputs` inputs in its computation and
         # produces 1 output.
-        super(ConcatLayer, self).__init__(scope=scope,
-                                          num_graph_fn_inputs=num_graph_fn_inputs, num_graph_fn_outputs=1,
-                                          **kwargs)
+        super(ConcatLayer, self).__init__(scope=scope, num_graph_fn_inputs=num_graph_fn_inputs,
+                                          num_graph_fn_outputs=1, **kwargs)
         self.axis = axis
 
     def check_input_spaces(self, input_spaces):
