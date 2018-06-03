@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from yarl.models import Model
 import tensorflow as tf
+from tensorflow.python.client import device_lib
 
 
 class TensorFlowModel(Model):
@@ -53,6 +54,7 @@ class TensorFlowModel(Model):
         self.monitored_session = None
 
         self.graph_default_context = None
+        self.available_devices = device_lib.list_local_devices()
 
     def call(self, sockets, inputs=None):
         fetch_list, feed_dict = self.get_execution_inputs(output_socket_names=sockets, inputs=inputs)
@@ -231,9 +233,30 @@ class TensorFlowModel(Model):
         self.session = self.monitored_session._tf_sess()
 
     def assign_device(self, graph_fn, socket, assigned_device):
-        # TODO potentially validate device exists via fetching local devices.
-        # Otherwise, what happens if device assigned not recognized?
+        if assigned_device not in self.available_devices:
+            self.logger.error("Assigned device {} for graph_fn {} not in available devices:\n {}".
+                format(assigned_device, graph_fn, self.available_devices))
+
         with tf.device(assigned_device):
             self.logger.debug("Assigning device {} to graph_fn {} via socket  {}".format(
                 assigned_device, graph_fn, socket))
             graph_fn.update_from_input(socket, self.op_registry, self.in_socket_registry)
+
+            # Store assigned names for debugging.
+            if assigned_device not in self.device_component_assignments:
+                self.device_component_assignments[assigned_device] = [str(graph_fn)]
+            else:
+                self.device_component_assignments[assigned_device].append(str(graph_fn))
+
+    def get_available_devices(self):
+        return self.available_devices
+
+    def get_device_assignments(self, device_names=None):
+        if device_names is None:
+            return self.device_component_assignments
+        else:
+            assignments = dict()
+            for device in self.device_component_assignments:
+                if device in device_names:
+                    assignments[device] = self.device_component_assignments[device]
+            return assignments

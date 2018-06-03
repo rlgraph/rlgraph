@@ -25,7 +25,7 @@ from yarl.spaces import IntBox
 class DQNLossFunction(LossFunction):
     """
     The classic 2015 DQN Loss Function:
-    L = Expectation-over-uniform-batch(r + gamma x maxa'Qt(s',a') - Qn(s,a))²
+    L = Expectation-over-uniform-batch(r + gamma x max_a'Qt(s',a') - Qn(s,a))²
     Where Qn is the "normal" Q-network and Qt is the "target" net (which is a little behind Qn for stability purposes).
     """
 
