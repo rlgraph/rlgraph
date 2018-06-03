@@ -50,6 +50,7 @@ class Stack(Component):
         if len(sub_components) == 0:
             return
 
+        # TODO: let Component parent add the sub-components.
         # Add all sub-components into the stack obeying the settings for connecting the first component's input
         # Sockets and the last Component's output Socket.
         self.add_components(*sub_components, connect=dict({

@@ -36,8 +36,8 @@ class Layer(Stack):
                 which then provides the output Sockets of this component.
 
         Keyword Args:
-            comp_inputs (int): The number of parameters that our graph_fn takes.
-            comp_outputs (int): The number of output values that our graph_fn returns (as tuple)
+            num_graph_fn_inputs (int): The number of parameters that our graph_fn takes.
+            num_graph_fn_outputs (int): The number of output values that our graph_fn returns (as tuple)
                 given that the number of input parameters is num_graph_inputs.
         """
         self.num_graph_fn_inputs = kwargs.pop("num_graph_fn_inputs", 1)

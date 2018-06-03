@@ -33,7 +33,8 @@ class ConcatLayer(NNLayer):
         Args:
             axis (int): The axis along which to concatenate. Use negative numbers to count from end.
                 All inputs to this layer must have the same shape, except for the `axis` rank.
-            num_graph_fn_inputs (int): The number of inputs to concatenate (this is how many in-Sockets will be created).
+            num_graph_fn_inputs (int): The number of inputs to concatenate (this is how many in-Sockets
+                will be created).
         """
         # Set up the super class as one that takes `num_graph_fn_inputs` inputs in its computation and
         # produces 1 output.
@@ -41,6 +42,14 @@ class ConcatLayer(NNLayer):
                                           num_graph_fn_inputs=num_graph_fn_inputs, num_graph_fn_outputs=1,
                                           **kwargs)
         self.axis = axis
+
+    def check_input_spaces(self, input_spaces):
+        in1_space = input_spaces["input1"]
+        # Make sure all inputs have the same shape except for the last rank.
+        for key, in_space in input_spaces.items():
+            assert in1_space.shape[:-1] == in_space.shape[:-1], \
+                "ERROR: input spaces to ConcatLayer must have same shape except for last rank. {}'s shape is {}, but " \
+                "'input1's shape is {}.".format(key, in_space.shape, in1_space.shape)
 
     def create_variables(self, input_spaces):
         super(ConcatLayer, self).create_variables(input_spaces)

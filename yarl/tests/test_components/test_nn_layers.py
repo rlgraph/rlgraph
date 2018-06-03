@@ -18,12 +18,11 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
+import numpy as np
 
 from yarl.components.layers import DenseLayer, Conv2DLayer, ConcatLayer
 from yarl.spaces import FloatBox
 from yarl.tests import ComponentTest
-
-import numpy as np
 
 
 class TestNNLayer(unittest.TestCase):

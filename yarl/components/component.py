@@ -50,10 +50,10 @@ class Component(Specifiable):
     A component also has a variable registry, the ability to save the component's structure and variable-values to disk,
     and supports adding its graph_fns to the overall computation graph.
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *sub_components, **kwargs):
         """
         Args:
-            args (any): For subclasses to use.
+            sub_components (Component): Specification dicts for sub-Components to be added to this one.
 
         Keyword Args:
             name (str): The name of this Component. Names of sub-components within a containing component
@@ -68,6 +68,11 @@ class Component(Specifiable):
             split_ops (bool): See `self.add_graph_fn` and GraphFunction's c'tor for more details.
             add_auto_key_as_first_param (bool): See `self.add_graph_fn` and GraphFunction's c'tor for more details.
             unflatten_ops (bool): See `self.add_graph_fn` and GraphFunction's c'tor for more details.
+
+            inputs (List[str]): A list of in-Sockets to be defined for this Component.
+            outputs (List[str]): A list of out-Sockets to be defined for this Component.
+            connections (list): A list of connection specifications to be made between our Sockets and/or the different
+                sub-Components.
         """
 
         # Scope if used to create scope hierarchies inside the Graph.
@@ -86,6 +91,10 @@ class Component(Specifiable):
         self.split_ops = kwargs.pop("split_ops", False)
         self.add_auto_key_as_first_param = kwargs.pop("add_auto_key_as_first_param", False)
         self.unflatten_ops = kwargs.pop("unflatten_ops", True)
+
+        inputs = kwargs.pop("inputs", [])
+        outputs = kwargs.pop("outputs", [])
+        connections = kwargs.pop("connections", [])
 
         assert not kwargs, "ERROR: kwargs ({}) still contains items!".format(kwargs)
 
@@ -121,6 +130,16 @@ class Component(Specifiable):
         # key=full-scope variable name
         # value=the actual variable
         self.variables = dict()
+
+        # Assemble this Component from the constructor specs.
+        self.define_inputs(*inputs)
+        self.define_outputs(*outputs)
+        # Add the sub-components.
+        for sub_component_spec in sub_components:
+            self.add_component(Component.from_spec(sub_component_spec))
+        # Add the connections.
+        for connection in connections:
+            self.connect(connection[0], connection[1])
 
     def when_input_complete(self, input_spaces):
         """
@@ -327,8 +346,6 @@ class Component(Specifiable):
         Args:
             *sockets (List[Socket]): The list of out-Sockets to add.
         """
-        # TODO: Add out-Socket to Space connection for reverse Space inferral?
-        # TODO: E.g.: NN-fc-out layer -> Action Space (then the out layer would know how many units it needs).
         self.add_sockets(*sockets, type="out")
 
     def add_socket(self, name, value=None, **kwargs):
@@ -627,7 +644,8 @@ class Component(Specifiable):
     def copy(self, name=None, scope=None, device=None, global_component=False):
         """
         Copies this component and returns a new component with possibly another name and another scope.
-        The new component has its own variables (they are not shared with the variables of this component)
+        The new component has its own variables (they are not shared with the variables of this component as they
+        will be created after this copy anyway, during the build phase).
         and is initially not connected to any other component. However, the Sockets of this component and their names
         are being copied (but without their connections).
 
@@ -815,10 +833,16 @@ class Component(Specifiable):
             assert len(socket) == 2,\
                 "ERROR: Faulty socket spec! " \
                 "External sockets need to be given as two item tuple: (Component, socket-name/obj)!"
-            assert isinstance(socket[0], Component),\
-                "ERROR: First element in socket specifier is not of type Component, but of type: '{}'!".\
-                    format(type(socket[0]).__name__)
+
             component = socket[0]  # type: Component
+            if isinstance(component, str):
+                component = self.sub_components.get(component)
+                if component is None:
+                    raise YARLError("ERROR: 1st item in tuple-Socket specifier is not the name of a sub-Component!".
+                                    format(socket[0]))
+            assert isinstance(component, Component), \
+                "ERROR: First element in socket specifier is not of type Component, but of type: " \
+                "'{}'!".format(type(component).__name__)
             socket_name = socket[1]
             # Socket is given explicitly -> use it.
             if isinstance(socket[1], Socket):
