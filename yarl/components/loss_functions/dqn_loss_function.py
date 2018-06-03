@@ -77,7 +77,7 @@ class DQNLossFunction(LossFunction):
             import tensorflow as tf
 
             # Q(s',a') -> Use the max(a') one.
-            q_sp_ap_values = tf.reduce_max(q_values_sp, axis=-1)
+            q_sp_ap_values = tf.reduce_max(input_tensor=q_values_sp, axis=-1)
 
             # Q(s,a) -> Use the Q-value of the action actually taken before.
             one_hot = tf.one_hot(indices=actions, depth=self.action_space.num_categories)
@@ -85,5 +85,5 @@ class DQNLossFunction(LossFunction):
 
             # Calculate the TD-delta (target - current estimate).
             td_delta = (rewards + self.discount * q_sp_ap_values) - q_s_a_values
-            average_over_actions = tf.reduce_mean(td_delta, axis=-1)
-            return tf.pow(average_over_actions, 2)
+            average_over_actions = tf.reduce_mean(input_tensor=td_delta, axis=-1)
+            return tf.pow(x=average_over_actions,y=2)

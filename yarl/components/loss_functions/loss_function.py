@@ -71,5 +71,5 @@ class LossFunction(Component):
         """
         if backend == "tf":
             import tensorflow as tf
-            return tf.reduce_mean(loss_per_item, axis=0)
+            return tf.reduce_mean(input_tensor=loss_per_item, axis=0)
 
