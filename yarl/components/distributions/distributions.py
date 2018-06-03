@@ -17,8 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
-
 from yarl import backend
 from yarl.utils import util
 from yarl.components import Component
@@ -66,6 +64,7 @@ class Distribution(Component):
         self.add_graph_fn("distribution", "sample_stochastic", self._graph_fn_sample_stochastic)
         self.add_graph_fn("distribution", "sample_deterministic", self._graph_fn_sample_deterministic)
         self.add_graph_fn("distribution", "entropy", self._graph_fn_entropy)
+        self.add_graph_fn(["distribution_a", "distribution_b"], "kl_divergence", self._graph_fn_kl_divergence)
 
         # If we need the flexible out-Socket "draw", add it here and connect it.
         if expose_draw is True:
@@ -81,8 +80,8 @@ class Distribution(Component):
 
     def _graph_fn_parameterize(self, *parameters):
         """
-        Parameterizes this distribution (normally from an NN-output vector). Returns the backend-distribution object
-        (a DataOp).
+        Parameterizes this distribution (normally from an NN-output vector). Returns
+        the backend-distribution object (a DataOp).
 
         Args:
             *parameters (DataOp): The input(s) used to parameterize this distribution. This is normally a cleaned up
@@ -111,10 +110,11 @@ class Distribution(Component):
         """
         if backend == "tf":
             import tensorflow as tf
-            return tf.cond(pred=max_likelihood,
-                           true_fn=lambda: self._graph_fn_sample_deterministic(distribution),
-                           false_fn=lambda: self._graph_fn_sample_stochastic(distribution)
-                           )
+            return tf.cond(
+                pred=max_likelihood,
+                true_fn=lambda: self._graph_fn_sample_deterministic(distribution),
+                false_fn=lambda: self._graph_fn_sample_stochastic(distribution)
+            )
 
     def _graph_fn_sample_deterministic(self, distribution):
         """
@@ -156,6 +156,27 @@ class Distribution(Component):
             DataOp: The distribution's entropy.
         """
         return distribution.entropy()
+
+    @staticmethod
+    def _graph_fn_kl_divergence(distribution_a, distribution_b):
+        """
+        Kullback-leiber divergence between two distribution objects.
+        Args:
+            distribution_a (tf.Distribution): A Distribution object.
+            distribution_b (tf.Distribution): A distribution object.
+
+        Returns:
+            tf.Tensor: (batch-wise) KL-divergence between the two distributions.
+        """
+        if backend == "tf":
+            import tensorflow as tf
+
+            return tf.distributions.kl_divergence(
+                distribution_a=distribution_a,
+                distribution_b=distribution_b,
+                allow_nan_stats=True,
+                name=None
+            )
 
 
 class Bernoulli(Distribution):

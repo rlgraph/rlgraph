@@ -64,6 +64,9 @@ class Model(Specifiable):
         self.session_config = self.execution_spec["session_config"]
         self.distributed_spec = self.execution_spec.get("distributed_spec")
 
+        # All components assigned to each device, for debugging and analysis.
+        self.device_component_assignments = dict()
+
         # Create an empty core Component into which everything will be assembled by an Algo.
         self.core_component = Component(name=self.name)
         # List of variables (by scope/name) of all our components.
@@ -320,16 +323,16 @@ class Model(Specifiable):
                 # Component is not complete yet:
                 else:
                     # Add one Socket information.
-                    self.logger.debug("\t\tnot input-compelte yet -> updating from input {}".format(str(socket)))
+                    self.logger.debug("\t\tNot input-complete yet -> updating from input {}".format(str(socket)))
                     outgoing.update_from_input(socket, self.op_registry, self.in_socket_registry)
                     # Check now for input-completeness of this component.
                     if outgoing.component.input_complete:
-                        self.logger.debug("\t\t\tnow input-complete ...")
+                        self.logger.debug("\t\t\tNow input-complete.")
                         self.component_complete(outgoing)
                     # Not complete yet. Remember do build this Socket later.
                     else:
                         self.logger.debug(
-                            "\t\t\tstill not complete -> add Socket {} for processing later.".format(outgoing))
+                            "\t\t\tStill not complete -> add Socket {} for later processing.".format(outgoing))
                         outgoing.component.sockets_to_do_later.append(outgoing)
 
             # Outgoing is a GraphFunction -> Add the socket to the GraphFunction's (waiting) inputs.
@@ -566,3 +569,24 @@ class Model(Specifiable):
         # would be ignored -> no pass here.
         raise NotImplementedError
 
+    def get_available_devices(self):
+        """
+        Lists available devices for this model.
+
+        Returns:
+            list: Device identifiers visible to this model.
+        """
+        pass
+
+    def get_device_assignments(self, device_names=None):
+        """
+        Get assignments for device(s).
+
+        Args:
+            device_names Optional(list):  Device names to filter for. If None, all assignments
+                will be returned.
+
+        Returns:
+            dict: Dict mapping device identifiers (keys) to assigned components (list of component names).
+        """
+        pass
