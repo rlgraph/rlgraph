@@ -58,7 +58,8 @@ def terminal_records(record_space, num_samples):
 
 def recursive_assert_almost_equal(x, y, decimal=7):
     """
-    Checks two structures (dict, DataOpDict, tuple, list, np.array, float, int, etc..) for (almost!) numeric identity.
+    Checks two structures (dict, DataOpDict, tuple, DataOpTuple, list, np.array, float, int, etc..) for (almost!)
+    numeric identity.
     All numbers in the two structures have to match up to `decimal` digits after the floating point.
     Uses assertions (not boolean return).
 

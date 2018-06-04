@@ -83,13 +83,13 @@ class OpenAIGymEnv(Env):
     @staticmethod
     def translate_space(space):
         """
-        Simple adapter. Translates openAI spaces into YARL space classes.
+        Translates openAI spaces into YARL Space classes.
 
         Args:
             space (gym.spaces.Space): The openAI Space to be translated.
 
         Returns:
-            The translated yarl-space.
+            Space: The translated yarl Space.
         """
         if isinstance(space, gym.spaces.Discrete):
             if space.n == 2:
