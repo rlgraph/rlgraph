@@ -634,6 +634,8 @@ class Component(Specifiable):
             key (str): The key (global-scope name) of the variable.
             variable (SingleDataOp): The variable to propagate.
         """
+        if self.parent_component is None:
+            return
         # Add to parent's variable registry.
         assert key not in self.parent_component.variables, "ERROR: Variable registry of '{}' already has a variable " \
                                                            "under key '{}'!".format(self.parent_component.name, key)

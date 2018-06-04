@@ -74,7 +74,7 @@ class TestRingBufferMemory(unittest.TestCase):
             num_records=int
         ))
         # Internal state variables.
-        memory_variables = ring_buffer.get_variables(self.memory_variables)
+        memory_variables = ring_buffer.get_variables(self.memory_variables, global_scope=False)
         buffer_size = memory_variables['size']
         buffer_index = memory_variables['index']
         size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
@@ -108,7 +108,7 @@ class TestRingBufferMemory(unittest.TestCase):
             num_episodes=int
         ))
         # Internal memory variables.
-        ring_buffer_variables = ring_buffer.get_variables(self.ring_buffer_variables)
+        ring_buffer_variables = ring_buffer.get_variables(self.ring_buffer_variables, global_scope=False)
         buffer_size = ring_buffer_variables["size"]
         buffer_index = ring_buffer_variables["index"]
         num_episodes = ring_buffer_variables["num-episodes"]
@@ -154,7 +154,7 @@ class TestRingBufferMemory(unittest.TestCase):
             num_episodes=int
         ))
         # Internal memory variables.
-        ring_buffer_variables = ring_buffer.get_variables(self.ring_buffer_variables)
+        ring_buffer_variables = ring_buffer.get_variables(self.ring_buffer_variables, global_scope=False)
         buffer_size = ring_buffer_variables["size"]
         buffer_index = ring_buffer_variables["index"]
         num_episodes = ring_buffer_variables["num-episodes"]
@@ -197,7 +197,7 @@ class TestRingBufferMemory(unittest.TestCase):
             num_records=int,
             num_episodes=int
         ))
-        ring_buffer_variables = ring_buffer.get_variables(self.ring_buffer_variables)
+        ring_buffer_variables = ring_buffer.get_variables(self.ring_buffer_variables, global_scope=False)
         num_episodes = ring_buffer_variables["num-episodes"]
         episode_indices = ring_buffer_variables["episode-indices"]
 

@@ -83,7 +83,7 @@ class TestPrioritizedReplay(unittest.TestCase):
         ))
 
         # Internal state variables.
-        memory_variables = memory.get_variables(self.memory_variables)
+        memory_variables = memory.get_variables(self.memory_variables, global_scope=False)
         buffer_size = memory_variables['size']
         buffer_index = memory_variables['index']
         max_priority = memory_variables['max-priority']
@@ -200,7 +200,7 @@ class TestPrioritizedReplay(unittest.TestCase):
         while priority_capacity < self.capacity:
             priority_capacity *= 2
 
-        memory_variables = memory.get_variables(["sum-segment-tree", "min-segment-tree"])
+        memory_variables = memory.get_variables(["sum-segment-tree", "min-segment-tree"], global_scope=False)
         sum_segment_tree = memory_variables['sum-segment-tree']
         min_segment_tree = memory_variables['min-segment-tree']
         sum_segment_values, min_segment_values = test.get_variable_values([sum_segment_tree, min_segment_tree])

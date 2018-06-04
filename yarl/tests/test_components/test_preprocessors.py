@@ -126,7 +126,7 @@ class TestPreprocessors(unittest.TestCase):
         component_to_test = Sequence(seq_length=3, add_rank=True)
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
 
-        vars = component_to_test.get_variables("index", "buffer")
+        vars = component_to_test.get_variables("index", "buffer", global_scope=False)
         index, buffer = vars["index"], vars["buffer"]
 
         for i in range(3):
