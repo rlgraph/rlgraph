@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl.components import Component
+from yarl.utils.util import force_list
 
 
 class Stack(Component):
@@ -37,12 +38,18 @@ class Stack(Component):
         Keyword Args:
             expose_ins (bool): Whether to expose the first sub-component's inputs (default: True).
             expose_outs (bool): Whether to expose the last sub-component's outputs (default: True).
+            sub_component_inputs (Optional[List[str]]): List of in-Socket names of a sub-Component that should be
+                connected to the corresponding out-Sockets (`sub_component_outputs`) of the previous sub-Component.
+            sub_component_outputs (Optional[List[str]]): List of out-Socket names of a sub-Component that should be
+                connected to the corresponding in-Sockets (`sub_component_inputs`) of the next sub-Component.
 
         Raises:
             YARLError: If sub-components' number of inputs/outputs do not match.
         """
         expose_ins = kwargs.pop("expose_ins", True)
         expose_outs = kwargs.pop("expose_outs", True)
+        sub_component_inputs = force_list(kwargs.pop("sub_component_inputs", None))
+        sub_component_outputs = force_list(kwargs.pop("sub_component_outputs", None))
 
         super(Stack, self).__init__(*sub_components, **kwargs)
 
@@ -62,5 +69,15 @@ class Stack(Component):
                     self.connect(out_sock, out_sock.name)
 
         # Now connect all sub-components with each other.
-        for i in range(len(sub_components) - 1):
-            self.connect(sub_components[i], sub_components[i+1])
+        # By specific in/out-Socket names.
+        if len(sub_component_inputs) > 0:
+            assert len(sub_component_inputs) == len(sub_component_outputs),\
+                "ERROR: `sub_component_inputs` () and `sub_component_outputs` () must have the same length!".\
+                format(sub_component_inputs, sub_component_outputs)
+            for i in range(len(sub_components) - 1):
+                for out_sock, in_sock in zip(sub_component_outputs, sub_component_inputs):
+                    self.connect((sub_components[i], out_sock), (sub_components[i + 1], in_sock))
+        # Or just all out- with in-Sockets.
+        else:
+            for i in range(len(sub_components) - 1):
+                self.connect(sub_components[i], sub_components[i+1])
