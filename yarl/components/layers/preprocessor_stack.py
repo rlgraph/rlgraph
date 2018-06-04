@@ -29,7 +29,7 @@ class PreprocessorStack(Stack):
     """
     A special Stack that only carries PreprocessLayer Components and bundles all their `reset` out-Sockets
     into one exposed `reset` out-Socket. Otherwise, behaves like a Stack in connecting the PreprocessorLayers
-    from output to input all the way through.
+    from out-Socket(s) to in-Socket(s) all the way through.
     """
     def __init__(self, *preprocessors, **kwargs):
         """
@@ -44,7 +44,13 @@ class PreprocessorStack(Stack):
                                   flatten_ops=False))
         super(PreprocessorStack, self).__init__(*preprocessors, **kwargs)
 
-        # Connect each pre-processor's reset out-Socket to our graph_fn.
+        # Now that the sub-components are constructed, make sure they are all ProprocessorLayer objects.
+        for key, preprocessor in self.sub_components.items():
+            assert isinstance(preprocessor, PreprocessLayer), \
+                "ERROR: sub-Component '{}' in PreprocessorStack '{}' is not a PreprocessorLayer!".\
+                format(preprocessor.name, self.name)
+
+        # Connect each pre-processor's "reset" out-Socket to our graph_fn.
         resets = list()
         for preprocessor in self.sub_components.values():  # type: PreprocessLayer
             resets.append(preprocessor.get_output("reset"))
