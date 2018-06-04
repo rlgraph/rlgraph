@@ -23,6 +23,7 @@ from .synchronizable import Synchronizable
 from .decay_components import *
 from .noise_components import *
 
+
 DecayComponent.__lookup_classes__ = dict(
     linear=LinearDecay,
     exponential=ExponentialDecay,
@@ -34,6 +35,7 @@ NoiseComponent.__lookup_classes__ = dict(
     gaussian=GaussianNoise,
     ornsteinuhlenbeck=OrnsteinUhlenbeckNoise
 )
+
 
 __all__ = ["Splitter", "Merger",
            "Synchronizable",

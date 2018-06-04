@@ -24,13 +24,11 @@ from yarl.components.optimizers.optimizer import Optimizer
 LocalOptimizer.__lookup_classes__ = dict(
     gradient_descent=GradientDescentOptimizer,
     adagrad=AdagradOptimizer,
-    ada_delta=AdadeltaOptimizer,
+    adadelta=AdadeltaOptimizer,
     adam=AdamOptimizer,
     nadam=NadamOptimizer,
     sgd=SGDOptimizer,
-    SGD=SGDOptimizer,
-    rmsprop=RMSPropOptimizer,
-    RMSProp=RMSPropOptimizer
+    rmsprop=RMSPropOptimizer
 )
 
 __all__ = ["Optimizer", "LocalOptimizer", "GradientDescentOptimizer", "AdagradOptimizer",
