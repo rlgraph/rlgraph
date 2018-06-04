@@ -17,18 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.utils.initializer import Initializer
 from .nn_layer import NNLayer
-from .dense_layer import DenseLayer
-from .conv2d_layer import Conv2DLayer
 from .concat_layer import ConcatLayer
-
+from .conv2d_layer import Conv2DLayer
+from .dense_layer import DenseLayer
 
 NNLayer.__lookup_classes__ = dict(
-    dense=DenseLayer,
-    fc=DenseLayer,
+    concat=ConcatLayer,
     conv2d=Conv2DLayer,
-    concat=ConcatLayer
+    dense=DenseLayer,
+    fc=DenseLayer  # alias
 )
 
-__all__ = ["Initializer", "NNLayer", "DenseLayer", "Conv2DLayer", "ConcatLayer"]
+__all__ = ["NNLayer", "ConcatLayer", "Conv2DLayer", "DenseLayer"]

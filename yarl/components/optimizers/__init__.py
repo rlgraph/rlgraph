@@ -19,17 +19,14 @@ from __future__ import print_function
 
 from yarl.components.optimizers.optimizer import *
 
-
 Optimizer.__lookup_classes__ = dict(
-    gradient_descent=GradientDescentOptimizer,
+    gradientdescent=GradientDescentOptimizer,
     adagrad=AdagradOptimizer,
-    ada_delta=AdadeltaOptimizer,
+    adadelta=AdadeltaOptimizer,
     adam=AdamOptimizer,
     nadam=NadamOptimizer,
     sgd=SGDOptimizer,
-    SGD=SGDOptimizer,
-    rmsprop=RMSPropOptimizer,
-    RMSProp=RMSPropOptimizer
+    rmsprop=RMSPropOptimizer
 )
 
 __all__ = ["Optimizer", "LocalOptimizer", "GradientDescentOptimizer", "AdagradOptimizer",

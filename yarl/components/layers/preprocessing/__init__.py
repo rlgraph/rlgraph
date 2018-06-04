@@ -27,7 +27,6 @@ from .normalize import Normalize
 from .scale import Scale
 from .sequence import Sequence
 
-
 PreprocessLayer.__lookup_classes__ = dict(
     clamp=Clamp,
     flatten=Flatten,

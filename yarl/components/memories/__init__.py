@@ -25,12 +25,12 @@ from .prioritized_replay import PrioritizedReplay
 
 Memory.__lookup_classes__ = dict(
     replay=ReplayMemory,
-    replay_buffer=ReplayMemory,
-    replay_memory=ReplayMemory,
-    ring_buffer=RingBuffer,
+    replaybuffer=ReplayMemory,
+    replaymemory=ReplayMemory,
+    ringbuffer=RingBuffer,
     prioritized=PrioritizedReplay,
-    prioritized_replay=PrioritizedReplay,
-    prioritized_replay_buffer=PrioritizedReplay
+    prioritizedreplay=PrioritizedReplay,
+    prioritizedreplaybuffer=PrioritizedReplay
 )
 
 __all__ = ["Memory", "ReplayMemory", "RingBuffer", "PrioritizedReplay"]

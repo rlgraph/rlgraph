@@ -23,7 +23,7 @@ from .nn_output_cleanup import NNOutputCleanup
 Distribution.__lookup_classes__ = dict(
     bernoulli=Bernoulli,
     categorical=Categorical,
-    normal=Normal,
+    normaldistribution=Normal,
     gaussian=Normal
 )
 

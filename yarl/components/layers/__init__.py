@@ -17,17 +17,33 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from yarl.utils.util import default_dict
+
 # Basics.
 from .stack import Stack
 from .layer import Layer
-# Preprocessing.
 from .preprocessor_stack import PreprocessorStack
-from .preprocessing import PreprocessLayer, Clamp, Scale, Sequence, GrayScale, Flatten
+# Preprocessing Layers.
+from .preprocessing import *
 # NN-Layers.
-from yarl.utils.initializer import Initializer
-from .nn import NNLayer, DenseLayer, Conv2DLayer, ConcatLayer
+from .nn import *
 
-__all__ = ["Stack", "Layer", "Initializer", "NNLayer", "DenseLayer", "Conv2DLayer", "ConcatLayer",
-           "PreprocessorStack", "PreprocessLayer",
-           "Clamp", "Scale", "Sequence", "GrayScale", "Flatten"]
+
+# The Stacks.
+Stack.__lookup_classes__ = dict(
+    preprocessor_stack=PreprocessorStack
+)
+
+# The Layers (Layers are also Stacks).
+Layer.__lookup_classes__ = dict(
+    nnlayer=NNLayer,
+    preprocesslayer=PreprocessLayer
+)
+# Add all specific Layer sub-classes to this one.
+default_dict(Layer.__lookup_classes__, NNLayer.__lookup_classes__)
+default_dict(Layer.__lookup_classes__, PreprocessLayer.__lookup_classes__)
+
+
+__all__ = ["Layer", "Stack", "PreprocessorStack"] + \
+          list(map(lambda x: x.__name__, Layer.__lookup_classes__.values()))
 

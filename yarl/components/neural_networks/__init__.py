@@ -18,10 +18,11 @@ from __future__ import division
 from __future__ import print_function
 
 from .neural_network import NeuralNetwork
+from .policy import Policy
+
 
 NeuralNetwork.__lookup_classes__ = dict(
-    neural_network=NeuralNetwork
+    policy=Policy
 )
 
-__all__ = ["NeuralNetwork"]
-
+__all__ = ["NeuralNetwork", "Policy"]

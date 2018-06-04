@@ -20,4 +20,8 @@ from __future__ import print_function
 from .loss_function import LossFunction
 from .dqn_loss_function import DQNLossFunction
 
+LossFunction.__lookup_classes__ = dict(
+    dqnlossfunction=DQNLossFunction
+)
+
 __all__ = ["LossFunction", "DQNLossFunction"]
