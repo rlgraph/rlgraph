@@ -24,8 +24,8 @@ class RandomAgent(Agent):
     """
     An Agent that picks random actions from the action Space.
     """
-    def __init__(self, states_spec, actions_spec):
-        super(RandomAgent, self).__init__(states_spec, actions_spec)
+    def __init__(self, state_space, action_space):
+        super(RandomAgent, self).__init__(state_space, action_space)
 
     def build_graph(self, core):
         pass

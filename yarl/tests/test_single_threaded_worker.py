@@ -33,8 +33,8 @@ class TestSingleThreadedWorker(unittest.TestCase):
         Simply tests if timestep execution loop works and returns a result.
         """
         agent = RandomAgent(
-            actions_spec=self.environment.action_space,
-            states_spec=self.environment.observation_space
+            action_space=self.environment.action_space,
+            state_space=self.environment.observation_space
         )
         worker = SingleThreadedWorker(
             environment=self.environment,
@@ -51,8 +51,8 @@ class TestSingleThreadedWorker(unittest.TestCase):
         Simply tests if episode execution loop works and returns a result.
         """
         agent = RandomAgent(
-            actions_spec=self.environment.action_space,
-            states_spec=self.environment.observation_space
+            action_space=self.environment.action_space,
+            state_space=self.environment.observation_space
         )
         worker = SingleThreadedWorker(
             environment=self.environment,

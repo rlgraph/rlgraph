@@ -33,8 +33,8 @@ class Agent(Specifiable):
     """
     def __init__(
         self,
-        states_spec,
-        actions_spec,
+        state_space,
+        action_space,
         network_spec=None,
         preprocessing_spec=None,
         exploration_spec=None,
@@ -46,8 +46,8 @@ class Agent(Specifiable):
         Generic agent which parses and sanitizes configuration specs.
 
         Args:
-            states_spec (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
-            actions_spec (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
+            state_space (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
+            action_space (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
             network_spec (Optional[dict,NeuralNetwork]): Spec dict for a NeuralNetwork Component or the NeuralNetwork
                 object itself.
             preprocessing_spec (Optional[dict]): The spec dict for the different necessary states preprocessing steps.
@@ -58,9 +58,9 @@ class Agent(Specifiable):
         """
         self.logger = logging.getLogger(__name__)
 
-        self.state_space = Space.from_spec(states_spec)
+        self.state_space = Space.from_spec(state_space)
         self.logger.info("Parsed state space definition: {}".format(self.state_space))
-        self.action_space = Space.from_spec(actions_spec)
+        self.action_space = Space.from_spec(action_space)
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
         self.neural_network = NeuralNetwork.from_spec(network_spec)
 

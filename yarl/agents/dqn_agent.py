@@ -20,7 +20,7 @@ from __future__ import print_function
 from yarl.agents import Agent
 from yarl.components.common import Merger, Splitter
 from yarl.components.memories import Memory
-from yarl.components.action_heads import ActionHead
+from yarl.components.explorations import Exploration
 from yarl.components.loss_functions import DQNLossFunction
 from yarl.spaces import Dict, IntBox
 
@@ -44,6 +44,7 @@ class DQNAgent(Agent):
 
         self.discount = discount
         self.memory = Memory.from_spec(memory_spec)
+        self.record_space = Dict(states=self.state_space, actions=self.action_space, rewards=float, terminal=IntBox(1))
         self.double_q = double_q
         self.duelling_q = duelling_q
 
@@ -52,8 +53,7 @@ class DQNAgent(Agent):
         # The global copy of the q-net (if we are running in distributed mode).
         self.global_qnet = None
 
-        self.action_head = ActionHead(action_space=self.action_space, epsilon_spec=self.exploration_spec)
-        self.record_space = Dict(states=self.state_space, actions=self.action_space, rewards=float, terminal=IntBox(1))
+        self.exploration = Exploration.from_spec(self.exploration_spec, action_space=self.action_space)
         self.input_names = ["state", "action", "reward", "terminal"]
         self.merger = Merger(output_space=self.record_space, input_names=self.input_names)
         self.splitter = Splitter(input_space=self.record_space)
@@ -67,8 +67,8 @@ class DQNAgent(Agent):
         # Add the Q-net, copy it (target-net) and add the target-net.
         self.target_net = self.neural_network.copy(scope="target-net")
         core.add_component(self.neural_network, self.target_net)
-        # Add an ActionHead for the q-net (target net doesn't need one).
-        core.add_component(self.action_head)
+        # Add an Exploration for the q-net (target-net doesn't need one).
+        core.add_component(self.exploration)
 
         # If we are in distributed mode, add a global qnet as well.
         if self.execution_spec[""] == "distributed":
@@ -83,11 +83,11 @@ class DQNAgent(Agent):
 
         # Now connect everything ...
 
-        # States into preprocessor -> into qnet
+        # States into preprocessor -> into q-net
         core.connect("state", (self.preprocessor_stack, "input"))
         core.connect((self.preprocessor_stack, "output"), (self.neural_network, "input"), label="from_env")
 
-        # Network output into ActionHead's "nn_output" Socket -> into "act".
+        # Network output into Exploration's "nn_output" Socket -> into "act".
         core.connect((self.neural_network, "output"), (self.action_head, "nn_output"), label="from_env")
         core.connect((self.action_head, "nn_output"), "act")
 
