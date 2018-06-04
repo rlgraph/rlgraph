@@ -22,6 +22,9 @@ from yarl.utils.ops import DataOpDict
 from yarl.utils.util import get_shape
 from yarl.components import Component
 
+if backend == 'tf':
+    import tensorflow as tf
+
 
 class Synchronizable(Component):
     """
@@ -91,7 +94,6 @@ class Synchronizable(Component):
 
         # Bundle everything into one "sync"-op.
         if backend == "tf":
-            import tensorflow as tf
             with tf.control_dependencies(syncs):
                 return tf.no_op()
 

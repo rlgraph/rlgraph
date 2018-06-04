@@ -17,11 +17,28 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
+from yarl import backend
+from yarl.components.common.noise_components.noise import NoiseComponent
 
-from yarl.components import Component
+if backend == 'tf':
+    import tensorflow as tf
 
 
-class GaussianNoise(Component):
-    pass
+class GaussianNoise(NoiseComponent):
+    """
+    Simple Gaussian noise component.
+    """
+    def __init__(self, mean=0.0, sd=1.0, scope="gaussian_noise", **kwargs):
+        super(GaussianNoise, self).__init__(scope=scope, **kwargs)
 
+        self.mean = mean
+        self.sd = sd
+
+    def noise(self):
+        if backend == "tf":
+            return tf.random_normal(
+                shape=(1,) + self.action_space.shape,
+                mean=self.mean,
+                stddev=self.sd,
+                dtype=self.action_space.dtype
+            )

@@ -22,6 +22,9 @@ from yarl.utils.util import force_list
 
 from .nn_layer import NNLayer
 
+if backend == "tf":
+    import tensorflow as tf
+
 
 class ConcatLayer(NNLayer):
     """
@@ -56,7 +59,6 @@ class ConcatLayer(NNLayer):
 
         # Wrapper for backend.
         if backend == "tf":
-            import tensorflow as tf
             self.layer = tf.keras.layers.Concatenate(axis=self.axis)
 
     def _graph_fn_apply(self, *inputs):

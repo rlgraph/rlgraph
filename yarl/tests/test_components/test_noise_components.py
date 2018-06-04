@@ -1,0 +1,69 @@
+# Copyright 2018 The YARL-Project, All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import unittest
+import numpy as np
+
+from yarl.components.common.noise_components import *
+from yarl.spaces import *
+
+from .component_test import ComponentTest
+
+
+class TestNoiseComponents(unittest.TestCase):
+    """
+    Tests YARL's noise components.
+    """
+
+    # Decaying a value always without batch dimension (does not make sense for global time step).
+    action_input_space = FloatBox(1000, add_batch_rank=False)
+
+    def test_constant_noise(self):
+        real_noise = 200.0
+
+        noise_component = ConstantNoise(action_space=self.action_input_space, value=real_noise)
+        test = ComponentTest(component=noise_component, input_spaces=dict(action=self.action_input_space))
+
+        for i in range(1000):
+            test.test(out_socket_name="noise", expected_outputs=real_noise)
+
+    def test_gaussian_noise(self):
+        real_mean = 10.0
+        real_sd = 2.0
+
+        noise_component = GaussianNoise(action_space=self.action_input_space, mean=real_mean, sd=real_sd)
+        test = ComponentTest(component=noise_component, input_spaces=dict(action=self.action_input_space))
+
+        # Collect outputs in `collected` list to compare moments.
+        collected = list()
+        collect_outs = lambda component_test, outs: collected.append(outs)
+
+        for i in range(1000):
+            test.test(out_socket_name="noise", fn_test=collect_outs)
+
+        test_mean = np.mean(collected)
+        test_sd = np.std(collected)
+
+        # Empiric mean should be within 2 sd of real mean
+        self.assertGreater(real_mean, test_mean - test_sd * 2)
+        self.assertLess(real_mean, test_mean + test_sd * 2)
+
+        # Empiric sd should be within 80 % and 120 % interval
+        self.assertGreater(real_sd, test_sd * 0.8)
+        self.assertLess(real_sd, test_sd * 1.2)

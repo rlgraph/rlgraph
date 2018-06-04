@@ -21,6 +21,9 @@ from yarl import backend
 from yarl.components.loss_functions import LossFunction
 from yarl.spaces import IntBox
 
+if backend == "tf":
+    import tensorflow as tf
+
 
 class DQNLossFunction(LossFunction):
     """
@@ -40,7 +43,6 @@ class DQNLossFunction(LossFunction):
                                               flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
         self.discount = discount  # TODO: maybe move this to parent?
         self.double_q = double_q
-
         self.action_space = None
 
     def check_input_spaces(self, input_spaces):
@@ -74,8 +76,6 @@ class DQNLossFunction(LossFunction):
             SingleDataOp: The loss values vector (one single value for each batch item).
         """
         if backend == "tf":
-            import tensorflow as tf
-
             # Q(s',a') -> Use the max(a') one.
             q_sp_ap_values = tf.reduce_max(input_tensor=q_values_sp, axis=-1)
 
@@ -86,4 +86,4 @@ class DQNLossFunction(LossFunction):
             # Calculate the TD-delta (target - current estimate).
             td_delta = (rewards + self.discount * q_sp_ap_values) - q_s_a_values
             average_over_actions = tf.reduce_mean(input_tensor=td_delta, axis=-1)
-            return tf.pow(x=average_over_actions,y=2)
+            return tf.pow(x=average_over_actions, y=2)

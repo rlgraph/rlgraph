@@ -22,6 +22,9 @@ from yarl import backend
 from yarl.utils.initializer import Initializer
 from .nn_layer import NNLayer
 
+if backend == "tf":
+    import tensorflow as tf
+
 
 class Conv2DLayer(NNLayer):
     """
@@ -76,7 +79,6 @@ class Conv2DLayer(NNLayer):
 
         # Wrapper for backend.
         if backend == "tf":
-            import tensorflow as tf
             self.layer = tf.layers.Conv2D(
                 filters=self.filters, kernel_size=self.kernel_size,
                 strides=self.strides, padding=self.padding,

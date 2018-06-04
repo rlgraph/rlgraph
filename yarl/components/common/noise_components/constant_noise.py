@@ -17,8 +17,22 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from yarl import backend
 from yarl.components.common.noise_components.noise import NoiseComponent
-from yarl.components.common.noise_components.constant_noise import ConstantNoise
-from yarl.components.common.noise_components.gaussian_noise import GaussianNoise
 
-__all__ = ["NoiseComponent", "ConstantNoise", "GaussianNoise"]
+if backend == 'tf':
+    import tensorflow as tf
+
+
+class ConstantNoise(NoiseComponent):
+    """
+    Simple constant noise component.
+    """
+    def __init__(self, value=0.0, scope="constant_noise", **kwargs):
+        super(ConstantNoise, self).__init__(scope=scope, **kwargs)
+
+        self.value = value
+
+    def noise(self):
+        if backend == "tf":
+            return tf.constant(self.value)
