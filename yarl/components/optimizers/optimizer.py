@@ -27,11 +27,11 @@ class Optimizer(Component):
 
     API:
     ins:
-        variables (tuple): The tuple of (trainable) variables to be optimized.
         *inputs (any): Other necessary inputs for the specific type of optimizer (e.g. a time-step).
     outs:
+        variables (tuple): The tuple of (trainable) variables to be optimized.
         deltas (tuple): The tuple of delta tensors to be added to each of the variables in the `variables` in-Socket.
-        step (tuple): Same as `deltas`, but also triggers actually applying the deltas to the `variables`.
+        step (DataOp): Same as `deltas`, but also triggers actually applying the deltas to the `variables`.
     """
     def __init__(self, learning_rate, loss_function, *inputs, **kwargs):
         """
@@ -45,35 +45,46 @@ class Optimizer(Component):
         self.loss_function = loss_function
 
         # Define our interface.
-        self.define_inputs("variables", *inputs)
-        self.define_outputs("deltas", "step")
-        self.add_graph_fn(["variables"] + inputs, "deltas", self._graph_fn_calculate_deltas)
-        self.add_graph_fn(["variables", "deltas"], "step", self._graph_fn_apply_deltas)
+        self.define_inputs("variables", "loss", *inputs)
+        self.define_outputs("gradients", "step")
+        self.add_graph_fn(["variables", "loss"] + list(inputs), "gradients", self._graph_fn_calculate_gradients)
+        self.add_graph_fn(["variables", "gradients"], "step", self._graph_fn_apply_gradients)
 
-    def _graph_fn_calculate_deltas(self, *inputs):
+    def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
         """
-        Performs a single optimization step on the incoming variables depending on this Component's setup and
-        maybe the time-step
+        Calculates the gradients for the given variables and the loss function (and maybe other child-class
+            specific input parameters).
 
         Args:
-            time_step (SingleDataOp): The time-step tensor.
-            variables (DataOpTuple): The list of variables to be optimized.
+            loss (SingeDataOp): The total loss over a batch to be minimized.
+            variables (DataOpTuple): A list of variables to calculate gradients for.
+            inputs (SingleDataOp): Custom SingleDataOp parameters, dependent on the optimizer type.
 
         Returns:
-            DataOpTuple: A list of delta tensors corresponding to the updates for each optimized variable.
+            DataOpTuple: The gradients per variable (same order as in input parameter `variables`).
         """
         raise NotImplementedError
 
-    def _graph_fn_apply_deltas(self, variables, deltas):
+    def _graph_fn_apply_gradients(self, variables, gradients):
         """
-        Performs a single optimization step on the incoming variables depending on this Component's setup and
-        maybe the time-step
+        Changes the given variables based on the previously calculated gradients. `gradients` is the output of
+            `self._graph_fn_calculate_gradients`.
 
         Args:
-            time_step (SingleDataOp): The time-step tensor.
             variables (DataOpTuple): The list of variables to be optimized.
+            gradients (DataOpTuple): The list of gradients for each of the variables calculated by
+                `self._graph_fn_calculate_gradients`.
 
         Returns:
-            DataOpTuple: A list of delta tensors corresponding to the updates for each optimized variable.
+            DataOp: The op to trigger the gradient-application step.
         """
         raise NotImplementedError
+
+
+class GradientDescentOptimizer(Optimizer):
+    def __init__(self, learning_rate, loss_function, *variables, **kwargs):
+        super(GradientDescentOptimizer, self).__init__(learning_rate, loss_function, **kwargs)
+
+    def _graph_fn_calculate_deltas(self, variables, loss, *inputs):
+        pass
+

@@ -17,10 +17,18 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.optimizers.optimizer import Optimizer
+from yarl.components.optimizers.optimizer import Optimizer, GradientDescentOptimizer
+# AdamOptimizer, AdagradOptimizer, AdadeltaOptimizer, \
+#    MomentumOptimizer, NadamOptimizer, RMSPropOptimizer
 
 Optimizer.__lookup_classes__ = dict(
-
+#    adam=AdamOptimizer,
+#    adagrad=AdagradOptimizer,
+#    ada_delta=AdadeltaOptimizer,
+    gradient_descent=GradientDescentOptimizer
+#    momentum=MomentumOptimizer,
+#    nadam=NadamOptimizer,
+#    rmsprop=RMSPropOptimizer
 )
 
 __all__ = ["Optimizer"]

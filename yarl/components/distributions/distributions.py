@@ -22,6 +22,9 @@ from yarl.utils import util
 from yarl.components import Component
 from yarl.spaces import ContainerSpace, Tuple
 
+if backend == "tf":
+    import tensorflow as tf
+
 
 class Distribution(Component):
     """
@@ -109,7 +112,6 @@ class Distribution(Component):
             DataOp: The taken sample(s).
         """
         if backend == "tf":
-            import tensorflow as tf
             return tf.cond(
                 pred=max_likelihood,
                 true_fn=lambda: self._graph_fn_sample_deterministic(distribution),
@@ -170,8 +172,6 @@ class Distribution(Component):
             DataOp: (batch-wise) KL-divergence between the two distributions.
         """
         if backend == "tf":
-            import tensorflow as tf
-
             return tf.distributions.kl_divergence(
                 distribution_a=distribution_a,
                 distribution_b=distribution_b,
@@ -198,7 +198,6 @@ class Bernoulli(Distribution):
         ## Clamp to avoid 0.0 or 1.0 probabilities (adds numerical stability).
         #p = tf.clip_by_value(p, clip_value_min=SMALL_NUMBER, clip_value_max=(1.0 - SMALL_NUMBER))
         if backend == "tf":
-            import tensorflow as tf
             return tf.distributions.Bernoulli(probs=prob, dtype=util.dtype("bool"))
 
     def _graph_fn_sample_deterministic(self, distribution):
@@ -215,12 +214,10 @@ class Categorical(Distribution):
 
     def _graph_fn_parameterize(self, probs):
         if backend == "tf":
-            import tensorflow as tf
             return tf.distributions.Categorical(probs=probs, dtype=util.dtype("int"))
 
     def _graph_fn_sample_deterministic(self, distribution):
         if backend == "tf":
-            import tensorflow as tf
             return tf.argmax(input=distribution.probs, axis=-1, output_type=util.dtype("int"))
 
 
@@ -241,7 +238,6 @@ class Normal(Distribution):
 
     def _graph_fn_parameterize(self, loc_and_scale):
         if backend == "tf":
-            import tensorflow as tf
             return tf.distributions.Normal(loc=loc_and_scale[0], scale=loc_and_scale[1])
 
     def _graph_fn_sample_deterministic(self, distribution):

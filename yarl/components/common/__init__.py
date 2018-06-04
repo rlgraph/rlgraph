@@ -21,6 +21,7 @@ from .splitter import Splitter
 from .merger import Merger
 from .synchronizable import Synchronizable
 from .decay_components import DecayComponent, LinearDecay, PolynomialDecay, ExponentialDecay
+from .noise_components import NoiseComponent, ConstantNoise, GaussianNoise
 
 DecayComponent.__lookup_classes__ = dict(
     linear=LinearDecay,

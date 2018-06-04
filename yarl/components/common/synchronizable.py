@@ -17,12 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections import OrderedDict
-
 from yarl import YARLError, backend
 from yarl.utils.ops import DataOpDict
 from yarl.utils.util import get_shape
 from yarl.components import Component
+
+if backend == 'tf':
+    import tensorflow as tf
 
 
 class Synchronizable(Component):
@@ -42,7 +43,7 @@ class Synchronizable(Component):
         self.collections = kwargs.pop("collections", None)
         self.writable = kwargs.pop("writable", True)
 
-        super(Synchronizable, self).__init__(*args, **kwargs)  # ignore other args/kwargs
+        super(Synchronizable, self).__init__(*args, **kwargs)
 
         # Add a simple syncing API.
         # Outgoing data (to overwrite another Synchronizable Component's data).
@@ -62,16 +63,16 @@ class Synchronizable(Component):
 
     def _graph_fn_synch(self, sync_in, own_vars):
         """
-        Generates the op that syncs this approximators' trainable variable values from another
-        FunctionApproximator object.
+        Generates the op that syncs this Synchronizable's variable values from another Synchronizable Component.
 
         Args:
-            sync_in (DataOpDict): An dict of variables (coming from the "sync_out"-Socket) that need to be
-                assigned to their counterparts in this Component. The keys in the dicts refer to
-                the names of the variables and must match the names and variables of this component.
+            sync_in (DataOpDict): The dict of variable values (coming from the "sync_out"-Socket of the other
+                Synchronizable) that need to be assigned to this Component's variables.
+                The keys in the dict refer to the names of our own variables and must match their names.
+            own_vars (DataOpDict): The dict of our own variables that need to be overwritten by `sync_in`.
 
         Returns:
-            op: The single op that executes the syncing.
+            DataOp: The op that executes the syncing.
         """
         # Loop through all incoming vars and our own and collect assign ops.
         syncs = list()
@@ -93,17 +94,16 @@ class Synchronizable(Component):
 
         # Bundle everything into one "sync"-op.
         if backend == "tf":
-            import tensorflow as tf
             with tf.control_dependencies(syncs):
                 return tf.no_op()
 
     def _graph_fn_synch_out(self):
         """
-        Outputs all of this Component's variables that match our collection(s) specifier in a tuple-op.
+        Outputs all of this Component's variables that match our collection(s) specifier in a DataOpDict.
 
         Returns:
             DataOpDict: Dict with keys=variable names and values=variable (SingleDataOp).
-                Only Variables that match the given collection (see c'tor) are part of the dict.
+                Only Variables that match `self.collections` (see c'tor) are part of the dict.
         """
         # Must use custom_scope_separator here b/c YARL doesn't allow Dict with '/'-chars in the keys.
         # '/' could collide with a FlattenedDataOp's keys and mess up the un-flatten process.

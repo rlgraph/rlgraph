@@ -25,6 +25,9 @@ from yarl.components import Component
 from yarl.components.layers import DenseLayer
 from yarl.spaces import Space, IntBox, ContainerSpace
 
+if backend == "tf":
+    import tensorflow as tf
+
 
 class NNOutputCleanup(Component):
     """
@@ -97,7 +100,6 @@ class NNOutputCleanup(Component):
         # Reshape logits to action shape
         shape = self.target_space.get_shape(with_batch_rank=-1, with_category_rank=True)
         if backend == "tf":
-            import tensorflow as tf
             logits = tf.reshape(tensor=nn_outputs_plus_bias, shape=shape)
 
             # Convert logits into probabilities and clamp them at SMALL_NUMBER.

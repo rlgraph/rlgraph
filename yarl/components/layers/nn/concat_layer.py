@@ -22,17 +22,21 @@ from yarl.utils.util import force_list
 
 from .nn_layer import NNLayer
 
+if backend == "tf":
+    import tensorflow as tf
+
 
 class ConcatLayer(NNLayer):
     """
     A simple concatenation layer wrapper. The ConcatLayer is a Layer without sub-components but with n
-    inputs and 1 output, where the in-Sockets's data are concatenated into one out-Socket by our GraphFunction.
+    inputs and 1 output, where the in-Sockets's data are concatenated into one out-Socket by its GraphFunction.
     """
     def __init__(self, axis=-1, scope="concat-layer", num_graph_fn_inputs=2, **kwargs):
         """
         Args:
             axis (int): The axis along which to concatenate. Use negative numbers to count from end.
                 All inputs to this layer must have the same shape, except for the `axis` rank.
+                Default: -1.
             num_graph_fn_inputs (int): The number of inputs to concatenate (this is how many in-Sockets
                 will be created).
         """
@@ -55,7 +59,6 @@ class ConcatLayer(NNLayer):
 
         # Wrapper for backend.
         if backend == "tf":
-            import tensorflow as tf
             self.layer = tf.keras.layers.Concatenate(axis=self.axis)
 
     def _graph_fn_apply(self, *inputs):

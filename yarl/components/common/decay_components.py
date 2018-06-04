@@ -23,6 +23,9 @@ from yarl import backend
 from yarl.utils import util
 from yarl.components import Component
 
+if backend == 'tf':
+    import tensorflow as tf
+
 
 class DecayComponent(Component):
     """
@@ -79,17 +82,17 @@ class DecayComponent(Component):
             DataOp: The decay'd value depending on the current time step.
         """
         if backend == "tf":
-            import tensorflow as tf
-            return tf.cond(pred=(time_step <= self.start_timestep),
-                           # We are still in pre-decay time.
-                           true_fn=lambda: self.from_,
-                           false_fn=lambda: tf.cond(pred=(time_step >= self.start_timestep + self.num_timesteps),
-                                                    # We are in post-decay time.
-                                                    true_fn=lambda: self.to_,
-                                                    # We are inside the decay time window.
-                                                    false_fn=lambda: self.decay(tf.cast(x=time_step - self.start_timestep,
+            return tf.cond(
+                pred=(time_step <= self.start_timestep),
+               # We are still in pre-decay time.
+               true_fn=lambda: self.from_,
+               false_fn=lambda: tf.cond(pred=(time_step >= self.start_timestep + self.num_timesteps),
+                                        # We are in post-decay time.
+                                        true_fn=lambda: self.to_,
+                                        # We are inside the decay time window.
+                                        false_fn=lambda: self.decay(tf.cast(x=time_step - self.start_timestep,
                                                                                         dtype=util.dtype("float"))))
-                           )
+            )
 
 
 class PolynomialDecay(DecayComponent):
@@ -117,9 +120,13 @@ class PolynomialDecay(DecayComponent):
 
     def decay(self, time_steps_in_decay_window):
         if backend == "tf":
-            import tensorflow as tf
-            return tf.train.polynomial_decay(self.from_, time_steps_in_decay_window, self.num_timesteps,
-                                             self.to_, power=self.power)
+            return tf.train.polynomial_decay(
+                learning_rate=self.from_,
+                global_step=time_steps_in_decay_window,
+                decay_steps=self.num_timesteps,
+                end_learning_rate=self.to_,
+                power=self.power
+            )
 
 
 # Create an alias for LinearDecay
@@ -157,5 +164,9 @@ class ExponentialDecay(DecayComponent):
 
     def decay(self, time_steps_in_decay_window):
         if backend == "tf":
-            import tensorflow as tf
-            return tf.train.exponential_decay(self.from_, time_steps_in_decay_window, self.half_life_timesteps, 0.5)
+            return tf.train.exponential_decay(
+                learning_rate=self.from_,
+                global_step=time_steps_in_decay_window,
+                decay_steps=self.half_life_timesteps,
+                decay_rate=0.5
+            )

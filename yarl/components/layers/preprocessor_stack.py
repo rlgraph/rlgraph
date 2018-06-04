@@ -18,18 +18,20 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import backend
-from yarl.components import Component
 from yarl.components.layers.preprocessing import PreprocessLayer
 from yarl.utils.util import default_dict
 
 from .stack import Stack
+
+if backend == "tf":
+    import tensorflow as tf
 
 
 class PreprocessorStack(Stack):
     """
     A special Stack that only carries PreprocessLayer Components and bundles all their `reset` out-Sockets
     into one exposed `reset` out-Socket. Otherwise, behaves like a Stack in connecting the PreprocessorLayers
-    from output to input all the way through.
+    from out-Socket(s) to in-Socket(s) all the way through.
     """
     def __init__(self, *preprocessors, **kwargs):
         """
@@ -44,7 +46,13 @@ class PreprocessorStack(Stack):
                                   flatten_ops=False))
         super(PreprocessorStack, self).__init__(*preprocessors, **kwargs)
 
-        # Connect each pre-processor's reset out-Socket to our graph_fn.
+        # Now that the sub-components are constructed, make sure they are all ProprocessorLayer objects.
+        for key, preprocessor in self.sub_components.items():
+            assert isinstance(preprocessor, PreprocessLayer), \
+                "ERROR: sub-Component '{}' in PreprocessorStack '{}' is not a PreprocessorLayer!".\
+                format(preprocessor.name, self.name)
+
+        # Connect each pre-processor's "reset" out-Socket to our graph_fn.
         resets = list()
         for preprocessor in self.sub_components.values():  # type: PreprocessLayer
             resets.append(preprocessor.get_output("reset"))
@@ -52,7 +60,6 @@ class PreprocessorStack(Stack):
 
     def _graph_fn_reset(self, *preprocessor_resets):
         if backend == "tf":
-            import tensorflow as tf
             with tf.control_dependencies(preprocessor_resets):
                 return tf.no_op()
 
