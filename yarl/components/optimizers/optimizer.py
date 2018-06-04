@@ -39,7 +39,11 @@ class Optimizer(Component):
             learning_rate (float): The learning rate to use.
             loss_function (Component): The LossFunction (Component) to minimize.
         """
-        super(Optimizer, self).__init__(scope=kwargs.pop("scope", "optimizer"), **kwargs)
+        super(Optimizer, self).__init__(
+            scope=kwargs.pop("scope", "optimizer"),
+            flatten_ops=kwargs.pop("flatten_ops", False),
+            **kwargs
+        )
 
         self.learning_rate = learning_rate
 
@@ -48,9 +52,9 @@ class Optimizer(Component):
 
         # Define our interface.
         self.define_inputs("variables", "loss", *inputs)
-        self.define_outputs("gradients", "step")
-        self.add_graph_fn(["variables", "loss"] + list(inputs), "gradients", self._graph_fn_calculate_gradients)
-        self.add_graph_fn(["variables", "gradients"], "step", self._graph_fn_apply_gradients)
+        self.define_outputs("grads_and_vars", "step")
+        self.add_graph_fn(["variables", "loss"] + list(inputs), "grads_and_vars", self._graph_fn_calculate_gradients)
+        self.add_graph_fn(["grads_and_vars"], "step", self._graph_fn_apply_gradients)
 
     def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
         """

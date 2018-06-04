@@ -30,7 +30,12 @@ class LocalOptimizer(Optimizer):
     it has no knowledge of other machines and does not implement any communications with them.
     """
     def __init__(self, learning_rate, loss_function, **kwargs):
-        super(LocalOptimizer, self).__init__(learning_rate, loss_function, **kwargs)
+        super(LocalOptimizer, self).__init__(
+            learning_rate=learning_rate,
+            loss_function=loss_function,
+            scope=kwargs.pop("scope", "local-optimizer"),
+            **kwargs
+        )
         self.optimizer = None
 
     def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
