@@ -168,7 +168,11 @@ class TestPrioritizedReplay(unittest.TestCase):
 
         # Fetch elements and their indices.
         num_records = 5
-        batch = test.test(out_socket_name=["sample", "sample_indices"], inputs=dict(num_records=num_records), expected_outputs=None)
+        batch = test.test(
+            out_socket_name=["sample", "sample_indices"],
+            inputs=dict(num_records=num_records),
+            expected_outputs=None
+        )
         indices = batch[1]
         self.assertEqual(num_records, len(indices))
 

@@ -35,6 +35,7 @@ class LocalOptimizer(Optimizer):
 
     def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
         if backend == 'tf':
+            print(variables)
             return self.optimizer.compute_gradients(
                 loss=loss,
                 var_list=variables
