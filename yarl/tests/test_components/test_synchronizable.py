@@ -24,10 +24,11 @@ from yarl.components import Component
 from yarl.components.common import Synchronizable
 from yarl.spaces import FloatBox
 
-from .component_test import ComponentTest
+from yarl.tests import ComponentTest
 
 
 VARIABLE_NAMES = ["variable_to_synch1", "variable_to_synch2"]
+
 
 class MySyncComp(Synchronizable):
     """
