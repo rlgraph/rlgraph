@@ -24,8 +24,7 @@ Distribution.__lookup_classes__ = dict(
     bernoulli=Bernoulli,
     categorical=Categorical,
     normal=Normal,
-    gaussian=Normal,
-    nn_output_cleanup=NNOutputCleanup
+    gaussian=Normal
 )
 
 __all__ = ["Distribution", "Bernoulli", "Categorical", "Normal",

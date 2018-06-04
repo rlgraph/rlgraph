@@ -24,7 +24,7 @@ from yarl.components.common import Synchronizable
 
 class NeuralNetwork(Stack, Synchronizable):
     """
-    Simple placeholder class that's a Synchronizable and a Stack Component.
+    Simple placeholder class that's a Stack and a Synchronizable Component.
     """
     def  __init__(self, writable=True, scope="neural-network", *layers, **kwargs):
         """

@@ -18,20 +18,25 @@ from __future__ import division
 from __future__ import print_function
 
 from .preprocess_layer import PreprocessLayer
+
 from .clamp import Clamp
-from .scale import Scale
-from .grayscale import GrayScale
-from .sequence import Sequence
 from .flatten import Flatten
+from .grayscale import GrayScale
+from .image_resize import ImageResize
+from .normalize import Normalize
+from .scale import Scale
+from .sequence import Sequence
 
 
 PreprocessLayer.__lookup_classes__ = dict(
     clamp=Clamp,
-    scale=Scale,
+    flatten=Flatten,
     grayscale=GrayScale,
-    sequence=Sequence,
-    flatten=Flatten
+    imageresize=ImageResize,
+    normalize=Normalize,
+    scale=Scale,
+    sequence=Sequence
 )
 
-__all__ = ["PreprocessLayer", "Clamp", "Scale", "GrayScale", "Sequence", "Flatten"]
+__all__ = ["PreprocessLayer", "Clamp", "Flatten", "GrayScale", "ImageResize", "Normalize", "Scale", "Sequence"]
 

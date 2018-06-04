@@ -20,8 +20,8 @@ from __future__ import print_function
 from .splitter import Splitter
 from .merger import Merger
 from .synchronizable import Synchronizable
-from .decay_components import DecayComponent, LinearDecay, PolynomialDecay, ExponentialDecay
-from .noise_components import NoiseComponent, ConstantNoise, GaussianNoise
+from .decay_components import *
+from .noise_components import *
 
 DecayComponent.__lookup_classes__ = dict(
     linear=LinearDecay,
@@ -29,6 +29,14 @@ DecayComponent.__lookup_classes__ = dict(
     polynomial=PolynomialDecay
 )
 
-__all__ = ["Splitter", "Merger", "Synchronizable", "DecayComponent", "ExponentialDecay",
-           "LinearDecay", "PolynomialDecay"]
+NoiseComponent.__lookup_classes__ = dict(
+    constant=ConstantNoise,
+    gaussian=GaussianNoise,
+    ornsteinuhlenbeck=OrnsteinUhlenbeckNoise
+)
+
+__all__ = ["Splitter", "Merger",
+           "Synchronizable",
+           "DecayComponent", "LinearDecay", "PolynomialDecay", "ExponentialDecay",
+           "NoiseComponent", "ConstantNoise", "GaussianNoise", "OrnsteinUhlenbeckNoise"]
 
