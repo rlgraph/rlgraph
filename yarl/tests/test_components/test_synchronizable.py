@@ -77,7 +77,7 @@ class TestSynchronizableComponent(unittest.TestCase):
 
         # Test synching the variable from->to and check them before and after the synch.
         variables_dict = synch_to.get_variables(VARIABLE_NAMES)
-        var1_value, var2_value = test.get_variable_values(list(variables_dict.values()))
+        var1_value, var2_value = test.get_variable_values(*list(variables_dict.values()))
 
         expected1 = np.full(shape=synch_from.space.shape, fill_value=8.0)
         expected2 = np.full(shape=synch_from.space.shape, fill_value=7.0)
@@ -87,7 +87,7 @@ class TestSynchronizableComponent(unittest.TestCase):
         # Now synch and re-check.
         test.test(out_socket_name="do_the_synch", inputs=None, expected_outputs=None)
 
-        var1_value, var2_value = test.get_variable_values(list(variables_dict.values()))
+        var1_value, var2_value = test.get_variable_values(*list(variables_dict.values()))
 
         expected1 = np.zeros(shape=synch_from.space.shape)
         expected2 = np.ones(shape=synch_from.space.shape)

@@ -74,7 +74,7 @@ class TestReplayMemory(unittest.TestCase):
         memory_variables = memory.get_variables(self.memory_variables, global_scope=False)
         buffer_size = memory_variables['size']
         buffer_index = memory_variables['index']
-        size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
+        size_value, index_value = test.get_variable_values(buffer_size, buffer_index)
 
         # Assert indices 0 before insert.
         self.assertEqual(size_value, 0)
@@ -84,7 +84,7 @@ class TestReplayMemory(unittest.TestCase):
         observation = self.record_space.sample(size=self.capacity + 1)
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
 
-        size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
+        size_value, index_value = test.get_variable_values(buffer_size, buffer_index)
         # Size should be equivalent to capacity when full.
         self.assertEqual(size_value, self.capacity)
 
