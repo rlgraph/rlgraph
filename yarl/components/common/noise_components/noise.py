@@ -19,7 +19,6 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-from yarl import backend
 from yarl.components import Component
 
 
@@ -58,9 +57,6 @@ class NoiseComponent(Component):
 
     def _graph_fn_value(self):
         """
-        Args:
-            action (DataOp): The float-type action value.
-
         Returns:
             DataOp: The noise value.
         """

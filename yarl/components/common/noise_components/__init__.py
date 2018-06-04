@@ -20,5 +20,6 @@ from __future__ import print_function
 from yarl.components.common.noise_components.noise import NoiseComponent
 from yarl.components.common.noise_components.constant_noise import ConstantNoise
 from yarl.components.common.noise_components.gaussian_noise import GaussianNoise
+from yarl.components.common.noise_components.ornstein_uhlenbeck_noise import OrnsteinUhlenbeckNoise
 
-__all__ = ["NoiseComponent", "ConstantNoise", "GaussianNoise"]
+__all__ = ["NoiseComponent", "ConstantNoise", "GaussianNoise", "OrnsteinUhlenbeckNoise"]

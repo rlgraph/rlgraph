@@ -67,3 +67,39 @@ class TestNoiseComponents(unittest.TestCase):
         # Empiric sd should be within 80 % and 120 % interval
         self.assertGreater(real_sd, test_sd * 0.8)
         self.assertLess(real_sd, test_sd * 1.2)
+
+
+    def test_ornstein_uhlenbeck_noise(self):
+        ou_theta = 0.15
+        ou_mu = 10.0
+        ou_sigma = 2.0
+
+        noise_component = OrnsteinUhlenbeckNoise(
+            action_space=self.action_input_space,
+            theta=ou_theta,
+            mu=ou_mu,
+            sigma=ou_sigma
+        )
+        test = ComponentTest(component=noise_component, input_spaces=dict(action=self.action_input_space))
+
+        # Collect outputs in `collected` list to compare moments.
+        collected = list()
+        collect_outs = lambda component_test, outs: collected.append(outs)
+
+        for i in range(1000):
+            test.test(out_socket_name="noise", fn_test=collect_outs)
+
+        test_mean = np.mean(collected)
+        test_sd = np.std(collected)
+
+        print("Moments: {} / {}".format(test_mean, test_sd))
+
+        # Empiric mean should be within 2 sd of real mean
+        self.assertGreater(ou_mu, test_mean - test_sd * 2)
+        self.assertLess(ou_mu, test_mean + test_sd * 2)
+
+        # Empiric sd should be within 50 % and 200 % interval
+        self.assertGreater(ou_sigma, test_sd * 0.5)
+        self.assertLess(ou_sigma, test_sd * 2.0)
+
+        # Maybe test time correlation?
