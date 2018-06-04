@@ -43,8 +43,8 @@ class TestExplorations(unittest.TestCase):
         # Values to pass as single items.
         input_ = np.array([0, 1, 2, 25, 50, 100, 110, 112, 120, 130, 150, 180, 190, 195, 200, 201, 210, 250, 386,
                            670, 789, 900, 923, 465, 894, 91, 1000])
-        expected = np.array([True, True, True, True, True, True, True, True, True, True, True, True, False, True, True,
-                             True, True, True, False, False, False, False, False, False, False, True, False])
+        expected = np.array([True, True, True, True, True, True, True, True, True, True, True, True, True, True, True,
+                             True, True, False, True, True, False, False, False, False, False, True, False])
         for i, e in zip(input_, expected):
             test.test(out_socket_name="do_explore", inputs=i, expected_outputs=e)
 

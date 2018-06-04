@@ -23,7 +23,7 @@ import numpy as np
 from yarl.components.common.decay_components import *
 from yarl.spaces import *
 
-from .component_test import ComponentTest
+from yarl.tests import ComponentTest
 
 
 class TestDecayComponents(unittest.TestCase):

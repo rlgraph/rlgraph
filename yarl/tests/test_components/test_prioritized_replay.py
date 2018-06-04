@@ -88,8 +88,7 @@ class TestPrioritizedReplay(unittest.TestCase):
         buffer_index = memory_variables['index']
         max_priority = memory_variables['max-priority']
 
-        size_value, index_value, max_priority_value = test.get_variable_values(
-            [buffer_size, buffer_index, max_priority])
+        size_value, index_value, max_priority_value = test.get_variable_values(buffer_size, buffer_index, max_priority)
 
         # Assert indices 0 before insert.
         self.assertEqual(size_value, 0)
@@ -100,7 +99,7 @@ class TestPrioritizedReplay(unittest.TestCase):
         observation = self.record_space.sample(size=self.capacity + 1)
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
 
-        size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
+        size_value, index_value = test.get_variable_values(buffer_size, buffer_index)
         # Size should be equivalent to capacity when full.
         self.assertEqual(size_value, self.capacity)
 
@@ -203,7 +202,7 @@ class TestPrioritizedReplay(unittest.TestCase):
         memory_variables = memory.get_variables(["sum-segment-tree", "min-segment-tree"], global_scope=False)
         sum_segment_tree = memory_variables['sum-segment-tree']
         min_segment_tree = memory_variables['min-segment-tree']
-        sum_segment_values, min_segment_values = test.get_variable_values([sum_segment_tree, min_segment_tree])
+        sum_segment_values, min_segment_values = test.get_variable_values(sum_segment_tree, min_segment_tree)
 
         self.assertEqual(sum(sum_segment_values), 0)
         self.assertEqual(sum(min_segment_values), float('inf'))
@@ -214,7 +213,7 @@ class TestPrioritizedReplay(unittest.TestCase):
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
 
         # Fetch segment tree.
-        sum_segment_values, min_segment_values = test.get_variable_values([sum_segment_tree, min_segment_tree])
+        sum_segment_values, min_segment_values = test.get_variable_values(sum_segment_tree, min_segment_tree)
 
         # Check insert positions
         # Initial insert is at priority capacity
@@ -232,7 +231,7 @@ class TestPrioritizedReplay(unittest.TestCase):
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
 
         # Fetch segment tree.
-        sum_segment_values, min_segment_values = test.get_variable_values([sum_segment_tree, min_segment_tree])
+        sum_segment_values, min_segment_values = test.get_variable_values(sum_segment_tree, min_segment_tree)
         print(sum_segment_values)
         print(min_segment_values)
 

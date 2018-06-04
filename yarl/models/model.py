@@ -276,7 +276,7 @@ class Model(Specifiable):
                 entry_point.update_from_input(entry_point.incoming_connections[0], self.op_registry,
                                               self.in_socket_registry)
                 if entry_point.component.input_complete:
-                    self.component_complete(entry_point)
+                    self.component_complete(entry_point.component)
                 else:
                     self.partial_input_build(entry_point)
 

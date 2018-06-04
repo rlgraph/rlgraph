@@ -254,7 +254,7 @@ class GraphFunction(object):
                 raise YARLError("ERROR: No `_graph_fn_...` method with name '{}' found!".format(method))
         else:
             self.method = method
-            self.name = re.sub(r'^_graph_', "", method.__name__)
+            self.name = re.sub(r'^_graph_fn_', "", method.__name__)
 
         # Dict-records for input-sockets (by name) to keep information on their position and "op-completeness".
         self.input_sockets = OrderedDict()

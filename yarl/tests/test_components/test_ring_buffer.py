@@ -77,7 +77,7 @@ class TestRingBufferMemory(unittest.TestCase):
         memory_variables = ring_buffer.get_variables(self.memory_variables, global_scope=False)
         buffer_size = memory_variables['size']
         buffer_index = memory_variables['index']
-        size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
+        size_value, index_value = test.get_variable_values(buffer_size, buffer_index)
 
         # Assert indices 0 before insert.
         self.assertEqual(size_value, 0)
@@ -87,7 +87,7 @@ class TestRingBufferMemory(unittest.TestCase):
         observation = self.record_space.sample(size=self.capacity + 1)
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
 
-        size_value, index_value = test.get_variable_values([buffer_size, buffer_index])
+        size_value, index_value = test.get_variable_values(buffer_size, buffer_index)
         # Size should be equivalent to capacity when full.
         self.assertEqual(size_value, self.capacity)
 
@@ -115,7 +115,7 @@ class TestRingBufferMemory(unittest.TestCase):
         episode_indices = ring_buffer_variables["episode-indices"]
 
         size_value, index_value, num_episodes_value, episode_index_values = test.get_variable_values(
-            [buffer_size, buffer_index, num_episodes, episode_indices]
+            buffer_size, buffer_index, num_episodes, episode_indices
         )
 
         # Assert indices 0 before insert.
@@ -131,7 +131,7 @@ class TestRingBufferMemory(unittest.TestCase):
         observation = non_terminal_records(self.record_space, self.capacity + 1)
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
         size_value, index_value, num_episodes_value, episode_index_values = test.get_variable_values(
-            [buffer_size, buffer_index, num_episodes, episode_indices]
+            buffer_size, buffer_index, num_episodes, episode_indices
         )
 
         # Size should be equivalent to capacity when full.
@@ -164,7 +164,7 @@ class TestRingBufferMemory(unittest.TestCase):
         observation = terminal_records(self.record_space, 1)
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
         size_value, index_value, num_episodes_value, episode_index_values = test.get_variable_values(
-            [buffer_size, buffer_index, num_episodes, episode_indices]
+            buffer_size, buffer_index, num_episodes, episode_indices
         )
 
         # One episode should be present.
@@ -180,7 +180,7 @@ class TestRingBufferMemory(unittest.TestCase):
 
         # Now, we expect to have 2 episodes with episode indices at 0 and 2.
         size_value, index_value, num_episodes_value, episode_index_values = test.get_variable_values(
-            [buffer_size, buffer_index, num_episodes, episode_indices]
+            buffer_size, buffer_index, num_episodes, episode_indices
         )
         print('Episode indices after = {}'.format(episode_index_values))
         self.assertEqual(num_episodes_value, 2)
@@ -203,9 +203,7 @@ class TestRingBufferMemory(unittest.TestCase):
 
         observation = terminal_records(self.record_space, self.capacity)
         test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
-        num_episodes_value, episode_index_values = test.get_variable_values(
-            [num_episodes, episode_indices]
-        )
+        num_episodes_value, episode_index_values = test.get_variable_values(num_episodes, episode_indices)
         self.assertEqual(num_episodes_value, self.capacity)
         # Every episode index should correspond to its position
         for i in range(self.capacity):

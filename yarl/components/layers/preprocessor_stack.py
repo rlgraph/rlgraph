@@ -31,7 +31,7 @@ class PreprocessorStack(Stack):
     into one exposed `reset` out-Socket. Otherwise, behaves like a Stack in connecting the PreprocessorLayers
     from output to input all the way through.
     """
-    def __init__(self, scope="preprocessor-stack", *preprocessors, **kwargs):
+    def __init__(self, *preprocessors, **kwargs):
         """
         Args:
             preprocessors (PreprocessorLayer): The PreprocessorLayers to add to the Stack and connect to each other.
@@ -39,15 +39,16 @@ class PreprocessorStack(Stack):
         Raises:
             YARLError: If sub-components' number of inputs/outputs do not match.
         """
-        default_dict(kwargs, dict(scope=scope, sub_component_inputs="input", sub_component_outputs="output"))
+        default_dict(kwargs, dict(scope=kwargs.pop("scope", "preprocessor-stack"),
+                                  sub_component_inputs="input", sub_component_outputs="output",
+                                  flatten_ops=False))
         super(PreprocessorStack, self).__init__(*preprocessors, **kwargs)
 
         # Connect each pre-processor's reset out-Socket to our graph_fn.
-        self.define_outputs("reset")
         resets = list()
         for preprocessor in self.sub_components.values():  # type: PreprocessLayer
             resets.append(preprocessor.get_output("reset"))
-        self.add_graph_fn(resets, "reset")
+        self.add_graph_fn(resets, "reset", self._graph_fn_reset)
 
     def _graph_fn_reset(self, *preprocessor_resets):
         if backend == "tf":
