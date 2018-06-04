@@ -51,10 +51,15 @@ class Optimizer(Component):
         self.loss_function = loss_function
 
         # Define our interface.
-        self.define_inputs("variables", "loss", *inputs)
-        self.define_outputs("grads_and_vars", "step")
-        self.add_graph_fn(["variables", "loss"] + list(inputs), "grads_and_vars", self._graph_fn_calculate_gradients)
-        self.add_graph_fn(["grads_and_vars"], "step", self._graph_fn_apply_gradients)
+        self.define_inputs("variables", "loss", "apply_grads_and_vars", *inputs)
+        self.define_outputs("calc_grads_and_vars", "step")
+
+        self.add_graph_fn(
+            inputs=["variables", "loss"] + list(inputs),
+            outputs="calc_grads_and_vars",
+            method=self._graph_fn_calculate_gradients
+        )
+        self.add_graph_fn(["apply_grads_and_vars"], "step", self._graph_fn_apply_gradients)
 
     def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
         """
