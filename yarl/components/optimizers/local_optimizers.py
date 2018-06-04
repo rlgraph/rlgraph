@@ -20,7 +20,7 @@ from __future__ import print_function
 from yarl import backend
 from yarl.components.optimizers.optimizer import Optimizer
 
-if backend == 'tf':
+if backend == "tf":
     import tensorflow as tf
 
 
@@ -39,7 +39,7 @@ class LocalOptimizer(Optimizer):
         self.optimizer = None
 
     def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
-        if backend == 'tf':
+        if backend == "tf":
             print(variables)
             return self.optimizer.compute_gradients(
                 loss=loss,
@@ -47,7 +47,7 @@ class LocalOptimizer(Optimizer):
             )
 
     def _graph_fn_apply_gradients(self, grads_and_vars):
-        if backend == 'tf':
+        if backend == "tf":
             return self.optimizer.apply_gradients(
                 grads_and_vars=grads_and_vars
             )
@@ -56,8 +56,14 @@ class LocalOptimizer(Optimizer):
 class GradientDescentOptimizer(LocalOptimizer):
 
     def __init__(self, learning_rate, loss_function, **kwargs):
-        super(GradientDescentOptimizer, self).__init__(learning_rate, loss_function, **kwargs)
-        if backend == 'tf':
+        super(GradientDescentOptimizer, self).__init__(
+            learning_rate=learning_rate,
+            loss_function=loss_function,
+            scope=kwargs.pop("scope", "gradient-descent-optimizer"),
+            **kwargs
+        )
+
+        if backend == "tf":
             self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
 
 
@@ -68,8 +74,13 @@ class AdamOptimizer(LocalOptimizer):
     https://arxiv.org/abs/1412.6980
     """
     def __init__(self, learning_rate, loss_function, **kwargs):
-        super(AdamOptimizer, self).__init__(learning_rate, loss_function, **kwargs)
-        if backend == 'tf':
+        super(AdamOptimizer, self).__init__(
+            learning_rate=learning_rate,
+            loss_function=loss_function,
+            scope=kwargs.pop("scope", "adam-optimizer"),
+            **kwargs
+        )
+        if backend == "tf":
             self.optimizer = tf.train.AdamOptimizer(
                 learning_rate=self.learning_rate,
                 beta1=kwargs.pop('beta1', 0.9),
@@ -85,8 +96,13 @@ class NadamOptimizer(LocalOptimizer):
     http://cs229.stanford.edu/proj2015/054_report.pdf
     """
     def __init__(self, learning_rate, loss_function, **kwargs):
-        super(NadamOptimizer, self).__init__(learning_rate, loss_function, **kwargs)
-        if backend == 'tf':
+        super(NadamOptimizer, self).__init__(
+            learning_rate=learning_rate,
+            loss_function=loss_function,
+            scope=kwargs.pop("scope", "nadam-optimizer"),
+            **kwargs
+        )
+        if backend == "tf":
             self.optimizer = tf.keras.optimizers.Nadam(
                 lr=self.learning_rate,
                 beta_1=kwargs.pop('beta1', 0.9),
@@ -103,8 +119,13 @@ class AdagradOptimizer(LocalOptimizer):
     http://www.jmlr.org/papers/volume12/duchi11a/duchi11a.pdf
     """
     def __init__(self, learning_rate, loss_function, **kwargs):
-        super(AdagradOptimizer, self).__init__(learning_rate, loss_function, **kwargs)
-        if backend == 'tf':
+        super(AdagradOptimizer, self).__init__(
+            learning_rate=learning_rate,
+            loss_function=loss_function,
+            scope=kwargs.pop("scope", "adagrad-optimizer"),
+            **kwargs
+        )
+        if backend == "tf":
             self.optimizer = tf.train.AdagradOptimizer(
                 learning_rate=self.learning_rate,
                 initial_accumulator_value=kwargs.pop('initial_accumulator_value', 0.1)
@@ -118,8 +139,13 @@ class AdadeltaOptimizer(LocalOptimizer):
     https://arxiv.org/abs/1212.5701
     """
     def __init__(self, learning_rate, loss_function, **kwargs):
-        super(AdadeltaOptimizer, self).__init__(learning_rate, loss_function, **kwargs)
-        if backend == 'tf':
+        super(AdadeltaOptimizer, self).__init__(
+            learning_rate=learning_rate,
+            loss_function=loss_function,
+            scope=kwargs.pop("scope", "adadelta-optimizer"),
+            **kwargs
+        )
+        if backend == "tf":
             self.optimizer = tf.train.AdadeltaOptimizer(
                 learning_rate=self.learning_rate,
                 rho=kwargs.pop('rho', 0.95)
@@ -131,8 +157,13 @@ class SGDOptimizer(LocalOptimizer):
     Stochastic gradient descent optimizer.
     """
     def __init__(self, learning_rate, loss_function, **kwargs):
-        super(SGDOptimizer, self).__init__(learning_rate, loss_function, **kwargs)
-        if backend == 'tf':
+        super(SGDOptimizer, self).__init__(
+            learning_rate=learning_rate,
+            loss_function=loss_function,
+            scope=kwargs.pop("scope", "sgd-optimizer"),
+            **kwargs
+        )
+        if backend == "tf":
             self.optimizer = tf.keras.optimizers.SGD(
                 lr=self.learning_rate,
                 momentum=kwargs.pop('momentum', 0.0),
@@ -147,8 +178,13 @@ class RMSPropOptimizer(LocalOptimizer):
     https://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf
     """
     def __init__(self, learning_rate, loss_function, **kwargs):
-        super(RMSPropOptimizer, self).__init__(learning_rate, loss_function, **kwargs)
-        if backend == 'tf':
+        super(RMSPropOptimizer, self).__init__(
+            learning_rate=learning_rate,
+            loss_function=loss_function,
+            scope=kwargs.pop("scope", "rmsprop-optimizer"),
+            **kwargs
+        )
+        if backend == "tf":
             self.optimizer = tf.train.AdadeltaOptimizer(
                 learning_rate=self.learning_rate,
                 rho=kwargs.pop('rho', 0.95)

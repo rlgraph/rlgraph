@@ -27,7 +27,7 @@ from yarl.tests import ComponentTest
 
 class TestLocalOptimizers(unittest.TestCase):
 
-    optimizer = GradientDescentOptimizer(learning_rate=0.01, loss_function=None)
+    optimizer = GradientDescentOptimizer(learning_rate=0.01, loss_function=None, flatten_ops=False)
     space = dict(
         variables=FloatBox(shape=()),
         loss=FloatBox(shape=())

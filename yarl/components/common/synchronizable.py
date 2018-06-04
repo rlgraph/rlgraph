@@ -22,7 +22,7 @@ from yarl.utils.ops import DataOpDict
 from yarl.utils.util import get_shape
 from yarl.components import Component
 
-if backend == 'tf':
+if backend == "tf":
     import tensorflow as tf
 
 

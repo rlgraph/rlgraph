@@ -23,7 +23,7 @@ from yarl import backend
 from yarl.utils import util
 from yarl.components import Component
 
-if backend == 'tf':
+if backend == "tf":
     import tensorflow as tf
 
 

@@ -23,7 +23,7 @@ from yarl.components import Component
 from yarl.spaces import Space, IntBox
 from .epsilon_exploration import EpsilonExploration
 
-if backend == 'tf':
+if backend == "tf":
     import tensorflow as tf
 
 

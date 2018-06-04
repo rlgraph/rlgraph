@@ -20,7 +20,7 @@ from __future__ import print_function
 from yarl import backend
 from yarl.components import Component
 
-if backend == 'tf':
+if backend == "tf":
     import tensorflow as tf
 
 
