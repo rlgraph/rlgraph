@@ -20,6 +20,9 @@ from __future__ import print_function
 from yarl import backend
 from yarl.components import Component
 
+if backend == "tf":
+    import tensorflow as tf
+
 
 class LossFunction(Component):
     """
@@ -70,6 +73,5 @@ class LossFunction(Component):
             SingleDataOp: The final loss tensor holding the average loss over the entire batch.
         """
         if backend == "tf":
-            import tensorflow as tf
             return tf.reduce_mean(input_tensor=loss_per_item, axis=0)
 

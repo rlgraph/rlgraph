@@ -22,6 +22,9 @@ from yarl import backend
 from yarl.utils.initializer import Initializer
 from .nn_layer import NNLayer
 
+if backend == "tf":
+    import tensorflow as tf
+
 
 class DenseLayer(NNLayer):
     """
@@ -63,7 +66,6 @@ class DenseLayer(NNLayer):
 
         # Wrapper for backend.
         if backend == "tf":
-            import tensorflow as tf
             self.layer = tf.layers.Dense(
                 units=self.units,
                 kernel_initializer=self.weights_init.initializer,

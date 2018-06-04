@@ -17,10 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
-
 from yarl import backend
 from yarl.components.common.noise_components.noise import NoiseComponent
+
+if backend == 'tf':
+    import tensorflow as tf
 
 
 class GaussianNoise(NoiseComponent):

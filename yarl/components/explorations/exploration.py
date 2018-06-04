@@ -23,6 +23,9 @@ from yarl.components import Component
 from yarl.spaces import Space, IntBox
 from .epsilon_exploration import EpsilonExploration
 
+if backend == 'tf':
+    import tensorflow as tf
+
 
 class Exploration(Component):
     """
@@ -88,7 +91,6 @@ class Exploration(Component):
             DataOp: The DataOp representing the action. This will match the shape of self.action_space.
         """
         if backend == "tf":
-            import tensorflow as tf
             return tf.cond(do_explore,
                            # (1,) = Adding artificial batch rank.
                            true_fn=lambda: tf.random_uniform(shape=(1,) + self.action_space.shape,
