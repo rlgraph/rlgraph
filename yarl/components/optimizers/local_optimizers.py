@@ -40,9 +40,6 @@ class LocalOptimizer(Optimizer):
 
     def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
         if backend == "tf":
-            print('variables = {}'.format(variables))
-            print('loss = {}'.format(loss))
-
             return self.optimizer.compute_gradients(
                 loss=loss,
                 var_list=variables
@@ -50,7 +47,6 @@ class LocalOptimizer(Optimizer):
 
     def _graph_fn_apply_gradients(self, grads_and_vars):
         if backend == "tf":
-            print('grads and vars = {}'.format(grads_and_vars))
             return self.optimizer.apply_gradients(
                 grads_and_vars=grads_and_vars
             )
@@ -65,7 +61,6 @@ class GradientDescentOptimizer(LocalOptimizer):
             scope=kwargs.pop("scope", "gradient-descent-optimizer"),
             **kwargs
         )
-
         if backend == "tf":
             self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
 
