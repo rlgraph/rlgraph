@@ -30,9 +30,11 @@ from yarl.components.socket_and_graph_fn import Socket, GraphFunction
 from yarl.utils import util
 from yarl.spaces import Space
 
-# some settings flags
-CONNECT_INS = 0x1  # whether to expose only in-Sockets (in calls to add_components)
-CONNECT_OUTS = 0x2  # whether to expose only out-Sockets (in calls to add_components)
+# Some settings flags.
+# Whether to expose only in-Sockets (in calls to add_components).
+CONNECT_INS = 0x1
+# Whether to expose only out-Sockets (in calls to add_components)
+CONNECT_OUTS = 0x2
 
 
 class Component(Specifiable):
@@ -153,8 +155,9 @@ class Component(Specifiable):
         # Allow the Component to check its input Space.
         self.check_input_spaces(input_spaces)
         # Allow the Component to create all its variables.
-        with tf.variable_scope(self.global_scope):
-            self.create_variables(input_spaces)
+        if backend == "tf":
+            with tf.variable_scope(self.global_scope):
+                self.create_variables(input_spaces)
         # Add all created variables up the parent/container hierarchy.
         self.propagate_variables()
 
@@ -287,40 +290,41 @@ class Component(Specifiable):
         Returns:
             dict: A dict mapping variable names to their backend variables.
         """
-        collections = kwargs.pop("collections", None) or tf.GraphKeys.TRAINABLE_VARIABLES
-        custom_scope_separator = kwargs.pop("custom_scope_separator", "/")
-        global_scope = kwargs.pop("global_scope", True)
-        assert not kwargs, "{}".format(kwargs)
+        if backend == "tf":
+            collections = kwargs.pop("collections", None) or tf.GraphKeys.TRAINABLE_VARIABLES
+            custom_scope_separator = kwargs.pop("custom_scope_separator", "/")
+            global_scope = kwargs.pop("global_scope", True)
+            assert not kwargs, "{}".format(kwargs)
 
-        if len(names) == 1 and isinstance(names[0], list):
-            names = names[0]
-        names = util.force_list(names)
-        # Return all variables of this Component (for some collection).
-        if len(names) == 0:
-            collection_variables = tf.get_collection(collections)
-            ret = dict()
-            for v in collection_variables:
-                lookup = re.sub(r':\d+$', "", v.name)
-                if lookup in self.variables:
-                    if global_scope:
-                        # Replace the scope separator with a custom one.
-                        ret[re.sub(r'/', custom_scope_separator, lookup)] = v
-                    else:
-                        ret[re.sub(r'^.+/', "", lookup)] = v
-            return ret
-        # Return only variables of this Component by name.
-        else:
-            ret = dict()
-            for name in names:
-                global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
-                if name in self.variables:
-                    ret[re.sub(r'/', custom_scope_separator, name)] = self.variables[name]
-                elif global_scope_name in self.variables:
-                    if global_scope:
-                        ret[re.sub(r'/', custom_scope_separator, global_scope_name)] = self.variables[global_scope_name]
-                    else:
-                        ret[name] = self.variables[global_scope_name]
-            return ret
+            if len(names) == 1 and isinstance(names[0], list):
+                names = names[0]
+            names = util.force_list(names)
+            # Return all variables of this Component (for some collection).
+            if len(names) == 0:
+                collection_variables = tf.get_collection(collections)
+                ret = dict()
+                for v in collection_variables:
+                    lookup = re.sub(r':\d+$', "", v.name)
+                    if lookup in self.variables:
+                        if global_scope:
+                            # Replace the scope separator with a custom one.
+                            ret[re.sub(r'/', custom_scope_separator, lookup)] = v
+                        else:
+                            ret[re.sub(r'^.+/', "", lookup)] = v
+                return ret
+            # Return only variables of this Component by name.
+            else:
+                ret = dict()
+                for name in names:
+                    global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
+                    if name in self.variables:
+                        ret[re.sub(r'/', custom_scope_separator, name)] = self.variables[name]
+                    elif global_scope_name in self.variables:
+                        if global_scope:
+                            ret[re.sub(r'/', custom_scope_separator, global_scope_name)] = self.variables[global_scope_name]
+                        else:
+                            ret[name] = self.variables[global_scope_name]
+                return ret
 
     def define_inputs(self, *sockets, **kwargs):
         """
