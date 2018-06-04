@@ -195,6 +195,7 @@ class GraphFunction(object):
     Class describing a segment of the graph defined by a _graph_fn-method inside a Component.
     A GraphFunction is connected to incoming Sockets (these are the input parameters to the _graph-func) and to
     outgoing Sockets (these are the return values of the _graph func).
+
     Implements the update_from_input method which checks whether all necessary inputs to a graph_fn
     are given and - if yes - starts producing output ops from these inputs and the graph_fn to be passed
     on to the outgoing Sockets.
@@ -497,12 +498,3 @@ class GraphFunction(object):
     def __str__(self):
         return "{}('{}' in=[{}] out=[{}])". \
             format(type(self).__name__, self.name, str(self.input_sockets), str(self.output_sockets))
-
-
-#class TfGraphFunction(GraphFunction):
-#    """
-#    TensorFlow computation.
-#    """
-#    def to_graph(self, method):
-#        return autograph.to_graph(method, verbose=True)
-

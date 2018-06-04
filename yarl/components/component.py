@@ -198,7 +198,7 @@ class Component(Specifiable):
         for var in variables:
             # Use our global_scope plus the var's name without anything in between.
             # e.g. var.name = "dense-layer/dense/kernel:0" -> key = "dense-layer/kernel"
-            #key = re.sub(r'({}).*?([\w\-.]+):\d+$'.format(self.global_scope), r'\1/\2', var.name)
+            # key = re.sub(r'({}).*?([\w\-.]+):\d+$'.format(self.global_scope), r'\1/\2', var.name)
             key = re.sub(r':\d+$', "", var.name)
             self.variables[key] = var
 
@@ -553,11 +553,13 @@ class Component(Specifiable):
         if connections is not None:
             # More than one socket needs to be exposed.
             if isinstance(connections, list):
-                for e in connections:
-                    if isinstance(e, str):
-                        connect_spec[e] = e  # leave name
-                    elif isinstance(e, (tuple, list)):
-                        connect_spec[e[0]] = e[1]  # change name from 1st element to 2nd element in tuple/list
+                for connection in connections:
+                    if isinstance(connection, str):
+                        # Leave name.
+                        connect_spec[connection] = connection
+                    elif isinstance(connection, (tuple, list)):
+                        # Change name from 1st element to 2nd element in tuple/list.
+                        connect_spec[connection[0]] = connection[1]
             else:
                 # Expose all Sockets if connections=True|CONNECT_INS|CONNECT_OUTS.
                 connect_list = list()
@@ -820,18 +822,19 @@ class Component(Specifiable):
         Raises:
             YARLError: If the Socket cannot be found and create_internal_if_not_found is False.
         """
-        constant_dataop = None  # possible constant value for a new Socket
+        # Possible constant value for a new Socket.
+        constant_dataop = None
 
         # Return the only Socket of this component on given side (type_ must be given in this case as 'in' or 'out').
         if socket is None:
             assert type_ is not None, "ERROR: type_ needs to be specified if you want to get only-Socket!"
             if type_ == "out":
-                list_ = self.output_sockets
+                socket_list = self.output_sockets
             else:
-                list_ = self.input_sockets
+                socket_list = self.input_sockets
 
-            assert len(list_) == 1, "ERROR: More than one {}-Socket! Cannot return only-Socket.".format(type_)
-            return list_[0]
+            assert len(socket_list) == 1, "ERROR: More than one {}-Socket! Cannot return only-Socket.".format(type_)
+            return socket_list[0]
         # Socket is given as str: Try to look up socket by name.
         elif isinstance(socket, str):
             socket_name = socket
@@ -877,9 +880,8 @@ class Component(Specifiable):
             if create_internal_if_not_found is True:
                 self.add_socket(socket_name, value=constant_dataop, type_="in", internal=True)
                 socket_obj = self.get_socket(socket_name)
-            # Error.
             else:
-                raise YARLError("ERROR: No '{}'-socket named '{}' found in {}!". \
+                raise YARLError("ERROR: No '{}'-socket named '{}' found in {}!".
                                 format("??" if type_ is None else type_, socket_name, component.name))
 
         return socket_obj
