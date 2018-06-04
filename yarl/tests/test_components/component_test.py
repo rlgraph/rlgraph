@@ -42,7 +42,7 @@ class ComponentTest(object):
     A very simple (and limited) Model-wrapper to test a single component in a very easy and straightforward
     way.
     """
-    def __init__(self, component, input_spaces=None, seed=10, debug_trace=True):
+    def __init__(self, component, input_spaces=None, seed=10):
         """
         Args:
             component (Component): The Component to be tested (may contain sub-components).
@@ -51,7 +51,6 @@ class ComponentTest(object):
                 in-Sockets.
             seed (Optional[int]): The seed to use for random-seeding the Model object.
                 If None, do not seed the Graph (things may behave non-deterministically).
-            debug_trace (bool): Whether to print out debug information during Model's building procedure. Default: True.
         """
         self.seed = seed
 
@@ -72,7 +71,7 @@ class ComponentTest(object):
         # Build the model.
         self.model.build()
 
-    def test(self, out_socket_name, inputs=None, expected_outputs=None):
+    def test(self, out_socket_name, inputs=None, expected_outputs=None, decimals=7):
         """
         Does one test pass through the component to test.
 
@@ -92,7 +91,7 @@ class ComponentTest(object):
 
         #  Optionally do test asserts here.
         if expected_outputs is not None:
-            self.assert_equal(outs, expected_outputs)
+            self.assert_equal(outs, expected_outputs, decimals=decimals)
 
         return outs
 
@@ -119,12 +118,12 @@ class ComponentTest(object):
         Returns:
             Values of the variables provided.
         """
-        return self.model.get_variable_values(*variables)
+        return self.model.get_variable_values(variables)
 
     @staticmethod
-    def assert_equal(outs, expected_outputs):
+    def assert_equal(outs, expected_outputs, decimals=7):
         """
         Convenience wrapper: See implementation of `recursive_assert_almost_equal` for details.
         """
-        recursive_assert_almost_equal(outs, expected_outputs)
+        recursive_assert_almost_equal(outs, expected_outputs, decimals=decimals)
 

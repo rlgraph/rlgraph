@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import unittest
 
-from yarl.components.layers import GrayScale, Flatten, Scale, Stack, Sequence
+from yarl.components.layers import GrayScale, Flatten, Scale, PreprocessorStack, Sequence
 from yarl.spaces import *
 from yarl.tests import ComponentTest
 
@@ -92,17 +92,17 @@ class TestPreprocessors(unittest.TestCase):
         test.test(out_socket_name="reset")
         test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
 
-    def test_two_preprocessors(self):
+    def test_two_preprocessors_in_a_preprocessor_stack(self):
         space = Dict(
             a=FloatBox(shape=(1, 2)),
             b=FloatBox(shape=(2, 2, 2)),
             c=Tuple(FloatBox(shape=(2,)), Dict(ca=FloatBox(shape=(3, 3, 2))))
         )
 
-        # Construct the Component to test (simple Stack).
+        # Construct the Component to test (PreprocessorStack).
         scale = Scale(scaling_factor=2)
         gray = GrayScale(weights=(0.5, 0.5), keep_rank=False)
-        test = ComponentTest(component=Stack(scale, gray), input_spaces=dict(input=space))
+        test = ComponentTest(component=PreprocessorStack(scale, gray), input_spaces=dict(input=space))
 
         input_ = dict(
             a=np.array([[3.0, 5.0]]),
