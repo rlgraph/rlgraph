@@ -326,14 +326,15 @@ class Model(Specifiable):
                     self.logger.debug("\t\tNot input-complete yet -> updating from input {}".format(str(socket)))
                     outgoing.update_from_input(socket, self.op_registry, self.in_socket_registry)
                     # Check now for input-completeness of this component.
+                    outgoing.component.sockets_to_do_later.append(outgoing)
                     if outgoing.component.input_complete:
                         self.logger.debug("\t\t\tNow input-complete.")
-                        self.component_complete(outgoing)
-                    # Not complete yet. Remember do build this Socket later.
-                    else:
-                        self.logger.debug(
-                            "\t\t\tStill not complete -> add Socket {} for later processing.".format(outgoing))
-                        outgoing.component.sockets_to_do_later.append(outgoing)
+                        self.component_complete(outgoing.component)
+                    ## Not complete yet. Remember do build this Socket later.
+                    #else:
+                    #    self.logger.debug(
+                    #        "\t\t\tStill not complete -> add Socket {} for later processing.".format(outgoing))
+                    #    outgoing.component.sockets_to_do_later.append(outgoing)
 
             # Outgoing is a GraphFunction -> Add the socket to the GraphFunction's (waiting) inputs.
             # - If all inputs are complete, build a new op into the graph (via the graph_fn).
@@ -504,19 +505,27 @@ class Model(Specifiable):
         raise YARLError("ERROR: No op found for out-Socket '{}' given the input-combinations: {}!".
                         format(socket_name, input_combinations))
 
-    def component_complete(self, last_in_socket):
-        self.logger.debug("Component {} is input-complete. Calling `when_input_complete`.".format(str(last_in_socket.component.name)))
-        # Create the Component's variables.
-        space_dict = {in_s.name: in_s.space for in_s in last_in_socket.component.input_sockets}
-        last_in_socket.component.when_input_complete(space_dict)
+    def component_complete(self, component):
+        """
+        Called when a Component has all its incoming Spaces known. Only then can we sanity check the input
+        Spaces and create the Component's variables.
+
+        Args:
+            component (Component): The Component that now has all its input Spaces defined.
+        """
+        self.logger.debug("Component {} is input-complete. Calling `when_input_complete`.".format(str(component.name)))
+
+        # Allow the Component to sanity check and create its variables.
+        space_dict = {in_s.name: in_s.space for in_s in component.input_sockets}
+        component.when_input_complete(space_dict)
+
         self.logger.debug(".. and building all in-Sockets.")
-        # Do a complete build (over all incoming Sockets as some of these have been waiting).
-        self.partial_input_build(last_in_socket)
-        # And all waiting other Sockets (!= outgoing), if any.
-        for og in last_in_socket.component.sockets_to_do_later:
-            self.partial_input_build(og)
+        # Do a complete build (over all incoming Sockets as all the others have been waiting).
+        for in_sock in component.sockets_to_do_later:
+            self.partial_input_build(in_sock)
+
         # Invalidate to get error if we ever touch this again as an iterator.
-        last_in_socket.component.sockets_to_do_later = None
+        component.sockets_to_do_later = None
 
     def trace_back_sockets(self, trace_set):
         """

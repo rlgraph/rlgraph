@@ -28,7 +28,7 @@ class Layer(Stack):
     The final interface will hence consist of the first sub-component's input(s)- and this layer's graph_fn's
     output-socket(s).
     """
-    def __init__(self, graph_fn_settings=None, *sub_components, **kwargs):
+    def __init__(self, *sub_components, **kwargs):
         """
         Args:
             sub_components (List[Component]): The sub-components to immediately place into this one and

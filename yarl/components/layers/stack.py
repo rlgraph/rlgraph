@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components import Component, CONNECT_INS, CONNECT_OUTS
+from yarl.components import Component
 
 
 class Stack(Component):
@@ -32,8 +32,7 @@ class Stack(Component):
     def __init__(self, *sub_components, **kwargs):
         """
         Args:
-            sub_components (List[Component]): The sub-components to immediately place into this one and
-                connect to each other.
+            sub_components (Component): The sub-components to add to the Stack and connect to each other.
 
         Keyword Args:
             expose_ins (bool): Whether to expose the first sub-component's inputs (default: True).
@@ -45,28 +44,23 @@ class Stack(Component):
         expose_ins = kwargs.pop("expose_ins", True)
         expose_outs = kwargs.pop("expose_outs", True)
 
-        super(Stack, self).__init__(**kwargs)
-        # An empty Stack is the same as a base Component object.
-        if len(sub_components) == 0:
-            return
+        super(Stack, self).__init__(*sub_components, **kwargs)
 
-        # TODO: let Component parent add the sub-components.
-        # Add all sub-components into the stack obeying the settings for connecting the first component's input
-        # Sockets and the last Component's output Socket.
-        self.add_components(*sub_components, connect=dict({
-            sub_components[0].name: CONNECT_INS if expose_ins else False,
-            sub_components[-1].name: CONNECT_OUTS if expose_outs else False
-        }))
+        # Redefine sub_components for iteration purposes.
+        sub_components = list(self.sub_components.values())
+
+        if len(self.sub_components) > 0:
+            # Connect the first component's input(s) to our in-Sockets (same name) and the last Component's output(s)
+            # to our output Socket(s).
+            if expose_ins is True:
+                for in_sock in sub_components[0].input_sockets:
+                    self.define_inputs(in_sock.name)
+                    self.connect(in_sock.name, in_sock)
+            if expose_outs is True:
+                for out_sock in sub_components[-1].output_sockets:
+                    self.define_outputs(out_sock.name)
+                    self.connect(out_sock, out_sock.name)
 
         # Now connect all sub-components with each other.
-        for i in range(len(sub_components)-1):
-            component = sub_components[i]
-            next_component = sub_components[i+1]
-
-            # TODO: change this to make it possible to just pass in two components, and they would be connected
-            # connect component's output socket(s) with next_component's input socket(s).
-            for out_sock, in_sock in zip(component.output_sockets, next_component.input_sockets):
-                # correctly with each other if the first one has the same number of
-                # outputs than the second one has inputs.
-                self.connect([component, out_sock], [next_component, in_sock])
-
+        for i in range(len(sub_components) - 1):
+            self.connect(sub_components[i], sub_components[i+1])

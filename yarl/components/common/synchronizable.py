@@ -31,24 +31,24 @@ class Synchronizable(Component):
     This is useful for constructions like a target network in DQN or
     for distributed setups where e.g. local policies need to be sync'd from a global model from time to time.
     """
-    def __init__(self, collections=None, writable=True, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         """
-        Args:
+        Keyword Args:
             collections (set): A set of specifiers (currently only tf), that determine which Variables to synchronize.
             writable (bool): Whether this Component is synchronizable/writable by another Synchronizable.
                 If False, this Component can only push out its own values (and thus overwrite other Synchronizables).
                 Default: True.
         """
-        super(Synchronizable, self).__init__(flatten_ops=kwargs.pop("flatten_ops", False), *args, **kwargs)
+        self.collections = kwargs.pop("collections", None)
+        self.writable = kwargs.pop("writable", True)
 
-        self.collections = collections
-        self.writable = writable
+        super(Synchronizable, self).__init__(*args, **kwargs)  # ignore other args/kwargs
 
         # Add a simple syncing API.
         # Outgoing data (to overwrite another Synchronizable Component's data).
         self.define_outputs("synch_out")
         # Add the sending-out-data operation.
-        self.add_graph_fn(None, "own_vars", self._graph_fn_synch_out)
+        self.add_graph_fn(None, "own_vars", self._graph_fn_synch_out, flatten_ops=False)
         self.connect("own_vars", "synch_out")
 
         # The synch op, actually doing the overwriting from synch_in to our variables.
@@ -58,7 +58,7 @@ class Synchronizable(Component):
             self.define_inputs("synch_in")
             self.define_outputs("synch")
             # Add the synching operation.
-            self.add_graph_fn(["synch_in", "own_vars"], "synch", self._graph_fn_synch)
+            self.add_graph_fn(["synch_in", "own_vars"], "synch", self._graph_fn_synch, flatten_ops=False)
 
     def _graph_fn_synch(self, sync_in, own_vars):
         """
@@ -81,7 +81,7 @@ class Synchronizable(Component):
             raise YARLError("ERROR: Number of Variables to synch must match! "
                             "We have {} syncs_from and {} syncs_to.".format(len(syncs_from), len(syncs_to)))
         for (key_from, var_from), (key_to, var_to) in zip(syncs_from, syncs_to):
-            # Sanity checking
+            # Sanity checking. TODO: Check the names' ends? Without the global scope?
             #if key_from != key_to:
             #    raise YARLError("ERROR: Variable names for synching must match in order and name! "
             #                    "Mismatch at from={} and to={}.".format(key_from, key_to))
@@ -108,4 +108,6 @@ class Synchronizable(Component):
         # Must use custom_scope_separator here b/c YARL doesn't allow Dict with '/'-chars in the keys.
         # '/' could collide with a FlattenedDataOp's keys and mess up the un-flatten process.
         variables_dict = self.get_variables(collections=self.collections, custom_scope_separator="-")
+        assert len(variables_dict) > 0, \
+            "ERROR: Synchronizable Component '{}' does not have any variables!".format(self.name)
         return DataOpDict(variables_dict)

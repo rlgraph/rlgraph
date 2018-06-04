@@ -20,7 +20,7 @@ from __future__ import print_function
 import tensorflow as tf
 import re
 import copy
-from collections import Hashable
+from collections import Hashable, OrderedDict
 import numpy as np
 import uuid
 
@@ -99,7 +99,7 @@ class Component(Specifiable):
         assert not kwargs, "ERROR: kwargs ({}) still contains items!".format(kwargs)
 
         # Dict of sub-components that live inside this one (key=sub-component's scope).
-        self.sub_components = dict()
+        self.sub_components = OrderedDict()
 
         # Simple list of all GraphFunction objects that have ever been added to this Component.
         self.graph_fns = list()
@@ -150,11 +150,13 @@ class Component(Specifiable):
             input_spaces (Dict[str,Space]): A dict with Space/shape information.
                 keys=in-Socket name (str); values=the associated Space
         """
+        # Allow the Component to check its input Space.
         self.check_input_spaces(input_spaces)
-        #print("Creating Variables for {} in current name scope: {}".format(self.name,
-        #                                                                   tf.contrib.framework.get_name_scope()))
+        # Allow the Component to create all its variables.
         with tf.variable_scope(self.global_scope):
             self.create_variables(input_spaces)
+        # Add all created variables up the parent/container hierarchy.
+        self.propagate_variables()
 
     def check_input_spaces(self, input_spaces):
         """
@@ -191,10 +193,11 @@ class Component(Specifiable):
             variables (SingleDataOp): The Variable objects to register.
         """
         for var in variables:
-            ## Use our global_scope plus the var's name without anything in between.
-            ## e.g. var.name = "dense-layer/dense/kernel:0" -> key = "dense-layer/kernel"
-            #key = re.sub(var.name)
-            self.variables[var.name] = var
+            # Use our global_scope plus the var's name without anything in between.
+            # e.g. var.name = "dense-layer/dense/kernel:0" -> key = "dense-layer/kernel"
+            #key = re.sub(r'({}).*?([\w\-.]+):\d+$'.format(self.global_scope), r'\1/\2', var.name)
+            key = re.sub(r':\d+$', "", var.name)
+            self.variables[key] = var
 
     def get_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True,
                      from_space=None, add_batch_rank=False, flatten=False):
@@ -263,7 +266,6 @@ class Component(Specifiable):
         # Registers the new variable in this Component and all its parent Components.
         key = ((self.global_scope + "/") if self.global_scope else "") + name
         self.variables[key] = var
-        self.propagate_variable(key, var)
 
         return var
 
@@ -626,22 +628,23 @@ class Component(Specifiable):
         for sc in sub_component.sub_components.values():
             sub_component.propagate_scope(sc)
 
-    def propagate_variable(self, key, variable):
+    def propagate_variables(self, keys=None):
         """
-        Propagates a variable from this Component into all its parents variable registries.
-
-        Args:
-            key (str): The key (global-scope name) of the variable.
-            variable (SingleDataOp): The variable to propagate.
+        Propagates all variable from this Component to its parents' variable registries.
         """
         if self.parent_component is None:
             return
-        # Add to parent's variable registry.
-        assert key not in self.parent_component.variables, "ERROR: Variable registry of '{}' already has a variable " \
-                                                           "under key '{}'!".format(self.parent_component.name, key)
-        self.parent_component.variables[key] = variable
+
+        # Add all our variables to parent's variable registry.
+        keys = keys or self.variables.keys()
+        for key in keys:
+            assert key not in self.parent_component.variables, \
+                "ERROR: Variable registry of '{}' already has a variable under key '{}'!". \
+                format(self.parent_component.name, key)
+            self.parent_component.variables[key] = self.variables[key]
+
         # Recurse up the container hierarchy.
-        self.parent_component.propagate_variable(key, variable)
+        self.parent_component.propagate_variables(keys)
 
     def copy(self, name=None, scope=None, device=None, global_component=False):
         """
@@ -755,14 +758,25 @@ class Component(Specifiable):
                 from_socket_obj.disconnect_to(to_)
             return
 
-        # Get only out-Socket.
+        # from_ is Component.
         if isinstance(from_, Component):
+            # Both from_ and to_ are Components: Connect them Socket by Socket and return.
+            if isinstance(to_, Component):
+                assert len(from_.output_sockets) == len(to_.input_sockets), \
+                    "ERROR: Can only connect two Components if their Socket numbers match! {} has {} out-Sockets while " \
+                    "{} has {} in-Sockets.".format(from_.name, len(from_.output_sockets), to_.name,
+                                                   len(to_.input_sockets))
+                for out_sock, in_sock in zip(from_.output_sockets, to_.input_sockets):
+                    self.connect(out_sock, in_sock)
+                return
+
+            # Get the only out-Socket of from_.
             from_socket_obj = from_.get_socket(type_="out")
         # Regular Socket->Socket connection.
         else:
             from_socket_obj = self.get_socket(from_)
 
-        # Get only in-Socket.
+        # Only to_ is Component: Get the only in-Socket of to_.
         if isinstance(to_, Component):
             to_socket_obj = to_.get_socket(type_="in")
         else:
