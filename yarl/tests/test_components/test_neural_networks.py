@@ -31,7 +31,7 @@ class TestNeuralNetworks(unittest.TestCase):
     """
     Tests for assembling from json and running different NeuralNetworks.
     """
-    def test_nn_assembly(self):
+    def test_nn_assembly_from_file(self):
         # Space must contain batch dimension (otherwise, NNlayer will complain).
         space = FloatBox(shape=(3,), add_batch_rank=True)
 
@@ -51,4 +51,7 @@ class TestNeuralNetworks(unittest.TestCase):
                                                       var_dict["output-layer/dense/kernel"])
         expected = np.matmul(np.matmul(input_, w1_value), w2_value)
         test.test(out_socket_name="output", inputs=input_, expected_outputs=expected, decimals=5)
+
+    def test_complex_nn_assembly_from_file(self):
+        pass
 
