@@ -17,21 +17,32 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.optimizers.local_optimizers import *
-from yarl.components.optimizers.optimizer import Optimizer
+import unittest
+import tensorflow as tf
+
+from yarl.components.optimizers import GradientDescentOptimizer
+from yarl.spaces import FloatBox
+from yarl.tests import ComponentTest
 
 
-LocalOptimizer.__lookup_classes__ = dict(
-    gradient_descent=GradientDescentOptimizer,
-    adagrad=AdagradOptimizer,
-    adadelta=AdadeltaOptimizer,
-    adam=AdamOptimizer,
-    nadam=NadamOptimizer,
-    sgd=SGDOptimizer,
-    rmsprop=RMSPropOptimizer
-)
+class TestLocalOptimizers(unittest.TestCase):
 
-__all__ = ["Optimizer", "LocalOptimizer", "GradientDescentOptimizer", "AdagradOptimizer",
-           "AdadeltaOptimizer", "AdamOptimizer", "NadamOptimizer", "SGDOptimizer",
-           "RMSPropOptimizer"]
+    optimizer = GradientDescentOptimizer(learning_rate=0.01, loss_function=None)
+    space = dict(
+        variables=FloatBox(shape=()),
+        loss=FloatBox(shape=())
+    )
 
+    def test_gradients(self):
+        x = tf.Variable(1, name='x', dtype=tf.float32)
+        y = x * x
+        loss = -x
+
+        test = ComponentTest(component=self.optimizer, input_spaces=self.space)
+        gradients = test.test(
+            out_socket_name="gradients",
+            inputs=dict(variables=[y], loss=loss),
+            expected_outputs=None
+        )
+
+        print(gradients)
