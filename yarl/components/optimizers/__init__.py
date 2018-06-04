@@ -17,10 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.optimizers.optimizer import *
+from yarl.components.optimizers.local_optimizers import *
+from yarl.components.optimizers.optimizer import Optimizer
 
 
-Optimizer.__lookup_classes__ = dict(
+LocalOptimizer.__lookup_classes__ = dict(
     gradient_descent=GradientDescentOptimizer,
     adagrad=AdagradOptimizer,
     ada_delta=AdadeltaOptimizer,
