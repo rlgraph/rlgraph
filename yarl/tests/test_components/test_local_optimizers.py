@@ -21,7 +21,7 @@ import unittest
 import tensorflow as tf
 
 from yarl.components.optimizers import GradientDescentOptimizer
-from yarl.spaces import FloatBox
+from yarl.spaces import FloatBox, Tuple
 from yarl.tests import ComponentTest
 
 
@@ -30,18 +30,22 @@ class TestLocalOptimizers(unittest.TestCase):
     optimizer = GradientDescentOptimizer(learning_rate=0.01, loss_function=None, flatten_ops=False)
     space = dict(
         variables=FloatBox(shape=()),
-        loss=FloatBox(shape=())
+        loss=FloatBox(shape=()),
+        apply_grads_and_vars=Tuple(
+            FloatBox(shape=()),
+            FloatBox(shape=())
+        )
     )
 
     def test_gradients(self):
-        x = tf.Variable(1, name='x', dtype=tf.float32)
-        y = x * x
-        loss = -x
+        x = tf.Variable(2, name='x', dtype=tf.float32)
+        log_x = tf.log(x)
+        loss = tf.square(log_x)
 
         test = ComponentTest(component=self.optimizer, input_spaces=self.space)
         gradients = test.test(
-            out_socket_name="gradients",
-            inputs=dict(variables=[y], loss=loss),
+            out_socket_name="calc_grads_and_vars",
+            inputs=dict(variables=[x], loss=loss),
             expected_outputs=None
         )
 
