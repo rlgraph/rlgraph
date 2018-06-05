@@ -695,51 +695,49 @@ class Component(Specifiable):
 
         return new_component
 
-    def connect(self, from_, to_):
+    def connect(self, from_, to_, label=None):
         """
         Makes a connection between:
         - a Socket (from_) and another Socket (to_).
         - a Socket and a Space (or the other way around).
-        from_ and to_ may not be Socket objects but Socket-specifiers. See self.get_socket for details on possible ways
-        to specify a socket (by string, component-name, etc..).
-        Also, from_ and/or to_ may be Component objects. In that case, all out connections of from_ will be
-        connected to the respective in connections of to_.
+        `from_` and `to_` can be directly Socket objects but also Socket-specifiers. See `self.get_socket` for details
+        on possible ways of specifying a socket (by string, component-name, etc..).
+        Also, `from_` and/or `to_` may be Component objects. In that case, all out-Sockets of `from_` will be
+        connected to the respective in-Sockets of `to_`.
 
         Args:
-            from_ (any): The specifier of the connector (e.g. incoming Socket).
+            from_ (any): The specifier of the connector (e.g. incoming Socket, an incoming Space).
             to_ (any): The specifier of the connectee (e.g. another Socket).
+            label (Optional[str]): An optional label for the connection. The label will be passed along the ops
+                through the Sockets and graph_fns and must be used to specify ops if there is an ambiguity.
         """
-        self._connect_disconnect(from_, to_)
+        self._connect_disconnect(from_, to_, label=label, disconnect_=False)
 
     def disconnect(self, from_, to_):
         """
         Removes a connection between:
         - a Socket (from_) and another Socket (to_).
         - a Socket and a Space (or the other way around).
-        from_ and to_ may not be Socket objects but Socket-specifiers. See self.get_socket for details on possible ways
-        to specify a socket (by string, component-name, etc..).
-        Also, from_ and/or to_ may be Component objects. In that case, all out connections of from_ to all in
-        connections of to_ are cut.
+        `from_` and `to_` can be directly Socket objects but also Socket-specifiers. See `self.get_socket` for details
+        on possible ways of specifying a socket (by string, component-name, etc..).
+        Also, `from_` and/or `to_` may be Component objects. In that case, all out-Socket connections of `from_` to all
+        in-Socket connections of `to_` are cut.
 
         Args:
-            from_ (any): The specifier of the connector (e.g. incoming Socket).
-            to_ (any): The specifier of the connectee (e.g. another Socket).
+            from_ (any): See `self.connect` for details.
+            to_ (any): See `self.connect` for details.
         """
-        self._connect_disconnect(from_, to_, disconnect=True)
+        self._connect_disconnect(from_, to_, disconnect_=True)
 
-    def _connect_disconnect(self, from_, to_, disconnect=False, label=None):
+    def _connect_disconnect(self, from_, to_, label=None, disconnect_=False):
         """
         Actual private implementer for `connect` and `disconnect`.
 
         Args:
-            from_ (any): The specifier of the connector (e.g. incoming Socket, an incoming Space).
-            to_ (any): The specifier of the connectee (e.g. another Socket).
-            disconnect (bool): Only used internally. Whether to actually disconnect (instead of connect).
-            label (Optional[str]): An optional label for the connection. The label will be passed along the ops
-                through the computations and must be used to specify the exact op if there is an ambiguity.
-
-        Raises:
-            YARLError: If one tries to connect two Sockets of the same Component.
+            from_ (any): See `self.connect` for details.
+            to_ (any): See `self.connect` for details.
+            label (Optional[str]): See `self.connect` for details.
+            disconnect_ (bool): Only used internally. Whether to actually disconnect (instead of connect).
         """
         # Connect a Space (other must be Socket).
         # Also, there are certain restrictions for the Socket's type.
@@ -748,17 +746,18 @@ class Component(Specifiable):
             from_ = from_ if isinstance(from_, (Space, SingleDataOp)) else Space.from_spec(from_)
             to_socket_obj = self.get_socket(to_)
             assert to_socket_obj.type == "in", "ERROR: Cannot connect a Space to an 'out'-Socket!"
-            if not disconnect:
+            if not disconnect_:
                 to_socket_obj.connect_from(from_, label=label)
             else:
-                to_socket_obj.disconnect_from(from_, label=label)
+                to_socket_obj.disconnect_from(from_)
             return
+        # TODO: Special case: Never really done yet: Connecting an out-Socket to a Space (usually: action-space).
         elif isinstance(to_, (Space, dict)) or \
                 (not isinstance(to_, str) and isinstance(to_, Hashable) and to_ in Space.__lookup_classes__):
             to_ = to_ if isinstance(to_, Space) else Space.from_spec(to_)
             from_socket_obj = self.get_socket(from_)
             assert from_socket_obj.type == "out", "ERROR: Cannot connect an 'in'-Socket to a Space!"
-            if not disconnect:
+            if not disconnect_:
                 from_socket_obj.connect_to(to_)
             else:
                 from_socket_obj.disconnect_to(to_)
@@ -766,14 +765,14 @@ class Component(Specifiable):
 
         # from_ is Component.
         if isinstance(from_, Component):
-            # Both from_ and to_ are Components: Connect them Socket by Socket and return.
+            # Both from_ and to_ are Components: Connect them Socket-by-Socket and return.
             if isinstance(to_, Component):
                 assert len(from_.output_sockets) == len(to_.input_sockets), \
                     "ERROR: Can only connect two Components if their Socket numbers match! {} has {} out-Sockets while " \
                     "{} has {} in-Sockets.".format(from_.name, len(from_.output_sockets), to_.name,
                                                    len(to_.input_sockets))
                 for out_sock, in_sock in zip(from_.output_sockets, to_.input_sockets):
-                    self.connect(out_sock, in_sock)
+                    self.connect(out_sock, in_sock, label=label)
                 return
 
             # Get the only out-Socket of from_.
@@ -789,13 +788,9 @@ class Component(Specifiable):
             to_socket_obj = self.get_socket(to_)
 
         # (Dis)connect the two Sockets in both ways.
-        if disconnect:
-            # Sanity check that we are not connecting two Sockets of the same Component.
-            if from_socket_obj.component is to_socket_obj.component:
-                raise YARLError("ERROR: Cannot connect two Sockets that belong to the same Component!")
-
+        if disconnect_:
             from_socket_obj.disconnect_to(to_socket_obj)
-            to_socket_obj.disconnect_from(from_socket_obj, label=label)
+            to_socket_obj.disconnect_from(from_socket_obj)
         else:
             from_socket_obj.connect_to(to_socket_obj)
             to_socket_obj.connect_from(from_socket_obj, label=label)

@@ -76,8 +76,8 @@ class Model(Specifiable):
         self.input_combinations = dict()
 
         # Some registries that we need in order to build the Graph from core:
-        # key=DataOp; value=set of required DataOps OR core's in-Sockets to calculate the key-DataOp
-        self.op_registry = dict()
+        # key=DataOpRecord; value=set of required DataOpRecords OR leftmost in-Sockets to calculate the key's op.
+        self.op_record_registry = dict()
         # key=in-Socket name; value=set of alternative DataOps that could go into this socket.
         #   Only for very first in-Sockets.
         self.in_socket_registry = dict()
@@ -267,13 +267,13 @@ class Model(Specifiable):
         # The sub-component itself.
         for entry_point in sub_component.no_input_entry_points:
             if isinstance(entry_point, GraphFunction):
-                entry_point.update_from_input(None, self.op_registry, self.in_socket_registry)
+                entry_point.update_from_input(None, self.op_record_registry, self.in_socket_registry)
                 for slot, out_socket in enumerate(entry_point.output_sockets):
                     self.partial_input_build(out_socket, entry_point, slot)
             else:
                 assert isinstance(entry_point, Socket)
                 assert len(entry_point.incoming_connections) == 1
-                entry_point.update_from_input(entry_point.incoming_connections[0], self.op_registry,
+                entry_point.update_from_input(entry_point.incoming_connections[0], self.op_record_registry,
                                               self.in_socket_registry)
                 if entry_point.component.input_complete:
                     self.component_complete(entry_point.component)
@@ -310,7 +310,7 @@ class Model(Specifiable):
             # create inputs[name-of-sock] = dict({"a": tf.placeholder(name="", dtype=int, shape=(3,))})
             # TODO: Think about which calls here to skip (in_ is a Socket? -> most likely already done).
             self.logger.debug("\tupdating from input {}".format(str(in_)))
-            socket.update_from_input(in_, self.op_registry, self.in_socket_registry,
+            socket.update_from_input(in_, self.op_record_registry, self.in_socket_registry,
                                      graph_fn_out_slot, socket_out_op)
 
         for outgoing in socket.outgoing_connections:
@@ -324,17 +324,12 @@ class Model(Specifiable):
                 else:
                     # Add one Socket information.
                     self.logger.debug("\t\tNot input-complete yet -> updating from input {}".format(str(socket)))
-                    outgoing.update_from_input(socket, self.op_registry, self.in_socket_registry)
+                    outgoing.update_from_input(socket, self.op_record_registry, self.in_socket_registry)
                     # Check now for input-completeness of this component.
                     outgoing.component.sockets_to_do_later.append(outgoing)
                     if outgoing.component.input_complete:
                         self.logger.debug("\t\t\tNow input-complete.")
                         self.component_complete(outgoing.component)
-                    ## Not complete yet. Remember do build this Socket later.
-                    #else:
-                    #    self.logger.debug(
-                    #        "\t\t\tStill not complete -> add Socket {} for later processing.".format(outgoing))
-                    #    outgoing.component.sockets_to_do_later.append(outgoing)
 
             # Outgoing is a GraphFunction -> Add the socket to the GraphFunction's (waiting) inputs.
             # - If all inputs are complete, build a new op into the graph (via the graph_fn).
@@ -346,13 +341,18 @@ class Model(Specifiable):
                 else:
                     # TODO fetch default device?
                     self.logger.debug("\t\tis a graph_fn ... calling `update_from_input`")
-                    graph_fn.update_from_input(socket, self.op_registry, self.in_socket_registry)
+                    graph_fn.update_from_input(socket, self.op_record_registry, self.in_socket_registry)
 
                 # Keep moving through this graph_fn's out-Sockets (if input-complete).
                 if graph_fn.input_complete:
-                    self.logger.debug("\t\tgraph_fn is now input-complete -> building all outgoing Sockets")
+                    self.logger.info("Graph_fn '{}' is input-complete:\n\tin-Sockets:")
+                    for in_socket_record in graph_fn.input_sockets.values():
+                        self.logger.info("\t'{}': {}".format(in_socket_record["socket"].name,
+                                                             in_socket_record["socket"].space))
+                    self.logger.info("\tout-Sockets:")
                     for slot, out_socket in enumerate(graph_fn.output_sockets):
                         self.partial_input_build(out_socket, graph_fn, slot)
+                        self.logger.info("\t'{}': {}".format(out_socket.name, out_socket.space))
             else:
                 raise YARLError("ERROR: Outgoing connection must be Socket or GraphFunction!")
 
@@ -513,15 +513,17 @@ class Model(Specifiable):
         Args:
             component (Component): The Component that now has all its input Spaces defined.
         """
-        self.logger.debug("Component {} is input-complete. Calling `when_input_complete`.".format(str(component.name)))
-
         # Allow the Component to sanity check and create its variables.
         space_dict = {in_s.name: in_s.space for in_s in component.input_sockets}
         component.when_input_complete(space_dict)
 
-        self.logger.debug(".. and building all in-Sockets.")
+        self.logger.info("Component '{}' is input-complete\n\tin-Sockets:\n".format(component.name))
+        for in_sock_name, space in space_dict.items():
+            self.logger.info("\t'{}': {}".format(in_sock_name, space))
+        self.logger.info("")
+
         # Do a complete build (over all incoming Sockets as all the others have been waiting).
-        for in_sock in component.sockets_to_do_later:
+        for in_sock in component.sockets_to_do_later:  # type: Socket
             self.partial_input_build(in_sock)
 
         # Invalidate to get error if we ever touch this again as an iterator.
@@ -532,23 +534,29 @@ class Model(Specifiable):
         For a set of given ops, returns a list of all (core) in-Sockets that are required to calculate these ops.
 
         Args:
-            trace_set (set): The set of ops to trace-back till the beginning of the Graph.
+            trace_set (Set[Union[DataOpRecords,Socket]]): The set of DataOpRecord/Socket objects to trace-back till
+                the beginning of the Graph. Socket entries mean we have already reached the beginning of the Graph and
+                these will no further be traced back.
 
         Returns:
-            set: in-Socket objects (from the core Component) that are required to calculate this op.
+            Set[Socket]: in-Socket objects (from the core Component) that are required to calculate the DataOps
+                in `trace_set`.
         """
-        # Recursively lookup op in op_registry until we hit a Socket.
+        # Recursively lookup op in op_record_registry until we hit a Socket.
         new_trace_set = set()
-        for op in trace_set:
-            if isinstance(op, Socket):
-                if op.name not in self.in_socket_registry:
+        for op_rec_or_socket in trace_set:
+            # We hit a Socket (we reached the beginning of the Graph). Stop tracing further back.
+            if isinstance(op_rec_or_socket, Socket):
+                if op_rec_or_socket.name not in self.in_socket_registry:
                     raise YARLError("ERROR: in-Socket '{}' could not be found in in_socket_registry of "
-                                    "model!".format(op.name))
-                new_trace_set.add(op)
-            elif op not in self.op_registry:
-                raise YARLError("ERROR: DataOp '{}' could not be found in op_registry of model!".format(op))
+                                    "model!".format(op_rec_or_socket.name))
+                new_trace_set.add(op_rec_or_socket)
+            # A DataOpRecord: Sanity check that we already have this.
+            elif op_rec_or_socket not in self.op_record_registry:
+                raise YARLError("ERROR: DataOpRecord for op '{}' could not be found in op_record_registry of model!".
+                                format(op_rec_or_socket.op))
             else:
-                new_trace_set.update(self.op_registry[op])
+                new_trace_set.update(self.op_record_registry[op_rec_or_socket])
         if all([isinstance(i, Socket) for i in new_trace_set]):
             return new_trace_set
         else:

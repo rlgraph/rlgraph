@@ -24,7 +24,8 @@ from collections import OrderedDict
 
 class DataOp(object):
     """
-    A placeholder class for any Socket-held operation or variable, or collection thereof.
+    The basic class for any Socket-held operation or variable, or collection thereof.
+    Each Socket (in or out) holds either one DataOp or a set of alternative DataOps.
     """
     pass
 
@@ -35,6 +36,11 @@ class SingleDataOp(DataOp):
     or a tf.no_op-like item.
     """
     def __init__(self, constant_value=None):
+        """
+        Args:
+            constant_value (any): A constant value this SingleDataOp holds instead of an actual op.
+                This value is always converted into a numpy array (even if it's a scalar python primitive).
+        """
         # Numpy'ize scalar values (tf doesn't sometimes like python primitives).
         if isinstance(constant_value, (float, int, bool)):
             constant_value = np.array(constant_value)
@@ -57,8 +63,7 @@ class DataOpDict(ContainerDataOp, dict):
     """
     def __hash__(self):
         """
-        Hash based on sequence of sorted items (keys are all strings,
-        values are always other dictops, tuples or primitive ops).
+        Hash based on sequence of sorted items (keys are all strings, values are always other DataOps).
         """
         return hash(tuple(sorted(self.items())))
 
@@ -80,7 +85,19 @@ class FlattenedDataOp(DataOp, OrderedDict):
     An OrderedDict-type placeholder class that only contains str as keys and SingleDataOps
     (as opposed to ContainerDataOps) as values.
     """
-
     # TODO: enforce str as keys?
     pass
 
+
+class DataOpRecord(object):
+    def __init__(self, op, labels=None):
+        """
+        Args:
+            op (DataOp): The actual DataOp carried by this record.
+            labels (Set[str]): A set of string-labels that are associated with the DataOp.
+        """
+        self.op = op
+        self.labels = set(labels or [])
+
+    def __hash__(self):
+        return self.op

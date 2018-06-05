@@ -240,7 +240,7 @@ class TensorFlowModel(Model):
         with tf.device(assigned_device):
             self.logger.debug("Assigning device {} to graph_fn {} via socket  {}".format(
                 assigned_device, graph_fn, socket))
-            graph_fn.update_from_input(socket, self.op_registry, self.in_socket_registry)
+            graph_fn.update_from_input(socket, self.op_record_registry, self.in_socket_registry)
 
             # Store assigned names for debugging.
             if assigned_device not in self.device_component_assignments:
