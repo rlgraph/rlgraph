@@ -24,7 +24,7 @@ from yarl.components.common.decay_components import LinearDecay
 from yarl.components.explorations import Exploration, EpsilonExploration
 from yarl.components.distributions import NNOutputCleanup, Categorical
 from yarl.spaces import *
-from yarl.tests import ComponentTest
+from tests import ComponentTest
 
 import numpy as np
 
@@ -46,7 +46,7 @@ class TestExplorations(unittest.TestCase):
         expected = np.array([True, True, True, True, True, True, True, True, True, True, True, True, True, True, True,
                              True, True, False, True, True, False, False, False, False, False, True, False])
         for i, e in zip(input_, expected):
-            test.test(out_socket_name="do_explore", inputs=i, expected_outputs=e)
+            test.test(out_socket_names="do_explore", inputs=i, expected_outputs=e)
 
     def test_exploration_with_discrete_action_space(self):
         # 2x2 action-pick, each action with 5 categories.
@@ -84,7 +84,7 @@ class TestExplorations(unittest.TestCase):
                                           ]),
                       time_step=10000)
         expected = np.array([[[0, 0], [3, 1]], [[0, 4], [4, 4]]])
-        test.test(out_socket_name="action", inputs=inputs, expected_outputs=expected)
+        test.test(out_socket_names="action", inputs=inputs, expected_outputs=expected)
 
     def test_exploration_with_continuous_action_space(self):
         pass

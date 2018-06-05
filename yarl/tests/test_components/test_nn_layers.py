@@ -22,7 +22,7 @@ import numpy as np
 
 from yarl.components.layers import DenseLayer, Conv2DLayer, ConcatLayer
 from yarl.spaces import FloatBox
-from yarl.tests import ComponentTest
+from tests import ComponentTest
 
 
 class TestNNLayer(unittest.TestCase):
@@ -41,7 +41,7 @@ class TestNNLayer(unittest.TestCase):
         # Batch of size=1 (can increase this to any larger number).
         input_ = np.array([[0.5, 2.0]])
         expected = np.array([[2.5, 2.5]])
-        test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
+        test.test(out_socket_names="output", inputs=input_, expected_outputs=expected)
 
     def test_conv2d(self):
         # Space must contain batch dimension (otherwise, NNlayer will complain).
@@ -59,7 +59,7 @@ class TestNNLayer(unittest.TestCase):
         expected = np.array([[[[39.0, 39.0, 39.0, 39.0]]],  # output 1 (1x1x4)
                              [[[3.9, 3.9, 3.9, 3.9]]],  # output 2 (1x1x4)
                              ])
-        test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
+        test.test(out_socket_names="output", inputs=input_, expected_outputs=expected)
 
     def test_concat(self):
         # Spaces must contain batch dimension (otherwise, NNlayer will complain).
@@ -79,5 +79,5 @@ class TestNNLayer(unittest.TestCase):
                        [4.0, 5.0, 6.0, 2.0, 3.2, 4.2]],
                       [[1.1, 2.1, 3.1, 3.0, 1.3, 2.3],
                        [4.1, 5.1, 6.1, 4.0, 3.3, 4.3]]], dtype=np.float32)
-        test.test(out_socket_name="output", inputs=inputs, expected_outputs=expected)
+        test.test(out_socket_names="output", inputs=inputs, expected_outputs=expected)
 

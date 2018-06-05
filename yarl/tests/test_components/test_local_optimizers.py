@@ -21,19 +21,17 @@ import unittest
 import tensorflow as tf
 
 from yarl.components.optimizers import GradientDescentOptimizer
-from yarl.spaces import FloatBox, Tuple
+from yarl.spaces import Tuple
+from tests import ComponentTest
 
 
 class TestLocalOptimizers(unittest.TestCase):
 
     optimizer = GradientDescentOptimizer(learning_rate=0.01, loss_function=None, flatten_ops=False)
     space = dict(
-        variables=FloatBox(shape=()),
-        loss=FloatBox(shape=()),
-        apply_grads_and_vars=Tuple(
-            FloatBox(shape=()),
-            FloatBox(shape=())
-        )
+        variables=Tuple(float),
+        loss=float,
+        grads_and_vars=Tuple(float, float)
     )
 
     def test_calculate_gradients(self):

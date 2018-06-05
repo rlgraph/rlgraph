@@ -21,7 +21,7 @@ import unittest
 
 from yarl.components.loss_functions import DQNLossFunction
 from yarl.spaces import *
-from yarl.tests import ComponentTest
+from tests import ComponentTest
 
 import numpy as np
 
@@ -52,8 +52,8 @@ class TestLossFunctions(unittest.TestCase):
         )
         # Batch size=2: Expect 2 values in the `loss_per_item` out-Socket.
         expected_loss_per_item = np.array([1.177221, 629.2822], dtype=np.float32)
-        test.test(out_socket_name="loss_per_item", inputs=input_, expected_outputs=expected_loss_per_item)
+        test.test(out_socket_names="loss_per_item", inputs=input_, expected_outputs=expected_loss_per_item)
         # Just expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
-        test.test(out_socket_name="loss", inputs=input_, expected_outputs=expected_loss)
+        test.test(out_socket_names="loss", inputs=input_, expected_outputs=expected_loss)
 

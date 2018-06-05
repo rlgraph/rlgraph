@@ -19,11 +19,9 @@ from __future__ import print_function
 
 import unittest
 
-import tensorflow as tf
-
 from yarl.components.distributions import *
 from yarl.spaces import *
-from yarl.tests import ComponentTest
+from tests import ComponentTest
 
 import numpy as np
 
@@ -44,9 +42,9 @@ class TestDistributions(unittest.TestCase):
             "max_likelihood": True
         }
         expected = np.array([[True, True, False, False, False]])
-        test.test(out_socket_name="draw", inputs=input_, expected_outputs=expected)
+        test.test(out_socket_names="draw", inputs=input_, expected_outputs=expected)
         # Try the same on the sample_deterministic out-Socket without the max_likelihood input..
-        test.test(out_socket_name="sample_deterministic", inputs=input_["parameters"], expected_outputs=expected)
+        test.test(out_socket_names="sample_deterministic", inputs=input_["parameters"], expected_outputs=expected)
 
         # Batch of size=2 and non-deterministic -> expect always the same result when we seed tf (done automatically
         # by the ComponentTest object).
@@ -55,10 +53,10 @@ class TestDistributions(unittest.TestCase):
             "max_likelihood": False
         }
         expected = np.array([[False, False, False, True, False], [True, True, True, False, True]])
-        test.test(out_socket_name="draw", inputs=input_, expected_outputs=expected)
+        test.test(out_socket_names="draw", inputs=input_, expected_outputs=expected)
         # Try the same on the sample_stochastic out-Socket without the max_likelihood input..
         expected = np.array([[False, False, True, True, False], [True, True, True, False, False]])
-        test.test(out_socket_name="sample_stochastic", inputs=input_["parameters"], expected_outputs=expected)
+        test.test(out_socket_names="sample_stochastic", inputs=input_["parameters"], expected_outputs=expected)
 
     def test_categorical(self):
         # Create 5 categorical distributions of 3 categories each.
@@ -79,8 +77,8 @@ class TestDistributions(unittest.TestCase):
             "max_likelihood": True
         }
         expected = np.array([[0, 0, 1, 2, 2]])
-        test.test(out_socket_name="draw", inputs=input_, expected_outputs=expected)
-        test.test(out_socket_name="sample_deterministic", inputs=input_["parameters"], expected_outputs=expected)
+        test.test(out_socket_names="draw", inputs=input_, expected_outputs=expected)
+        test.test(out_socket_names="sample_deterministic", inputs=input_["parameters"], expected_outputs=expected)
 
         # Batch of size=2 and non-deterministic -> expect always the same result when we seed tf (done automatically
         # by the ComponentTest object).
@@ -101,9 +99,9 @@ class TestDistributions(unittest.TestCase):
             "max_likelihood": False
         }
         expected = np.array([[1, 0, 2, 1, 0], [2, 2, 0, 2, 0]])
-        test.test(out_socket_name="draw", inputs=input_, expected_outputs=expected)
+        test.test(out_socket_names="draw", inputs=input_, expected_outputs=expected)
         expected = np.array([[1, 2, 1, 1, 2], [2, 2, 0, 0, 1]])
-        test.test(out_socket_name="sample_stochastic", inputs=input_["parameters"], expected_outputs=expected)
+        test.test(out_socket_names="sample_stochastic", inputs=input_["parameters"], expected_outputs=expected)
 
     def test_categorical_without_draw_socket(self):
         # Create 5 categorical distributions of 2 categories each.
@@ -121,7 +119,7 @@ class TestDistributions(unittest.TestCase):
                             [0.3, 0.6]
                             ]])
         expected = np.array([[0, 0, 1, 1, 1]])
-        test.test(out_socket_name="sample_deterministic", inputs=input_, expected_outputs=expected)
+        test.test(out_socket_names="sample_deterministic", inputs=input_, expected_outputs=expected)
 
         # Batch of size=2 and non-deterministic -> expect always the same result when we seed tf (done automatically
         # by the ComponentTest object).
@@ -139,7 +137,7 @@ class TestDistributions(unittest.TestCase):
                             ]
                            ])
         expected = np.array([[1, 0, 0, 1, 0], [0, 1, 0, 0, 1]])
-        test.test(out_socket_name="sample_stochastic", inputs=input_, expected_outputs=expected)
+        test.test(out_socket_names="sample_stochastic", inputs=input_, expected_outputs=expected)
 
     def test_normal(self):
         # Create 5 normal distributions (2 parameters (mean and stddev) each).
@@ -157,8 +155,8 @@ class TestDistributions(unittest.TestCase):
         }
         expected = np.array([[1.0, 0.000099999997, 2.25632, 100.0, 30.0],
                              [1000.65, 999.00012, 23.200001, 45.5, 1.2334346]], dtype=np.float32)
-        test.test(out_socket_name="draw", inputs=input_, expected_outputs=expected)
-        test.test(out_socket_name="sample_deterministic", inputs=input_["parameters"], expected_outputs=expected)
+        test.test(out_socket_names="draw", inputs=input_, expected_outputs=expected)
+        test.test(out_socket_names="sample_deterministic", inputs=input_["parameters"], expected_outputs=expected)
 
         # Batch of size=1 and non-deterministic -> expect always the same result when we seed tf (done automatically
         # by the ComponentTest object).
@@ -168,6 +166,6 @@ class TestDistributions(unittest.TestCase):
             "max_likelihood": False
         }
         expected = np.array([[-1.860959, 0.9959144, 44.71664, 150.7269, 27.35314]], dtype=np.float32)
-        test.test(out_socket_name="draw", inputs=input_, expected_outputs=expected)
+        test.test(out_socket_names="draw", inputs=input_, expected_outputs=expected)
         expected = np.array([[1.3808961, 0.9986517, 46.074947, 150.49863, 112.33245]], dtype=np.float32)
-        test.test(out_socket_name="sample_stochastic", inputs=input_["parameters"], expected_outputs=expected)
+        test.test(out_socket_names="sample_stochastic", inputs=input_["parameters"], expected_outputs=expected)

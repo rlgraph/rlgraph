@@ -23,7 +23,7 @@ import numpy as np
 from yarl.components.common.noise_components import *
 from yarl.spaces import *
 
-from .component_test import ComponentTest
+from tests import ComponentTest
 
 
 class TestNoiseComponents(unittest.TestCase):
@@ -41,7 +41,7 @@ class TestNoiseComponents(unittest.TestCase):
         test = ComponentTest(component=noise_component, input_spaces=dict(action=self.action_input_space))
 
         for i in range(1000):
-            test.test(out_socket_name="noise", expected_outputs=real_noise)
+            test.test(out_socket_names="noise", expected_outputs=real_noise)
 
     def test_gaussian_noise(self):
         real_mean = 10.0
@@ -55,7 +55,7 @@ class TestNoiseComponents(unittest.TestCase):
         collect_outs = lambda component_test, outs: collected.append(outs)
 
         for i in range(1000):
-            test.test(out_socket_name="noise", fn_test=collect_outs)
+            test.test(out_socket_names="noise", fn_test=collect_outs)
 
         test_mean = np.mean(collected)
         test_sd = np.std(collected)
@@ -87,7 +87,7 @@ class TestNoiseComponents(unittest.TestCase):
         collect_outs = lambda component_test, outs: collected.append(outs)
 
         for i in range(1000):
-            test.test(out_socket_name="noise", fn_test=collect_outs)
+            test.test(out_socket_names="noise", fn_test=collect_outs)
 
         test_mean = np.mean(collected)
         test_sd = np.std(collected)

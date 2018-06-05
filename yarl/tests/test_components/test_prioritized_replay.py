@@ -22,7 +22,7 @@ import numpy as np
 
 from yarl.components.memories import PrioritizedReplay
 from yarl.spaces import Dict, IntBox, FloatBox
-from yarl.tests import ComponentTest
+from tests import ComponentTest
 from yarl.tests.test_util import non_terminal_records
 
 
@@ -63,7 +63,7 @@ class TestPrioritizedReplay(unittest.TestCase):
         ))
 
         observation = self.record_space.sample(size=1)
-        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+        test.test(out_socket_names="insert", inputs=observation, expected_outputs=None)
 
     def test_capacity(self):
         """
@@ -97,7 +97,7 @@ class TestPrioritizedReplay(unittest.TestCase):
 
         # Insert one more element than capacity
         observation = self.record_space.sample(size=self.capacity + 1)
-        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+        test.test(out_socket_names="insert", inputs=observation, expected_outputs=None)
 
         size_value, index_value = test.get_variable_values(buffer_size, buffer_index)
         # Size should be equivalent to capacity when full.
@@ -125,26 +125,26 @@ class TestPrioritizedReplay(unittest.TestCase):
 
         # Insert 2 Elements.
         observation = non_terminal_records(self.record_space, 2)
-        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+        test.test(out_socket_names="insert", inputs=observation, expected_outputs=None)
 
         # Assert we can now fetch 2 elements.
         num_records = 2
-        batch = test.test(out_socket_name="sample", inputs=num_records, expected_outputs=None)
+        batch = test.test(out_socket_names="sample", inputs=num_records, expected_outputs=None)
         print('Result batch = {}'.format(batch))
         self.assertEqual(2, len(batch['terminal']))
 
         # We allow repeat indices in sampling.
         num_records = 5
-        batch = test.test(out_socket_name="sample", inputs=num_records, expected_outputs=None)
+        batch = test.test(out_socket_names="sample", inputs=num_records, expected_outputs=None)
         self.assertEqual(5, len(batch['terminal']))
 
         # Now insert over capacity, note all elements here are non-terminal.
         observation = non_terminal_records(self.record_space, self.capacity)
-        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+        test.test(out_socket_names="insert", inputs=observation, expected_outputs=None)
 
         # Assert we can fetch exactly capacity elements.
         num_records = self.capacity
-        batch = test.test(out_socket_name="sample", inputs=num_records, expected_outputs=None)
+        batch = test.test(out_socket_names="sample", inputs=num_records, expected_outputs=None)
         self.assertEqual(self.capacity, len(batch['terminal']))
 
     def test_update_records(self):
@@ -164,12 +164,12 @@ class TestPrioritizedReplay(unittest.TestCase):
 
         # Insert a few Elements.
         observation = non_terminal_records(self.record_space, 5)
-        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+        test.test(out_socket_names="insert", inputs=observation, expected_outputs=None)
 
         # Fetch elements and their indices.
         num_records = 5
         batch = test.test(
-            out_socket_name=["sample", "sample_indices"],
+            out_socket_names=["sample", "sample_indices"],
             inputs=dict(num_records=num_records),
             expected_outputs=None
         )
@@ -181,7 +181,7 @@ class TestPrioritizedReplay(unittest.TestCase):
             update=np.asarray([0.1, 0.2, 0.3, 0.5, 1.0])
         )
         # Does not return anything
-        test.test(out_socket_name=["update_records"], inputs=input_params, expected_outputs=None)
+        test.test(out_socket_names=["update_records"], inputs=input_params, expected_outputs=None)
 
     def test_segment_tree_insert_values(self):
         """
@@ -214,7 +214,7 @@ class TestPrioritizedReplay(unittest.TestCase):
         self.assertEqual(len(min_segment_values), 2 * priority_capacity)
         # Insert 1 Element.
         observation = non_terminal_records(self.record_space, 1)
-        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+        test.test(out_socket_names="insert", inputs=observation, expected_outputs=None)
 
         # Fetch segment tree.
         sum_segment_values, min_segment_values = test.get_variable_values(sum_segment_tree, min_segment_tree)
@@ -232,7 +232,7 @@ class TestPrioritizedReplay(unittest.TestCase):
 
         # Insert another Element.
         observation = non_terminal_records(self.record_space, 1)
-        test.test(out_socket_name="insert", inputs=observation, expected_outputs=None)
+        test.test(out_socket_names="insert", inputs=observation, expected_outputs=None)
 
         # Fetch segment tree.
         sum_segment_values, min_segment_values = test.get_variable_values(sum_segment_tree, min_segment_tree)

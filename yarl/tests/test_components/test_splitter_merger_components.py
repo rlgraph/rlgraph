@@ -23,7 +23,7 @@ import unittest
 from yarl.components.common import Splitter, Merger
 from yarl.spaces import *
 from yarl.spaces.space_utils import flatten_op
-from tests.test_components.component_test import ComponentTest
+from tests import ComponentTest
 
 
 class TestSplitterMergerComponents(unittest.TestCase):
@@ -48,13 +48,13 @@ class TestSplitterMergerComponents(unittest.TestCase):
         input_ = space.sample(size=3)
 
         # Also check the types each time of a different sample from the batch (pick one from: 0 to 2).
-        out = test.test(out_socket_name="/a/ab", inputs=input_, expected_outputs=np.array(input_["a"]["ab"]))
+        out = test.test(out_socket_names="/a/ab", inputs=input_, expected_outputs=np.array(input_["a"]["ab"]))
         self.assertTrue(isinstance(out[0], np.float32))
-        out = test.test(out_socket_name="/g/_T0_", inputs=input_, expected_outputs=np.array(input_["g"][0]))
+        out = test.test(out_socket_names="/g/_T0_", inputs=input_, expected_outputs=np.array(input_["g"][0]))
         self.assertTrue(isinstance(out[1], np.bool_))
-        out = test.test(out_socket_name="/d", inputs=input_, expected_outputs=np.array(input_["d"]))
+        out = test.test(out_socket_names="/d", inputs=input_, expected_outputs=np.array(input_["d"]))
         self.assertTrue(isinstance(out[2], np.int32))
-        out = test.test(out_socket_name="/f", inputs=input_, expected_outputs=np.array(input_["f"]))
+        out = test.test(out_socket_names="/f", inputs=input_, expected_outputs=np.array(input_["f"]))
         self.assertTrue(isinstance(out[0], np.ndarray))
 
     def test_splitter_component_with_custom_names(self):
@@ -77,13 +77,13 @@ class TestSplitterMergerComponents(unittest.TestCase):
         input_ = space.sample()
 
         # Also check the types each time.
-        out = test.test(out_socket_name="atup0bool", inputs=input_, expected_outputs=np.array(input_["a"][0]))
+        out = test.test(out_socket_names="atup0bool", inputs=input_, expected_outputs=np.array(input_["a"][0]))
         self.assertTrue(isinstance(out.item(), bool))
-        out = test.test(out_socket_name="fcont", inputs=input_, expected_outputs=np.array(input_["f"]))
+        out = test.test(out_socket_names="fcont", inputs=input_, expected_outputs=np.array(input_["f"]))
         self.assertTrue(isinstance(out, np.ndarray))
-        out = test.test(out_socket_name="eeafloat", inputs=input_, expected_outputs=np.array(input_["e"]["ea"]))
+        out = test.test(out_socket_names="eeafloat", inputs=input_, expected_outputs=np.array(input_["e"]["ea"]))
         self.assertTrue(isinstance(out.item(), float))
-        out = test.test(out_socket_name="cbool", inputs=input_, expected_outputs=np.array(input_["c"]))
+        out = test.test(out_socket_names="cbool", inputs=input_, expected_outputs=np.array(input_["c"]))
         self.assertTrue(isinstance(out.item(), bool))
 
     def test_merger_component(self):
@@ -105,7 +105,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
         sample = space.sample()
         flattened_input = flatten_op(sample)
 
-        test.test(out_socket_name="output", inputs=flattened_input, expected_outputs=sample)
+        test.test(out_socket_names="output", inputs=flattened_input, expected_outputs=sample)
 
     """
     FINISH THIS WHEN WE NEED IT. Doesn't seem to be clear on how to unflatten from custom names.
@@ -128,5 +128,5 @@ class TestSplitterMergerComponents(unittest.TestCase):
         flattened_input = flatten_op(sample)
         # Change the names from auto-generated to our manual ones.
 
-        test.test(out_socket_name="output", inputs=flattened_input, expected_outputs=sample)
+        test.test(out_socket_names="output", inputs=flattened_input, expected_outputs=sample)
     """

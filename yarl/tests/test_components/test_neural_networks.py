@@ -22,7 +22,7 @@ import unittest
 from yarl.components.neural_networks import NeuralNetwork
 from yarl.components.layers import DenseLayer, Conv2DLayer, ConcatLayer
 from yarl.spaces import FloatBox
-from yarl.tests import ComponentTest
+from tests import ComponentTest
 
 import numpy as np
 
@@ -50,7 +50,7 @@ class TestNeuralNetworks(unittest.TestCase):
         w1_value, w2_value = test.get_variable_values(var_dict["hidden-layer/dense/kernel"],
                                                       var_dict["output-layer/dense/kernel"])
         expected = np.matmul(np.matmul(input_, w1_value), w2_value)
-        test.test(out_socket_name="output", inputs=input_, expected_outputs=expected, decimals=5)
+        test.test(out_socket_names="output", inputs=input_, expected_outputs=expected, decimals=5)
 
     def test_complex_nn_assembly_from_file(self):
         pass

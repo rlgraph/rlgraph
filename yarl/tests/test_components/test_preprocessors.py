@@ -21,7 +21,7 @@ import unittest
 
 from yarl.components.layers import GrayScale, Flatten, Scale, PreprocessorStack, Sequence
 from yarl.spaces import *
-from yarl.tests import ComponentTest
+from tests import ComponentTest
 
 import numpy as np
 
@@ -58,8 +58,8 @@ class TestPreprocessors(unittest.TestCase):
             b=np.array([[[3.0, 3.0], [3.0, 3.0]], [[3.0, 3.0], [3.0, 3.0]]]),
             c=0.7
         )
-        test.test(out_socket_name="reset")
-        test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
+        test.test(out_socket_names="reset")
+        test.test(out_socket_names="output", inputs=input_, expected_outputs=expected)
 
     def test_split_graph_on_flatten(self):
         space = Dict.from_spec(dict(
@@ -89,8 +89,8 @@ class TestPreprocessors(unittest.TestCase):
             ),
             c=np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32)
         )
-        test.test(out_socket_name="reset")
-        test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
+        test.test(out_socket_names="reset")
+        test.test(out_socket_names="output", inputs=input_, expected_outputs=expected)
 
     def test_two_preprocessors_in_a_preprocessor_stack(self):
         space = Dict(
@@ -118,8 +118,8 @@ class TestPreprocessors(unittest.TestCase):
                                        [3.0, 3.0, 3.0],
                                        [3.0, 3.0, 3.0]])))
         )
-        test.test(out_socket_name="reset")
-        test.test(out_socket_name="output", inputs=input_, expected_outputs=expected)
+        test.test(out_socket_names="reset")
+        test.test(out_socket_names="output", inputs=input_, expected_outputs=expected)
 
     def test_sequence_preprocessor(self):
         space = FloatBox(shape=(1,), add_batch_rank=True)
@@ -130,26 +130,26 @@ class TestPreprocessors(unittest.TestCase):
         index, buffer = vars["index"], vars["buffer"]
 
         for i in range(3):
-            test.test(out_socket_name="reset")
+            test.test(out_socket_names="reset")
             index_value, buffer_value = test.get_variable_values(index, buffer)
             self.assertEqual(index_value, -1)
-            test.test(out_socket_name="output", inputs=np.array([[0.1]]),
+            test.test(out_socket_names="output", inputs=np.array([[0.1]]),
                       expected_outputs=np.array([[[0.1, 0.1, 0.1]]]))
             index_value, buffer_value = test.get_variable_values(index, buffer)
             self.assertEqual(index_value, 0)
-            test.test(out_socket_name="output", inputs=np.array([[0.2]]),
+            test.test(out_socket_names="output", inputs=np.array([[0.2]]),
                       expected_outputs=np.array([[[0.1, 0.1, 0.2]]]))
             index_value, buffer_value = test.get_variable_values(index, buffer)
             self.assertEqual(index_value, 1)
-            test.test(out_socket_name="output", inputs=np.array([[0.3]]),
+            test.test(out_socket_names="output", inputs=np.array([[0.3]]),
                       expected_outputs=np.array([[[0.1, 0.2, 0.3]]]))
             index_value, buffer_value = test.get_variable_values(index, buffer)
             self.assertEqual(index_value, 2)
-            test.test(out_socket_name="output", inputs=np.array([[0.4]]),
+            test.test(out_socket_names="output", inputs=np.array([[0.4]]),
                       expected_outputs=np.array([[[0.2, 0.3, 0.4]]]))
             index_value, buffer_value = test.get_variable_values(index, buffer)
             self.assertEqual(index_value, 0)
-            test.test(out_socket_name="output", inputs=np.array([[0.5]]),
+            test.test(out_socket_names="output", inputs=np.array([[0.5]]),
                       expected_outputs=np.array([[[0.3, 0.4, 0.5]]]))
             index_value, buffer_value = test.get_variable_values(index, buffer)
             self.assertEqual(index_value, 1)
@@ -162,16 +162,16 @@ class TestPreprocessors(unittest.TestCase):
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
 
         for i in range(3):
-            test.test(out_socket_name="reset")
-            test.test(out_socket_name="output", inputs=(np.array([0.5]), np.array([[0.6, 0.7], [0.8, 0.9]])),
+            test.test(out_socket_names="reset")
+            test.test(out_socket_names="output", inputs=(np.array([0.5]), np.array([[0.6, 0.7], [0.8, 0.9]])),
                       expected_outputs=(np.array([0.5, 0.5, 0.5, 0.5]), np.array([[0.6, 0.7] * 4,
                                                                                   [0.8, 0.9] * 4])))
-            test.test(out_socket_name="output", inputs=(np.array([0.6]), np.array([[1.1, 1.1], [1.1, 1.1]])),
+            test.test(out_socket_names="output", inputs=(np.array([0.6]), np.array([[1.1, 1.1], [1.1, 1.1]])),
                       expected_outputs=(np.array([0.5, 0.5, 0.5, 0.6]), np.array([[0.6, 0.7, 0.6, 0.7,
                                                                                    0.6, 0.7, 1.1, 1.1],
                                                                                   [0.8, 0.9, 0.8, 0.9,
                                                                                    0.8, 0.9, 1.1, 1.1]])))
-            test.test(out_socket_name="output", inputs=(np.array([0.7]), np.array([[2.0, 2.1], [2.2, 2.3]])),
+            test.test(out_socket_names="output", inputs=(np.array([0.7]), np.array([[2.0, 2.1], [2.2, 2.3]])),
                       expected_outputs=(np.array([0.5, 0.5, 0.6, 0.7]), np.array([[0.6, 0.7, 0.6, 0.7,
                                                                                    1.1, 1.1, 2.0, 2.1],
                                                                                   [0.8, 0.9, 0.8, 0.9,
