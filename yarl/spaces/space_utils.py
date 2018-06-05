@@ -21,7 +21,7 @@ import re
 import numpy as np
 
 from yarl.utils.util import YARLError, dtype, get_shape
-from yarl.utils.ops import SingleDataOp, ContainerDataOp, DataOpDict, DataOpTuple, FlattenedDataOp
+from yarl.utils.ops import SingleDataOp, ContainerDataOp, DataOpDict, DataOpTuple, FlattenedDataOp, DataOpRecord
 from yarl.spaces import *
 
 
@@ -242,6 +242,24 @@ def unflatten_op(op):
 
     # Deep conversion from list to tuple.
     return deep_tuple(base_structure)
+
+
+def convert_ops_to_op_records(ops, labels=None):
+    """
+    Translates all elements in `ops` into DataOpRecords using the given labels and returns the tuple of
+    DataOpRecords.
+
+    Args:
+        ops (tuple): Tuple of primitive ops (e.g. tf ops) to convert into DataOpRecords.
+        labels (Optional[Set[str]]): Set of labels to give to each record.
+
+    Returns:
+        tuple: Tuple matching `ops` but with the incoming ops wrapped as DataOpRecords.
+    """
+    ret = list()
+    for op in ops:
+        ret.append(DataOpRecord(op, labels=labels))
+    return tuple(ret)
 
 
 def deep_tuple(x):

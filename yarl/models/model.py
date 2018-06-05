@@ -189,17 +189,17 @@ class Model(Specifiable):
         # Now use the ready op/socket registries to determine for which out-Socket we need which inputs.
         # Then we will be able to derive the correct op for any given (out-Socket+in-Socket+in-shape)-combination
         # passed into the call method.
-        for output_socket in self.core_component.output_sockets:
+        for output_socket in self.core_component.output_sockets:  # type: Socket
             # Create empty out-sock registry entry.
             self.out_socket_registry[output_socket.name] = set()
 
-            assert len(output_socket.ops) > 0, "ERROR: There must at least be one op for out-Socket '{}'!".\
-                format(output_socket.name)
+            assert len(output_socket.op_records) > 0, "ERROR: There must at least be one op-record for out-Socket " \
+                                                      "'{}'!".format(output_socket.name)
 
             # Loop through this Socket's set of possible ops.
-            for op in output_socket.ops:
+            for op_rec in output_socket.op_records:
                 # Get all the (core) in-Socket names (alphabetically sorted) that are required for this op.
-                sockets = tuple(sorted(list(self.trace_back_sockets({op})), key=lambda s: s.name))
+                sockets = tuple(sorted(list(self.trace_back_sockets({op_rec})), key=lambda s: s.name))
                 # If an in-Socket has more than one connected incoming Space:
                 # Get the shape-combinations for these Sockets.
                 # e.g. Sockets=["a", "b"] (and Space1 -> a, Space2 -> a, Space3 -> b)
@@ -211,7 +211,7 @@ class Model(Specifiable):
                     in_socket_names = tuple([s.name for s in sockets])
                     # Update our call registry.
                     key = (output_socket.name, in_socket_names, shape_combination)
-                    self.call_registry[key] = op
+                    self.call_registry[key] = op_rec.op
                     # .. and the out-socket registry.
                     self.out_socket_registry[output_socket.name].update(set(in_socket_names))
 
@@ -345,7 +345,8 @@ class Model(Specifiable):
 
                 # Keep moving through this graph_fn's out-Sockets (if input-complete).
                 if graph_fn.input_complete:
-                    self.logger.info("Graph_fn '{}' is input-complete:\n\tin-Sockets:")
+                    self.logger.info("Graph_fn '{}/{}' is input-complete.".format(socket.component.name, graph_fn.name))
+                    self.logger.info("\tin-Sockets:")
                     for in_socket_record in graph_fn.input_sockets.values():
                         self.logger.info("\t'{}': {}".format(in_socket_record["socket"].name,
                                                              in_socket_record["socket"].space))
@@ -517,7 +518,8 @@ class Model(Specifiable):
         space_dict = {in_s.name: in_s.space for in_s in component.input_sockets}
         component.when_input_complete(space_dict)
 
-        self.logger.info("Component '{}' is input-complete\n\tin-Sockets:\n".format(component.name))
+        self.logger.info("Component '{}' is input-complete.".format(component.name))
+        self.logger.info("\tin-Sockets:")
         for in_sock_name, space in space_dict.items():
             self.logger.info("\t'{}': {}".format(in_sock_name, space))
         self.logger.info("")

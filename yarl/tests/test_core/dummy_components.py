@@ -23,6 +23,12 @@ from yarl.components import Component
 class Dummy1to1(Component):
     """
     A dummy component with one graph_fn mapping one input to one output.
+
+    API:
+    ins:
+        input
+    outs:
+        output
     """
     def __init__(self, scope="dummy-1-to-1"):
         super(Dummy1to1, self).__init__(scope=scope, flatten_ops=False)
@@ -34,9 +40,37 @@ class Dummy1to1(Component):
         return input_ + 1.0
 
 
+class Dummy1to2(Component):
+    """
+    A dummy component with one graph_fn mapping one input to two outputs.
+
+    API:
+    ins:
+        input
+    outs:
+        output1
+        output2
+    """
+    def __init__(self, scope="dummy-1-to-2"):
+        super(Dummy1to2, self).__init__(scope=scope, flatten_ops=False)
+        self.define_inputs("input")
+        self.define_outputs("output1", "output2")
+        self.add_graph_fn("input", ["output1", "output2"], self._graph_fn_1to2)
+
+    def _graph_fn_1to2(self, input_):
+        return input_, input_ + 1.0
+
+
 class Dummy2to1(Component):
     """
-    A dummy component with one graph_fn mapping one input to one output.
+    A dummy component with one graph_fn mapping two inputs to one output.
+
+    API:
+    ins:
+        input1
+        input2
+    outs:
+        output
     """
     def __init__(self, scope="dummy-2-to-1"):
         super(Dummy2to1, self).__init__(scope=scope, flatten_ops=False)

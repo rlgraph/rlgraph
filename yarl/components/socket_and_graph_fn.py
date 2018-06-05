@@ -25,7 +25,8 @@ from yarl import YARLError
 from yarl.spaces import Space
 from yarl.utils.util import force_tuple
 from yarl.utils.ops import SingleDataOp, FlattenedDataOp, DataOpRecord
-from yarl.spaces.space_utils import flatten_op, get_space_from_op, split_flattened_input_ops, unflatten_op
+from yarl.spaces.space_utils import flatten_op, get_space_from_op, split_flattened_input_ops, unflatten_op, \
+    convert_ops_to_op_records
 
 
 class Socket(object):
@@ -129,7 +130,8 @@ class Socket(object):
 
         Args:
             incoming (Union[Space,GraphFunction,Socket]): The incoming item.
-            op_record_registry (dict): Dict that keeps track of which ops require which other ops to be calculated.
+            op_record_registry (dict): Dict that keeps track of which op-record requires which other op-records
+                to be calculated.
             in_socket_registry (dict): Dict that keeps track of which very in-Socket (name) needs which
                 ops (placeholders/feeds).
             graph_fn_in_slot (Optional[int]): If incoming is a GraphFunction, which output slot does this Socket
@@ -148,13 +150,14 @@ class Socket(object):
             self.space = incoming
 
             op = incoming.get_tensor_variable(name=self.name, is_input_feed=True)
+            op_rec = DataOpRecord(op)
             # Add new DataOp record (no labels for incoming Spaces' ops).
-            self.op_records.add(DataOpRecord(op))
+            self.op_records.add(op_rec)
             # Keep track of which Spaces can go (alternatively) into this Socket.
             in_socket_registry[self.name] = {op} if self.name not in in_socket_registry \
                 else (in_socket_registry[self.name] | {op})
             # Remember, that this DataOp goes into a Socket at the very beginning of the Graph (e.g. a tf.placeholder).
-            op_record_registry[op] = {self}
+            op_record_registry[op_rec] = {self}
 
         # GraphFunction: Connect this Socket to the nth op coming out of the GraphFunction function.
         elif isinstance(incoming, GraphFunction):
@@ -169,13 +172,13 @@ class Socket(object):
             assert self.space is None  # Try this hard assert for now (should be ok).
             #if self.space is None:
             if len(nth_computed_ops_records) > 0:
-                space_check = get_space_from_op(next(iter(nth_computed_ops_records)))
+                space_check = get_space_from_op(next(iter(nth_computed_ops_records)).op)
                 self.space = space_check
                 # Check whether all graph_fn-computed ops have the same Space.
                 for op in nth_computed_ops_records:
                     space = get_space_from_op(op.op)
-                    assert space == space_check, "ERROR: Different output ops of graph_fn '{}' have different Spaces!".\
-                        format(incoming.name)
+                    assert space == space_check, "ERROR: Different output ops of graph_fn '{}' have different Spaces " \
+                                                 "({} and {})!".format(incoming.name, space, space_check)
             else:
                 self.space = 0
 
@@ -313,7 +316,8 @@ class GraphFunction(object):
         Args:
             input_socket (Optional[Socket]): The incoming Socket (OBSOLETE: by design, must be type "in").
                 None, if this GraphFunction has no in-Sockets anyway.
-            op_record_registry (dict): Dict that keeps track of which ops require which other ops to be calculated.
+            op_record_registry (dict): Dict that keeps track of which op-record requires which other op-records
+                to be calculated.
             in_socket_registry (dict): Dict that keeps track of which in-Socket (name) needs which
                 ops (placeholders/feeds).
         """
@@ -325,11 +329,12 @@ class GraphFunction(object):
             if ops == ():
                 raise YARLError("ERROR: {}'s computation method '{}' does not return an op!".
                                 format(self.component.name, self.method.__name__))
+            op_records = convert_ops_to_op_records(ops)
             # Use empty tuple as input-op-records combination.
-            self.in_out_records_map[()] = list(map(lambda op: DataOpRecord(op), ops))
+            self.in_out_records_map[()] = list(op_records)
             # Tag all out-ops as not requiring any input.
-            for op in ops:
-                op_record_registry[op] = set()
+            for op_rec in op_records:
+                op_record_registry[op_rec] = set()
 
             return
 
@@ -346,21 +351,24 @@ class GraphFunction(object):
             in_op_records = [in_sock_rec["op_records"] for in_sock_rec in self.input_sockets.values()]
             in_op_records_combinations = list(itertools.product(*in_op_records))
             for in_op_record_combination in in_op_records_combinations:
-                in_op_combination_wo_constant_values = tuple(
-                    [op_rec.op for op_rec in in_op_record_combination if not isinstance(op_rec.op, SingleDataOp) or
-                     op_rec.op.constant_value is None
-                     ])
+                #in_op_combination_wo_constant_values = tuple(
+                #    [op_rec.op for op_rec in in_op_record_combination if not isinstance(op_rec.op, SingleDataOp) or
+                #     op_rec.op.constant_value is None
+                #     ])
 
                 # key = tuple(input_combination)
                 # Make sure we call the computation method only once per input-op combination.
-                if in_op_combination_wo_constant_values not in self.in_out_records_map:
+                #if in_op_combination_wo_constant_values not in self.in_out_records_map:
+                if in_op_record_combination not in self.in_out_records_map:
                     # Replace constant-value Sockets with their SingleDataOp's constant numpy values
                     # and the DataOps with their actual ops (`op` property of DataOp).
-                    actual_call_params = [op_rec.op.constant_value if isinstance(op_rec.op, SingleDataOp) and
-                        op_rec.op.constant_value is not None else op_rec.op for op_rec in in_op_record_combination]
+                    actual_call_params = [
+                        op_rec.op.constant_value if isinstance(op_rec.op, SingleDataOp) and
+                        op_rec.op.constant_value is not None else op_rec.op for op_rec in in_op_record_combination
+                    ]
 
                     # Build the ops from this input-combination.
-                    # - Flatten input items.
+                    # Flatten input items.
                     if self.flatten_ops is not False:
                         flattened_ops = self.flatten_input_ops(*actual_call_params)
                         # Split into SingleDataOps?
@@ -389,14 +397,24 @@ class GraphFunction(object):
                     # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
                     ops = force_tuple(ops)
 
-                    self.in_out_records_map[in_op_combination_wo_constant_values] = ops
+                    # ops are now the raw graph_fn output: Need to convert it back to records.
+                    new_label_set = set()
+                    for rec in in_op_record_combination:  # type: DataOpRecord
+                        new_label_set.update(rec.labels)
+                    op_records = convert_ops_to_op_records(ops, labels=new_label_set)
+
+                    #self.in_out_records_map[in_op_combination_wo_constant_values] = op_records
+                    self.in_out_records_map[in_op_record_combination] = op_records
                     # Keep track of which ops require which other ops.
-                    for op in ops:
-                        op_record_registry[op] = set(in_op_combination_wo_constant_values)
+                    for op_rec in op_records:
+                        #op_record_registry[op_rec] = set(in_op_combination_wo_constant_values)
+                        op_record_registry[op_rec] = set(in_op_record_combination)
                 # Error.
                 else:
-                    raise YARLError("ERROR: `in_op_combination_wo_constant_values`='{}' already in self.in_out_records_map!".
-                                    format(in_op_combination_wo_constant_values))
+                    #raise YARLError("ERROR: `in_op_combination_wo_constant_values`='{}' already in self.in_out_records_map!".
+                    #                format(in_op_combination_wo_constant_values))
+                    raise YARLError("ERROR: `in_op_record_combination`='{}' already in self.in_out_records_map!".
+                                    format(in_op_record_combination))
 
     def check_input_completeness(self):
         """

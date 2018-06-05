@@ -100,4 +100,4 @@ class DataOpRecord(object):
         self.labels = set(labels or [])
 
     def __hash__(self):
-        return self.op
+        return hash(self.op)
