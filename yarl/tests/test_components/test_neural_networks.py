@@ -20,9 +20,8 @@ from __future__ import print_function
 import unittest
 
 from yarl.components.neural_networks import NeuralNetwork
-from yarl.components.layers import DenseLayer, Conv2DLayer, ConcatLayer
 from yarl.spaces import FloatBox
-from tests import ComponentTest
+from yarl.tests import ComponentTest
 
 import numpy as np
 

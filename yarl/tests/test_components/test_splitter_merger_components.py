@@ -23,7 +23,7 @@ import unittest
 from yarl.components.common import Splitter, Merger
 from yarl.spaces import *
 from yarl.spaces.space_utils import flatten_op
-from tests import ComponentTest
+from yarl.tests import ComponentTest
 
 
 class TestSplitterMergerComponents(unittest.TestCase):

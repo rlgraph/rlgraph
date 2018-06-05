@@ -22,7 +22,7 @@ import numpy as np
 
 from yarl.components.memories import PrioritizedReplay
 from yarl.spaces import Dict, IntBox, FloatBox
-from tests import ComponentTest
+from yarl.tests import ComponentTest
 from yarl.tests.test_util import non_terminal_records
 
 

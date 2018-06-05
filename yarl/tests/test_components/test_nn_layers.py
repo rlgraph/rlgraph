@@ -22,7 +22,7 @@ import numpy as np
 
 from yarl.components.layers import DenseLayer, Conv2DLayer, ConcatLayer
 from yarl.spaces import FloatBox
-from tests import ComponentTest
+from yarl.tests import ComponentTest
 
 
 class TestNNLayer(unittest.TestCase):

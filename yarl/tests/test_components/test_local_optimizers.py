@@ -22,7 +22,7 @@ import tensorflow as tf
 
 from yarl.components.optimizers import GradientDescentOptimizer
 from yarl.spaces import Tuple
-from tests import ComponentTest
+from yarl.tests import ComponentTest
 
 
 class TestLocalOptimizers(unittest.TestCase):

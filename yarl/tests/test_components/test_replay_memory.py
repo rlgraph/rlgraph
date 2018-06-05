@@ -21,7 +21,7 @@ import unittest
 
 from yarl.components.memories.replay_memory import ReplayMemory
 from yarl.spaces import Dict, IntBox
-from tests import ComponentTest
+from yarl.tests import ComponentTest
 from yarl.tests.test_util import non_terminal_records, terminal_records
 
 

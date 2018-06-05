@@ -21,7 +21,7 @@ import unittest
 
 from yarl.components.layers import GrayScale, Flatten, Scale, PreprocessorStack, Sequence
 from yarl.spaces import *
-from tests import ComponentTest
+from yarl.tests import ComponentTest
 
 import numpy as np
 

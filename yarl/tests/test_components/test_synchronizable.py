@@ -23,8 +23,7 @@ import unittest
 from yarl.components import Component
 from yarl.components.common import Synchronizable
 from yarl.spaces import FloatBox
-
-from tests import ComponentTest
+from yarl.tests import ComponentTest
 
 VARIABLE_NAMES = ["variable_to_synch1", "variable_to_synch2"]
 
@@ -60,7 +59,7 @@ class TestSynchronizableComponent(unittest.TestCase):
         expected1 = np.zeros(shape=component_to_test.space.shape)
         expected2 = np.ones(shape=component_to_test.space.shape)
         expected = dict(variable_to_synch1=expected1, variable_to_synch2=expected2)
-        test.test(out_socket_name="synch_out", inputs=None, expected_outputs=expected)
+        test.test(out_socket_names="synch_out", inputs=None, expected_outputs=expected)
 
     def test_synch_socket(self):
         # Two Synchronizables, A that can only push out values, B to be synched by A's values.
@@ -85,7 +84,7 @@ class TestSynchronizableComponent(unittest.TestCase):
         test.assert_equal(var2_value, expected2)
 
         # Now synch and re-check.
-        test.test(out_socket_name="do_the_synch", inputs=None, expected_outputs=None)
+        test.test(out_socket_names="do_the_synch", inputs=None, expected_outputs=None)
 
         var1_value, var2_value = test.get_variable_values(*list(variables_dict.values()))
 

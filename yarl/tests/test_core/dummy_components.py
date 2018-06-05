@@ -24,8 +24,8 @@ class Dummy1to1(Component):
     """
     A dummy component with one graph_fn mapping one input to one output.
     """
-    def __init__(self):
-        super(Dummy1to1, self).__init__()
+    def __init__(self, scope="dummy-1-to-1"):
+        super(Dummy1to1, self).__init__(scope=scope, flatten_ops=False)
         self.define_inputs("input")
         self.define_outputs("output")
         self.add_graph_fn("input", "output", self._graph_fn_1to1)
@@ -38,8 +38,8 @@ class Dummy2to1(Component):
     """
     A dummy component with one graph_fn mapping one input to one output.
     """
-    def __init__(self):
-        super(Dummy2to1, self).__init__()
+    def __init__(self, scope="dummy-2-to-1"):
+        super(Dummy2to1, self).__init__(scope=scope, flatten_ops=False)
         self.define_inputs("input1", "input2")
         self.define_outputs("output")
         self.add_graph_fn(["input1", "input2"], "output", self._graph_fn_2to1)

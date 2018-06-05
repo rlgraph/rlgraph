@@ -24,7 +24,7 @@ from yarl.components.common.decay_components import LinearDecay
 from yarl.components.explorations import Exploration, EpsilonExploration
 from yarl.components.distributions import NNOutputCleanup, Categorical
 from yarl.spaces import *
-from tests import ComponentTest
+from yarl.tests import ComponentTest
 
 import numpy as np
 

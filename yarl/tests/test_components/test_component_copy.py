@@ -23,7 +23,7 @@ import numpy as np
 from yarl.components import Component
 from yarl.components.layers.preprocessing import Flatten
 from yarl.spaces import FloatBox
-from tests import ComponentTest
+from yarl.tests import ComponentTest
 
 
 class TestComponentCopy(unittest.TestCase):

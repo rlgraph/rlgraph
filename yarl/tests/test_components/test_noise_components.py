@@ -22,8 +22,7 @@ import numpy as np
 
 from yarl.components.common.noise_components import *
 from yarl.spaces import *
-
-from tests import ComponentTest
+from yarl.tests import ComponentTest
 
 
 class TestNoiseComponents(unittest.TestCase):

@@ -19,7 +19,8 @@ from __future__ import print_function
 
 from yarl import backend
 from yarl.models import Model
-from yarl.tests import recursive_assert_almost_equal
+
+from .test_util import recursive_assert_almost_equal
 
 
 class ComponentTest(object):

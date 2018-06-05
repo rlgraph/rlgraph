@@ -22,7 +22,7 @@ import numpy as np
 
 from yarl.components.memories.ring_buffer import RingBuffer
 from yarl.spaces import Dict, IntBox
-from tests import ComponentTest
+from yarl.tests import ComponentTest
 from yarl.tests.test_util import non_terminal_records, terminal_records
 
 
