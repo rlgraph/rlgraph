@@ -267,7 +267,7 @@ class Model(Specifiable):
         # The sub-component itself.
         for entry_point in sub_component.no_input_entry_points:
             if isinstance(entry_point, GraphFunction):
-                entry_point.update_from_input(None, self.op_record_registry, self.in_socket_registry)
+                entry_point.update_from_input(None, self.op_record_registry)
                 for slot, out_socket in enumerate(entry_point.output_sockets):
                     self.partial_input_build(out_socket, entry_point, slot)
             else:
@@ -341,7 +341,7 @@ class Model(Specifiable):
                 else:
                     # TODO fetch default device?
                     self.logger.debug("\t\tis a graph_fn ... calling `update_from_input`")
-                    graph_fn.update_from_input(socket, self.op_record_registry, self.in_socket_registry)
+                    graph_fn.update_from_input(socket, self.op_record_registry)
 
                 # Keep moving through this graph_fn's out-Sockets (if input-complete).
                 if graph_fn.input_complete:
@@ -372,7 +372,7 @@ class Model(Specifiable):
             if graph_fn.input_complete is False:
                 # Look for the missing in-Socket and raise an Error.
                 for in_sock_name, in_sock_record in graph_fn.input_sockets.items():
-                    if len(in_sock_record["ops"]) == 0:
+                    if len(in_sock_record["op_records"]) == 0:
                         logging.warning("in-Socket '{}' of GraphFunction '{}' of Component '{}' does not have "
                                         "any incoming ops!".format(in_sock_name, graph_fn.name, component.name))
 

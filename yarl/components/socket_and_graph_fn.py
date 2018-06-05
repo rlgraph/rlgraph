@@ -306,7 +306,7 @@ class GraphFunction(object):
     #    """
     #    return method  # not mandatory
 
-    def update_from_input(self, input_socket, op_record_registry, in_socket_registry):
+    def update_from_input(self, input_socket, op_record_registry):
         """
         Updates our "waiting" inputs with the incoming socket and checks whether this computation is "input-complete".
         If yes, do all possible combinatorial pass-throughs through the computation function to generate output ops
@@ -318,8 +318,6 @@ class GraphFunction(object):
                 None, if this GraphFunction has no in-Sockets anyway.
             op_record_registry (dict): Dict that keeps track of which op-record requires which other op-records
                 to be calculated.
-            in_socket_registry (dict): Dict that keeps track of which in-Socket (name) needs which
-                ops (placeholders/feeds).
         """
         # This GraphFunction has no in-Sockets.
         if input_socket is None:
@@ -373,9 +371,7 @@ class GraphFunction(object):
                         flattened_ops = self.flatten_input_ops(*actual_call_params)
                         # Split into SingleDataOps?
                         if self.split_ops:
-                            call_params = split_flattened_input_ops(
-                                add_auto_key_as_first_param=self.add_auto_key_as_first_param, *flattened_ops
-                            )
+                            call_params = split_flattened_input_ops(self.add_auto_key_as_first_param, *flattened_ops)
                             # There is some splitting to do. Call graph_fn many times (one for each split).
                             if isinstance(call_params, FlattenedDataOp):
                                 ops = FlattenedDataOp()
