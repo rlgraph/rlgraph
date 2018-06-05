@@ -48,6 +48,8 @@ class GraphBuilder(Specifiable):
         # All components assigned to each device, for debugging and analysis.
         self.device_component_assignments = dict()
         self.available_devices = None
+        self.default_device = None
+
         # Create an empty core Component into which everything will be assembled by an Algo.
         self.core_component = Component(name=self.name)
         # List of variables (by scope/name) of all our components.
@@ -68,7 +70,7 @@ class GraphBuilder(Specifiable):
         # Maps an out-Socket name+in-Socket/Space-combination to an actual DataOp to fetch from our Graph.
         self.call_registry = dict()  # key=()
 
-    def assemble_graph(self, available_devices):
+    def assemble_graph(self, available_devices, default_device):
         """
         Loops through all our sub-components starting at core and assembles the graph by creating placeholders,
         following Socket->Socket connections and running through our GraphFunctions.
@@ -76,10 +78,11 @@ class GraphBuilder(Specifiable):
         Args:
             available_devices (list): Devices which can be used to assign parts of the graph
                 during graph assembly.
+            default_device (str): Default device identifier.
         """
         # Set devices usable for this graph.
         self.available_devices = available_devices
-
+        self.default_device = default_device
         # Loop through the given input sockets and connect them from left to right.
         for socket in self.core_component.input_sockets:
             # sanity check our input Sockets for connected Spaces.
@@ -251,9 +254,8 @@ class GraphBuilder(Specifiable):
         if socket.component.device:
             self.assign_device(graph_fn, socket, socket.component.device)
         else:
-            # TODO fetch default device?
-            self.logger.debug("\t\tis a graph_fn ... calling `update_from_input`")
-            graph_fn.update_from_input(socket, self.op_record_registry)
+            # Use default device if none available.
+            self.assign_device(graph_fn, socket, self.default_device)
         # Keep moving through this graph_fn's out-Sockets (if input-complete).
         if graph_fn.input_complete:
             self.build_outputs_when_input_complete(graph_fn, socket)

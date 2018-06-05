@@ -51,7 +51,11 @@ class TensorFlowExecutor(GraphExecutor):
         self.monitored_session = None
 
         self.graph_default_context = None
-        self.available_devices = device_lib.list_local_devices()
+        self.local_device_protos = device_lib.list_local_devices()
+        self.available_devices = [x.name for x in self.local_device_protos]
+
+        # Default device is first available CPUs
+        self.default_device = [x.name for x in self.local_device_protos if x.device_type == 'CPU'][0]
 
     def build(self):
         # Prepare for graph assembly.
@@ -59,7 +63,7 @@ class TensorFlowExecutor(GraphExecutor):
         self.setup_graph()
 
         # Assemble graph via graph builder.
-        self.graph_builder.assemble_graph(self.available_devices)
+        self.graph_builder.assemble_graph(self.available_devices, self.default_device)
 
         # Set up any remaining session or monitoring configurations.
         self.finish_graph_setup()
