@@ -55,7 +55,11 @@ class TensorFlowExecutor(GraphExecutor):
         self.available_devices = [x.name for x in self.local_device_protos]
 
         # Default device is first available CPUs
-        self.default_device = [x.name for x in self.local_device_protos if x.device_type == 'CPU'][0]
+        default_device = self.execution_spec.get("default_device", None)
+        if default_device is None:
+            self.default_device = [x.name for x in self.local_device_protos if x.device_type == 'CPU'][0]
+        else:
+            self.default_device = default_device
 
     def build(self):
         # Prepare for graph assembly.
