@@ -17,27 +17,26 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .model import Model
-from .tensorflow_model import TensorFlowModel
+from yarl.graphs.graph_builder import GraphBuilder
+from yarl.graphs.graph_executor import GraphExecutor
+from yarl.graphs.tensorflow_executor import TensorFlowExecutor
 
 
-def backend_model(backend="tf"):
+def backend_executor(backend="tf"):
     """
     Returns default class for backend.
     Args:
         backend (str): Backend string, e.g. "tf" for TensorFlow.
 
-    Returns: Model class for the specified backend.
+    Returns: Executioner for the specified backend.
     """
     if backend == "tf":
-        return TensorFlowModel
+        return TensorFlowExecutor
 
 
-Model.__lookup_classes__ = dict(
-    tfmodel=TensorFlowModel,
-    tensorflowmodel=TensorFlowModel,
-    tf=TensorFlowModel,
-    tensorflow=TensorFlowModel
+GraphExecutor.__lookup_classes__ = dict(
+    tf=TensorFlowExecutor,
+    tensorflow=TensorFlowExecutor
 )
 
-__all__ = ["Model", "TensorFlowModel", "backend_model"]
+__all__ = ["GraphBuilder", "GraphExecutor", "TensorFlowExecutor", "backend_executor"]

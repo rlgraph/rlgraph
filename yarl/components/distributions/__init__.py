@@ -17,16 +17,17 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .distributions import Distribution, Bernoulli, Categorical, Normal
-from .nn_output_cleanup import NNOutputCleanup
+from yarl.components.distributions.distributions import Distribution, Bernoulli, Categorical, Normal, Beta
+from yarl.components.distributions.nn_output_cleanup import NNOutputCleanup
 
 Distribution.__lookup_classes__ = dict(
     bernoulli=Bernoulli,
     categorical=Categorical,
     normaldistribution=Normal,
-    gaussian=Normal
+    gaussian=Normal,
+    beta=Beta
 )
 
-__all__ = ["Distribution", "Bernoulli", "Categorical", "Normal",
+__all__ = ["Distribution", "Bernoulli", "Categorical", "Normal", "Beta",
            "NNOutputCleanup"]
 

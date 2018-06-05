@@ -18,7 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import backend
-from yarl.models import Model
+from yarl.graphs import GraphBuilder
+from yarl.graphs.graph_executor import GraphExecutor
 
 from .test_util import recursive_assert_almost_equal, root_logger
 
@@ -43,10 +44,10 @@ class ComponentTest(object):
             root_logger.setLevel(logging_level)
 
         # Create our Model.
-        self.model = Model.from_spec(backend, execution_spec=dict(seed=self.seed))
-        self.model.reset_backend()
+        self.graph_builder = GraphBuilder()
+
         # Add the component to test and expose all its Sockets to the core component of our Model.
-        self.core = self.model.get_default_model()
+        self.core = self.graph_builder.get_default_model()
         self.core.add_component(component, connections=True)
 
         # Add the input-spaces to the in-Sockets.
@@ -57,7 +58,12 @@ class ComponentTest(object):
             self.core.connect(input_spaces[name], name)
 
         # Build the model.
-        self.model.build()
+        self.graph_executor = GraphExecutor.from_spec(
+            backend,
+            graph_builder=self.graph_builder,
+            execution_spec=dict(seed=self.seed)
+        )
+        self.graph_executor.build()
 
     def test(self, out_socket_names, inputs=None, expected_outputs=None, decimals=7, fn_test=None):
         """
@@ -78,7 +84,7 @@ class ComponentTest(object):
             any: Outputs of tested operations on the specified out-Sockets.
         """
         # Get the outs ..
-        outs = self.model.call(sockets=out_socket_names, inputs=inputs)
+        outs = self.graph_executor.execute(sockets=out_socket_names, inputs=inputs)
 
         #  Optionally do test asserts here.
         if expected_outputs is not None:
@@ -112,7 +118,7 @@ class ComponentTest(object):
         Returns:
             any: Values of the variables provided.
         """
-        return self.model.get_variable_values(variables)
+        return self.graph_executor.read_variable_values(variables)
 
     @staticmethod
     def assert_equal(outs, expected_outputs, decimals=7):

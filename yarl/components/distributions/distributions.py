@@ -242,3 +242,29 @@ class Normal(Distribution):
 
     def _graph_fn_sample_deterministic(self, distribution):
         return distribution.mean()
+
+
+class Beta(Distribution):
+    """
+    A Beta distribution is defined on the interval [0, 1] and parameterized by shape parameters
+    alpha and beta (also called concentration parameters).
+    """
+    def __init__(self, scope="beta", **kwargs):
+        # Do not flatten incoming DataOps as we need more than one parameter in our parameterize graph_fn.
+        super(Beta, self).__init__(scope=scope, **kwargs)
+
+    def check_input_spaces(self, input_spaces):
+        # Must be a Tuple of len 2 (loc and scale).
+        in_space = input_spaces["parameters"]
+        assert isinstance(in_space, Tuple) and len(in_space) == 2,\
+            "ERROR: Beta Distribution ({}) needs an incoming Tuple with len=2!".format(self.name)
+
+    def _graph_fn_parameterize(self, concentration_parameters):
+        if backend == "tf":
+            return tf.distributions.Beta(
+                concentration0=concentration_parameters[0],
+                concentration1=concentration_parameters[1]
+            )
+
+    def _graph_fn_sample_deterministic(self, distribution):
+        return distribution.mean()

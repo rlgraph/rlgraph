@@ -17,12 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from yarl import Specifiable, backend
+from yarl.graphs.graph_executor import GraphExecutor
 from yarl.utils.input_parsing import parse_execution_spec, parse_update_spec
 from yarl.components import Component
 from yarl.components.layers import Stack
 from yarl.components.neural_networks import NeuralNetwork
 from yarl.components.optimizers import Optimizer
-from yarl.models import Model
+from yarl.graphs import GraphBuilder
 from yarl.spaces import Space
 import logging
 
@@ -75,12 +76,17 @@ class Agent(Specifiable):
         self.update_spec = parse_update_spec(update_spec)
 
         # Create our Model.
-        self.model = Model.from_spec(backend, execution_spec=self.execution_spec)  # type: Model
+        graph_builder = GraphBuilder()
+        self.graph_executor = GraphExecutor.from_spec(
+            backend,
+            graph_builder=graph_builder,
+            execution_spec=self.execution_spec
+        )
 
         # Build a custom, agent-specific algorithm.
-        self.build_graph(self.model.core_component)
-        # Ask our Model to actually build the Graph.
-        self.model.build()
+        self.build_graph(graph_builder.core_component)
+        # Ask our executor to actually build the Graph.
+        self.graph_executor.build()
 
     def build_graph(self, core):
         """
@@ -151,7 +157,7 @@ class Agent(Specifiable):
         Args:
             filename (str): Export path. Depending on the backend, different filetypes may be required.
         """
-        self.model.export_graph_definition(filename)
+        self.graph_builder.export_graph_definition(filename)
 
     def store_model(self, path=None, add_timestep=True):
         """
@@ -163,7 +169,7 @@ class Agent(Specifiable):
                 exported model. If false, may override previous checkpoints.
 
         """
-        self.model.store_model(path=path, add_timestep=add_timestep)
+        self.graph_builder.store_model(path=path, add_timestep=add_timestep)
 
     def load_model(self, path=None):
         """
@@ -172,4 +178,4 @@ class Agent(Specifiable):
         Args:
             path (str): Path to checkpoint directory.
         """
-        self.model.load_model(path=path)
+        self.graph_builder.load_model(path=path)
