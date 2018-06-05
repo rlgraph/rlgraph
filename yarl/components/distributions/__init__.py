@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.distributions import Distribution, Bernoulli, Categorical, Normal, Beta
+from yarl.components.distributions.distributions import Distribution, Bernoulli, Categorical, Normal, Beta
 from yarl.components.distributions.nn_output_cleanup import NNOutputCleanup
 
 Distribution.__lookup_classes__ = dict(
