@@ -38,7 +38,7 @@ def get_space_from_op(op):
         Space: The inferred Space object.
     """
     # a Dict
-    if isinstance(op, DataOpDict):
+    if isinstance(op, dict):  # DataOpDict
         spec = dict()
         add_batch_rank = False
         for k, v in op.items():
@@ -47,7 +47,7 @@ def get_space_from_op(op):
                 add_batch_rank = True
         return Dict(spec, add_batch_rank=add_batch_rank)
     # a Tuple
-    elif isinstance(op, DataOpTuple):
+    elif isinstance(op, tuple):  # DataOpTuple
         spec = list()
         add_batch_rank = False
         for i in op:
@@ -125,6 +125,61 @@ def flatten_op(op, scope_="", list_=None):
         return FlattenedDataOp(list_)
 
 
+def split_flattened_input_ops(add_auto_key_as_first_param, *ops):
+    """
+    Splits any FlattenedDataOp in `ops` into its SingleDataOps and collects them to be passed
+    one by one through some graph_fn. If more than one FlattenedDataOp exists in `ops`,
+    these must have the exact same keys.
+    If `add_auto_key_as_first_param` is True: Add auto-key as very first parameter in each
+    returned parameter tuple.
+
+    Args:
+        add_auto_key_as_first_param (bool): Whether to add the auto-flatten key as the first call parameter.
+        *ops (DataOp): The input items into this GraphFunction.
+
+    Returns:
+        Union[FlattenedDataOp,Tuple[DataOp]]: The sorted parameter tuples (by flat-key) to use as inputs in the
+            calls to the graph_fn.
+            If no FlattenedDataOp is in ops, returns ops as-is.
+
+    Raises:
+        YARLError: If there are more than 1 flattened ops in ops and their keys don't match 100%.
+    """
+    # Collect FlattenedDataOp for checking their keys (must match).
+    flattened = [op.items() for op in ops if isinstance(op, FlattenedDataOp)]
+    # If it's more than 1, make sure they match. If they don't match: raise Error.
+    if len(flattened) > 1:
+        # Loop through the first one and make sure all others match.
+        for key, value in flattened[0]:
+            for other in flattened[1:]:
+                k_other, v_other = next(iter(other))
+                if key != k_other:  # or get_shape(v_other) != get_shape(value):
+                    raise YARLError("ERROR: Flattened ops have a key mismatch ({} vs {})!".format(key, k_other))
+
+    # We have (matching) ContainerDataOps: Split the calls.
+    if len(flattened) > 0:
+        # The first op that is a FlattenedDataOp.
+        guide_op = next(op for op in ops if isinstance(op, FlattenedDataOp))
+        # Re-create our iterators.
+        flattened = [op.items() if isinstance(op, FlattenedDataOp) else op for op in ops]
+        collected_call_params = FlattenedDataOp()
+        # Do the single split calls to our computation func.
+        for key, value in guide_op.items():
+            # Prep input params for a single call.
+            params = [key, value] if add_auto_key_as_first_param else [value]
+            # Pull along the other ops' values for the guide_op's current key
+            # (all container ops match structure-wise).
+            for other in flattened[1:]:
+                v_other = next(iter(other))[1]  # if isinstance(other, odict_items) else other
+                params.append(v_other)
+            # Now do the single call.
+            collected_call_params[key] = params
+        return collected_call_params
+    # We don't have any container ops: No splitting possible. Return as is.
+    else:
+        return ops
+
+
 def unflatten_op(op):
     """
     Takes a FlattenedDataOp with auto-generated keys and returns the corresponding
@@ -133,10 +188,11 @@ def unflatten_op(op):
     that key.
 
     Args:
-        op (FlattenedDataOp): The item to be unflattened (re-nested) into any DataOp.
+        op (dict): The item to be unflattened (re-nested) into any DataOp. Usually a FlattenedDataOp, but can also
+            be a plain dict.
 
     Returns:
-        DataOp: The flattened (re-nested) item.
+        DataOp: The unflattened (re-nested) item.
     """
     # Special case: FlattenedDataOp with only 1 SingleDataOp (key="").
     if len(op) == 1 and "" in op:

@@ -114,7 +114,7 @@ def get_shape(op, flat=False, no_batch=False):
 
 def force_list(elements, to_tuple=False):
     """
-    Makes sure elements is returned as a list, whether elements is a single item, already a list, or a tuple.
+    Makes sure `elements` is returned as a list, whether `elements` is a single item, already a list, or a tuple.
 
     Args:
         elements (Optional[any]): The input single item, list, or tuple to be converted into a list/tuple.
@@ -122,8 +122,7 @@ def force_list(elements, to_tuple=False):
         to_tuple (bool): Whether to use tuple (instead of list).
 
     Returns:
-        list: All given elements in a list.
-        tuple: All given elements in a tuple.
+        Union[list,tuple]: All given elements in a list/tuple depending on `to_tuple`'s value.
     """
     ctor = list
     if to_tuple is True:
@@ -138,12 +137,12 @@ force_tuple = partial(force_list, to_tuple=True)
 
 def default_dict(original, defaults):
     """
-    Updates the original dict with values from to_add, but only for those keys that
-    do not exist yet in original.
-    Changes original in place, but leaves to_add as is.
+    Updates the original dict with values from `defaults`, but only for those keys that
+    do not exist yet in `original`.
+    Changes `original` in place, but leaves `defaults` as is.
 
     Args:
-        original (Optional[dict]): The dict to (soft)-update. If None, return the default one.
+        original (Optional[dict]): The dict to (soft)-update. If None, return `defaults`.
         defaults (dict): The dict to update from.
     """
     if original is None:
