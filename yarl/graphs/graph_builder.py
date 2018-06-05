@@ -203,15 +203,16 @@ class GraphBuilder(Specifiable):
 
         # Loop through this socket's incoming connections (or just process from_).
         incoming_connections = from_ or socket.incoming_connections
-        for in_ in force_list(incoming_connections):
+        for incoming in force_list(incoming_connections):
             # create tf placeholder(s)
             # example: Space (Dict({"a": IntBox(3), "b": BoolBox(), "c": FloatBox()})) connects to Socket ->
             # create inputs[name-of-sock] = dict({"a": tf.placeholder(name="", dtype=int, shape=(3,))})
             # TODO: Think about which calls here to skip (in_ is a Socket? -> most likely already done).
-            self.logger.debug("\tupdating from input {}".format(str(in_)))
-            socket.update_from_input(in_, self.op_record_registry, self.in_socket_registry,
+            self.logger.debug("\tupdating from input {}".format(str(incoming)))
+            socket.update_from_input(incoming, self.op_record_registry, self.in_socket_registry,
                                      graph_fn_out_slot, socket_out_op)
 
+        # Loop through outgoing connections.
         for outgoing in socket.outgoing_connections:
             self.logger.debug("\tlooking at outgoing connection {}".format(str(outgoing)))
             # Outgoing is another Socket (other Component) -> recurse.
@@ -233,28 +234,47 @@ class GraphBuilder(Specifiable):
             # Outgoing is a GraphFunction -> Add the socket to the GraphFunction's (waiting) inputs.
             # - If all inputs are complete, build a new op into the graph (via the graph_fn).
             elif isinstance(outgoing, GraphFunction):
-                graph_fn = outgoing
-                # We have to specify the device here (only a GraphFunction actually adds something to the graph).
-                if socket.component.device:
-                    self.assign_device(graph_fn, socket, socket.component.device)
-                else:
-                    # TODO fetch default device?
-                    self.logger.debug("\t\tis a graph_fn ... calling `update_from_input`")
-                    graph_fn.update_from_input(socket, self.op_record_registry)
-
-                # Keep moving through this graph_fn's out-Sockets (if input-complete).
-                if graph_fn.input_complete:
-                    self.logger.info("Graph_fn '{}/{}' is input-complete.".format(socket.component.name, graph_fn.name))
-                    self.logger.info("\tin-Sockets:")
-                    for in_socket_record in graph_fn.input_sockets.values():
-                        self.logger.info("\t'{}': {}".format(in_socket_record["socket"].name,
-                                                             in_socket_record["socket"].space))
-                    self.logger.info("\tout-Sockets:")
-                    for slot, out_socket in enumerate(graph_fn.output_sockets):
-                        self.partial_input_build(out_socket, graph_fn, slot)
-                        self.logger.info("\t'{}': {}".format(out_socket.name, out_socket.space))
+                self.build_outgoing_graph_fn(outgoing, socket)
             else:
                 raise YARLError("ERROR: Outgoing connection must be Socket or GraphFunction!")
+
+    def build_outgoing_graph_fn(self, outgoing, socket):
+        """
+        Builds outgoing graph function ops.
+
+        Args:
+            outgoing (GraphFunction): Graph function to finish building output sockets for.
+            socket (Socket): The Socket object to process.
+        """
+        graph_fn = outgoing
+        # We have to specify the device here (only a GraphFunction actually adds something to the graph).
+        if socket.component.device:
+            self.assign_device(graph_fn, socket, socket.component.device)
+        else:
+            # TODO fetch default device?
+            self.logger.debug("\t\tis a graph_fn ... calling `update_from_input`")
+            graph_fn.update_from_input(socket, self.op_record_registry)
+        # Keep moving through this graph_fn's out-Sockets (if input-complete).
+        if graph_fn.input_complete:
+            self.build_outputs_when_input_complete(graph_fn, socket)
+
+    def build_outputs_when_input_complete(self, graph_fn, socket):
+        """
+        Builds output sockets when graph fn is input complete.
+
+        Args:
+            socket (Socket): The Socket object to process.
+            graph_fn (GraphFunction): Graph function to finish building output sockets for.
+        """
+        self.logger.info("Graph_fn '{}/{}' is input-complete.".format(socket.component.name, graph_fn.name))
+        self.logger.info("\tin-Sockets:")
+        for in_socket_record in graph_fn.input_sockets.values():
+            self.logger.info("\t'{}': {}".format(in_socket_record["socket"].name,
+                                                 in_socket_record["socket"].space))
+        self.logger.info("\tout-Sockets:")
+        for slot, out_socket in enumerate(graph_fn.output_sockets):
+            self.partial_input_build(out_socket, graph_fn, slot)
+            self.logger.info("\t'{}': {}".format(out_socket.name, out_socket.space))
 
     def sanity_check_build(self, component=None):
         """
