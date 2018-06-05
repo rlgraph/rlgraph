@@ -19,14 +19,15 @@ from __future__ import print_function
 
 from yarl import YARLError
 from yarl.spaces import IntBox, FloatBox
+from yarl.components import Component
 from yarl.components.distributions import NNOutputCleanup, Normal, Categorical
 from .neural_network import NeuralNetwork
 
 
-class Policy(NeuralNetwork):
+class Policy(Component):
     """
-    A Policy is a Wrapper without own graph_fns that contains a NeuralNetwork with an attached NNOutputCleanup
-    followed by a Distribution.
+    A Policy is a Component without own graph_fns that contains a NeuralNetwork with an attached NNOutputCleanup
+    followed by a Distribution Component.
     The NeuralNetwork's and the Distribution's out-Sockets are all exposed so one can extract the direct
     NN-output but also query actions (stochastically or deterministically) from the distribution.
 
@@ -40,22 +41,25 @@ class Policy(NeuralNetwork):
         sample_deterministic: See Distribution component.
         entropy: See Distribution component.
     """
-    def __init__(self, neural_network, action_space, scope="policy", **kwargs):
+    def __init__(self, neural_network, action_space, writable=True, scope="policy", **kwargs):
         """
         Args:
             neural_network (Union[NeuralNetwork,dict]): The NeuralNetwork Component or a specification dict to build
                 one.
             action_space (Space): The action Space, which all actions that this Policy produces are members of.
+            writable (bool): Whether the NeuralNetwork Component of this Policy is writable from another equally
+                structured Policy. See Synchronizable Component for more details.
         """
-        super(NeuralNetwork, self).__init__(scope=scope, **kwargs)
+        super(Policy, self).__init__(scope=scope, **kwargs)
 
-        self.neural_network = NeuralNetwork.from_spec(neural_network)
+        self.neural_network = NeuralNetwork.from_mixed(neural_network)
         self.action_space = action_space
         self.nn_cleanup = NNOutputCleanup(self.action_space)
         # The Distribution to sample (or pick) actions from.
-        # Discrete action space -> Categorical distribution.
+        # Discrete action space -> Categorical distribution (each action needs a logit from network).
         if isinstance(self.action_space, IntBox):
             self.distribution = Categorical()
+        # Continuous action space -> Normal distribution (each action needs mean and variance from network).
         elif isinstance(self.action_space, FloatBox):
             self.distribution = Normal()
         else:

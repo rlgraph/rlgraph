@@ -32,6 +32,13 @@ class PreprocessorStack(Stack):
     A special Stack that only carries PreprocessLayer Components and bundles all their `reset` out-Sockets
     into one exposed `reset` out-Socket. Otherwise, behaves like a Stack in connecting the PreprocessorLayers
     from out-Socket(s) to in-Socket(s) all the way through.
+
+    API:
+    ins:
+        input: The input going into the first PreprocessLayer of this Stack.
+    outs:
+        output: The output of the last PreprocessLayer of this Stack.
+        reset: An op to trigger all PreprocessorLayers of this Stack to be reset.
     """
     def __init__(self, *preprocessors, **kwargs):
         """

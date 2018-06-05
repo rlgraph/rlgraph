@@ -17,12 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
 import itertools
 import logging
 from yarl import YARLError, Specifiable
 from yarl.components import Component, Socket, GraphFunction
 from yarl.utils.util import all_combinations, force_list, get_shape
+from yarl.utils.ops import SingleDataOp
 from yarl.utils.input_parsing import parse_saver_spec, parse_summary_spec, parse_execution_spec
 
 
@@ -68,7 +68,7 @@ class Model(Specifiable):
         self.device_component_assignments = dict()
 
         # Create an empty core Component into which everything will be assembled by an Algo.
-        self.core_component = Component(name=self.name)
+        self.core_component = Component(name=self.name, is_core=True)
         # List of variables (by scope/name) of all our components.
         self.variables = dict()
         # A dict used for lookup of all combinations that are possible for a given set of given in-Socket
@@ -314,7 +314,6 @@ class Model(Specifiable):
                                      graph_fn_out_slot, socket_out_op)
 
         for outgoing in socket.outgoing_connections:
-            self.logger.debug("\tlooking at outgoing connection {}".format(str(outgoing)))
             # Outgoing is another Socket (other Component) -> recurse.
             if isinstance(outgoing, Socket):
                 # This component is already complete. Do only a partial build.
@@ -323,12 +322,12 @@ class Model(Specifiable):
                 # Component is not complete yet:
                 else:
                     # Add one Socket information.
-                    self.logger.debug("\t\tNot input-complete yet -> updating from input {}".format(str(socket)))
+                    was_input_complete = outgoing.component.input_complete
                     outgoing.update_from_input(socket, self.op_record_registry, self.in_socket_registry)
                     # Check now for input-completeness of this component.
                     outgoing.component.sockets_to_do_later.append(outgoing)
                     if outgoing.component.input_complete:
-                        self.logger.debug("\t\t\tNow input-complete.")
+                        assert not was_input_complete
                         self.component_complete(outgoing.component)
 
             # Outgoing is a GraphFunction -> Add the socket to the GraphFunction's (waiting) inputs.
@@ -340,20 +339,21 @@ class Model(Specifiable):
                     self.assign_device(graph_fn, socket, socket.component.device)
                 else:
                     # TODO fetch default device?
-                    self.logger.debug("\t\tis a graph_fn ... calling `update_from_input`")
+                    #self.logger.debug("\t\tis a graph_fn ... calling `update_from_input`")
                     graph_fn.update_from_input(socket, self.op_record_registry)
 
                 # Keep moving through this graph_fn's out-Sockets (if input-complete).
                 if graph_fn.input_complete:
-                    self.logger.info("Graph_fn '{}/{}' is input-complete.".format(socket.component.name, graph_fn.name))
-                    self.logger.info("\tin-Sockets:")
-                    for in_socket_record in graph_fn.input_sockets.values():
-                        self.logger.info("\t'{}': {}".format(in_socket_record["socket"].name,
-                                                             in_socket_record["socket"].space))
-                    self.logger.info("\tout-Sockets:")
+                    #self.logger.info("Graph_fn '{}/{}' is input-complete.".format(socket.component.name, graph_fn.name))
+                    #self.logger.info("\tin-Sockets:")
+                    #for in_socket_record in graph_fn.input_sockets.values():
+                    #    self.logger.info("\t'{}/{}': {}".format(in_socket_record["socket"].component.name,
+                    #                                            in_socket_record["socket"].name,
+                    #                                            in_socket_record["socket"].space))
+                    #self.logger.info("\tout-Sockets:")
                     for slot, out_socket in enumerate(graph_fn.output_sockets):
                         self.partial_input_build(out_socket, graph_fn, slot)
-                        self.logger.info("\t'{}': {}".format(out_socket.name, out_socket.space))
+                        #self.logger.info("\t'{}': {}".format(out_socket.name, out_socket.space))
             else:
                 raise YARLError("ERROR: Outgoing connection must be Socket or GraphFunction!")
 
@@ -366,27 +366,75 @@ class Model(Specifiable):
             component (Component): The Component to analyze for input-completeness.
         """
         component = component or self.core_component
+        structure_txt = "COMPONENT: {}\n".format(component.name or "__core__")
+
+        # Desired example printout for one Component:
+        """
+        COMPONENT: preprocessor-stack
+        in-sockets:
+            'input': FloatBox((2,3))
+            'input2': IntBox(5)
+        graph_fns:
+            'reset':
+                'input' + 'input2' -> 'output'
+        sub-components:
+            'scale':
+                'preprocessor-stack/input' -> 'scale/input'
+                'scale/output' -> 'preprocessor-stack/output'
+        out-sockets:
+            'output': FloatBox(())
+        """
+
+        # Collect data for printout.
+        structure_txt += "in-sockets:\n"
+        for in_sock in component.input_sockets:
+            structure_txt += "\t'{}': {}\n".format(in_sock.name, in_sock.space)
 
         # Check all the component's graph_fns for input-completeness.
+        structure_txt += "graph_fns:\n"
         for graph_fn in component.graph_fns:
             if graph_fn.input_complete is False:
                 # Look for the missing in-Socket and raise an Error.
                 for in_sock_name, in_sock_record in graph_fn.input_sockets.items():
-                    if len(in_sock_record["op_records"]) == 0:
-                        logging.warning("in-Socket '{}' of GraphFunction '{}' of Component '{}' does not have "
-                                        "any incoming ops!".format(in_sock_name, graph_fn.name, component.name))
+                    if len(in_sock_record["socket"].op_records) == 0:
+                        self.logger.warning("in-Socket '{}' of GraphFunction '{}' of Component '{}' does not have "
+                                            "any incoming ops!".format(in_sock_name, graph_fn.name, component.name))
+            else:
+                structure_txt += "\t'{}':\n\t\t".format(graph_fn.name)
+                for i, in_sock_rec in enumerate(graph_fn.input_sockets.values()):
+                    structure_txt += "{}'{}'".format(" + " if i > 0 else "", in_sock_rec["socket"].name)
+                structure_txt += " -> "
+                for i, out_sock in enumerate(graph_fn.output_sockets):
+                    structure_txt += "{}'{}'".format(" + " if i > 0 else "", out_sock.name)
+        structure_txt += "\nsub-components:\n"
 
         # Check component's sub-components for input-completeness (recursively).
         for sub_component in component.sub_components.values():  # type: Component
+            structure_txt += "\t'{}':\n".format(sub_component.name)
             if sub_component.input_complete is False:
-                logging.warning("Component '{}' is not input-complete. The following Sockets do not "
-                                "have incoming connections:".format(sub_component.name))
+                self.logger.warning("Component '{}' is not input-complete. The following Sockets do not "
+                                    "have incoming connections:".format(sub_component.name))
                 # Look for the missing Socket and raise an Error.
                 for in_sock in sub_component.input_sockets:
                     if len(in_sock.incoming_connections) == 0:
-                        logging.warning("\t'{}'".format(in_sock.name))
+                        self.logger.warning("\t'{}'".format(in_sock.name))
+            else:
+                structure_txt += "\t'{}':\n".format(sub_component.name)
+                for in_sock in sub_component.input_sockets:
+                    for in_coming in in_sock.incoming_connections:
+                        structure_txt += "\t\t'{}/{}' -> '{}'\n".format(in_coming.component.name, in_coming.name, in_sock.name)
+                for out_sock in sub_component.output_sockets:
+                    for out_going in out_sock.outgoing_connections:
+                        structure_txt += "\t\t'{}' -> '{}/{}'\n".format(out_sock.name, out_going.component.name, out_going.name)
+
             # Recursively call this method on all the sub-component's sub-components.
             self.sanity_check_build(sub_component)
+
+        structure_txt += "out-sockets:\n"
+        for out_sock in component.output_sockets:
+            structure_txt += "\t'{}': {}\n".format(out_sock.name, out_sock.space)
+
+        self.logger.info(structure_txt)
 
     def get_execution_inputs(self, output_socket_names, inputs=None):
         """
@@ -555,8 +603,10 @@ class Model(Specifiable):
                 new_trace_set.add(op_rec_or_socket)
             # A DataOpRecord: Sanity check that we already have this.
             elif op_rec_or_socket not in self.op_record_registry:
-                raise YARLError("ERROR: DataOpRecord for op '{}' could not be found in op_record_registry of model!".
-                                format(op_rec_or_socket.op))
+                # Could be a DataOpRecord of a SingleDataOp with constant_value set.
+                if not isinstance(op_rec_or_socket.op, SingleDataOp) or op_rec_or_socket.op.constant_value is None:
+                    raise YARLError("ERROR: DataOpRecord for op '{}' could not be found in op_record_registry of "
+                                    "model!".format(op_rec_or_socket.op))
             else:
                 new_trace_set.update(self.op_record_registry[op_rec_or_socket])
         if all([isinstance(i, Socket) for i in new_trace_set]):

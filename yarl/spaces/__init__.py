@@ -31,7 +31,6 @@ Space.__lookup_classes__ = dict({
     "bool": BoolBox,
     bool: BoolBox,
     np.bool_: BoolBox,
-    #"discrete": Discrete, OBSOLETE
     "int": IntBox,
     int: IntBox,
     np.int32: IntBox,
@@ -41,6 +40,7 @@ Space.__lookup_classes__ = dict({
     "float": FloatBox,
     float: FloatBox,
     np.float32: FloatBox,
+    np.float64: FloatBox,
     "list": Tuple,
     "tuple": Tuple,
     # "sequence" action type for nlp use cases and combinatorial optimisation.

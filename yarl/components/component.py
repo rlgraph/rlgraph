@@ -22,7 +22,6 @@ import re
 import copy
 from collections import Hashable, OrderedDict
 import numpy as np
-import uuid
 
 from yarl import YARLError, backend, Specifiable
 from yarl.utils.ops import SingleDataOp
@@ -66,6 +65,7 @@ class Component(Specifiable):
             global_component (bool): In distributed mode, this flag indicates if the component is part of the
                 shared global model or local to the worker. Defaults to False and will be ignored if set to
                 True in non-distributed mode.
+            is_core (bool): Whether this Component is the Model's core Component.
             flatten_ops (bool): See `self.add_graph_fn` and GraphFunction's c'tor for more details.
             split_ops (bool): See `self.add_graph_fn` and GraphFunction's c'tor for more details.
             add_auto_key_as_first_param (bool): See `self.add_graph_fn` and GraphFunction's c'tor for more details.
@@ -88,14 +88,15 @@ class Component(Specifiable):
         self.name = kwargs.pop("name", self.scope)  # if no name given, use scope
         self.device = kwargs.pop("device", None)
         self.global_component = kwargs.pop("global_component", False)
+        self.is_core = kwargs.pop("is_core", False)
 
         self.flatten_ops = kwargs.pop("flatten_ops", True)
         self.split_ops = kwargs.pop("split_ops", False)
         self.add_auto_key_as_first_param = kwargs.pop("add_auto_key_as_first_param", False)
         self.unflatten_ops = kwargs.pop("unflatten_ops", True)
 
-        inputs = kwargs.pop("inputs", [])
-        outputs = kwargs.pop("outputs", [])
+        inputs = util.force_list(kwargs.pop("inputs", []))
+        outputs = util.force_list(kwargs.pop("outputs", []))
         connections = kwargs.pop("connections", [])
 
         assert not kwargs, "ERROR: kwargs ({}) still contains items!".format(kwargs)
@@ -763,29 +764,34 @@ class Component(Specifiable):
                 from_socket_obj.disconnect_to(to_)
             return
 
-        # from_ is Component.
-        if isinstance(from_, Component):
+        # to_ is Component.
+        if isinstance(to_, Component):
             # Both from_ and to_ are Components: Connect them Socket-by-Socket and return.
-            if isinstance(to_, Component):
-                assert len(from_.output_sockets) == len(to_.input_sockets), \
+            if isinstance(from_, Component):
+                assert len(to_.output_sockets) == len(from_.input_sockets), \
                     "ERROR: Can only connect two Components if their Socket numbers match! {} has {} out-Sockets while " \
                     "{} has {} in-Sockets.".format(from_.name, len(from_.output_sockets), to_.name,
                                                    len(to_.input_sockets))
                 for out_sock, in_sock in zip(from_.output_sockets, to_.input_sockets):
                     self.connect(out_sock, in_sock, label=label)
                 return
+            # Get the 1 in-Socket of to_.
+            to_socket_obj = to_.get_socket(type_="in")
+        # to_ is Socket specifier.
+        else:
+            to_socket_obj = self.get_socket(to_)
 
-            # Get the only out-Socket of from_.
+        # from_ is Component. Get the 1 out-Socket of from_.
+        if isinstance(from_, Component):
             from_socket_obj = from_.get_socket(type_="out")
+        # from_ is a constant value -> create SingleDataOp with constant_value defined and connect from it.
+        elif isinstance(from_, (int, float, bool, np.ndarray)):
+            assert disconnect_ is False  # hard assert
+            to_socket_obj.connect_from(SingleDataOp(constant_value=from_))
+            return
         # Regular Socket->Socket connection.
         else:
             from_socket_obj = self.get_socket(from_)
-
-        # Only to_ is Component: Get the only in-Socket of to_.
-        if isinstance(to_, Component):
-            to_socket_obj = to_.get_socket(type_="in")
-        else:
-            to_socket_obj = self.get_socket(to_)
 
         # (Dis)connect the two Sockets in both ways.
         if disconnect_:
@@ -817,9 +823,6 @@ class Component(Specifiable):
         Raises:
             YARLError: If the Socket cannot be found and create_internal_if_not_found is False.
         """
-        # Possible constant value for a new Socket.
-        constant_dataop = None
-
         # Return the only Socket of this component on given side (type_ must be given in this case as 'in' or 'out').
         if socket is None:
             assert type_ is not None, "ERROR: type_ needs to be specified if you want to get only-Socket!"
@@ -838,13 +841,6 @@ class Component(Specifiable):
         # Socket is given as a Socket object (simple pass-through).
         elif isinstance(socket, Socket):
             return socket
-        # Socket is a constant value Socket defined by its value -> create this Socket with
-        # a unique name and connect it to a constant value DataOp.
-        elif isinstance(socket, (int, float, bool, np.ndarray)):
-            socket_name = self.name + "-" + str(uuid.uuid1())
-            component = self
-            socket_obj = None
-            constant_dataop = SingleDataOp(constant_value=socket)
         # Socket is given as component/sock-name OR component/sock-obj pair:
         # Could be ours, external, but also one of our sub-component's.
         else:
@@ -873,7 +869,7 @@ class Component(Specifiable):
         if socket_obj is None:
             # Create new internal one?
             if create_internal_if_not_found is True:
-                self.add_socket(socket_name, value=constant_dataop, type_="in", internal=True)
+                self.add_socket(socket_name, type_="in", internal=True)
                 socket_obj = self.get_socket(socket_name)
             else:
                 raise YARLError("ERROR: No '{}'-socket named '{}' found in {}!".

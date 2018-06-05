@@ -61,7 +61,7 @@ def get_space_from_op(op):
         if isinstance(op, SingleDataOp) and op.constant_value is not None:
             value = op.constant_value
             if isinstance(value, np.ndarray):
-                return BoxSpace.from_spec(spec=dtype(value.dtype, "np"), shape=value.shape)
+                return BoxSpace.from_spec(spec=dtype(str(value.dtype), "np"), shape=value.shape)
         # No Space: e.g. the tf.no_op, a distribution (anything that's not a tensor).
         elif hasattr(op, "dtype") is False or not hasattr(op, "get_shape"):
             return 0
@@ -258,6 +258,9 @@ def convert_ops_to_op_records(ops, labels=None):
     """
     ret = list()
     for op in ops:
+        # Convert to SingleDataOp with constant value if op is some primitive.
+        if isinstance(op, (int, float, bool, np.ndarray)):
+            op = SingleDataOp(constant_value=op)
         ret.append(DataOpRecord(op, labels=labels))
     return tuple(ret)
 

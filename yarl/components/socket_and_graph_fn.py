@@ -107,7 +107,7 @@ class Socket(object):
         if from_ not in self.incoming_connections:
             # We need to set this flag here to be able to determine, whether a graph_fn is a no-input
             # (or constant-values-only) graph_fn.
-            if isinstance(from_, SingleDataOp):
+            if isinstance(from_, SingleDataOp) and self.component.is_core is False:
                 self.component.no_input_entry_points.append(self)
             # Socket: Add label to it.
             elif label is not None:
@@ -169,23 +169,26 @@ class Socket(object):
                 nth_computed_ops_records.append(outputs[graph_fn_in_slot])
 
             # Store incoming Space.
-            assert self.space is None  # Try this hard assert for now (should be ok).
-            #if self.space is None:
-            if len(nth_computed_ops_records) > 0:
-                space_check = get_space_from_op(next(iter(nth_computed_ops_records)).op)
-                self.space = space_check
-                # Check whether all graph_fn-computed ops have the same Space.
-                for op in nth_computed_ops_records:
-                    space = get_space_from_op(op.op)
-                    assert space == space_check, "ERROR: Different output ops of graph_fn '{}' have different Spaces " \
-                                                 "({} and {})!".format(incoming.name, space, space_check)
-            else:
-                self.space = 0
+            #assert self.space is None  # Try this hard assert for now (should be ok).
+            if self.space is None:
+                if len(nth_computed_ops_records) > 0:
+                    space_check = get_space_from_op(next(iter(nth_computed_ops_records)).op)
+                    self.space = space_check
+                    # Check whether all graph_fn-computed ops have the same Space.
+                    for op in nth_computed_ops_records:
+                        space = get_space_from_op(op.op)
+                        assert space == space_check, "ERROR: Different output ops of graph_fn '{}' have different Spaces " \
+                                                     "({} and {})!".format(incoming.name, space, space_check)
+                else:
+                    self.space = 0
 
-            self.op_records.update(nth_computed_ops_records)
+                self.op_records.update(nth_computed_ops_records)
 
         # Incoming is another Socket -> Simply update ops from this one.
         elif isinstance(incoming, Socket):
+            assert incoming.space is not None, \
+                "ERROR: Cannot update '{}/{}' from incoming Socket '{}/{}' if it doesn't have any Space yet!". \
+                format(self.component.name, self.name, incoming.component.name, incoming.name)
             self.space = incoming.space
             self.component.check_input_completeness()
             self.op_records.update(in_socket_op_record or incoming.op_records)
@@ -280,7 +283,7 @@ class GraphFunction(object):
         # Dict-records for input-sockets (by name) to keep information on their position and "op-completeness".
         self.input_sockets = OrderedDict()
         for i, in_sock in enumerate(input_sockets):
-            self.input_sockets[in_sock.name] = dict(socket=in_sock, pos=i, op_records=set())
+            self.input_sockets[in_sock.name] = dict(socket=in_sock, pos=i)  # OBSOLETE:, op_records=set())
         # Just a list of Socket objects.
         self.output_sockets = output_sockets
 
@@ -336,9 +339,6 @@ class GraphFunction(object):
 
             return
 
-        # Update op-records from in-Socket.
-        record = self.input_sockets[input_socket.name]
-        record["op_records"].update(input_socket.op_records)
         # Check for input-completeness of this graph_fn.
         self.check_input_completeness()
 
@@ -346,7 +346,7 @@ class GraphFunction(object):
         # the function.
         if self.input_complete:
             # Generate a list of all possible input DataOp combinations to be passed through the graph_fn.
-            in_op_records = [in_sock_rec["op_records"] for in_sock_rec in self.input_sockets.values()]
+            in_op_records = [in_sock_rec["socket"].op_records for in_sock_rec in self.input_sockets.values()]
             in_op_records_combinations = list(itertools.product(*in_op_records))
             for in_op_record_combination in in_op_records_combinations:
                 #in_op_combination_wo_constant_values = tuple(
@@ -399,18 +399,23 @@ class GraphFunction(object):
                         new_label_set.update(rec.labels)
                     op_records = convert_ops_to_op_records(ops, labels=new_label_set)
 
-                    #self.in_out_records_map[in_op_combination_wo_constant_values] = op_records
                     self.in_out_records_map[in_op_record_combination] = op_records
+
                     # Keep track of which ops require which other ops.
                     for op_rec in op_records:
-                        #op_record_registry[op_rec] = set(in_op_combination_wo_constant_values)
                         op_record_registry[op_rec] = set(in_op_record_combination)
+
+                        # Make sure all op_records do not contain SingleDataOps with constant_values. Any
+                        # in-Socket-connected constant values need to be converted to actual ops during a graph_fn call.
+                        assert not isinstance(op_rec.op, SingleDataOp), \
+                            "ERROR: graph_fn '{}' returned a SingleDataOp with constant_value set to '{}'! " \
+                            "This is not allowed. All graph_fns must return actual (non-constant) ops.". \
+                            format(self.name, op_rec.op.constant_value)
                 # Error.
                 else:
-                    #raise YARLError("ERROR: `in_op_combination_wo_constant_values`='{}' already in self.in_out_records_map!".
-                    #                format(in_op_combination_wo_constant_values))
-                    raise YARLError("ERROR: `in_op_record_combination`='{}' already in self.in_out_records_map!".
-                                    format(in_op_record_combination))
+                    pass
+                    #raise YARLError("ERROR: `in_op_record_combination`='{}' already in self.in_out_records_map!".
+                    #                format(in_op_record_combination))
 
     def check_input_completeness(self):
         """
@@ -421,8 +426,8 @@ class GraphFunction(object):
         if not self.input_complete:
             # Check, whether we are input-complete now (whether all in-Sockets have at least one op defined).
             self.input_complete = True
-            for record in self.input_sockets.values():
-                if len(record["op_records"]) == 0:
+            for in_sock_rec in self.input_sockets.values():
+                if len(in_sock_rec["socket"].op_records) == 0:
                     self.input_complete = False
                     return
 

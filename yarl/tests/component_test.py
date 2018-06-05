@@ -20,14 +20,14 @@ from __future__ import print_function
 from yarl import backend
 from yarl.models import Model
 
-from .test_util import recursive_assert_almost_equal
+from .test_util import recursive_assert_almost_equal, root_logger
 
 
 class ComponentTest(object):
     """
     A simple (and limited) Model-wrapper to test a single component in an easy, straightforward way.
     """
-    def __init__(self, component, input_spaces=None, seed=10):
+    def __init__(self, component, input_spaces=None, seed=10, logging_level=None):
         """
         Args:
             component (Component): The Component to be tested (may contain sub-components).
@@ -36,8 +36,11 @@ class ComponentTest(object):
                 in-Sockets.
             seed (Optional[int]): The seed to use for random-seeding the Model object.
                 If None, do not seed the Graph (things may behave non-deterministically).
+            logging_level (Optional[int]): When provided, sets YARL's root_logger's logging level to this value.
         """
         self.seed = seed
+        if logging_level is not None:
+            root_logger.setLevel(logging_level)
 
         # Create our Model.
         self.model = Model.from_spec(backend, execution_spec=dict(seed=self.seed))

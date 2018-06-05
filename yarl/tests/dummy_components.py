@@ -81,3 +81,24 @@ class Dummy2to1(Component):
     def _graph_fn_2to1(self, input1, input2):
         return input1 + input2
 
+
+class Dummy0to1(Component):
+    """
+    A dummy component with one graph_fn without inputs and one output.
+
+    API:
+    outs:
+        output
+    """
+    def __init__(self, scope="dummy-0-to-1"):
+        super(Dummy0to1, self).__init__(scope=scope, flatten_ops=False)
+        self.define_outputs("output")
+        self.add_graph_fn(None, "output", self._graph_fn_0to1)
+        self.var = None
+
+    def create_variables(self, input_spaces):
+        self.var = self.get_variable(initializer=8.0)
+
+    def _graph_fn_0to1(self):
+        return self.var
+

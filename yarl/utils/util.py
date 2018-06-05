@@ -58,6 +58,8 @@ def dtype(dtype_, to="tf"):
     # generic backend
     if dtype_ in ["float", "float32", float, np.float32, be.float32]:
         return np.float32 if to == "np" else tf.float32
+    if dtype_ in ["float64", np.float64, be.float64]:
+        return np.float64 if to == "np" else tf.float64
     elif dtype_ in ["int", "int32", int, np.int32, be.int32]:
         return np.int32 if to == "np" else tf.int32
 

@@ -23,8 +23,7 @@ import unittest
 
 from yarl.components import Component, CONNECT_INS, CONNECT_OUTS
 from yarl.tests import ComponentTest, root_logger
-
-from .dummy_components import Dummy1to1, Dummy2to1, Dummy1to2
+from tests.dummy_components import Dummy1to1, Dummy2to1, Dummy1to2, Dummy0to1
 
 
 class TestSocketGraphFnConnections(unittest.TestCase):
@@ -40,7 +39,7 @@ class TestSocketGraphFnConnections(unittest.TestCase):
         component = Dummy1to1(scope="dummy")
         test = ComponentTest(component=component, input_spaces=dict(input=float))
 
-        # expected output: input + 1.0 + 1.0
+        # expected output: input + 1.0
         test.test(out_socket_names="output", inputs=1.0, expected_outputs=2.0)
         test.test(out_socket_names="output", inputs=-5.0, expected_outputs=-4.0)
 
@@ -67,6 +66,26 @@ class TestSocketGraphFnConnections(unittest.TestCase):
         test.test(out_socket_names=["output1", "output2"], inputs=1.0, expected_outputs=[1.0, 2.0])
         test.test(out_socket_names=["output1", "output2"], inputs=4.5, expected_outputs=[4.5, 5.5])
 
+    def test_0to1_component(self):
+        """
+        Adds a single component with 0-to-1 graph_fn to the core and passes a value through it.
+        """
+        component = Dummy0to1(scope="dummy")
+        test = ComponentTest(component=component, input_spaces=dict(input=float))
+
+        # expected outputs: Always 0.0
+        test.test(out_socket_names=["output"], inputs=None, expected_outputs=[8.0])
+
+    def test_2to1_component_with_constant_input_value(self):
+        """
+        Adds a single component with 1-to-1 graph_fn to the core and blocks the input with a constant value.
+        """
+        component = Dummy2to1(scope="dummy")
+        test = ComponentTest(component=component, input_spaces=dict(input1=5.5, input2=float))
+
+        # expected output: (const 5.5) + in2 = 10.0
+        test.test(out_socket_names="output", inputs=dict(input2=4.5), expected_outputs=10.0)
+
     def test_connecting_two_1to1_components(self):
         """
         Adds two components with 1-to-1 graph_fns to the core, connects them and passes a value through it.
@@ -83,4 +102,46 @@ class TestSocketGraphFnConnections(unittest.TestCase):
         # expected output: input + 1.0 + 1.0
         test.test(out_socket_names="output", inputs=1.0, expected_outputs=3.0)
         test.test(out_socket_names="output", inputs=-5.0, expected_outputs=-3.0)
+
+    def test_connecting_1to2_to_2to1(self):
+        """
+        Adds two components with 1-to-2 and 2-to-1 graph_fns to the core, connects them and passes a value through it.
+        """
+        core = Component()
+        sub_comp1 = Dummy1to2(scope="comp1")  # outs=in,in+1
+        sub_comp2 = Dummy2to1(scope="comp2")  # out =in1+in2
+        core.add_component(sub_comp1, connections=CONNECT_INS)
+        core.add_component(sub_comp2, connections=CONNECT_OUTS)
+        core.connect(sub_comp1, sub_comp2)
+
+        test = ComponentTest(component=core, input_spaces=dict(input=float))
+
+        # expected output: input + (input + 1.0)
+        test.test(out_socket_names="output", inputs=100.0, expected_outputs=201.0)
+        test.test(out_socket_names="output", inputs=-5.0, expected_outputs=-9.0)
+
+    def test_connecting_in1_and_1to1_to_1to1_no_labels(self):
+        """
+        Adds two components (A, B) with 1-to-1 graph_fns to the core.
+        Connects "input1" with A, A's "output" to "output".
+        Connects "input2" with B and B's output to A.
+        If we now pull out-Socket "output", it should know by the given input, which op we actually want.
+        """
+        core = Component(inputs=["input1", "input2"], outputs="output")
+        a = Dummy1to1(scope="A")
+        b = Dummy1to1(scope="B")
+        # Throw in the sub-components.
+        core.add_components(a, b)
+        # Connect them.
+        core.connect("input1", (a, "input"))
+        core.connect("input2", (b, "input"))
+        core.connect((b, "output"), (a, "input"))  # a/input now has two incoming connections.
+        core.connect((a, "output"), "output")
+
+        test = ComponentTest(component=core, input_spaces=dict(input1=float, input2=float))
+
+        # expected output: input1 + 1.0
+        test.test(out_socket_names="output", inputs=dict(input1=1.0), expected_outputs=2.0)
+        # expected output: input2 + 1.0
+        test.test(out_socket_names="output", inputs=dict(input2=1.0), expected_outputs=3.0)
 

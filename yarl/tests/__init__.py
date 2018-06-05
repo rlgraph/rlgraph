@@ -17,27 +17,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import logging
-import sys
-
 from .component_test import ComponentTest
-from .test_util import recursive_assert_almost_equal
-
-logging_formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s', datefmt='%y-%m-%d %H:%M:%S')
-root_logger = logging.getLogger('')
-tf_logger = logging.getLogger('tensorflow')
-print_logging_handler = logging.StreamHandler(stream=sys.stdout)
-
-# Logging config for testing.
-tf_logger.setLevel(level=logging.DEBUG)
-print_logging_handler.setFormatter(logging_formatter)
-print_logging_handler.setLevel(level=logging.DEBUG)
-root_logger.setLevel(level=logging.DEBUG)
-root_logger.addHandler(print_logging_handler)
+from .test_util import recursive_assert_almost_equal, tf_logger, print_logging_handler, root_logger, logging_formatter
+from .dummy_components import *
 
 
 __all__ = ["recursive_assert_almost_equal",
            "ComponentTest",
-           "logging_formatter", "root_logger", "tf_logger", "print_logging_handler"
+           "logging_formatter", "root_logger", "tf_logger", "print_logging_handler",
+           "Dummy0to1", "Dummy1to1", "Dummy1to2", "Dummy2to1"
            ]
 
