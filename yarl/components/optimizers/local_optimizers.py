@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from yarl import backend
 from yarl.components.optimizers.optimizer import Optimizer
+from yarl.utils.ops import DataOpTuple
 
 if backend == "tf":
     import tensorflow as tf
@@ -40,10 +41,12 @@ class LocalOptimizer(Optimizer):
 
     def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
         if backend == "tf":
-            return self.optimizer.compute_gradients(
+            grads_and_vars = DataOpTuple(self.optimizer.compute_gradients(
                 loss=loss,
-                var_list=variables
-            )
+                var_list=list(variables)
+            ))
+
+            return grads_and_vars
 
     def _graph_fn_apply_gradients(self, grads_and_vars):
         if backend == "tf":
@@ -61,6 +64,7 @@ class GradientDescentOptimizer(LocalOptimizer):
             scope=kwargs.pop("scope", "gradient-descent-optimizer"),
             **kwargs
         )
+
         if backend == "tf":
             self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
 

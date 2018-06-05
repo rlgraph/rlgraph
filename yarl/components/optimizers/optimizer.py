@@ -27,11 +27,15 @@ class Optimizer(Component):
 
     API:
     ins:
+        variables (DataOpTuple): The list of variables to optimize.
+        loss (SingleDataOp): The loss function's output.
+        grads_and_vars (DataOpTuple): The zipped gradients plus corresponding variables to be fed back into the
+            Optimizer for actually applying the gradients to the variables.
         *inputs (any): Other necessary inputs for the specific type of optimizer (e.g. a time-step).
     outs:
-        variables (tuple): The tuple of (trainable) variables to be optimized.
-        deltas (tuple): The tuple of delta tensors to be added to each of the variables in the `variables` in-Socket.
-        step (DataOp): Same as `deltas`, but also triggers actually applying the deltas to the `variables`.
+        calc_grads_and_vars (DataOpTuple): The zipped gradients plus corresponding variables to be fed back into the
+            Optimizer for actually applying the gradients to the variables (via in-Socket `grads_and_vars`).
+        step (DataOp): Triggers applying the gradients coming in from `grads_and_vars` to the variables.
     """
     def __init__(self, learning_rate, loss_function, *inputs, **kwargs):
         """
@@ -51,7 +55,7 @@ class Optimizer(Component):
         self.loss_function = loss_function
 
         # Define our interface.
-        self.define_inputs("variables", "loss", "apply_grads_and_vars", *inputs)
+        self.define_inputs("variables", "loss", "grads_and_vars", *inputs)
         self.define_outputs("calc_grads_and_vars", "step")
 
         self.add_graph_fn(
@@ -59,7 +63,7 @@ class Optimizer(Component):
             outputs="calc_grads_and_vars",
             method=self._graph_fn_calculate_gradients
         )
-        self.add_graph_fn(["apply_grads_and_vars"], "step", self._graph_fn_apply_gradients)
+        self.add_graph_fn("grads_and_vars", "step", self._graph_fn_apply_gradients)
 
     def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
         """
@@ -67,8 +71,8 @@ class Optimizer(Component):
             specific input parameters).
 
         Args:
-            loss (SingeDataOp): The total loss over a batch to be minimized.
             variables (DataOpTuple): A list of variables to calculate gradients for.
+            loss (SingeDataOp): The total loss over a batch to be minimized.
             inputs (SingleDataOp): Custom SingleDataOp parameters, dependent on the optimizer type.
 
         Returns:
