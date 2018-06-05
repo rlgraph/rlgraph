@@ -342,75 +342,85 @@ class GraphFunction(object):
         # Check for input-completeness of this graph_fn.
         self.check_input_completeness()
 
-        # We are input-complete: Get all possible combinations of input ops and pass all these combinations through
-        # the function.
+        # We are input-complete: Get all possible combinations of input ops and pass all
+        # these combinations through the function.
         if self.input_complete:
-            # Generate a list of all possible input DataOp combinations to be passed through the graph_fn.
-            in_op_records = [in_sock_rec["op_records"] for in_sock_rec in self.input_sockets.values()]
-            in_op_records_combinations = list(itertools.product(*in_op_records))
-            for in_op_record_combination in in_op_records_combinations:
-                #in_op_combination_wo_constant_values = tuple(
-                #    [op_rec.op for op_rec in in_op_record_combination if not isinstance(op_rec.op, SingleDataOp) or
-                #     op_rec.op.constant_value is None
-                #     ])
+            self.generate_data_ops(op_record_registry)
 
-                # key = tuple(input_combination)
-                # Make sure we call the computation method only once per input-op combination.
-                #if in_op_combination_wo_constant_values not in self.in_out_records_map:
-                if in_op_record_combination not in self.in_out_records_map:
-                    # Replace constant-value Sockets with their SingleDataOp's constant numpy values
-                    # and the DataOps with their actual ops (`op` property of DataOp).
-                    actual_call_params = [
-                        op_rec.op.constant_value if isinstance(op_rec.op, SingleDataOp) and
-                        op_rec.op.constant_value is not None else op_rec.op for op_rec in in_op_record_combination
-                    ]
+    def generate_data_ops(self, op_record_registry):
+        """
+        Generates a list of all possible input DataOp combinations to be passed through the graph_fn.
 
-                    # Build the ops from this input-combination.
-                    # Flatten input items.
-                    if self.flatten_ops is not False:
-                        flattened_ops = self.flatten_input_ops(*actual_call_params)
-                        # Split into SingleDataOps?
-                        if self.split_ops:
-                            call_params = split_flattened_input_ops(self.add_auto_key_as_first_param, *flattened_ops)
-                            # There is some splitting to do. Call graph_fn many times (one for each split).
-                            if isinstance(call_params, FlattenedDataOp):
-                                ops = FlattenedDataOp()
-                                for key, params in call_params.items():
-                                    ops[key] = self.method(*params)
-                            # No splitting to do. Pass everything once and as-is.
-                            else:
-                                ops = self.method(*call_params)
+        Args:
+            op_record_registry (dict): Dict that keeps track of which op-record requires which other op-records
+                to be calculated.
+        """
+        in_op_records = [in_sock_rec["op_records"] for in_sock_rec in self.input_sockets.values()]
+        in_op_records_combinations = list(itertools.product(*in_op_records))
+        for in_op_record_combination in in_op_records_combinations:
+            # in_op_combination_wo_constant_values = tuple(
+            #    [op_rec.op for op_rec in in_op_record_combination if not isinstance(op_rec.op, SingleDataOp) or
+            #     op_rec.op.constant_value is None
+            #     ])
+
+            # key = tuple(input_combination)
+            # Make sure we call the computation method only once per input-op combination.
+            # if in_op_combination_wo_constant_values not in self.in_out_records_map:
+            if in_op_record_combination not in self.in_out_records_map:
+                # Replace constant-value Sockets with their SingleDataOp's constant numpy values
+                # and the DataOps with their actual ops (`op` property of DataOp).
+                actual_call_params = [
+                    op_rec.op.constant_value if isinstance(op_rec.op, SingleDataOp) and
+                                                op_rec.op.constant_value is not None else op_rec.op for op_rec in
+                    in_op_record_combination
+                ]
+
+                # Build the ops from this input-combination.
+                # Flatten input items.
+                if self.flatten_ops is not False:
+                    flattened_ops = self.flatten_input_ops(*actual_call_params)
+                    # Split into SingleDataOps?
+                    if self.split_ops:
+                        call_params = split_flattened_input_ops(self.add_auto_key_as_first_param, *flattened_ops)
+                        # There is some splitting to do. Call graph_fn many times (one for each split).
+                        if isinstance(call_params, FlattenedDataOp):
+                            ops = FlattenedDataOp()
+                            for key, params in call_params.items():
+                                ops[key] = self.method(*params)
+                        # No splitting to do. Pass everything once and as-is.
                         else:
-                            ops = self.method(*flattened_ops)
-                    # Just pass in everything as-is.
+                            ops = self.method(*call_params)
                     else:
-                        ops = self.method(*actual_call_params)
-
-                    # Need to un-flatten return values?
-                    if self.unflatten_ops:
-                        ops = self.unflatten_output_ops(*force_tuple(ops))
-
-                    # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
-                    ops = force_tuple(ops)
-
-                    # ops are now the raw graph_fn output: Need to convert it back to records.
-                    new_label_set = set()
-                    for rec in in_op_record_combination:  # type: DataOpRecord
-                        new_label_set.update(rec.labels)
-                    op_records = convert_ops_to_op_records(ops, labels=new_label_set)
-
-                    #self.in_out_records_map[in_op_combination_wo_constant_values] = op_records
-                    self.in_out_records_map[in_op_record_combination] = op_records
-                    # Keep track of which ops require which other ops.
-                    for op_rec in op_records:
-                        #op_record_registry[op_rec] = set(in_op_combination_wo_constant_values)
-                        op_record_registry[op_rec] = set(in_op_record_combination)
-                # Error.
+                        ops = self.method(*flattened_ops)
+                # Just pass in everything as-is.
                 else:
-                    #raise YARLError("ERROR: `in_op_combination_wo_constant_values`='{}' already in self.in_out_records_map!".
-                    #                format(in_op_combination_wo_constant_values))
-                    raise YARLError("ERROR: `in_op_record_combination`='{}' already in self.in_out_records_map!".
-                                    format(in_op_record_combination))
+                    ops = self.method(*actual_call_params)
+
+                # Need to un-flatten return values?
+                if self.unflatten_ops:
+                    ops = self.unflatten_output_ops(*force_tuple(ops))
+
+                # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
+                ops = force_tuple(ops)
+
+                # ops are now the raw graph_fn output: Need to convert it back to records.
+                new_label_set = set()
+                for rec in in_op_record_combination:  # type: DataOpRecord
+                    new_label_set.update(rec.labels)
+                op_records = convert_ops_to_op_records(ops, labels=new_label_set)
+
+                # self.in_out_records_map[in_op_combination_wo_constant_values] = op_records
+                self.in_out_records_map[in_op_record_combination] = op_records
+                # Keep track of which ops require which other ops.
+                for op_rec in op_records:
+                    # op_record_registry[op_rec] = set(in_op_combination_wo_constant_values)
+                    op_record_registry[op_rec] = set(in_op_record_combination)
+            # Error.
+            else:
+                # raise YARLError("ERROR: `in_op_combination_wo_constant_values`='{}' already in self.in_out_records_map!".
+                #                format(in_op_combination_wo_constant_values))
+                raise YARLError("ERROR: `in_op_record_combination`='{}' already in self.in_out_records_map!".
+                                format(in_op_record_combination))
 
     def check_input_completeness(self):
         """

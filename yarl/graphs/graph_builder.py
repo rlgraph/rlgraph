@@ -35,15 +35,15 @@ class GraphBuilder(Specifiable):
     """
     def __init__(
         self,
-        name="model"
+        graph_name="model"
     ):
         """
         Args:
-            name (str): The name of this model.
+            graph_name (str): The name of this model.
         """
         # The name of this model. Our core Component gets this name.
         self.logger = logging.getLogger(__name__)
-        self.name = name
+        self.name = graph_name
 
         # All components assigned to each device, for debugging and analysis.
         self.device_component_assignments = dict()
@@ -79,6 +79,7 @@ class GraphBuilder(Specifiable):
         """
         # Set devices usable for this graph.
         self.available_devices = available_devices
+
         # Loop through the given input sockets and connect them from left to right.
         for socket in self.core_component.input_sockets:
             # sanity check our input Sockets for connected Spaces.
@@ -93,15 +94,13 @@ class GraphBuilder(Specifiable):
         # Check whether all our components and graph_fns are input-complete.
         self.sanity_check_build()
 
-        # Memoize possible input-combinations (from all our in-Sockets)
-        # so we don't have to do this every time we get a `call`.
-        in_names = sorted(list(map(lambda s: s.name, self.core_component.input_sockets)))
-        input_combinations = all_combinations(in_names, descending_length=True)
-        # Store each combination and its sub-combinations in self.input_combinations.
-        for input_combination in input_combinations:
-            self.input_combinations[tuple(input_combination)] = \
-                all_combinations(input_combination, descending_length=True)
+        # Memoize possible input combinations for Op calls.
+        self.memoize_inputs()
 
+        # Build ops based on out socket definitions.
+        self.build_ops()
+
+    def build_ops(self):
         # Now use the ready op/socket registries to determine for which out-Socket we need which inputs.
         # Then we will be able to derive the correct op for any given (out-Socket+in-Socket+in-shape)-combination
         # passed into the call method.
@@ -130,6 +129,16 @@ class GraphBuilder(Specifiable):
                     self.call_registry[key] = op_rec.op
                     # .. and the out-socket registry.
                     self.out_socket_registry[output_socket.name].update(set(in_socket_names))
+
+    def memoize_inputs(self):
+        # Memoize possible input-combinations (from all our in-Sockets)
+        # so we don't have to do this every time we get a `call`.
+        in_names = sorted(list(map(lambda s: s.name, self.core_component.input_sockets)))
+        input_combinations = all_combinations(in_names, descending_length=True)
+        # Store each combination and its sub-combinations in self.input_combinations.
+        for input_combination in input_combinations:
+            self.input_combinations[tuple(input_combination)] = \
+                all_combinations(input_combination, descending_length=True)
 
     def get_default_model(self):
         """
@@ -226,7 +235,6 @@ class GraphBuilder(Specifiable):
             elif isinstance(outgoing, GraphFunction):
                 graph_fn = outgoing
                 # We have to specify the device here (only a GraphFunction actually adds something to the graph).
-                # TODO This has to be delegated somewhere else now
                 if socket.component.device:
                     self.assign_device(graph_fn, socket, socket.component.device)
                 else:

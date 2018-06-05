@@ -42,8 +42,7 @@ class ComponentTest(object):
 
         # Create our Model.
         self.graph_builder = GraphBuilder()
-        #self.model = GraphBuilder.from_spec(backend, execution_spec=dict(seed=self.seed))
-        # self.graph_builder.reset_backend()
+
         # Add the component to test and expose all its Sockets to the core component of our Model.
         self.core = self.graph_builder.get_default_model()
         self.core.add_component(component, connections=True)
