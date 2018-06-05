@@ -376,8 +376,9 @@ class GraphBuilder(Specifiable):
         fetch_list = list()
         feed_dict = dict()
         for out_socket_name in output_socket_names:
-            self._get_execution_inputs_for_socket(out_socket_name, input_combinations, fetch_list,
-                                                  inputs, feed_dict)
+            # Updates with relevant ops
+            fetch_list, feed_dict = self._get_execution_inputs_for_socket(
+                out_socket_name, input_combinations, fetch_list, inputs, feed_dict)
         return fetch_list, feed_dict
 
     def _get_execution_inputs_for_socket(self, socket_name, input_combinations, fetch_list, input_dict, feed_dict):
@@ -394,6 +395,8 @@ class GraphBuilder(Specifiable):
                 Passed through directly from the call method.
             feed_dict (dict): The feed_dict we are trying to build. When done,
                 needs to map input ops (not Socket names) to data.
+        Returns:
+            tuple: fetch_list, feed-dict with relevant args.
         """
         if len(input_combinations) > 0:
             # Check all (input+shape)-combinations and it we find one that matches what the user passed in as
@@ -414,13 +417,13 @@ class GraphBuilder(Specifiable):
                         for in_sock_name, in_op in zip(input_combination, op_combination):
                             # Need to split into single ops.
                             feed_dict[in_op] = input_dict[in_sock_name]
-                        return
+                        return fetch_list, feed_dict
         # No inputs -> Try whether this output socket comes without any inputs.
         else:
             key = (socket_name, (), ())
             if key in self.call_registry:
                 fetch_list.append(self.call_registry[key])
-                return
+                return fetch_list, feed_dict
 
         raise YARLError("ERROR: No op found for out-Socket '{}' given the input-combinations: {}!".
                         format(socket_name, input_combinations))
