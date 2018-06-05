@@ -17,56 +17,37 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
 import itertools
 import logging
-from yarl import YARLError, Specifiable
+from yarl import YARLError, Specifiable, backend
 from yarl.components import Component, Socket, GraphFunction
 from yarl.utils.util import all_combinations, force_list, get_shape
-from yarl.utils.input_parsing import parse_saver_spec, parse_summary_spec, parse_execution_spec
+
+if backend == "tf":
+    import tensorflow as tf
 
 
-class Model(Specifiable):
+class GraphBuilder(Specifiable):
     """
-    Contains:
-    - actual tf.Graph
-    - tf.Session (which is wrapped by a simple, internal API that the Algo can use to fetch ops from the graph).
-    - Savers, Summarizers
-    - The core Component object (with all its sub-Components).
-
-    The Agent/Algo can use the Model's core-Component's exposed Sockets to reinforcement learn.
+    The graph builder assembles the YARL meta-graph by tracing through
+    components, sockets and connections and creating the underlying computation
+    graph.
     """
     def __init__(
         self,
-        name="model",
-        saver_spec=None,
-        summary_spec=None,
-        execution_spec=None
+        name="model"
     ):
         """
         Args:
             name (str): The name of this model.
-            saver_spec (dict): The saver specification for saving this graph to disk.
-            summary_spec (dict): The specification dict for summary generation.
-            execution_spec (dict): The specification dict for the execution types (local vs distributed, etc..) and
-                settings (cluster types, etc..).
         """
         # The name of this model. Our core Component gets this name.
         self.logger = logging.getLogger(__name__)
         self.name = name
-        self.saver_spec = parse_saver_spec(saver_spec)
-        self.summary_spec = parse_summary_spec(summary_spec)
-        self.execution_spec = parse_execution_spec(execution_spec)  # sanitize again (after Agent); one never knows
-        # Default single-process execution.
-        self.execution_mode = self.execution_spec.get("mode", "single")
-        self.seed = self.execution_spec.get("seed")
-
-        self.session_config = self.execution_spec["session_config"]
-        self.distributed_spec = self.execution_spec.get("distributed_spec")
 
         # All components assigned to each device, for debugging and analysis.
         self.device_component_assignments = dict()
-
+        self.available_devices = None
         # Create an empty core Component into which everything will be assembled by an Algo.
         self.core_component = Component(name=self.name)
         # List of variables (by scope/name) of all our components.
@@ -87,82 +68,17 @@ class Model(Specifiable):
         # Maps an out-Socket name+in-Socket/Space-combination to an actual DataOp to fetch from our Graph.
         self.call_registry = dict()  # key=()
 
-        # Computation graph.
-        self.graph = None
-
-    def build(self):
-        """
-        Sets up the computation graph by:
-        - Starting the Server, if necessary.
-        - Setting up the computation graph object.
-        - Assembling the computation graph defined inside our core component.
-        - Setting up graph-savers, -summaries, and finalizing the graph.
-        """
-        # Starts the Server (if in distributed mode).
-        # If we are a ps -> we stop here and just run the server.
-        self.init_execution()
-
-        # Creates the Graph.
-        self.setup_graph()
-        # Loops through all our components and assembles the graph.
-        self.assemble_graph()
-
-        # Set up any remaining session or monitoring configurations.
-        self.complete_backend_setup()
-
-    def call(self, sockets, inputs=None):
-        """
-        Fetches one or more Socket outputs from the graph (given some inputs) and returns their outputs.
-
-        Args:
-            sockets (Union[str,List[str]]): A name or a list of names of the (out) Sockets to fetch from our core
-                component.
-            inputs (Optional[dict,np.array]): Dict specifying the provided inputs for some in-Sockets (key=in-Socket name,
-                values=the values that should go into this Socket (e.g. numpy arrays)).
-                Depending on these given inputs, the correct backend-ops can be selected within the given out-Sockets.
-                If only one out-Socket is given in `sockets`, and this out-Socket only needs a single in-Socket's data,
-                this in-Socket's data may be given here directly.
-
-        Returns:
-            Tuple (or single item) containing the results from fetching all the given out-Sockets.
-        """
-        raise NotImplementedError
-
-    def init_execution(self):
-        """
-        Sets up backend-dependent execution, e.g. server for distributed TensorFlow
-        execution.
-        """
-        pass  # not mandatory
-
-    def setup_graph(self):
-        """
-        Creates the computation graph.
-        """
-        # TODO mandatory?
-        raise NotImplementedError
-
-    def export_graph_definition(self, filename):
-        """
-        Exports graph definition to specified file.
-
-        Args:
-            filename (str): File to save graph definition to.
-        """
-        pass
-
-    def reset_backend(self):
-        """
-        Resets the backend's runtime, e.g. clears any graph, caches,
-        allocated memory etc.
-        """
-        pass
-
-    def assemble_graph(self):
+    def assemble_graph(self, available_devices):
         """
         Loops through all our sub-components starting at core and assembles the graph by creating placeholders,
         following Socket->Socket connections and running through our GraphFunctions.
+
+        Args:
+            available_devices (list): Devices which can be used to assign parts of the graph
+                during graph assembly.
         """
+        # Set devices usable for this graph.
+        self.available_devices = available_devices
         # Loop through the given input sockets and connect them from left to right.
         for socket in self.core_component.input_sockets:
             # sanity check our input Sockets for connected Spaces.
@@ -214,32 +130,6 @@ class Model(Specifiable):
                     self.call_registry[key] = op_rec.op
                     # .. and the out-socket registry.
                     self.out_socket_registry[output_socket.name].update(set(in_socket_names))
-
-    def complete_backend_setup(self):
-        """
-        Initializes any remaining backend-specific monitoring or session handling.
-        """
-        raise NotImplementedError
-
-    def load_model(self, path=None):
-        """
-        Loads model from specified path location.
-
-        Args:
-            path (str): Path to checkpoint or model.
-        """
-        raise NotImplementedError
-
-    def store_model(self, path=None, add_timestep=True):
-        """
-        Saves the model to the given path (or to self.saver_directory). Optionally adds the current timestep
-        to the filename to prevent overwriting previous checkpoint files.
-
-        Args:
-            path (str): The directory in which to save (default: self.saver_directory).
-            add_timestep: Appends the current timestep to the checkpoint file if true.
-        """
-        raise NotImplementedError
 
     def get_default_model(self):
         """
@@ -336,6 +226,7 @@ class Model(Specifiable):
             elif isinstance(outgoing, GraphFunction):
                 graph_fn = outgoing
                 # We have to specify the device here (only a GraphFunction actually adds something to the graph).
+                # TODO This has to be delegated somewhere else now
                 if socket.component.device:
                     self.assign_device(graph_fn, socket, socket.component.device)
                 else:
@@ -564,18 +455,6 @@ class Model(Specifiable):
         else:
             return self.trace_back_sockets(new_trace_set)
 
-    def get_variable_values(self, variables):
-        """
-        Read variable values from a model, e.g. by calling the underlying graph
-        or just returning the variable in imperative modes.
-        Args:
-            variables (list): Variable objects to retrieve from the graph.
-
-        Returns:
-            list: Values of the variables provided.
-        """
-        pass
-
     def assign_device(self, graph_fn, socket, assigned_device):
         """
         Assigns device to socket.
@@ -586,26 +465,18 @@ class Model(Specifiable):
         """
         # If this is called, the backend should implement it, otherwise device
         # would be ignored -> no pass here.
-        raise NotImplementedError
+        if backend == "tf":
+            if assigned_device not in self.available_devices:
+                self.logger.error("Assigned device {} for graph_fn {} not in available devices:\n {}".
+                    format(assigned_device, graph_fn, self.available_devices))
 
-    def get_available_devices(self):
-        """
-        Lists available devices for this model.
+            with tf.device(assigned_device):
+                self.logger.debug("Assigning device {} to graph_fn {} via socket  {}".format(
+                    assigned_device, graph_fn, socket))
+                graph_fn.update_from_input(socket, self.op_record_registry)
 
-        Returns:
-            list: Device identifiers visible to this model.
-        """
-        pass
-
-    def get_device_assignments(self, device_names=None):
-        """
-        Get assignments for device(s).
-
-        Args:
-            device_names Optional(list):  Device names to filter for. If None, all assignments
-                will be returned.
-
-        Returns:
-            dict: Dict mapping device identifiers (keys) to assigned components (list of component names).
-        """
-        pass
+                # Store assigned names for debugging.
+                if assigned_device not in self.device_component_assignments:
+                    self.device_component_assignments[assigned_device] = [str(graph_fn)]
+                else:
+                    self.device_component_assignments[assigned_device].append(str(graph_fn))

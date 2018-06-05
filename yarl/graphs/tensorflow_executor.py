@@ -17,21 +17,18 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.models import Model
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
+from yarl.graphs.graph_executor import GraphExecutor
 
-class TensorFlowModel(Model):
-    """
-    A TensorFlow-specific Model.
 
-    Uses a finalized tf.Graph and runs it inside a tf.Session object,
-    which can be used to fulfil `call` requests.
+class TensorFlowExecutor(GraphExecutor):
     """
-    def __init__(self, name="tf-model", **kwargs):
-        super(TensorFlowModel, self).__init__(name=name, **kwargs)
-        # TODO should this be in the core component?
+    A Tensorflow executioner manages execution via TensorFlow sessions.
+    """
+    def __init__(self, **kwargs):
+        super(TensorFlowExecutor, self).__init__(**kwargs)
         self.global_training_timestep = None
 
         # Saver.
@@ -56,15 +53,26 @@ class TensorFlowModel(Model):
         self.graph_default_context = None
         self.available_devices = device_lib.list_local_devices()
 
-    def call(self, sockets, inputs=None):
-        fetch_list, feed_dict = self.get_execution_inputs(output_socket_names=sockets, inputs=inputs)
+    def build(self):
+        # Prepare for graph assembly.
+        self.init_execution()
+        self.setup_graph()
+
+        # Assemble graph via graph builder.
+        self.graph_builder.assemble_graph(self.available_devices)
+
+        # Set up any remaining session or monitoring configurations.
+        self.finish_graph_setup()
+
+    def execute(self, sockets, inputs=None):
+        fetch_list, feed_dict = self.graph_builder.get_execution_inputs(output_socket_names=sockets, inputs=inputs)
         ret = self.monitored_session.run(fetch_list, feed_dict=feed_dict)
         if len(fetch_list) == 1:
             return ret[0]
         else:
             return ret
 
-    def get_variable_values(self, variables):
+    def read_variable_values(self, variables):
         """
         Fetches the given variables from the graph and returns their current values.
         The returned structure corresponds to the data type and structure of `variables`
@@ -79,10 +87,6 @@ class TensorFlowModel(Model):
         """
         self.logger.debug('Fetching values of variables {} from graph.'.format(variables))
         return self.monitored_session.run(variables, feed_dict=dict())
-
-    def reset_backend(self):
-        self.logger.debug("Resetting TensorFlow default graph.")
-        tf.reset_default_graph()
 
     def init_execution(self):
         """
@@ -106,6 +110,19 @@ class TensorFlowModel(Model):
                 self.server.join()
                 quit()
 
+    def get_available_devices(self):
+        return self.available_devices
+
+    def get_device_assignments(self, device_names=None):
+        if device_names is None:
+            return self.graph_builder.device_component_assignments
+        else:
+            assignments = dict()
+            for device in self.graph_builder.device_component_assignments:
+                if device in device_names:
+                    assignments[device] = self.graph_builder.device_component_assignments[device]
+            return assignments
+
     def setup_graph(self):
         # Generate the tf-Graph object and enter its scope as default graph.
         self.graph = tf.Graph()
@@ -116,7 +133,7 @@ class TensorFlowModel(Model):
             self.logger.info("Initializing TensorFlow graph with seed {}".format(self.seed))
             tf.set_random_seed(self.seed)
 
-    def complete_backend_setup(self):
+    def finish_graph_setup(self):
         # After the graph is built -> Setup saver, summaries, etc..
         hooks = []  # Will be appended to in the following functions.
         self.setup_saver(hooks)
@@ -126,36 +143,6 @@ class TensorFlowModel(Model):
         # Finalize our graph, create and enter the session.
         self.setup_session(hooks)
 
-    def load_model(self, path=None):
-        pass
-
-    def store_model(self, path=None, add_timestep=True):
-        if self.summary_writer is not None:
-            self.summary_writer.flush()
-
-        self.saver.save(
-            sess=self.session,
-            save_path=(path or self.saver_directory),
-            # TODO: global_timestep
-            global_step=(self.global_training_timestep if add_timestep is False else None),
-            latest_filename=None,
-            meta_graph_suffix="meta",
-            write_meta_graph=True,
-            write_state=True
-        )
-        self.logger.info("Stored model to path: {}".format(path))
-
-    def export_graph_definition(self, filename):
-        """
-        Exports TensorFlow meta graph to file.
-
-        Args:
-            filename (str): File to save meta graph. Should end in .meta
-        """
-        if not filename.endswith('.meta'):
-            self.logger.warn('Filename for TensorFlow meta graph should end with .meta.')
-        self.saver.export_meta_graph(filename=filename)
-
     def setup_saver(self, hooks):
         """
         Creates the tf.train.Saver object and stores it in self.saver.
@@ -164,7 +151,7 @@ class TensorFlowModel(Model):
             hooks (list): List of hooks to use for Saver and Summarizer in Session. Should be appended to.
         """
         self.saver = tf.train.Saver(
-            var_list=self.variables,
+            var_list=self.graph_builder.variables,
             reshape=False,
             sharded=False,
             max_to_keep=self.saver_spec.get('max_checkpoints', 5),
@@ -232,31 +219,32 @@ class TensorFlowModel(Model):
         self.monitored_session.__enter__()
         self.session = self.monitored_session._tf_sess()
 
-    def assign_device(self, graph_fn, socket, assigned_device):
-        if assigned_device not in self.available_devices:
-            self.logger.error("Assigned device {} for graph_fn {} not in available devices:\n {}".
-                format(assigned_device, graph_fn, self.available_devices))
+    def load_model(self, path=None):
+        pass
 
-        with tf.device(assigned_device):
-            self.logger.debug("Assigning device {} to graph_fn {} via socket  {}".format(
-                assigned_device, graph_fn, socket))
-            graph_fn.update_from_input(socket, self.op_record_registry, self.in_socket_registry)
+    def store_model(self, path=None, add_timestep=True):
+        if self.summary_writer is not None:
+            self.summary_writer.flush()
 
-            # Store assigned names for debugging.
-            if assigned_device not in self.device_component_assignments:
-                self.device_component_assignments[assigned_device] = [str(graph_fn)]
-            else:
-                self.device_component_assignments[assigned_device].append(str(graph_fn))
+        self.saver.save(
+            sess=self.session,
+            save_path=(path or self.saver_directory),
+            # TODO: global_timestep
+            global_step=(self.global_training_timestep if add_timestep is False else None),
+            latest_filename=None,
+            meta_graph_suffix="meta",
+            write_meta_graph=True,
+            write_state=True
+        )
+        self.logger.info("Stored model to path: {}".format(path))
 
-    def get_available_devices(self):
-        return self.available_devices
+    def export_graph_definition(self, filename):
+        """
+        Exports TensorFlow meta graph to file.
 
-    def get_device_assignments(self, device_names=None):
-        if device_names is None:
-            return self.device_component_assignments
-        else:
-            assignments = dict()
-            for device in self.device_component_assignments:
-                if device in device_names:
-                    assignments[device] = self.device_component_assignments[device]
-            return assignments
+        Args:
+            filename (str): File to save meta graph. Should end in .meta
+        """
+        if not filename.endswith('.meta'):
+            self.logger.warn('Filename for TensorFlow meta graph should end with .meta.')
+        self.saver.export_meta_graph(filename=filename)
