@@ -223,8 +223,8 @@ class Categorical(Distribution):
 
 class Normal(Distribution):
     """
-    A categorical distribution object defined by a n values {p0, p1, ...} that add up to 1, the probabilities
-    for picking one of the n categories.
+    A Gaussian Normal distribution object defined by a tuple: mean, variance,
+    which is the same as "loc_and_scale".
     """
     def __init__(self, scope="normal", **kwargs):
         # Do not flatten incoming DataOps as we need more than one parameter in our parameterize graph_fn.
@@ -234,7 +234,8 @@ class Normal(Distribution):
         # Must be a Tuple of len 2 (loc and scale).
         in_space = input_spaces["parameters"]
         assert isinstance(in_space, Tuple) and len(in_space) == 2,\
-            "ERROR: Normal Distribution ({}) needs an incoming Tuple with len=2!".format(self.name)
+            "ERROR: {} (Distribution) ({}) needs an incoming Tuple with len=2!".format(type(self).__name__,
+                                                                                       self.name)
 
     def _graph_fn_parameterize(self, loc_and_scale):
         if backend == "tf":
@@ -257,7 +258,8 @@ class Beta(Distribution):
         # Must be a Tuple of len 2 (loc and scale).
         in_space = input_spaces["parameters"]
         assert isinstance(in_space, Tuple) and len(in_space) == 2,\
-            "ERROR: Beta Distribution ({}) needs an incoming Tuple with len=2!".format(self.name)
+            "ERROR: {} (Distribution) ({}) needs an incoming Tuple with len=2!".format(type(self).__name__,
+                                                                                       self.name)
 
     def _graph_fn_parameterize(self, concentration_parameters):
         if backend == "tf":

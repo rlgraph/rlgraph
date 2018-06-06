@@ -19,11 +19,13 @@ from __future__ import print_function
 
 import itertools
 import logging
+import numpy as np
+
 from yarl import YARLError, Specifiable, backend
 from yarl.components import Component, Socket, GraphFunction
 from yarl.utils.util import all_combinations, force_list, get_shape
 from yarl.utils.ops import SingleDataOp
-from yarl.utils.input_parsing import parse_saver_spec, parse_summary_spec, parse_execution_spec
+from yarl.utils.debug_printout import print_out_built_component
 
 if backend == "tf":
     import tensorflow as tf
@@ -137,7 +139,7 @@ class GraphBuilder(Specifiable):
 
     def memoize_inputs(self):
         # Memoize possible input-combinations (from all our in-Sockets)
-        # so we don't have to do this every time we get a `call`.
+        # so we don't have to do this every time we get a call to `self.execute`.
         in_names = sorted(list(map(lambda s: s.name, self.core_component.input_sockets)))
         input_combinations = all_combinations(in_names, descending_length=True)
         # Store each combination and its sub-combinations in self.input_combinations.
@@ -226,8 +228,8 @@ class GraphBuilder(Specifiable):
                     self.partial_input_build(outgoing, from_=socket, socket_out_op=socket_out_op)
                 # Component is not complete yet:
                 else:
-                    # Add one Socket information.
                     was_input_complete = outgoing.component.input_complete
+                    # Add one Socket information.
                     outgoing.update_from_input(socket, self.op_record_registry, self.in_socket_registry)
                     # Check now for input-completeness of this component.
                     outgoing.component.sockets_to_do_later.append(outgoing)
@@ -288,32 +290,11 @@ class GraphBuilder(Specifiable):
             component (Component): The Component to analyze for input-completeness.
         """
         component = component or self.core_component
-        structure_txt = "COMPONENT: {}\n".format(component.name or "__core__")
 
-        # Desired example printout for one Component:
-        """
-        COMPONENT: preprocessor-stack
-        in-sockets:
-            'input': FloatBox((2,3))
-            'input2': IntBox(5)
-        graph_fns:
-            'reset':
-                'input' + 'input2' -> 'output'
-        sub-components:
-            'scale':
-                'preprocessor-stack/input' -> 'scale/input'
-                'scale/output' -> 'preprocessor-stack/output'
-        out-sockets:
-            'output': FloatBox(())
-        """
-
-        # Collect data for printout.
-        structure_txt += "in-sockets:\n"
-        for in_sock in component.input_sockets:
-            structure_txt += "\t'{}': {}\n".format(in_sock.name, in_sock.space)
+        if self.logger.level <= logging.INFO:
+            print_out_built_component(component)
 
         # Check all the component's graph_fns for input-completeness.
-        structure_txt += "graph_fns:\n"
         for graph_fn in component.graph_fns:
             if graph_fn.input_complete is False:
                 # Look for the missing in-Socket and raise an Error.
@@ -321,42 +302,19 @@ class GraphBuilder(Specifiable):
                     if len(in_sock_record["socket"].op_records) == 0:
                         self.logger.warning("in-Socket '{}' of GraphFunction '{}' of Component '{}' does not have "
                                             "any incoming ops!".format(in_sock_name, graph_fn.name, component.name))
-            else:
-                structure_txt += "\t'{}':\n\t\t".format(graph_fn.name)
-                for i, in_sock_rec in enumerate(graph_fn.input_sockets.values()):
-                    structure_txt += "{}'{}'".format(" + " if i > 0 else "", in_sock_rec["socket"].name)
-                structure_txt += " -> "
-                for i, out_sock in enumerate(graph_fn.output_sockets):
-                    structure_txt += "{}'{}'".format(" + " if i > 0 else "", out_sock.name)
-        structure_txt += "\nsub-components:\n"
 
         # Check component's sub-components for input-completeness (recursively).
         for sub_component in component.sub_components.values():  # type: Component
-            structure_txt += "\t'{}':\n".format(sub_component.name)
             if sub_component.input_complete is False:
                 self.logger.warning("Component '{}' is not input-complete. The following Sockets do not "
                                     "have incoming connections:".format(sub_component.name))
                 # Look for the missing Socket and raise an Error.
                 for in_sock in sub_component.input_sockets:
-                    if len(in_sock.incoming_connections) == 0:
+                    if in_sock.space is None:
                         self.logger.warning("\t'{}'".format(in_sock.name))
-            else:
-                structure_txt += "\t'{}':\n".format(sub_component.name)
-                for in_sock in sub_component.input_sockets:
-                    for in_coming in in_sock.incoming_connections:
-                        structure_txt += "\t\t'{}/{}' -> '{}'\n".format(in_coming.component.name, in_coming.name, in_sock.name)
-                for out_sock in sub_component.output_sockets:
-                    for out_going in out_sock.outgoing_connections:
-                        structure_txt += "\t\t'{}' -> '{}/{}'\n".format(out_sock.name, out_going.component.name, out_going.name)
 
             # Recursively call this method on all the sub-component's sub-components.
             self.sanity_check_build(sub_component)
-
-        structure_txt += "out-sockets:\n"
-        for out_sock in component.output_sockets:
-            structure_txt += "\t'{}': {}\n".format(out_sock.name, out_sock.space)
-
-        self.logger.info(structure_txt)
 
     def get_execution_inputs(self, output_socket_names, inputs=None):
         """
@@ -465,10 +423,13 @@ class GraphBuilder(Specifiable):
                     # This is a good combination -> Use the looked up op, return to process next out-Socket.
                     if key in self.call_registry:
                         fetch_list.append(self.call_registry[key])
-                        # Store for which in-Socket we need which in-op to put into the feed_dict.
+                        # Add items to feed_dict.
                         for in_sock_name, in_op in zip(input_combination, op_combination):
-                            # Need to split into single ops.
-                            feed_dict[in_op] = input_dict[in_sock_name]
+                            value = input_dict[in_sock_name]
+                            # Numpy'ize scalar values (tf doesn't sometimes like python primitives).
+                            if isinstance(value, (float, int, bool)):
+                                value = np.array(value)
+                            feed_dict[in_op] = value
                         return fetch_list, feed_dict
         # No inputs -> Try whether this output socket comes without any inputs.
         else:

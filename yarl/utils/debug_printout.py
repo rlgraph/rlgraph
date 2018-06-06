@@ -1,0 +1,98 @@
+# Copyright 2018 The YARL-Project, All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import logging
+
+from yarl.components import Component
+
+
+def print_out_built_component(component):
+    """
+    Prints out an already built Component in the following way (example):
+
+    COMPONENT: dummy-component
+    in-sockets:
+        'input': FloatBox((2,3))
+        'input2': IntBox(5)
+    graph_fns:
+        'reset':
+            'input' + 'input2' -> 'output'
+    sub-components:
+        'scale':
+            'input' -> 'scale/input'
+            'scale/output' -> 'output'
+    out-sockets:
+        'output': FloatBox(shape=(1,))
+
+    Args:
+        component (Component): The Component to print out at INFO logging level.
+    """
+    logger = logging.getLogger(__name__)
+
+    txt = "COMPONENT: {}\n".format(component.name or "__core__")
+
+    # Collect data for printout.
+    txt += "in-sockets:\n"
+    for in_sock in component.input_sockets:
+        txt += "\t'{}': {}\n".format(in_sock.name, in_sock.space)
+
+    # Check all the component's graph_fns for input-completeness.
+    if len(component.graph_fns) > 0:
+        txt += "graph_fns:\n"
+    for graph_fn in component.graph_fns:
+        txt += "\t'{}':\n\t\t".format(graph_fn.name)
+        if graph_fn.input_complete is False:
+            txt += "\t\tNOT INPUT COMPLETE"
+        else:
+            for i, in_sock_rec in enumerate(graph_fn.input_sockets.values()):
+                txt += "{}'{}'".format(" + " if i > 0 else "", in_sock_rec["socket"].name)
+            txt += " -> "
+            for i, out_sock in enumerate(graph_fn.output_sockets):
+                txt += "{}'{}'".format(" + " if i > 0 else "", out_sock.name)
+        txt += "\n"
+
+    if len(component.sub_components) > 0:
+        txt += "sub-components:\n"
+
+    # Check component's sub-components for input-completeness (recursively).
+    for sub_component in component.sub_components.values():
+        txt += "\t'{}':\n".format(sub_component.name)
+        if sub_component.input_complete is False:
+            txt += "\t\tNOT INPUT COMPLETE\n"
+        else:
+            for in_sock in sub_component.input_sockets:
+                for in_coming in in_sock.incoming_connections:
+                    if hasattr(in_coming, "name"):
+                        txt += "\t\t'{}/{}' -> '{}'\n".format(in_coming.component.name, in_coming.name, in_sock.name)
+                    else:
+                        txt += "\t\t'{}'\n".format(in_coming)
+            for out_sock in sub_component.output_sockets:
+                for out_going in out_sock.outgoing_connections:
+                    if hasattr(out_going, "name"):
+                        txt += "\t\t'{}' -> '{}/{}'\n".format(out_sock.name, out_going.component.name,
+                                                              out_going.name)
+                    else:
+                        txt += "\t\t'{}'\n".format(out_going)
+
+    txt += "out-sockets:\n"
+    for out_sock in component.output_sockets:
+        txt += "\t'{}': {}\n".format(out_sock.name, out_sock.space)
+
+    logger.info(txt)
+

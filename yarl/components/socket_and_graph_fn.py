@@ -186,12 +186,10 @@ class Socket(object):
 
         # Incoming is another Socket -> Simply update ops from this one.
         elif isinstance(incoming, Socket):
-            assert incoming.space is not None, \
-                "ERROR: Cannot update '{}/{}' from incoming Socket '{}/{}' if it doesn't have any Space yet!". \
-                format(self.component.name, self.name, incoming.component.name, incoming.name)
-            self.space = incoming.space
-            self.component.check_input_completeness()
-            self.op_records.update(in_socket_op_record or incoming.op_records)
+            if incoming.space is not None:
+                self.space = incoming.space
+                self.component.check_input_completeness()
+                self.op_records.update(in_socket_op_record or incoming.op_records)
 
         # Constant DataOp with a value.
         elif isinstance(incoming, SingleDataOp):

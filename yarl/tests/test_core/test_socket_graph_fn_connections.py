@@ -86,11 +86,30 @@ class TestSocketGraphFnConnections(unittest.TestCase):
         # expected output: (const 5.5) + in2 = 10.0
         test.test(out_socket_names="output", inputs=dict(input2=4.5), expected_outputs=10.0)
 
+    def test_1to1_to_2to1_component_with_constant_input_value(self):
+        """
+        Adds two components in sequence, 1-to-1 and 2-to-1, to the core and blocks one of the inputs of 2-to-1
+        with a constant value (so that this constant value is not at the border of the core component).
+        """
+        core = Component(scope="container")
+        sub_comp1 = Dummy1to1(scope="A")
+        sub_comp2 = Dummy2to1(scope="B")
+        core.add_component(sub_comp1, connections=CONNECT_INS)
+        core.add_component(sub_comp2, connections=CONNECT_OUTS)
+        core.connect(1.1, (sub_comp2, "input1"))
+        core.connect((sub_comp1, "output"), (sub_comp2, "input2"))
+
+        test = ComponentTest(component=core, input_spaces=dict(input=float))
+
+        # expected output: (input + 1.0) + 1.1
+        test.test(out_socket_names="output", inputs=78.4, expected_outputs=80.5)
+        test.test(out_socket_names="output", inputs=-5.2, expected_outputs=-3.1)
+
     def test_connecting_two_1to1_components(self):
         """
         Adds two components with 1-to-1 graph_fns to the core, connects them and passes a value through it.
         """
-        core = Component()
+        core = Component(scope="container")
         sub_comp1 = Dummy1to1(scope="comp1")
         sub_comp2 = Dummy1to1(scope="comp2")
         core.add_component(sub_comp1, connections=CONNECT_INS)
@@ -100,14 +119,14 @@ class TestSocketGraphFnConnections(unittest.TestCase):
         test = ComponentTest(component=core, input_spaces=dict(input=float))
 
         # expected output: input + 1.0 + 1.0
-        test.test(out_socket_names="output", inputs=1.0, expected_outputs=3.0)
-        test.test(out_socket_names="output", inputs=-5.0, expected_outputs=-3.0)
+        test.test(out_socket_names="output", inputs=1.1, expected_outputs=3.1)
+        test.test(out_socket_names="output", inputs=-5.1, expected_outputs=-3.1)
 
     def test_connecting_1to2_to_2to1(self):
         """
         Adds two components with 1-to-2 and 2-to-1 graph_fns to the core, connects them and passes a value through it.
         """
-        core = Component()
+        core = Component(scope="container")
         sub_comp1 = Dummy1to2(scope="comp1")  # outs=in,in+1
         sub_comp2 = Dummy2to1(scope="comp2")  # out =in1+in2
         core.add_component(sub_comp1, connections=CONNECT_INS)
@@ -117,8 +136,8 @@ class TestSocketGraphFnConnections(unittest.TestCase):
         test = ComponentTest(component=core, input_spaces=dict(input=float))
 
         # expected output: input + (input + 1.0)
-        test.test(out_socket_names="output", inputs=100.0, expected_outputs=201.0)
-        test.test(out_socket_names="output", inputs=-5.0, expected_outputs=-9.0)
+        test.test(out_socket_names="output", inputs=100.9, expected_outputs=201.9)
+        test.test(out_socket_names="output", inputs=-5.1, expected_outputs=-9.1)
 
     def test_connecting_in1_and_1to1_to_1to1_no_labels(self):
         """
@@ -127,7 +146,7 @@ class TestSocketGraphFnConnections(unittest.TestCase):
         Connects "input2" with B and B's output to A.
         If we now pull out-Socket "output", it should know by the given input, which op we actually want.
         """
-        core = Component(inputs=["input1", "input2"], outputs="output")
+        core = Component(inputs=["input1", "input2"], outputs="output", scope="container")
         a = Dummy1to1(scope="A")
         b = Dummy1to1(scope="B")
         # Throw in the sub-components.
@@ -140,8 +159,59 @@ class TestSocketGraphFnConnections(unittest.TestCase):
 
         test = ComponentTest(component=core, input_spaces=dict(input1=float, input2=float))
 
-        # expected output: input1 + 1.0
-        test.test(out_socket_names="output", inputs=dict(input1=1.0), expected_outputs=2.0)
-        # expected output: input2 + 1.0
-        test.test(out_socket_names="output", inputs=dict(input2=1.0), expected_outputs=3.0)
+        # Now pulling on the same Socket (given one of the input Sockets) should trigger the correct
+        # op.
+        # expected output: input1 + 1.0(a)
+        test.test(out_socket_names="output", inputs=dict(input1=np.array(1.1)), expected_outputs=2.1)
+        # expected output: input2 + 1.0(b) + 1.0(a)
+        test.test(out_socket_names="output", inputs=dict(input2=np.array(1.1, dtype=np.float32)), expected_outputs=3.1)
+
+    def test_connecting_in1_to_1to1_no_labels(self):
+        """
+        Adds one component (A) with 1-to-1 graph_fn to the core which has two in-Sockets and 1 out-Socket.
+        Connects "input_c" with A, A's "output" to "output".
+        Connects "input_a" with A, A's "output" to "output".
+        No labels whatsoever.
+        If we now pull "output", and provide input1 AND input2, it should use the in-Socket that comes
+        first in alphabetic order ("input_a" even if it's defined second).
+        """
+        core = Component(inputs=["input_c", "input_a"], outputs="output", scope="container")
+        a = Dummy1to1(scope="A")
+        # Throw in the sub-component.
+        core.add_components(a)
+        # Connect correctly.
+        core.connect("input_c", (a, "input"))
+        core.connect("input_a", (a, "input"))
+        core.connect((a, "output"), "output")
+
+        test = ComponentTest(component=core, input_spaces=dict(input_c=float, input_a=float))
+
+        # Now pulling on "output" and providing both inputs should cause disambiguity, but it should chose
+        # the one fist in alphabetic order (input_a).
+        # expected output: input_a + 1.0
+        test.test(out_socket_names="output", inputs=dict(input_c=np.array(1.5), input_a=np.array(2.1)),
+                  expected_outputs=3.1)
+
+    def test_connecting_in1_to_1to1_with_labels(self):
+        """
+        Same as `test_connecting_in1_to_1to1_no_labels` but with labels.
+        So if we provide both inputs, it should know which one to take (instead of using alphabetic order).
+        """
+        core = Component(inputs=["input_c", "input_a"], outputs="output", scope="container")
+        a = Dummy1to1(scope="A")
+        # Throw in the sub-component.
+        core.add_components(a)
+        # Connect correctly and with labels.
+        core.connect("input_c", (a, "input"), label="from_in_c")
+        core.connect("input_a", (a, "input"), label="from_in_a")
+        # force using the input_c path (over the alphabetically favored input_a).
+        core.connect((a, "output"), "output", label="from_in_c")
+
+        test = ComponentTest(component=core, input_spaces=dict(input_c=float, input_a=float))
+
+        # Now pulling on "output" and providing both inputs should cause disambiguity, but it should chose
+        # the one fist in alphabetic order (input_a).
+        # expected output: input_a + 1.0
+        test.test(out_socket_names="output", inputs=dict(input_c=np.array(1.5), input_a=np.array(2.1)),
+                  expected_outputs=2.5)
 
