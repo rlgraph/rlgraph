@@ -104,21 +104,6 @@ class GridWorld(Env):
                 rich: hole=-100, fire=-10, goal=50
             state_representation (str): One of "discr_pos", "xy_pos", "cam"
         """
-        assert state_representation in ["discr", "xy", "cam"]
-        self.state_representation = state_representation
-        # Figure out our state space.
-        # Discrete states (single int from 0 to n).
-        if self.state_representation == "discr":
-            state_space = spaces.IntBox(self.n_row * self.n_col)
-        # x/y position (2 ints).
-        elif self.state_representation == "xy_pos":
-            state_space = spaces.IntBox(low=(0, 0), high=(self.n_col, self.n_row), shape=(2,))
-        # Camera outputting a 2D color image of the world.
-        else:
-            state_space = spaces.IntBox(0, 255, shape=(self.n_row, self.n_col, 3))
-
-        super(GridWorld, self).__init__(state_space=state_space, action_space=spaces.IntBox(4))
-
         # Build our map.
         if isinstance(world, str):
             self.description = world
@@ -135,6 +120,19 @@ class GridWorld(Env):
         self.n_row, self.n_col = self.world.shape
         (start_x,), (start_y,) = np.nonzero(self.world == "S")
 
+        # Figure out our state space.
+        assert state_representation in ["discr", "xy", "cam"]
+        self.state_representation = state_representation
+        # Discrete states (single int from 0 to n).
+        if self.state_representation == "discr":
+            state_space = spaces.IntBox(self.n_row * self.n_col)
+        # x/y position (2 ints).
+        elif self.state_representation == "xy_pos":
+            state_space = spaces.IntBox(low=(0, 0), high=(self.n_col, self.n_row), shape=(2,))
+        # Camera outputting a 2D color image of the world.
+        else:
+            state_space = spaces.IntBox(0, 255, shape=(self.n_row, self.n_col, 3))
+
         self.default_start_pos = self.get_discrete_pos(start_x, start_y)
         self.discrete_pos = self.default_start_pos
 
@@ -144,7 +142,10 @@ class GridWorld(Env):
         # Store the goal position for proximity calculations (for "potential" reward function).
         (self.goal_x,), (self.goal_y,) = np.nonzero(self.world == "G")
 
-        # Set our state.
+        # Call the super's constructor.
+        super(GridWorld, self).__init__(state_space=state_space, action_space=spaces.IntBox(4))
+
+        # Reset ourselves.
         self.state = None
         self.camera_pixels = None  # only used, if state_representation=='cam'
         self.reward = None
@@ -220,7 +221,7 @@ class GridWorld(Env):
             self.reward = 0 if self.reward_function == "sparse" else -1
         elif next_state_type == "G":
             self.is_terminal = True
-            self.reward = 50
+            self.reward = 1 if self.reward_function == "sparse" else -50
         else:
             raise NotImplementedError
 
