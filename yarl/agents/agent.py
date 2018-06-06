@@ -155,7 +155,7 @@ class Agent(Specifiable):
             self.actions_buffer.append(actions)
             self.internals_buffer.append(internals)
             self.reward_buffer.append(reward)
-            self.terminal_buffer.append(states)
+            self.terminal_buffer.append(terminal)
 
             # Inserts per episode or when full.
             if len(self.reward_buffer) >= self.buffer_size or terminal:
