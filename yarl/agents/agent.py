@@ -213,7 +213,7 @@ class Agent(Specifiable):
         Args:
             filename (str): Export path. Depending on the backend, different filetypes may be required.
         """
-        self.graph_builder.export_graph_definition(filename)
+        self.graph_executor.export_graph_definition(filename)
 
     def store_model(self, path=None, add_timestep=True):
         """
@@ -225,7 +225,7 @@ class Agent(Specifiable):
                 exported model. If false, may override previous checkpoints.
 
         """
-        self.graph_builder.store_model(path=path, add_timestep=add_timestep)
+        self.graph_executor.store_model(path=path, add_timestep=add_timestep)
 
     def load_model(self, path=None):
         """
@@ -234,4 +234,4 @@ class Agent(Specifiable):
         Args:
             path (str): Path to checkpoint directory.
         """
-        self.graph_builder.load_model(path=path)
+        self.graph_executor.load_model(path=path)
