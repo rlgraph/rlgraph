@@ -37,7 +37,7 @@ class TestSingleThreadedDQN(unittest.TestCase):
         Tests throughput on standard Atari envs using the replay memory.
         """
         agent = DQNAgent(
-            states_spec=self.env.observation_space,
+            states_spec=self.env.state_space,
             action_spec=self.env.action_space,
             network_spec=self.network,
             memory_spec=dict(
@@ -61,7 +61,7 @@ class TestSingleThreadedDQN(unittest.TestCase):
         Tests throughput on standard Atari envs using the prioritized replay memory.
         """
         agent = DQNAgent(
-            states_spec=self.env.observation_space,
+            states_spec=self.env.state_space,
             action_spec=self.env.action_space,
             network_spec=self.network,
             memory_spec=dict(

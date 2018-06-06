@@ -24,18 +24,19 @@ class Env(Specifiable):
     """
     An Env class used to run experiment-based RL.
     """
-    def __init__(self, observation_space, action_space):
-        self.observation_space = observation_space
+    def __init__(self, state_space, action_space):
+        self.state_space = state_space
         self.action_space = action_space
 
     def seed(self, seed=None):
         """
-        Sets the random seed of the environment to the given value (current time if None).
+        Sets the random seed of the environment to the given value.
 
         Args:
             seed (int): The seed to use (default: current epoch seconds).
 
-        Returns: The seed actually used.
+        Returns:
+            int: The seed actually used.
         """
         raise NotImplementedError
 
@@ -43,7 +44,8 @@ class Env(Specifiable):
         """
         Resets the state of the environment, returning an initial observation.
 
-        Returns: A tuple of (state, reward, is-terminal, info).
+        Returns:
+            tuple: A tuple of (state, reward, is-terminal, info).
         """
         raise NotImplementedError
 

@@ -107,7 +107,7 @@ class OpenAIGymEnv(Env):
         elif isinstance(space, gym.spaces.Dict):
             return Dict({k: OpenAIGymEnv.translate_space(v) for k, v in space.spaces.items()})
         else:
-            raise YARLError("Unknown openAI gym Space class for observation_space!")
+            raise YARLError("Unknown openAI gym Space class for state_space!")
 
     def __str__(self):
         return "OpenAIGym({})".format(self.gym_env)

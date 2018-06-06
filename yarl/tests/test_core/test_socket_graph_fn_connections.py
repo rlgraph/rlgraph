@@ -136,8 +136,8 @@ class TestSocketGraphFnConnections(unittest.TestCase):
         test = ComponentTest(component=core, input_spaces=dict(input=float))
 
         # expected output: input + (input + 1.0)
-        test.test(out_socket_names="output", inputs=100.9, expected_outputs=201.9)
-        test.test(out_socket_names="output", inputs=-5.1, expected_outputs=-9.1)
+        test.test(out_socket_names="output", inputs=100.9, expected_outputs=np.float32(202.8))
+        test.test(out_socket_names="output", inputs=-5.1, expected_outputs=np.float32(-9.2))
 
     def test_connecting_in1_and_1to1_to_1to1_no_labels(self):
         """
@@ -194,6 +194,7 @@ class TestSocketGraphFnConnections(unittest.TestCase):
 
     def test_connecting_in1_to_1to1_with_labels(self):
         """
+        TODO: labels not being passed on from Socket to next Socket!
         Same as `test_connecting_in1_to_1to1_no_labels` but with labels.
         So if we provide both inputs, it should know which one to take (instead of using alphabetic order).
         """

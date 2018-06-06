@@ -34,7 +34,7 @@ class TestSingleThreadedWorker(unittest.TestCase):
         """
         agent = RandomAgent(
             action_space=self.environment.action_space,
-            state_space=self.environment.observation_space
+            state_space=self.environment.state_space
         )
         worker = SingleThreadedWorker(
             environment=self.environment,
@@ -52,7 +52,7 @@ class TestSingleThreadedWorker(unittest.TestCase):
         """
         agent = RandomAgent(
             action_space=self.environment.action_space,
-            state_space=self.environment.observation_space
+            state_space=self.environment.state_space
         )
         worker = SingleThreadedWorker(
             environment=self.environment,
