@@ -68,6 +68,11 @@ class Agent(Specifiable):
         self.preprocessor_stack = Stack.from_spec(preprocessing_spec)
         self.exploration_spec = exploration_spec
         self.execution_spec = parse_execution_spec(execution_spec)
+        self.buffer_enabled = self.execution_spec.get("buffer_enabled", False)
+        if self.buffer_enabled:
+            self.buffer_size = self.execution_spec.get("buffer_size", 100)
+            self.init_buffers()
+
         if optimizer_spec:
             self.optimizer = Optimizer.from_spec(optimizer_spec)
         else:
@@ -87,6 +92,16 @@ class Agent(Specifiable):
         self.build_graph(graph_builder.core_component)
         # Ask our executor to actually build the Graph.
         self.graph_executor.build()
+
+    def init_buffers(self):
+        """
+        Initializes buffers for buffered graph calls.
+        """
+        self.state_buffer= list()
+        self.action_buffer = list()
+        self.internals_buffer = list()
+        self.reward_buffer = list()
+        self.terminal_buffer = list()
 
     def build_graph(self, core):
         """
