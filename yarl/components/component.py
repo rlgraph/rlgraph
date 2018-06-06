@@ -30,10 +30,12 @@ from yarl.utils import util
 from yarl.spaces import Space
 
 # Some settings flags.
-# Whether to expose only in-Sockets (in calls to add_components).
+# Whether to expose only in-Sockets (in calls to add_component(s)).
 CONNECT_INS = 0x1
-# Whether to expose only out-Sockets (in calls to add_components)
+# Whether to expose only out-Sockets (in calls to add_component(s))
 CONNECT_OUTS = 0x2
+# Whether to expose all in/out-Sockets (in calls to add_component(s))
+CONNECT_ALL = 0x4
 
 
 class Component(Specifiable):
@@ -523,8 +525,8 @@ class Component(Specifiable):
                     counterparts in this Component.
                 If `connections` is CONNECT_OUTS: All out-Sockets of `component` will be connected to their respective
                     counterparts in this Component.
-                If `connections` is True: All sockets of `component` (in and out) will be connected to their respective
-                    counterparts in this Component.
+                If `connections` is CONNECT_ALL: All sockets of `component` (in and out) will be connected to their
+                    respective counterparts in this Component.
 
                 For example: We are adding a sub-component with the Sockets: "input" and "output".
                 connections=[("input", "exposed-in")]: Only the "input" Socket is connected to this component's Socket
@@ -564,9 +566,9 @@ class Component(Specifiable):
             else:
                 # Expose all Sockets if connections=True|CONNECT_INS|CONNECT_OUTS.
                 connect_list = list()
-                if connections == CONNECT_INS or connections is True:
+                if connections in [CONNECT_INS, CONNECT_ALL, True]:
                     connect_list.extend(component.input_sockets)
-                if connections == CONNECT_OUTS or connections is True:
+                if connections in [CONNECT_OUTS, CONNECT_ALL, True]:
                     connect_list.extend(component.output_sockets)
                 if len(connect_list) > 0:
                     for sock in connect_list:
@@ -606,12 +608,13 @@ class Component(Specifiable):
             *components (Component): The list of ModelComponent objects to be added into this one.
 
         Keyword Args:
-            connect (Union[dict,tuple,str]): Connection-spec for the component(s) to be passed to self.add_component().
+            connections (Union[dict,tuple,str]): Connection-spec for the component(s) to be passed to
+                self.add_component().
                 If more than one sub-components are added in the call and `connect` is a dict, lookup each component's
                 name in that dict and pass the found value to self.add_component. If `connect` is not a dict, pass it
                 as-is for each of the added sub-components.
         """
-        connect = kwargs.pop("connect", None)
+        connect = kwargs.pop("connections", None)
         assert not kwargs
 
         for c in components:
@@ -638,16 +641,24 @@ class Component(Specifiable):
     def propagate_variables(self, keys=None):
         """
         Propagates all variable from this Component to its parents' variable registries.
+
+        Args:
+            keys (Optional[List[str]]): An optional list of variable names to propagate. Should only be used in
+                internal, recursive calls to this same method.
         """
+        # Return if there is no parent.
         if self.parent_component is None:
             return
 
         # Add all our variables to parent's variable registry.
         keys = keys or self.variables.keys()
         for key in keys:
-            assert key not in self.parent_component.variables, \
-                "ERROR: Variable registry of '{}' already has a variable under key '{}'!". \
-                format(self.parent_component.name, key)
+            # If already there (bubbled up from some child component that was input complete before us)
+            # -> Make sure the variable object is identical.
+            if key in self.parent_component.variables:
+                if self.variables[key] is not self.parent_component.variables[key]:
+                    raise YARLError("ERROR: Variable registry of '{}' already has a variable under key '{}'!".\
+                        format(self.parent_component.name, key))
             self.parent_component.variables[key] = self.variables[key]
 
         # Recurse up the container hierarchy.
@@ -991,7 +1002,7 @@ class Component(Specifiable):
                     self.input_complete = False
 
     def __str__(self):
-        return "{}('{}' in=[{}] out=[{}])". \
-            format(type(self).__name__, self.name, str(list(map(str, self.input_sockets))),
-                   str(list(map(str, self.output_sockets))))
+        return "{}('{}' in={} out={})". \
+            format(type(self).__name__, self.name, str(list(map(lambda s: s.name, self.input_sockets))),
+                   str(list(map(lambda s: s.name, self.output_sockets))))
 

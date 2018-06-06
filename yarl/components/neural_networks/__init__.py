@@ -17,8 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .neural_network import NeuralNetwork
-from .policy import Policy
+from yarl.components.neural_networks.neural_network import NeuralNetwork
+from yarl.components.neural_networks.policy import Policy
 
 
 NeuralNetwork.__lookup_classes__ = dict(

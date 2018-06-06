@@ -53,8 +53,6 @@ class DenseLayer(NNLayer):
         self.units = units
 
     def create_variables(self, input_spaces):
-        super(DenseLayer, self).create_variables(input_spaces)
-
         in_space = input_spaces["input"]
 
         # Create weights.
