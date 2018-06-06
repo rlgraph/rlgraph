@@ -201,21 +201,21 @@ def unflatten_op(op):
     # Normal case: FlattenedDataOp that came from a ContainerItem.
     base_structure = None
 
-    for k, v in op.items():
+    for op_name, op_val in op.items():
         parent_structure = None
         parent_key = None
         current_structure = None
         type_ = None
 
-        keys = k[1:].split("/")  # skip 1st char (/)
-        for key in keys:
-            mo = re.match(r'^{}(\d+){}$'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), key)
+        op_key_list = op_name[1:].split("/")  # skip 1st char (/)
+        for sub_key in op_key_list:
+            mo = re.match(r'^{}(\d+){}$'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), sub_key)
             if mo:
                 type_ = list
                 idx = int(mo.group(1))
             else:
                 type_ = DataOpDict
-                idx = key
+                idx = sub_key
 
             if current_structure is None:
                 if base_structure is None:
@@ -238,7 +238,7 @@ def unflatten_op(op):
 
         if type_ == list and len(current_structure) == parent_key:
             current_structure.append(None)
-        current_structure[parent_key] = v
+        current_structure[parent_key] = op_val
 
     # Deep conversion from list to tuple.
     return deep_tuple(base_structure)
