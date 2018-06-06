@@ -20,17 +20,17 @@ from __future__ import print_function
 from yarl.utils.util import default_dict
 
 # Core.
-from .component import Component, CONNECT_INS, CONNECT_OUTS
-from .socket_and_graph_fn import GraphFunction, Socket
+from yarl.components.component import Component, CONNECT_INS, CONNECT_OUTS, CONNECT_ALL
+from yarl.components.socket_and_graph_fn import GraphFunction, Socket
 # Component child-classes.
-from .common import *
-from .distributions import *
-from .explorations import *
-from .layers import *
-from .loss_functions import *
-from .memories import *
-from .neural_networks import *
-from .optimizers import *
+from yarl.components.common import *
+from yarl.components.distributions import *
+from yarl.components.explorations import *
+from yarl.components.layers import *
+from yarl.components.loss_functions import *
+from yarl.components.memories import *
+from yarl.components.neural_networks import *
+from yarl.components.optimizers import *
 
 Component.__lookup_classes__ = dict()
 # Add all specific sub-classes to this one.
