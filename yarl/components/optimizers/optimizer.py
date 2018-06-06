@@ -37,11 +37,11 @@ class Optimizer(Component):
             Optimizer for actually applying the gradients to the variables (via in-Socket `grads_and_vars`).
         step (DataOp): Triggers applying the gradients coming in from `grads_and_vars` to the variables.
     """
-    def __init__(self, learning_rate, loss_function, *inputs, **kwargs):
+    def __init__(self, learning_rate=None, loss_function=None, *inputs, **kwargs):
         """
         Args:
-            learning_rate (float): The learning rate to use.
-            loss_function (Component): The LossFunction (Component) to minimize.
+            learning_rate (Optional[float]): The learning rate to use.
+            loss_function (Optional[Component]): The LossFunction (Component) to minimize.
         """
         super(Optimizer, self).__init__(
             scope=kwargs.pop("scope", "optimizer"),

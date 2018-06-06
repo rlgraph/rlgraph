@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from yarl.components.optimizers.horovod_optimizer import HorovodOptimizer
 from yarl.components.optimizers.local_optimizers import *
 from yarl.components.optimizers.optimizer import Optimizer
 
@@ -28,7 +29,8 @@ LocalOptimizer.__lookup_classes__ = dict(
     adam=AdamOptimizer,
     nadam=NadamOptimizer,
     sgd=SGDOptimizer,
-    rmsprop=RMSPropOptimizer
+    rmsprop=RMSPropOptimizer,
+    horovod=HorovodOptimizer
 )
 
 __all__ = ["Optimizer", "LocalOptimizer", "GradientDescentOptimizer", "AdagradOptimizer",
