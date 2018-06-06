@@ -19,7 +19,8 @@ from __future__ import print_function
 
 import logging
 
-from yarl.components import Component
+from yarl.utils.ops import SingleDataOp
+from yarl.components import Component, Socket
 
 
 def print_out_built_component(component):
@@ -79,7 +80,13 @@ def print_out_built_component(component):
             for in_sock in sub_component.input_sockets:
                 for in_coming in in_sock.incoming_connections:
                     if hasattr(in_coming, "name"):
-                        txt += "\t\t'{}/{}' -> '{}'\n".format(in_coming.component.name, in_coming.name, in_sock.name)
+                        labels = ""
+                        if isinstance(in_coming, Socket) and in_sock in in_coming.labels:
+                            labels = " (label="+str(in_coming.labels[in_sock])[1:-1]+")"
+                        txt += "\t\t'{}/{}' -> '{}'{}\n".format(in_coming.component.name, in_coming.name, in_sock.name,
+                                                                labels)
+                    elif isinstance(in_coming, SingleDataOp):
+                        txt += "\t\tconst({}) -> '{}'\n".format(in_coming.constant_value, in_sock.name)
                     else:
                         txt += "\t\t'{}'\n".format(in_coming)
             for out_sock in sub_component.output_sockets:
@@ -88,7 +95,7 @@ def print_out_built_component(component):
                         txt += "\t\t'{}' -> '{}/{}'\n".format(out_sock.name, out_going.component.name,
                                                               out_going.name)
                     else:
-                        txt += "\t\t'{}'\n".format(out_going)
+                        txt += "\t\t'{}'\n".format(out_sock)
 
     txt += "out-sockets:\n"
     for out_sock in component.output_sockets:
