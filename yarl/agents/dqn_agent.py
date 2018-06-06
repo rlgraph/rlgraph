@@ -32,6 +32,7 @@ class DQNAgent(Agent):
     [2] Deep Reinforcement Learning with Double Q-learning. v. Hasselt, Guez, Silver - 2015
     [3] Dueling Network Architectures for Deep Reinforcement Learning, Wang et al. - 2016
     """
+
     def __init__(self, discount=0.98, memory_spec=None, double_q=False, duelling_q=False, **kwargs):
         """
         Args:
@@ -123,6 +124,15 @@ class DQNAgent(Agent):
         # Add syncing capability for target-net.
         core.connect((self.neural_network, "synch_out"), (self.target_net, "synch_in"))
         core.connect((self.target_net, "synch_in"), "synch_target_qnet")
+
+    def get_action(self, states, deterministic=False):
+        pass
+
+    def _observe_graph(self, states, actions, internals, reward, terminal):
+        pass
+
+    def update(self):
+        pass
 
     def __repr__(self):
         return "dqn_agent"

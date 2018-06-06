@@ -16,6 +16,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
 from yarl import Specifiable, backend
 from yarl.graphs.graph_executor import GraphExecutor
 from yarl.utils.input_parsing import parse_execution_spec, parse_update_spec
@@ -25,6 +26,8 @@ from yarl.components.neural_networks import NeuralNetwork
 from yarl.components.optimizers import Optimizer
 from yarl.graphs import GraphBuilder
 from yarl.spaces import Space
+
+import numpy as np
 import logging
 
 
@@ -71,7 +74,7 @@ class Agent(Specifiable):
         self.buffer_enabled = self.execution_spec.get("buffer_enabled", False)
         if self.buffer_enabled:
             self.buffer_size = self.execution_spec.get("buffer_size", 100)
-            self.init_buffers()
+            self.reset_buffers()
 
         if optimizer_spec:
             self.optimizer = Optimizer.from_spec(optimizer_spec)
@@ -93,12 +96,12 @@ class Agent(Specifiable):
         # Ask our executor to actually build the Graph.
         self.graph_executor.build()
 
-    def init_buffers(self):
+    def reset_buffers(self):
         """
         Initializes buffers for buffered graph calls.
         """
-        self.state_buffer= list()
-        self.action_buffer = list()
+        self.states_buffer= list()
+        self.actions_buffer = list()
         self.internals_buffer = list()
         self.reward_buffer = list()
         self.terminal_buffer = list()
@@ -134,7 +137,10 @@ class Agent(Specifiable):
 
     def observe(self, states, actions, internals, reward, terminal):
         """
-        Observes an experience tuple or a batch of experience tuples.
+        Observes an experience tuple or a batch of experience tuples. Note: If configured,
+        first uses buffers and then internally calls _observe_graph() to actually run the computation graph.
+        If buffering is disabled, this just routes the call to the respective _observe_graph() method of the
+        subagent.
 
         Args:
             states (Union[dict, ndarray]): States dict or array.
@@ -142,6 +148,41 @@ class Agent(Specifiable):
             internals (Union[list, None]): Internal state(s) returned by agent for the given states.
             reward (float): Scalar reward(s) observed.
             terminal (bool): Boolean indicating terminal.
+
+        """
+        if self.buffer_enabled:
+            self.states_buffer.append(states)
+            self.actions_buffer.append(actions)
+            self.internals_buffer.append(internals)
+            self.reward_buffer.append(reward)
+            self.terminal_buffer.append(states)
+
+            # Inserts per episode or when full.
+            if len(self.reward_buffer) >= self.buffer_size or terminal:
+                self._observe_graph(
+                    states=np.asarray(self.states_buffer),
+                    actions=np.asarray(self.actions_buffer),
+                    internals=np.asarray(self.internals_buffer),
+                    reward=np.asarray(self.reward_buffer),
+                    terminal=self.terminal_buffer
+                )
+                self.reset_buffers()
+        else:
+            self._observe_graph(states, actions, internals, reward, terminal)
+
+    def _observe_graph(self, states, actions, internals, reward, terminal):
+        """
+        This methods defines the actual call to the computational graph by executing
+        the respective graph op via the graph executor. Since this may use varied underlying
+        components and inputs, every agent defines which ops it may want to call. The buffered observer
+        calls this method to move data into the graph.
+
+        Args:
+            states (Union[dict, ndarray]): States dict or array.
+            actions (Union[dict, ndarray]): Actions dict or array containing actions performed for the given state(s).
+            internals (Union[list, None]): Internal state(s) returned by agent for the given states.
+            reward (Union[ndarray, list, float]): Scalar reward(s) observed.
+            terminal (Union[list, bool]): Boolean indicating terminal.
 
         """
         raise NotImplementedError
