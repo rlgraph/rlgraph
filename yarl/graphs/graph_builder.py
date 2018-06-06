@@ -241,8 +241,10 @@ class GraphBuilder(Specifiable):
             # - If all inputs are complete, build a new op into the graph (via the graph_fn).
             elif isinstance(outgoing, GraphFunction):
                 self.build_outgoing_graph_fn(outgoing, socket)
+
             else:
-                raise YARLError("ERROR: Outgoing connection must be Socket or GraphFunction!")
+                raise YARLError("ERROR: Outgoing connection ({}) must be of type Socket or GraphFunction!".\
+                                format(outgoing))
 
     def build_outgoing_graph_fn(self, outgoing, socket):
         """

@@ -21,11 +21,12 @@ from .env import Env
 from .grid_world import GridWorld
 from .openai_gym import OpenAIGymEnv
 
+
 Env.__lookup_classes__ = dict(
+    gridworld=GridWorld,
     openai=OpenAIGymEnv,
     openaigymenv=OpenAIGymEnv,
-    openaigym=OpenAIGymEnv,
-    gridworld=GridWorld
+    openaigym=OpenAIGymEnv
 )
 
 __all__ = ["Env", "GridWorld", "OpenAIGymEnv"]

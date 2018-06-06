@@ -64,16 +64,20 @@ class Socket(object):
         self.incoming_connections = list()
         self.outgoing_connections = list()
 
-        # A Socket can be labelled by a call to `Component.connect()` when connecting from it.
-        # This will make all this Socket's DataOps carry these labels when passing them to the next connected Socket(s).
-        # At some point down the connection sequence, a Socket may chose to only pick DataOps that have certain
-        # label(s).
-        self.labels = set()
-
         # The inferred Space coming into this Socket.
         self.space = None
 
-        # The set of (alternative) DataOpRecords.
+        # A Socket ([from-sock]) takes a label for a specific outgoing connection ([to-sock]) via a call to:
+        # `Component.connect([from-sock], [to-sock], label="lab1")`.
+        # The following rules apply now:
+        # - [from-sock] will take all incoming ops (unless the incoming sock has its own filtering/labelling going on).
+        # - [from-sock] will only pass to [to-sock] (AND label with "lab1") those ops that either have no label yet or
+        #   that already carry the label "lab1". All other ops will not be passed to [to-sock].
+        # Also, when sent through a graph_fn, the resulting ops carry a union of all input ops' labels.
+        # key=[to-sock]'s component/name string; values=set of labels (str).
+        self.labels = dict()
+
+        # The set of (alternative) DataOpRecords (op plus optional label(s)).
         self.op_records = set()
 
     def connect_to(self, to_):
@@ -105,13 +109,18 @@ class Socket(object):
                 `from_`'s ops during build time.
         """
         if from_ not in self.incoming_connections:
-            # We need to set this flag here to be able to determine, whether a graph_fn is a no-input
-            # (or constant-values-only) graph_fn.
-            if isinstance(from_, SingleDataOp) and self.component.is_core is False:
-                self.component.no_input_entry_points.append(self)
-            # Socket: Add label to it.
+            # We need to add this Socket here to the list of no-input entry points (except core as we always start
+            # building with the core's in-Sockets, so these are covered).
+            if isinstance(from_, SingleDataOp):
+                if self.component.is_core is False:
+                    self.component.no_input_entry_points.append(self)
+            # Socket: Add the label for ops passed to this Socket.
             elif label is not None:
-                from_.labels.add(label)
+                assert isinstance(from_, Socket), "ERROR: No `label` ({}) allowed if `from_` ({}) is not a Socket " \
+                                                  "object!".format(label, str(from_))
+                if self not in from_.labels:
+                    from_.labels[self] = set()
+                from_.labels[self].add(label)
             self.incoming_connections.append(from_)
 
     def disconnect_from(self, from_):
@@ -142,8 +151,30 @@ class Socket(object):
         Raises:
             YARLError: If there is an attempt to connect more than one Space to this Socket.
         """
+        # Incoming is another Socket -> Simply update ops from this one.
+        if isinstance(incoming, Socket):
+            if incoming.space is not None:
+                assert self.space is None or incoming.space == self.space
+                self.space = incoming.space
+                self.component.check_input_completeness()
+                # Make sure we filter those op-records that already have at least one label and that do not
+                # have the label of this connection (from `incoming`).
+                socket_labels = incoming.labels.get(self, None)  # type: set
+                op_records = set(in_socket_op_record or incoming.op_records)  # force a set, even if just single item
+                # With filtering.
+                if socket_labels is not None:
+                    filtered_op_records = set()
+                    for op_rec in op_records:  # type: DataOpRecord
+                        # If incoming op has no labels OR it has at least 1 label out of this Socket's
+                        # labels for this connection -> Allow op through to this Socket.
+                        if len(op_rec.labels) == 0 or len(set.intersection(op_rec.labels, socket_labels)):
+                            op_rec.labels.update(socket_labels)
+                            filtered_op_records.add(op_rec)
+                    op_records = filtered_op_records
+                self.op_records.update(op_records)
+
         # Space: generate backend-ops.
-        if isinstance(incoming, Space):
+        elif isinstance(incoming, Space):
             # Store this Space as our incoming Space.
             if self.space is not None:
                 raise YARLError("ERROR: A Socket can only have one incoming Space!")
@@ -169,27 +200,19 @@ class Socket(object):
                 nth_computed_ops_records.append(outputs[graph_fn_in_slot])
 
             # Store incoming Space.
-            #assert self.space is None  # Try this hard assert for now (should be ok).
-            if self.space is None:
-                if len(nth_computed_ops_records) > 0:
-                    space_check = get_space_from_op(next(iter(nth_computed_ops_records)).op)
-                    self.space = space_check
-                    # Check whether all graph_fn-computed ops have the same Space.
-                    for op in nth_computed_ops_records:
-                        space = get_space_from_op(op.op)
-                        assert space == space_check, "ERROR: Different output ops of graph_fn '{}' have different Spaces " \
-                                                     "({} and {})!".format(incoming.name, space, space_check)
-                else:
-                    self.space = 0
+            if len(nth_computed_ops_records) > 0:
+                space_check = get_space_from_op(next(iter(nth_computed_ops_records)).op)
+                self.space = space_check
+                # Check whether all graph_fn-computed ops have the same Space.
+                for op in nth_computed_ops_records:
+                    space = get_space_from_op(op.op)
+                    assert space == space_check,\
+                        "ERROR: Different output ops of graph_fn '{}' have different Spaces ({} and {})!". \
+                        format(incoming.name, space, space_check)
+            else:
+                self.space = 0
 
-                self.op_records.update(nth_computed_ops_records)
-
-        # Incoming is another Socket -> Simply update ops from this one.
-        elif isinstance(incoming, Socket):
-            if incoming.space is not None:
-                self.space = incoming.space
-                self.component.check_input_completeness()
-                self.op_records.update(in_socket_op_record or incoming.op_records)
+            self.op_records.update(nth_computed_ops_records)
 
         # Constant DataOp with a value.
         elif isinstance(incoming, SingleDataOp):
@@ -203,8 +226,8 @@ class Socket(object):
 
         # Unsupported input: Error.
         else:
-            raise YARLError("ERROR: Incoming ({}) must be another Socket, a Space, a GraphFunction, or a constant "
-                            "SingleDataOp!".format(incoming))
+            raise YARLError("ERROR: `incoming` ({}) must be of type Socket, Space, GraphFunction, or SingleDataOp!".\
+                            format(incoming))
 
     def __str__(self):
         return "{}-Socket('{}/{}'{})".format(self.type, self.component.scope, self.name,

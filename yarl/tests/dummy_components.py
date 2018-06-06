@@ -30,14 +30,19 @@ class Dummy1to1(Component):
     outs:
         output
     """
-    def __init__(self, scope="dummy-1-to-1"):
+    def __init__(self, scope="dummy-1-to-1", constant_value=1.0):
+        """
+        Args:
+            constant_value (float): A constant to add to input in our graph_fn.
+        """
         super(Dummy1to1, self).__init__(scope=scope, flatten_ops=False)
+        self.constant_value = constant_value
         self.define_inputs("input")
         self.define_outputs("output")
         self.add_graph_fn("input", "output", self._graph_fn_1to1)
 
     def _graph_fn_1to1(self, input_):
-        return input_ + 1.0
+        return input_ + self.constant_value
 
 
 class Dummy1to2(Component):

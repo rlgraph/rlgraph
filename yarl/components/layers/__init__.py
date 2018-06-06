@@ -28,7 +28,6 @@ from .preprocessing import *
 # NN-Layers.
 from .nn import *
 
-
 # The Stacks.
 Stack.__lookup_classes__ = dict(
     preprocessor_stack=PreprocessorStack
@@ -45,5 +44,5 @@ default_dict(Layer.__lookup_classes__, PreprocessLayer.__lookup_classes__)
 
 
 __all__ = ["Layer", "Stack", "PreprocessorStack"] + \
-          list(map(lambda x: x.__name__, Layer.__lookup_classes__.values()))
+          list(set(map(lambda x: x.__name__, Layer.__lookup_classes__.values())))
 
