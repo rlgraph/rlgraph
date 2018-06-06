@@ -17,12 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import backend
+from yarl import backend, distributed_backend
 from yarl.components.optimizers.optimizer import Optimizer
 
-# TODO check for distributed backend, otherwise
-# this import will fail if horovod is not installed
-if backend == "tf" and False:
+
+if backend == "tf" and distributed_backend == "horovod":
     import horovod.tensorflow as hvd
 
 

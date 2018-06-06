@@ -18,13 +18,14 @@ from __future__ import division
 from __future__ import print_function
 
 from .backend_system import backend
+from .backend_system import distributed_backend
 from .initializer import Initializer
 from .ops import DataOp, SingleDataOp, DataOpDict, DataOpTuple, ContainerDataOp, FlattenedDataOp
 from .specifiable import Specifiable
 from .util import dtype, get_shape, get_rank, force_tuple, force_list, LARGE_INTEGER, SMALL_NUMBER
 from .yarl_error import YARLError
 
-__all__ = ["backend", "Initializer", "dtype", "get_shape", "get_rank", "force_tuple", "force_list",
+__all__ = ["backend", "distributed_backend", "Initializer", "dtype", "get_shape", "get_rank", "force_tuple", "force_list",
            "DataOp", "SingleDataOp", "DataOpDict", "DataOpTuple", "ContainerDataOp", "FlattenedDataOp",
            "YARLError"]
 
