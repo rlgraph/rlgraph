@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from six.moves import xrange
+
 from yarl.components.layers.stack import Stack
 
 
@@ -49,14 +51,14 @@ class Layer(Stack):
         # No sub-components, just create empty in-Sockets.
         if len(sub_components) == 0:
             if self.num_graph_fn_inputs > 1:
-                for in_ in range(self.num_graph_fn_inputs):
+                for in_ in xrange(self.num_graph_fn_inputs):
                     self.add_sockets("input{}".format(in_))
             else:
                 self.add_sockets("input")
 
         # Create our output Sockets.
         if self.num_graph_fn_outputs > 1:
-            for out_ in range(self.num_graph_fn_outputs):
+            for out_ in xrange(self.num_graph_fn_outputs):
                 self.add_sockets("output{}".format(out_))
         else:
             self.add_sockets("output")

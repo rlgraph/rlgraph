@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import unittest
 import numpy as np
+from six.moves import xrange
 
 from yarl.components.memories.ring_buffer import RingBuffer
 from yarl.spaces import Dict, IntBox
@@ -206,7 +207,7 @@ class TestRingBufferMemory(unittest.TestCase):
         num_episodes_value, episode_index_values = test.get_variable_values(num_episodes, episode_indices)
         self.assertEqual(num_episodes_value, self.capacity)
         # Every episode index should correspond to its position
-        for i in range(self.capacity):
+        for i in xrange(self.capacity):
             self.assertEqual(episode_index_values[i], i)
 
     def test_episode_fetching(self):

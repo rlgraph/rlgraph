@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from collections import OrderedDict
+from six.moves import xrange
 
 import tensorflow as tf
 
@@ -127,7 +128,7 @@ class Sequence(PreprocessLayer):
             sequences = OrderedDict()
             # Collect the correct previous inputs from the buffer to form the output sequence.
             for key in inputs.keys():
-                n_in = [self.buffer[key][(self.index + n) % self.sequence_length] for n in range(self.sequence_length)]
+                n_in = [self.buffer[key][(self.index + n) % self.sequence_length] for n in xrange(self.sequence_length)]
 
                 # Add the sequence-rank to the end of our inputs.
                 if self.add_rank:

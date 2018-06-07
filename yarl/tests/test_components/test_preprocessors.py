@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from six.moves import xrange
 import unittest
 
 from yarl.components.layers import GrayScale, Flatten, Scale, PreprocessorStack, Sequence
@@ -143,7 +144,7 @@ class TestPreprocessors(unittest.TestCase):
         vars = component_to_test.get_variables("index", "buffer", global_scope=False)
         index, buffer = vars["index"], vars["buffer"]
 
-        for i in range(3):
+        for i in xrange(3):
             test.test(out_socket_names="reset")
             index_value, buffer_value = test.get_variable_values(index, buffer)
             self.assertEqual(index_value, -1)
@@ -175,7 +176,7 @@ class TestPreprocessors(unittest.TestCase):
         component_to_test = Sequence(seq_length=4, add_rank=False)
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
 
-        for i in range(3):
+        for i in xrange(3):
             test.test(out_socket_names="reset")
             test.test(out_socket_names="output", inputs=(np.array([0.5]), np.array([[0.6, 0.7], [0.8, 0.9]])),
                       expected_outputs=(np.array([0.5, 0.5, 0.5, 0.5]), np.array([[0.6, 0.7] * 4,

@@ -20,6 +20,7 @@ from __future__ import print_function
 import math
 import numpy as np
 import random
+from six.moves import xrange
 import time
 
 from yarl.envs import Env
@@ -231,7 +232,7 @@ class GridWorld(Env):
 
     def render(self):
         # paints itself
-        for row in range(len(self.world)):
+        for row in xrange(len(self.world)):
             for col, val in enumerate(self.world[row]):
                 if self.x == col and self.y == row:
                     print("X", end="")
@@ -297,8 +298,8 @@ class GridWorld(Env):
         # 1st channel -> walls (127) and goal (255)
         # 2nd channel -> dangers (fire=127, holes=255)
         # 3rd channel -> pawn position (255)
-        for row in range(self.n_row):
-            for col in range(self.n_col):
+        for row in xrange(self.n_row):
+            for col in xrange(self.n_col):
                 field = self.world[row, col]
                 if field == "F":
                     self.camera_pixels[row, col, 0] = 127

@@ -17,14 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
+from functools import partial
 import numpy as np
 import itertools
-from functools import partial
+from six.moves import xrange
 
-from .backend_system import backend
-from .yarl_error import YARLError
-from .ops import DataOpTuple
+import tensorflow as tf
+
+from yarl.utils.backend_system import backend
+from yarl.utils.yarl_error import YARLError
+from yarl.utils.ops import DataOpTuple
 
 if backend == "tf":
     import tensorflow as be
@@ -176,7 +178,7 @@ def all_combinations(input_list, descending_length=False):
         The list of tuples of possible combinations.
     """
     return sorted(list(itertools.chain.from_iterable(
-        itertools.combinations(input_list, i+1) for i in range(len(input_list)))),
+        itertools.combinations(input_list, i+1) for i in xrange(len(input_list)))),
         key=len, reverse=descending_length)
 
 

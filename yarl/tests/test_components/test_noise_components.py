@@ -17,8 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import unittest
 import numpy as np
+from six.moves import xrange
+import unittest
 
 from yarl.components.common.noise_components import *
 from yarl.spaces import *
@@ -39,7 +40,7 @@ class TestNoiseComponents(unittest.TestCase):
         noise_component = ConstantNoise(action_space=self.action_input_space, value=real_noise)
         test = ComponentTest(component=noise_component, input_spaces=dict(action=self.action_input_space))
 
-        for i in range(1000):
+        for i in xrange(1000):
             test.test(out_socket_names="noise", expected_outputs=real_noise)
 
     def test_gaussian_noise(self):
@@ -53,7 +54,7 @@ class TestNoiseComponents(unittest.TestCase):
         collected = list()
         collect_outs = lambda component_test, outs: collected.append(outs)
 
-        for i in range(1000):
+        for i in xrange(1000):
             test.test(out_socket_names="noise", fn_test=collect_outs)
 
         test_mean = np.mean(collected)
@@ -85,7 +86,7 @@ class TestNoiseComponents(unittest.TestCase):
         collected = list()
         collect_outs = lambda component_test, outs: collected.append(outs)
 
-        for i in range(1000):
+        for i in xrange(1000):
             test.test(out_socket_names="noise", fn_test=collect_outs)
 
         test_mean = np.mean(collected)

@@ -17,8 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 from math import log
+import numpy as np
+from six.moves import xrange
 
 from yarl import backend, YARLError, SMALL_NUMBER
 from yarl.components import Component
@@ -69,7 +70,7 @@ class NNOutputCleanup(Component):
         # If we have a bias layer, connect it before the actual cleanup.
         if bias is not None:
             bias_layer = DenseLayer(units=self.target_space.num_categories, biases_spec=bias if np.isscalar(bias) else
-                                    [log(b) for _ in range(self.target_space.flat_dim) for b in bias])
+                                    [log(b) for _ in xrange(self.target_space.flat_dim) for b in bias])
             self.add_component(bias_layer, connections=dict(input="nn_output"))
             # Place our cleanup after the bias layer.
             self.add_graph_fn((bias_layer, "output"), "parameters", self._graph_fn_cleanup)

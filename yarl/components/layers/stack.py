@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from six.moves import xrange
+
 from yarl.components import Component
 from yarl.utils.util import force_list
 
@@ -74,12 +76,12 @@ class Stack(Component):
             assert len(sub_component_inputs) == len(sub_component_outputs),\
                 "ERROR: `sub_component_inputs` () and `sub_component_outputs` () must have the same length!".\
                 format(sub_component_inputs, sub_component_outputs)
-            for i in range(len(sub_components) - 1):
+            for i in xrange(len(sub_components) - 1):
                 for out_sock, in_sock in zip(sub_component_outputs, sub_component_inputs):
                     self.connect((sub_components[i], out_sock), (sub_components[i + 1], in_sock))
         # Or just all out- with in-Sockets.
         else:
-            for i in range(len(sub_components) - 1):
+            for i in xrange(len(sub_components) - 1):
                 self.connect(sub_components[i], sub_components[i+1])
 
     @classmethod
