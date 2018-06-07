@@ -43,8 +43,11 @@ class TestSingleThreadedWorker(unittest.TestCase):
         )
 
         result = worker.execute_timesteps(100)
-        self.assertLessEqual(result['episodes_executed'], 100)
+        self.assertEqual(result['timesteps_executed'], 100)
         self.assertGreater(result['episodes_executed'], 0)
+        self.assertLessEqual(result['episodes_executed'], 100)
+        self.assertGreaterEqual(result['env_frames'], 100)
+        self.assertGreaterEqual(result['runtime'], 0.0)
 
     def test_episodes(self):
         """
@@ -63,3 +66,6 @@ class TestSingleThreadedWorker(unittest.TestCase):
         result = worker.execute_episodes(5, max_timesteps_per_episode=10)
         # Max 5 * 10.
         self.assertLessEqual(result['timesteps_executed'], 50)
+        self.assertEqual(result['episodes_executed'], 5)
+        self.assertLessEqual(result['env_frames'], 50)
+        self.assertGreaterEqual(result['runtime'], 0.0)

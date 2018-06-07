@@ -23,14 +23,15 @@ from yarl import __version__
 
 
 install_requires=[
-    'tensorflow',
-    'pyyaml',
     'cached_property',
-    'pytest'
+    'numpy',
+    'pyyaml',
+    'pytest',
+    'tensorflow'
 ]
 
 setup_requires=[
-    'numpy'
+
 ]
 
 extras_require = {
