@@ -19,13 +19,13 @@ from __future__ import print_function
 
 from .preprocess_layer import PreprocessLayer
 
-from .clamp import Clamp
-from .flatten import Flatten
-from .grayscale import GrayScale
-from .image_resize import ImageResize
-from .normalize import Normalize
-from .scale import Scale
-from .sequence import Sequence
+from yarl.components.layers.preprocessing.clamp import Clamp
+from yarl.components.layers.preprocessing.flatten import Flatten
+from yarl.components.layers.preprocessing.grayscale import GrayScale
+from yarl.components.layers.preprocessing.image_resize import ImageResize
+from yarl.components.layers.preprocessing.normalize import Normalize
+from yarl.components.layers.preprocessing.scale import Scale
+from yarl.components.layers.preprocessing.sequence import Sequence
 
 PreprocessLayer.__lookup_classes__ = dict(
     clamp=Clamp,

@@ -19,8 +19,8 @@ from __future__ import print_function
 
 from yarl import backend
 from yarl.spaces import Space
-from yarl.utils.util import get_rank, SMALL_NUMBER
-from .preprocess_layer import PreprocessLayer
+from yarl.utils.util import SMALL_NUMBER
+from yarl.components.layers.preprocessing import PreprocessLayer
 
 
 class Normalize(PreprocessLayer):

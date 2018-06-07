@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .preprocess_layer import PreprocessLayer
+from yarl.components.layers.preprocessing import PreprocessLayer
 
 
 class Scale(PreprocessLayer):

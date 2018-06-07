@@ -23,7 +23,7 @@ from six.moves import xrange
 import tensorflow as tf
 
 from yarl.utils.util import get_rank, force_list
-from .preprocess_layer import PreprocessLayer
+from yarl.components.layers.preprocessing import PreprocessLayer
 
 
 class Sequence(PreprocessLayer):

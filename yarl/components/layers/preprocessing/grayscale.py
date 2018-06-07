@@ -21,7 +21,7 @@ import numpy as np
 import tensorflow as tf
 
 from yarl.utils.util import get_rank, get_shape
-from .preprocess_layer import PreprocessLayer
+from yarl.components.layers.preprocessing import PreprocessLayer
 
 
 class GrayScale(PreprocessLayer):
