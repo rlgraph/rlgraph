@@ -153,7 +153,7 @@ class SingleThreadedWorker(Worker):
         self.logger.info("Env frames executed (incl. action repeats): {} ({} frames/s)".
                          format(env_frames, env_frames / total_time))
         # Total episodes done (and episodes/min).
-        self.logger.info("Episodes executed: {} ({} episodes/min)".
+        self.logger.info("Episodes finished: {} ({} episodes/min)".
                          format(episodes_executed, episodes_executed/(total_time*60)))
         self.logger.info("Mean episode runtime: {}s".format(np.mean(episode_durations)))
         self.logger.info("Mean episode reward: {}".format(np.mean(episode_rewards)))

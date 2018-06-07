@@ -126,7 +126,7 @@ class DQNAgent(Agent):
         core.connect((self.target_net, "synch_in"), "synch_target_qnet")
 
     def get_action(self, states, deterministic=False):
-        pass
+        return self.graph_executor.execute("act")
 
     def _observe_graph(self, states, actions, internals, reward, terminal):
         pass

@@ -1,0 +1,44 @@
+{
+  "type": "dqn",
+
+  "memory_spec":
+  {
+    "type": "replay",
+    "capacity": 10
+  },
+
+  "preprocessor_spec":
+  [
+    {
+      "type": "one_hot",
+      "depth": 4
+    }
+  ],
+
+  "network_spec":
+  [
+    {
+      "type": "dense",
+      "units": 3,
+      "scope": "hidden-layer"
+    },
+    {
+      "type": "dense",
+      "units": 3,
+      "scope": "output-layer"
+    }
+  ],
+
+  "exploration_spec":
+  {
+    "type": "epsilon",
+    "non_explore_behavior": "max-likelihood",
+    "epsilon_spec": {
+      "type": "linear-decay",
+      "from": 1.0,
+      "to": 0.1,
+      "start_timestep": 0,
+      "num_timesteps": 10000
+    }
+  }
+}

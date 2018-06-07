@@ -84,14 +84,14 @@ class DecayComponent(Component):
         if backend == "tf":
             return tf.cond(
                 pred=(time_step <= self.start_timestep),
-               # We are still in pre-decay time.
-               true_fn=lambda: self.from_,
-               false_fn=lambda: tf.cond(pred=(time_step >= self.start_timestep + self.num_timesteps),
-                                        # We are in post-decay time.
-                                        true_fn=lambda: self.to_,
-                                        # We are inside the decay time window.
-                                        false_fn=lambda: self.decay(tf.cast(x=time_step - self.start_timestep,
-                                                                                        dtype=util.dtype("float"))))
+                # We are still in pre-decay time.
+                true_fn=lambda: self.from_,
+                false_fn=lambda: tf.cond(pred=(time_step >= self.start_timestep + self.num_timesteps),
+                                         # We are in post-decay time.
+                                         true_fn=lambda: self.to_,
+                                         # We are inside the decay time window.
+                                         false_fn=lambda: self.decay(tf.cast(x=time_step - self.start_timestep,
+                                                                             dtype=util.dtype("float"))))
             )
 
 

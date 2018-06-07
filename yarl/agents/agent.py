@@ -20,10 +20,7 @@ from __future__ import print_function
 from yarl import Specifiable, backend
 from yarl.graphs.graph_executor import GraphExecutor
 from yarl.utils.input_parsing import parse_execution_spec, parse_update_spec
-from yarl.components import Component
-from yarl.components.layers import Stack
-from yarl.components.neural_networks import NeuralNetwork
-from yarl.components.optimizers import Optimizer
+from yarl.components import Component, Exploration, PreprocessorStack, NeuralNetwork, Optimizer
 from yarl.graphs import GraphBuilder
 from yarl.spaces import Space
 
@@ -52,9 +49,10 @@ class Agent(Specifiable):
         Args:
             state_space (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
             action_space (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
-            network_spec (Optional[dict,NeuralNetwork]): Spec dict for a NeuralNetwork Component or the NeuralNetwork
+            network_spec (Optional[list,NeuralNetwork]): Spec list for a NeuralNetwork Component or the NeuralNetwork
                 object itself.
-            preprocessing_spec (Optional[list]): The spec dict for the different necessary states preprocessing steps.
+            preprocessing_spec (Optional[list,PreprocessorStack]): The spec list for the different necessary states
+                preprocessing steps or a PreprocessorStack object itself.
             exploration_spec (Optional[dict]):
             execution_spec (Optional[dict]):
             optimizer_spec (Optional[dict]):
@@ -68,12 +66,19 @@ class Agent(Specifiable):
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
         self.neural_network = NeuralNetwork.from_spec(network_spec)
 
-        self.preprocessor_stack = Stack.from_spec(preprocessing_spec)
-        self.exploration_spec = exploration_spec
+        self.preprocessor_stack = PreprocessorStack.from_spec(preprocessing_spec)
+        self.exploration = Exploration.from_spec(exploration_spec, action_space=self.action_space)
         self.execution_spec = parse_execution_spec(execution_spec)
-        self.buffer_enabled = self.execution_spec.get("buffer_enabled", False)
+
+        # Python-side experience buffer for better performance (may be disabled).
+        self.states_buffer = None
+        self.actions_buffer = None
+        self.internals_buffer = None
+        self.reward_buffer = None
+        self.terminal_buffer = None
+        self.buffer_enabled = self.execution_spec["buffer_enabled"]
         if self.buffer_enabled:
-            self.buffer_size = self.execution_spec.get("buffer_size", 100)
+            self.buffer_size = self.execution_spec["buffer_size"]
             self.reset_buffers()
 
         if optimizer_spec:
@@ -91,7 +96,7 @@ class Agent(Specifiable):
             execution_spec=self.execution_spec
         )
 
-        # Build a custom, agent-specific algorithm.
+        # Build a custom, agent-specific algorithm into the builder's `core` Component.
         self.build_graph(graph_builder.core_component)
         # Ask our executor to actually build the Graph.
         self.graph_executor.build()
@@ -139,8 +144,8 @@ class Agent(Specifiable):
         """
         Observes an experience tuple or a batch of experience tuples. Note: If configured,
         first uses buffers and then internally calls _observe_graph() to actually run the computation graph.
-        If buffering is disabled, this just routes the call to the respective _observe_graph() method of the
-        subagent.
+        If buffering is disabled, this just routes the call to the respective `_observe_graph()` method of the
+        child Agent.
 
         Args:
             states (Union[dict, ndarray]): States dict or array.
@@ -178,12 +183,11 @@ class Agent(Specifiable):
         calls this method to move data into the graph.
 
         Args:
-            states (Union[dict, ndarray]): States dict or array.
-            actions (Union[dict, ndarray]): Actions dict or array containing actions performed for the given state(s).
-            internals (Union[list, None]): Internal state(s) returned by agent for the given states.
-            reward (Union[ndarray, list, float]): Scalar reward(s) observed.
-            terminal (Union[list, bool]): Boolean indicating terminal.
-
+            states (Union[dict,ndarray]): States dict or array.
+            actions (Union[dict,ndarray]): Actions dict or array containing actions performed for the given state(s).
+            internals (Union[list,None]): Internal state(s) returned by agent for the given states.
+            reward (Union[ndarray,list,float]): Scalar reward(s) observed.
+            terminal (Union[list,bool]): Boolean indicating terminal.
         """
         raise NotImplementedError
 
@@ -191,7 +195,8 @@ class Agent(Specifiable):
         """
         Performs an update on the computation graph.
 
-        Returns: Loss value.
+        Returns:
+            Loss value.
         """
         raise NotImplementedError
 

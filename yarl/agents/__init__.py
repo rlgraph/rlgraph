@@ -18,5 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 from .agent import Agent
+from yarl.agents.dqn_agent import DQNAgent
 
-__all__ = ["Agent"]
+
+Agent.__lookup_classes__ = dict(
+    dqn=DQNAgent,
+    dqnagent=DQNAgent
+)
+
+__all__ = ["Agent", "DQNAgent"]
+

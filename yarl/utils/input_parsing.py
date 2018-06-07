@@ -50,6 +50,8 @@ def parse_execution_spec(execution_spec):
     # If no spec given.
     default_spec = dict(
         mode="single",
+        buffer_enabled=False,
+        buffer_size=100,  # only if buffer_enabled=True
         distributed_spec=None,
         session_config=None,
         seed=None

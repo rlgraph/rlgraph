@@ -20,9 +20,10 @@ from __future__ import print_function
 import logging
 import unittest
 
-from yarl.components import Component, CONNECT_INS, CONNECT_OUTS
-from yarl.tests import ComponentTest, root_logger
-from yarl.tests.dummy_components import Dummy1to1, Dummy2to1, Dummy1to2, Dummy0to1
+from yarl.agents import DQNAgent
+from yarl.envs import GridWorld
+from yarl.execution.single_threaded_worker import SingleThreadedWorker
+from yarl.tests import root_logger
 
 
 class TestDQNAgent(unittest.TestCase):
@@ -35,8 +36,16 @@ class TestDQNAgent(unittest.TestCase):
         """
         Creates a DQNAgent and runs it via a Runner on a simple 2x2 GridWorld.
         """
-        component = Dummy1to1(scope="dummy")
+        env = GridWorld("2x2")
+        agent = DQNAgent.from_spec("configs/test_simple_dqn_agent.json",
+                                   state_space=env.state_space,
+                                   action_space=env.action_space,
 
-        # Expected output: input + 1.0
-        test.test(out_socket_names="output", inputs=1.0, expected_outputs=2.0)
-        test.test(out_socket_names="output", inputs=-5.0, expected_outputs=-4.0)
+                                   )
+
+        worker = SingleThreadedWorker(agent=agent, env=env)
+        results = worker.execute_timesteps(1000, deterministic=True)
+
+        print(results)
+
+        # TODO: assert good results :)
