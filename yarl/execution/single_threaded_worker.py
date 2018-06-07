@@ -17,10 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.execution.worker import Worker
+import numpy as np
 from six.moves import xrange
 import time
-import numpy as np
+
+from yarl.execution.worker import Worker
 
 
 class SingleThreadedWorker(Worker):
@@ -32,125 +33,126 @@ class SingleThreadedWorker(Worker):
             self.environment, self.agent
         ))
 
-    def execute_timesteps(self, num_timesteps, deterministic=False):
-        executed = 0
-        env_frames = 0
-        episode_rewards = []
-        episode_durations = []
-        episode_steps = []
-        start = time.monotonic()
+    def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, deterministic=False):
+        return self._execute(num_timesteps=num_timesteps, max_timesteps_per_episode=max_timesteps_per_episode,
+                             deterministic=deterministic)
 
-        while executed < num_timesteps:
-            episode_reward = 0
-            episode_step = 0
-            terminal = False
-            episode_start = time.monotonic()
-            state = self.environment.reset()
+    def execute_episodes(self, num_episodes, max_timesteps_per_episode=0, deterministic=False):
+        return self._execute(num_episodes=num_episodes, max_timesteps_per_episode=max_timesteps_per_episode,
+                             deterministic=deterministic)
 
-            while True:
-                reward = 0
-                actions = self.agent.get_action(states=state, deterministic=deterministic)
+    def _execute(self, num_timesteps=None, num_episodes=None, deterministic=False, max_timesteps_per_episode=None):
+        """
+        Actual implementation underlying `execute_timesteps` and `execute_episodes`.
 
-                for repeat in xrange(self.repeat_actions):
-                    state, step_reward, terminal, info = self.environment.step(actions=actions)
-                    env_frames += 1
-                    reward += step_reward
-                    if terminal or executed >= num_timesteps:
-                        break
+        Args:
+            num_timesteps (Optional[int]): The maximum number of timesteps to run. At least one of `num_timesteps` or
+                `num_episodes` must be provided.
+            num_episodes (Optional[int]): The maximum number of episodes to run. At least one of `num_timesteps` or
+                `num_episodes` must be provided.
+            deterministic (bool): Whether to execute actions deterministically or not.
+                Default: False.
+            max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
+                Use None or 0 for no limit. Default: None.
 
-                self.agent.observe(states=state, actions=actions, internals=None, reward=reward, terminal=terminal)
-                episode_reward += reward
-                executed += 1
-                episode_step += 1
-                if terminal or executed >= num_timesteps:
-                    break
+        Returns:
+            dict: Execution statistics.
+        """
+        assert num_timesteps is not None or num_episodes is not None, "ERROR: One of `num_timesteps` or `num_episodes` " \
+                                                                      "must be provided!"
 
-            episode_rewards.append(episode_reward)
-            episode_durations.append(time.monotonic() - episode_start)
-            episode_steps.append(episode_step)
-            self.logger.info("Finished episode, reward: {}, steps {}, duration {}.".format(
-                episode_reward, episode_step, episode_durations[-1]))
+        num_timesteps = num_timesteps or 0
+        num_episodes = num_episodes or 0
+        max_timesteps_per_episode = max_timesteps_per_episode or 0
 
-        end = time.monotonic() - start
-        self.logger.info("Finished executing {} time steps in {} s".format(num_timesteps, end))
-        self.logger.info("Episodes steps executed: {}".format(len(episode_durations)))
-        self.logger.info("Throughput: {} ops/s".format(num_timesteps / end))
-        self.logger.info("Mean episode reward: {}".format(np.mean(episode_rewards)))
-        self.logger.info("Final episode reward: {}".format(episode_rewards[-1]))
-
-        return dict(
-            runtime=end,
-            # Agent act/observe throughput.
-            ops_per_second=(num_timesteps / end),
-            # Env frames including action repeats.
-            env_frames=env_frames,
-            env_frames_per_second=(env_frames / end),
-            episodes_executed=len(episode_durations),
-            mean_episode_runtime=np.mean(episode_durations),
-            mean_episode_reward=np.mean(episode_rewards),
-            max_episode_reward=np.max(episode_rewards),
-            final_episode_reward=episode_rewards[-1]
-        )
-
-    def execute_episodes(self, num_episodes, max_timesteps_per_episode, deterministic=False):
-        executed = 0
-        env_frames = 0
+        # Stats.
+        timesteps_executed = 0
         episodes_executed = 0
+        env_frames = 0
         episode_rewards = []
         episode_durations = []
         episode_steps = []
         start = time.monotonic()
 
-        while episodes_executed < num_episodes:
+        # Only run everything for at most num_timesteps (if defined).
+        while not (num_timesteps > 0 and timesteps_executed < num_timesteps):
+            # The reward accumulated over one episode.
             episode_reward = 0
-            episode_step = 0
+            # The number of steps taken in the episode.
+            episode_timestep = 0
+            # Whether the episode has terminated.
             terminal = False
-            episode_start= time.monotonic()
-            state = self.environment.reset()
 
+            # Start a new episode.
+            episode_start = time.monotonic()  # wall time
+            state = self.environment.reset()
             while True:
-                reward = 0
                 actions = self.agent.get_action(states=state, deterministic=deterministic)
 
-                for repeat in xrange(self.repeat_actions):
+                # Accumulate the reward over n env-steps (equals one action pick). n=self.repeat_actions
+                reward = 0
+                for _ in xrange(self.repeat_actions):
+                    #
                     state, step_reward, terminal, info = self.environment.step(actions=actions)
                     env_frames += 1
                     reward += step_reward
-                    if terminal or episodes_executed >= num_episodes:
+                    if terminal:
                         break
 
                 self.agent.observe(states=state, actions=actions, internals=None, reward=reward, terminal=terminal)
+
                 episode_reward += reward
-                executed += 1
-                episode_step += 1
-                if terminal or episodes_executed >= num_episodes:
+                timesteps_executed += 1
+                episode_timestep += 1
+                # Is the episode finished or do we have to terminate it prematurely because of other restrictions?
+                if terminal or (0 < num_timesteps <= timesteps_executed) or \
+                        (0 < max_timesteps_per_episode <= episode_timestep):
                     break
 
             episodes_executed += 1
             episode_rewards.append(episode_reward)
             episode_durations.append(time.monotonic() - episode_start)
-            episode_steps.append(episode_step)
-            self.logger.info("Finished episode, reward: {}, steps {}, duration {}.".format(
-                episode_reward, episode_step, episode_durations[-1]))
+            episode_steps.append(episode_timestep)
+            self.logger.info("Finished episode: reward={}, actions={}, duration={}s.".format(
+                episode_reward, episode_timestep, episode_durations[-1]))
 
-        end = time.monotonic() - start
-        self.logger.info("Finished executing {} episodes in {} s".format(num_episodes, end))
-        self.logger.info("Throughput: {} ops/s".format(executed / end))
-        self.logger.info("Time steps executed: {}".format(executed))
+            if 0 < num_episodes <= episodes_executed:
+                break
 
+        total_time = (time.monotonic() - start) or 1e-10
+        # Total time of run.
+        self.logger.info("Finished execution in {} s".format(total_time))
+        # Total (RL) timesteps (actions) done (and timesteps/sec).
+        self.logger.info("Time steps (actions) executed: {} ({} ops/s)".
+                         format(timesteps_executed, timesteps_executed / total_time))
+        # Total env-timesteps done (including action repeats) (and env-timesteps/sec).
+        self.logger.info("Env frames executed (incl. action repeats): {} ({} frames/s)".
+                         format(env_frames, env_frames / total_time))
+        # Total episodes done (and episodes/min).
+        self.logger.info("Episodes executed: {} ({} episodes/min)".
+                         format(episodes_executed, episodes_executed/(total_time*60)))
+        # Mean episode runtime.
+        self.logger.info("Mean episode runtime: {}s".format(np.mean(episode_durations)))
+        # Mean episode reward.
         self.logger.info("Mean episode reward: {}".format(np.mean(episode_rewards)))
+        # Max. episode reward.
+        self.logger.info("Max. episode reward: {}".format(np.max(episode_rewards)))
+        # Last episode reward.
         self.logger.info("Final episode reward: {}".format(episode_rewards[-1]))
 
         return dict(
-            runtime=end,
+            runtime=total_time,
             # Agent act/observe throughput.
-            ops_per_second=(executed / end),
+            timesteps_executed=timesteps_executed,
+            ops_per_second=(timesteps_executed / total_time),
             # Env frames including action repeats.
             env_frames=env_frames,
-            env_frames_per_second=(env_frames / end),
-            timesteps_executed=executed,
+            env_frames_per_second=(env_frames / total_time),
+            episodes_executed=episodes_executed,
+            episodes_per_minute=(episodes_executed/(total_time*60)),
             mean_episode_runtime=np.mean(episode_durations),
             mean_episode_reward=np.mean(episode_rewards),
             max_episode_reward=np.max(episode_rewards),
             final_episode_reward=episode_rewards[-1]
         )
+
