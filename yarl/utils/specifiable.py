@@ -70,22 +70,31 @@ class Specifiable(object):
         Keyword Args:
             kwargs (any): Optional possibility to pass the c'tor arguments in here and use spec as the type-only info.
                 Then we can call this like: from_spec([type]?, [**kwargs for ctor])
-                If spec is already a dict, then kwargs will be merged with spec after "type" has been popped
-                out of spec.
+                If `spec` is already a dict, then `kwargs` will be merged with spec (overwriting keys in `spec`) after
+                "type" has been popped out of `spec`.
+                If a constructor of a Specifiable needs an *args list of items, the special key `_args` can be passed
+                inside `kwargs` with a list type value (e.g. kwargs={"_args": [arg1, arg2, arg3]}).
 
         Returns:
             The object generated from the spec.
         """
+        # `type_`: Indicator for the Specifiable's constructor.
+        # `ctor_args`: *args arguments for the constructor.
+        # `ctor_kwargs`: **kwargs arguments for the constructor.
         if isinstance(spec, dict):
             if "type" in spec:
                 type_ = spec.pop("type", None)
             else:
                 type_ = None
-            spec.update(kwargs)  # give kwargs priority
+            ctor_kwargs = spec
+            ctor_kwargs.update(kwargs)  # give kwargs priority
         else:
             type_ = spec
-            spec = kwargs
+            ctor_kwargs = kwargs
+        # Special `_args` field in kwargs for *args-utilizing constructors.
+        ctor_args = kwargs.pop("_args", [])
 
+        # Figure out the actual constructor (class) from `type_`.
         constructor = None
         # Default case: same class
         if type_ is None:
@@ -109,7 +118,7 @@ class Specifiable(object):
         if not constructor:
             raise YARLError("Invalid type: {}".format(type_))
 
-        obj = constructor(**spec)
+        obj = constructor(*ctor_args, **ctor_kwargs)
         assert isinstance(obj, constructor)
 
         return obj

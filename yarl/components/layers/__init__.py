@@ -30,7 +30,7 @@ from .nn import *
 
 # The Stacks.
 Stack.__lookup_classes__ = dict(
-    preprocessor_stack=PreprocessorStack
+    preprocessorstack=PreprocessorStack
 )
 
 # The Layers (Layers are also Stacks).

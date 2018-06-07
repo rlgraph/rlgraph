@@ -28,6 +28,20 @@ import numpy as np
 
 class TestPreprocessors(unittest.TestCase):
 
+    def test_preprocessor_from_list_spec(self):
+        space = FloatBox(shape=(2,))
+        stack = PreprocessorStack.from_spec([
+            dict(type="grayscale", keep_rank=False, weights=(0.5, 0.5)),
+            dict(type="scale", scaling_factor=0.5),
+        ])
+        test = ComponentTest(component=stack, input_spaces=dict(input=space))
+
+        # Run the test.
+        input_ = np.array([3.0, 5.0])
+        expected = np.array(2.0)
+        test.test(out_socket_names="reset")
+        test.test(out_socket_names="output", inputs=input_, expected_outputs=expected)
+
     def test_split_graph_on_grayscale(self):
         # last rank is always the color rank (its dim must match len(grayscale-weights))
         space = Dict.from_spec(dict(

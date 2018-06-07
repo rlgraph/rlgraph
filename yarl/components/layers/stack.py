@@ -53,7 +53,7 @@ class Stack(Component):
 
         super(Stack, self).__init__(*sub_components, **kwargs)
 
-        # Redefine sub_components for iteration purposes.
+        # sub_components for iteration purposes.
         sub_components = list(self.sub_components.values())
 
         if len(self.sub_components) > 0:
@@ -81,3 +81,8 @@ class Stack(Component):
         else:
             for i in range(len(sub_components) - 1):
                 self.connect(sub_components[i], sub_components[i+1])
+
+    @classmethod
+    def from_spec(cls, spec=(), **kwargs):
+        kwargs["_args"] = list(spec)
+        return super(Stack, cls).from_spec(**kwargs)

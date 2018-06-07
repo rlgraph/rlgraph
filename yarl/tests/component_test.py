@@ -26,7 +26,7 @@ from .test_util import recursive_assert_almost_equal, root_logger
 
 class ComponentTest(object):
     """
-    A simple (and limited) Model-wrapper to test a single component in an easy, straightforward way.
+    A simple (and limited) Graph-wrapper to test a single component in an easy, straightforward way.
     """
     def __init__(self, component, input_spaces=None, seed=10, logging_level=None):
         """
