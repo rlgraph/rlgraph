@@ -317,17 +317,34 @@ class Component(Specifiable):
                 return ret
             # Return only variables of this Component by name.
             else:
-                ret = dict()
-                for name in names:
-                    global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
-                    if name in self.variables:
-                        ret[re.sub(r'/', custom_scope_separator, name)] = self.variables[name]
-                    elif global_scope_name in self.variables:
-                        if global_scope:
-                            ret[re.sub(r'/', custom_scope_separator, global_scope_name)] = self.variables[global_scope_name]
-                        else:
-                            ret[name] = self.variables[global_scope_name]
-                return ret
+                return self.variables_by_name(custom_scope_separator, global_scope, names)
+
+    def variables_by_name(self, custom_scope_separator, global_scope, names):
+        """
+        Retrieves this components variables by name.
+        Args:
+            names (List[str]): Lookup name strings for variables. None for all.
+
+            custom_scope_separator (str): The separator to use in the returned dict for scopes.
+                Default: '/'.
+            global_scope (bool): Whether to use keys in the returned dict that include the global-scopes of the
+                Variables. Default: False.
+
+        Returns:
+            dict: Dict containing the requested names as keys and variables as values.
+
+        """
+        variables = dict()
+        for name in names:
+            global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
+            if name in self.variables:
+                variables[re.sub(r'/', custom_scope_separator, name)] = self.variables[name]
+            elif global_scope_name in self.variables:
+                if global_scope:
+                    variables[re.sub(r'/', custom_scope_separator, global_scope_name)] = self.variables[global_scope_name]
+                else:
+                    variables[name] = self.variables[global_scope_name]
+        return variables
 
     def define_inputs(self, *sockets, **kwargs):
         """

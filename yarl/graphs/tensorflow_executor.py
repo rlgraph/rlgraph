@@ -21,6 +21,10 @@ import tensorflow as tf
 from tensorflow.python.client import device_lib
 
 from yarl.graphs.graph_executor import GraphExecutor
+from yarl.utils.backend_system import set_distributed_backend, distributed_backend
+
+if distributed_backend == "horovod":
+    import horovod.tensorflow as hvd
 
 
 class TensorFlowExecutor(GraphExecutor):
@@ -60,6 +64,12 @@ class TensorFlowExecutor(GraphExecutor):
             self.default_device = [x.name for x in self.local_device_protos if x.device_type == 'CPU'][0]
         else:
             self.default_device = default_device
+
+        # Initialize distributed backend.
+        distributed_backend = self.execution_spec.get("distributed_backend", "distributed_tf")
+
+        self.logger.info("Updating global distributed backend setting with backend {}".format(distributed_backend))
+        set_distributed_backend(distributed_backend)
 
     def build(self):
         # Prepare for graph assembly.
@@ -102,22 +112,40 @@ class TensorFlowExecutor(GraphExecutor):
         Only relevant, if we are running in distributed mode.
         """
         if self.execution_mode == "distributed":
-            self.logger.info("Setting up distributed TensorFlow execution mode.")
-            # Create the Server object.
-            self.server = tf.train.Server(
-                server_or_cluster_def=self.distributed_spec["cluster_spec"],
-                job_name=self.distributed_spec["job"],
-                task_index=self.distributed_spec["task_index"],
-                protocol=self.distributed_spec.get("protocol"),
-                config=self.distributed_spec.get("session_config"),
-                start=True
-            )
-            if self.distributed_spec["job"] == "ps":
-                # Just join and be done.
-                self.logger.info("Job is parameter server, joining and waiting.")
-                self.server.join()
-                quit()
+            if distributed_backend == "distributed_tf":
+                self.setup_distributed_tf()
+            elif distributed_backend == "horovod":
+                self.setup_horovod_execution()
 
+    def setup_distributed_tf(self):
+        """
+        Sets up distributed TensorFlow.
+        """
+        self.logger.info("Setting up distributed TensorFlow execution mode.")
+        # Create the Server object.
+        self.server = tf.train.Server(
+            server_or_cluster_def=self.distributed_spec["cluster_spec"],
+            job_name=self.distributed_spec["job"],
+            task_index=self.distributed_spec["task_index"],
+            protocol=self.distributed_spec.get("protocol"),
+            config=self.distributed_spec.get("session_config"),
+            start=True
+        )
+        if self.distributed_spec["job"] == "ps":
+            # Just join and be done.
+            self.logger.info("Job is parameter server, joining and waiting.")
+            self.server.join()
+            quit()
+
+    def setup_horovod_execution(self):
+        """
+        Sets up Horovod.
+        """
+        self.logger.info("Setting up Horovod execution.")
+        hvd.init()
+        config = tf.ConfigProto()
+        config.gpu_options.visible_device_list = str(hvd.local_rank())
+        
     def get_available_devices(self):
         return self.available_devices
 

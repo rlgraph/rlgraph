@@ -19,8 +19,49 @@ from __future__ import print_function
 
 from .yarl_error import YARLError
 
+# Default backend ('tf' for tensorflow or 'pt' for PyTorch)
+backend = "tf"
 
-backend = "tf"  # default backend ('tf' for tensorflow or 'pt' for PyTorch)
+# Default distributed backend is distributed TensorFlow.
+distributed_backend = "distributed_tf"
+
+distributed_compatible_backends = dict(
+    tf=["distributed_tf", "horovod"]
+)
+
+
+def set_distributed_backend(_distributed_backend=None):
+    """
+    Sets the distributed backend. Must be compatible with configured backend.
+
+    Args:
+        _distributed_backend (str): Specifier for distributed backend.
+    """
+    global distributed_backend
+
+    if _distributed_backend is not None:
+        distributed_backend = _distributed_backend
+
+        # Distributed backend must be compatible with backend.
+        if distributed_backend not in distributed_compatible_backends[backend]:
+           raise YARLError("Distributed backend {} not compatible with backend {}. Compatible backends"
+                           "are: {}".format(distributed_backend, backend, distributed_compatible_backends[backend]))
+
+        if distributed_backend == 'distributed_tf':
+            assert backend == "tf"
+            try:
+                import tensorflow
+            except ModuleNotFoundError as e:
+                raise YARLError("INIT ERROR: Cannot run distributed_tf without backend (tensorflow)! "
+                                "Please install tensorflow first via `pip install tensorflow` or "
+                                "`pip install tensorflow-gpu`.")
+        elif distributed_backend == "horovod":
+            try:
+                import horovod
+            except ModuleNotFoundError as e:
+                raise YARLError("INIT ERROR: Cannot run YARL with distributed backend horovod.")
+        else:
+            raise YARLError("Distributed backend {} not supported".format(distributed_backend))
 
 
 def set_backend(backend_=None):
