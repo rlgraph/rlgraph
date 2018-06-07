@@ -580,19 +580,19 @@ class Component(Specifiable):
                     elif isinstance(connection, (tuple, list)):
                         # Change name from 1st element to 2nd element in tuple/list.
                         connect_spec[connection[0]] = connection[1]
-            else:
-                # Expose all Sockets if connections=True|CONNECT_INS|CONNECT_OUTS.
+            # Wildcard connections: connections=CONNECT_ALL(or True)|CONNECT_INS|CONNECT_OUTS.
+            elif connections in [CONNECT_INS, CONNECT_OUTS, CONNECT_ALL, True]:
                 connect_list = list()
-                if connections in [CONNECT_INS, CONNECT_ALL, True]:
+                if connections != CONNECT_OUTS:
                     connect_list.extend(component.input_sockets)
-                if connections in [CONNECT_OUTS, CONNECT_ALL, True]:
+                if connections != CONNECT_INS:
                     connect_list.extend(component.output_sockets)
-                if len(connect_list) > 0:
-                    for sock in connect_list:
-                        connect_spec[sock.name] = sock.name
-                # Single socket (given as string) needs to be exposed (and keep its name).
-                else:
-                    connect_spec[connections] = connections  # leave name
+
+                for sock in connect_list:
+                    connect_spec[sock.name] = sock.name
+            # Single socket (`connections` given as string) needs to be exposed (name is kept).
+            else:
+                connect_spec[connections] = connections  # leave name
 
         # Expose all Sockets in exposed_spec (create and connect them correctly).
         for sub_component_sock, other_sock in connect_spec.items():
