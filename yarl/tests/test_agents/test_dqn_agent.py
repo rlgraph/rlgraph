@@ -18,12 +18,11 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
-import numpy as np
 import unittest
 
 from yarl.components import Component, CONNECT_INS, CONNECT_OUTS
 from yarl.tests import ComponentTest, root_logger
-from tests.dummy_components import Dummy1to1, Dummy2to1, Dummy1to2, Dummy0to1
+from yarl.tests.dummy_components import Dummy1to1, Dummy2to1, Dummy1to2, Dummy0to1
 
 
 class TestDQNAgent(unittest.TestCase):
