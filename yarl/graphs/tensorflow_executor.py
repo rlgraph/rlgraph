@@ -23,9 +23,6 @@ from tensorflow.python.client import device_lib
 from yarl.graphs.graph_executor import GraphExecutor
 from yarl.utils.backend_system import set_distributed_backend, distributed_backend
 
-if distributed_backend == "horovod":
-    import horovod.tensorflow as hvd
-
 
 class TensorFlowExecutor(GraphExecutor):
     """
@@ -115,6 +112,7 @@ class TensorFlowExecutor(GraphExecutor):
             if distributed_backend == "distributed_tf":
                 self.setup_distributed_tf()
             elif distributed_backend == "horovod":
+                import horovod.tensorflow as hvd
                 self.setup_horovod_execution()
 
     def setup_distributed_tf(self):
@@ -141,6 +139,7 @@ class TensorFlowExecutor(GraphExecutor):
         """
         Sets up Horovod.
         """
+
         self.logger.info("Setting up Horovod execution.")
         hvd.init()
         config = tf.ConfigProto()

@@ -1018,8 +1018,87 @@ class Component(Specifiable):
                 if in_sock.space is None:
                     self.input_complete = False
 
+    def get_graph_markup(self, level=1):
+        """
+        Returns graph markup to be used for yarl metagraph plotting. Uses the (mermaid)[https://github.com/knsv/mermaid]
+        markup language.
+
+        Args:
+            level (int): Indentation level. If >= 1, return this component as sub-component.
+
+        Returns:
+            str: graph markup string.
+
+        """
+
+        # Print (sub)graph declaration
+        if level >= 1:
+            markup = " " * 4 * (level - 1) + "subgraph {}\n".format(self.name)
+        elif level == 0:
+            markup = "graph TD\n"
+            markup += "classDef input_socket fill:#9ff,stroke:#333,stroke-width:4px;\n"
+            markup += "classDef output_socket fill:#f9f,stroke:#333,stroke-width:4px;\n"
+        else:
+            raise YARLError("Invalid component indentation level {}".format(level))
+
+        # Add input socket nodes with the following markup: in_socket_HASH(INPUT SOCKET NAME)
+        # Also, collect incoming connections to the input sockets
+        connections = list()
+        markup_input_sockets = list()
+        for input_socket in self.input_sockets:
+            markup += " " * 4 * level + "socket_{hash}({name})\n".format(hash=hash(input_socket),
+                                                                         name=input_socket.name)
+            markup_input_sockets.append("socket_{hash}".format(hash=hash(input_socket)))
+
+            for incoming_connection in input_socket.incoming_connections:
+                if isinstance(incoming_connection, Socket):
+                    connections.append((
+                        "socket_{}".format(hash(incoming_connection)),
+                        "socket_{}".format(hash(input_socket))
+                    ))
+                elif isinstance(incoming_connection, Space):
+                    markup += " " * 4 * level + "space_{hash}({name})\n".format(hash=hash(incoming_connection),
+                                                                                name=str(incoming_connection))
+                    connections.append((
+                        "space_{}".format(hash(incoming_connection)),
+                        "socket_{}".format(hash(input_socket))
+                    ))
+
+        # Add output socket nodes with the following markup: out_socket_HASH(OUTPUT SOCKET NAME)
+        markup_output_sockets = list()
+        for output_socket in self.output_sockets:
+            markup += " " * 4 * level + "socket_{hash}({name})\n".format(hash=hash(output_socket),
+                                                                         name=output_socket.name)
+            markup_output_sockets.append("socket_{hash}".format(hash=hash(output_socket)))
+
+        markup += "\n"
+
+        # Add style class `input_socket` to the input sockets
+        if markup_input_sockets:
+            markup += " " * 4 * level + "class {} input_socket;\n".format(','.join(markup_input_sockets))
+
+        # Add style class `output_socket` to the output sockets
+        if markup_output_sockets:
+            markup += " " * 4 * level + "class {} output_socket;\n".format(','.join(markup_output_sockets))
+
+        markup += "\n"
+
+        # Add subcomponents
+        for sub_component_name, sub_component in self.sub_components.items():
+            markup += sub_component.get_graph_markup(level=level + 1)
+
+        # Subgraphs (level >= 1) require an end statement
+        if level >= 1:
+            markup += " " * 4 * (level - 1) + "end\n"
+    
+            # Connection are inserted after the graph
+            # Fixme: What about level 0 graph connections? Is level 0 always the core?
+            for connection in connections:
+                markup += " " * 4 * (level - 1) + "{}-->{}\n".format(connection[0], connection[1])
+
+        return markup
+
     def __str__(self):
         return "{}('{}' in={} out={})". \
             format(type(self).__name__, self.name, str(list(map(lambda s: s.name, self.input_sockets))),
                    str(list(map(lambda s: s.name, self.output_sockets))))
-
