@@ -92,7 +92,7 @@ class Specifiable(object):
             type_ = spec
             ctor_kwargs = kwargs
         # Special `_args` field in kwargs for *args-utilizing constructors.
-        ctor_args = kwargs.pop("_args", [])
+        ctor_args = ctor_kwargs.pop("_args", [])
 
         # Figure out the actual constructor (class) from `type_`.
         constructor = None

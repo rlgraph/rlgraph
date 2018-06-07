@@ -83,6 +83,7 @@ class Stack(Component):
                 self.connect(sub_components[i], sub_components[i+1])
 
     @classmethod
-    def from_spec(cls, spec=(), **kwargs):
-        kwargs["_args"] = list(spec)
+    def from_spec(cls, spec=None, **kwargs):
+        if isinstance(spec, dict):
+            kwargs["_args"] = list(spec.get("layers", []))
         return super(Stack, cls).from_spec(**kwargs)
