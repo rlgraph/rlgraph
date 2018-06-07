@@ -583,9 +583,9 @@ class Component(Specifiable):
             # Wildcard connections: connections=CONNECT_ALL(or True)|CONNECT_INS|CONNECT_OUTS.
             elif connections in [CONNECT_INS, CONNECT_OUTS, CONNECT_ALL, True]:
                 connect_list = list()
-                if connections != CONNECT_OUTS:
+                if connections in [CONNECT_INS, CONNECT_ALL, True]:
                     connect_list.extend(component.input_sockets)
-                if connections != CONNECT_INS:
+                if connections in [CONNECT_OUTS, CONNECT_ALL, True]:
                     connect_list.extend(component.output_sockets)
 
                 for sock in connect_list:
