@@ -17,4 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from yarl.execution.worker import Worker
+from yarl.execution.single_threaded_worker import SingleThreadedWorker
+
+__all__ = ["Worker", "SingleThreadedWorker"]
 

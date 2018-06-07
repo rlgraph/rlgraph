@@ -17,13 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 from cached_property import cached_property
+import numpy as np
 import re
 
 from yarl import YARLError
 from yarl.utils.ops import DataOpDict, DataOpTuple
-from .space import Space
+from yarl.spaces.space import Space
 
 
 # Defines how to generate auto-keys for flattened Tuple-Space items.

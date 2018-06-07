@@ -19,12 +19,12 @@ from __future__ import print_function
 
 import numpy as np
 
-from .space import Space
-from .box_space import BoxSpace
-from .float_box import FloatBox
-from .int_box import IntBox
-from .bool_box import BoolBox
-from .containers import ContainerSpace, Dict, Tuple, FLAT_TUPLE_CLOSE, FLAT_TUPLE_OPEN
+from yarl.spaces.space import Space
+from yarl.spaces.box_space import BoxSpace
+from yarl.spaces.float_box import FloatBox
+from yarl.spaces.int_box import IntBox
+from yarl.spaces.bool_box import BoolBox
+from yarl.spaces.containers import ContainerSpace, Dict, Tuple, FLAT_TUPLE_CLOSE, FLAT_TUPLE_OPEN
 
 
 Space.__lookup_classes__ = dict({

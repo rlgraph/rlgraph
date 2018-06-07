@@ -17,13 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 from cached_property import cached_property
+import numpy as np
 import re
 
 from yarl import backend, YARLError
 from yarl.utils import dtype, Initializer
-from .space import Space
+from yarl.spaces.space import Space
 
 
 class BoxSpace(Space):

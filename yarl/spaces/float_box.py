@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import numpy as np
 
-from .box_space import BoxSpace
+from yarl.spaces.box_space import BoxSpace
 
 
 class FloatBox(BoxSpace):

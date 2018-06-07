@@ -20,8 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from yarl.utils.util import dtype
-
-from .box_space import BoxSpace
+from yarl.spaces.box_space import BoxSpace
 
 
 class BoolBox(BoxSpace):

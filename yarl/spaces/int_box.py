@@ -17,13 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 from cached_property import cached_property
+import numpy as np
 
 from yarl import LARGE_INTEGER
+from yarl.spaces.box_space import BoxSpace
 from yarl.utils.util import dtype
-
-from .box_space import BoxSpace
 
 
 class IntBox(BoxSpace):
