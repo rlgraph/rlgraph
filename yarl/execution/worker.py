@@ -38,19 +38,23 @@ class Worker(object):
         self.agent = agent
         self.repeat_actions = repeat_actions
 
-    def execute_timesteps(self, num_timesteps, deterministic):
+    def execute_timesteps(self, num_timesteps, deterministic, update_schedule=None):
         """
         Executes environment for a fixed number of timesteps.
 
         Args:
             num_timesteps (int): Number of time steps to execute.
             deterministic (bool): Indicates deterministic execution.
+            update_schedule (Optional[dict]): Update parameters. If None, the worker only peforms rollouts.
+                Expects keys 'update_interval' to indicate how frequent update is called, 'num_updates'
+                to indicate how many updates to perform every update interval, and 'steps_before_update' to indicate
+                how many steps to perform before beginning to update.
         Returns:
             dict: Execution statistics.
         """
         raise NotImplementedError
 
-    def execute_episodes(self, num_episodes, max_timesteps_per_episode, deterministic):
+    def execute_episodes(self, num_episodes, max_timesteps_per_episode, update_schedule=None):
         """
         Executes environment for a fixed number of episodes.
 
@@ -58,7 +62,10 @@ class Worker(object):
             num_episodes (int): Number of episodes to execute.
             max_timesteps_per_episode: Maximum length per episode.
             deterministic (bool): Indicates deterministic execution.
-
+            update_schedule (Optional[dict]): Update parameters. If None, the worker only peforms rollouts.
+                Expects keys 'update_interval' to indicate how frequent update is called, 'num_updates'
+                to indicate how many updates to perform every update interval, and 'steps_before_update' to indicate
+                how many steps to perform before beginning to update.
         Returns:
             dict: Execution statistics.
         """
