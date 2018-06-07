@@ -95,7 +95,7 @@ class SingleThreadedWorker(Worker):
         start = time.monotonic()
 
         # Only run everything for at most num_timesteps (if defined).
-        while not (num_timesteps > 0 and timesteps_executed < num_timesteps):
+        while not (0 < num_timesteps <= timesteps_executed):
             # The reward accumulated over one episode.
             episode_reward = 0
             # The number of steps taken in the episode.
@@ -155,13 +155,9 @@ class SingleThreadedWorker(Worker):
         # Total episodes done (and episodes/min).
         self.logger.info("Episodes executed: {} ({} episodes/min)".
                          format(episodes_executed, episodes_executed/(total_time*60)))
-        # Mean episode runtime.
         self.logger.info("Mean episode runtime: {}s".format(np.mean(episode_durations)))
-        # Mean episode reward.
         self.logger.info("Mean episode reward: {}".format(np.mean(episode_rewards)))
-        # Max. episode reward.
         self.logger.info("Max. episode reward: {}".format(np.max(episode_rewards)))
-        # Last episode reward.
         self.logger.info("Final episode reward: {}".format(episode_rewards[-1]))
 
         return dict(
