@@ -34,10 +34,9 @@ class TestDQNAgent(unittest.TestCase):
 
     def test_dqn_on_2x2_grid_world(self):
         """
-        Creates a DQNAgent and
+        Creates a DQNAgent and runs it via a Runner on a simple 2x2 GridWorld.
         """
         component = Dummy1to1(scope="dummy")
-        test = ComponentTest(component=component, input_spaces=dict(input=float))
 
         # Expected output: input + 1.0
         test.test(out_socket_names="output", inputs=1.0, expected_outputs=2.0)

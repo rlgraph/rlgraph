@@ -54,10 +54,10 @@ class Agent(Specifiable):
             action_space (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
             network_spec (Optional[dict,NeuralNetwork]): Spec dict for a NeuralNetwork Component or the NeuralNetwork
                 object itself.
-            preprocessing_spec (Optional[dict]): The spec dict for the different necessary states preprocessing steps.
+            preprocessing_spec (Optional[list]): The spec dict for the different necessary states preprocessing steps.
             exploration_spec (Optional[dict]):
             execution_spec (Optional[dict]):
-            optimizer_spec:
+            optimizer_spec (Optional[dict]):
             update_spec (Optional[dict]):
         """
         self.logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ class Agent(Specifiable):
         if optimizer_spec:
             self.optimizer = Optimizer.from_spec(optimizer_spec)
         else:
-            # TODO set to some default
+            # TODO set to some default (write `parse_optimizer_spec` func).
             self.optimizer = None
         self.update_spec = parse_update_spec(update_spec)
 
