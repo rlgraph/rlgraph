@@ -85,7 +85,8 @@ class Stack(Component):
     @classmethod
     def from_spec(cls, spec=None, **kwargs):
         if isinstance(spec, dict):
-            kwargs["_args"] = list(spec.get("layers", []))
+            kwargs["_args"] = list(spec.pop("layers", []))
         elif isinstance(spec, (tuple, list)):
             kwargs["_args"] = spec
-        return super(Stack, cls).from_spec(**kwargs)
+            spec = None
+        return super(Stack, cls).from_spec(spec, **kwargs)
