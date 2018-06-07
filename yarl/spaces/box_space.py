@@ -140,6 +140,9 @@ class BoxSpace(Space):
         return isinstance(other, self.__class__) and \
                np.allclose(self.low, other.low) and np.allclose(self.high, other.high)
 
+    def __hash__(self):
+        return hash((tuple(self.low), tuple(self.high)))
+
     def contains(self, sample):
         if self.shape == ():
             return self.low <= sample <= self.high
@@ -147,4 +150,3 @@ class BoxSpace(Space):
             if sample.shape != self.shape:
                 return False
             return (sample >= self.low).all() and (sample <= self.high).all()
-
