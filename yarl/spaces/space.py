@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from collections import OrderedDict
+import copy
 
 from yarl import Specifiable
 
@@ -35,7 +36,28 @@ class Space(Specifiable):
         """
         self._shape = None
         self.has_batch_rank = None
-        self.add_batch_rank(add_batch_rank)
+        self._add_batch_rank(add_batch_rank)
+
+    def _add_batch_rank(self, add_batch_rank=False):
+        """
+        Recursively changes the add_batch_rank property of all child Spaces in this ContainerSpace.
+
+        Args:
+            add_batch_rank (bool): Whether this ContainerSpace and all it's children should have a batch rank.
+        """
+        self.has_batch_rank = add_batch_rank
+
+    def with_batch_rank(self, add_batch_rank=True):
+        """
+        Returns a deepcopy of this Space, but with `has_batch_rank` set to True. This is useful for using
+        an Env's (state|action)-Space for constructing Agent objects.
+
+        Returns:
+            Space: The deepcopy of this Space, but with `has_batch_rank` set to True.
+        """
+        ret = copy.deepcopy(self)
+        ret._add_batch_rank(add_batch_rank)
+        return ret
 
     @property
     def shape(self):
@@ -108,7 +130,7 @@ class Space(Specifiable):
         """
         raise NotImplementedError
 
-    def flatten(self, mapping=None, scope_=None, list_=None):
+    def flatten(self, mapping=None, _scope=None, _list=None):
         """
         A mapping function to flatten this Space into an OrderedDict whose only values are
         primitive (non-container) Spaces. The keys are created automatically from Dict keys and
@@ -117,8 +139,8 @@ class Space(Specifiable):
         Args:
             mapping (Optional[callable]): A mapping function that takes a flattened auto-generated key and a primitive
                 Space and converts the primitive Space to something else. Default is pass through.
-            scope_ (Optional[str]): For recursive calls only. Used for automatic key generation.
-            list_ (Optional[list]): For recursive calls only. The list so far.
+            _scope (Optional[str]): For recursive calls only. Used for automatic key generation.
+            _list (Optional[list]): For recursive calls only. The list so far.
 
         Returns:
             OrderedDict: The OrderedDict using auto-generated keys and containing only primitive Spaces
@@ -131,29 +153,29 @@ class Space(Specifiable):
 
         # Are we in the non-recursive (first) call?
         ret = False
-        if list_ is None:
-            list_ = list()
+        if _list is None:
+            _list = list()
             ret = True
-            scope_ = ""
+            _scope = ""
 
-        self._flatten(mapping, scope_, list_)
+        self._flatten(mapping, _scope, _list)
 
         # Non recursive (first) call -> Return the final FlattenedDataOp.
         if ret:
-            return OrderedDict(list_)
+            return OrderedDict(_list)
 
-    def _flatten(self, mapping, scope_, list_):
+    def _flatten(self, mapping, _scope, _list):
         """
         Base implementation. May be overridden by ContainerSpace classes.
-        Simply sends self through the mapping function.
+        Simply sends `self` through the mapping function.
 
         Args:
             mapping (callable): The mapping function to use on a primitive (non-container) Space.
-            scope_ (str): The key to use to store the mapped result in list_ (which will be converted into
+            _scope (str): The key to use to store the mapped result in list_ (which will be converted into
                 an FlattenedDataOp at the very end).
-            list_ (list): The list to append the mapped results to (under key=`scope_`).
+            _list (list): The list to append the mapped results to (under key=`scope_`).
         """
-        list_.append(tuple([scope_, mapping(scope_, self)]))
+        _list.append(tuple([_scope, mapping(_scope, self)]))
 
     def __repr__(self):
         return "Space(shape=" + str(self.shape) + ")"
@@ -211,12 +233,3 @@ class Space(Specifiable):
             bool: Whether sample is a valid member of this space.
         """
         raise NotImplementedError
-
-    def add_batch_rank(self, add_batch_rank=False):
-        """
-        Recursively changes the add_batch_rank property of all child Spaces in this ContainerSpace.
-
-        Args:
-            add_batch_rank (bool): Whether this ContainerSpace and all it's children should have a batch rank.
-        """
-        self.has_batch_rank = add_batch_rank

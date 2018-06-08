@@ -72,7 +72,7 @@ class Dict(ContainerSpace, dict):
             value = spec[key]
             # Value is already a Space: Keep it, but maybe add batch-rank.
             if isinstance(value, Space):
-                value.add_batch_rank(add_batch_rank)
+                value._add_batch_rank(add_batch_rank)
                 dict_[key] = value
             # Value is a list/tuple -> treat as Tuple space.
             elif isinstance(value, (list, tuple)):
@@ -87,6 +87,11 @@ class Dict(ContainerSpace, dict):
         if len(dict_) == 0:
             raise YARLError("ERROR: Dict() c'tor needs a non-empty spec!")
         dict.__init__(self, dict_)
+
+    def _add_batch_rank(self, add_batch_rank=False):
+        super(Dict, self)._add_batch_rank(add_batch_rank)
+        for v in self.values():
+            v._add_batch_rank(add_batch_rank)
 
     @cached_property
     def shape(self):
@@ -135,14 +140,6 @@ class Dict(ContainerSpace, dict):
     def contains(self, sample):
         return isinstance(sample, dict) and all(self[key].contains(sample[key]) for key in self.keys())
 
-    def add_batch_rank(self, add_batch_rank=False):
-        super(Dict, self).add_batch_rank(add_batch_rank)
-        for v in self.values():
-            #if isinstance(v, (Tuple, Dict)):
-            v.add_batch_rank(add_batch_rank)
-            #else:
-            #    v.has_batch_rank = add_batch_rank
-
 
 class Tuple(ContainerSpace, tuple):
     """
@@ -161,7 +158,6 @@ class Tuple(ContainerSpace, tuple):
         for value in components:
             # value is already a Space -> keep it
             if isinstance(value, Space):
-                #value.add_batch_rank(add_batch_rank)
                 list_.append(value)
             # Value is a list/tuple -> treat as Tuple space.
             elif isinstance(value, (list, tuple)):
@@ -178,6 +174,11 @@ class Tuple(ContainerSpace, tuple):
     def __init__(self, *components, **kwargs):
         add_batch_rank = kwargs.get("add_batch_rank", False)
         super(Tuple, self).__init__(add_batch_rank=add_batch_rank)
+
+    def _add_batch_rank(self, add_batch_rank=False):
+        super(Tuple, self)._add_batch_rank(add_batch_rank)
+        for v in self:
+            v._add_batch_rank(add_batch_rank)
 
     @cached_property
     def shape(self):
@@ -224,12 +225,3 @@ class Tuple(ContainerSpace, tuple):
     def contains(self, sample):
         return isinstance(sample, (tuple, list, np.ndarray)) and len(self) == len(sample) and \
                all(c.contains(xi) for c, xi in zip(self, sample))
-
-    def add_batch_rank(self, add_batch_rank=False):
-        super(Tuple, self).add_batch_rank(add_batch_rank)
-        for v in self:
-            #if isinstance(v, ContainerSpace):
-            v.add_batch_rank(add_batch_rank)
-            #else:
-            #    v.has_batch_rank = add_batch_rank
-
