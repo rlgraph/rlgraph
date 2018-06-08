@@ -20,6 +20,7 @@ from __future__ import print_function
 import importlib
 import json
 import os
+import re
 import yaml
 
 from .yarl_error import YARLError
@@ -34,35 +35,26 @@ class Specifiable(object):
     __lookup_classes__ = None
 
     @classmethod
-    def from_file(cls, filename):
-        """
-        Create object from spec saved in filename. Expects json or yaml format.
-
-        Args:
-            filename: file containing the spec (json or yaml)
-
-        Returns: object
-
-        """
-        path = os.path.join(os.getcwd(), filename)
-        if not os.path.isfile(path):
-            raise YARLError('No such file: {}'.format(filename))
-
-        with open(path, 'rt') as fp:
-            if path.endswith('.yaml') or path.endswith('.yml'):
-                spec = yaml.load(fp)
-            else:
-                spec = json.load(fp)
-
-        return cls.from_spec(spec=spec)
-
-    @classmethod
     def from_spec(cls, spec=None, **kwargs):
         """
-        Uses the given spec to create an object. The `type` key can be used to instantiate a different (sub-)class.
-        The following inputs are valid as types: a) a python callable, b) a string of a python callable,
-        c) an identifier for a class, as specified in cls.__lookup_classes__. Per default, the base class will be
-        instantiated.
+        Uses the given spec to create an object.
+        If `spec` is a dict, an optional "type" key can be used as a "constructor hint" to specify a certain class
+        of the object.
+        If `spec` is not a dict, `spec`'s value is used directly as the "constructor hint".
+
+        The rest of `spec` (if it's a dict) will be used as kwargs for the (to-be-determined) constructor.
+        Additional keys in **kwargs will always have precedence (overwrite keys in `spec` (if a dict)).
+        Also, if the spec-dict or **kwargs contains the special key "_args", it will be popped from the dict
+        and used as *args list to be passed separately to the constructor.
+
+        The following constructor hints are valid:
+        - None: Use `cls` as constructor.
+        - An already instantiated object: Will be returned as is; no constructor call.
+        - A string or an object that is a key in `cls`'s `__lookup_classes__` dict: The value in `__lookup_classes__`
+            for that key will be used as the constructor.
+        - A python callable: Use that as constructor.
+        - A string: Either a json filename or the name of a python module+class (e.g. "yarl.components.Component")
+            to be Will be used to
 
         Args:
             spec (Optional[dict]): The specification dict.
@@ -96,24 +88,30 @@ class Specifiable(object):
 
         # Figure out the actual constructor (class) from `type_`.
         constructor = None
-        # Default case: same class
+        # None: same class
         if type_ is None:
             constructor = cls
         # type_ is already a created object of this class -> Take it as is.
         elif isinstance(type_, cls):
             return type_
-        # Case c) identifier in cls.__lookup_classes__
+        # Valid key of cls.__lookup_classes__.
         elif cls.__lookup_classes__ is not None and isinstance(cls.__lookup_classes__, dict) and \
                 type_ in cls.__lookup_classes__:
             constructor = cls.__lookup_classes__[type_]
-        # Case a) python callable
+        # Python callable.
         elif callable(type_):
             constructor = type_
-        # Case b) a string of a python callable
-        elif isinstance(type_, str) and type_.find('.') != -1:
-            module_name, function_name = type_.rsplit(".", 1)
-            module = importlib.import_module(module_name)
-            constructor = getattr(module, function_name)
+        # A string: Filename or a python module+class.
+        elif isinstance(type_, str):
+            if re.search(r'\.(yaml|yml|json)$', type_):
+                return cls.from_file(type_, *ctor_args, **ctor_kwargs)
+            elif type_.find('.') != -1:
+                module_name, function_name = type_.rsplit(".", 1)
+                module = importlib.import_module(module_name)
+                constructor = getattr(module, function_name)
+            else:
+                raise YARLError("ERROR: String specifier ({}) in from_spec must be filename or module+class!".
+                                format(type_))
 
         if not constructor:
             raise YARLError("Invalid type: {}".format(type_))
@@ -122,6 +120,34 @@ class Specifiable(object):
         assert isinstance(obj, constructor)
 
         return obj
+
+    @classmethod
+    def from_file(cls, filename, *args, **kwargs):
+        """
+        Create object from spec saved in filename. Expects json or yaml format.
+
+        Args:
+            filename: file containing the spec (json or yaml)
+
+        Keyword Args:
+            Used as additional parameters for call to constructor.
+
+        Returns:
+            object
+        """
+        path = os.path.join(os.getcwd(), filename)
+        if not os.path.isfile(path):
+            raise YARLError('No such file: {}'.format(filename))
+
+        with open(path, 'rt') as fp:
+            if path.endswith('.yaml') or path.endswith('.yml'):
+                spec = yaml.load(fp)
+            else:
+                spec = json.load(fp)
+
+        # Add possible *args.
+        spec["_args"] = args
+        return cls.from_spec(spec=spec, **kwargs)
 
     @classmethod
     def from_mixed(cls, mixed):

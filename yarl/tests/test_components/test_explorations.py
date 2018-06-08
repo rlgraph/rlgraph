@@ -86,6 +86,4 @@ class TestExplorations(unittest.TestCase):
         expected = np.array([[[0, 0], [3, 1]], [[0, 4], [4, 4]]])
         test.test(out_socket_names="action", inputs=inputs, expected_outputs=expected)
 
-    def test_exploration_with_continuous_action_space(self):
-        pass
 

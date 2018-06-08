@@ -54,7 +54,6 @@ class DQNAgent(Agent):
         # The global copy of the q-net (if we are running in distributed mode).
         self.global_qnet = None
 
-        self.exploration = Exploration.from_spec(self.exploration_spec, action_space=self.action_space)
         self.input_names = ["state", "action", "reward", "terminal"]
         self.merger = Merger(output_space=self.record_space, input_names=self.input_names)
         self.splitter = Splitter(input_space=self.record_space)

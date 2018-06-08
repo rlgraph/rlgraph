@@ -17,9 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .env import Env
-from .grid_world import GridWorld
-from .openai_gym import OpenAIGymEnv
+from yarl.envs.env import Env
+from yarl.envs.grid_world import GridWorld
+from yarl.envs.openai_gym import OpenAIGymEnv
 
 
 Env.__lookup_classes__ = dict(
@@ -30,4 +30,3 @@ Env.__lookup_classes__ = dict(
 )
 
 __all__ = ["Env", "GridWorld", "OpenAIGymEnv"]
-

@@ -20,6 +20,7 @@ from __future__ import print_function
 import gym
 import numpy as np
 import time
+
 from yarl import YARLError
 from yarl.utils.util import dtype
 from yarl.envs import Env

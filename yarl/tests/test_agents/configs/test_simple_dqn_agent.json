@@ -7,11 +7,10 @@
     "capacity": 10
   },
 
-  "preprocessor_spec":
+  "preprocessing_spec":
   [
     {
-      "type": "one_hot",
-      "depth": 4
+      "type": "flatten"
     }
   ],
 
@@ -31,10 +30,9 @@
 
   "exploration_spec":
   {
-    "type": "epsilon",
     "non_explore_behavior": "max-likelihood",
     "epsilon_spec": {
-      "type": "linear-decay",
+      "type": "linear",
       "from": 1.0,
       "to": 0.1,
       "start_timestep": 0,

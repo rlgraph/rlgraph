@@ -42,8 +42,13 @@ class EpsilonExploration(Component):
         Args:
             decay_spec (Optional[dict,DecayComponent]): The spec-dict for the DecayComponent to use or a DecayComponent
                 object directly.
+
+        Keyword Args:
+            Used as decay_spec (only if `decay_spec` not given) to construct the DecayComponent.
         """
-        super(EpsilonExploration, self).__init__(scope=scope, **kwargs)
+        decay_spec = decay_spec or kwargs or None
+        # Do not pass **kwargs up t parent as it's used for as spec for DecayComponent.
+        super(EpsilonExploration, self).__init__(scope=scope)
 
         # Our (epsilon) Decay-Component.
         self.decay_component = DecayComponent.from_spec(decay_spec) if decay_spec else PolynomialDecay()

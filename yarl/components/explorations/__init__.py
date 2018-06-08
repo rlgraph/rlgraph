@@ -20,6 +20,5 @@ from __future__ import print_function
 from .exploration import Exploration
 from .epsilon_exploration import EpsilonExploration
 
-
 __all__ = ["Exploration", "EpsilonExploration"]
 

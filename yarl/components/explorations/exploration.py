@@ -62,16 +62,16 @@ class Exploration(Component):
         assert isinstance(self.action_space, IntBox), "ERROR: Only IntBox Spaces supported in Exploration Component " \
                                                       "so far!"
         assert self.action_space.has_batch_rank, "ERROR: `action_space` does not have batch rank!"
-        #
-        self.non_explore_behavior = non_explore_behavior
-        self.epsilon_exploration = EpsilonExploration.from_spec(epsilon_spec)
 
+        self.non_explore_behavior = non_explore_behavior
+
+        # Define our interface.
         self.define_inputs("time_step", "sample_deterministic", "sample_stochastic")
         self.define_outputs("action")
 
-        # Add epsilon Component and connect accordingly.
-        if self.epsilon_exploration is not None:
-            self.add_component(self.epsilon_exploration, connections=["time_step"])
+        # Add epsilon Component (TODO: once we have noise-based: only if specified.)
+        self.epsilon_exploration = EpsilonExploration.from_spec(epsilon_spec)
+        self.add_component(self.epsilon_exploration, connections=["time_step"])
 
         # Add our own graph_fn and connect its output to the "action" Socket.
         self.add_graph_fn(inputs=[(self.epsilon_exploration, "do_explore"),
@@ -98,6 +98,7 @@ class Exploration(Component):
                                                              dtype=dtype("int")),
                            false_fn=lambda: sample_deterministic if self.non_explore_behavior == "max-likelihood"
                            else sample_stochastic)
+
 
 
 """        
