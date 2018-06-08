@@ -75,15 +75,14 @@ class AdamOptimizer(LocalOptimizer):
     """
     def __init__(self, learning_rate, **kwargs):
         super(AdamOptimizer, self).__init__(
-            learning_rate=learning_rate,
-            scope=kwargs.pop("scope", "adam-optimizer"),
-            **kwargs
+            learning_rate=learning_rate, scope=kwargs.pop("scope", "adam-optimizer"), **kwargs
         )
+
         if backend == "tf":
             self.optimizer = tf.train.AdamOptimizer(
                 learning_rate=self.learning_rate,
-                beta1=kwargs.pop('beta1', 0.9),
-                beta2=kwargs.pop('beta2', 0.999)
+                beta1=kwargs.pop("beta_1", kwargs.pop("beta1", 0.9)),
+                beta2=kwargs.pop("beta_2", kwargs.pop("beta2", 0.999))
             )
 
 
@@ -96,16 +95,15 @@ class NadamOptimizer(LocalOptimizer):
     """
     def __init__(self, learning_rate, **kwargs):
         super(NadamOptimizer, self).__init__(
-            learning_rate=learning_rate,
-            scope=kwargs.pop("scope", "nadam-optimizer"),
-            **kwargs
+            learning_rate=learning_rate, scope=kwargs.pop("scope", "nadam-optimizer"), **kwargs
         )
+
         if backend == "tf":
             self.optimizer = tf.keras.optimizers.Nadam(
                 lr=self.learning_rate,
-                beta_1=kwargs.pop('beta1', 0.9),
-                beta_2=kwargs.pop('beta2', 0.999),
-                schedule_decay=kwargs.pop('schedule_decay', 0.004),
+                beta_1=kwargs.pop("beta_1", kwargs.pop("beta1", 0.9)),
+                beta_2=kwargs.pop("beta_2", kwargs.pop("beta2", 0.999)),
+                schedule_decay=kwargs.pop("schedule_decay", 0.004)
             )
 
 
@@ -122,10 +120,11 @@ class AdagradOptimizer(LocalOptimizer):
             scope=kwargs.pop("scope", "adagrad-optimizer"),
             **kwargs
         )
+
         if backend == "tf":
             self.optimizer = tf.train.AdagradOptimizer(
                 learning_rate=self.learning_rate,
-                initial_accumulator_value=kwargs.pop('initial_accumulator_value', 0.1)
+                initial_accumulator_value=kwargs.pop("initial_accumulator_value", 0.1)
             )
 
 
@@ -137,33 +136,27 @@ class AdadeltaOptimizer(LocalOptimizer):
     """
     def __init__(self, learning_rate, **kwargs):
         super(AdadeltaOptimizer, self).__init__(
-            learning_rate=learning_rate,
-            scope=kwargs.pop("scope", "adadelta-optimizer"),
-            **kwargs
+            learning_rate=learning_rate, scope=kwargs.pop("scope", "adadelta-optimizer"), **kwargs
         )
+
         if backend == "tf":
-            self.optimizer = tf.train.AdadeltaOptimizer(
-                learning_rate=self.learning_rate,
-                rho=kwargs.pop('rho', 0.95)
-            )
+            self.optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.learning_rate, rho=kwargs.pop("rho", 0.95))
 
 
 class SGDOptimizer(LocalOptimizer):
     """
-    Stochastic gradient descent optimizer.
+    Stochastic gradient descent optimizer from tf.keras including support for momentum, learning-rate-decay and
+    Nesterov momentum.
     """
     def __init__(self, learning_rate, **kwargs):
         super(SGDOptimizer, self).__init__(
-            learning_rate=learning_rate,
-            scope=kwargs.pop("scope", "sgd-optimizer"),
-            **kwargs
+            learning_rate=learning_rate, scope=kwargs.pop("scope", "sgd-optimizer"), **kwargs
         )
+
         if backend == "tf":
             self.optimizer = tf.keras.optimizers.SGD(
-                lr=self.learning_rate,
-                momentum=kwargs.pop('momentum', 0.0),
-                decay=kwargs.pop('decay', 0.0),
-            )
+                lr=self.learning_rate, momentum=kwargs.pop("momentum", 0.0), decay=kwargs.pop("decay", 0.0),
+                nesterov=kwargs.pop("nesterov", False))
 
 
 class RMSPropOptimizer(LocalOptimizer):
@@ -174,12 +167,8 @@ class RMSPropOptimizer(LocalOptimizer):
     """
     def __init__(self, learning_rate, **kwargs):
         super(RMSPropOptimizer, self).__init__(
-            learning_rate=learning_rate,
-            scope=kwargs.pop("scope", "rmsprop-optimizer"),
-            **kwargs
+            learning_rate=learning_rate, scope=kwargs.pop("scope", "rmsprop-optimizer"), **kwargs
         )
+
         if backend == "tf":
-            self.optimizer = tf.train.AdadeltaOptimizer(
-                learning_rate=self.learning_rate,
-                rho=kwargs.pop('rho', 0.95)
-            )
+            self.optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.learning_rate, rho=kwargs.pop("rho", 0.95))

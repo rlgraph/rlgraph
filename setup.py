@@ -22,7 +22,7 @@ from setuptools import setup, find_packages
 from yarl import __version__
 
 
-install_requires=[
+install_requires = [
     'cached_property',
     'numpy',
     'pyyaml',
@@ -30,12 +30,10 @@ install_requires=[
     'tensorflow'
 ]
 
-setup_requires=[
-
-]
+setup_requires = []
 
 extras_require = {
-
+    'horovod': 'horovod'
 }
 
 setup(
