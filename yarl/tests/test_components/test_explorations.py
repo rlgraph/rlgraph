@@ -50,12 +50,12 @@ class TestExplorations(unittest.TestCase):
 
     def test_exploration_with_discrete_action_space(self):
         # 2x2 action-pick, each action with 5 categories.
-        space = IntBox(5, shape=(2, 2), add_batch_rank=True)
+        action_space = IntBox(5, shape=(2, 2), add_batch_rank=True)
         # Our distribution to go into the Exploration object.
         distribution = Categorical()
-        nn_output_cleanup = NNOutputCleanup(target_space=space)
-        nn_output_space = FloatBox(shape=(space.flat_dim_with_categories,), add_batch_rank=True)
-        exploration = Exploration(action_space=space)
+        nn_output_cleanup = NNOutputCleanup()
+        nn_output_space = FloatBox(shape=(action_space.flat_dim_with_categories,), add_batch_rank=True)
+        exploration = Exploration()
         # The Component to test.
         component_to_test = Component(scope="categorical-plus-exploration")
         component_to_test.define_inputs("nn_output", "time_step")
@@ -67,8 +67,9 @@ class TestExplorations(unittest.TestCase):
         component_to_test.connect([distribution, "sample_stochastic"], [exploration, "sample_stochastic"])
         component_to_test.connect("time_step", [exploration, "time_step"])
         component_to_test.connect([exploration, "action"], "action")
-        test = ComponentTest(component=component_to_test, input_spaces=dict(nn_output=nn_output_space,
-                                                                            time_step=int))
+        test = ComponentTest(component=component_to_test,
+                             input_spaces=dict(nn_output=nn_output_space, time_step=int),
+                             action_space=action_space)
 
         # Parameters for Categorical (batch-size=2, 2x2x5 action space).
         inputs = dict(nn_output=np.array([[100.0, 50.0, 25.0, 12.5, 6.25,

@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from functools import partial
 import numpy as np
 
 from yarl.spaces.space import Space
@@ -50,7 +51,7 @@ Space.__lookup_classes__ = dict({
 })
 
 # Default Space: A float from 0.0 to 1.0.
-Space.__default_object__ = FloatBox(1.0)
+Space.__default_constructor__ = partial(FloatBox, 1.0)
 
 
 __all__ = ["Space", "BoxSpace", "FloatBox", "IntBox", "BoolBox",

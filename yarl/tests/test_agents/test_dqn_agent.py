@@ -24,7 +24,7 @@ from yarl.agents import DQNAgent
 import yarl.spaces as spaces
 from yarl.envs import GridWorld, RandomEnv
 from yarl.execution.single_threaded_worker import SingleThreadedWorker
-from yarl.tests import root_logger
+from yarl.utils import root_logger
 
 
 class TestDQNAgent(unittest.TestCase):

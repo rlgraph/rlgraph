@@ -141,6 +141,8 @@ class BoxSpace(Space):
                np.allclose(self.low, other.low) and np.allclose(self.high, other.high)
 
     def __hash__(self):
+        if self.shape == ():
+            return hash((self.low, self.high))
         return hash((tuple(self.low), tuple(self.high)))
 
     def contains(self, sample):

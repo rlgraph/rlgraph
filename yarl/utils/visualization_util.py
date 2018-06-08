@@ -29,11 +29,11 @@ def get_graph_markup(component, level=0):
     Uses the (mermaid)[https://github.com/knsv/mermaid] markup language.
 
     Args:
-        component (Component): Component to generate markup for.
+        component (Component): Component to generate meta-graph markup for.
         level (int): Indentation level. If >= 1, return this component as sub-component.
 
     Returns:
-        str: graph markup string.
+        str: Meta-graph markup string.
     """
 
     # Print (sub)graph declaration
@@ -54,7 +54,7 @@ def get_graph_markup(component, level=0):
     markup_input_sockets = list()
     for input_socket in component.input_sockets:
         markup += " " * 4 * (level + 1) + "socket_{hash}(\"{name}\")\n".format(hash=hash(input_socket),
-                                                                     name=input_socket.name)
+                                                                               name=input_socket.name)
         markup_input_sockets.append("socket_{hash}".format(hash=hash(input_socket)))
         all_sockets.append(input_socket)
 
@@ -103,7 +103,7 @@ def get_graph_markup(component, level=0):
 
     markup += "\n"
 
-    # Add subcomponents.
+    # Add sub-components.
     for sub_component_name, sub_component in component.sub_components.items():
         markup += get_graph_markup(sub_component, level=level + 1)
 
