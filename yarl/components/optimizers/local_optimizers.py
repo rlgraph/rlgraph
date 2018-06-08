@@ -30,10 +30,9 @@ class LocalOptimizer(Optimizer):
     A local optimizer performs optimization irrespective of any distributed semantics, i.e.
     it has no knowledge of other machines and does not implement any communications with them.
     """
-    def __init__(self, learning_rate, loss_function, **kwargs):
+    def __init__(self, learning_rate, **kwargs):
         super(LocalOptimizer, self).__init__(
             learning_rate=learning_rate,
-            loss_function=loss_function,
             scope=kwargs.pop("scope", "local-optimizer"),
             **kwargs
         )
@@ -57,10 +56,9 @@ class LocalOptimizer(Optimizer):
 
 class GradientDescentOptimizer(LocalOptimizer):
 
-    def __init__(self, learning_rate, loss_function, **kwargs):
+    def __init__(self, learning_rate, **kwargs):
         super(GradientDescentOptimizer, self).__init__(
             learning_rate=learning_rate,
-            loss_function=loss_function,
             scope=kwargs.pop("scope", "gradient-descent-optimizer"),
             **kwargs
         )
@@ -75,10 +73,9 @@ class AdamOptimizer(LocalOptimizer):
 
     https://arxiv.org/abs/1412.6980
     """
-    def __init__(self, learning_rate, loss_function, **kwargs):
+    def __init__(self, learning_rate, **kwargs):
         super(AdamOptimizer, self).__init__(
             learning_rate=learning_rate,
-            loss_function=loss_function,
             scope=kwargs.pop("scope", "adam-optimizer"),
             **kwargs
         )
@@ -97,10 +94,9 @@ class NadamOptimizer(LocalOptimizer):
 
     http://cs229.stanford.edu/proj2015/054_report.pdf
     """
-    def __init__(self, learning_rate, loss_function, **kwargs):
+    def __init__(self, learning_rate, **kwargs):
         super(NadamOptimizer, self).__init__(
             learning_rate=learning_rate,
-            loss_function=loss_function,
             scope=kwargs.pop("scope", "nadam-optimizer"),
             **kwargs
         )
@@ -120,10 +116,9 @@ class AdagradOptimizer(LocalOptimizer):
 
     http://www.jmlr.org/papers/volume12/duchi11a/duchi11a.pdf
     """
-    def __init__(self, learning_rate, loss_function, **kwargs):
+    def __init__(self, learning_rate, **kwargs):
         super(AdagradOptimizer, self).__init__(
             learning_rate=learning_rate,
-            loss_function=loss_function,
             scope=kwargs.pop("scope", "adagrad-optimizer"),
             **kwargs
         )
@@ -140,10 +135,9 @@ class AdadeltaOptimizer(LocalOptimizer):
 
     https://arxiv.org/abs/1212.5701
     """
-    def __init__(self, learning_rate, loss_function, **kwargs):
+    def __init__(self, learning_rate, **kwargs):
         super(AdadeltaOptimizer, self).__init__(
             learning_rate=learning_rate,
-            loss_function=loss_function,
             scope=kwargs.pop("scope", "adadelta-optimizer"),
             **kwargs
         )
@@ -158,10 +152,9 @@ class SGDOptimizer(LocalOptimizer):
     """
     Stochastic gradient descent optimizer.
     """
-    def __init__(self, learning_rate, loss_function, **kwargs):
+    def __init__(self, learning_rate, **kwargs):
         super(SGDOptimizer, self).__init__(
             learning_rate=learning_rate,
-            loss_function=loss_function,
             scope=kwargs.pop("scope", "sgd-optimizer"),
             **kwargs
         )
@@ -179,10 +172,9 @@ class RMSPropOptimizer(LocalOptimizer):
 
     https://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf
     """
-    def __init__(self, learning_rate, loss_function, **kwargs):
+    def __init__(self, learning_rate, **kwargs):
         super(RMSPropOptimizer, self).__init__(
             learning_rate=learning_rate,
-            loss_function=loss_function,
             scope=kwargs.pop("scope", "rmsprop-optimizer"),
             **kwargs
         )

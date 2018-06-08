@@ -36,16 +36,21 @@ class HorovodOptimizer(Optimizer):
 
     arXiv:1802.05799
 
-    This Horovod Optimizer expects a local TensorFlow optimizer as input.
+    This Horovod Optimizer expects a local LocalOptimizer spec (tensorflow) as input.
     """
     def __init__(self, local_optimizer, **kwargs):
         """
         Initializes a distributed horovod optimizer by wrapping a local optimizer.
+
         Args:
-            local_optimizer (LocalOptimizer): A local TensorFlow optimizer.
+            local_optimizer (LocalOptimizer): The spec-dict for ehe wrapped LocalOptimizer object or a LocalOptimizer
+                object.
         """
         super(HorovodOptimizer, self).__init__(**kwargs)
-        self.local_optimizer = hvd.DistributedOptimizer(local_optimizer)
+
+        # Create the horovod wrapper.
+        wrapped_local_optimizer = Optimizer.from_spec(local_optimizer)
+        self.local_optimizer = hvd.DistributedOptimizer(wrapped_local_optimizer)
 
     def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
         return self.local_optimizer._graph_fn_calculate_gradients(variables, loss, *inputs)
