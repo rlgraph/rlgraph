@@ -17,11 +17,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import copy
+
 from yarl.agents import Agent
 from yarl.components.common import Merger, Splitter
 from yarl.components.memories import Memory
 from yarl.components.loss_functions import DQNLossFunction
-from yarl.spaces import Dict, IntBox
+from yarl.spaces import Dict, IntBox, FloatBox, BoolBox
+from yarl.utils.visualization_util import get_graph_markup
 
 
 class DQNAgent(Agent):
@@ -44,23 +47,27 @@ class DQNAgent(Agent):
 
         self.discount = discount
         self.memory = Memory.from_spec(memory_spec)
-        self.record_space = Dict(states=self.state_space, actions=self.action_space, rewards=float, terminal=IntBox(1),
+        self.record_space = Dict(states=self.state_space, actions=self.action_space, rewards=float, terminals=IntBox(1),
                                  add_batch_rank=False)
         self.double_q = double_q
         self.duelling_q = duelling_q
 
-        # The target network (is synced from q-net every n steps).
-        self.target_net = None
+        # The target policy (is synced from the q-net policy every n steps).
+        self.target_policy = None
         # The global copy of the q-net (if we are running in distributed mode).
         self.global_qnet = None
 
-        self.input_names = ["state", "action", "reward", "terminal"]
-        self.merger = Merger(output_space=self.record_space, input_names=self.input_names)
-        self.input_names.append("deterministic")
-        self.splitter = Splitter(input_space=self.record_space)
+        # TODO: "states_preprocessed" in-Socket + connect properly
+        self.input_names = ["states", "actions", "rewards", "terminals", "deterministic"]
+        self.merger = Merger(output_space=self.record_space)
+        splitter_input_space = copy.deepcopy(self.record_space)
+        splitter_input_space["next_states"] = self.state_space
+        self.splitter = Splitter(input_space=splitter_input_space)
         self.loss_function = DQNLossFunction(double_q=self.double_q)
 
         self.assemble_meta_graph()
+        markup = get_graph_markup(self.graph_builder.core_component)
+        print(markup)
         self.compile_graph()
 
     def assemble_meta_graph(self):
@@ -71,15 +78,15 @@ class DQNAgent(Agent):
         core.define_outputs("act", "add_records", "reset_memory", "learn", "sync_target_qnet")
 
         # Add the Q-net, copy it (target-net) and add the target-net.
-        self.target_net = self.neural_network.copy(scope="target-net")
-        core.add_components(self.neural_network, self.target_net)
+        self.target_policy = self.policy.copy(scope="target-policy")
+        core.add_components(self.target_policy)
         # Add an Exploration for the q-net (target-net doesn't need one).
         core.add_components(self.exploration)
 
         # If we are in distributed mode, add a global qnet as well.
-        if self.execution_spec["mode"] == "distributed":
-            self.global_qnet = self.neural_network.copy(scope="global-qnet", global_component=True)
-            core.add_components(self.global_qnet)
+        #if self.execution_spec["mode"] == "distributed":
+        #    self.global_qnet = self.neural_network.copy(scope="global-qnet", global_component=True)
+        #    core.add_components(self.global_qnet)
 
         # Add our Memory Component plus merger and splitter.
         core.add_components(self.memory, self.merger, self.splitter)
@@ -89,46 +96,55 @@ class DQNAgent(Agent):
 
         # Now connect everything ...
 
-        # States into preprocessor -> into q-net
-        core.connect("state", (self.preprocessor_stack, "input"))
+        # Spaces to in-Sockets.
+        core.connect(self.state_space.with_batch_rank(), "states")
+        core.connect(self.action_space.with_batch_rank(), "actions")
+        core.connect(FloatBox(add_batch_rank=True), "rewards")
+        core.connect(IntBox(2, add_batch_rank=True), "terminals")
+        core.connect(BoolBox(), "deterministic")
+
+        # States (from Env) into preprocessor -> into q-net
+        core.connect("states", (self.preprocessor_stack, "input"))
         core.connect((self.preprocessor_stack, "output"), (self.policy, "input"), label="from_env")
 
         # Network output into Exploration's "nn_output" Socket -> into "act".
-        core.connect((self.policy, "output"), (self.exploration, "nn_output"), label="from_env")
-        core.connect((self.exploration, "nn_output"), "act")
+        core.connect((self.policy, "sample_deterministic"),
+                     (self.exploration, "sample_deterministic"), label="from_env")
+        core.connect((self.policy, "sample_stochastic"),
+                     (self.exploration, "sample_stochastic"), label="from_env")
+        core.connect((self.exploration, "action"), "act")
 
         # Actions, rewards, terminals into Merger.
-        for in_ in self.input_names:
-            if in_ != "states":
-                core.connect(in_, (self.merger, in_))
+        for in_ in ["actions", "rewards", "terminals"]:
+            core.connect(in_, (self.merger, "/"+in_))
         # Preprocessed states into Merger.
-        core.connect((self.preprocessor_stack, "output"), (self.merger, "states"))
+        core.connect((self.preprocessor_stack, "output"), (self.merger, "/states"))
         # Merger's "output" into Memory's "records".
         core.connect((self.merger, "output"), (self.memory, "records"))
         # Memory's "add_records" functionality.
-        core.connect((self.memory, "add_records"), "add_records")
+        core.connect((self.memory, "insert"), "add_records")
 
         # Memory's "sample" (to Splitter) and "num_records" (constant batch-size value).
         core.connect((self.memory, "sample"), (self.splitter, "input"))
         core.connect(self.update_spec["batch_size"], (self.memory, "num_records"))
 
         # Splitter's outputs.
-        core.connect((self.splitter, "states"), (self.neural_network, "input"), label="from_memory")
-        core.connect((self.splitter, "actions"), (self.loss_function, "actions"))
-        core.connect((self.splitter, "rewards"), (self.loss_function, "rewards"))
-        core.connect((self.splitter, "next_states"), (self.target_net, "input"))
+        core.connect((self.splitter, "/states"), (self.policy, "input"), label="from_memory")
+        core.connect((self.splitter, "/actions"), (self.loss_function, "actions"))
+        core.connect((self.splitter, "/rewards"), (self.loss_function, "rewards"))
+        core.connect((self.splitter, "/next_states"), (self.target_policy, "input"))
 
         # Loss-function needs both q-values (qnet and target).
-        core.connect((self.neural_network, "output"), (self.loss_function, "q_values"), label="from_memory")
-        core.connect((self.target_net, "output"), (self.loss_function, "q_values_s_"))
+        core.connect((self.policy, "nn_output"), (self.loss_function, "q_values"), label="from_memory")
+        core.connect((self.target_policy, "nn_output"), (self.loss_function, "q_values_s_"))
 
         # Connect the Optimizer.
         core.connect((self.loss_function, "loss"), (self.optimizer, "loss"))
         core.connect((self.optimizer, "step"), "learn")
 
         # Add syncing capability for target-net.
-        core.connect((self.neural_network, "sync_out"), (self.target_net, "sync_in"))
-        core.connect((self.target_net, "sync_in"), "sync_target_qnet")
+        core.connect((self.policy, "sync_out"), (self.target_policy, "sync_in"))
+        core.connect((self.target_policy, "sync_in"), "sync_target_qnet")
 
     def get_action(self, states, deterministic=False):
         self.timesteps += 1

@@ -26,12 +26,10 @@ class Merger(Component):
     """
     Merges incoming items into one FlattenedDataOp.
     """
-    def __init__(self, output_space, scope="merger", input_names=None, **kwargs):
+    def __init__(self, output_space, scope="merger", **kwargs):
         """
         Args:
             output_space (Space): The output Space to merge to from the single components. Must be a ContainerSpace.
-            input_names (List[str]): An optional list of in-Socket names to be used instead of the auto-generated keys
-                coming from the flattened output.
         """
         assert isinstance(output_space, ContainerSpace), "ERROR: `output_space` must be a ContainerSpace " \
                                                          "(Dict or Tuple)!"
@@ -39,22 +37,15 @@ class Merger(Component):
         super(Merger, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
 
         self.output_space = output_space
+        assert isinstance(output_space, ContainerSpace),\
+            "ERROR: `output_space` of Merger Component must be a ContainerSpace (but is {})!".format(output_space)
 
         # Define the interface (one input, many outputs named after the auto-keys generated).
         self.define_outputs("output")
-        flat_dict = output_space.flatten()
-        if input_names is not None:
-            assert len(flat_dict) == len(input_names), "ERROR: Number of given in-names ({}) does not " \
-                                                       "match number of elements in output " \
-                                                       "ContainerSpace ({})!". \
-                format(len(input_names), len(flat_dict))
-        else:
-            input_names = [key for key in flat_dict.keys()]
-        self.input_names = input_names
+        self.input_names = list(output_space.flatten().keys())
         self.define_inputs(*self.input_names)
         # Insert our merging GraphFunction.
-        self.add_graph_fn(self.input_names, "output", self._graph_fn_merge,
-                             flatten_ops=False)
+        self.add_graph_fn(self.input_names, "output", self._graph_fn_merge, flatten_ops=False)
 
     def _graph_fn_merge(self, *inputs):
         """
@@ -68,7 +59,7 @@ class Merger(Component):
         """
         ret = FlattenedDataOp()
         for i, op in enumerate(inputs):
-            ret[self.input_sockets[i].name] = op
+            ret[self.input_names[i]] = op
 
         return ret
 

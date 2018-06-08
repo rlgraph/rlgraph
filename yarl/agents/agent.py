@@ -64,8 +64,13 @@ class Agent(Specifiable):
         self.logger.info("Parsed state space definition: {}".format(self.state_space))
         self.action_space = Space.from_spec(action_space).with_batch_rank(False)
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
-        self.neural_network = NeuralNetwork.from_spec(network_spec)
-        self.policy = Policy(neural_network=self.neural_network)
+
+        self.neural_network = None
+        self.policy = None
+
+        if network_spec is not None:
+            self.neural_network = NeuralNetwork.from_spec(network_spec)
+            self.policy = Policy(neural_network=self.neural_network)
 
         self.preprocessor_stack = PreprocessorStack.from_spec(preprocessing_spec)
         self.exploration = Exploration.from_spec(exploration_spec)
