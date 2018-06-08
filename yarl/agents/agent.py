@@ -89,17 +89,12 @@ class Agent(Specifiable):
         self.update_spec = parse_update_spec(update_spec)
 
         # Create our Model.
-        graph_builder = GraphBuilder()
+        self.graph_builder = GraphBuilder()
         self.graph_executor = GraphExecutor.from_spec(
             backend,
-            graph_builder=graph_builder,
+            graph_builder=self.graph_builder,
             execution_spec=self.execution_spec
         )
-
-        # Build a custom, agent-specific algorithm into the builder's `core` Component.
-        self.build_graph(graph_builder.core_component)
-        # Ask our executor to actually build the Graph.
-        self.graph_executor.build()
 
     def reset_buffers(self):
         """
@@ -111,21 +106,18 @@ class Agent(Specifiable):
         self.reward_buffer = list()
         self.terminal_buffer = list()
 
-    def build_graph(self, core):
+    def assemble_meta_graph(self):
         """
-        Assembles the computation graph by combining specified graph components
-        and converting non-graph components if using AutoGraph.
-
-        Each agent implements this to combine its necessary graph components.
-
-        Args:
-            core (Component): The core Component of the Model we are building. All Components this Agent needs must go
-                in there via `core.add_component()`.
+        Assembles the YARL meta computation graph by combining specified YARL Components.
+        Each agent implements this to build its algorithm logic.
         """
         raise NotImplementedError
 
-    def build_preprocessor(self, core):
-        core.add_component(self.preprocessor_stack)
+    def compile_graph(self):
+        """
+        Asks our GraphExecutor to actually build the Graph.
+        """
+        self.graph_executor.build()
 
     def get_action(self, states, deterministic=False):
         """

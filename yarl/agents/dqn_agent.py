@@ -54,12 +54,17 @@ class DQNAgent(Agent):
         # The global copy of the q-net (if we are running in distributed mode).
         self.global_qnet = None
 
-        self.input_names = ["state", "action", "reward", "terminal"]
+        self.input_names = ["state", "action", "reward", "terminal", "deterministic"]
         self.merger = Merger(output_space=self.record_space, input_names=self.input_names)
         self.splitter = Splitter(input_space=self.record_space)
         self.loss_function = DQNLossFunction(double_q=self.double_q)
 
-    def build_graph(self, core):
+        self.assemble_meta_graph()
+        self.compile_graph()
+
+    def build_graph(self):
+        core = self.graph_builder.core_component
+
         # Define our interface.
         core.define_inputs(*self.input_names)
         core.define_outputs("act", "add_records", "reset_memory", "learn", "sync_target_qnet")
@@ -125,7 +130,7 @@ class DQNAgent(Agent):
         core.connect((self.target_net, "synch_in"), "synch_target_qnet")
 
     def get_action(self, states, deterministic=False):
-        return self.graph_executor.execute("act")
+        return self.graph_executor.execute("act", inputs=dict(state=states))
 
     def _observe_graph(self, states, actions, internals, reward, terminal):
         pass
