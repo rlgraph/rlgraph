@@ -31,16 +31,20 @@ class RandomEnv(Env):
     """
     An Env producing random states no matter what actions come in.
     """
-    def __init__(self, state_space, action_space, reward_space=None, terminal_prob=0.1):
+    def __init__(self, state_space, action_space, reward_space=None, terminal_prob=0.1, deterministic=False):
         """
         Args:
             reward_space (Union[dict,Space]): The reward Space from which to randomly sample for each step.
             terminal_prob (Union[dict,Space]): The probability with which an episode ends for each step.
+            deterministic (bool): Convenience flag to seed the environment automatically upon construction.
         """
         super(RandomEnv, self).__init__(state_space=state_space, action_space=action_space)
 
         self.reward_space = spaces.Space.from_spec(reward_space) or spaces.FloatBox(-1.0, 1.0)
         self.terminal_prob = terminal_prob
+
+        if deterministic is True:
+            self.seed(10)
 
     def seed(self, seed=None):
         if seed is None:

@@ -20,13 +20,16 @@ from __future__ import print_function
 from yarl.envs.env import Env
 from yarl.envs.grid_world import GridWorld
 from yarl.envs.openai_gym import OpenAIGymEnv
+from yarl.envs.random_env import RandomEnv
 
 
 Env.__lookup_classes__ = dict(
     gridworld=GridWorld,
     openai=OpenAIGymEnv,
     openaigymenv=OpenAIGymEnv,
-    openaigym=OpenAIGymEnv
+    openaigym=OpenAIGymEnv,
+    randomenv=RandomEnv,
+    random = RandomEnv,
 )
 
-__all__ = ["Env", "GridWorld", "OpenAIGymEnv"]
+__all__ = ["Env", "GridWorld", "OpenAIGymEnv", "RandomEnv"]
