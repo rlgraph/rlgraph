@@ -22,6 +22,8 @@ import numpy as np
 import itertools
 from six.moves import xrange
 
+import logging
+import sys
 import tensorflow as tf
 
 from yarl.utils.backend_system import backend
@@ -35,6 +37,18 @@ else:
 
 SMALL_NUMBER = 1e-6
 LARGE_INTEGER = 100000000
+
+# Logging config for testing.
+logging_formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s', datefmt='%y-%m-%d %H:%M:%S')
+root_logger = logging.getLogger('')
+root_logger.setLevel(level=logging.DEBUG)
+tf_logger = logging.getLogger('tensorflow')
+tf_logger.setLevel(level=logging.DEBUG)
+
+print_logging_handler = logging.StreamHandler(stream=sys.stdout)
+print_logging_handler.setFormatter(logging_formatter)
+print_logging_handler.setLevel(level=logging.DEBUG)
+#root_logger.addHandler(print_logging_handler)
 
 
 def dtype(dtype_, to="tf"):

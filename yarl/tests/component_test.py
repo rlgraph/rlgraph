@@ -18,10 +18,11 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import backend
+from yarl.utils import root_logger
 from yarl.components import CONNECT_ALL
 from yarl.graphs import GraphBuilder
 from yarl.graphs.graph_executor import GraphExecutor
-from yarl.tests.test_util import recursive_assert_almost_equal, root_logger
+from yarl.tests.test_util import recursive_assert_almost_equal
 
 
 class ComponentTest(object):

@@ -18,13 +18,12 @@ from __future__ import division
 from __future__ import print_function
 
 from .component_test import ComponentTest
-from .test_util import recursive_assert_almost_equal, tf_logger, print_logging_handler, root_logger, logging_formatter
+from .test_util import recursive_assert_almost_equal
 from .dummy_components import *
 
 
 __all__ = ["recursive_assert_almost_equal",
            "ComponentTest",
-           "logging_formatter", "root_logger", "tf_logger", "print_logging_handler",
            "Dummy0to1", "Dummy1to1", "Dummy1to2", "Dummy2to1"
            ]
 

@@ -17,22 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import logging
 import numpy as np
-import sys
-
-
-logging_formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s', datefmt='%y-%m-%d %H:%M:%S')
-root_logger = logging.getLogger('')
-tf_logger = logging.getLogger('tensorflow')
-print_logging_handler = logging.StreamHandler(stream=sys.stdout)
-
-# Logging config for testing.
-tf_logger.setLevel(level=logging.DEBUG)
-print_logging_handler.setFormatter(logging_formatter)
-print_logging_handler.setLevel(level=logging.DEBUG)
-root_logger.setLevel(level=logging.DEBUG)
-root_logger.addHandler(print_logging_handler)
 
 
 def non_terminal_records(record_space, num_samples):

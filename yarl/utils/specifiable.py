@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import copy
 from functools import partial
 import importlib
 import json
@@ -35,8 +34,9 @@ class Specifiable(object):
 
     # An optional python dict with supported str-to-ctor mappings for this class.
     __lookup_classes__ = None
-    # An optional default Object to deepcopy in case `spec` is None.
-    __default_object__ = None
+    # An optional default constructor to use without any arguments in case `spec` is None
+    # and args/kwargs are both empty. This may be a functools.partial object.
+    __default_constructor__ = None
 
     @classmethod
     def from_spec(cls, spec=None, **kwargs):
@@ -95,8 +95,8 @@ class Specifiable(object):
         # None: Try __default__object (if no args/kwargs), only then constructor of cls (using args/kwargs).
         if type_ is None:
             # We have a default object: Deepcopy that and return it.
-            if cls.__default_object__ is not None and ctor_args == list() and ctor_kwargs == dict():
-                return copy.deepcopy(cls.__default_object__)
+            if cls.__default_constructor__ is not None and ctor_args == list() and ctor_kwargs == dict():
+                constructor = cls.__default_constructor__
             # Try our luck with this class itself.
             else:
                 constructor = cls
