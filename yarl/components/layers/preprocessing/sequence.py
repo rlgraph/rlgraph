@@ -58,7 +58,7 @@ class Sequence(PreprocessLayer):
         # The index into the buffer.
         self.index = None
 
-    def create_variables(self, input_spaces):
+    def create_variables(self, input_spaces, action_space):
         in_space = input_spaces["input"]
         self.first_rank_is_batch = in_space.has_batch_rank
 

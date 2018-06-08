@@ -101,7 +101,7 @@ class Dummy0to1(Component):
         self.add_graph_fn(None, "output", self._graph_fn_0to1)
         self.var = None
 
-    def create_variables(self, input_spaces):
+    def create_variables(self, input_spaces, action_space):
         self.var = self.get_variable(initializer=8.0)
 
     def _graph_fn_0to1(self):

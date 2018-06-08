@@ -46,7 +46,8 @@ class ConcatLayer(NNLayer):
                                           num_graph_fn_outputs=1, **kwargs)
         self.axis = axis
 
-    def check_input_spaces(self, input_spaces):
+    def check_input_spaces(self, input_spaces, action_space):
+        super(ConcatLayer, self).check_input_spaces(input_spaces, action_space)
         in1_space = input_spaces["input1"]
         # Make sure all inputs have the same shape except for the last rank.
         for key, in_space in input_spaces.items():
@@ -54,8 +55,8 @@ class ConcatLayer(NNLayer):
                 "ERROR: input spaces to ConcatLayer must have same shape except for last rank. {}'s shape is {}, but " \
                 "'input1's shape is {}.".format(key, in_space.shape, in1_space.shape)
 
-    def create_variables(self, input_spaces):
-        super(ConcatLayer, self).create_variables(input_spaces)
+    def create_variables(self, input_spaces, action_space):
+        super(ConcatLayer, self).create_variables(input_spaces, action_space)
 
         # Wrapper for backend.
         if backend == "tf":

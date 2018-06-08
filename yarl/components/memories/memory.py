@@ -44,7 +44,7 @@ class Memory(Component):
 
         self.add_graph_fn(inputs="records", outputs="insert", method=self._graph_fn_insert)
 
-    def create_variables(self, input_spaces):
+    def create_variables(self, input_spaces, action_space):
         # Store our record-space for convenience.
         self.record_space = input_spaces["records"]
 

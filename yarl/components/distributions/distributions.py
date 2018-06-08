@@ -75,7 +75,7 @@ class Distribution(Component):
             self.define_outputs("draw")
             self.add_graph_fn(["distribution", "max_likelihood"], "draw", self._graph_fn_draw)
 
-    def check_input_spaces(self, input_spaces):
+    def check_input_spaces(self, input_spaces, action_space):
         in_space = input_spaces["parameters"]
         # Must not be ContainerSpace (not supported yet for Distributions, doesn't seem to make sense).
         assert not isinstance(in_space, ContainerSpace), "ERROR: Cannot handle container input Spaces " \
@@ -230,7 +230,7 @@ class Normal(Distribution):
         # Do not flatten incoming DataOps as we need more than one parameter in our parameterize graph_fn.
         super(Normal, self).__init__(scope=scope, **kwargs)
 
-    def check_input_spaces(self, input_spaces):
+    def check_input_spaces(self, input_spaces, action_space):
         # Must be a Tuple of len 2 (loc and scale).
         in_space = input_spaces["parameters"]
         assert isinstance(in_space, Tuple) and len(in_space) == 2,\
@@ -254,7 +254,7 @@ class Beta(Distribution):
         # Do not flatten incoming DataOps as we need more than one parameter in our parameterize graph_fn.
         super(Beta, self).__init__(scope=scope, **kwargs)
 
-    def check_input_spaces(self, input_spaces):
+    def check_input_spaces(self, input_spaces, action_space):
         # Must be a Tuple of len 2 (loc and scale).
         in_space = input_spaces["parameters"]
         assert isinstance(in_space, Tuple) and len(in_space) == 2,\

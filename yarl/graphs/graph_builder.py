@@ -37,17 +37,17 @@ class GraphBuilder(Specifiable):
     components, sockets and connections and creating the underlying computation
     graph.
     """
-    def __init__(
-        self,
-        graph_name="model"
-    ):
+    def __init__(self, name="model", action_space=None):
         """
         Args:
-            graph_name (str): The name of this model.
+            name (str): The name of this GraphBuilder and of the meta-graph's core component.
+            action_space (Optional[Space]): The action Space information to be passed into calls to each Components'
+                `when_input_complete` methods.
         """
         # The name of this model. Our core Component gets this name.
         self.logger = logging.getLogger(__name__)
-        self.name = graph_name
+        self.name = name
+        self.action_space = action_space
 
         # All components assigned to each device, for debugging and analysis.
         self.device_component_assignments = dict()
@@ -72,7 +72,7 @@ class GraphBuilder(Specifiable):
         #   the out-Socket's op output.
         self.out_socket_registry = dict()
         # Maps an out-Socket name+in-Socket/Space-combination to an actual DataOp to fetch from our Graph.
-        self.call_registry = dict()  # key=()
+        self.call_registry = dict()  # key=(FixMe: documentation)
 
     def assemble_graph(self, available_devices, default_device):
         """
@@ -104,10 +104,20 @@ class GraphBuilder(Specifiable):
         # Memoize possible input combinations for Op calls.
         self.memoize_inputs()
 
-        # Build ops based on out socket definitions.
-        self.build_ops()
+        # Registers ops with the different out-Sockets.
+        self.register_ops()
 
-    def build_ops(self):
+    def memoize_inputs(self):
+        # Memoize possible input-combinations (from all our in-Sockets)
+        # so we don't have to do this every time we get a call to `self.execute`.
+        in_names = sorted(list(map(lambda s: s.name, self.core_component.input_sockets)))
+        input_combinations = all_combinations(in_names, descending_length=True)
+        # Store each combination and its sub-combinations in self.input_combinations.
+        for input_combination in input_combinations:
+            self.input_combinations[tuple(input_combination)] = \
+                all_combinations(input_combination, descending_length=True)
+
+    def register_ops(self):
         # Now use the ready op/socket registries to determine for which out-Socket we need which inputs.
         # Then we will be able to derive the correct op for any given (out-Socket+in-Socket+in-shape)-combination
         # passed into the call method.
@@ -137,16 +147,6 @@ class GraphBuilder(Specifiable):
                     # .. and the out-socket registry.
                     self.out_socket_registry[output_socket.name].update(set(in_socket_names))
 
-    def memoize_inputs(self):
-        # Memoize possible input-combinations (from all our in-Sockets)
-        # so we don't have to do this every time we get a call to `self.execute`.
-        in_names = sorted(list(map(lambda s: s.name, self.core_component.input_sockets)))
-        input_combinations = all_combinations(in_names, descending_length=True)
-        # Store each combination and its sub-combinations in self.input_combinations.
-        for input_combination in input_combinations:
-            self.input_combinations[tuple(input_combination)] = \
-                all_combinations(input_combination, descending_length=True)
-
     def get_default_model(self):
         """
         Fetches the initially created default container.
@@ -168,7 +168,7 @@ class GraphBuilder(Specifiable):
         if len(sub_component.input_sockets) == 0:
             sub_component.check_input_completeness()
             assert sub_component.input_complete
-            sub_component.when_input_complete(input_spaces=dict())
+            sub_component.when_input_complete(input_spaces=dict(), action_space=self.action_space)
 
         # The sub-component itself.
         for entry_point in sub_component.no_input_entry_points:
@@ -263,22 +263,22 @@ class GraphBuilder(Specifiable):
             self.assign_device(graph_fn, socket, self.default_device)
         # Keep moving through this graph_fn's out-Sockets (if input-complete).
         if graph_fn.input_complete:
-            self.build_outputs_when_input_complete(graph_fn, socket)
+            self.build_outputs_when_input_complete(graph_fn)
 
-    def build_outputs_when_input_complete(self, graph_fn, socket):
+    def build_outputs_when_input_complete(self, graph_fn):
         """
         Builds output sockets when graph fn is input complete.
 
         Args:
-            socket (Socket): The Socket object to process.
             graph_fn (GraphFunction): Graph function to finish building output sockets for.
         """
-        # self.logger.info("Graph_fn '{}/{}' is input-complete.".format(socket.component.name, graph_fn.name))
+        self.logger.info("Graph_fn '{}/{}' is input-complete.".format(graph_fn.component.name, graph_fn.name))
         # self.logger.info("\tin-Sockets:")
         # for in_socket_record in graph_fn.input_sockets.values():
-        #    self.logger.info("\t'{}': {}".format(in_socket_record["socket"].name,
-        #                                         in_socket_record["socket"].space))
-        #self.logger.info("\tout-Sockets:")
+        #   self.logger.info("\t'{}': {}".format(in_socket_record["socket"].name,
+        #                                        in_socket_record["socket"].space))
+        # self.logger.info("\tout-Sockets:")
+
         for slot, out_socket in enumerate(graph_fn.output_sockets):
             self.partial_input_build(out_socket, graph_fn, slot)
             # self.logger.info("\t'{}': {}".format(out_socket.name, out_socket.space))
@@ -453,7 +453,7 @@ class GraphBuilder(Specifiable):
         """
         # Allow the Component to sanity check and create its variables.
         space_dict = {in_s.name: in_s.space for in_s in component.input_sockets}
-        component.when_input_complete(space_dict)
+        component.when_input_complete(space_dict, self.action_space)
 
         self.logger.info("Component '{}' is input-complete.".format(component.name))
         self.logger.info("\tin-Sockets:")

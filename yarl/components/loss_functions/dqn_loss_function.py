@@ -45,7 +45,7 @@ class DQNLossFunction(LossFunction):
         self.double_q = double_q
         self.action_space = None
 
-    def check_input_spaces(self, input_spaces):
+    def check_input_spaces(self, input_spaces, action_space):
         """
         Do some sanity checking on the incoming Spaces:
         """

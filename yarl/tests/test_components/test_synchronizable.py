@@ -25,7 +25,7 @@ from yarl.components.common import Synchronizable
 from yarl.spaces import FloatBox
 from yarl.tests import ComponentTest
 
-VARIABLE_NAMES = ["variable_to_synch1", "variable_to_synch2"]
+VARIABLE_NAMES = ["variable_to_sync1", "variable_to_sync2"]
 
 
 class MySyncComp(Synchronizable):
@@ -40,8 +40,8 @@ class MySyncComp(Synchronizable):
         self.dummy_var_1 = None
         self.dummy_var_2 = None
 
-    def create_variables(self, input_spaces):
-        # create some dummy var to synch from/to.
+    def create_variables(self, input_spaces, action_space):
+        # create some dummy var to sync from/to.
         self.dummy_var_1 = self.get_variable(name=VARIABLE_NAMES[0], from_space=self.space,
                                              initializer=self.initializer1)
         self.dummy_var_2 = self.get_variable(name=VARIABLE_NAMES[1], from_space=self.space,
@@ -50,45 +50,45 @@ class MySyncComp(Synchronizable):
 
 class TestSynchronizableComponent(unittest.TestCase):
 
-    def test_synch_out_socket(self):
-        # A Synchronizable that can only push out values (cannot be synched from another Synchronizable).
+    def test_sync_out_socket(self):
+        # A Synchronizable that can only push out values (cannot be synced from another Synchronizable).
         component_to_test = MySyncComp(writable=False)
         test = ComponentTest(component=component_to_test)
 
-        # Test pulling the variable values from the synch_out socket.
+        # Test pulling the variable values from the sync_out socket.
         expected1 = np.zeros(shape=component_to_test.space.shape)
         expected2 = np.ones(shape=component_to_test.space.shape)
-        expected = dict(variable_to_synch1=expected1, variable_to_synch2=expected2)
-        test.test(out_socket_names="synch_out", inputs=None, expected_outputs=expected)
+        expected = dict(variable_to_sync1=expected1, variable_to_sync2=expected2)
+        test.test(out_socket_names="sync_out", inputs=None, expected_outputs=expected)
 
-    def test_synch_socket(self):
-        # Two Synchronizables, A that can only push out values, B to be synched by A's values.
-        synch_from = MySyncComp(writable=False, scope="synch-from")
-        synch_to = MySyncComp(initializer1=8.0, initializer2=7.0, writable=True, scope="synch-to")
+    def test_sync_socket(self):
+        # Two Synchronizables, A that can only push out values, B to be synced by A's values.
+        sync_from = MySyncComp(writable=False, scope="sync-from")
+        sync_to = MySyncComp(initializer1=8.0, initializer2=7.0, writable=True, scope="sync-to")
         # Create a dummy test component that contains our two Synchronizables.
         component_to_test = Component(name="dummy-comp")
-        component_to_test.define_outputs("do_the_synch")
-        component_to_test.add_components(synch_from, synch_to)
+        component_to_test.define_outputs("do_the_sync")
+        component_to_test.add_components(sync_from, sync_to)
         # connect everything correctly
-        component_to_test.connect((synch_from, "synch_out"), (synch_to, "synch_in"))
-        component_to_test.connect((synch_to, "synch"), "do_the_synch")
+        component_to_test.connect((sync_from, "sync_out"), (sync_to, "sync_in"))
+        component_to_test.connect((sync_to, "sync"), "do_the_sync")
         test = ComponentTest(component=component_to_test)
 
-        # Test synching the variable from->to and check them before and after the synch.
-        variables_dict = synch_to.get_variables(VARIABLE_NAMES)
+        # Test syncing the variable from->to and check them before and after the sync.
+        variables_dict = sync_to.get_variables(VARIABLE_NAMES)
         var1_value, var2_value = test.get_variable_values(*list(variables_dict.values()))
 
-        expected1 = np.full(shape=synch_from.space.shape, fill_value=8.0)
-        expected2 = np.full(shape=synch_from.space.shape, fill_value=7.0)
+        expected1 = np.full(shape=sync_from.space.shape, fill_value=8.0)
+        expected2 = np.full(shape=sync_from.space.shape, fill_value=7.0)
         test.assert_equal(var1_value, expected1)
         test.assert_equal(var2_value, expected2)
 
-        # Now synch and re-check.
-        test.test(out_socket_names="do_the_synch", inputs=None, expected_outputs=None)
+        # Now sync and re-check.
+        test.test(out_socket_names="do_the_sync", inputs=None, expected_outputs=None)
 
         var1_value, var2_value = test.get_variable_values(*list(variables_dict.values()))
 
-        expected1 = np.zeros(shape=synch_from.space.shape)
-        expected2 = np.ones(shape=synch_from.space.shape)
+        expected1 = np.zeros(shape=sync_from.space.shape)
+        expected2 = np.ones(shape=sync_from.space.shape)
         test.assert_equal(var1_value, expected1)
         test.assert_equal(var2_value, expected2)

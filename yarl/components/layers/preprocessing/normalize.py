@@ -37,7 +37,9 @@ class Normalize(PreprocessLayer):
         super(Normalize, self).__init__(scope=scope, **kwargs)
         self.axes = None
 
-    def check_input_spaces(self, input_spaces):
+    def check_input_spaces(self, input_spaces, action_space):
+        super(Normalize, self).create_variables(input_spaces, action_space)
+
         in_space = input_spaces["input"]  # type: Space
         # A list of all axes over which to normalize (exclude batch rank).
         self.axes = list(range(1 if in_space.has_batch_rank else 0, len(in_space.get_shape(with_batch_rank=False))))

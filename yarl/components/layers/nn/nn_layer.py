@@ -31,7 +31,7 @@ class NNLayer(Layer):
         # The wrapped layer object.
         self.layer = None
 
-    def check_input_spaces(self, input_spaces):
+    def check_input_spaces(self, input_spaces, action_space):
         """
         Do some sanity checking on the incoming Space:
         Must not be Container (for now) and must have a batch rank.

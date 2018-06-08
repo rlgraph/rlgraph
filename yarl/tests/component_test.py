@@ -18,17 +18,17 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import backend
+from yarl.components import CONNECT_ALL
 from yarl.graphs import GraphBuilder
 from yarl.graphs.graph_executor import GraphExecutor
-
-from .test_util import recursive_assert_almost_equal, root_logger
+from yarl.tests.test_util import recursive_assert_almost_equal, root_logger
 
 
 class ComponentTest(object):
     """
     A simple (and limited) Graph-wrapper to test a single component in an easy, straightforward way.
     """
-    def __init__(self, component, input_spaces=None, seed=10, logging_level=None):
+    def __init__(self, component, input_spaces=None, action_space=None, seed=10, logging_level=None):
         """
         Args:
             component (Component): The Component to be tested (may contain sub-components).
@@ -43,12 +43,12 @@ class ComponentTest(object):
         if logging_level is not None:
             root_logger.setLevel(logging_level)
 
-        # Create our Model.
-        self.graph_builder = GraphBuilder()
+        # Create a GraphBuilder.
+        self.graph_builder = GraphBuilder(action_space=action_space)
 
         # Add the component to test and expose all its Sockets to the core component of our Model.
         self.core = self.graph_builder.get_default_model()
-        self.core.add_component(component, connections=True)
+        self.core.add_component(component, connections=CONNECT_ALL)
 
         # Add the input-spaces to the in-Sockets.
         for in_socket in self.core.input_sockets:

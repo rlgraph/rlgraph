@@ -75,8 +75,8 @@ class PrioritizedReplay(Memory):
             flatten_ops=False
         )
 
-    def create_variables(self, input_spaces):
-        super(PrioritizedReplay, self).create_variables(input_spaces)
+    def create_variables(self, input_spaces, action_space):
+        super(PrioritizedReplay, self).create_variables(input_spaces, action_space)
 
         # Record space must contain 'terminal' for a replay memory.
         assert 'terminal' in self.record_space

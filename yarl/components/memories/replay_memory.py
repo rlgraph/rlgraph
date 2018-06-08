@@ -47,8 +47,8 @@ class ReplayMemory(Memory):
         self.define_outputs("sample")
         self.add_graph_fn(inputs="num_records", outputs="sample", method=self._graph_fn_get_records, flatten_ops=False)
 
-    def create_variables(self, input_spaces):
-        super(ReplayMemory, self).create_variables(input_spaces)
+    def create_variables(self, input_spaces, action_space):
+        super(ReplayMemory, self).create_variables(input_spaces, action_space)
 
         # Record space must contain 'terminal' for a replay memory.
         assert 'terminal' in self.record_space

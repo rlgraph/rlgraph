@@ -34,8 +34,8 @@ class TestPolicies(unittest.TestCase):
         # action_space (2 possible actions).
         action_space = IntBox(2, add_batch_rank=True)
 
-        policy = Policy(neural_network="configs/test_simple_nn.json", action_space=action_space)
-        test = ComponentTest(component=policy, input_spaces=dict(input=state_space))
+        policy = Policy(neural_network="configs/test_simple_nn.json")
+        test = ComponentTest(component=policy, input_spaces=dict(input=state_space), action_space=action_space)
 
         # Some NN inputs.
         states = np.array([[-0.08, 0.4, -0.05, -0.55], [13.0, -14.0, 10.0, -16.0],

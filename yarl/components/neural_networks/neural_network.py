@@ -33,7 +33,7 @@ class NeuralNetwork(Stack, Synchronizable):
                 (or any other Components) to this Network.
 
         Keyword Args:
-            writable (bool): Whether this NN can be synched to by another (equally structured) NN.
+            writable (bool): Whether this NN can be synced to by another (equally structured) NN.
                 Default: True.
             layers (Optional[list]): An optional list of Layer objects or spec-dicts to overwrite(!)
                 *layers.

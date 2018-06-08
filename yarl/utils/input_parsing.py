@@ -63,10 +63,10 @@ def parse_execution_spec(execution_spec):
         default_distributed = dict(
             job="ps",
             task_index=0,
-            cluster_spec={
-                "ps": ["localhost:22222"],
-                "worker": ["localhost:22223"]
-            },
+            cluster_spec=dict(
+                ps=["localhost:22222"],
+                worker=["localhost:22223"]
+            ),
             global_shared_memory=True
         )
         default_dict(execution_spec.get("distributed_spec"), default_distributed)
@@ -87,9 +87,12 @@ def parse_update_spec(update_spec):
     """
     # If no spec given.
     default_spec = dict(
-       unit="timesteps",
-       batch_size=64,
-       frequency=4
+        # The unit in which we measure frequency: one of "timesteps", "episodes", "sec".
+        unit="timesteps",
+        # The frequency with which we update (given in `unit`).
+        frequency=4,
+        # The batch size with which to update (e.g. when pulling records from a memory).
+        batch_size = 64,
     )
     update_spec = default_dict(update_spec, default_spec)
 

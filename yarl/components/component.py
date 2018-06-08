@@ -146,7 +146,7 @@ class Component(Specifiable):
         for connection in connections:
             self.connect(connection[0], connection[1])
 
-    def when_input_complete(self, input_spaces):
+    def when_input_complete(self, input_spaces, action_space):
         """
         Wrapper that calls both `create_variables` and `assert_input_spaces` in sequence and passes the dict with
         the input_spaces for each in-Socket (kay=Socket's name) as parameter.
@@ -154,17 +154,21 @@ class Component(Specifiable):
         Args:
             input_spaces (Dict[str,Space]): A dict with Space/shape information.
                 keys=in-Socket name (str); values=the associated Space
+            FixMe: Experimental attempt to get rid of the necessity to pass action_space into many Components' constructors
+            action_space (Space): The action Space of the Agent/GraphBuilder. Can be used to construct and connect
+                more Components (which rely on this information). This eliminates the need to pass the action Space
+                information into many Components' constructors.
         """
         # Allow the Component to check its input Space.
-        self.check_input_spaces(input_spaces)
+        self.check_input_spaces(input_spaces, action_space)
         # Allow the Component to create all its variables.
         if backend == "tf":
             with tf.variable_scope(self.global_scope):
-                self.create_variables(input_spaces)
+                self.create_variables(input_spaces, action_space)
         # Add all created variables up the parent/container hierarchy.
         self.propagate_variables()
 
-    def check_input_spaces(self, input_spaces):
+    def check_input_spaces(self, input_spaces, action_space):
         """
         Should check on the nature of all in-Sockets Spaces of this Component. This method is called automatically
         by the Model when all these Spaces are know during the Model's build time.
@@ -172,10 +176,13 @@ class Component(Specifiable):
         Args:
             input_spaces (Dict[str,Space]): A dict with Space/shape information.
                 keys=in-Socket name (str); values=the associated Space
+            action_space (Space): The action Space of the Agent/GraphBuilder. Can be used to construct and connect
+                more Components (which rely on this information). This eliminates the need to pass the action Space
+                information into many Components' constructors.
         """
         pass
 
-    def create_variables(self, input_spaces):
+    def create_variables(self, input_spaces, action_space):
         """
         Should create all variables that are needed within this component,
         unless a variable is only needed inside a single _graph_fn-method, in which case,
@@ -187,6 +194,9 @@ class Component(Specifiable):
         Args:
             input_spaces (Dict[str,Space]): A dict with Space/shape information.
                 keys=in-Socket name (str); values=the associated Space
+            action_space (Space): The action Space of the Agent/GraphBuilder. Can be used to construct and connect
+                more Components (which rely on this information). This eliminates the need to pass the action Space
+                information into many Components' constructors.
         """
         pass
 
@@ -441,6 +451,13 @@ class Component(Specifiable):
         """
         for name in socket_names:
             self.add_socket(name, **kwargs)
+
+    def rename_socket(self, old_name, new_name):
+        assert new_name not in self.input_sockets and new_name not in self.output_sockets and \
+               new_name not in self.internal_sockets, "ERROR: Socket name {} already " \
+                                                      "exists in {}!".format(new_name, self.name)
+        socket = self.get_socket_by_name(self, old_name)  # type: Socket
+        socket.name = new_name
 
     def add_graph_fn(self, inputs, outputs, method=None,
                      flatten_ops=None, split_ops=None,

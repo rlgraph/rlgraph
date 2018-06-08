@@ -78,7 +78,7 @@ class NNOutputCleanup(Component):
         else:
             self.add_graph_fn("nn_output", "parameters", self._graph_fn_cleanup)
 
-    def check_input_spaces(self, input_spaces):
+    def check_input_spaces(self, input_spaces, action_space):
         in_space = input_spaces["nn_output"]  # type: Space
         # a) Must not be  ContainerSpace (not supported yet for NNLayers, doesn't seem to make sense).
         assert not isinstance(in_space, ContainerSpace), "ERROR: Cannot handle container input Spaces " \

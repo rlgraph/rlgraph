@@ -51,7 +51,9 @@ class Flatten(PreprocessLayer):
         # Stores the number of categories in IntBoxes.
         self.num_categories = dict()
 
-    def check_input_spaces(self, input_spaces):
+    def check_input_spaces(self, input_spaces, action_space):
+        super(Flatten, self).create_variables(input_spaces, action_space)
+
         # Check whether our input space has-batch or not and store this information here.
         in_space = input_spaces["input"]  # type: Space
         self.has_batch = in_space.has_batch_rank

@@ -52,7 +52,7 @@ class DenseLayer(NNLayer):
         # Number of nodes in this layer.
         self.units = units
 
-    def create_variables(self, input_spaces):
+    def create_variables(self, input_spaces, action_space):
         in_space = input_spaces["input"]
 
         # Create weights.
