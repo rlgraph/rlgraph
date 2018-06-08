@@ -17,11 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
 import re
+import tensorflow as tf
 
 from yarl.components.memories.memory import Memory
-from yarl.utils.ops import DataOpDict, FlattenedDataOp
+from yarl.utils.ops import FlattenedDataOp
 
 
 class ReplayMemory(Memory):
@@ -29,26 +29,23 @@ class ReplayMemory(Memory):
     Implements a standard replay memory to sample randomized batches.
     """
 
-    def __init__(
-        self,
-        capacity=1000,
-        name="",
-        scope="replay-memory",
-        next_states=True
-    ):
-        super(ReplayMemory, self).__init__(capacity, name, scope)
-        self.add_graph_fn(
-            inputs="num_records",
-            outputs="sample",
-            method=self._graph_fn_get_records,
-            flatten_ops=False
-        )
+    def __init__(self, capacity=1000, next_states=True, scope="replay-memory", **kwargs):
+        """
+        Args:
+            next_states (bool): Whether to include s' in the return values of the out-Socket "sample".
+        """
+        super(ReplayMemory, self).__init__(capacity, scope=scope, **kwargs)
 
-        # Variables.
+        self.next_states = next_states
+
         self.index = None
         self.size = None
         self.states = None
-        self.next_states = next_states
+
+        # Extend our interface ("sample").
+        self.define_inputs("num_records")
+        self.define_outputs("sample")
+        self.add_graph_fn(inputs="num_records", outputs="sample", method=self._graph_fn_get_records, flatten_ops=False)
 
     def create_variables(self, input_spaces):
         super(ReplayMemory, self).create_variables(input_spaces)

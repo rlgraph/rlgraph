@@ -33,15 +33,7 @@ class PrioritizedReplay(Memory):
     """
     Implements pure TensorFlow prioritized replay.
     """
-    def __init__(
-        self,
-        capacity=1000,
-        name="",
-        scope="prioritized-replay",
-        next_states=True,
-        alpha=1.0,
-        beta=0.0
-    ):
+    def __init__(self, capacity=1000, next_states=True, alpha=1.0, beta=0.0, scope="prioritized-replay", **kwargs):
         """
         Creates a prioritized replay.
 
@@ -51,12 +43,13 @@ class PrioritizedReplay(Memory):
             beta (float): Importance weight factor, 0.0 for no importance correction, 1.0
                 for full correction.
         """
-        super(PrioritizedReplay, self).__init__(capacity, name, scope)
+        super(PrioritizedReplay, self).__init__(capacity, scope=scope, **kwargs)
 
         # Variables.
         self.index = None
         self.size = None
         self.states = None
+        self.max_priority = None
         self.next_states = next_states
 
         # TODO check if we allow 0.0 as well.
@@ -65,8 +58,8 @@ class PrioritizedReplay(Memory):
         self.alpha = alpha
         self.beta = beta
 
-        self.define_inputs("indices", "update")
-        self.define_outputs("sample_indices", "update_records", "weights")
+        self.define_inputs("num_records", "indices", "update")
+        self.define_outputs("sample", "sample_indices", "update_records", "weights")
 
         self.add_graph_fn(
             inputs="num_records",
@@ -241,7 +234,7 @@ class PrioritizedReplay(Memory):
         max_priority = 0.0
 
         # Update has to be sequential.
-        def insert_body(i, max_priority):
+        def insert_body(i, max_priority_):
             priority = tf.pow(x=update[i], y=self.alpha)
 
             sum_insert = self.sum_segment_tree.insert(
@@ -255,12 +248,12 @@ class PrioritizedReplay(Memory):
                 insert_op=tf.minimum
             )
             # Keep trick of current max priority element.
-            max_priority = tf.maximum(x=max_priority, y=priority)
+            max_priority_ = tf.maximum(x=max_priority_, y=priority)
 
             with tf.control_dependencies(control_inputs=[tf.group(sum_insert, min_insert)]):
-                return i + 1, max_priority
+                return i + 1, max_priority_
 
-        def cond(i, max_priority):
+        def cond(i, max_priority_):
             return i < num_records - 1
 
         _, max_priority = tf.while_loop(

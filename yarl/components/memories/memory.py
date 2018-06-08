@@ -26,18 +26,12 @@ class Memory(Component):
     Abstract memory component.
     """
 
-    def __init__(
-        self,
-        capacity=1000,
-        name="",
-        scope="memory",
-    ):
+    def __init__(self, capacity=1000, scope="memory", **kwargs):
         """
-        Abstract memory.
         Args:
-            capacity (int): Maximum capacity.
+            capacity (int): Maximum capacity of the memory.
         """
-        super(Memory, self).__init__(name=name, scope=scope)
+        super(Memory, self).__init__(scope=scope, **kwargs)
 
         # Variables (will be populated in create_variables).
         self.record_space = None
@@ -45,8 +39,8 @@ class Memory(Component):
         self.capacity = capacity
 
         # Add default Sockets and insert GraphFunction.
-        self.define_inputs("records", "num_records")
-        self.define_outputs("insert", "sample")
+        self.define_inputs("records")
+        self.define_outputs("insert")
 
         self.add_graph_fn(inputs="records", outputs="insert", method=self._graph_fn_insert)
 
@@ -109,8 +103,8 @@ class Memory(Component):
         compute priorities.
 
         Args:
-            indices Union(ndarray, tf.Tensor):
-            update (any): Any information relevant to update records, e.g. losses
-                of most recently read batch of records.
+            indices (Union[ndarray,tf.Tensor]): The indices in the memory to update.
+            update (any): Any information relevant to update records, e.g. losses of most recently read batch
+                of records.
         """
         pass

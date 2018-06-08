@@ -28,34 +28,27 @@ class RingBuffer(Memory):
     Simple ring-buffer to be used for on-policy sampling based on sample count
     or episodes. Fetches most recently added memories.
     """
-    def __init__(
-        self,
-        capacity=1000,
-        name="",
-        scope="ring-buffer",
-        episode_semantics=False
-    ):
-        super(RingBuffer, self).__init__(capacity, name, scope)
-        self.add_graph_fn(
-            inputs="num_records",
-            outputs="sample",
-            method=self._graph_fn_get_records,
-            flatten_ops=False
-        )
+    def __init__(self, capacity=1000, episode_semantics=False, scope="ring-buffer", **kwargs):
+        super(RingBuffer, self).__init__(capacity, scope=scope, **kwargs)
 
-        # Variables.
         self.index = None
         self.size = None
         self.states = None
-        self.episode_semantics = episode_semantics
-        if self.episode_semantics:
-            self.num_episodes = None
-            self.episode_indices = None
 
+        # Extend our interface ("sample").
+        self.define_inputs("num_records")
+        self.define_outputs("sample")
+        self.add_graph_fn(inputs="num_records", outputs="sample", method=self._graph_fn_get_records, flatten_ops=False)
+
+        self.episode_semantics = episode_semantics
+        self.num_episodes = None
+        self.episode_indices = None
+        if self.episode_semantics:
+            # Extend our interface ("episodes").
             self.define_inputs("num_episodes")
             self.define_outputs("episodes")
             self.add_graph_fn(inputs="num_episodes", outputs="episodes", method=self._graph_fn_get_episodes,
-                                 flatten_ops=False)
+                              flatten_ops=False)
 
     def create_variables(self, input_spaces):
         super(RingBuffer, self).create_variables(input_spaces)
