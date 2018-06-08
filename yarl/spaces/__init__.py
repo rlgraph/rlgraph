@@ -49,6 +49,10 @@ Space.__lookup_classes__ = dict({
     "dict": Dict
 })
 
+# Default Space: A float from 0.0 to 1.0.
+Space.__default_object__ = FloatBox(1.0)
+
+
 __all__ = ["Space", "BoxSpace", "FloatBox", "IntBox", "BoolBox",
            "ContainerSpace", "Dict", "Tuple", "FLAT_TUPLE_CLOSE", "FLAT_TUPLE_OPEN"]
 

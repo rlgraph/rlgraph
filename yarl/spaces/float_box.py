@@ -31,6 +31,10 @@ class FloatBox(BoxSpace):
             self.unbounded = True
         else:
             self.unbounded = False
+            # support calls like (FloatBox(1.0) -> low=0.0, high=1.0)
+            if high is None:
+                high = low
+                low = 0.0
 
         super(FloatBox, self).__init__(low=low, high=high, shape=shape, add_batch_rank=add_batch_rank, dtype="float")
 

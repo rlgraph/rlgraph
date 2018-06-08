@@ -38,13 +38,13 @@ class HorovodOptimizer(Optimizer):
 
     This Horovod Optimizer expects a local LocalOptimizer spec (tensorflow) as input.
     """
-    def __init__(self, local_optimizer, **kwargs):
+    def __init__(self, local_optimizer=None, **kwargs):
         """
         Initializes a distributed horovod optimizer by wrapping a local optimizer.
 
         Args:
-            local_optimizer (LocalOptimizer): The spec-dict for ehe wrapped LocalOptimizer object or a LocalOptimizer
-                object.
+            local_optimizer (Optional[dict,LocalOptimizer]): The spec-dict for the wrapped LocalOptimizer object or
+                a LocalOptimizer object itself.
         """
         super(HorovodOptimizer, self).__init__(**kwargs)
 

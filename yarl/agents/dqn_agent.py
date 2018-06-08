@@ -20,7 +20,6 @@ from __future__ import print_function
 from yarl.agents import Agent
 from yarl.components.common import Merger, Splitter
 from yarl.components.memories import Memory
-from yarl.components.explorations import Exploration
 from yarl.components.loss_functions import DQNLossFunction
 from yarl.spaces import Dict, IntBox
 
@@ -92,11 +91,11 @@ class DQNAgent(Agent):
 
         # States into preprocessor -> into q-net
         core.connect("state", (self.preprocessor_stack, "input"))
-        core.connect((self.preprocessor_stack, "output"), (self.neural_network, "input"), label="from_env")
+        core.connect((self.preprocessor_stack, "output"), (self.policy, "input"), label="from_env")
 
         # Network output into Exploration's "nn_output" Socket -> into "act".
-        core.connect((self.neural_network, "output"), (self.action_head, "nn_output"), label="from_env")
-        core.connect((self.action_head, "nn_output"), "act")
+        core.connect((self.policy, "output"), (self.exploration, "nn_output"), label="from_env")
+        core.connect((self.exploration, "nn_output"), "act")
 
         # Actions, rewards, terminals into Merger.
         for in_ in self.input_names:
@@ -128,14 +127,24 @@ class DQNAgent(Agent):
         core.connect((self.optimizer, "step"), "learn")
 
         # Add syncing capability for target-net.
-        core.connect((self.neural_network, "synch_out"), (self.target_net, "synch_in"))
-        core.connect((self.target_net, "synch_in"), "synch_target_qnet")
+        core.connect((self.neural_network, "sync_out"), (self.target_net, "sync_in"))
+        core.connect((self.target_net, "sync_in"), "sync_target_qnet")
 
     def get_action(self, states, deterministic=False):
+        self.timesteps += 1
         return self.graph_executor.execute("act", inputs=dict(state=states))
 
     def _observe_graph(self, states, actions, internals, reward, terminal):
-        pass
+        self.graph_executor.execute("add_records", inputs={
+            self.input_names[0]: states,
+            self.input_names[1]: actions,
+            self.input_names[2]: reward,
+            self.input_names[3]: terminal
+        })
+
+        # Every n steps, do a learn.
+        if self.update_spec["unit"] == "timesteps" and (self.timesteps % self.update_spec["frequency"]) == 0:
+            self.update()
 
     def update(self):
         return self.graph_executor.execute("learn")

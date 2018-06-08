@@ -40,7 +40,7 @@ class RandomEnv(Env):
         """
         super(RandomEnv, self).__init__(state_space=state_space, action_space=action_space)
 
-        self.reward_space = spaces.Space.from_spec(reward_space) or spaces.FloatBox(-1.0, 1.0)
+        self.reward_space = spaces.Space.from_spec(reward_space)
         self.terminal_prob = terminal_prob
 
         if deterministic is True:
@@ -55,9 +55,12 @@ class RandomEnv(Env):
     def reset(self):
         return self.step()
 
-    def step(self):
-        return self.state_space.sample(), self.reward_space.sample(),\
-               np.random.choice([True, False], p=[self.terminal_prob, 1.0 - self.terminal_prob]), None
+    def step(self, action=None):
+        if action is not None:
+            assert self.action_space.contains(action), "ERROR: Given action ({}) in step is not part of action " \
+                                                       "Space ({})!".format(action, self.action_space)
+        return self.state_space.sample(), self.reward_space.sample(), \
+            np.random.choice([True, False], p=[self.terminal_prob, 1.0 - self.terminal_prob]), None
 
     def __str__(self):
         return "RandomEnv()"

@@ -22,18 +22,23 @@ from yarl.components.optimizers.local_optimizers import *
 from yarl.components.optimizers.optimizer import Optimizer
 
 
+Optimizer.__lookup_classes__ = dict(
+    horovod=HorovodOptimizer
+)
+# The default Optimizer to use if a spec is None and no args/kwars are given.
+Optimizer.__default_object__ = SGDOptimizer(learning_rate=0.0001)
+
 LocalOptimizer.__lookup_classes__ = dict(
-    gradient_descent=GradientDescentOptimizer,
+    gradientdescent=GradientDescentOptimizer,
     adagrad=AdagradOptimizer,
     adadelta=AdadeltaOptimizer,
     adam=AdamOptimizer,
     nadam=NadamOptimizer,
     sgd=SGDOptimizer,
-    rmsprop=RMSPropOptimizer,
-    horovod=HorovodOptimizer
+    rmsprop=RMSPropOptimizer
 )
 
-__all__ = ["Optimizer", "LocalOptimizer", "GradientDescentOptimizer", "AdagradOptimizer",
-           "AdadeltaOptimizer", "AdamOptimizer", "NadamOptimizer", "SGDOptimizer",
+__all__ = ["Optimizer", "LocalOptimizer", "HorovodOptimizer",
+           "GradientDescentOptimizer", "SGDOptimizer",
+           "AdagradOptimizer", "AdadeltaOptimizer", "AdamOptimizer", "NadamOptimizer",
            "RMSPropOptimizer"]
-

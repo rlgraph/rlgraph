@@ -20,7 +20,7 @@ from __future__ import print_function
 from yarl import Specifiable, backend
 from yarl.graphs.graph_executor import GraphExecutor
 from yarl.utils.input_parsing import parse_execution_spec, parse_update_spec
-from yarl.components import Component, Exploration, PreprocessorStack, NeuralNetwork, Optimizer
+from yarl.components import  Exploration, PreprocessorStack, NeuralNetwork, Policy, Optimizer, SGDOptimizer
 from yarl.graphs import GraphBuilder
 from yarl.spaces import Space
 
@@ -56,7 +56,7 @@ class Agent(Specifiable):
             exploration_spec (Optional[dict]):
             execution_spec (Optional[dict]):
             optimizer_spec (Optional[dict]):
-            update_spec (Optional[dict]):
+            update_spec (Optional[dict]): A spec-dict for update (learn) behavior
         """
         self.logger = logging.getLogger(__name__)
 
@@ -65,9 +65,10 @@ class Agent(Specifiable):
         self.action_space = Space.from_spec(action_space).with_batch_rank(False)
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
         self.neural_network = NeuralNetwork.from_spec(network_spec)
+        self.policy = Policy(neural_network=self.neural_network)
 
         self.preprocessor_stack = PreprocessorStack.from_spec(preprocessing_spec)
-        self.exploration = Exploration.from_spec(exploration_spec, action_space=self.action_space.with_batch_rank())
+        self.exploration = Exploration.from_spec(exploration_spec)
         self.execution_spec = parse_execution_spec(execution_spec)
 
         # Python-side experience buffer for better performance (may be disabled).
@@ -80,23 +81,27 @@ class Agent(Specifiable):
         if self.buffer_enabled:
             self.buffer_size = self.execution_spec["buffer_size"]
             self.reset_buffers()
+        # Global timesteps counter.
+        self.timesteps = 0
 
-        self.optimizer = Optimizer.from_spec(optimizer_spec) if optimizer_spec else
+        # Create the Agent's optimizer.
+        self.optimizer = Optimizer.from_spec(optimizer_spec)
+        # Our update-spec dict tells the Agent how (e.g. how often) to update.
         self.update_spec = parse_update_spec(update_spec)
 
-        # Create our Model.
-        self.graph_builder = GraphBuilder()
+        # Create our GraphBuilder and -Executor.
+        self.graph_builder = GraphBuilder(action_space=self.action_space)
         self.graph_executor = GraphExecutor.from_spec(
             backend,
             graph_builder=self.graph_builder,
             execution_spec=self.execution_spec
-        )
+        )  # type: GraphExecutor
 
     def reset_buffers(self):
         """
-        Initializes buffers for buffered graph calls.
+        Initializes buffers for buffered `observe` calls.
         """
-        self.states_buffer= list()
+        self.states_buffer = list()
         self.actions_buffer = list()
         self.internals_buffer = list()
         self.reward_buffer = list()
