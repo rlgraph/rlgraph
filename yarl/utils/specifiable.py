@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from functools import partial
 import importlib
 import json
 import os
@@ -95,9 +96,11 @@ class Specifiable(object):
         elif isinstance(type_, cls):
             return type_
         # Valid key of cls.__lookup_classes__.
-        elif cls.__lookup_classes__ is not None and isinstance(cls.__lookup_classes__, dict) and \
-                type_ in cls.__lookup_classes__:
-            constructor = cls.__lookup_classes__[type_]
+        elif isinstance(cls.__lookup_classes__, dict) and (type_ in cls.__lookup_classes__ or
+                 (isinstance(type_, str) and re.sub(r'[\W_]', '', type_.lower()) in cls.__lookup_classes__)):
+            constructor = cls.__lookup_classes__.get(type_)
+            if constructor is None:
+                constructor = cls.__lookup_classes__[re.sub(r'[\W_]', '', type_.lower())]
         # Python callable.
         elif callable(type_):
             constructor = type_
@@ -110,14 +113,14 @@ class Specifiable(object):
                 module = importlib.import_module(module_name)
                 constructor = getattr(module, function_name)
             else:
-                raise YARLError("ERROR: String specifier ({}) in from_spec must be filename or module+class!".
-                                format(type_))
+                raise YARLError("ERROR: String specifier ({}) in from_spec must be a filename, a module+class, or"
+                                "a key into {}.__lookup_classes__!".format(type_, cls.__name__))
 
         if not constructor:
             raise YARLError("Invalid type: {}".format(type_))
 
         obj = constructor(*ctor_args, **ctor_kwargs)
-        assert isinstance(obj, constructor)
+        assert isinstance(obj, constructor.func if isinstance(constructor, partial) else constructor)
 
         return obj
 

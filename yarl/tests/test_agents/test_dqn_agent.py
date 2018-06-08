@@ -21,7 +21,8 @@ import logging
 import unittest
 
 from yarl.agents import DQNAgent
-from yarl.envs import GridWorld
+import yarl.spaces as spaces
+from yarl.envs import GridWorld, RandomEnv
 from yarl.execution.single_threaded_worker import SingleThreadedWorker
 from yarl.tests import root_logger
 
@@ -36,10 +37,10 @@ class TestDQNAgent(unittest.TestCase):
         """
         Creates a DQNAgent and runs it for a few steps in the random Env.
         """
-        env = RandomEnv(deterministic=True)
+        env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
         agent = DQNAgent.from_spec("configs/test_simple_dqn_agent.json",
-                                   state_space=env.state_space.add_rank(),
-                                   action_space=env.action_space
+                                   state_space=env.state_space.with_batch_rank(),
+                                   action_space=env.action_space.with_batch_rank()
                                    )
 
         worker = SingleThreadedWorker(agent=agent, env=env)

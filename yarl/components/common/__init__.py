@@ -25,15 +25,16 @@ from .noise_components import *
 
 
 DecayComponent.__lookup_classes__ = dict(
-    linear=LinearDecay,
-    exponential=ExponentialDecay,
-    polynomial=PolynomialDecay
+    lineardecay=LinearDecay,
+    exponentialdecay=ExponentialDecay,
+    polynomialdecay=PolynomialDecay
 )
 
 NoiseComponent.__lookup_classes__ = dict(
-    constant=ConstantNoise,
-    gaussian=GaussianNoise,
-    ornsteinuhlenbeck=OrnsteinUhlenbeckNoise
+    constantnoise=ConstantNoise,
+    gaussiannoise=GaussianNoise,
+    ornsteinuhlenbeck=OrnsteinUhlenbeckNoise,
+    ornsteinuhlenbecknoise=OrnsteinUhlenbeckNoise
 )
 
 

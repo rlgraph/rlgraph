@@ -32,7 +32,7 @@
   {
     "non_explore_behavior": "max-likelihood",
     "epsilon_spec": {
-      "type": "linear",
+      "decay": "linear_decay",
       "from": 1.0,
       "to": 0.1,
       "start_timestep": 0,

@@ -37,7 +37,7 @@ class TestExplorations(unittest.TestCase):
 
         # The Component(s) to test.
         decay_component = LinearDecay(from_=1.0, to_=0.0, start_timestep=0, num_timesteps=1000)
-        epsilon_component = EpsilonExploration(decay_spec=decay_component)
+        epsilon_component = EpsilonExploration(decay=decay_component)
         test = ComponentTest(component=epsilon_component, input_spaces=dict(time_step=time_step_space))
 
         # Values to pass as single items.
