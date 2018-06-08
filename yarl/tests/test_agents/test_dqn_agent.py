@@ -32,6 +32,23 @@ class TestDQNAgent(unittest.TestCase):
     """
     root_logger.setLevel(level=logging.INFO)
 
+    def test_dqn_assembly(self):
+        """
+        Creates a DQNAgent and runs it for a few steps in the random Env.
+        """
+        env = RandomEnv(deterministic=True)
+        agent = DQNAgent.from_spec("configs/test_simple_dqn_agent.json",
+                                   state_space=env.state_space.add_rank(),
+                                   action_space=env.action_space
+                                   )
+
+        worker = SingleThreadedWorker(agent=agent, env=env)
+        results = worker.execute_timesteps(1000, deterministic=True)
+
+        print(results)
+
+        # TODO: assert good results :)
+
     def test_dqn_on_2x2_grid_world(self):
         """
         Creates a DQNAgent and runs it via a Runner on a simple 2x2 GridWorld.

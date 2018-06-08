@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import Specifiable
+from yarl.spaces import Space
 
 
 class Env(Specifiable):
@@ -25,8 +26,15 @@ class Env(Specifiable):
     An Env class used to run experiment-based RL.
     """
     def __init__(self, state_space, action_space):
-        self.state_space = state_space
-        self.action_space = action_space
+        """
+        Args:
+            state_space (Union[dict,Space]): The spec-dict for generating the state Space or the state Space object
+                itself.
+            action_space (Union[dict,Space]): The spec-dict for generating the action Space or the action Space object
+                itself.
+        """
+        self.state_space = Space.from_spec(state_space)
+        self.action_space = Space.from_spec(action_space)
 
     def seed(self, seed=None):
         """
