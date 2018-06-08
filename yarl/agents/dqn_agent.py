@@ -45,7 +45,8 @@ class DQNAgent(Agent):
 
         self.discount = discount
         self.memory = Memory.from_spec(memory_spec)
-        self.record_space = Dict(states=self.state_space, actions=self.action_space, rewards=float, terminal=IntBox(1))
+        self.record_space = Dict(states=self.state_space, actions=self.action_space, rewards=float, terminal=IntBox(1),
+                                 add_batch_rank=False)
         self.double_q = double_q
         self.duelling_q = duelling_q
 
@@ -54,15 +55,16 @@ class DQNAgent(Agent):
         # The global copy of the q-net (if we are running in distributed mode).
         self.global_qnet = None
 
-        self.input_names = ["state", "action", "reward", "terminal", "deterministic"]
+        self.input_names = ["state", "action", "reward", "terminal"]
         self.merger = Merger(output_space=self.record_space, input_names=self.input_names)
+        self.input_names.append("deterministic")
         self.splitter = Splitter(input_space=self.record_space)
         self.loss_function = DQNLossFunction(double_q=self.double_q)
 
         self.assemble_meta_graph()
         self.compile_graph()
 
-    def build_graph(self):
+    def assemble_meta_graph(self):
         core = self.graph_builder.core_component
 
         # Define our interface.
@@ -71,14 +73,14 @@ class DQNAgent(Agent):
 
         # Add the Q-net, copy it (target-net) and add the target-net.
         self.target_net = self.neural_network.copy(scope="target-net")
-        core.add_component(self.neural_network, self.target_net)
+        core.add_components(self.neural_network, self.target_net)
         # Add an Exploration for the q-net (target-net doesn't need one).
-        core.add_component(self.exploration)
+        core.add_components(self.exploration)
 
         # If we are in distributed mode, add a global qnet as well.
-        if self.execution_spec[""] == "distributed":
+        if self.execution_spec["mode"] == "distributed":
             self.global_qnet = self.neural_network.copy(scope="global-qnet", global_component=True)
-            core.add_component(self.global_qnet)
+            core.add_components(self.global_qnet)
 
         # Add our Memory Component plus merger and splitter.
         core.add_components(self.memory, self.merger, self.splitter)
@@ -136,7 +138,7 @@ class DQNAgent(Agent):
         pass
 
     def update(self):
-        pass
+        return self.graph_executor.execute("learn")
 
     def __repr__(self):
-        return "dqn_agent"
+        return "DQNAgent(doubleQ={})".format(self.double_q)

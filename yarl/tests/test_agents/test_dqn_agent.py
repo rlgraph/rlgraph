@@ -39,8 +39,8 @@ class TestDQNAgent(unittest.TestCase):
         """
         env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
         agent = DQNAgent.from_spec("configs/test_simple_dqn_agent.json",
-                                   state_space=env.state_space.with_batch_rank(),
-                                   action_space=env.action_space.with_batch_rank()
+                                   state_space=env.state_space,
+                                   action_space=env.action_space
                                    )
 
         worker = SingleThreadedWorker(agent=agent, env=env)

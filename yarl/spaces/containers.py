@@ -70,10 +70,9 @@ class Dict(ContainerSpace, dict):
                 raise YARLError("ERROR: Key to Dict must not contain '/' or '{}\d+{}'! Is {}.".
                                 format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, key))
             value = spec[key]
-            # Value is already a Space: Keep it, but maybe add batch-rank.
+            # Value is already a Space: Copy it (to not affect original Space) and maybe add/remove batch-rank.
             if isinstance(value, Space):
-                value._add_batch_rank(add_batch_rank)
-                dict_[key] = value
+                dict_[key] = value.with_batch_rank(add_batch_rank)
             # Value is a list/tuple -> treat as Tuple space.
             elif isinstance(value, (list, tuple)):
                 dict_[key] = Tuple(*value, add_batch_rank=add_batch_rank)
@@ -156,9 +155,9 @@ class Tuple(ContainerSpace, tuple):
         # Allow for any spec or already constructed Space to be passed in as values in the python-list/tuple.
         list_ = list()
         for value in components:
-            # value is already a Space -> keep it
+            # Value is already a Space: Copy it (to not affect original Space) and maybe add/remove batch-rank.
             if isinstance(value, Space):
-                list_.append(value)
+                list_.append(value.with_batch_rank(add_batch_rank))
             # Value is a list/tuple -> treat as Tuple space.
             elif isinstance(value, (list, tuple)):
                 list_.append(Tuple(*value, add_batch_rank=add_batch_rank))

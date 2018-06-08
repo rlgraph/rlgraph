@@ -60,14 +60,14 @@ class Agent(Specifiable):
         """
         self.logger = logging.getLogger(__name__)
 
-        self.state_space = Space.from_spec(state_space)
+        self.state_space = Space.from_spec(state_space).with_batch_rank(False)
         self.logger.info("Parsed state space definition: {}".format(self.state_space))
-        self.action_space = Space.from_spec(action_space)
+        self.action_space = Space.from_spec(action_space).with_batch_rank(False)
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
         self.neural_network = NeuralNetwork.from_spec(network_spec)
 
         self.preprocessor_stack = PreprocessorStack.from_spec(preprocessing_spec)
-        self.exploration = Exploration.from_spec(exploration_spec, action_space=self.action_space)
+        self.exploration = Exploration.from_spec(exploration_spec, action_space=self.action_space.with_batch_rank())
         self.execution_spec = parse_execution_spec(execution_spec)
 
         # Python-side experience buffer for better performance (may be disabled).
@@ -81,11 +81,7 @@ class Agent(Specifiable):
             self.buffer_size = self.execution_spec["buffer_size"]
             self.reset_buffers()
 
-        if optimizer_spec:
-            self.optimizer = Optimizer.from_spec(optimizer_spec)
-        else:
-            # TODO set to some default (write `parse_optimizer_spec` func).
-            self.optimizer = None
+        self.optimizer = Optimizer.from_spec(optimizer_spec) if optimizer_spec else
         self.update_spec = parse_update_spec(update_spec)
 
         # Create our Model.
