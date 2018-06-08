@@ -66,8 +66,7 @@ class Policy(Component):
         #        raise YARLError("ERROR: Cannot overwrite NeuralNetwork's `writable` in constructor of {} if NN is "
         #                        "given as an already instantiated object!".format(type(self).__name__))
         self.neural_network = NeuralNetwork.from_spec(neural_network)
-        #self.action_space = action_space
-        self.nn_cleanup = None  # to be determined once we know the action Space
+        self.nn_cleanup = NNOutputCleanup()
         self.distribution = None  # to be determined once we know the action Space
 
         # Define our interface (some of the input/output Sockets will be defined depending on the NeuralNetwork's
@@ -79,9 +78,9 @@ class Policy(Component):
         self.add_component(self.neural_network, connections=CONNECT_ALL)
         self.rename_socket("output", "nn_output")
 
+        self.add_component(self.nn_cleanup)
+
     def check_input_spaces(self, input_spaces, action_space):
-        # Finish interface setup now that we know our action Space.
-        self.nn_cleanup = NNOutputCleanup(action_space)
         # The Distribution to sample (or pick) actions from.
         # Discrete action space -> Categorical distribution (each action needs a logit from network).
         if isinstance(action_space, IntBox):
@@ -93,7 +92,6 @@ class Policy(Component):
             raise YARLError("ERROR: Space of out-Socket `action` is of type {} and not allowed in {} Component!".
                             format(type(action_space).__name__, self.name))
 
-        self.add_component(self.nn_cleanup)
         # This defines out-Sockets "sample_stochastic/sample_deterministic/entropy".
         self.add_component(self.distribution, connections=CONNECT_OUTS)
 

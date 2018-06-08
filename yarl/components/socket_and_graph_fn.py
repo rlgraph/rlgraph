@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import itertools
+import logging
 from collections import OrderedDict
 import re
 
@@ -27,6 +28,8 @@ from yarl.utils.util import force_tuple
 from yarl.utils.ops import SingleDataOp, FlattenedDataOp, DataOpRecord
 from yarl.spaces.space_utils import flatten_op, get_space_from_op, split_flattened_input_ops, unflatten_op, \
     convert_ops_to_op_records
+
+_logger = logging.getLogger(__name__)
 
 
 class Socket(object):
@@ -132,7 +135,7 @@ class Socket(object):
                 self.component.no_input_entry_points.remove(self)
             self.incoming_connections.remove(from_)
 
-    def update_from_input(self, incoming, op_record_registry, in_socket_registry, graph_fn_in_slot=None,
+    def update_from_input(self, incoming, op_record_registry, in_socket_registry, graph_fn_out_slot=None,
                           in_socket_op_record=None):
         """
         Updates this socket based on an incoming connection (from a Space, GraphFunction or another Socket).
@@ -143,7 +146,7 @@ class Socket(object):
                 to be calculated.
             in_socket_registry (dict): Dict that keeps track of which very in-Socket (name) needs which
                 ops (placeholders/feeds).
-            graph_fn_in_slot (Optional[int]): If incoming is a GraphFunction, which output slot does this Socket
+            graph_fn_out_slot (Optional[int]): If incoming is a GraphFunction, which slot does this Socket
                 connect to?
             in_socket_op_record (Optional[DataOpRecord]): If incoming is a Socket, this may hold a DataOpRecord that we
                 should build from. If None and incoming is of type Socket, update from all the Socket's DataOpRecords.
@@ -154,7 +157,11 @@ class Socket(object):
         # Incoming is another Socket -> Simply update ops from this one.
         if isinstance(incoming, Socket):
             if incoming.space is not None:
-                assert self.space is None or incoming.space == self.space
+                assert self.space is None or incoming.space == self.space,\
+                    "ERROR: Socket '{}' already has Space '{}', but incoming connection '{}' has Space '{}'! " \
+                    "Incoming Spaces must always be the same.".format(self, self.space, incoming, incoming.space)
+                _logger.info("Socket {}/{} -> Socket {}/{}".format(incoming.component.name, incoming.name,
+                                                                   self.component.name, self.name))
                 self.space = incoming.space
                 self.component.check_input_completeness()
                 # Make sure we filter those op-records that already have at least one label and that do not
@@ -178,6 +185,7 @@ class Socket(object):
             # Store this Space as our incoming Space.
             if self.space is not None:
                 raise YARLError("ERROR: A Socket can only have one incoming Space!")
+            _logger.info("Space {} -> Socket {}/{}".format(incoming, self.component.name, self.name))
             self.space = incoming
 
             op = incoming.get_tensor_variable(name=self.name, is_input_feed=True)
@@ -192,12 +200,15 @@ class Socket(object):
 
         # GraphFunction: Connect this Socket to the nth op coming out of the GraphFunction function.
         elif isinstance(incoming, GraphFunction):
-            assert isinstance(graph_fn_in_slot, int) and graph_fn_in_slot >= 0, \
+            assert isinstance(graph_fn_out_slot, int) and graph_fn_out_slot >= 0, \
                 "ERROR: If incoming is a GraphFunction, slot must be set and >=0!"
+            _logger.info("GraphFn {}/{} -> return-slot {} -> Socket {}/{}".format(
+                incoming.component.name, incoming.name, graph_fn_out_slot, self.component.name, self.name)
+            )
             # Add every nth op from the output of the completed call to graph_fn to this Socket's set of ops.
             nth_computed_ops_records = list()
             for outputs in incoming.in_out_records_map.values():
-                nth_computed_ops_records.append(outputs[graph_fn_in_slot])
+                nth_computed_ops_records.append(outputs[graph_fn_out_slot])
 
             # Store incoming Space.
             if len(nth_computed_ops_records) > 0:
@@ -214,12 +225,21 @@ class Socket(object):
 
             self.op_records.update(nth_computed_ops_records)
 
-        # Constant DataOp with a value.
+        # SingleDataOp with a constant_value.
         elif isinstance(incoming, SingleDataOp):
             if len(self.op_records) > 1:
-                raise YARLError("ERROR: A constant-value Socket may only have one such incoming value! Socket '{}' "
-                                "already has {} other incoming connections.".format(self.name,
-                                                                                    len(self.incoming_connections)))
+                raise YARLError("ERROR: A constant-value Socket may only have one such incoming value! "
+                                "Socket '{}/{}' already has {} other incoming "
+                                "connections.".format(self.component.name, self.name,
+                                                      len(self.incoming_connections)))
+            elif incoming.constant_value is None:
+                raise YARLError("ERROR: Cannot connect a SingleDataOp without constant_value to Socket {}/{}! "
+                                "Needs a constant_value.".format(self.component.name, self.name))
+
+            _logger.info("Constant {} -> Socket {}/{}".format(
+                incoming.constant_value, self.component.name, self.name)
+            )
+
             self.space = get_space_from_op(incoming)
             self.component.check_input_completeness()
             self.op_records.add(DataOpRecord(incoming))
@@ -236,13 +256,12 @@ class Socket(object):
 
 class GraphFunction(object):
     """
-    Class describing a segment of the graph defined by a _graph_fn-method inside a Component.
+    Class describing a segment of the graph defined by a graph_fn-method inside a Component.
     A GraphFunction is connected to incoming Sockets (these are the input parameters to the _graph-func) and to
-    outgoing Sockets (these are the return values of the _graph func).
-
+    outgoing Sockets (these are the return values of the graph_fn).
     Implements the update_from_input method which checks whether all necessary inputs to a graph_fn
     are given and - if yes - starts producing output ops from these inputs and the graph_fn to be passed
-    on to the outgoing Sockets.
+    on further to the outgoing Sockets.
     """
     def __init__(self, method, component, input_sockets, output_sockets,
                  flatten_ops=True, split_ops=True,
@@ -330,7 +349,7 @@ class GraphFunction(object):
     #    """
     #    return method  # not mandatory
 
-    def update_from_input(self, input_socket, op_record_registry):
+    def update_from_input(self, op_record_registry):
         """
         Updates our "waiting" inputs with the incoming socket and checks whether this computation is "input-complete".
         If yes, do all possible combinatorial pass-throughs through the computation function to generate output ops
@@ -338,28 +357,9 @@ class GraphFunction(object):
         on how many return values the computation function has).
 
         Args:
-            input_socket (Optional[Socket]): The incoming Socket (OBSOLETE: by design, must be type "in").
-                None, if this GraphFunction has no in-Sockets anyway.
             op_record_registry (dict): Dict that keeps track of which op-record requires which other op-records
                 to be calculated.
         """
-        # This GraphFunction has no in-Sockets.
-        if input_socket is None:
-            self.input_complete = True
-            # Call the method w/o any parameters.
-            ops = force_tuple(self.method())
-            if ops == ():
-                raise YARLError("ERROR: {}'s computation method '{}' does not return an op!".
-                                format(self.component.name, self.method.__name__))
-            op_records = convert_ops_to_op_records(ops)
-            # Use empty tuple as input-op-records combination.
-            self.in_out_records_map[()] = list(op_records)
-            # Tag all out-ops as not requiring any input.
-            for op_rec in op_records:
-                op_record_registry[op_rec] = set()
-
-            return
-
         # Check for input-completeness of this graph_fn.
         self.check_input_completeness()
 
@@ -367,6 +367,29 @@ class GraphFunction(object):
         # combinations through the function.
         if self.input_complete:
             self.generate_data_ops(op_record_registry)
+
+    def update_from_no_input(self, op_record_registry):
+        """
+        Args:
+            op_record_registry (dict): Dict that keeps track of which op-record requires which other op-records
+                to be calculated.
+        """
+        # This GraphFunction has no in-Sockets.
+        self.input_complete = True
+        # Call the method w/o any parameters.
+        ops = force_tuple(self.method())
+        if ops == ():
+            raise YARLError("ERROR: {}'s computation method '{}' does not return an op!".
+                            format(self.component.name, self.method.__name__))
+        op_records = convert_ops_to_op_records(ops)
+
+        _logger.info("GraphFn (no-input) {}/{} -> returns {}".format(self.component.name, self.name, ops))
+
+        # Use empty tuple as input-op-records combination.
+        self.in_out_records_map[()] = list(op_records)
+        # Tag all out-ops as not requiring any input.
+        for op_rec in op_records:
+            op_record_registry[op_rec] = set()
 
     def generate_data_ops(self, op_record_registry):
         """
@@ -424,6 +447,8 @@ class GraphFunction(object):
                 for rec in in_op_record_combination:  # type: DataOpRecord
                     new_label_set.update(rec.labels)
                 op_records = convert_ops_to_op_records(ops, labels=new_label_set)
+
+                _logger.info("GraphFn {}/{} -> returns {}".format(self.component.name, self.name, ops))
 
                 self.in_out_records_map[in_op_record_combination] = op_records
                 # Keep track of which ops require which other ops.

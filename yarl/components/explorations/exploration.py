@@ -42,11 +42,11 @@ class Exploration(Component):
         action (any): A single action choice according to our exploration settings and Policy's distribution.
         # TODO: actions (any): A batch of actions taken from a batch of NN-outputs without any exploration.
     """
-    def __init__(self, action_space, non_explore_behavior="max-likelihood", epsilon_spec=None, noise_spec=None,
+    def __init__(self, non_explore_behavior="max-likelihood", epsilon_spec=None, noise_spec=None,
                  scope="exploration", **kwargs):
         """
         Args:
-            action_space (IntBox): The action Space.
+            #FixMe: Experimentally removed: action_space (IntBox): The action Space.
             non_explore_behavior (str): One of:
                 max-likelihood: When not exploring, pick an action deterministically (max-likelihood) from the
                     Policy's distribution.
@@ -57,12 +57,7 @@ class Exploration(Component):
         """
         super(Exploration, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
 
-        self.action_space = action_space
-        # TODO: Extend this component for continuous action spaces using noise-based exploration.
-        assert isinstance(self.action_space, IntBox), "ERROR: Only IntBox Spaces supported in Exploration Component " \
-                                                      "so far!"
-        assert self.action_space.has_batch_rank, "ERROR: `action_space` does not have batch rank!"
-
+        self.action_space = None
         self.non_explore_behavior = non_explore_behavior
 
         # Define our interface.
@@ -78,6 +73,13 @@ class Exploration(Component):
                                   "sample_deterministic", "sample_stochastic"],
                           outputs="action",
                           method=self._graph_fn_pick)
+
+    def check_input_spaces(self, input_spaces, action_space):
+        self.action_space = action_space
+        # TODO: Extend this component for continuous action spaces using noise-based exploration.
+        assert isinstance(self.action_space, IntBox), "ERROR: Only IntBox Spaces supported in Exploration Component " \
+                                                      "so far!"
+        assert self.action_space.has_batch_rank, "ERROR: `action_space` does not have batch rank!"
 
     def _graph_fn_pick(self, do_explore, sample_deterministic, sample_stochastic):
         """

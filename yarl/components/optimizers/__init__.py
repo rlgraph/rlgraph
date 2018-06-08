@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from functools import partial
+
 from yarl.components.optimizers.horovod_optimizer import HorovodOptimizer
 from yarl.components.optimizers.local_optimizers import *
 from yarl.components.optimizers.optimizer import Optimizer
@@ -26,7 +28,7 @@ Optimizer.__lookup_classes__ = dict(
     horovod=HorovodOptimizer
 )
 # The default Optimizer to use if a spec is None and no args/kwars are given.
-Optimizer.__default_object__ = SGDOptimizer(learning_rate=0.0001)
+Optimizer.__default_constructor__ = partial(SGDOptimizer, learning_rate=0.0001)
 
 LocalOptimizer.__lookup_classes__ = dict(
     gradientdescent=GradientDescentOptimizer,

@@ -63,10 +63,10 @@ class TensorFlowExecutor(GraphExecutor):
             self.default_device = default_device
 
         # Initialize distributed backend.
-        distributed_backend = self.execution_spec.get("distributed_backend", "distributed_tf")
+        distributed_backend_ = self.execution_spec.get("distributed_backend", "distributed_tf")
 
-        self.logger.info("Updating global distributed backend setting with backend {}".format(distributed_backend))
-        set_distributed_backend(distributed_backend)
+        self.logger.info("Updating global distributed backend setting with backend {}".format(distributed_backend_))
+        set_distributed_backend(distributed_backend_)
 
     def build(self):
         # Prepare for graph assembly.

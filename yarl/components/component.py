@@ -731,6 +731,7 @@ class Component(Specifiable):
         new_component.scope = scope
         new_component.device = device
         new_component.global_component = global_component
+        new_component.parent_component = None  # erase the parent pointer
 
         # Then cut all the new_component's outside connections (no need to worry about the other side as
         # they were not notified of the copied Sockets).
@@ -917,8 +918,8 @@ class Component(Specifiable):
                 self.add_socket(socket_name, type_="in", internal=True)
                 socket_obj = self.get_socket(socket_name)
             else:
-                raise YARLError("ERROR: No '{}'-socket named '{}' found in {}!".
-                                format("??" if type_ is None else type_, socket_name, component.name))
+                raise YARLError("ERROR: No {}Socket named '{}' found in {}!".
+                                format("" if type_ is None else type_+"-", socket_name, component.name))
 
         return socket_obj
 

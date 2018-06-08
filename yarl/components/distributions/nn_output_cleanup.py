@@ -42,41 +42,23 @@ class NNOutputCleanup(Component):
     outs:
         parameters (SingleDataOp): The cleaned up output (translated into Distribution-readable parameters).
     """
-    def __init__(self, target_space, bias=None, scope="nn-output-cleanup", **kwargs):
+    def __init__(self, bias=None, scope="nn-output-cleanup", **kwargs):
         """
         Args:
-            target_space (Space): The target Space that the NN output tries to reach (by sending out parameters
-                for a distribution that matches this target Space).
+            # FixMe: Experimentally removed requirement for action/target space in ctor of all Components.
+            #target_space (Space): The target Space that the NN output tries to reach (by sending out parameters
+            #    for a distribution that matches this target Space).
             bias (any): An optional bias that will be added to the output of the network.
             TODO: For now, only IntBoxes -> Categorical are supported. We'll add support for continuous action spaces later
         """
         super(NNOutputCleanup, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
 
-        self.target_space = target_space
-
-        if not isinstance(self.target_space, IntBox):
-            raise YARLError("ERROR: `target_space` must be IntBox. Continuous target spaces will be supported later!")
-
-        # Discrete action space. Make sure, all dimensions have the same bounds and the lower bound is 0.
-        if self.target_space.global_bounds is False:
-            raise YARLError("ERROR: `target_space` must not have individual lower and upper bounds!")
-        elif self.target_space.num_categories == 0:
-            raise YARLError("ERROR: `target_space` must have a `num_categories` of larger 0!")
+        self.target_space = None
+        self.bias = bias
 
         # Define our interface.
         self.define_inputs("nn_output")
         self.define_outputs("parameters")
-
-        # If we have a bias layer, connect it before the actual cleanup.
-        if bias is not None:
-            bias_layer = DenseLayer(units=self.target_space.num_categories, biases_spec=bias if np.isscalar(bias) else
-                                    [log(b) for _ in xrange(self.target_space.flat_dim) for b in bias])
-            self.add_component(bias_layer, connections=dict(input="nn_output"))
-            # Place our cleanup after the bias layer.
-            self.add_graph_fn((bias_layer, "output"), "parameters", self._graph_fn_cleanup)
-        # Place our cleanup directly after the nn-output.
-        else:
-            self.add_graph_fn("nn_output", "parameters", self._graph_fn_cleanup)
 
     def check_input_spaces(self, input_spaces, action_space):
         in_space = input_spaces["nn_output"]  # type: Space
@@ -86,6 +68,31 @@ class NNOutputCleanup(Component):
         # b) All input Spaces need batch ranks (we are passing through NNs after all).
         assert in_space.has_batch_rank, "ERROR: Space in Socket 'input' to NNOutputCleanup '{}' must have a batch " \
                                         "rank (0th position)!".format(self.name)
+
+        # Check action/target Space.
+        self.target_space = action_space
+        if not isinstance(self.target_space, IntBox):
+            raise YARLError("ERROR: `target_space` must be IntBox. Continuous target spaces will be supported later!")
+
+        # Discrete action space. Make sure, all dimensions have the same bounds and the lower bound is 0.
+        if self.target_space.global_bounds is False:
+            raise YARLError("ERROR: `target_space` must not have individual lower and upper bounds!")
+        elif self.target_space.num_categories == 0:
+            raise YARLError("ERROR: `target_space` must have a `num_categories` of larger 0!")
+
+        # Do some remaining interface assembly.
+        # If we have a bias layer, connect it before the actual cleanup.
+        if self.bias is not None:
+            bias_layer = DenseLayer(
+                units=self.target_space.num_categories, biases_spec=self.bias if np.isscalar(self.bias) else
+                [log(b) for _ in xrange(self.target_space.flat_dim) for b in self.bias]
+            )
+            self.add_component(bias_layer, connections=dict(input="nn_output"))
+            # Place our cleanup after the bias layer.
+            self.add_graph_fn([(bias_layer, "output")], "parameters", self._graph_fn_cleanup)
+        # Otherwise, place our cleanup directly after the nn-output.
+        else:
+            self.add_graph_fn("nn_output", "parameters", self._graph_fn_cleanup)
 
     def _graph_fn_cleanup(self, nn_outputs_plus_bias):
         """
@@ -105,4 +112,3 @@ class NNOutputCleanup(Component):
 
             # Convert logits into probabilities and clamp them at SMALL_NUMBER.
             return tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
-

@@ -96,7 +96,7 @@ class GraphBuilder(Specifiable):
             self.partial_input_build(socket)
 
         # Build all GraphFunctions (in all our sub-Components) that have no inputs.
-        self.build_no_inputs(self.core_component)
+        self.build_no_input_elements(self.core_component)
 
         # Check whether all our components and graph_fns are input-complete.
         self.sanity_check_build()
@@ -156,7 +156,7 @@ class GraphBuilder(Specifiable):
         """
         return self.core_component
 
-    def build_no_inputs(self, sub_component):
+    def build_no_input_elements(self, sub_component):
         """
         Makes sure all no-input GraphFunctions of a given Component (and all its sub-Components) are build.
         These type of GraphFunctions would otherwise not be caught by our "Socket->forward" build algorithm.
@@ -173,7 +173,7 @@ class GraphBuilder(Specifiable):
         # The sub-component itself.
         for entry_point in sub_component.no_input_entry_points:
             if isinstance(entry_point, GraphFunction):
-                entry_point.update_from_input(None, self.op_record_registry)
+                entry_point.update_from_no_input(self.op_record_registry)
                 for slot, out_socket in enumerate(entry_point.output_sockets):
                     self.partial_input_build(out_socket, entry_point, slot)
             else:
@@ -188,7 +188,7 @@ class GraphBuilder(Specifiable):
 
         # Recurse: The sub-components of the sub-component.
         for sc in sub_component.sub_components.values():
-            self.build_no_inputs(sc)
+            self.build_no_input_elements(sc)
 
     def partial_input_build(self, socket, from_=None, graph_fn_out_slot=None, socket_out_op=None):
         """
@@ -237,51 +237,29 @@ class GraphBuilder(Specifiable):
                         assert not was_input_complete
                         self.component_complete(outgoing.component)
 
-            # Outgoing is a GraphFunction -> Add the socket to the GraphFunction's (waiting) inputs.
-            # - If all inputs are complete, build a new op into the graph (via the graph_fn).
+            # Outgoing is a GraphFunction.
+            # If all its in-Sockets have at least one op, build a new op into the graph (via the graph_fn).
             elif isinstance(outgoing, GraphFunction):
-                self.build_outgoing_graph_fn(outgoing, socket)
+                self.build_outgoing_graph_fn(outgoing, socket.component.device)
 
             else:
                 raise YARLError("ERROR: Outgoing connection ({}) must be of type Socket or GraphFunction!".\
                                 format(outgoing))
 
-    def build_outgoing_graph_fn(self, outgoing, socket):
+    def build_outgoing_graph_fn(self, graph_fn, device):
         """
         Builds outgoing graph function ops.
 
         Args:
-            outgoing (GraphFunction): Graph function to finish building output sockets for.
-            socket (Socket): The Socket object to process.
+            graph_fn (GraphFunction): Graph function object to build output ops for.
+            device (Optional[str]): A device specifying string, telling us where to put the graph_fn's ops.
         """
-        graph_fn = outgoing
         # We have to specify the device here (only a GraphFunction actually adds something to the graph).
-        if socket.component.device:
-            self.assign_device(graph_fn, socket, socket.component.device)
-        else:
-            # Use default device if none available.
-            self.assign_device(graph_fn, socket, self.default_device)
+        self.assign_device(graph_fn, device or self.default_device)
         # Keep moving through this graph_fn's out-Sockets (if input-complete).
         if graph_fn.input_complete:
-            self.build_outputs_when_input_complete(graph_fn)
-
-    def build_outputs_when_input_complete(self, graph_fn):
-        """
-        Builds output sockets when graph fn is input complete.
-
-        Args:
-            graph_fn (GraphFunction): Graph function to finish building output sockets for.
-        """
-        self.logger.info("Graph_fn '{}/{}' is input-complete.".format(graph_fn.component.name, graph_fn.name))
-        # self.logger.info("\tin-Sockets:")
-        # for in_socket_record in graph_fn.input_sockets.values():
-        #   self.logger.info("\t'{}': {}".format(in_socket_record["socket"].name,
-        #                                        in_socket_record["socket"].space))
-        # self.logger.info("\tout-Sockets:")
-
-        for slot, out_socket in enumerate(graph_fn.output_sockets):
-            self.partial_input_build(out_socket, graph_fn, slot)
-            # self.logger.info("\t'{}': {}".format(out_socket.name, out_socket.space))
+            for slot, out_socket in enumerate(graph_fn.output_sockets):
+                self.partial_input_build(out_socket, graph_fn, slot)
 
     def sanity_check_build(self, component=None):
         """
@@ -455,11 +433,7 @@ class GraphBuilder(Specifiable):
         space_dict = {in_s.name: in_s.space for in_s in component.input_sockets}
         component.when_input_complete(space_dict, self.action_space)
 
-        self.logger.info("Component '{}' is input-complete.".format(component.name))
-        self.logger.info("\tin-Sockets:")
-        for in_sock_name, space in space_dict.items():
-            self.logger.info("\t'{}': {}".format(in_sock_name, space))
-        self.logger.info("")
+        self.logger.info("Component {} is input-complete".format(component.name))
 
         # Do a complete build (over all incoming Sockets as all the others have been waiting).
         for in_sock in component.sockets_to_do_later:  # type: Socket
@@ -503,12 +477,12 @@ class GraphBuilder(Specifiable):
         else:
             return self.trace_back_sockets(new_trace_set)
 
-    def assign_device(self, graph_fn, socket, assigned_device):
+    def assign_device(self, graph_fn, assigned_device):
         """
-        Assigns device to socket.
+        Assigns device to the ops generated by a graph_fn.
+
         Args:
             graph_fn (GraphFunction): GraphFunction to assign device to.
-            socket (Socket): Socket used on GraphFunction
             assigned_device (str): Device identifier.
         """
         # If this is called, the backend should implement it, otherwise device
@@ -519,9 +493,8 @@ class GraphBuilder(Specifiable):
                     format(assigned_device, graph_fn, self.available_devices))
 
             with tf.device(assigned_device):
-                self.logger.debug("Assigning device {} to graph_fn {} via socket  {}".format(
-                    assigned_device, graph_fn, socket))
-                graph_fn.update_from_input(socket, self.op_record_registry)
+                self.logger.debug("Assigning device {} to graph_fn {}.".format(assigned_device, graph_fn))
+                graph_fn.update_from_input(self.op_record_registry)
 
                 # Store assigned names for debugging.
                 if assigned_device not in self.device_component_assignments:
