@@ -41,30 +41,42 @@ class Flatten(PreprocessLayer):
         Args:
             flatten_categories (bool): Whether to flatten also IntBox categories. Default: True.
         """
-        super(Flatten, self).__init__(scope=scope, **kwargs)
+        super(Flatten, self).__init__(scope=scope,
+                                      add_auto_key_as_first_param=kwargs.pop("add_auto_key_as_first_param", True),
+                                      **kwargs)
 
         self.has_batch = None
 
         self.flatten_categories = flatten_categories
-        self.num_categories = 1
+        # Stores the number of categories in IntBoxes.
+        self.num_categories = dict()
 
     def check_input_spaces(self, input_spaces):
         # Check whether our input space has-batch or not and store this information here.
         in_space = input_spaces["input"]  # type: Space
         self.has_batch = in_space.has_batch_rank
-        # Check whether we can flatten the incoming categories of an IntBox into a FloatBox with additional
-        # rank (categories rank).
-        if isinstance(in_space, IntBox) and self.flatten_categories is True:
-            if in_space.num_categories is False:
-                raise YARLError("ERROR: Cannot flatten categories if incoming space ({}) does not have global "
-                                "bounds!".format(in_space))
-            else:
-                self.num_categories = in_space.num_categories
+        # Check whether we have to flatten the incoming categories of an IntBox into a FloatBox with additional
+        # rank (categories rank). Store the dimension of this additional rank in the `self.num_categories` dict.
+        if self.flatten_categories is True:
+            def mapping_func(key, space):
+                if isinstance(space, IntBox):
+                    # Must have global bounds (bounds valid for all axes).
+                    if space.num_categories is False:
+                        raise YARLError("ERROR: Cannot flatten categories if one of the IntBox spaces ({}={}) does not "
+                                        "have global bounds (its `num_categories` is False)!".format(key, space))
+                    return space.num_categories
+                # No categories. Keep as is.
+                return 1
+            self.num_categories = in_space.flatten(mapping=mapping_func)
 
-    def _graph_fn_apply(self, input_):
+    def _graph_fn_apply(self, key, input_):
         if self.has_batch:
-            shape = (-1, np.prod(get_shape(input_)[1:]) * self.num_categories)
+            shape = (-1, int(np.prod(get_shape(input_)[1:])))
         else:
-            shape = tuple([get_shape(input_, flat=True) * self.num_categories])
+            shape = tuple([get_shape(input_, flat=True)])
 
-        return tf.reshape(tensor=input_, shape=shape)
+        reshaped = tf.reshape(tensor=input_, shape=shape)
+        # Create a one-hot axis for the categories at the end.
+        if self.num_categories[key] > 1:
+            reshaped = tf.squeeze(tf.one_hot(indices=reshaped, depth=self.num_categories[key], axis=1), axis=2)
+        return tf.identity(reshaped, name="flattened")

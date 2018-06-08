@@ -81,6 +81,7 @@ class TestPreprocessors(unittest.TestCase):
             a=Tuple(FloatBox(shape=(1, 1, 2)), FloatBox(shape=(1, 2, 2))),
             b=FloatBox(shape=(2, 2, 3)),
             c=dict(type=float, shape=(2,)),
+            d=IntBox(3),
             add_batch_rank=True
         ))
 
@@ -93,7 +94,8 @@ class TestPreprocessors(unittest.TestCase):
             ),
             b=np.array([[[[0.01, 0.02, 0.03], [0.04, 0.05, 0.06]], [[0.07, 0.08, 0.09], [0.10, 0.11, 0.12]]],
                         [[[0.13, 0.14, 0.15], [0.16, 0.17, 0.18]], [[0.19, 0.20, 0.21], [0.22, 0.23, 0.24]]]]),
-            c=np.array([[0.1, 0.2], [0.3, 0.4]])
+            c=np.array([[0.1, 0.2], [0.3, 0.4]]),
+            d=np.array([2, 0])
         )
         expected = dict(
             a=(
@@ -102,7 +104,8 @@ class TestPreprocessors(unittest.TestCase):
             b=np.array([[0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10, 0.11, 0.12],
                         [0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.20, 0.21, 0.22, 0.23, 0.24]]
             ),
-            c=np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32)
+            c=np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
+            d=np.array([[0.0, 0.0, 1.0], [1.0, 0.0, 0.0]])  # category (one-hot) flatten
         )
         test.test(out_socket_names="reset")
         test.test(out_socket_names="output", inputs=input_, expected_outputs=expected)
