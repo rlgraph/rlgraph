@@ -70,16 +70,8 @@ class SingleThreadedWorker(Worker):
         """
         assert num_timesteps is not None or num_episodes is not None, "ERROR: One of `num_timesteps` or `num_episodes` " \
                                                                       "must be provided!"
-        # Are we updating
-        updating = False
-        update_interval = None
-        update_steps = None
-        steps_before_update = None
-        if update_schedule is not None:
-            updating = True
-            steps_before_update = update_schedule['steps_before_update']
-            update_interval = update_schedule['update_interval']
-            update_steps = update_schedule['update_steps']
+        # Are we updating or just acting/observing?
+        self.set_update_schedule(update_schedule)
 
         num_timesteps = num_timesteps or 0
         num_episodes = num_episodes or 0
@@ -121,10 +113,7 @@ class SingleThreadedWorker(Worker):
 
                 self.agent.observe(states=state, actions=actions, internals=None, reward=reward, terminal=terminal)
 
-                if updating:
-                    if timesteps_executed > steps_before_update and timesteps_executed % update_interval == 0:
-                        for _ in xrange(update_steps):
-                            self.agent.update()
+                self.update_if_necessary(timesteps_executed)
                 episode_reward += reward
                 timesteps_executed += 1
                 episode_timestep += 1
@@ -175,4 +164,3 @@ class SingleThreadedWorker(Worker):
             max_episode_reward=np.max(episode_rewards),
             final_episode_reward=episode_rewards[-1]
         )
-
