@@ -23,7 +23,7 @@ from six.moves import xrange
 
 class Worker(object):
     """
-    Generic executor to run simulator environments.
+    Generic worker to locally interact with simulator environments.
     """
 
     def __init__(self, environment, agent, repeat_actions=1):

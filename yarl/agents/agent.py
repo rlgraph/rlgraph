@@ -208,6 +208,23 @@ class Agent(Specifiable):
         """
         pass
 
+    def call_graph_op(self, op, inputs=None):
+        """
+        Utility method to call any desired operation on the graph, identified via output socket.
+        Delegator this call to the YARL graph executor.
+
+        Args:
+            op (str): Name of the op, i.e. the name of its output socket on the YARL metagraph.
+            inputs (Optional[dict,np.array]): Dict specifying the provided inputs for some in-Sockets (key=in-Socket name,
+                values=the values that should go into this Socket (e.g. numpy arrays)).
+                Depending on these given inputs, the correct backend-ops can be selected within the given out-Sockets.
+                If only one out-Socket is given in `sockets`, and this out-Socket only needs a single in-Socket's data,
+                this in-Socket's data may be given here directly.
+        Returns:
+            any: Result of the op call.
+        """
+        return self.graph_executor.execute(sockets=op, inputs=inputs)
+
     def export_graph(self, filename=None):
         """
         Any algorithm defined as a full-graph, as opposed to mixed (mixed Python and graph control flow)
