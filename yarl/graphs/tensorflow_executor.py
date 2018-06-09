@@ -112,7 +112,6 @@ class TensorFlowExecutor(GraphExecutor):
             if distributed_backend == "distributed_tf":
                 self.setup_distributed_tf()
             elif distributed_backend == "horovod":
-                import horovod.tensorflow as hvd
                 self.setup_horovod_execution()
 
     def setup_distributed_tf(self):
@@ -139,11 +138,13 @@ class TensorFlowExecutor(GraphExecutor):
         """
         Sets up Horovod.
         """
-
-        self.logger.info("Setting up Horovod execution.")
-        hvd.init()
-        config = tf.ConfigProto()
-        config.gpu_options.visible_device_list = str(hvd.local_rank())
+        # Check again to avoid import if unset which will crash if horovod is not installed.
+        if distributed_backend == "horovod":
+            import horovod.tensorflow as hvd
+            self.logger.info("Setting up Horovod execution.")
+            hvd.init()
+            config = tf.ConfigProto()
+            config.gpu_options.visible_device_list = str(hvd.local_rank())
         
     def get_available_devices(self):
         return self.available_devices
