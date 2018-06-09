@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 from yarl.agents import Agent
 from yarl.execution.ray.ray_executor import RayExecutor
 from threading import Thread
@@ -60,6 +64,9 @@ class ApexExecutor(RayExecutor):
             output_queue=self.update_output_queue
         )
 
+        # Create remote sample workers based on ray cluster spec.
+        self.num_sample_workers = self.cluster_spec['num_workers']
+        # TODO
 
     def execute_workload(self, workload):
         """

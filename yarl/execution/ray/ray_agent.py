@@ -26,9 +26,15 @@ class RayAgent(object):
     This class provides a wrapper around YARL agents so they can be used with ray's remote
     abstractions.
     """
-    def __init__(self, agent):
-        assert isinstance(agent, Agent)
-        self.agent = agent
+    def __init__(self, agent_config):
+        """
+        Creates an agent according to the given agent config.
+        Args:
+            agent_config (dict): Agent config dict. Must contain a "type" key identifying the desired
+                agent.
+        """
+        assert "type" in agent_config
+        self.agent = Agent.from_spec(agent_config)
 
     # TODO mostly mirroring agent API here - should we inherit from agent, even if we then use
     # a child agent to execute?
