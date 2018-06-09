@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -23,6 +24,8 @@ from six.moves import queue
 
 
 import ray
+
+from yarl.execution.ray.ray_util import create_colocated_agents
 
 
 class ApexExecutor(RayExecutor):
@@ -66,7 +69,7 @@ class ApexExecutor(RayExecutor):
 
         # Create remote sample workers based on ray cluster spec.
         self.num_sample_workers = self.cluster_spec['num_workers']
-        # TODO
+        self.worker_agents = create_colocated_agents()
 
     def execute_workload(self, workload):
         """
