@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+from yarl.agents import Agent
 from yarl.execution.ray.ray_executor import RayExecutor
 from threading import Thread
+from six.moves import queue
+
 
 import ray
 
@@ -26,11 +29,37 @@ class ApexExecutor(RayExecutor):
     https://arxiv.org/abs/1803.00933
     """
 
-    def __init__(self, distributed_spec):
-        super(ApexExecutor, self).__init__(distributed_spec)
+    def __init__(self, agent_config, environment_id, cluster_spec):
+        """
 
-    def init_agents(self):
-        pass
+        Args:
+            config (dict): Config dict containing agent and execution specs.
+            environment_id (str): Environment identifier. Each worker in the cluster will instantiate
+                an environment using this id.
+        """
+        self.config = agent_config
+
+        # Must specify an agent type.
+        assert "type" in self.config
+        self.environment_id = environment_id
+
+        super(ApexExecutor, self).__init__(cluster_spec)
+
+    def setup_execution(self):
+        # Setup queues for communication between main communication loop and learner.
+        self.sample_input_queue = queue.Queue(maxsize=self.cluster_spec['learn_queue_size'])
+        self.update_output_queue = queue.Queue()
+
+        # Create local worker agent according to spec.
+        self.local_agent = Agent.from_spec(self.config)
+
+        # Set up worker thread for performing updates.
+        self.update_worker = UpdateWorker(
+            agent=self.local_agent,
+            input_queue=self.sample_input_queue,
+            output_queue=self.update_output_queue
+        )
+
 
     def execute_workload(self, workload):
         """
@@ -51,11 +80,21 @@ class UpdateWorker(Thread):
     Communicates with the main thread via a queue.
     """
 
-    def __init__(self, agent):
+    def __init__(self, agent, input_queue, output_queue):
+        """
+        Initializes the worker with a YARL agent and queues for
+        Args:
+            agent (Agent): YARL agent used to execute local updates.
+            input_queue (queue.Queue): Input queue the worker will use to poll samples.
+            output_queue (queue.Queue): Output queue the worker will use to push results of local
+                update computations.
+        """
         super(UpdateWorker, self).__init__()
 
         # Agent to use for updating.
         self.agent = agent
+        self.input_queue = input_queue
+        self.output_queue = output_queue
 
         # Terminate when host process terminates.
         self.daemon = True
@@ -63,5 +102,10 @@ class UpdateWorker(Thread):
     def run(self):
         while True:
             # Fetch input for update, update
-            pass
+            sample_batch = self.input_queue.get
+
+            if sample_batch is not None:
+                loss = self.agent.update(batch=sample_batch)
+                # TODO check if we want to push other stats here
+                self.output_queue.put(loss)
 

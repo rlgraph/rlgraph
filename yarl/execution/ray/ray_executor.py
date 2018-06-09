@@ -23,17 +23,17 @@ class RayExecutor(object):
     distributed state management and execution to the Ray execution engine.
 
     """
-    def __init__(self, distributed_spec):
+    def __init__(self, cluster_spec):
         """
 
         Args:
-            distributed_spec (dict): Contains all information necessary to set up and execute
+            cluster_spec (dict): Contains all information necessary to set up and execute
                 agents on a Ray cluster.
         """
         self.logger = logging.getLogger(__name__)
-        self.distributed_spec = distributed_spec
+        self.cluster_spec = cluster_spec
 
-    def init_agents(self):
+    def setup_execution(self):
         """
         Creates and initializes all remote agents on the Ray cluster.
         """
