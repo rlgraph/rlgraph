@@ -41,13 +41,17 @@ class RayAgent(object):
             deterministic (bool): If True, no exploration or sampling may be applied
                 when retrieving an action.
 
-        Returns: Actions dict.
+        Returns:
+             Actions dict.
         """
         return self.agent.get_action(states, deterministic)
 
     def get_batch(self):
         """
         Returns a batch from observed experiences according to the agent's sampling strategy.
+
+        Returns:
+            Sample dict containing the record space specified by the agent's space definitions.
         """
         # Agent must define op to return batches.
         return self.agent.call_graph_op(op="sample")
@@ -55,6 +59,9 @@ class RayAgent(object):
     def get_weights(self):
         """
         Returns the weights of this agent.
+
+        Returns:
+            any: Weight matrix and meta data
         """
         return self.agent.call_graph_op(op="get_weights")
 
