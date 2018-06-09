@@ -189,9 +189,14 @@ class Agent(Specifiable):
         """
         raise NotImplementedError
 
-    def update(self):
+    def update(self, batch=None):
         """
-        Performs an update on the computation graph.
+        Performs an update on the computation graph either via externally experience or
+        by sampling from an internal memory.
+
+        Args:
+            batch (Optional[dict]): Optional external data batch to use for update. If None, the
+                agent should be configured to sample internally.
 
         Returns:
             Loss value.

@@ -162,7 +162,7 @@ class DQNAgent(Agent):
         if self.update_spec["unit"] == "timesteps" and (self.timesteps % self.update_spec["frequency"]) == 0:
             self.update()
 
-    def update(self):
+    def update(self, batch=None):
         return self.graph_executor.execute("learn")
 
     def __repr__(self):
