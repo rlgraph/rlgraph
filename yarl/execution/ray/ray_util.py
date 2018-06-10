@@ -26,7 +26,7 @@ from yarl.execution.ray import RayAgent
 import ray
 
 
-# Largely follow utils used in Ray Rllib ported to use the RayAgent wrapper.
+# Largely follow utils used in Ray RLlib ported to use the RayAgent wrapper.
 
 
 class RayTaskPool(object):
