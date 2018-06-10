@@ -72,11 +72,11 @@ class DQNAgent(Agent):
         core = self.graph_builder.core_component
 
         # Define our interface.
-        core.define_inputs("states", self.state_space.with_batch_rank())
-        core.define_inputs("actions", self.action_space.with_batch_rank())
-        core.define_inputs("rewards", FloatBox(add_batch_rank=True))
-        core.define_inputs("terminals", IntBox(2, add_batch_rank=True))
-        core.define_inputs("deterministic", BoolBox())
+        core.define_inputs("states", space=self.state_space.with_batch_rank())
+        core.define_inputs("actions", space=self.action_space.with_batch_rank())
+        core.define_inputs("rewards", space=FloatBox(add_batch_rank=True))
+        core.define_inputs("terminals", space=IntBox(2, add_batch_rank=True))
+        core.define_inputs("deterministic", space=BoolBox())
         core.define_outputs("act", "add_records", "reset_memory", "learn", "sync_target_qnet")
 
         # Add the Q-net, copy it (target-net) and add the target-net.
@@ -135,8 +135,8 @@ class DQNAgent(Agent):
         core.connect((self.optimizer, "step"), "learn")
 
         # Add syncing capability for target-net.
-        core.connect((self.policy, "sync_out"), (self.target_policy, "sync_in"))
-        core.connect((self.target_policy, "sync_in"), "sync_target_qnet")
+        core.connect((self.policy, "_variables"), (self.target_policy, "_values"))
+        core.connect((self.target_policy, "sync"), "sync_target_qnet")
 
     def get_action(self, states, deterministic=False):
         self.timesteps += 1
