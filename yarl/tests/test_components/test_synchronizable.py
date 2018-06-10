@@ -64,14 +64,16 @@ class TestSynchronizableComponent(unittest.TestCase):
 
     def test_sync_socket(self):
         # Two Synchronizables, A that can only push out values, B to be synced by A's values.
-        sync_from = MySyncComp(writable=False, scope="sync-from")
-        sync_to = MySyncComp(initializer1=8.0, initializer2=7.0, writable=True, scope="sync-to")
+        sync_from = MySyncComp(scope="sync-from")
+        sync_to = MySyncComp(initializer1=8.0, initializer2=7.0, scope="sync-to")
+        # Add the Synchronizable to sync_to.
+        sync_to.add_component(Synchronizable(), connections=CONNECT_ALL)
         # Create a dummy test component that contains our two Synchronizables.
         component_to_test = Component(name="dummy-comp")
         component_to_test.define_outputs("do_the_sync")
         component_to_test.add_components(sync_from, sync_to)
         # connect everything correctly
-        component_to_test.connect((sync_from, "sync_out"), (sync_to, "sync_in"))
+        component_to_test.connect((sync_from, "_variables"), (sync_to, "_values"))
         component_to_test.connect((sync_to, "sync"), "do_the_sync")
         test = ComponentTest(component=component_to_test)
 

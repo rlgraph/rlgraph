@@ -48,21 +48,21 @@ class Synchronizable(Component):
         # Socket for incoming data (the data that this Component will get overwritten with).
         # The "values" in-Socket should be connected from a "_variables" out-Socket of any other Component
         # (the Component from which we sync).
-        self.define_inputs("values")
+        self.define_inputs("_values")
         # The sync op to trigger a round of synchronizations from the "values" in-Socket into our
         # parent's variables.
         self.define_outputs("sync")
 
         # Add the syncing operation.
-        self.add_graph_fn("sync_in", "sync", self._graph_fn_sync, flatten_ops=False)
+        self.add_graph_fn("_values", "sync", self._graph_fn_sync, flatten_ops=False)
 
-    def _graph_fn_sync(self, sync_in):
+    def _graph_fn_sync(self, values_):
         """
         Generates the op that syncs this Synchronizable's parent's variable values from another Synchronizable
         Component.
 
         Args:
-            sync_in (DataOpDict): The dict of variable values (coming from the "_variables"-Socket of any other
+            values_ (DataOpDict): The dict of variable values (coming from the "_variables"-Socket of any other
                 Component) that need to be assigned to this Component's parent's variables.
                 The keys in the dict refer to the names of our parent's variables and must match their names.
 
@@ -74,7 +74,7 @@ class Synchronizable(Component):
         parents_vars = self.parent_component.get_variables(collections=self.collections, custom_scope_separator="-")
 
         # Sanity checking
-        syncs_from, syncs_to = (sync_in.items(), parents_vars.items())
+        syncs_from, syncs_to = (values_.items(), parents_vars.items())
         if len(syncs_from) != len(syncs_to):
             raise YARLError("ERROR: Number of Variables to sync must match! "
                             "We have {} syncs_from and {} syncs_to.".format(len(syncs_from), len(syncs_to)))

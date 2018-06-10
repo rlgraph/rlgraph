@@ -19,9 +19,8 @@ from __future__ import print_function
 
 from yarl import YARLError
 from yarl.spaces import IntBox, FloatBox
-from yarl.components import Component, CONNECT_OUTS, CONNECT_ALL
-from yarl.components.distributions import NNOutputCleanup, Normal, Categorical
-from yarl.components.neural_networks.neural_network import NeuralNetwork
+from yarl.components import Component, CONNECT_OUTS, CONNECT_ALL, NNOutputCleanup, Normal, Categorical
+from yarl.components.neural_networks import NeuralNetwork
 
 
 class Policy(Component):
@@ -42,7 +41,6 @@ class Policy(Component):
         sample_stochastic: See Distribution component.
         sample_deterministic: See Distribution component.
         entropy: See Distribution component.
-        sync_out (DataOpTuple): See Synchronizable Component.
         Optional:
             sync (DataOpTuple): See Synchronizable Component. If writable=True.
     """
@@ -51,11 +49,6 @@ class Policy(Component):
         Args:
             neural_network (Union[NeuralNetwork,dict]): The NeuralNetwork Component or a specification dict to build
                 one.
-            #action_space (Space): The action Space, which all actions that this Policy produces are members of.
-            #writable (Optional[bool]): Whether the `writable` property of the NeuralNetwork Component of this
-            #    Policy should be overwritten by this value. None if the default should be used.
-            #    We can only overwrite the `writable` property if `neural_network` is given as a spec dict.
-            #    See Synchronizable Component for more details.
         """
         super(Policy, self).__init__(scope=scope, **kwargs)
 
