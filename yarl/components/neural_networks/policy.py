@@ -72,7 +72,7 @@ class Policy(Component):
         self.add_component(self.neural_network, connections=CONNECT_ALL)
         self.rename_socket("output", "nn_output")
 
-        self.add_component(self.nn_cleanup)
+        self.add_component(self.nn_cleanup, leave_open="nn_output")
 
     def check_input_spaces(self, input_spaces, action_space):
         # The Distribution to sample (or pick) actions from.

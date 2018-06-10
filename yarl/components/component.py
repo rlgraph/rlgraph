@@ -123,6 +123,10 @@ class Component(Specifiable):
         # Only then can we create our variables. Model will do this.
         self.input_complete = False
 
+        # A set of in-Sockets for which it is ok, not to be connected after the
+        # YARL-meta graph is passed on for building.
+        self.unconnected_sockets_in_meta_graph = set()
+
         # Contains sub-Components of ours that do not have in-Sockets.
         self.no_input_sub_components = set()
         # Contains our GraphFunctions that have no in-Sockets.
@@ -576,7 +580,7 @@ class Component(Specifiable):
         if len(input_sockets) == 0:
             self.no_input_graph_fns.add(graph_fn)
 
-    def add_component(self, component, connections=None):
+    def add_component(self, component, leave_open=None, connections=None):
         """
         Adds a single Component as a sub-component to this one, thereby connecting certain Sockets of the
         sub-component to the Sockets of this component.
@@ -587,6 +591,9 @@ class Component(Specifiable):
 
         Args:
             component (Component): The Component object to add to this one.
+            leave_open (Optional[List[str],str]): An optional list of str or a single str holding the in-Sockets' names,
+                which we expect to stay unconnected after the YARL meta graph assembly. These will be ignored during
+                the GraphBuilder's meta-graph sanity check.
             connections (Optional[list,bool,str,CONNECT_INS,CONNECT_OUTS]): Specifies, which of the Sockets of the
                 added sub-component should be connected to which other Sockets.
                 If `connections` is a list, each item in `connections` is:
@@ -629,6 +636,15 @@ class Component(Specifiable):
 
         # Fix the sub-component's (and sub-sub-component's etc..) scope(s).
         self.propagate_scope(component)
+
+        # Add some in-Sockets to the ok-to-leave-open set?
+        if leave_open is not None:
+            leave_open = util.force_list(leave_open)
+            for in_sock_name in leave_open:
+                in_sock = component.get_socket_by_name(component, in_sock_name)
+                assert in_sock is not None, "ERROR: in-Socket '{}/{}' in `leave_open` list could not be " \
+                    "found!".format(component.name, in_sock_name)
+                component.unconnected_sockets_in_meta_graph.add(in_sock)
 
         # Preprocess the connections spec.
         connect_spec = dict()
