@@ -27,12 +27,12 @@ from yarl.tests import ComponentTest
 VARIABLE_NAMES = ["variable_to_sync1", "variable_to_sync2"]
 
 
-class MySyncComp(Component):
+class MyCompWithVars(Component):
     """
-    The Component to test. Synchronizable is only a mix-in class.
+    The Component with variables to test. Synchronizable can be added later as a drop-in via add_component.
     """
     def __init__(self, initializer1=0.0, initializer2=1.0, synchronizable=False, **kwargs):
-        super(MySyncComp, self).__init__(**kwargs)
+        super(MyCompWithVars, self).__init__(**kwargs)
         self.space = FloatBox(shape=(4, 5))
         self.initializer1 = initializer1
         self.initializer2 = initializer2
@@ -51,9 +51,9 @@ class MySyncComp(Component):
 
 class TestSynchronizableComponent(unittest.TestCase):
 
-    def test_sync_out_socket(self):
-        # A Synchronizable that can only push out values (cannot be synced from another Synchronizable).
-        component_to_test = MySyncComp(synchronizable=False)
+    def test_values_out_socket(self):
+        # Proof that all Components can push out their variable values.
+        component_to_test = MyCompWithVars(synchronizable=False)
         test = ComponentTest(component=component_to_test)
 
         # Test pulling the variable values from the sync_out socket.
@@ -63,9 +63,11 @@ class TestSynchronizableComponent(unittest.TestCase):
         test.test(out_socket_names="_variables", inputs=None, expected_outputs=expected)
 
     def test_sync_socket(self):
-        # Two Synchronizables, A that can only push out values, B to be synced by A's values.
-        sync_from = MySyncComp(scope="sync-from")
-        sync_to = MySyncComp(initializer1=8.0, initializer2=7.0, scope="sync-to")
+        # Two Components, one with Synchronizable dropped in:
+        # A: Can only push out values.
+        # B: To be synced by A's values.
+        sync_from = MyCompWithVars(scope="sync-from")
+        sync_to = MyCompWithVars(initializer1=8.0, initializer2=7.0, scope="sync-to")
         # Add the Synchronizable to sync_to.
         sync_to.add_component(Synchronizable(), connections=CONNECT_ALL)
         # Create a dummy test component that contains our two Synchronizables.
@@ -78,20 +80,30 @@ class TestSynchronizableComponent(unittest.TestCase):
         test = ComponentTest(component=component_to_test)
 
         # Test syncing the variable from->to and check them before and after the sync.
-        variables_dict = sync_to.get_variables(VARIABLE_NAMES)
-        var1_value, var2_value = test.get_variable_values(*list(variables_dict.values()))
 
-        expected1 = np.full(shape=sync_from.space.shape, fill_value=8.0)
-        expected2 = np.full(shape=sync_from.space.shape, fill_value=7.0)
-        test.assert_equal(var1_value, expected1)
-        test.assert_equal(var2_value, expected2)
+        # Before the sync.
+        test.variable_test(sync_to.get_variables(VARIABLE_NAMES), {
+            "sync-to/"+VARIABLE_NAMES[0]: np.full(shape=sync_from.space.shape, fill_value=8.0),
+            "sync-to/"+VARIABLE_NAMES[1]: np.full(shape=sync_from.space.shape, fill_value=7.0)
+        })
 
         # Now sync and re-check.
         test.test(out_socket_names="do_the_sync", inputs=None, expected_outputs=None)
 
-        var1_value, var2_value = test.get_variable_values(*list(variables_dict.values()))
+        # After the sync.
+        test.variable_test(sync_to.get_variables(VARIABLE_NAMES), {
+            "sync-to/"+VARIABLE_NAMES[0]: np.zeros(shape=sync_from.space.shape),
+            "sync-to/"+VARIABLE_NAMES[1]: np.ones(shape=sync_from.space.shape)
+        })
 
-        expected1 = np.zeros(shape=sync_from.space.shape)
-        expected2 = np.ones(shape=sync_from.space.shape)
-        test.assert_equal(var1_value, expected1)
-        test.assert_equal(var2_value, expected2)
+    def test_sync_socket_between_2_identical_comps_that_have_vars_only_in_their_sub_comps(self):
+        """
+        Similar to the Policy scenario, where the Policy Component owns a NeuralNetwork (which has vars)
+        and has to be synced with other Policies.
+        """
+        # Create 2x: A custom Component (with vars) that holds another Component (with vars).
+        # Then sync between them.
+        comp1 = MyCompWithVars(sub_components=[MyCompWithVars()])
+        comp2_writable = MyCompWithVars(sub_components=[MyCompWithVars(), Synchronizable()])
+        container = Component(comp1, comp2_writable, scope="container")
+

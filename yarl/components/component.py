@@ -54,10 +54,10 @@ class Component(Specifiable):
     A component also has a variable registry, the ability to save the component's structure and variable-values to disk,
     and supports adding its graph_fns to the overall computation graph.
     """
-    def __init__(self, *sub_components, **kwargs):
+    def __init__(self, *components_to_add, **kwargs):
         """
         Args:
-            sub_components (Component): Specification dicts for sub-Components to be added to this one.
+            components_to_add (Component): Specification dicts for sub-Components to be added to this one.
 
         Keyword Args:
             name (str): The name of this Component. Names of sub-components within a containing component
@@ -74,6 +74,8 @@ class Component(Specifiable):
             add_auto_key_as_first_param (bool): See `self.add_graph_fn` and GraphFunction's c'tor for more details.
             unflatten_ops (bool): See `self.add_graph_fn` and GraphFunction's c'tor for more details.
 
+            sub_components (Component): An alternative way to pass in a list of Components to be added as
+                sub-components to this one.
             inputs (List[str]): A list of in-Sockets to be defined for this Component.
             outputs (List[str]): A list of out-Sockets to be defined for this Component.
             connections (list): A list of connection specifications to be made between our Sockets and/or the different
@@ -145,7 +147,8 @@ class Component(Specifiable):
         self.add_graph_fn(None, "_variables", self._graph_fn_variables, flatten_ops=False, unflatten_ops=False)
 
         # Add the sub-components.
-        for sub_component_spec in sub_components:
+        components_to_add = components_to_add if len(components_to_add) > 0 else kwargs.get("sub_components", [])
+        for sub_component_spec in components_to_add:
             self.add_component(Component.from_spec(sub_component_spec))
 
         # Add the connections.

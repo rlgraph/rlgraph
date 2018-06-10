@@ -99,16 +99,15 @@ class ComponentTest(object):
 
     def variable_test(self, variables, expected_values):
         """
-        TODO: documentation and implementation
+        Asserts that all given `variables` have the `expected_values`.
+        Variables can be given in an arbitrary structure including nested ones.
 
         Args:
-            variables ():
-            expected_values ():
-
-        Returns:
-
+            variables (any): Any structure that contains variables.
+            expected_values (any): Matching structure with the expected values for the given variables.
         """
-        pass
+        values = self.get_variable_values(variables)
+        self.assert_equal(values, expected_values)
 
     def get_variable_values(self, *variables):
         """
@@ -120,7 +119,10 @@ class ComponentTest(object):
         Returns:
             any: Values of the variables provided.
         """
-        return self.graph_executor.read_variable_values(variables)
+        ret = self.graph_executor.read_variable_values(variables)
+        if len(variables) == 1:
+            return ret[0]
+        return ret
 
     @staticmethod
     def assert_equal(outs, expected_outputs, decimals=7):
