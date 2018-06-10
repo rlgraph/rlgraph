@@ -19,13 +19,53 @@ from __future__ import print_function
 
 import os
 
+import logging
 from yarl import YARLError
 from yarl.execution.ray import RayAgent
 
 import ray
 
 
-# Largely follow utils used in Ray.
+# Largely follow utils used in Ray Rllib ported to use the RayAgent wrapper.
+
+
+class RayTaskPool(object):
+    """
+    Manages a set of Ray tasks currently being executed (i.e. the RayAgent tasks).
+    """
+
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+        self.ray_tasks = dict()
+
+    def add_task(self, worker, ray_object_id):
+        """
+        Adds a task to the task pool.
+        Args:
+            worker (any): Worker completing the task, must use the @ray.remote decorator.
+            ray_object_id (str): Ray object id. See ray documentation for how these are used.
+        """
+        self.logger.debug("Adding task {} to worker {}".format(
+            ray_object_id, worker
+        ))
+        # Map which worker is responsible for completing the Ray task.
+        self.ray_tasks[ray_object_id] = worker
+
+    def get_completed(self):
+        """
+        Waits on pending tasks and yields them upon completion.
+
+        Returns:
+            generator: Yields completed tasks.
+        """
+
+        pending_tasks = list(self.ray_tasks)
+        if pending_tasks:
+            # This ray function checks tasks and splits into ready and non-ready tasks.
+            ready, not_ready = ray.wait(pending_tasks, num_returns=len(pending_tasks), timeout=10)
+            for obj_id in ready:
+                yield (self.ray_tasks.pop(obj_id), obj_id)
+
 
 def create_colocated_agents(agent_config, num_agents, max_attempts=10):
     """
@@ -57,6 +97,7 @@ def create_colocated_agents(agent_config, num_agents, max_attempts=10):
         ))
 
     return agents[:num_agents]
+
 
 def split_local_non_local_agents(ray_agents):
     """
