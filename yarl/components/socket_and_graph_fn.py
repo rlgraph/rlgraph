@@ -22,7 +22,8 @@ from collections import OrderedDict
 import re
 
 from yarl import YARLError
-from yarl.spaces.space_utils import flatten_op, unflatten_op
+from yarl.spaces.space_utils import flatten_op, unflatten_op, get_space_from_op
+from yarl.utils.ops import SingleDataOp, DataOpRecord
 
 _logger = logging.getLogger(__name__)
 
@@ -107,8 +108,12 @@ class Socket(object):
                 `from_`'s ops during build time.
         """
         if from_ not in self.incoming_connections:
+            # Constant value SingleDataOp -> Push op_record right away.
+            if isinstance(from_, SingleDataOp):
+                self.space = get_space_from_op(from_)
+                self.op_records.add(DataOpRecord(from_))
             # Socket: Add the label for ops passed to this Socket.
-            if label is not None:
+            elif label is not None:
                 assert isinstance(from_, Socket), "ERROR: No `label` ({}) allowed if `from_` ({}) is not a Socket " \
                                                   "object!".format(label, str(from_))
                 if self not in from_.labels:
@@ -121,6 +126,12 @@ class Socket(object):
         Equivalent to `self.connect_from`.
         """
         if from_ in self.incoming_connections:
+            # TODO: what if from_ has a label to this socket? Got to remove that as well? Maybe not important.
+
+            # Constant value SingleDataOp -> Remove space and op_record.
+            if isinstance(from_, SingleDataOp):
+                self.space = None
+                self.op_records = set()
             self.incoming_connections.remove(from_)
 
     def __str__(self):

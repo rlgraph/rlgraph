@@ -95,8 +95,10 @@ class GraphBuilder(Specifiable):
 
         # Actually build the graph.
         # Push all spaces to in-Sockets, then call build_component(core)
-        for in_sock in self.core_component.input_sockets:
-            self.push_space_into_socket(in_sock)
+        for in_sock in self.core_component.input_sockets:  # type: Socket
+            # Skip sockets already connected to constant values.
+            if len(in_sock.op_records) == 0:
+                self.push_space_into_socket(in_sock)
         space_dict = self.core_component.check_input_completeness()
         self.build_component(self.core_component, space_dict)
 
@@ -172,6 +174,10 @@ class GraphBuilder(Specifiable):
             # Push this Socket's information further down.
             self.push_from_socket(in_socket)
 
+        # At the very end, build our _variables out-Socket from the special "_variables" graph_fn.
+        variables_graph_fn = [gf for gf in component.graph_fns if gf.name == "_variables"][0]
+        self.push_from_graph_fn(variables_graph_fn)
+
     def push_from_socket(self, socket):
         assert socket.space is not None
         for outgoing in socket.outgoing_connections:
@@ -201,11 +207,6 @@ class GraphBuilder(Specifiable):
         assert len(socket.incoming_connections) == 1, \
             "ERROR: Socket '{}' already has an incoming connection. Cannot add Space to it.".format(socket)
 
-        # Special Case: Socket got connected to SingleDataOp with constant_value set.
-        if isinstance(socket.incoming_connections[0], SingleDataOp):
-            self.push_constant_value_into_socket(socket.incoming_connections[0], socket)
-            return
-
         # Store the Space as this Socket's.
         space = socket.incoming_connections[0]
         self.logger.info("Space {} -> Socket {}/{}".format(space, socket.component.name, socket.name))
@@ -222,29 +223,6 @@ class GraphBuilder(Specifiable):
         # Remember, that this DataOp goes into a Socket at the very beginning of the Graph (e.g. a
         # tf.placeholder).
         self.op_record_registry[op_rec] = {socket}
-
-    def push_constant_value_into_socket(self, constant_value_op, socket):
-        if len(socket.op_records) > 0:
-            raise YARLError("ERROR: A constant-value Socket may only have one such incoming value! "
-                            "Socket '{}/{}' already has {} other incoming "
-                            "connections.".format(socket.component.name, socket.name, len(socket.incoming_connections)))
-        elif constant_value_op.constant_value is None:
-            raise YARLError("ERROR: Cannot connect a SingleDataOp without constant_value to Socket {}/{}! "
-                            "Needs a constant_value.".format(socket.component.name, socket.name))
-
-        self.logger.info("Constant {} -> Socket {}/{}".format(
-            constant_value_op.constant_value, socket.component.name, socket.name)
-        )
-
-        was_input_complete = socket.component.input_complete
-
-        socket.space = get_space_from_op(constant_value_op)
-        socket.op_records.add(DataOpRecord(constant_value_op))
-
-        # Only move on, if this Component is the core.
-        # Otherwise, this method is only for updating the information, not for continuing with the build logic.
-        if socket.component.is_core:
-            self.after_socket_update(socket, was_input_complete)
 
     def push_socket_into_socket(self, socket, next_socket):
         assert socket.space is not None
@@ -273,6 +251,7 @@ class GraphBuilder(Specifiable):
             op_records = filtered_op_records
         next_socket.op_records.update(op_records)
 
+        # Continue with the build logic.
         self.after_socket_update(next_socket, was_input_complete)
 
     def after_socket_update(self, socket, was_input_complete):
@@ -280,15 +259,6 @@ class GraphBuilder(Specifiable):
         if was_input_complete is True:
             self.push_from_socket(socket)
         else:
-            # Loop through all in-Sockets of this Component (if not core) to check for possible constant
-            # value inputs and add them here. The core has already been done for all its in-Sockets at the very
-            # beginning of the build process.
-            if socket.component.is_core is False:
-                for in_socket in socket.component.input_sockets:
-                    if len(in_socket.incoming_connections) == 1 and \
-                            isinstance(in_socket.incoming_connections[0], SingleDataOp):
-                        self.push_constant_value_into_socket(in_socket.incoming_connections[0], in_socket)
-
             # Check again for input-completeness.
             space_dict = socket.component.check_input_completeness()
             # Component has just become input-complete: Build it.
@@ -483,18 +453,17 @@ class GraphBuilder(Specifiable):
                 # Look for the missing in-Socket and raise an Error.
                 for in_sock_name, in_sock_record in graph_fn.input_sockets.items():
                     if len(in_sock_record["socket"].op_records) == 0:
-                        self.logger.warning("in-Socket '{}' of GraphFunction '{}' of Component '{}' does not have "
-                                            "any incoming ops!".format(in_sock_name, graph_fn.name, component.name))
+                        raise YARLError("in-Socket '{}' of GraphFunction '{}' of Component '{}' does not have "
+                                        "any incoming ops!".format(in_sock_name, graph_fn.name, component.name))
 
         # Check component's sub-components for input-completeness (recursively).
         for sub_component in component.sub_components.values():  # type: Component
             if sub_component.input_complete is False:
-                self.logger.warning("Component '{}' is not input-complete. The following Sockets do not "
-                                    "have incoming connections:".format(sub_component.name))
                 # Look for the missing Socket and raise an Error.
                 for in_sock in sub_component.input_sockets:
                     if in_sock.space is None:
-                        self.logger.warning("\t'{}'".format(in_sock.name))
+                        raise YARLError("Component '{}' is not input-complete. In-Socket '{}' does not " \
+                                        "have any incoming connections.".format(sub_component.name, in_sock.name))
 
             # Recursively call this method on all the sub-component's sub-components.
             self.sanity_check_build(sub_component)

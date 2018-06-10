@@ -60,43 +60,41 @@ def print_out_component(component, phase=None):
     for graph_fn in component.graph_fns:
         txt += "\t'{}':\n\t\t".format(graph_fn.name)
         if graph_fn.input_complete is False:
-            txt += "\t\tNOT INPUT COMPLETE"
-        else:
-            for i, in_sock_rec in enumerate(graph_fn.input_sockets.values()):
-                txt += "{}'{}'".format(" + " if i > 0 else "", in_sock_rec["socket"].name)
-            txt += " -> "
-            for i, out_sock in enumerate(graph_fn.output_sockets):
-                txt += "{}'{}'".format(" + " if i > 0 else "", out_sock.name)
+            txt += "(NOT INPUT COMPLETE) "
+        for i, in_sock_rec in enumerate(graph_fn.input_sockets.values()):
+            txt += "{}'{}'".format(" + " if i > 0 else "", in_sock_rec["socket"].name)
+        txt += " -> "
+        for i, out_sock in enumerate(graph_fn.output_sockets):
+            txt += "{}'{}'".format(" + " if i > 0 else "", out_sock.name)
         txt += "\n"
 
     if len(component.sub_components) > 0:
         txt += "sub-components:\n"
 
-    # Check component's sub-components for input-completeness (recursively).
+    # Check component's sub-components for input-completeness.
     for sub_component in component.sub_components.values():
         txt += "\t'{}':\n".format(sub_component.name)
         if sub_component.input_complete is False:
             txt += "\t\tNOT INPUT COMPLETE\n"
-        else:
-            for in_sock in sub_component.input_sockets:
-                for in_coming in in_sock.incoming_connections:
-                    if hasattr(in_coming, "name"):
-                        labels = ""
-                        if isinstance(in_coming, Socket) and in_sock in in_coming.labels:
-                            labels = " (label="+str(in_coming.labels[in_sock])[1:-1]+")"
-                        txt += "\t\t'{}/{}' -> '{}'{}\n".format(in_coming.component.name, in_coming.name, in_sock.name,
-                                                                labels)
-                    elif isinstance(in_coming, SingleDataOp):
-                        txt += "\t\tconst({}) -> '{}'\n".format(in_coming.constant_value, in_sock.name)
-                    else:
-                        txt += "\t\t'{}'\n".format(in_coming)
-            for out_sock in sub_component.output_sockets:
-                for out_going in out_sock.outgoing_connections:
-                    if hasattr(out_going, "name"):
-                        txt += "\t\t'{}' -> '{}/{}'\n".format(out_sock.name, out_going.component.name,
-                                                              out_going.name)
-                    else:
-                        txt += "\t\t'{}'\n".format(out_sock)
+        for in_sock in sub_component.input_sockets:
+            for in_coming in in_sock.incoming_connections:
+                if hasattr(in_coming, "name"):
+                    labels = ""
+                    if isinstance(in_coming, Socket) and in_sock in in_coming.labels:
+                        labels = " (label="+str(in_coming.labels[in_sock])[1:-1]+")"
+                    txt += "\t\t'{}/{}' -> '{}'{}\n".format(in_coming.component.name, in_coming.name, in_sock.name,
+                                                            labels)
+                elif isinstance(in_coming, SingleDataOp):
+                    txt += "\t\tconst({}) -> '{}'\n".format(in_coming.constant_value, in_sock.name)
+                else:
+                    txt += "\t\t'{}'\n".format(in_coming)
+        for out_sock in sub_component.output_sockets:
+            for out_going in out_sock.outgoing_connections:
+                if hasattr(out_going, "name"):
+                    txt += "\t\t'{}' -> '{}/{}'\n".format(out_sock.name, out_going.component.name,
+                                                          out_going.name)
+                else:
+                    txt += "\t\t'{}'\n".format(out_sock)
 
     txt += "out-sockets:\n"
     for out_sock in component.output_sockets:

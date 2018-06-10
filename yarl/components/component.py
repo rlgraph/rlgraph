@@ -17,11 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
-import re
-import copy
 from collections import Hashable, OrderedDict
+import copy
 import numpy as np
+import re
+import tensorflow as tf
+import uuid
 
 from yarl import YARLError, backend, Specifiable
 from yarl.utils.ops import SingleDataOp
@@ -144,7 +145,7 @@ class Component(Specifiable):
         self.define_outputs("_variables", *outputs)
 
         # Adds the default "_variables" out-Socket responsible for sending out all our variables.
-        self.add_graph_fn(None, "_variables", self._graph_fn_variables, flatten_ops=False, unflatten_ops=False)
+        self.add_graph_fn(None, "_variables", self._graph_fn__variables, flatten_ops=False, unflatten_ops=False)
 
         # Add the sub-components.
         components_to_add = components_to_add if len(components_to_add) > 0 else kwargs.get("sub_components", [])
@@ -507,7 +508,7 @@ class Component(Specifiable):
         else:
             self.output_sockets.remove(socket)
 
-    def add_graph_fn(self, inputs, outputs, method=None,
+    def add_graph_fn(self, inputs, outputs, method,
                      flatten_ops=None, split_ops=None,
                      add_auto_key_as_first_param=None, unflatten_ops=None):
         """
@@ -517,11 +518,10 @@ class Component(Specifiable):
         Args:
             inputs (Optional[str,List[str]]): List or single input Socket specifiers to link from.
             outputs (Optional[str,List[str]]): List or single output Socket specifiers to link to.
-            method (Optional[str,callable]): The name of the template method to use for linking
+            method (Union[str,callable]): The name of the template method to use for linking
                 (without the _graph_ prefix) or the method itself (callable).
                 The `method`'s signature and number of return values has to match the
                 number of input- and output Sockets provided here.
-                If None, use the only member method that starts with '_graph_' (error otherwise).
             flatten_ops (Optional[bool,Set[str]]): Passed to GraphFunction's c'tor. See GraphFunction
                 for details. Overwrites this Component's `self.flatten_ops`.
             split_ops (Optional[bool,Set[str]]): Passed to GraphFunction's c'tor. See GraphFunction
@@ -537,17 +537,9 @@ class Component(Specifiable):
         inputs = util.force_list(inputs)
         outputs = util.force_list(outputs)
 
-        if method is None:
-            method = [m for m in dir(self) if (callable(self.__getattribute__(m)) and re.match(r'^_graph_', m))]
-            if len(method) != 1:
-                raise YARLError("ERROR: Not exactly one method found in {} that starts with '_graph_'! "
-                                "Cannot add graph_fn unless method_name is given explicitly.".format(self.name))
-            method = re.sub(r'^_graph_', "", method[0])
-
         # TODO: Make it possible to call other graph_fns within a graph_fn and to call a sub-component's graph_fn within a graph_fn.
         # TODO: Sanity check the tf methods signature (and return values from docstring?).
         # Compile a list of all needed Sockets and create internal ones if they do not exist yet.
-        # External Sockets (in/out) must exist already or we will get an error.
         input_sockets = [self.get_socket(s, create_internal_if_not_found=True) for s in inputs]
         output_sockets = [self.get_socket(s, create_internal_if_not_found=True) for s in outputs]
         # Add the graph_fn record to all input and output sockets.
@@ -579,8 +571,11 @@ class Component(Specifiable):
         for output_socket in output_sockets:
             output_socket.connect_from(graph_fn)
 
-        # If the GraphFunction has no inputs or only constant value inputs, we need to build it from no-input.
-        if len(input_sockets) == 0:
+        # If the GraphFunction has no inputs or only constant value inputs, we need to treat it separately during
+        # the build. Exception: _variables, which has to be built last after all our sub-components are done
+        # creating their variables and pushing them up to this Component.
+        # FixMe: What if an internal graph_fn input is blocked with a constant value? Need test case for that.
+        if len(input_sockets) == 0 and graph_fn.name != "_variables":
             self.no_input_graph_fns.add(graph_fn)
 
     def add_component(self, component, leave_open=None, connections=None):
@@ -710,9 +705,9 @@ class Component(Specifiable):
         Keyword Args:
             connections (Union[dict,tuple,str]): Connection-spec for the component(s) to be passed to
                 self.add_component().
-                If more than one sub-components are added in the call and `connect` is a dict, lookup each component's
-                name in that dict and pass the found value to self.add_component. If `connect` is not a dict, pass it
-                as-is for each of the added sub-components.
+                If more than one sub-components are added in the call and `connecttions` is a dict, lookup each
+                component's name in that dict and pass the found value to self.add_component. If `connections` is not
+                a dict, pass it as-is for each of the added sub-components.
         """
         connect = kwargs.pop("connections", None)
         assert not kwargs
@@ -723,7 +718,7 @@ class Component(Specifiable):
             # with keys=Sockets to be renamed. Figure this out here and pass it to `self.add_component` accordingly.
             if isinstance(connect, dict):
                 connect_ = connect.get(c.name)
-            self.add_component(c, (connect_ or connect))
+            self.add_component(c, connections=(connect_ or connect))
 
     def propagate_scope(self, sub_component):
         """
@@ -972,17 +967,20 @@ class Component(Specifiable):
             type_ (Optional[str]): Type of the Socket. If None, Socket could be either
                 'in' or 'out'. This must be given if the only-Socket is wanted (socket is None).
             create_internal_if_not_found (bool): Whether to automatically create an internal Socket if the Socket
-                cannot be found (in)
+                cannot be found.
 
         Returns:
-            Socket: Only the Socket found.
-            Tuple[Socket,Component]: Retrieved Socket object, Component that the retrieved Socket belongs to.
+            Socket: The Socket found or automatically created.
 
         Raises:
             YARLError: If the Socket cannot be found and create_internal_if_not_found is False.
         """
+        # Socket is given as a Socket object (simple pass-through).
+        if isinstance(socket, Socket):
+            return socket
+
         # Return the only Socket of this component on given side (type_ must be given in this case as 'in' or 'out').
-        if socket is None:
+        elif socket is None:
             assert type_ is not None, "ERROR: type_ needs to be specified if you want to get only-Socket!"
             if type_ == "out":
                 socket_list = self.output_sockets
@@ -991,14 +989,24 @@ class Component(Specifiable):
 
             assert len(socket_list) == 1, "ERROR: More than one {}-Socket! Cannot return only-Socket.".format(type_)
             return socket_list[0]
+
+        # Possible constant-value for auto-generated internal Socket.
+        constant_value = None
+
         # Socket is given as str: Try to look up socket by name.
-        elif isinstance(socket, str):
+        if isinstance(socket, str):
             socket_name = socket
             component = self
             socket_obj = self.get_socket_by_name(self, socket, type_=type_)
-        # Socket is given as a Socket object (simple pass-through).
-        elif isinstance(socket, Socket):
-            return socket
+
+        # Socket is a constant value Socket defined by its value -> create this Socket with
+        # a unique name and connect it to a constant value DataOp.
+        elif isinstance(socket, (int, float, bool, np.ndarray)):
+            socket_name = self.name + "-" + str(uuid.uuid1())
+            component = self
+            socket_obj = None
+            constant_value = socket
+
         # Socket is given as component/sock-name OR component/sock-obj pair:
         # Could be ours, external, but also one of our sub-component's.
         else:
@@ -1027,7 +1035,7 @@ class Component(Specifiable):
         if socket_obj is None:
             # Create new internal one?
             if create_internal_if_not_found is True:
-                self.add_socket(socket_name, type_="in", internal=True)
+                self.add_socket(socket_name, value=constant_value, type_="in", internal=True)
                 socket_obj = self.get_socket(socket_name)
             else:
                 raise YARLError("ERROR: No {}Socket named '{}' found in {}!".
@@ -1156,9 +1164,13 @@ class Component(Specifiable):
                 space_dict[in_socket.name] = in_socket.space
         return space_dict
 
-    def _graph_fn_variables(self):
+    def _graph_fn__variables(self):
         """
-        Outputs all of this Component's variables in a DataOpDict.
+        Outputs all of this Component's variables in a DataOpDict (out-Socket "_variables").
+
+        This can be used e.g. to sync this Component's variables into another Component, which owns
+        a Synchronizable() as a sub-component. The returns values of this graph_fn are then sent into
+        the other Component's "_values" in-Socket for syncing.
 
         Returns:
             DataOpDict: Dict with keys=variable names and values=variable (SingleDataOp).

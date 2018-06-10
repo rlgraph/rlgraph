@@ -24,7 +24,7 @@ import unittest
 from yarl.components import Component, CONNECT_INS, CONNECT_OUTS
 from yarl.tests import ComponentTest
 from yarl.utils import root_logger
-from yarl.tests.dummy_components import Dummy1to1, Dummy2to1, Dummy1to2, Dummy0to1
+from yarl.tests.dummy_components import Dummy1to1, Dummy2to1, Dummy1to2, Dummy0to1, Dummy2to1Where1ConnectedWithConstant
 
 
 class TestSocketGraphFnConnections(unittest.TestCase):
@@ -84,8 +84,19 @@ class TestSocketGraphFnConnections(unittest.TestCase):
         component = Dummy2to1(scope="dummy")
         test = ComponentTest(component=component, input_spaces=dict(input1=5.5, input2=float))
 
-        # Expected output: (const 5.5) + in2 = 10.0
+        # Expected output: (const 5.5) + in2
         test.test(out_socket_names="output", inputs=dict(input2=4.5), expected_outputs=10.0)
+
+    def test_2to1_component_with_constant_graph_fn_input1(self):
+        """
+        Adds a single component with 2-to-1 graph_fn to the core, and the second input to the
+        graph_fn is already blocked by the component.
+        """
+        component = Dummy2to1Where1ConnectedWithConstant(scope="dummy")
+        test = ComponentTest(component=component, input_spaces=dict(input1=float))
+
+        # Expected output: in1 + (const 3.0)
+        test.test(out_socket_names="output", inputs=dict(input2=4.5), expected_outputs=7.5)
 
     def test_1to1_to_2to1_component_with_constant_input_value(self):
         """

@@ -87,6 +87,28 @@ class Dummy2to1(Component):
         return input1 + input2
 
 
+class Dummy2to1Where1ConnectedWithConstant(Component):
+    """
+    A dummy component with one graph_fn mapping two inputs to one output and
+    one of the inputs is already connected with a constant value.
+
+    API:
+    ins:
+        input1
+        input2 (not exposed b/c constant-value-blocked)
+    outs:
+        output
+    """
+    def __init__(self, scope="dummy-2-to-1"):
+        super(Dummy2to1Where1ConnectedWithConstant, self).__init__(scope=scope, flatten_ops=False)
+        self.define_inputs("input1")
+        self.define_outputs("output")
+        self.add_graph_fn(["input1", 3.0], "output", self._graph_fn_1_and_1blocked_to1)
+
+    def _graph_fn_1_and_1blocked_to1(self, input1, input2):
+        return input1 + input2
+
+
 class Dummy0to1(Component):
     """
     A dummy component with one graph_fn without inputs and one output.
