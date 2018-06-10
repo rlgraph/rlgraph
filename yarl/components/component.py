@@ -807,8 +807,7 @@ class Component(Specifiable):
 
     def connect(self, from_, to_, label=None):
         """
-        Generic connection method to create connections between:
-
+        Generic connection method to create connections: between
         - a Socket (from_) and another Socket (to_).
         - a Socket and a Space (or the other way around).
         `from_` and `to_` can be directly Socket objects but also Socket-specifiers. See `self.get_socket` for details
@@ -826,6 +825,11 @@ class Component(Specifiable):
             label (Optional[str]): An optional label for the connection. The label will be passed along the ops
                 through the Sockets and graph_fns and must be used to specify ops if there is an ambiguity.
         """
+        print('type from = {}'.format(type(from_)))
+        print(from_)
+        print('type to = {}'.format(type(to_)))
+        print(to_)
+
         self._connect_disconnect(from_, to_, label=label, disconnect_=False)
 
     def disconnect(self, from_, to_):
@@ -936,8 +940,8 @@ class Component(Specifiable):
         Components must have the same number of sockets.
 
         Args:
-            from_component:
-            to_component:
+            from_component (Component): Component from which to connect/
+            to_component (Component): Component to connect to.
             label (Optional[str]): See `self.connect` for details.
         """
         assert len(to_component.output_sockets) - 1 == len(from_component.input_sockets), \

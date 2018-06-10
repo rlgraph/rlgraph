@@ -17,9 +17,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-# Largely follows utils used in Ray.
-from yarl import YARLError
+import os
 
+from yarl import YARLError
+from yarl.execution.ray import RayAgent
+
+import ray
+
+
+# Largely follow utils used in Ray.
 
 def create_colocated_agents(agent_config, num_agents, max_attempts=10):
     """
@@ -39,24 +45,38 @@ def create_colocated_agents(agent_config, num_agents, max_attempts=10):
     """
     agents = []
     attempt = 1
+
     while len(agents) < num_agents and attempt <= max_attempts:
-        pass
+        ray_agents = [RayAgent.remote(agent_config) for _ in range(attempt * num_agents)]
+        local_agents, _ = split_local_non_local_agents(ray_agents)
+        agents.extend(local_agents)
 
     if len(agents) < num_agents:
         raise YARLError("Could not create the specified number ({}) of agents.".format(
             num_agents
         ))
 
+    return agents[:num_agents]
 
-def split_local_non_local_agents(agents):
+def split_local_non_local_agents(ray_agents):
     """
     Splits agents in local and non-local agents based on localhost string and ray remote
     hsots.
 
     Args:
-        agents (list): List of RayAgent objects.
+        ray_agents (list): List of RayAgent objects.
 
     Returns:
         (list, list): Local and non-local agents.
     """
-    pass
+    localhost = os.uname()[1]
+    hosts = ray.get([agent.get_host.remote() for agent in ray_agents])
+    local = []
+    non_local = []
+
+    for host, a in zip(hosts, ray_agents):
+        if host == localhost:
+            local.append(a)
+        else:
+            non_local.append(a)
+    return local, non_local
