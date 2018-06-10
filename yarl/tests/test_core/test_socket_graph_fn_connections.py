@@ -96,7 +96,7 @@ class TestSocketGraphFnConnections(unittest.TestCase):
         test = ComponentTest(component=component, input_spaces=dict(input1=float))
 
         # Expected output: in1 + (const 3.0)
-        test.test(out_socket_names="output", inputs=dict(input2=4.5), expected_outputs=7.5)
+        test.test(out_socket_names="output", inputs=dict(input1=4.5), expected_outputs=7.5)
 
     def test_1to1_to_2to1_component_with_constant_input_value(self):
         """
