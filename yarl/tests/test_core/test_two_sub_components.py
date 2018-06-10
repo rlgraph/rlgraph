@@ -21,7 +21,7 @@ import logging
 import numpy as np
 import unittest
 
-from yarl.components import Component, CONNECT_INS, CONNECT_OUTS
+from yarl.components import Component, CONNECT_INS, CONNECT_OUTS, CONNECT_ALL
 from yarl.tests import ComponentTest
 from yarl.utils import root_logger
 from yarl.tests.dummy_components import Dummy1to1, Dummy2to1, Dummy1to2
@@ -85,3 +85,24 @@ class TestTwoSubComponents(unittest.TestCase):
         # Expected output: (input + 1.0) + 1.1
         test.test(out_socket_names="output", inputs=78.4, expected_outputs=80.5)
         test.test(out_socket_names="output", inputs=-5.2, expected_outputs=-3.1)
+
+    def test_1to1_to_out_sock_then_1to1_from_that_out_sock_to_other_out_sock(self):
+        """
+        Adds two components (1-to-1) to the core. (A) connected from "input" to "output", but (B) connected
+        between "output" and "output_b". Connections schemas like this occur e.g. in our one-step optimizers.
+        """
+        core = Component(scope="container")
+        core.define_outputs("output_b")
+
+        a = Dummy1to1(scope="A")
+        b = Dummy1to1(scope="B", constant_value=1.5)
+        core.add_component(a, connections=CONNECT_ALL)  # creates "input" and "output" sockets.
+        core.add_component(b)
+        core.connect("output", (b, "input"))
+        core.connect((b, "output"), "output_b")
+
+        test = ComponentTest(component=core, input_spaces=dict(input=float))
+
+        # Expected output: (in + 1.0) + 1.5
+        test.test(out_socket_names="output", inputs=100.4, expected_outputs=np.array(101.4, dtype=np.float32))
+        test.test(out_socket_names="output_b", inputs=-56.2, expected_outputs=np.array(-53.7, dtype=np.float32))
