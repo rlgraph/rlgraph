@@ -21,135 +21,17 @@ import logging
 import numpy as np
 import unittest
 
-from yarl.components import Component, CONNECT_INS, CONNECT_OUTS
+from yarl.components import Component
 from yarl.tests import ComponentTest
 from yarl.utils import root_logger
-from yarl.tests.dummy_components import Dummy1to1, Dummy2to1, Dummy1to2, Dummy0to1, Dummy2to1Where1ConnectedWithConstant
+from yarl.tests.dummy_components import Dummy1to1
 
 
-class TestSocketGraphFnConnections(unittest.TestCase):
+class TestSingleSubComponents(unittest.TestCase):
     """
-    Tests for different ways to connect Sockets to other Sockets (of other Components) and GraphFunctions.
+    Tests for different ways to place different, but single sub-Components into the core.
     """
     root_logger.setLevel(level=logging.INFO)
-
-    def test_1to1_component(self):
-        """
-        Adds a single component with 1-to-1 graph_fn to the core and passes a value through it.
-        """
-        component = Dummy1to1(scope="dummy")
-        test = ComponentTest(component=component, input_spaces=dict(input=float))
-
-        # Expected output: input + 1.0
-        test.test(out_socket_names="output", inputs=1.0, expected_outputs=2.0)
-        test.test(out_socket_names="output", inputs=-5.0, expected_outputs=-4.0)
-
-    def test_2to1_component(self):
-        """
-        Adds a single component with 2-to-1 graph_fn to the core and passes 2 values through it.
-        """
-        component = Dummy2to1(scope="dummy")
-        test = ComponentTest(component=component, input_spaces=dict(input1=float, input2=float))
-
-        # Expected output: input1 + input2
-        test.test(out_socket_names="output", inputs=dict(input1=1.0, input2=2.9), expected_outputs=3.9)
-        test.test(out_socket_names="output", inputs=dict(input1=4.9, input2=-0.1),
-                  expected_outputs=np.array(4.8, dtype=np.float32))
-
-    def test_1to2_component(self):
-        """
-        Adds a single component with 1-to-2 graph_fn to the core and passes a value through it.
-        """
-        component = Dummy1to2(scope="dummy")
-        test = ComponentTest(component=component, input_spaces=dict(input=float))
-
-        # Expected outputs: (input, input+1.0)
-        test.test(out_socket_names=["output1", "output2"], inputs=1.0, expected_outputs=[1.0, 2.0])
-        test.test(out_socket_names=["output1", "output2"], inputs=4.5, expected_outputs=[4.5, 5.5])
-
-    def test_0to1_component(self):
-        """
-        Adds a single component with 0-to-1 graph_fn to the core and passes a value through it.
-        """
-        component = Dummy0to1(scope="dummy")
-        test = ComponentTest(component=component, input_spaces=dict(input=float))
-
-        # Expected outputs: Always 0.0
-        test.test(out_socket_names=["output"], inputs=None, expected_outputs=[8.0])
-
-    def test_2to1_component_with_constant_input_value(self):
-        """
-        Adds a single component with 1-to-1 graph_fn to the core and blocks the input with a constant value.
-        """
-        component = Dummy2to1(scope="dummy")
-        test = ComponentTest(component=component, input_spaces=dict(input1=5.5, input2=float))
-
-        # Expected output: (const 5.5) + in2
-        test.test(out_socket_names="output", inputs=dict(input2=4.5), expected_outputs=10.0)
-
-    def test_2to1_component_with_constant_graph_fn_input1(self):
-        """
-        Adds a single component with 2-to-1 graph_fn to the core, and the second input to the
-        graph_fn is already blocked by the component.
-        """
-        component = Dummy2to1Where1ConnectedWithConstant(scope="dummy")
-        test = ComponentTest(component=component, input_spaces=dict(input1=float))
-
-        # Expected output: in1 + (const 3.0)
-        test.test(out_socket_names="output", inputs=dict(input1=4.5), expected_outputs=7.5)
-
-    def test_1to1_to_2to1_component_with_constant_input_value(self):
-        """
-        Adds two components in sequence, 1-to-1 and 2-to-1, to the core and blocks one of the inputs of 2-to-1
-        with a constant value (so that this constant value is not at the border of the core component).
-        """
-        core = Component(scope="container")
-        sub_comp1 = Dummy1to1(scope="A")
-        sub_comp2 = Dummy2to1(scope="B")
-        core.add_component(sub_comp1, connections=CONNECT_INS)
-        core.add_component(sub_comp2, connections=CONNECT_OUTS)
-        core.connect(1.1, (sub_comp2, "input1"))
-        core.connect((sub_comp1, "output"), (sub_comp2, "input2"))
-
-        test = ComponentTest(component=core, input_spaces=dict(input=float))
-
-        # Expected output: (input + 1.0) + 1.1
-        test.test(out_socket_names="output", inputs=78.4, expected_outputs=80.5)
-        test.test(out_socket_names="output", inputs=-5.2, expected_outputs=-3.1)
-
-    def test_connecting_two_1to1_components(self):
-        """
-        Adds two components with 1-to-1 graph_fns to the core, connects them and passes a value through it.
-        """
-        core = Component(scope="container")
-        sub_comp1 = Dummy1to1(scope="comp1")
-        sub_comp2 = Dummy1to1(scope="comp2")
-        core.add_component(sub_comp1, connections=CONNECT_INS)
-        core.add_component(sub_comp2, connections=CONNECT_OUTS)
-        core.connect(sub_comp1, sub_comp2)
-
-        test = ComponentTest(component=core, input_spaces=dict(input=float))
-
-        # Expected output: input + 1.0 + 1.0
-        test.test(out_socket_names="output", inputs=1.1, expected_outputs=3.1)
-        test.test(out_socket_names="output", inputs=-5.1, expected_outputs=-3.1)
-
-    def test_connecting_1to2_to_2to1(self):
-        """
-        Adds two components with 1-to-2 and 2-to-1 graph_fns to the core, connects them and passes a value through it.
-        """
-        core = Component(scope="container")
-        sub_comp1 = Dummy1to2(scope="comp1")  # outs=in,in+1
-        sub_comp2 = Dummy2to1(scope="comp2")  # out =in1+in2
-        core.add_component(sub_comp1, connections=CONNECT_INS)
-        core.add_component(sub_comp2, connections=CONNECT_OUTS)
-        core.connect(sub_comp1, sub_comp2)
-
-        test = ComponentTest(component=core, input_spaces=dict(input=float))
-
-        # Expected output: input + (input + 1.0)
-        test.test(out_socket_names="output", inputs=100.9, expected_outputs=np.float32(202.8))
-        test.test(out_socket_names="output", inputs=-5.1, expected_outputs=np.float32(-9.2))
 
     def test_connecting_in1_and_1to1_to_1to1_no_labels(self):
         """
@@ -262,4 +144,3 @@ class TestSocketGraphFnConnections(unittest.TestCase):
         test.test(out_socket_names="output1", inputs=dict(input=np.array(187.5)), expected_outputs=189.5)
         # Expected output: (input + 2.0) + 1.0
         test.test(out_socket_names="output2", inputs=dict(input=np.array(87.5)), expected_outputs=90.5)
-

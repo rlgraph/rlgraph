@@ -76,7 +76,8 @@ class DQNAgent(Agent):
         core.define_inputs("actions", space=self.action_space.with_batch_rank())
         core.define_inputs("rewards", space=FloatBox(add_batch_rank=True))
         core.define_inputs("terminals", space=IntBox(2, add_batch_rank=True))
-        core.define_inputs("deterministic", space=BoolBox())
+        core.define_inputs("deterministic", space=bool)
+        core.define_inputs("time_step", space=int)
         core.define_outputs("act", "add_records", "reset_memory", "learn", "sync_target_qnet")
 
         # Add the Q-net, copy it (target-net) and add the target-net.
@@ -98,6 +99,9 @@ class DQNAgent(Agent):
         # States (from Env) into preprocessor -> into q-net
         core.connect("states", (self.preprocessor_stack, "input"))
         core.connect((self.preprocessor_stack, "output"), (self.policy, "input"), label="from_env")
+
+        # timestep into Exploration.
+        core.connect("time_step", (self.exploration, "time_step"))
 
         # Network output into Exploration's "nn_output" Socket -> into "act".
         core.connect((self.policy, "sample_deterministic"),

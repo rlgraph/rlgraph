@@ -130,10 +130,10 @@ class GraphBuilder(Specifiable):
         # Check all the Component's in-Sockets for being connected from a Space/Socket.
         for in_sock in component.input_sockets:  # type: Socket
             if len(in_sock.incoming_connections) == 0 and in_sock not in component.unconnected_sockets_in_meta_graph:
-                raise YARLError("Component {} has in-Socket ({}) without any incoming connections! If this is "
+                raise YARLError("Component '{}' has in-Socket ({}) without any incoming connections! If this is "
                                 "intended before the build process, you have to add the Socket to the Component's "
                                 "`unconnected_sockets_in_meta_graph` set. Then this error will be supressed for "
-                                "{}.".format(component.name, in_sock.name, component.name, in_sock.name))
+                                "Component '{}'.".format(component.name, in_sock.name, component.name, in_sock.name))
 
         # Check all the component's graph_fns for input-completeness.
         for graph_fn in component.graph_fns:  # type: GraphFunction
