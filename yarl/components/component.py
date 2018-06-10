@@ -807,13 +807,18 @@ class Component(Specifiable):
 
     def connect(self, from_, to_, label=None):
         """
-        Makes a connection between:
+        Generic connection method to create connections between:
+
         - a Socket (from_) and another Socket (to_).
         - a Socket and a Space (or the other way around).
         `from_` and `to_` can be directly Socket objects but also Socket-specifiers. See `self.get_socket` for details
         on possible ways of specifying a socket (by string, component-name, etc..).
+
         Also, `from_` and/or `to_` may be Component objects. In that case, all out-Sockets of `from_` will be
         connected to the respective in-Sockets of `to_`.
+
+        Note that more specialised methods are available and should be used to increase code
+        readability.
 
         Args:
             from_ (any): The specifier of the connector (e.g. incoming Socket, an incoming Space).
@@ -853,43 +858,17 @@ class Component(Specifiable):
         # Also, there are certain restrictions for the Socket's type.
         if isinstance(from_, (Space, dict, SingleDataOp)) or \
                 (not isinstance(from_, str) and isinstance(from_, Hashable) and from_ in Space.__lookup_classes__):
-            from_ = from_ if isinstance(from_, (Space, SingleDataOp)) else Space.from_spec(from_)
-            to_socket_obj = self.get_socket(to_)
-            assert to_socket_obj.type == "in", "ERROR: Cannot connect a Space to an 'out'-Socket!"
-            if not disconnect_:
-                to_socket_obj.connect_from(from_, label=label)
-            else:
-                to_socket_obj.disconnect_from(from_)
-            return
+            return self.connect_space_to_socket(from_, to_, label, disconnect_)
         # TODO: Special case: Never really done yet: Connecting an out-Socket to a Space (usually: action-space).
         elif isinstance(to_, (Space, dict)) or \
                 (not isinstance(to_, str) and isinstance(to_, Hashable) and to_ in Space.__lookup_classes__):
-            to_ = to_ if isinstance(to_, Space) else Space.from_spec(to_)
-            from_socket_obj = self.get_socket(from_)
-            assert from_socket_obj.type == "out", "ERROR: Cannot connect an 'in'-Socket to a Space!"
-            if not disconnect_:
-                from_socket_obj.connect_to(to_)
-            else:
-                from_socket_obj.disconnect_to(to_)
-            return
-
+            return self.connect_out_socket_to_space(from_, to_, label, disconnect_)
         # to_ is Component.
         if isinstance(to_, Component):
             # Both from_ and to_ are Components: Connect them Socket-by-Socket and return.
             if isinstance(from_, Component):
                 # -1 for the special "_variables" Socket, which should not be connected.
-                assert len(to_.output_sockets) - 1 == len(from_.input_sockets), \
-                    "ERROR: Can only connect two Components if their Socket numbers match! {} has {} out-Sockets while " \
-                    "{} has {} in-Sockets.".format(from_.name, len(from_.output_sockets), to_.name,
-                                                   len(to_.input_sockets))
-                out_sock_i = 0
-                for in_sock_i in range(len(to_.input_sockets)):
-                    # skip _variables Socket
-                    if from_.output_sockets[out_sock_i].name == "_variables":
-                        out_sock_i += 1
-                    self.connect(from_.output_sockets[out_sock_i], to_.input_sockets[in_sock_i], label=label)
-                    out_sock_i += 1
-                return
+                return self.connect_component_to_component(from_, to_, label)
             # Get the 1 in-Socket of to_.
             to_socket_obj = to_.get_socket(type_="in")
         # to_ is Socket specifier.
@@ -915,6 +894,63 @@ class Component(Specifiable):
         else:
             from_socket_obj.connect_to(to_socket_obj)
             to_socket_obj.connect_from(from_socket_obj, label=label)
+
+    def connect_space_to_socket(self, input_space, in_socket, label=None, disconnect=False):
+        """
+        Connects a space to an input-socket.
+        Args:
+            input_space (Union[Space, dict, SingleDataOp]): Input space or space definition.
+            in_socket (Socket): Socket to connect.
+            label (Optional[str]): See `self.connect` for details.
+            disconnect (bool): Only used internally. Whether to actually disconnect (instead of connect).
+        """
+        input_space = input_space if isinstance(input_space, (Space, SingleDataOp)) else Space.from_spec(input_space)
+        socket_obj = self.get_socket(in_socket)
+        assert socket_obj.type == "in", "ERROR: Cannot connect a Space to an 'out'-Socket!"
+        if not disconnect:
+            socket_obj.connect_from(input_space, label=label)
+        else:
+            socket_obj.disconnect_from(input_space)
+
+    def connect_out_socket_to_space(self, out_socket, space, label=None, disconnect=False):
+        """
+        Connects an out socket to a space, e.g. an action space.
+
+        Args:
+            out_socket (Socket): Out-socket to connect.
+            space (Union[Space, dict, SingleDataOp]): Space or space definition.
+            label (Optional[str]): See `self.connect` for details.
+            disconnect (bool): Only used internally. Whether to actually disconnect (instead of connect).
+        """
+        to_space = space if isinstance(space, Space) else Space.from_spec(space)
+        socket_obj = self.get_socket(out_socket)
+        assert socket_obj.type == "out", "ERROR: Cannot connect an 'in'-Socket to a Space!"
+        if not disconnect:
+            socket_obj.connect_to(to_space)
+        else:
+            socket_obj.disconnect_to(to_space)
+
+    def connect_component_to_component(self, from_component, to_component, label):
+        """
+        Connects a component to another component via iterating over all their sockets.
+        Components must have the same number of sockets.
+
+        Args:
+            from_component:
+            to_component:
+            label (Optional[str]): See `self.connect` for details.
+        """
+        assert len(to_component.output_sockets) - 1 == len(from_component.input_sockets), \
+            "ERROR: Can only connect two Components if their Socket numbers match! {} has {} out-Sockets while " \
+            "{} has {} in-Sockets.".format(from_component.name, len(from_component.output_sockets), to_component.name,
+                                           len(to_component.input_sockets))
+        out_sock_i = 0
+        for in_sock_i in range(len(to_component.input_sockets)):
+            # skip _variables Socket
+            if from_component.output_sockets[out_sock_i].name == "_variables":
+                out_sock_i += 1
+            self.connect(from_component.output_sockets[out_sock_i], to_component.input_sockets[in_sock_i], label=label)
+            out_sock_i += 1
 
     def get_socket(self, socket=None, type_=None, create_internal_if_not_found=False):
         """
