@@ -24,7 +24,7 @@ import unittest
 from yarl.components import Component, CONNECT_INS, CONNECT_OUTS
 from yarl.tests import ComponentTest
 from yarl.utils import root_logger
-from tests.dummy_components import Dummy1to1, Dummy2to1, Dummy1to2, Dummy0to1
+from yarl.tests.dummy_components import Dummy1to1, Dummy2to1, Dummy1to2, Dummy0to1
 
 
 class TestSocketGraphFnConnections(unittest.TestCase):

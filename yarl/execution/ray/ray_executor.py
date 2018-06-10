@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
+import ray
 
 
 class RayExecutor(object):
@@ -37,6 +38,16 @@ class RayExecutor(object):
         """
         self.logger = logging.getLogger(__name__)
         self.cluster_spec = cluster_spec
+
+    def ray_init(self):
+        """
+        Connects to a Ray cluster or starts one if none exists.
+        """
+        ray.init(
+            redis_address=self.cluster_spec['redis_host'],
+            num_cpus=self.cluster_spec['ray_num_cpus'],
+            num_gpus=self.cluster_spec['ray_num_cpus']
+        )
 
     def setup_execution(self):
         """

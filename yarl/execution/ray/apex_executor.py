@@ -25,7 +25,7 @@ from six.moves import queue
 
 import ray
 
-from yarl.execution.ray.ray_util import create_colocated_agents
+from yarl.execution.ray.ray_util import create_colocated_agents, RayTaskPool
 
 
 class ApexExecutor(RayExecutor):
@@ -44,15 +44,21 @@ class ApexExecutor(RayExecutor):
             environment_id (str): Environment identifier. Each worker in the cluster will instantiate
                 an environment using this id.
         """
+        super(ApexExecutor, self).__init__(cluster_spec)
         self.config = agent_config
 
         # Must specify an agent type.
         assert "type" in self.config
         self.environment_id = environment_id
 
-        super(ApexExecutor, self).__init__(cluster_spec)
+        # To manage remote tasks.
+        self.ray_tasks = RayTaskPool()
+        self.task_depth = self.cluster_spec['task_queue_depth']
 
     def setup_execution(self):
+        # Start Ray.
+        self.ray_init()
+
         # Setup queues for communication between main communication loop and learner.
         self.sample_input_queue = queue.Queue(maxsize=self.cluster_spec['learn_queue_size'])
         self.update_output_queue = queue.Queue()
@@ -69,7 +75,21 @@ class ApexExecutor(RayExecutor):
 
         # Create remote sample workers based on ray cluster spec.
         self.num_sample_workers = self.cluster_spec['num_workers']
-        self.worker_agents = create_colocated_agents()
+        self.worker_agents = create_colocated_agents(
+            agent_config=self.config,
+            num_agents=self.num_sample_workers
+        )
+
+    def init_tasks(self):
+        """
+        Triggers Remote ray tasks.
+        """
+        for ray_agent in self.worker_agents:
+            for _ in range(self.task_depth):
+                # This initializes remote tasks to sample from the prioritized replay memories of each worker.
+                self.ray_tasks.add_task(ray_agent, ray_agent.get_batch.remote())
+
+        # TODO how do we split replay/sampling best?
 
     def execute_workload(self, workload):
         """
@@ -81,7 +101,22 @@ class ApexExecutor(RayExecutor):
         - Have a separate learn thread sample batches from the memory and compute updates
         - Sync weights to the shared model so remot eworkers can update their weights.
         """
-        pass
+        self.init_tasks()
+
+        # TODO parse workload
+        # Call _execute_step as many times as required.
+
+        # TODO return result stats.
+
+    def _execute_step(self):
+        """
+        Performs a single step on the distributed Ray execution.
+        """
+        # TODO Iterate over sample tasks
+
+        # TODO Move data to learner
+
+        # TODO Update priorities
 
 
 class UpdateWorker(Thread):
@@ -112,10 +147,9 @@ class UpdateWorker(Thread):
     def run(self):
         while True:
             # Fetch input for update, update
-            sample_batch = self.input_queue.get
+            agent, sample_batch = self.input_queue.get()
 
             if sample_batch is not None:
                 loss = self.agent.update(batch=sample_batch)
-                # TODO check if we want to push other stats here
-                self.output_queue.put(loss)
+                self.output_queue.put((agent, sample_batch, loss))
 

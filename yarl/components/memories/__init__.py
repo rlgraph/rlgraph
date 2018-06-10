@@ -17,10 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .memory import Memory
-from .replay_memory import ReplayMemory
-from .ring_buffer import RingBuffer
-from .prioritized_replay import PrioritizedReplay
+from yarl.components.memories.memory import Memory
+from yarl.components.memories.replay_memory import ReplayMemory
+from yarl.components.memories.ring_buffer import RingBuffer
+from yarl.components.memories.prioritized_replay import PrioritizedReplay
 
 
 Memory.__lookup_classes__ = dict(

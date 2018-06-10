@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
+
 from yarl import distributed_backend
 from yarl.agents import Agent
 
@@ -66,6 +68,15 @@ class RayAgent(object):
         """
         # Agent must define op to return batches.
         return self.agent.call_graph_op(op="sample")
+
+    def get_host(self):
+        """
+        Returns host node identifier.
+
+        Returns:
+            str: Node name this agent is running on.
+        """
+        return os.uname()[1]
 
     def get_weights(self):
         """
