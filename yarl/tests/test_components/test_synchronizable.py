@@ -20,25 +20,26 @@ from __future__ import print_function
 import numpy as np
 import unittest
 
-from yarl.components import Component
-from yarl.components.common import Synchronizable
+from yarl.components import Component, CONNECT_ALL, Synchronizable
 from yarl.spaces import FloatBox
 from yarl.tests import ComponentTest
 
 VARIABLE_NAMES = ["variable_to_sync1", "variable_to_sync2"]
 
 
-class MySyncComp(Synchronizable):
+class MySyncComp(Component):
     """
     The Component to test. Synchronizable is only a mix-in class.
     """
-    def __init__(self, initializer1=0.0, initializer2=1.0, **kwargs):
+    def __init__(self, initializer1=0.0, initializer2=1.0, synchronizable=False, **kwargs):
         super(MySyncComp, self).__init__(**kwargs)
         self.space = FloatBox(shape=(4, 5))
         self.initializer1 = initializer1
         self.initializer2 = initializer2
         self.dummy_var_1 = None
         self.dummy_var_2 = None
+        if synchronizable is True:
+            self.add_component(Synchronizable(), connections=CONNECT_ALL)
 
     def create_variables(self, input_spaces, action_space):
         # create some dummy var to sync from/to.
@@ -52,14 +53,14 @@ class TestSynchronizableComponent(unittest.TestCase):
 
     def test_sync_out_socket(self):
         # A Synchronizable that can only push out values (cannot be synced from another Synchronizable).
-        component_to_test = MySyncComp(writable=False)
+        component_to_test = MySyncComp(synchronizable=False)
         test = ComponentTest(component=component_to_test)
 
         # Test pulling the variable values from the sync_out socket.
         expected1 = np.zeros(shape=component_to_test.space.shape)
         expected2 = np.ones(shape=component_to_test.space.shape)
         expected = dict(variable_to_sync1=expected1, variable_to_sync2=expected2)
-        test.test(out_socket_names="sync_out", inputs=None, expected_outputs=expected)
+        test.test(out_socket_names="_variables", inputs=None, expected_outputs=expected)
 
     def test_sync_socket(self):
         # Two Synchronizables, A that can only push out values, B to be synced by A's values.

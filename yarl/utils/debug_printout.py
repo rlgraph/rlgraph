@@ -23,7 +23,7 @@ from yarl.utils.ops import SingleDataOp
 from yarl.components import Component, Socket
 
 
-def print_out_built_component(component):
+def print_out_component(component, phase=None):
     """
     Prints out an already built Component in the following way (example):
 
@@ -43,10 +43,11 @@ def print_out_built_component(component):
 
     Args:
         component (Component): The Component to print out at INFO logging level.
+        phase (str): Some build-phase descriptor (e.g. "after assembly", "pre-build", etc.)
     """
     logger = logging.getLogger(__name__)
 
-    txt = "COMPONENT: {}\n".format(component.name or "__core__")
+    txt = "COMPONENT{}: {}\n".format("("+phase+")" if phase is not None else "", component.name or "__core__")
 
     # Collect data for printout.
     txt += "in-sockets:\n"

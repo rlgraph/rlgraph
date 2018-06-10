@@ -59,12 +59,6 @@ class Policy(Component):
         """
         super(Policy, self).__init__(scope=scope, **kwargs)
 
-        #if writable is not None:
-        #    if not isinstance(neural_network, NeuralNetwork):
-        #        neural_network["writable"] = writable
-        #    else:
-        #        raise YARLError("ERROR: Cannot overwrite NeuralNetwork's `writable` in constructor of {} if NN is "
-        #                        "given as an already instantiated object!".format(type(self).__name__))
         self.neural_network = NeuralNetwork.from_spec(neural_network)
         self.nn_cleanup = NNOutputCleanup()
         self.distribution = None  # to be determined once we know the action Space

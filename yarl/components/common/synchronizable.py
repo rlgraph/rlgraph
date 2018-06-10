@@ -18,9 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import YARLError, backend
-from yarl.utils.ops import DataOpDict
+from yarl.utils.ops import DataOpDict, SingleDataOp
 from yarl.utils.util import get_shape
-from yarl.components import Component
+from yarl.components import Component, Socket
 
 if backend == "tf":
     import tensorflow as tf
@@ -28,56 +28,53 @@ if backend == "tf":
 
 class Synchronizable(Component):
     """
-    The Synchronizable adds a simple synchronization API as a mix-in class to arbitrary Components.
-    This is useful for constructions like a target network in DQN or
-    for distributed setups where e.g. local policies need to be sync'd from a global model from time to time.
+    The Synchronizable Component adds a simple synchronization API to arbitrary Components to which this
+    Synchronizable is added (and connected via `connections=CONNECT_ALL`).
+    This is useful for constructions like a target network in DQN or for distributed setups where e.g.
+    local policies need to be sync'd from a global model from time to time.
     """
     def __init__(self, *args, **kwargs):
         """
         Keyword Args:
-            collections (set): A set of specifiers (currently only tf), that determine which Variables to synchronize.
-            writable (bool): Whether this Component is synchronizable/writable by another Synchronizable.
-                If False, this Component can only push out its own values (and thus overwrite other Synchronizables).
-                Default: True.
+            collections (set): A set of specifiers (currently only tf), that determine which Variables
+                of the parent Component to synchronize.
         """
         self.collections = kwargs.pop("collections", None)
-        self.writable = kwargs.pop("writable", True)
 
         super(Synchronizable, self).__init__(*args, **kwargs)
 
-        # Add a simple syncing API.
-        # Outgoing data (to overwrite another Synchronizable Component's data).
-        self.define_outputs("sync_out")
-        # Add the sending-out-data operation.
-        self.add_graph_fn(None, "own_vars", self._graph_fn_sync_out, flatten_ops=False)
-        self.connect("own_vars", "sync_out")
+        # Define our interface.
 
-        # The sync op, actually doing the overwriting from sync_in to our variables.
-        # This is only possible if `self.writable` is True (default).
-        if self.writable is True:
-            # Socket for incoming data (the data that this Component will get overwritten with).
-            self.define_inputs("sync_in")
-            self.define_outputs("sync")
-            # Add the syncing operation.
-            self.add_graph_fn(["sync_in", "own_vars"], "sync", self._graph_fn_sync, flatten_ops=False)
+        # Socket for incoming data (the data that this Component will get overwritten with).
+        # The "values" in-Socket should be connected from a "_variables" out-Socket of any other Component
+        # (the Component from which we sync).
+        self.define_inputs("values")
+        # The sync op to trigger a round of synchronizations from the "values" in-Socket into our
+        # parent's variables.
+        self.define_outputs("sync")
 
-    def _graph_fn_sync(self, sync_in, own_vars):
+        # Add the syncing operation.
+        self.add_graph_fn("sync_in", "sync", self._graph_fn_sync, flatten_ops=False)
+
+    def _graph_fn_sync(self, sync_in):
         """
-        Generates the op that syncs this Synchronizable's variable values from another Synchronizable Component.
+        Generates the op that syncs this Synchronizable's parent's variable values from another Synchronizable
+        Component.
 
         Args:
-            sync_in (DataOpDict): The dict of variable values (coming from the "sync_out"-Socket of the other
-                Synchronizable) that need to be assigned to this Component's variables.
-                The keys in the dict refer to the names of our own variables and must match their names.
-            own_vars (DataOpDict): The dict of our own variables that need to be overwritten by `sync_in`.
+            sync_in (DataOpDict): The dict of variable values (coming from the "_variables"-Socket of any other
+                Component) that need to be assigned to this Component's parent's variables.
+                The keys in the dict refer to the names of our parent's variables and must match their names.
 
         Returns:
             DataOp: The op that executes the syncing.
         """
         # Loop through all incoming vars and our own and collect assign ops.
         syncs = list()
+        parents_vars = self.parent_component.get_variables(collections=self.collections, custom_scope_separator="-")
+
         # Sanity checking
-        syncs_from, syncs_to = (sync_in.items(), own_vars.items())
+        syncs_from, syncs_to = (sync_in.items(), parents_vars.items())
         if len(syncs_from) != len(syncs_to):
             raise YARLError("ERROR: Number of Variables to sync must match! "
                             "We have {} syncs_from and {} syncs_to.".format(len(syncs_from), len(syncs_to)))
@@ -96,18 +93,3 @@ class Synchronizable(Component):
         if backend == "tf":
             with tf.control_dependencies(syncs):
                 return tf.no_op()
-
-    def _graph_fn_sync_out(self):
-        """
-        Outputs all of this Component's variables that match our collection(s) specifier in a DataOpDict.
-
-        Returns:
-            DataOpDict: Dict with keys=variable names and values=variable (SingleDataOp).
-                Only Variables that match `self.collections` (see c'tor) are part of the dict.
-        """
-        # Must use custom_scope_separator here b/c YARL doesn't allow Dict with '/'-chars in the keys.
-        # '/' could collide with a FlattenedDataOp's keys and mess up the un-flatten process.
-        variables_dict = self.get_variables(collections=self.collections, custom_scope_separator="-")
-        assert len(variables_dict) > 0, \
-            "ERROR: Synchronizable Component '{}' does not have any variables!".format(self.name)
-        return DataOpDict(variables_dict)

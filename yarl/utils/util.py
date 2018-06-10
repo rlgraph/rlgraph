@@ -48,7 +48,7 @@ tf_logger.setLevel(level=logging.DEBUG)
 print_logging_handler = logging.StreamHandler(stream=sys.stdout)
 print_logging_handler.setFormatter(logging_formatter)
 print_logging_handler.setLevel(level=logging.DEBUG)
-#root_logger.addHandler(print_logging_handler)
+root_logger.addHandler(print_logging_handler)
 
 
 def dtype(dtype_, to="tf"):

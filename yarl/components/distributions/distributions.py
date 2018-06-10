@@ -39,6 +39,8 @@ class Distribution(Component):
             max_likelihood (bool): Whether to sample or to get the max-likelihood value (deterministic) when
                 using the "draw" out-Socket. This Socket is optional and can be switched on via the constructor parameter:
                 "expose_draw"=True.
+            other_distribution (backend-specific distribution object): Input distribution for calculating the
+                KL-divergence between this Distribution and "other_distribution".
     outs:
         sample_stochastic (numeric): Returns a stochastic sample from the distribution.
         sample_deterministic (numeric): Returns the max-likelihood value (deterministic) from the distribution.
@@ -47,14 +49,19 @@ class Distribution(Component):
             draw (numeric): Draws a sample from the distribution (if max_likelihood is True, this is will be
                 a deterministic draw, otherwise a stochastic sample). This Socket is optional and can be switched on via
                 the constructor parameter: "expose_draw"=True. By default, this Socket is not exposed.
+            kl_divergence (numeric): The Kullback-Leibler Divergence between this Distribution and another one.
     """
-    def __init__(self, expose_draw=False, scope="distribution", **kwargs):
+    def __init__(self, expose_draw=False, expose_kl_divergence=False, scope="distribution", **kwargs):
         """
         Args:
             expose_draw (bool): Whether this Component should expose an out-Socket named "draw"
                 (needing also a 'max_likelihood' in-Socket). This additional out-Socket either returns a
                 stochastic or a deterministic sample from the distribution, depending on the provided
                 "max_likelihood" in-Socket bool value.
+                Default: False.
+            expose_kl_divergence (bool): Whether this Component should expose one in-Socket ("other_distribution")
+                and an out-Socket "kl_divergence" for calculating the Kullback-Leibler Divergence between this
+                Distribution and another one.
                 Default: False.
         """
         super(Distribution, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
@@ -67,7 +74,12 @@ class Distribution(Component):
         self.add_graph_fn("distribution", "sample_stochastic", self._graph_fn_sample_stochastic)
         self.add_graph_fn("distribution", "sample_deterministic", self._graph_fn_sample_deterministic)
         self.add_graph_fn("distribution", "entropy", self._graph_fn_entropy)
-        self.add_graph_fn(["distribution_a", "distribution_b"], "kl_divergence", self._graph_fn_kl_divergence)
+
+        # Add KL-Divergence Sockets and graph_fn?
+        if expose_kl_divergence is True:
+            self.define_inputs("other_distribution")
+            self.define_outputs("distribution")
+            self.add_graph_fn(["distribution", "other_distribution"], "kl_divergence", self._graph_fn_kl_divergence)
 
         # If we need the flexible out-Socket "draw", add it here and connect it.
         if expose_draw is True:

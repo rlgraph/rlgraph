@@ -26,6 +26,7 @@ import numpy as np
 from yarl import YARLError, backend, Specifiable
 from yarl.utils.ops import SingleDataOp
 from yarl.components.socket_and_graph_fn import Socket, GraphFunction
+from yarl.utils.ops import DataOpDict
 from yarl.utils import util
 from yarl.spaces import Space
 
@@ -125,11 +126,12 @@ class Component(Specifiable):
         # Collect Sockets that we need to built later, directly after this component
         # is input-complete. This input-completeness may happen at another Socket and thus some Sockets
         # need to be built later.
-        self.sockets_to_do_later = list()
+        self.sockets_to_do_later = set()
 
-        # Contains our GraphFunctions that have no in-Sockets and thus will not be included in the forward search.
-        # Thus, these need to be treated separately.
-        self.no_input_entry_points = list()
+        # Contains sub-Components of ours that do not have in-Sockets.
+        self.no_input_sub_components = set()
+        # Contains our GraphFunctions that have no in-Sockets.
+        self.no_input_graph_fns = set()
 
         # All Variables that are held by this component (and its sub-components?) by name.
         # key=full-scope variable name
@@ -138,10 +140,15 @@ class Component(Specifiable):
 
         # Assemble this Component from the constructor specs.
         self.define_inputs(*inputs)
-        self.define_outputs(*outputs)
+        self.define_outputs("_variables", *outputs)
+
+        # Adds the default "_variables" out-Socket responsible for sending out all our variables.
+        self.add_graph_fn(None, "_variables", self._graph_fn_variables, flatten_ops=False, unflatten_ops=False)
+
         # Add the sub-components.
         for sub_component_spec in sub_components:
             self.add_component(Component.from_spec(sub_component_spec))
+
         # Add the connections.
         for connection in connections:
             self.connect(connection[0], connection[1])
@@ -453,11 +460,50 @@ class Component(Specifiable):
             self.add_socket(name, **kwargs)
 
     def rename_socket(self, old_name, new_name):
-        assert new_name not in self.input_sockets and new_name not in self.output_sockets and \
-               new_name not in self.internal_sockets, "ERROR: Socket name {} already " \
-                                                      "exists in {}!".format(new_name, self.name)
+        """
+        Renames an already existing in- or out-Socket of this Component.
+
+        Args:
+            old_name (str): The current name of the Socket.
+            new_name (str): The new name of the Socket. No other Socket with this name must exist in this Component.
+        """
+        all_sockets = self.input_sockets + self.output_sockets + self.internal_sockets
         socket = self.get_socket_by_name(self, old_name)  # type: Socket
+        assert socket in all_sockets,\
+            "ERROR: Socket with name '{}' not found in Component '{}'!".format(old_name, self.name)
+        # Make sure the new name is not taken yet.
+        socket_with_new_name = self.get_socket_by_name(self, new_name)
+        assert socket_with_new_name is None,\
+            "ERROR: Socket with name '{}' already exists in Component '{}'!".format(new_name, self.name)
         socket.name = new_name
+
+    def remove_socket(self, socket_name):
+        """
+        Removes an in- or out-Socket from this Component. The Socket to be removed must not have any connections yet
+        from other (external) Components.
+
+        Args:
+            socket_name (str): The name of the Socket to be removed.
+        """
+        socket = self.get_socket_by_name(self, socket_name)  # type: Socket
+        assert socket, "ERROR: Socket with name '{}' not found in Component '{}'!".format(socket_name, self.name)
+        assert socket not in self.internal_sockets,\
+            "ERROR: Cannot remove an internal Socket ({}) in Component {}!".format(socket.name, self.name)
+
+        # Make sure this Socket is without connections.
+        if socket.type == "in" and len(socket.incoming_connections) > 0:
+            raise YARLError("ERROR: Cannot remove an in-Socket ('{}') that already has incoming connections!".
+                            format(socket.name))
+        elif socket.type == "out" and len(socket.outgoing_connections) > 0:
+            raise YARLError("ERROR: Cannot remove an out-Socket ('{}') that already has outgoing connections!".
+                            format(socket.name))
+
+        # in-Socket
+        if socket in self.input_sockets:
+            self.input_sockets.remove(socket)
+        # out-Socket
+        else:
+            self.output_sockets.remove(socket)
 
     def add_graph_fn(self, inputs, outputs, method=None,
                      flatten_ops=None, split_ops=None,
@@ -533,7 +579,7 @@ class Component(Specifiable):
 
         # If the GraphFunction has no inputs or only constant value inputs, we need to build it from no-input.
         if len(input_sockets) == 0:
-            self.no_input_entry_points.append(graph_fn)
+            self.no_input_graph_fns.add(graph_fn)
 
     def add_component(self, component, connections=None):
         """
@@ -582,6 +628,10 @@ class Component(Specifiable):
         component.parent_component = self
         self.sub_components[component.name] = component
 
+        # Register `component` as a no-input sub-component.
+        if len(component.input_sockets) == 0:
+            self.no_input_sub_components.add(component)
+
         # Fix the sub-component's (and sub-sub-component's etc..) scope(s).
         self.propagate_scope(component)
 
@@ -606,7 +656,9 @@ class Component(Specifiable):
                     connect_list.extend(component.output_sockets)
 
                 for sock in connect_list:
-                    connect_spec[sock.name] = sock.name
+                    # Spare special Socket "_variables" from ever getting connected.
+                    if sock.name != "_variables":
+                        connect_spec[sock.name] = sock.name
             # Single socket (`connections` given as string) needs to be exposed (name is kept).
             else:
                 connect_spec[connections] = connections  # leave name
@@ -814,12 +866,18 @@ class Component(Specifiable):
         if isinstance(to_, Component):
             # Both from_ and to_ are Components: Connect them Socket-by-Socket and return.
             if isinstance(from_, Component):
-                assert len(to_.output_sockets) == len(from_.input_sockets), \
+                # -1 for the special "_variables" Socket, which should not be connected.
+                assert len(to_.output_sockets) - 1 == len(from_.input_sockets), \
                     "ERROR: Can only connect two Components if their Socket numbers match! {} has {} out-Sockets while " \
                     "{} has {} in-Sockets.".format(from_.name, len(from_.output_sockets), to_.name,
                                                    len(to_.input_sockets))
-                for out_sock, in_sock in zip(from_.output_sockets, to_.input_sockets):
-                    self.connect(out_sock, in_sock, label=label)
+                out_sock_i = 0
+                for in_sock_i in range(len(to_.input_sockets)):
+                    # skip _variables Socket
+                    if from_.output_sockets[out_sock_i].name == "_variables":
+                        out_sock_i += 1
+                    self.connect(from_.output_sockets[out_sock_i], to_.input_sockets[in_sock_i], label=label)
+                    out_sock_i += 1
                 return
             # Get the 1 in-Socket of to_.
             to_socket_obj = to_.get_socket(type_="in")
@@ -1028,13 +1086,33 @@ class Component(Specifiable):
         Checks whether this Component is "input-complete" and stores the result in self.input_complete.
         Input-completeness is reached (only once and then it stays that way) if all in-Sockets to this component
         have at least one op defined in their Socket.ops set.
+
+        Returns:
+            Optional[dict]: A space-dict if the Component is input-complete, None otherwise.
         """
-        if not self.input_complete:
-            # Check whether we now have all in-Sockets with a Space-information.
-            self.input_complete = True
-            for in_sock in self.input_sockets:
-                if in_sock.space is None:
-                    self.input_complete = False
+        assert self.input_complete is False
+
+        space_dict = dict()
+        self.input_complete = True
+        for in_socket in self.input_sockets:
+            if in_socket.space is None:
+                self.input_complete = False
+                return None
+            else:
+                space_dict[in_socket.name] = in_socket.space
+        return space_dict
+
+    def _graph_fn_variables(self):
+        """
+        Outputs all of this Component's variables in a DataOpDict.
+
+        Returns:
+            DataOpDict: Dict with keys=variable names and values=variable (SingleDataOp).
+        """
+        # Must use custom_scope_separator here b/c YARL doesn't allow Dict with '/'-chars in the keys.
+        # '/' could collide with a FlattenedDataOp's keys and mess up the un-flatten process.
+        variables_dict = self.get_variables(custom_scope_separator="-")
+        return DataOpDict(variables_dict)
 
     def __str__(self):
         return "{}('{}' in={} out={})". \

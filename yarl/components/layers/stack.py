@@ -67,8 +67,9 @@ class Stack(Component):
                     self.connect(in_sock.name, in_sock)
             if expose_outs is True:
                 for out_sock in sub_components[-1].output_sockets:
-                    self.define_outputs(out_sock.name)
-                    self.connect(out_sock, out_sock.name)
+                    if out_sock.name != "_variables":
+                        self.define_outputs(out_sock.name)
+                        self.connect(out_sock, out_sock.name)
 
         # Now connect all sub-components with each other.
         # By specific in/out-Socket names.

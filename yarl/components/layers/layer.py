@@ -66,8 +66,10 @@ class Layer(Stack):
         # Connect our graph_fn from our input socket(s) (or last sub-component's output(s)) to our output
         # socket(s).
         # NOTE: Layers always split graph_fns on complex input Spaces.
-        self.add_graph_fn(sub_components[-1].output_sockets if len(sub_components) > 0 else self.input_sockets,
-                          self.output_sockets, "apply")
+        inputs = sub_components[-1].output_sockets if len(sub_components) > 0 else self.input_sockets
+        inputs = [in_ for in_ in inputs if in_.name != "_variables"]
+        outputs = [out_ for out_ in self.output_sockets if out_.name != "_variables"]
+        self.add_graph_fn(inputs, outputs, "apply")
 
     def check_input_spaces(self, input_spaces, action_space):
         # Make sure the number of items in the connected input_space matches what we said about our num_graph_fn_inputs.

@@ -119,7 +119,7 @@ class Agent(Specifiable):
         """
         raise NotImplementedError
 
-    def compile_graph(self):
+    def build_graph(self):
         """
         Asks our GraphExecutor to actually build the Graph.
         """

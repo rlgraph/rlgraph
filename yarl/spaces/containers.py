@@ -83,8 +83,9 @@ class Dict(ContainerSpace, dict):
             else:
                 dict_[key] = Dict(value, add_batch_rank=add_batch_rank)
 
-        if len(dict_) == 0:
-            raise YARLError("ERROR: Dict() c'tor needs a non-empty spec!")
+        # Removed this restriction. Sometimes, we need empty Variables dicts.
+        #if len(dict_) == 0:
+        #   raise YARLError("ERROR: Dict() c'tor needs a non-empty spec!")
         dict.__init__(self, dict_)
 
     def _add_batch_rank(self, add_batch_rank=False):

@@ -54,8 +54,9 @@ class ComponentTest(object):
         # Add the input-spaces to the in-Sockets.
         for in_socket in self.core.input_sockets:
             name = in_socket.name
-            assert name in input_spaces, "ERROR: Parameter `input_spaces` in {}'s constructor does not contain " \
-                                         "Space information for in-Socket '{}'!".format(type(self).__name__, name)
+            assert input_spaces is not None and name in input_spaces,\
+                "ERROR: Parameter `input_spaces` in {}'s constructor does not contain Space information for " \
+                "in-Socket '{}'!".format(type(self).__name__, name)
             self.core.connect(input_spaces[name], name)
 
         # Build the model.

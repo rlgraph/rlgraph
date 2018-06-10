@@ -17,16 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from yarl.components import CONNECT_ALL, Stack, Synchronizable
 from yarl.utils.util import default_dict
-from yarl.components.layers import Stack
-from yarl.components.common import Synchronizable
 
 
-class NeuralNetwork(Stack, Synchronizable):
+class NeuralNetwork(Stack):
     """
-    Simple placeholder class that's a Stack and a Synchronizable Component.
+    Simple placeholder class that's a Stack which optionally owns a Synchronizable Component and is thus
+    writable from another, equally built NeuralNetwork.
     """
-    def  __init__(self, *layers, **kwargs):
+    def __init__(self, *layers, **kwargs):
         """
         Args:
             *layers (Component): Same as `sub_components` argument of Stack. Can be used to add Layer Components
@@ -34,14 +34,18 @@ class NeuralNetwork(Stack, Synchronizable):
 
         Keyword Args:
             writable (bool): Whether this NN can be synced to by another (equally structured) NN.
-                Default: True.
+                Default: False.
             layers (Optional[list]): An optional list of Layer objects or spec-dicts to overwrite(!)
                 *layers.
         """
+        # Synchronizable?
+        self.writable = kwargs.pop("writable", False)
         # In case layers come in via a spec dict -> push it into *layers.
         layers_args = kwargs.pop("layers", layers)
-        # Sort out our kwargs and split them for the calls to the two super constructors.
-        default_dict(kwargs, dict(scope=kwargs.pop("scope", "neural-network"),
-                                  writable=kwargs.pop("writable", True)))
+        # Add a default scope (if not given) and pass on via kwargs.
+        kwargs["scope"] = kwargs.get("scope", "neural-network")
         super(NeuralNetwork, self).__init__(*layers_args, **kwargs)
 
+        # Add Synchronizable API to ours.
+        if self.writable:
+            self.add_component(Synchronizable(), connections=CONNECT_ALL)

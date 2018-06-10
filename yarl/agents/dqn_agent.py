@@ -20,9 +20,7 @@ from __future__ import print_function
 import copy
 
 from yarl.agents import Agent
-from yarl.components.common import Merger, Splitter
-from yarl.components.memories import Memory
-from yarl.components.loss_functions import DQNLossFunction
+from yarl.components import CONNECT_ALL, Synchronizable, Merger, Splitter, Memory, DQNLossFunction
 from yarl.spaces import Dict, IntBox, FloatBox, BoolBox
 from yarl.utils.visualization_util import get_graph_markup
 
@@ -68,25 +66,26 @@ class DQNAgent(Agent):
         self.assemble_meta_graph()
         markup = get_graph_markup(self.graph_builder.core_component)
         print(markup)
-        self.compile_graph()
+        self.build_graph()
 
     def assemble_meta_graph(self):
         core = self.graph_builder.core_component
 
         # Define our interface.
-        core.define_inputs(*self.input_names)
+        core.define_inputs("states", self.state_space.with_batch_rank())
+        core.define_inputs("actions", self.action_space.with_batch_rank())
+        core.define_inputs("rewards", FloatBox(add_batch_rank=True))
+        core.define_inputs("terminals", IntBox(2, add_batch_rank=True))
+        core.define_inputs("deterministic", BoolBox())
         core.define_outputs("act", "add_records", "reset_memory", "learn", "sync_target_qnet")
 
         # Add the Q-net, copy it (target-net) and add the target-net.
         self.target_policy = self.policy.copy(scope="target-policy")
+        # Make target_policy writable
+        self.target_policy.add_component(Synchronizable(), connections=CONNECT_ALL)
         core.add_components(self.target_policy)
         # Add an Exploration for the q-net (target-net doesn't need one).
         core.add_components(self.exploration)
-
-        # If we are in distributed mode, add a global qnet as well.
-        #if self.execution_spec["mode"] == "distributed":
-        #    self.global_qnet = self.neural_network.copy(scope="global-qnet", global_component=True)
-        #    core.add_components(self.global_qnet)
 
         # Add our Memory Component plus merger and splitter.
         core.add_components(self.memory, self.merger, self.splitter)
@@ -95,13 +94,6 @@ class DQNAgent(Agent):
         core.add_components(self.loss_function, self.optimizer)
 
         # Now connect everything ...
-
-        # Spaces to in-Sockets.
-        core.connect(self.state_space.with_batch_rank(), "states")
-        core.connect(self.action_space.with_batch_rank(), "actions")
-        core.connect(FloatBox(add_batch_rank=True), "rewards")
-        core.connect(IntBox(2, add_batch_rank=True), "terminals")
-        core.connect(BoolBox(), "deterministic")
 
         # States (from Env) into preprocessor -> into q-net
         core.connect("states", (self.preprocessor_stack, "input"))

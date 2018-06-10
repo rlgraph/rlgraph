@@ -74,7 +74,7 @@ class TensorFlowExecutor(GraphExecutor):
         self.setup_graph()
 
         # Assemble graph via graph builder.
-        self.graph_builder.assemble_graph(self.available_devices, self.default_device)
+        self.graph_builder.build_graph_from_meta_graph(self.available_devices, self.default_device)
 
         # Set up any remaining session or monitoring configurations.
         self.finish_graph_setup()
