@@ -22,11 +22,7 @@ from collections import OrderedDict
 import re
 
 from yarl import YARLError
-from yarl.spaces import Space
-from yarl.utils.util import force_tuple
-from yarl.utils.ops import SingleDataOp, DataOpRecord
-from yarl.spaces.space_utils import flatten_op, get_space_from_op, unflatten_op, \
-    convert_ops_to_op_records
+from yarl.spaces.space_utils import flatten_op, unflatten_op
 
 _logger = logging.getLogger(__name__)
 
@@ -111,11 +107,6 @@ class Socket(object):
                 `from_`'s ops during build time.
         """
         if from_ not in self.incoming_connections:
-            # We need to add this Socket here to the list of no-input entry points (except core as we always start
-            # building with the core's in-Sockets, so these are covered).
-            #if isinstance(from_, SingleDataOp):
-            #    if self.component.is_core is False:
-            #        self.component.no_input_sub_components.append(self.component)
             # Socket: Add the label for ops passed to this Socket.
             if label is not None:
                 assert isinstance(from_, Socket), "ERROR: No `label` ({}) allowed if `from_` ({}) is not a Socket " \
@@ -124,139 +115,13 @@ class Socket(object):
                     from_.labels[self] = set()
                 from_.labels[self].add(label)
             self.incoming_connections.append(from_)
-            #TODO: check whether the Socket's component is fully connected and if yes, only to SingleDataOps?
-            #TODO: if yes, add this component to the no-input-components-set of the parent
 
     def disconnect_from(self, from_):
         """
         Equivalent to `self.connect_from`.
         """
         if from_ in self.incoming_connections:
-            #if isinstance(from_, SingleDataOp):
-            #    self.component.no_input_entry_points.remove(self)
             self.incoming_connections.remove(from_)
-
-        #TODO: check whether the Socket's component is fully connected and if yes, only to SingleDataOps?
-        #TODO: if yes, add this component to the no-input-components-set of the parent, if no, remove it
-
-    def update_from_input__OLD(self, incoming, op_record_registry, graph_fn_out_slot=None,
-                          in_socket_op_record=None):
-        """
-        Updates this socket based on an incoming connection (from a Space, GraphFunction or another Socket).
-
-        Args:
-            incoming (Union[Space,GraphFunction,Socket]): The incoming item.
-            op_record_registry (dict): Dict that keeps track of which op-record requires which other op-records
-                to be calculated.
-            graph_fn_out_slot (Optional[int]): If incoming is a GraphFunction, which slot does this Socket
-                connect to?
-            in_socket_op_record (Optional[DataOpRecord]): If incoming is a Socket, this may hold a DataOpRecord that we
-                should build from. If None and incoming is of type Socket, update from all the Socket's DataOpRecords.
-
-        Raises:
-            YARLError: If there is an attempt to connect more than one Space to this Socket.
-        """
-        # Incoming is another Socket -> Simply update ops from this one.
-        if isinstance(incoming, Socket):
-            assert False
-        #    if incoming.space is not None:
-        #        assert self.space is None or incoming.space == self.space,\
-        #            "ERROR: Socket '{}' already has Space '{}', but incoming connection '{}' has Space '{}'! " \
-        #            "Incoming Spaces must always be the same.".format(self, self.space, incoming, incoming.space)
-        #        _logger.info("Socket {}/{} -> Socket {}/{}".format(incoming.component.name, incoming.name,
-        #                                                           self.component.name, self.name))
-        #        self.space = incoming.space
-        #        self.component.check_input_completeness()
-        #        # Make sure we filter those op-records that already have at least one label and that do not
-        #        # have the label of this connection (from `incoming`).
-        #        socket_labels = incoming.labels.get(self, None)  # type: set
-        #        op_records = set(in_socket_op_record or incoming.op_records)  # force a set, even if just single item
-        #        # With filtering.
-        #        if socket_labels is not None:
-        #            filtered_op_records = set()
-        #            for op_rec in op_records:  # type: DataOpRecord
-        #                # If incoming op has no labels OR it has at least 1 label out of this Socket's
-        #                # labels for this connection -> Allow op through to this Socket.
-        #                if len(op_rec.labels) == 0 or len(set.intersection(op_rec.labels, socket_labels)):
-        #                    op_rec.labels.update(socket_labels)
-        #                    filtered_op_records.add(op_rec)
-        #            op_records = filtered_op_records
-        #        self.op_records.update(op_records)
-
-        # Space: generate backend-ops.
-        elif isinstance(incoming, Space):
-            assert False  # OBSOLETE: moved to `connect_space()`
-            ## Store this Space as our incoming Space.
-            #if self.space is None:
-            #    _logger.info("Space {} -> Socket {}/{}".format(incoming, self.component.name, self.name))
-            #    self.space = incoming
-            #
-            #    op = incoming.get_tensor_variable(name=self.name, is_input_feed=True)
-            #    op_rec = DataOpRecord(op)
-            #    # Add new DataOp record (no labels for incoming Spaces' ops).
-            #    self.op_records.add(op_rec)
-            #    # Keep track of which Spaces can go (alternatively) into this Socket.
-            #    in_socket_registry[self.name] = {op} if self.name not in in_socket_registry \
-            #        else (in_socket_registry[self.name] | {op})
-            #    # Remember, that this DataOp goes into a Socket at the very beginning of the Graph (e.g. a
-            #    # tf.placeholder).
-            #    op_record_registry[op_rec] = {self}
-            #elif self.space != incoming:
-            #    raise YARLError("ERROR: Incoming Space ({}) to Socket '{}/{}' is different from already stored one "
-            #                    "({})!".format(incoming, self.component.name, self.name, self.space))
-
-        # GraphFunction: Connect this Socket to the nth op coming out of the GraphFunction function.
-        elif isinstance(incoming, GraphFunction):
-            assert False
-            #assert isinstance(graph_fn_out_slot, int) and graph_fn_out_slot >= 0, \
-            #    "ERROR: If incoming is a GraphFunction, slot must be set and >=0!"
-            #_logger.info("GraphFn {}/{} -> return-slot {} -> Socket {}/{}".format(
-            #    incoming.component.name, incoming.name, graph_fn_out_slot, self.component.name, self.name)
-            #)
-            ## Add every nth op from the output of the completed call to graph_fn to this Socket's set of ops.
-            #nth_computed_ops_records = list()
-            #for outputs in incoming.in_out_records_map.values():
-            #    nth_computed_ops_records.append(outputs[graph_fn_out_slot])
-
-            ## Store incoming Space.
-            #if len(nth_computed_ops_records) > 0:
-            #    space_check = get_space_from_op(next(iter(nth_computed_ops_records)).op)
-            #    self.space = space_check
-            #    # Check whether all graph_fn-computed ops have the same Space.
-            #    for op in nth_computed_ops_records:
-            #        space = get_space_from_op(op.op)
-            #        assert space == space_check,\
-            #            "ERROR: Different output ops of graph_fn '{}' have different Spaces ({} and {})!". \
-            #            format(incoming.name, space, space_check)
-            #else:
-            #    self.space = 0
-
-            #self.op_records.update(nth_computed_ops_records)
-
-        # SingleDataOp with a constant_value.
-        elif isinstance(incoming, SingleDataOp):
-            assert False
-            #if len(self.op_records) > 0:
-            #    raise YARLError("ERROR: A constant-value Socket may only have one such incoming value! "
-            #                    "Socket '{}/{}' already has {} other incoming "
-            #                    "connections.".format(self.component.name, self.name,
-            #                                          len(self.incoming_connections)))
-            #elif incoming.constant_value is None:
-            #    raise YARLError("ERROR: Cannot connect a SingleDataOp without constant_value to Socket {}/{}! "
-            #                    "Needs a constant_value.".format(self.component.name, self.name))
-
-            #_logger.info("Constant {} -> Socket {}/{}".format(
-            #    incoming.constant_value, self.component.name, self.name)
-            #)
-
-            #self.space = get_space_from_op(incoming)
-            #self.component.check_input_completeness()
-            #self.op_records.add(DataOpRecord(incoming))
-
-        # Unsupported input: Error.
-        else:
-            raise YARLError("ERROR: `incoming` ({}) must be of type Socket, Space, GraphFunction, or SingleDataOp!".\
-                            format(incoming))
 
     def __str__(self):
         return "{}-Socket('{}/{}'{})".format(self.type, self.component.scope, self.name,
@@ -345,123 +210,6 @@ class GraphFunction(object):
         # key=tuple of input-op-records (len==number of input params).
         # value=list of generated output op-records (len==number of return values).
         self.in_out_records_map = dict()
-
-    def update_from_input__OLD(self, op_record_registry):
-        """
-        Updates our "waiting" inputs with the incoming socket and checks whether this computation is "input-complete".
-        If yes, do all possible combinatorial pass-throughs through the computation function to generate output ops
-        and assign these ops to our respective output sockets (first socket gets first output op, etc.. depending
-        on how many return values the computation function has).
-
-        Args:
-            op_record_registry (dict): Dict that keeps track of which op-record requires which other op-records
-                to be calculated.
-        """
-        # Check for input-completeness of this graph_fn.
-        self.check_input_completeness()
-
-        # We are input-complete: Get all possible combinations of input ops and pass all these
-        # combinations through the function.
-        if self.input_complete:
-            self.generate_data_ops(op_record_registry)
-
-    def update_from_no_input__OLD(self, op_record_registry):
-        """
-        Args:
-            op_record_registry (dict): Dict that keeps track of which op-record requires which other op-records
-                to be calculated.
-        """
-        # This GraphFunction has no in-Sockets.
-        self.input_complete = True
-        # Call the method w/o any parameters.
-        ops = force_tuple(self.method())
-        if ops == ():
-            raise YARLError("ERROR: {}'s computation method '{}' does not return an op!".
-                            format(self.component.name, self.method.__name__))
-        op_records = convert_ops_to_op_records(ops)
-
-        _logger.info("GraphFn (no-input) {}/{} -> returns {}".format(self.component.name, self.name, ops))
-
-        # Use empty tuple as input-op-records combination.
-        self.in_out_records_map[()] = list(op_records)
-        # Tag all out-ops as not requiring any input.
-        for op_rec in op_records:
-            op_record_registry[op_rec] = set()
-
-    #def generate_data_ops(self, op_record_registry):
-    #    """
-    #    Generates a list of all possible input DataOp combinations to be passed through the graph_fn.
-
-    #    Args:
-    #        op_record_registry (dict): Dict that keeps track of which op-record requires which other op-records
-    #            to be calculated.
-    #    """
-    #    in_op_records = [in_sock_rec["socket"].op_records for in_sock_rec in self.input_sockets.values()]
-    #    in_op_records_combinations = list(itertools.product(*in_op_records))
-    #    for in_op_record_combination in in_op_records_combinations:
-    #        # key = tuple(input_combination)
-    #        # Make sure we call the computation method only once per input-op combination.
-    #        # if in_op_combination_wo_constant_values not in self.in_out_records_map:
-    #        if in_op_record_combination not in self.in_out_records_map:
-    #            # Replace constant-value Sockets with their SingleDataOp's constant numpy values
-    #            # and the DataOps with their actual ops (`op` property of DataOp).
-    #            actual_call_params = [
-    #                op_rec.op.constant_value if isinstance(op_rec.op, SingleDataOp) and
-    #                                            op_rec.op.constant_value is not None else op_rec.op for op_rec in
-    #                in_op_record_combination
-    #            ]
-
-    #            # Build the ops from this input-combination.
-    #            # Flatten input items.
-    #            if self.flatten_ops is not False:
-    #                flattened_ops = self.flatten_input_ops(*actual_call_params)
-    #                # Split into SingleDataOps?
-    #                if self.split_ops:
-    #                    call_params = split_flattened_input_ops(self.add_auto_key_as_first_param, *flattened_ops)
-    #                    # There is some splitting to do. Call graph_fn many times (one for each split).
-    #                    if isinstance(call_params, FlattenedDataOp):
-    #                        ops = FlattenedDataOp()
-    #                        for key, params in call_params.items():
-    #                            ops[key] = self.method(*params)
-    #                    # No splitting to do. Pass everything once and as-is.
-    #                    else:
-    #                        ops = self.method(*call_params)
-    #                else:
-    #                    ops = self.method(*flattened_ops)
-    #            # Just pass in everything as-is.
-    #            else:
-    #                ops = self.method(*actual_call_params)
-
-    #            # Need to un-flatten return values?
-    #            if self.unflatten_ops:
-    #                ops = self.unflatten_output_ops(*force_tuple(ops))
-
-    #            # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
-    #            ops = force_tuple(ops)
-
-    #            # ops are now the raw graph_fn output: Need to convert it back to records.
-    #            new_label_set = set()
-    #            for rec in in_op_record_combination:  # type: DataOpRecord
-    #                new_label_set.update(rec.labels)
-    #            op_records = convert_ops_to_op_records(ops, labels=new_label_set)
-
-    #            _logger.info("GraphFn {}/{} -> returns {}".format(self.component.name, self.name, ops))
-
-    #            self.in_out_records_map[in_op_record_combination] = op_records
-    #            # Keep track of which ops require which other ops.
-    #            for op_rec in op_records:
-    #                op_record_registry[op_rec] = set(in_op_record_combination)
-    #                # Make sure all op_records do not contain SingleDataOps with constant_values. Any
-    #                # in-Socket-connected constant values need to be converted to actual ops during a graph_fn call.
-    #                assert not isinstance(op_rec.op, SingleDataOp), \
-    #                    "ERROR: graph_fn '{}' returned a SingleDataOp with constant_value set to '{}'! " \
-    #                    "This is not allowed. All graph_fns must return actual (non-constant) ops.". \
-    #                    format(self.name, op_rec.op.constant_value)
-    #        # Error.
-    #        else:
-    #            pass
-    #            # raise YARLError("ERROR: `in_op_record_combination`='{}' already in self.in_out_records_map!".
-    #            #            format(in_op_record_combination))
 
     def check_input_completeness(self):
         """

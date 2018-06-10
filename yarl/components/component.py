@@ -123,11 +123,6 @@ class Component(Specifiable):
         # Only then can we create our variables. Model will do this.
         self.input_complete = False
 
-        # Collect Sockets that we need to built later, directly after this component
-        # is input-complete. This input-completeness may happen at another Socket and thus some Sockets
-        # need to be built later.
-        self.sockets_to_do_later = set()
-
         # Contains sub-Components of ours that do not have in-Sockets.
         self.no_input_sub_components = set()
         # Contains our GraphFunctions that have no in-Sockets.
