@@ -33,8 +33,11 @@ class RayWorker(SingleThreadedWorker):
         super(RayWorker, self).__init__(**kwargs)
 
     # Remote functions to interact with this workers agent.
-    def set_weights(self, weights):
-        self.agent.call_graph_op("set_weights", weights)
-
-    def get_batch(self):
-        return self.agent.call_graph_op("sample")
+    def call_agent_op(self, op, inputs=None):
+        self.agent.call_graph_op(op, inputs)
+    #
+    # def set_weights(self, weights):
+    #     self.agent.call_graph_op("set_weights", weights)
+    #
+    # def get_batch(self):
+    #     return self.agent.call_graph_op("sample")
