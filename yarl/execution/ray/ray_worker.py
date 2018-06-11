@@ -17,10 +17,24 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.execution.ray.ray_agent import RayAgent
-from yarl.execution.ray.ray_executor import RayExecutor
-from yarl.execution.ray.apex_executor import ApexExecutor
-from yarl.execution.ray.ray_worker import RayWorker
+import ray
 
-__all__ = ["RayExecutor", "ApexExecutor", "RayAgent", "RayWorker"]
+from yarl.execution import SingleThreadedWorker
 
+
+@ray.remote
+class RayWorker(SingleThreadedWorker):
+    """
+    Ray wrapper for single threaded worker, provides further api methods to interact
+    with the agent used in the worker.
+
+    """
+    def __init__(self, **kwargs):
+        super(RayWorker, self).__init__(**kwargs)
+
+    # Remote functions to interact with this workers agent.
+    def set_weights(self, weights):
+        self.agent.call_graph_op("set_weights", weights)
+
+    def get_batch(self):
+        return self.agent.call_graph_op("sample")
