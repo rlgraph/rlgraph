@@ -113,6 +113,8 @@ class TestReplayMemory(unittest.TestCase):
         batch = test.test(out_socket_names="sample", inputs=num_records, expected_outputs=None)
         print('Result batch = {}'.format(batch))
         self.assertEqual(2, len(batch['terminals']))
+        # Assert next states key is there
+        self.assertTrue('next_states' in batch)
 
         # Assert we cannot fetch more than 2 elements because size is 2.
         num_records = 5
@@ -139,3 +141,26 @@ class TestReplayMemory(unittest.TestCase):
         # We now expect to be able to sample capacity - 5 elements due to terminals.
         expected = self.capacity - 5
         self.assertEqual(expected, len(batch['terminals']))
+
+    def test_without_next_state(self):
+        """
+        Tests retrieval works if next state option is deactivated and
+        that no next_states key is present.
+        """
+        memory = ReplayMemory(
+            capacity=self.capacity,
+            next_states=False
+        )
+        test = ComponentTest(component=memory, input_spaces=dict(
+            records=self.record_space,
+            num_records=int
+        ))
+
+        # Insert 2 Elements.
+        observation = non_terminal_records(self.record_space, 2)
+        test.test(out_socket_names="insert", inputs=observation, expected_outputs=None)
+
+        # Assert we can now fetch 2 elements.
+        num_records = 2
+        batch = test.test(out_socket_names="sample", inputs=num_records, expected_outputs=None)
+        self.assertTrue('next_states' not in batch)

@@ -132,6 +132,8 @@ class TestPrioritizedReplay(unittest.TestCase):
         batch = test.test(out_socket_names="sample", inputs=num_records, expected_outputs=None)
         print('Result batch = {}'.format(batch))
         self.assertEqual(2, len(batch['terminals']))
+        # Assert next states key is there
+        self.assertTrue('next_states' in batch)
 
         # We allow repeat indices in sampling.
         num_records = 5
@@ -146,6 +148,31 @@ class TestPrioritizedReplay(unittest.TestCase):
         num_records = self.capacity
         batch = test.test(out_socket_names="sample", inputs=num_records, expected_outputs=None)
         self.assertEqual(self.capacity, len(batch['terminals']))
+
+    def test_without_next_state(self):
+        """
+        Tests retrieval works if next state option is deactivated and
+        that no next_states key is present.
+        """
+        memory = PrioritizedReplay(
+            capacity=self.capacity,
+            next_states=False
+        )
+        test = ComponentTest(component=memory, input_spaces=dict(
+            records=self.record_space,
+            num_records=int,
+            indices=IntBox(shape=(), add_batch_rank=True),
+            update=FloatBox(shape=(), add_batch_rank=True)
+        ))
+
+        # Insert 2 Elements.
+        observation = non_terminal_records(self.record_space, 2)
+        test.test(out_socket_names="insert", inputs=observation, expected_outputs=None)
+
+        # Assert we can now fetch 2 elements.
+        num_records = 2
+        batch = test.test(out_socket_names="sample", inputs=num_records, expected_outputs=None)
+        self.assertTrue('next_states' not in batch)
 
     def test_update_records(self):
         """
