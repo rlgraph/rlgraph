@@ -78,6 +78,23 @@ class RayAgent(object):
         """
         return os.uname()[1]
 
+    def call_graph_op(self, op, inputs=None):
+        """
+        Utility method to call any desired operation on the graph, identified via output socket.
+        Delegator this call to the YARL graph executor.
+
+        Args:
+            op (str): Name of the op, i.e. the name of its output socket on the YARL metagraph.
+            inputs (Optional[dict,np.array]): Dict specifying the provided inputs for some in-Sockets (key=in-Socket name,
+                values=the values that should go into this Socket (e.g. numpy arrays)).
+                Depending on these given inputs, the correct backend-ops can be selected within the given out-Sockets.
+                If only one out-Socket is given in `sockets`, and this out-Socket only needs a single in-Socket's data,
+                this in-Socket's data may be given here directly.
+        Returns:
+            any: Result of the op call.
+        """
+        self.agent.call_graph_op(op, inputs)
+
     def get_weights(self):
         """
         Returns the weights of this agent.
@@ -110,14 +127,18 @@ class RayAgent(object):
         """
         self.agent.observe(states, actions, internals, reward, terminal)
 
-    def update(self):
+    def update(self, batch=None):
         """
         Performs an update on the computation graph.
+
+        Args:
+        batch (Optional[dict]): Optional external data batch to use for update. If None, the
+            agent should be configured to sample internally.
 
         Returns:
             Loss value.
         """
-        self.agent.update()
+        self.agent.update(batch)
 
 
 

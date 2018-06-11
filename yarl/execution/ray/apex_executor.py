@@ -21,7 +21,7 @@ from yarl.agents import Agent
 from yarl.execution.ray.ray_executor import RayExecutor
 from threading import Thread
 from six.moves import queue
-
+import time
 
 import ray
 
@@ -52,7 +52,7 @@ class ApexExecutor(RayExecutor):
         self.environment_id = environment_id
 
         # To manage remote tasks.
-        self.ray_tasks = RayTaskPool()
+        self.prioritized_replay_tasks = RayTaskPool()
         self.task_depth = self.cluster_spec['task_queue_depth']
 
     def setup_execution(self):
@@ -87,7 +87,7 @@ class ApexExecutor(RayExecutor):
         for ray_agent in self.worker_agents:
             for _ in range(self.task_depth):
                 # This initializes remote tasks to sample from the prioritized replay memories of each worker.
-                self.ray_tasks.add_task(ray_agent, ray_agent.get_batch.remote())
+                self.prioritized_replay_tasks.add_task(ray_agent, ray_agent.get_batch.remote())
 
         # TODO how do we split replay/sampling best?
 
@@ -101,12 +101,22 @@ class ApexExecutor(RayExecutor):
         - Have a separate learn thread sample batches from the memory and compute updates
         - Sync weights to the shared model so remot eworkers can update their weights.
         """
+        start = time.monotonic()
         self.init_tasks()
 
-        # TODO parse workload
-        # Call _execute_step as many times as required.
+        # Assume time step based initially.
+        num_timesteps = workload['num_timesteps']
+        timesteps_executed = 0
 
-        # TODO return result stats.
+        # Call _execute_step as many times as required.
+        total_time = (time.monotonic() - start) or 1e-10
+        self.logger.info("Time steps (actions) executed: {} ({} ops/s)".
+                         format(timesteps_executed, timesteps_executed / total_time))
+
+        return dict(
+            runtime=total_time,
+            timesteps_executed=timesteps_executed,
+        )
 
     def _execute_step(self):
         """
@@ -114,9 +124,25 @@ class ApexExecutor(RayExecutor):
         """
         # TODO Iterate over sample tasks
 
-        # TODO Move data to learner
+        # 2. Fetch completed replay priority sampling task, move to worker, reschedule.
+        for ray_worker, replay_remote_task in self.prioritized_replay_tasks.get_completed():
+            # Immediately schedule new batch sampling tasks on these workers.
+            self.prioritized_replay_tasks.add_task(ray_worker, ray_worker.get_batch.remote())
 
-        # TODO Update priorities
+            # Retrieve results via id.
+            sampled_batch = ray.get(object_ids=replay_remote_task)
+
+            # Pass to the agent doing the actual updates.
+            # The ray worker is passed along because we need to update its priorities later in the subsequent
+            # task (see loop below).
+            self.sample_input_queue.put((ray_worker, sampled_batch))
+
+        # 3. Update priorities on priority sampling workers using loss values produced by update worker.
+        while not self.update_output_queue.empty():
+            ray_worker, sampled_batch, loss = self.update_output_queue.get()
+
+            # Use generic graph call op.
+            ray_worker.call_graph_op.remote("update_priorities", [sampled_batch, loss])
 
 
 class UpdateWorker(Thread):
@@ -152,4 +178,3 @@ class UpdateWorker(Thread):
             if sample_batch is not None:
                 loss = self.agent.update(batch=sample_batch)
                 self.output_queue.put((agent, sample_batch, loss))
-
