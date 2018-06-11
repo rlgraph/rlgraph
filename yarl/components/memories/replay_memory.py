@@ -50,8 +50,8 @@ class ReplayMemory(Memory):
     def create_variables(self, input_spaces, action_space):
         super(ReplayMemory, self).create_variables(input_spaces, action_space)
 
-        # Record space must contain 'terminal' for a replay memory.
-        assert 'terminal' in self.record_space
+        # Record space must contain 'terminals' for a replay memory.
+        assert 'terminals' in self.record_space
 
         # Main buffer index.
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
@@ -65,7 +65,7 @@ class ReplayMemory(Memory):
             self.states = ["/states{}".format(flat_key) for flat_key in self.record_space["states"].flatten().keys()]
 
     def _graph_fn_insert(self, records):
-        num_records = tf.shape(input=records['/terminal'])[0]
+        num_records = tf.shape(input=records['/terminals'])[0]
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
@@ -111,7 +111,7 @@ class ReplayMemory(Memory):
             # Next states are read via index shift from state variables.
             for state_name in self.states:
                 next_states = self.read_variable(self.record_registry[state_name], next_indices)
-                next_state_name = re.sub(r'^/states/', "/next_states/", state_name)
+                next_state_name = re.sub(r'^/states\b', "/next_states", state_name)
                 records[next_state_name] = next_states
 
         return records
@@ -122,7 +122,7 @@ class ReplayMemory(Memory):
         # TODO When would we use a replay memory without next-states?
         if self.next_states:
             # Valid indices are non-terminal indices
-            terminal_indices = self.read_variable(self.record_registry['/terminal'], indices=indices)
+            terminal_indices = self.read_variable(self.record_registry['/terminals'], indices=indices)
             terminal_indices = tf.Print(terminal_indices, [terminal_indices], summarize=100, message='terminal_indices = ')
             indices = tf.Print(indices, [indices], summarize=100, message='indices = ')
             mask = tf.logical_not(x=tf.cast(terminal_indices, dtype=tf.bool))

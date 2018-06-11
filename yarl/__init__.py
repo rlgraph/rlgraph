@@ -21,7 +21,8 @@ __version__ = '0.0.1'
 
 import logging
 # Convenience imports.
-from yarl.utils import YARLError, backend, distributed_backend, Specifiable, LARGE_INTEGER, SMALL_NUMBER
+from yarl.utils import YARLError, backend, Specifiable, distributed_backend, set_backend, set_distributed_backend,\
+    LARGE_INTEGER, SMALL_NUMBER
 
 # Libraries should add NullHandler() by default, as its the application code's
 # responsibility to configure log handlers.
@@ -36,5 +37,7 @@ except ImportError:
 logging.getLogger(__name__).addHandler(NullHandler())
 
 
-__all__ = ["YARLError", "Specifiable", "__version__", "backend",
-           "distributed_backend", "SMALL_NUMBER", "LARGE_INTEGER"]
+__all__ = ["YARLError", "__version__",
+           "Specifiable",
+           "backend", "set_backend", "distributed_backend", "set_distributed_backend",
+           "SMALL_NUMBER", "LARGE_INTEGER"]

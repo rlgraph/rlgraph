@@ -55,7 +55,10 @@ class LocalOptimizer(Optimizer):
 
 
 class GradientDescentOptimizer(LocalOptimizer):
-
+    """
+    Classic gradient descent optimizer:
+    "Stochastic Estimation of the Maximum of a Regression Function." - Kiefer and Wolfowitz, 1952
+    """
     def __init__(self, learning_rate, **kwargs):
         super(GradientDescentOptimizer, self).__init__(
             learning_rate=learning_rate,
@@ -70,7 +73,6 @@ class GradientDescentOptimizer(LocalOptimizer):
 class AdamOptimizer(LocalOptimizer):
     """
     Adaptive momentum optimizer:
-
     https://arxiv.org/abs/1412.6980
     """
     def __init__(self, learning_rate, **kwargs):
@@ -88,9 +90,7 @@ class AdamOptimizer(LocalOptimizer):
 
 class NadamOptimizer(LocalOptimizer):
     """
-    Nesterov-adaptive momentum optimizer which applies Nesterov's accelerated gradient to
-    Adam:
-
+    Nesterov-adaptive momentum optimizer which applies Nesterov's accelerated gradient to Adam:
     http://cs229.stanford.edu/proj2015/054_report.pdf
     """
     def __init__(self, learning_rate, **kwargs):
@@ -111,7 +111,6 @@ class AdagradOptimizer(LocalOptimizer):
     """
     Adaptive gradient optimizer which sets small learning rates for frequently appearing features
     and large learning rates for rare features:
-
     http://www.jmlr.org/papers/volume12/duchi11a/duchi11a.pdf
     """
     def __init__(self, learning_rate, **kwargs):
@@ -131,7 +130,6 @@ class AdagradOptimizer(LocalOptimizer):
 class AdadeltaOptimizer(LocalOptimizer):
     """
     Adadelta optimizer which adapts learning rate over time:
-
     https://arxiv.org/abs/1212.5701
     """
     def __init__(self, learning_rate, **kwargs):
@@ -162,7 +160,6 @@ class SGDOptimizer(LocalOptimizer):
 class RMSPropOptimizer(LocalOptimizer):
     """
     RMSPRop Optimizer as discussed by Hinton:
-
     https://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf
     """
     def __init__(self, learning_rate, **kwargs):

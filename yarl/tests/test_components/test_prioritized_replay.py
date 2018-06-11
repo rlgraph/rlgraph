@@ -34,7 +34,7 @@ class TestPrioritizedReplay(unittest.TestCase):
         states=dict(state1=float, state2=float),
         actions=dict(action1=float),
         reward=float,
-        terminal=IntBox(low=0, high=1),
+        terminals=IntBox(low=0, high=1),
         add_batch_rank=True
     )
     memory_variables = ["size", "index", "max-priority"]
@@ -131,12 +131,12 @@ class TestPrioritizedReplay(unittest.TestCase):
         num_records = 2
         batch = test.test(out_socket_names="sample", inputs=num_records, expected_outputs=None)
         print('Result batch = {}'.format(batch))
-        self.assertEqual(2, len(batch['terminal']))
+        self.assertEqual(2, len(batch['terminals']))
 
         # We allow repeat indices in sampling.
         num_records = 5
         batch = test.test(out_socket_names="sample", inputs=num_records, expected_outputs=None)
-        self.assertEqual(5, len(batch['terminal']))
+        self.assertEqual(5, len(batch['terminals']))
 
         # Now insert over capacity, note all elements here are non-terminal.
         observation = non_terminal_records(self.record_space, self.capacity)
@@ -145,7 +145,7 @@ class TestPrioritizedReplay(unittest.TestCase):
         # Assert we can fetch exactly capacity elements.
         num_records = self.capacity
         batch = test.test(out_socket_names="sample", inputs=num_records, expected_outputs=None)
-        self.assertEqual(self.capacity, len(batch['terminal']))
+        self.assertEqual(self.capacity, len(batch['terminals']))
 
     def test_update_records(self):
         """

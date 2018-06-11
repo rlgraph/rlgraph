@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .yarl_error import YARLError
+from yarl.utils.yarl_error import YARLError
 
 # Default backend ('tf' for tensorflow or 'pt' for PyTorch)
 backend = "tf"
@@ -76,9 +76,9 @@ def set_backend(backend_=None):
     if backend_ is not None:
         backend = backend_
         # Try TensorFlow
-        if backend == "tf":
+        if backend == "tf" or backend == "tf-eager":
             try:
-                import tensorflow
+                import tensorflow as tf
             except ModuleNotFoundError as e:
                 raise YARLError("INIT ERROR: Cannot run YARL without backend (tensorflow)! "
                                 "Please install tensorflow first via `pip install tensorflow` or "
@@ -88,3 +88,13 @@ def set_backend(backend_=None):
             raise YARLError("INIT ERROR: Backend 'PyTorch' not supported in YARL prototype. Use 'tf' instead.")
         else:
             raise YARLError("INIT ERROR: Backend '{}' not supported! Use 'tf' for tensorflow or 'pt' for PyTorch.")
+
+        # Test for tf-eager support.
+        if backend == "tf-eager":
+            try:
+                tf.enable_eager_execution()
+            except AttributeError as e:
+                raise YARLError("INIT ERROR: Cannot run YARL in backend 'tf-eager'! "
+                                "Your version of tf ({}) does not support eager execution. Update with "
+                                "`pip install --upgrade tensorflow`.".format(tf.__version__))
+

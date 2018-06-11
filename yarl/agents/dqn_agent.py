@@ -56,7 +56,6 @@ class DQNAgent(Agent):
         self.global_qnet = None
 
         # TODO: "states_preprocessed" in-Socket + connect properly
-        self.input_names = ["states", "actions", "rewards", "terminals", "deterministic"]
         self.merger = Merger(output_space=self.record_space)
         splitter_input_space = copy.deepcopy(self.record_space)
         splitter_input_space["next_states"] = self.state_space
@@ -136,6 +135,7 @@ class DQNAgent(Agent):
 
         # Connect the Optimizer.
         core.connect((self.loss_function, "loss"), (self.optimizer, "loss"))
+        core.connect((self.policy, "_variables"), (self.optimizer, "vars"))
         core.connect((self.optimizer, "step"), "learn")
 
         # Add syncing capability for target-net.
@@ -146,12 +146,12 @@ class DQNAgent(Agent):
         self.timesteps += 1
         return self.graph_executor.execute("act", inputs=dict(state=states))
 
-    def _observe_graph(self, states, actions, internals, reward, terminal):
+    def _observe_graph(self, states, actions, internals, rewards, terminals):
         self.graph_executor.execute("add_records", inputs={
-            self.input_names[0]: states,
-            self.input_names[1]: actions,
-            self.input_names[2]: reward,
-            self.input_names[3]: terminal
+            "states": states,
+            "actions": actions,
+            "rewards": rewards,
+            "terminals": terminals
         })
 
         # Every n steps, do a learn.

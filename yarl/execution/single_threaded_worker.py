@@ -111,7 +111,7 @@ class SingleThreadedWorker(Worker):
                     if terminal:
                         break
 
-                self.agent.observe(states=state, actions=actions, internals=None, reward=reward, terminal=terminal)
+                self.agent.observe(states=state, actions=actions, internals=None, rewards=reward, terminals=terminal)
 
                 self.update_if_necessary(timesteps_executed)
                 episode_reward += reward

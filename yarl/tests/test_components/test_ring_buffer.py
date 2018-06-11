@@ -38,7 +38,7 @@ class TestRingBufferMemory(unittest.TestCase):
         states=dict(state1=float, state2=float),
         actions=dict(action1=float),
         reward=float,
-        terminal=IntBox(low=0, high=1),
+        terminals=IntBox(low=0, high=1),
         add_batch_rank=True
     )
     # Generic memory variables.
@@ -248,10 +248,10 @@ class TestRingBufferMemory(unittest.TestCase):
         # - 10 time steps
         # - 2 terminal values 1
         # - Terminal values spaced apart 1 index due to the insertion order
-        self.assertEqual(len(episodes['terminal']), self.capacity)
-        self.assertEqual(sum(episodes['terminal']), 2)
-        self.assertEqual(episodes['terminal'][0], 1)
-        self.assertEqual(episodes['terminal'][2], 1)
+        self.assertEqual(len(episodes['terminals']), self.capacity)
+        self.assertEqual(sum(episodes['terminals']), 2)
+        self.assertEqual(episodes['terminals'][0], 1)
+        self.assertEqual(episodes['terminals'][2], 1)
 
     def test_latest_batch(self):
         """
@@ -270,7 +270,7 @@ class TestRingBufferMemory(unittest.TestCase):
 
         # First, test if the basic computation works.
         batch = test.test(out_socket_names="sample", inputs=5, expected_outputs=None)
-        self.assertEqual(len(batch['terminal']), 5)
+        self.assertEqual(len(batch['terminals']), 5)
 
         # Next, insert capacity more elements:
         observation = non_terminal_records(self.record_space, self.capacity)

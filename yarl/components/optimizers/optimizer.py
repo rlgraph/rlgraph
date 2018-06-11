@@ -41,7 +41,13 @@ class Optimizer(Component):
         """
         Args:
             learning_rate (Optional[float]): The learning rate to use.
+
+        Keyword Args:
+            two_step (bool): Whether to separate the optimization step into calculating the gradients and applying them
+                to the variables. Default: False.
         """
+        self.two_step = kwargs.pop("two_step", False)
+
         super(Optimizer, self).__init__(
             scope=kwargs.pop("scope", "optimizer"),
             flatten_ops=kwargs.pop("flatten_ops", False),
@@ -51,15 +57,22 @@ class Optimizer(Component):
         self.learning_rate = learning_rate
 
         # Define our interface.
-        self.define_inputs("variables", "loss", "grads_and_vars", *inputs)
+        self.define_inputs("vars", "loss", *inputs)
         self.define_outputs("calc_grads_and_vars", "step")
 
         self.add_graph_fn(
-            inputs=["variables", "loss"] + list(inputs),
+            inputs=["vars", "loss"] + list(inputs),
             outputs="calc_grads_and_vars",
             method=self._graph_fn_calculate_gradients
         )
-        self.add_graph_fn("grads_and_vars", "step", self._graph_fn_apply_gradients)
+
+        # Two-step optimizer: User has to feed back in the zipped gradients and variables for application step.
+        if self.two_step is True:
+            self.define_inputs("grads_and_vars")
+            self.add_graph_fn("grads_and_vars", "step", self._graph_fn_apply_gradients)
+        # One-step optimizer: Connect everything automatically.
+        else:
+            self.add_graph_fn("calc_grads_and_vars", "step", self._graph_fn_apply_gradients)
 
     def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
         """

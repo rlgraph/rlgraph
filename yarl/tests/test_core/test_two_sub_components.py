@@ -86,10 +86,10 @@ class TestTwoSubComponents(unittest.TestCase):
         test.test(out_socket_names="output", inputs=78.4, expected_outputs=80.5)
         test.test(out_socket_names="output", inputs=-5.2, expected_outputs=-3.1)
 
-    def test_1to1_to_out_sock_then_1to1_from_that_out_sock_to_other_out_sock(self):
+    def test_in_to_1to1_to_out_sock_then_to_other_1to1_then_to_other_out_sock(self):
         """
-        Adds two components (1-to-1) to the core. (A) connected from "input" to "output", but (B) connected
-        between "output" and "output_b". Connections schemas like this occur e.g. in our one-step optimizers.
+        Adds two components (A and B, both 1-to-1) to the core. (A) connected from "input" to "output", but (B)
+        connected from(!) "output" to "output_b". Connections schemas like this occur e.g. in our one-step optimizers.
         """
         core = Component(scope="container")
         core.define_outputs("output_b")

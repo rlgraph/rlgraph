@@ -146,18 +146,19 @@ class GraphBuilder(Specifiable):
         for sub_component in component.sub_components.values():
             self.sanity_check_meta_graph(sub_component)
 
-    def build_component(self, component, space_dict):
+    def build_component(self, component, input_spaces):
         """
         Called when a Component has all its incoming Spaces known. Only then can we sanity check the input
         Spaces and create the Component's variables.
 
         Args:
             component (Component): The Component that now has all its input Spaces defined.
+            input_spaces (dict): A dict mapping all in-Socket names of `component` to a Space object.
         """
         assert component.input_complete is True, "ERROR: Component {} is not input complete!".format(component.name)
-        self.logger.info("Component {} is input-complete".format(component.name))
+        self.logger.info("Component {} is input-complete; space-dict={}".format(component.name, input_spaces))
         # Component is complete now, allow it to sanity check its inputs and create its variables.
-        component.when_input_complete(space_dict, self.action_space)
+        component.when_input_complete(input_spaces, self.action_space)
 
         # Push forward no-input graph_fns.
         for graph_fn in component.no_input_graph_fns:
@@ -165,9 +166,9 @@ class GraphBuilder(Specifiable):
 
         # Build all sub-components that have no inputs.
         for sub_component in component.no_input_sub_components:
-            # Assert input-completeness. space_dict should be empty.
-            space_dict = sub_component.check_input_completeness()
-            self.build_component(sub_component, space_dict)
+            # Assert input-completeness. input_spaces should be empty.
+            input_spaces = sub_component.check_input_completeness()
+            self.build_component(sub_component, input_spaces)
 
         # Loop through all in-Sockets' outgoing connections and push Spaces from them.
         for in_socket in component.input_sockets:  # type: Socket
@@ -358,6 +359,12 @@ class GraphBuilder(Specifiable):
 
             # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
             ops = force_tuple(ops)
+
+            # Make sure the number of returned ops matches the number of outgoing Sockets from thie graph_fn
+            assert len(ops) == len(graph_fn.output_sockets),\
+                "ERROR: Number of returned values of graph_fn '{}/{}' ({}) does not match number of out-Sockets ({}) " \
+                "of this GraphFunction!".format(graph_fn.component.name, graph_fn.name, len(ops),
+                                                len(graph_fn.output_sockets))
 
             # ops are now the raw graph_fn output: Need to convert it back to records.
             new_label_set = set()

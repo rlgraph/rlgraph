@@ -121,7 +121,7 @@ class Agent(Specifiable):
 
     def build_graph(self):
         """
-        Asks our GraphExecutor to actually build the Graph.
+        Asks our GraphExecutor to actually build the Graph from the YARL meta-graph.
         """
         self.graph_executor.build()
 
@@ -138,7 +138,7 @@ class Agent(Specifiable):
         """
         raise NotImplementedError
 
-    def observe(self, states, actions, internals, reward, terminal):
+    def observe(self, states, actions, internals, rewards, terminals):
         """
         Observes an experience tuple or a batch of experience tuples. Note: If configured,
         first uses buffers and then internally calls _observe_graph() to actually run the computation graph.
@@ -149,31 +149,31 @@ class Agent(Specifiable):
             states (Union[dict, ndarray]): States dict or array.
             actions (Union[dict, ndarray]): Actions dict or array containing actions performed for the given state(s).
             internals (Union[list, None]): Internal state(s) returned by agent for the given states.
-            reward (float): Scalar reward(s) observed.
-            terminal (bool): Boolean indicating terminal.
+            rewards (float): Scalar reward(s) observed.
+            terminals (bool): Boolean indicating terminal.
 
         """
         if self.buffer_enabled:
             self.states_buffer.append(states)
             self.actions_buffer.append(actions)
             self.internals_buffer.append(internals)
-            self.reward_buffer.append(reward)
-            self.terminal_buffer.append(terminal)
+            self.reward_buffer.append(rewards)
+            self.terminal_buffer.append(terminals)
 
             # Inserts per episode or when full.
-            if len(self.reward_buffer) >= self.buffer_size or terminal:
+            if len(self.reward_buffer) >= self.buffer_size or terminals:
                 self._observe_graph(
                     states=np.asarray(self.states_buffer),
                     actions=np.asarray(self.actions_buffer),
                     internals=np.asarray(self.internals_buffer),
-                    reward=np.asarray(self.reward_buffer),
-                    terminal=self.terminal_buffer
+                    rewards=np.asarray(self.reward_buffer),
+                    terminals=self.terminal_buffer
                 )
                 self.reset_buffers()
         else:
-            self._observe_graph(states, actions, internals, reward, terminal)
+            self._observe_graph(states, actions, internals, rewards, terminals)
 
-    def _observe_graph(self, states, actions, internals, reward, terminal):
+    def _observe_graph(self, states, actions, internals, rewards, terminals):
         """
         This methods defines the actual call to the computational graph by executing
         the respective graph op via the graph executor. Since this may use varied underlying
@@ -184,8 +184,8 @@ class Agent(Specifiable):
             states (Union[dict,ndarray]): States dict or array.
             actions (Union[dict,ndarray]): Actions dict or array containing actions performed for the given state(s).
             internals (Union[list,None]): Internal state(s) returned by agent for the given states.
-            reward (Union[ndarray,list,float]): Scalar reward(s) observed.
-            terminal (Union[list,bool]): Boolean indicating terminal.
+            rewards (Union[ndarray,list,float]): Scalar reward(s) observed.
+            terminals (Union[list,bool]): Boolean indicating terminal.
         """
         raise NotImplementedError
 

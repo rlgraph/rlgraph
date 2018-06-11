@@ -33,7 +33,7 @@ def non_terminal_records(record_space, num_samples):
         Dict: Sampled records with all terminal values set to 0.
     """
     record_sample = record_space.sample(size=num_samples)
-    record_sample['terminal'] = np.zeros(num_samples)
+    record_sample['terminals'] = np.zeros(num_samples)
 
     return record_sample
 
@@ -51,7 +51,7 @@ def terminal_records(record_space, num_samples):
         Dict: Sampled records with all terminal values set to 1.
     """
     record_sample = record_space.sample(size=num_samples)
-    record_sample['terminal'] = np.ones(num_samples)
+    record_sample['terminals'] = np.ones(num_samples)
 
     return record_sample
 

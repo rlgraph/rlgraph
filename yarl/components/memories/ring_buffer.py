@@ -53,8 +53,8 @@ class RingBuffer(Memory):
     def create_variables(self, input_spaces, action_space):
         super(RingBuffer, self).create_variables(input_spaces, action_space)
 
-        # Record space must contain 'terminal' for a replay memory.
-        assert 'terminal' in self.record_space
+        # Record space must contain 'terminals' for a replay memory.
+        assert 'terminals' in self.record_space
 
         # Main buffer index.
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
@@ -74,7 +74,7 @@ class RingBuffer(Memory):
             )
 
     def _graph_fn_insert(self, records):
-        num_records = tf.shape(input=records['/terminal'])[0]
+        num_records = tf.shape(input=records['/terminals'])[0]
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
@@ -85,11 +85,11 @@ class RingBuffer(Memory):
             prev_num_episodes = self.read_variable(self.num_episodes)
 
             # Newly inserted episodes.
-            inserted_episodes = tf.reduce_sum(input_tensor=records['/terminal'], axis=0)
+            inserted_episodes = tf.reduce_sum(input_tensor=records['/terminals'], axis=0)
 
             # Episodes previously existing in the range we inserted to as indicated
             # by count of terminals in the that slice.
-            insert_terminal_slice = self.read_variable(self.record_registry['/terminal'], update_indices)
+            insert_terminal_slice = self.read_variable(self.record_registry['/terminals'], update_indices)
             episodes_in_insert_range = tf.reduce_sum(input_tensor=insert_terminal_slice, axis=0)
 
             # prev_num_episodes = tf.Print(prev_num_episodes, [
@@ -122,8 +122,8 @@ class RingBuffer(Memory):
 
             with tf.control_dependencies(index_updates):
                 index_updates = list()
-                mask = tf.boolean_mask(tensor=update_indices, mask=records['/terminal'])
-                # mask = tf.Print(mask, [mask, update_indices, records['/terminal']], summarize=100,
+                mask = tf.boolean_mask(tensor=update_indices, mask=records['/terminals'])
+                # mask = tf.Print(mask, [mask, update_indices, records['/terminals']], summarize=100,
                 #     message='\n mask /  update indices / records-terminal')
 
                 index_updates.append(self.assign_variable(
