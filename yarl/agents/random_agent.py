@@ -25,7 +25,7 @@ class RandomAgent(Agent):
     An Agent that picks random actions from the action Space.
     """
 
-    def _observe_graph(self, states, actions, internals, reward, terminal):
+    def _observe_graph(self, states, actions, internals, rewards, terminals):
         pass
 
     def __init__(self, state_space, action_space):

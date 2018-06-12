@@ -45,62 +45,68 @@ class Worker(object):
         self.update_steps = None
         self.steps_before_update = None
 
-    def execute_timesteps(self, num_timesteps, deterministic, update_schedule=None):
+    def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, deterministic=False):
         """
         Executes environment for a fixed number of timesteps.
 
         Args:
             num_timesteps (int): Number of time steps to execute.
-            deterministic (bool): Indicates deterministic execution.
-            update_schedule (Optional[dict]): Update parameters. If None, the worker only peforms rollouts.
+             max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
+                Use None or 0 for no limit. Default: None.
+            update_spec (Optional[dict]): Update parameters. If None, the worker only peforms rollouts.
                 Expects keys 'update_interval' to indicate how frequent update is called, 'num_updates'
                 to indicate how many updates to perform every update interval, and 'steps_before_update' to indicate
                 how many steps to perform before beginning to update.
+            deterministic (Optional[bool]): Indicates deterministic execution.
         Returns:
             dict: Execution statistics.
         """
         pass
 
-    def execute_and_get_timesteps(self, num_timesteps, deterministic=False):
+    def execute_and_get_timesteps(self, num_timesteps, max_timesteps_per_episode=0, deterministic=False):
         """
         Executes timesteps and returns experiences. Intended for distributed data collection
         without performing updates.
 
         Args:
             num_timesteps (int): Number of time steps to execute.
-            deterministic (bool): Indicates deterministic execution.
+            max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
+                Use None or 0 for no limit. Default: None.
+            deterministic (Optional[bool]): Indicates deterministic execution.
         Returns:
             dict: Collected experience samples.
         """
         pass
 
-    def execute_and_get_episodes(self, num_episodes, max_timesteps_per_episode, deterministic=False):
+    def execute_and_get_episodes(self, num_episodes, max_timesteps_per_episode=0, deterministic=False):
         """
         Executes episodes and returns experiences as separate episode sequences.
         Intended for distributed data collection without performing updates.
 
         Args:
             num_episodes (int): Number of episodes to execute.
-            max_timesteps_per_episode: Maximum length per episode.
-            deterministic (bool): Indicates deterministic execution.
+            max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
+                Use None or 0 for no limit. Default: None.
+            deterministic (Optional[bool]): Indicates deterministic execution.
         Returns:
             list: List of episode sequences, each as a dict of states,
                 actions, internals, rewards and terminals.
         """
         pass
 
-    def execute_episodes(self, num_episodes, max_timesteps_per_episode, deterministic=False, update_schedule=None):
+    def execute_episodes(self, num_episodes, max_timesteps_per_episode=0, update_spec=None, deterministic=False):
         """
         Executes environment for a fixed number of episodes.
 
         Args:
             num_episodes (int): Number of episodes to execute.
-            max_timesteps_per_episode: Maximum length per episode.
-            deterministic (bool): Indicates deterministic execution.
-            update_schedule (Optional[dict]): Update parameters. If None, the worker only peforms rollouts.
+            max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
+                Use None or 0 for no limit. Default: None.
+            update_spec (Optional[dict]): Update parameters. If None, the worker only peforms rollouts.
                 Expects keys 'update_interval' to indicate how frequent update is called, 'num_updates'
                 to indicate how many updates to perform every update interval, and 'steps_before_update' to indicate
                 how many steps to perform before beginning to update.
+            deterministic (Optional[bool]): Indicates deterministic execution.
         Returns:
             dict: Execution statistics.
         """
