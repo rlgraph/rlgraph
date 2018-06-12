@@ -55,11 +55,16 @@ class TensorFlowExecutor(GraphExecutor):
         self.local_device_protos = device_lib.list_local_devices()
         self.available_devices = [x.name for x in self.local_device_protos]
 
-        # The tf profiler.
+        # Tf profiler.
         self.session_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
         self.run_metadata = tf.RunMetadata()
-        self.profiler = None
-        self.profile_step = 0
+
+        # Tf Profiler config.
+        self.profiling_enabled = self.execution_spec["enable_profiler"]
+        if self.profiling_enabled is True:
+            self.profiler = None
+            self.profile_step = 0
+            self.profiling_frequency = self.execution_spec["profiler_frequency"]
 
         # Default device is first available CPUs
         default_device = self.execution_spec.get("default_device", None)
@@ -89,19 +94,25 @@ class TensorFlowExecutor(GraphExecutor):
         fetch_list, feed_dict = self.graph_builder.get_execution_inputs(output_socket_names=sockets, inputs=inputs)
         ret = self.monitored_session.run(fetch_list, feed_dict=feed_dict,
                                          options=self.session_options, run_metadata=self.run_metadata)
-        if self.execution_spec["enable_profiler"] is True:
-            if self.profile_step % self.execution_spec["profiler_frequency"] == 0:
-                self.profiler.add_step(self.profile_step, self.run_metadata)
-                self.profiler.profile_operations(
-                    options=tf.profiler.ProfileOptionBuilder(
-                        tf.profiler.ProfileOptionBuilder.time_and_memory()).with_node_names().build()
-                )
-            self.profile_step += 1
 
+        if self.profiling_enabled:
+            self.update_profiler_if_necessary()
         if len(fetch_list) == 1:
             return ret[0]
         else:
             return ret
+
+    def update_profiler_if_necessary(self):
+        """
+        Updates profiler according to specification..
+        """
+        if self.profile_step % self.profiling_frequency == 0:
+            self.profiler.add_step(self.profile_step, self.run_metadata)
+            self.profiler.profile_operations(
+                options=tf.profiler.ProfileOptionBuilder(
+                    options=tf.profiler.ProfileOptionBuilder.time_and_memory()).with_node_names().build()
+            )
+        self.profile_step += 1
 
     def read_variable_values(self, variables):
         """
@@ -272,8 +283,8 @@ class TensorFlowExecutor(GraphExecutor):
         self.session = self.monitored_session._tf_sess()
 
         # Setup the tf Profiler.
-        if self.execution_spec["enable_profiler"] is True:
-            self.profiler = tf.profiler.Profiler(self.session.graph)
+        if self.profiling_enabled:
+            self.profiler = tf.profiler.Profiler(graph=self.session.graph)
 
     def load_model(self, path=None):
         pass
