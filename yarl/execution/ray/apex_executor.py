@@ -49,9 +49,14 @@ class ApexExecutor(RayExecutor):
         assert "type" in self.config
         self.environment_id = environment_id
 
-        # To manage remote tasks.
+        # These are the Ray remote tasks which sample batches from the replay memory
+        # and pass them to the learner.
         self.prioritized_replay_tasks = RayTaskPool()
-        self.task_depth = self.cluster_spec['task_queue_depth']
+
+        # These are the tasks actually interacting with the environment.
+        self.env_sample_tasks = RayTaskPool()
+        self.replay_sampling_task_depth = self.cluster_spec['task_queue_depth']
+        self.env_interaction_task_depth = self.cluster_spec['env_interaction_task_depth']
 
     def setup_execution(self):
         # Start Ray.
@@ -73,21 +78,28 @@ class ApexExecutor(RayExecutor):
 
         # Create remote sample workers based on ray cluster spec.
         self.num_sample_workers = self.cluster_spec['num_workers']
-        self.worker_agents = create_colocated_agents(
+        self.ray_replay_agents = create_colocated_agents(
             agent_config=self.config,
             num_agents=self.num_sample_workers
         )
+
+        self.env_sample_agents = None
 
     def init_tasks(self):
         """
         Triggers Remote ray tasks.
         """
-        for ray_agent in self.worker_agents:
-            for _ in range(self.task_depth):
+
+        # Prioritized replay sampling tasks.
+        for ray_agent in self.ray_replay_agents:
+            for _ in range(self.replay_sampling_task_depth):
                 # This initializes remote tasks to sample from the prioritized replay memories of each worker.
                 self.prioritized_replay_tasks.add_task(ray_agent, ray_agent.get_batch.remote())
 
-        # TODO how do we split replay/sampling best?
+        # Env interaction tasks.
+        for ray_agent in self.env_sample_agents:
+            # TODO create wrapper for local env workers?
+            pass
 
     def execute_workload(self, workload):
         """
@@ -105,8 +117,15 @@ class ApexExecutor(RayExecutor):
         # Assume time step based initially.
         num_timesteps = workload['num_timesteps']
         timesteps_executed = 0
+        step_times = []
 
         # Call _execute_step as many times as required.
+        while timesteps_executed < num_timesteps:
+            step_time = time.monotonic()
+            executed = self._execute_step()
+            step_times.append(time.monotonic() - step_time)
+            timesteps_executed += executed
+
         total_time = (time.monotonic() - start) or 1e-10
         self.logger.info("Time steps (actions) executed: {} ({} ops/s)".
                          format(timesteps_executed, timesteps_executed / total_time))
@@ -121,7 +140,7 @@ class ApexExecutor(RayExecutor):
         Performs a single step on the distributed Ray execution.
         """
         # TODO Iterate over sample tasks
-
+        env_steps = 0
         # 2. Fetch completed replay priority sampling task, move to worker, reschedule.
         for ray_worker, replay_remote_task in self.prioritized_replay_tasks.get_completed():
             # Immediately schedule new batch sampling tasks on these workers.
@@ -141,6 +160,7 @@ class ApexExecutor(RayExecutor):
 
             # Use generic graph call op.
             ray_worker.call_graph_op.remote("update_priorities", [sampled_batch, loss])
+        return env_steps
 
 
 class UpdateWorker(Thread):
