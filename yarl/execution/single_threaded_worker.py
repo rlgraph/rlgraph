@@ -79,7 +79,7 @@ class SingleThreadedWorker(Worker):
         assert num_timesteps is not None or num_episodes is not None, "ERROR: One of `num_timesteps` or `num_episodes` " \
                                                                       "must be provided!"
         # Are we updating or just acting/observing?
-        default_dict(update_spec, self.agent.update_spec)
+        update_spec = default_dict(update_spec, self.agent.update_spec)
 
         num_timesteps = num_timesteps or 0
         num_episodes = num_episodes or 0
@@ -120,7 +120,7 @@ class SingleThreadedWorker(Worker):
 
                 self.agent.observe(states=state, actions=action, internals=None, rewards=reward, terminals=terminal)
 
-                self.update_if_necessary(timesteps_executed)
+                self.update_if_necessary(timesteps_executed, update_spec)
                 episode_reward += reward
                 timesteps_executed += 1
                 episode_timestep += 1

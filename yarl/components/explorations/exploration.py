@@ -76,10 +76,11 @@ class Exploration(Component):
 
     def check_input_spaces(self, input_spaces, action_space):
         self.action_space = action_space.with_batch_rank()
+        assert self.action_space.has_batch_rank, "ERROR: `self.action_space` does not have batch rank!"
+
         # TODO: Extend this component for continuous action spaces using noise-based exploration.
         assert isinstance(self.action_space, IntBox), "ERROR: Only IntBox Spaces supported in Exploration Component " \
                                                       "so far!"
-        assert self.action_space.has_batch_rank, "ERROR: `action_space` does not have batch rank!"
         assert self.action_space.num_categories is not None and self.action_space.num_categories > 0, \
             "ERROR: `action_space` must have `num_categories` defined and > 0!"
 

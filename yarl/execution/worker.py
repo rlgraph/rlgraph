@@ -78,16 +78,17 @@ class Worker(object):
         """
         raise NotImplementedError
 
-    def update_if_necessary(self, timesteps_executed):
+    def update_if_necessary(self, timesteps_executed, update_spec):
         """
         Calls update on the agent according to the update schedule set for this worker.
 
         Args:
             timesteps_executed (int): Timesteps executed thus far.
+            update_spec (dict): The update_spec spec-dict.
         """
-        if self.agent.update_spec["do_updates"] is True:
-            if timesteps_executed > self.agent.update_spec["steps_before_update"] and \
-                    timesteps_executed % self.agent.update_spec["update_interval"] == 0:
-                for _ in range_(self.agent.update_spec["update_steps"]):
+        if update_spec["do_updates"] is True:
+            if timesteps_executed > update_spec["steps_before_update"] and \
+                    timesteps_executed % update_spec["update_interval"] == 0:
+                for _ in range_(update_spec["update_steps"]):
                     self.agent.update()
 

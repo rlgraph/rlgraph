@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from math import log
 import numpy as np
-from six.moves import xrange
+from six.moves import xrange as range_
 
 from yarl import backend, YARLError, SMALL_NUMBER
 from yarl.components import Component
@@ -67,7 +67,8 @@ class NNOutputCleanup(Component):
                                         "rank (0th position)!".format(self.name)
 
         # Check action/target Space.
-        self.target_space = action_space
+        self.target_space = action_space.with_batch_rank()
+        assert self.target_space .has_batch_rank, "ERROR: `self.target_space ` does not have batch rank!"
         if not isinstance(self.target_space, IntBox):
             raise YARLError("ERROR: `target_space` must be IntBox. Continuous target spaces will be supported later!")
 
@@ -89,7 +90,7 @@ class NNOutputCleanup(Component):
         if self.bias is not None:
             bias_layer = DenseLayer(
                 units=self.target_space.num_categories, biases_spec=self.bias if np.isscalar(self.bias) else
-                [log(b) for _ in xrange(self.target_space.flat_dim) for b in self.bias]
+                [log(b) for _ in range_(self.target_space.flat_dim) for b in self.bias]
             )
             self.add_component(bias_layer, connections=dict(input="nn_output"))
             # Place our cleanup behind the bias layer.

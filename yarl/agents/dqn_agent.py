@@ -78,7 +78,7 @@ class DQNAgent(Agent):
         core.define_inputs("terminals", space=IntBox(2, add_batch_rank=True))
         core.define_inputs("deterministic", space=bool)
         core.define_inputs("time_step", space=int)
-        core.define_outputs("actions", "insert_records", "update", "sync_target_qnet")  # TODO: reset_memory?
+        core.define_outputs("get_actions", "insert_records", "update", "sync_target_qnet")  # TODO: reset_memory?
 
         # Add the Q-net, copy it (target-net) and add the target-net.
         self.target_policy = self.policy.copy(scope="target-policy")
@@ -108,7 +108,7 @@ class DQNAgent(Agent):
                      (self.exploration, "sample_deterministic"), label="from_env")
         core.connect((self.policy, "sample_stochastic"),
                      (self.exploration, "sample_stochastic"), label="from_env")
-        core.connect((self.exploration, "action"), "actions")
+        core.connect((self.exploration, "action"), "get_actions")
 
         # Actions, rewards, terminals into Merger.
         for in_ in ["actions", "rewards", "terminals"]:
@@ -147,13 +147,13 @@ class DQNAgent(Agent):
         batched_states = self.state_space.batched(states)
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
         self.timesteps += 1
-        actions = self.graph_executor.execute("act", inputs=dict(states=batched_states, time_step=self.timesteps))
+        actions = self.graph_executor.execute("get_actions", inputs=dict(states=batched_states, time_step=self.timesteps))
         if remove_batch_rank:
             return actions[0]
         return actions
 
     def _observe_graph(self, states, actions, internals, rewards, terminals):
-        self.graph_executor.execute("add_records", inputs=dict(
+        self.graph_executor.execute("insert_records", inputs=dict(
             states=states,
             actions=actions,
             rewards=rewards,
@@ -161,7 +161,7 @@ class DQNAgent(Agent):
         ))
 
     def update(self, batch=None):
-        return self.graph_executor.execute("learn")
+        return self.graph_executor.execute("update")
 
     def __repr__(self):
         return "DQNAgent(doubleQ={})".format(self.double_q)

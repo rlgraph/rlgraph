@@ -27,13 +27,16 @@ install_requires = [
     'numpy',
     'pyyaml',
     'pytest',
+    'six',
     'tensorflow'
 ]
 
 setup_requires = []
 
 extras_require = {
-    'horovod': 'horovod'
+    'horovod': 'horovod',
+    'pytorch': 'pytorch',
+    'ray': 'ray'
 }
 
 setup(
