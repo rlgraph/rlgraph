@@ -50,13 +50,6 @@ class DQNLossFunction(LossFunction):
         """
         Do some sanity checking on the incoming Spaces:
         """
-        # Loop through all our in-Sockets and sanity check each one of them.
-        for in_sock in self.input_sockets:
-            in_space = input_spaces[in_sock.name]
-            # All input Spaces need batch ranks.
-            assert in_space.has_batch_rank, "ERROR: Space in Socket '{}' to DQNLossFunction must have a " \
-                                            "batch rank (0th position)!".format(in_sock.name, self.name)
-
         self.action_space = action_space
         # Check for IntBox and num_categories.
         assert isinstance(self.action_space, IntBox) and self.action_space.num_categories is not None, \

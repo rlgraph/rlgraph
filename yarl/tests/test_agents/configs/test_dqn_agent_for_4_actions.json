@@ -4,7 +4,7 @@
   "memory_spec":
   {
     "type": "replay",
-    "capacity": 1000
+    "capacity": 64
   },
 
   "preprocessing_spec":
@@ -40,8 +40,8 @@
   },
 
   "update_spec": {
-    "do_updates": false,
-    "update_interval": 16,
-    "batch_size": 32
+    "do_updates": true,
+    "update_interval": 4,
+    "batch_size": 16
   }
 }

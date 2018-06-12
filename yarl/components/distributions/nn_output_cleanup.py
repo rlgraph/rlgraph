@@ -59,12 +59,9 @@ class NNOutputCleanup(Component):
 
     def check_input_spaces(self, input_spaces, action_space):
         in_space = input_spaces["nn_output"]  # type: Space
-        # a) Must not be  ContainerSpace (not supported yet for NNLayers, doesn't seem to make sense).
+        # Must not be  ContainerSpace (not supported yet for NNLayers, doesn't seem to make sense).
         assert not isinstance(in_space, ContainerSpace), "ERROR: Cannot handle container input Spaces " \
                                                          "in NNOutputCleanup '{}' (atm; may soon do)!".format(self.name)
-        # b) All input Spaces need batch ranks (we are passing through NNs after all).
-        assert in_space.has_batch_rank, "ERROR: Space in Socket 'input' to NNOutputCleanup '{}' must have a batch " \
-                                        "rank (0th position)!".format(self.name)
 
         # Check action/target Space.
         self.target_space = action_space.with_batch_rank()
@@ -80,7 +77,9 @@ class NNOutputCleanup(Component):
 
         # Make sure target_space matches NN output space.
         flat_dim_target_space = self.target_space.flat_dim_with_categories
-        flat_dim_nn_output = in_space.flat_dim
+        # NN output may have a batch-rank inferred or not (its first rank may be ? or some memory-batch number).
+        # Hence, always assume first rank to be batch.
+        flat_dim_nn_output = in_space.flat_dim if in_space.has_batch_rank else np.product(in_space.get_shape()[1:])
         assert flat_dim_nn_output == flat_dim_target_space, \
             "ERROR: `flat_dim_target_space` ({}) must match `flat_dim_nn_output` " \
             "({})!".format(flat_dim_target_space, flat_dim_nn_output)

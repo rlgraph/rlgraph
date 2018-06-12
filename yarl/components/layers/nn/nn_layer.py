@@ -43,8 +43,8 @@ class NNLayer(Layer):
             assert not isinstance(in_space, ContainerSpace), "ERROR: Cannot handle container input Spaces " \
                                                              "in layer '{}' (atm; may soon do)!".format(self.name)
             # b) All input Spaces need batch ranks (we are passing through NNs after all).
-            assert in_space.has_batch_rank,\
-                "ERROR: Space in Socket 'input' to layer '{}' must have a batch rank (0th position)!".format(self.name)
+            #assert in_space.has_batch_rank,\
+            #    "ERROR: Space in Socket 'input' to layer '{}' must have a batch rank (0th position)!".format(self.name)
 
     def _graph_fn_apply(self, *inputs):
         """
