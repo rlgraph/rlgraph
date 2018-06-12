@@ -35,12 +35,10 @@ class ApexExecutor(RayExecutor):
 
     https://arxiv.org/abs/1803.00933
     """
-
     def __init__(self, agent_config, environment_id, cluster_spec):
         """
-
         Args:
-            config (dict): Config dict containing agent and execution specs.
+            agent_config (dict): Config dict containing agent and execution specs.
             environment_id (str): Environment identifier. Each worker in the cluster will instantiate
                 an environment using this id.
         """
@@ -154,6 +152,7 @@ class UpdateWorker(Thread):
     def __init__(self, agent, input_queue, output_queue):
         """
         Initializes the worker with a YARL agent and queues for
+
         Args:
             agent (Agent): YARL agent used to execute local updates.
             input_queue (queue.Queue): Input queue the worker will use to poll samples.

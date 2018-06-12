@@ -87,10 +87,16 @@ def parse_update_spec(update_spec):
     """
     # If no spec given.
     default_spec = dict(
+        # Whether to perform calls to `Agent.update()` at all.
+        do_updates=True,
         # The unit in which we measure frequency: one of "timesteps", "episodes", "sec".
-        unit="timesteps",
+        #unit="timesteps", # TODO: not supporting any other than timesteps
+        # The number of 'units' to wait before we do any updating at all.
+        steps_before_update=0,
         # The frequency with which we update (given in `unit`).
-        frequency=4,
+        update_interval=4,
+        # The number of consecutive `Agent.update()` calls per update.
+        update_steps=1,
         # The batch size with which to update (e.g. when pulling records from a memory).
         batch_size = 64,
     )

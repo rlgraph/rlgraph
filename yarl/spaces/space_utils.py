@@ -68,6 +68,9 @@ def get_space_from_op(op):
         # Some tensor: can be converted into a BoxSpace.
         else:
             shape = get_shape(op)
+            # Unknown shape (e.g. a cond op).
+            if shape is None:
+                return 0
             add_batch_rank = False
             if shape is not () and shape[0] is None:
                 shape = shape[1:]

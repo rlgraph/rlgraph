@@ -93,6 +93,9 @@ class Dict(ContainerSpace, dict):
         for v in self.values():
             v._add_batch_rank(add_batch_rank)
 
+    def batched(self, samples):
+        return dict([(key, self[key].batched(samples[key])) for key in sorted(self.keys())])
+
     @cached_property
     def shape(self):
         return tuple([self[key].shape for key in sorted(self.keys())])
@@ -179,6 +182,9 @@ class Tuple(ContainerSpace, tuple):
         super(Tuple, self)._add_batch_rank(add_batch_rank)
         for v in self:
             v._add_batch_rank(add_batch_rank)
+
+    def batched(self, samples):
+        return tuple([c.batched(samples[i]) for i, c in enumerate(self)])
 
     @cached_property
     def shape(self):

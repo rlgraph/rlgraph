@@ -118,7 +118,11 @@ def get_shape(op, flat=False, no_batch=False):
         shape = tuple([get_shape(i) for i in op])
     # primitive op (e.g. tensorflow)
     else:
-        shape = tuple(op.get_shape().as_list())
+        op_shape = op.get_shape()
+        # Unknown shape (e.g. a cond op).
+        if op_shape.ndims is None:
+            return None
+        shape = tuple(op_shape.as_list())
 
     # Remove batch rank?
     if no_batch is True and shape[0] is None:

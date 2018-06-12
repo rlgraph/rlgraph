@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
-from six.moves import xrange
+from six.moves import xrange as range_
 
 
 class Worker(object):
@@ -81,27 +81,13 @@ class Worker(object):
     def update_if_necessary(self, timesteps_executed):
         """
         Calls update on the agent according to the update schedule set for this worker.
+
         Args:
             timesteps_executed (int): Timesteps executed thus far.
         """
-        if self.updating:
-            if timesteps_executed > self.steps_before_update and timesteps_executed % self.update_interval == 0:
-                for _ in xrange(self.update_steps):
+        if self.agent.update_spec["do_updates"] is True:
+            if timesteps_executed > self.agent.update_spec["steps_before_update"] and \
+                    timesteps_executed % self.agent.update_spec["update_interval"] == 0:
+                for _ in range_(self.agent.update_spec["update_steps"]):
                     self.agent.update()
 
-    def set_update_schedule(self, update_schedule=None):
-        """
-        Sets this worker's update schedule. By default, a worker is not updating but only acting
-        and observing samples.
-
-        Args:
-            update_schedule (Optional[dict]): Update parameters. If None, the worker only peforms rollouts.
-                Expects keys 'update_interval' to indicate how frequent update is called, 'num_updates'
-                to indicate how many updates to perform every update interval, and 'steps_before_update' to indicate
-                how many steps to perform before beginning to update.
-        """
-        if update_schedule is not None:
-            self.updating = True
-            self.steps_before_update = update_schedule['steps_before_update']
-            self.update_interval = update_schedule['update_interval']
-            self.update_steps = update_schedule['update_steps']

@@ -53,10 +53,10 @@ class Agent(Specifiable):
                 object itself.
             preprocessing_spec (Optional[list,PreprocessorStack]): The spec list for the different necessary states
                 preprocessing steps or a PreprocessorStack object itself.
-            exploration_spec (Optional[dict]):
-            execution_spec (Optional[dict]):
-            optimizer_spec (Optional[dict]):
-            update_spec (Optional[dict]): A spec-dict for update (learn) behavior
+            exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
+            execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
+            optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
+            update_spec (Optional[dict]): Spec-dict to specify update settings.
         """
         self.logger = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ class Agent(Specifiable):
 
         # Create the Agent's optimizer.
         self.optimizer = Optimizer.from_spec(optimizer_spec)
-        # Our update-spec dict tells the Agent how (e.g. how often) to update.
+        # Our update-spec dict tells the Agent how to update (e.g. memory batch size).
         self.update_spec = parse_update_spec(update_spec)
 
         # Create our GraphBuilder and -Executor.
@@ -130,11 +130,12 @@ class Agent(Specifiable):
         Retrieves action(s) for the passed state(s).
 
         Args:
-            states (Union[dict, ndarray]): State dict or array.
+            states (Union[dict,np.ndarray]): State dict/tuple or numpy array.
             deterministic (bool): If True, no exploration or sampling may be applied
                 when retrieving an action.
 
-        Returns: Actions dict.
+        Returns:
+            any: Actions as dict/tuple/np.ndarray (depending on `self.action_space`).
         """
         raise NotImplementedError
 
@@ -153,12 +154,21 @@ class Agent(Specifiable):
             terminals (bool): Boolean indicating terminal.
 
         """
+        batched_states = self.state_space.batched(states)
+        # Add batch rank?
+        if batched_states.ndim == np.asarray(states).ndim + 1:
+            states = np.asarray([states])
+            actions = np.asarray([actions])
+            internals = np.asarray([internals])
+            rewards = np.asarray([rewards])
+            terminals = np.asarray([terminals])
+
         if self.buffer_enabled:
-            self.states_buffer.append(states)
-            self.actions_buffer.append(actions)
-            self.internals_buffer.append(internals)
-            self.reward_buffer.append(rewards)
-            self.terminal_buffer.append(terminals)
+            self.states_buffer.extend(states)
+            self.actions_buffer.extend(actions)
+            self.internals_buffer.extend(internals)
+            self.reward_buffer.extend(rewards)
+            self.terminal_buffer.extend(terminals)
 
             # Inserts per episode or when full.
             if len(self.reward_buffer) >= self.buffer_size or terminals:
@@ -216,7 +226,7 @@ class Agent(Specifiable):
     def call_graph_op(self, op, inputs=None):
         """
         Utility method to call any desired operation on the graph, identified via output socket.
-        Delegator this call to the YARL graph executor.
+        Delegate this call to the YARL graph executor.
 
         Args:
             op (str): Name of the op, i.e. the name of its output socket on the YARL metagraph.
@@ -260,3 +270,4 @@ class Agent(Specifiable):
             path (str): Path to checkpoint directory.
         """
         self.graph_executor.load_model(path=path)
+

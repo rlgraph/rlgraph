@@ -82,6 +82,12 @@ class BoxSpace(Space):
                 self.low = low + np.zeros(self.shape)
                 self.high = high + np.zeros(self.shape)
 
+    def batched(self, samples):
+        # No batch rank given (compared to this Space), add it.
+        if np.asarray(samples).ndim == len(self.get_shape(with_batch_rank=False)):
+            samples = np.array([samples])  # batch size=1
+        return samples
+
     @property
     def shape(self):
         return self._shape

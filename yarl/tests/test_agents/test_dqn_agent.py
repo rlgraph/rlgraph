@@ -43,7 +43,7 @@ class TestDQNAgent(unittest.TestCase):
                                    action_space=env.action_space
                                    )
 
-        worker = SingleThreadedWorker(agent=agent, env=env)
+        worker = SingleThreadedWorker(environment=env, agent=agent)
         results = worker.execute_timesteps(1000, deterministic=True)
 
         print(results)

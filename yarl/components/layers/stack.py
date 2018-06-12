@@ -81,9 +81,14 @@ class Stack(Component):
                 for out_sock, in_sock in zip(sub_component_outputs, sub_component_inputs):
                     self.connect((sub_components[i], out_sock), (sub_components[i + 1], in_sock))
         # Or just all out- with in-Sockets.
-        else:
+        elif len(sub_components) > 0:
             for i in xrange(len(sub_components) - 1):
                 self.connect(sub_components[i], sub_components[i+1])
+        ## Empty Stack -> Create "input" and "output" and connect them.
+        #else:
+        #    self.define_inputs("input")
+        #    self.define_outputs("output")
+        #    self.connect("input", "output")
 
     @classmethod
     def from_spec(cls, spec=None, **kwargs):

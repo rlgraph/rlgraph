@@ -179,7 +179,7 @@ class GridWorld(Env):
         self.refresh_state()
         return self.state, self.reward, self.is_terminal, None
 
-    def step(self, action, set_discrete_pos=None):
+    def step(self, actions, set_discrete_pos=None):
         """
         Action map:
         0: up
@@ -188,7 +188,7 @@ class GridWorld(Env):
         3: left
 
         Args:
-            action (int): An integer 0-3 that describes the next action.
+            actions (int): An integer 0-3 that describes the next action.
             set_discrete_pos (Optional[int]): An integer to set the current discrete position to before acting.
 
         Returns:
@@ -200,7 +200,7 @@ class GridWorld(Env):
             self.discrete_pos = set_discrete_pos
 
         # then perform an action
-        possible_next_positions = self.get_possible_next_positions(self.discrete_pos, action)
+        possible_next_positions = self.get_possible_next_positions(self.discrete_pos, actions)
         # determine the next state based on the transition function
         probs = [x[1] for x in possible_next_positions]
         next_state_idx = np.random.choice(len(probs), p=probs)

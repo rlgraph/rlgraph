@@ -21,7 +21,6 @@ from collections import Hashable, OrderedDict
 import copy
 import numpy as np
 import re
-import tensorflow as tf
 import uuid
 
 from yarl import YARLError, backend, Specifiable
@@ -38,6 +37,12 @@ CONNECT_INS = 0x1
 CONNECT_OUTS = 0x2
 # Whether to expose all in/out-Sockets (in calls to add_component(s))
 CONNECT_ALL = 0x4
+
+if backend == "tf":
+    import tensorflow as tf
+elif backend == "tf-eager":
+    import tensorflow as tf
+    import tensorflow.contrib.eager as eager
 
 
 class Component(Specifiable):
@@ -282,11 +287,14 @@ class Component(Specifiable):
                 shape = None
 
             var = tf.get_variable(
-                name=name,
-                shape=shape,
-                dtype=util.dtype(dtype),
-                initializer=initializer,
-                trainable=trainable
+                name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
+            )
+        elif backend == "tf-eager":
+            shape = tuple((() if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,))
+                          + (shape or ()))
+
+            var = eager.Variable(
+                name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
             )
 
         # Registers the new variable in this Component and all its parent Components.
@@ -725,9 +733,12 @@ class Component(Specifiable):
         Fixes all the sub-Component's (and its sub-Component's) global_scopes.
 
         Args:
-            sub_component (Component): The Component object whose global_scope needs to be updated.
+            sub_component (Optional[Component]): The sub-Component object whose global_scope needs to be updated.
+                USe None for this Component itself.
         """
-        if self.global_scope:
+        if sub_component is None:
+            sub_component = self
+        elif self.global_scope:
             sub_component.global_scope = self.global_scope + (("/"+sub_component.scope) if sub_component.scope else "")
         # Recurse.
         for sc in sub_component.sub_components.values():
@@ -790,6 +801,9 @@ class Component(Specifiable):
         new_component = copy.deepcopy(self)
         new_component.name = name
         new_component.scope = scope
+        # Change global_scope for copy and all its sub-components.
+        new_component.global_scope = scope
+        new_component.propagate_scope(sub_component=None)
         new_component.device = device
         new_component.global_component = global_component
         new_component.parent_component = None  # erase the parent pointer

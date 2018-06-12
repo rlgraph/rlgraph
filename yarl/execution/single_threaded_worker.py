@@ -18,9 +18,10 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-from six.moves import xrange
+from six.moves import xrange as range_
 import time
 
+from yarl.utils.util import default_dict
 from yarl.execution.worker import Worker
 
 
@@ -33,21 +34,29 @@ class SingleThreadedWorker(Worker):
             self.environment, self.agent
         ))
 
-    def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_schedule=None, deterministic=False):
-        return self._execute(num_timesteps=num_timesteps, max_timesteps_per_episode=max_timesteps_per_episode,
-                             deterministic=deterministic)
+    def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, deterministic=False):
+        return self._execute(
+            num_timesteps=num_timesteps,
+            max_timesteps_per_episode=max_timesteps_per_episode,
+            deterministic=deterministic,
+            update_spec=update_spec
+        )
 
-    def execute_episodes(self, num_episodes, max_timesteps_per_episode=0, update_schedule=None, deterministic=False):
-        return self._execute(num_episodes=num_episodes, max_timesteps_per_episode=max_timesteps_per_episode,
-                             deterministic=deterministic)
+    def execute_episodes(self, num_episodes, max_timesteps_per_episode=0, update_spec=None, deterministic=False):
+        return self._execute(
+            num_episodes=num_episodes,
+            max_timesteps_per_episode = max_timesteps_per_episode,
+            deterministic=deterministic,
+            update_spec=update_spec
+        )
 
     def _execute(
         self,
         num_timesteps=None,
         num_episodes=None,
-        deterministic=False,
         max_timesteps_per_episode=None,
-        update_schedule=None
+        deterministic=False,
+        update_spec=None
     ):
         """
         Actual implementation underlying `execute_timesteps` and `execute_episodes`.
@@ -61,17 +70,16 @@ class SingleThreadedWorker(Worker):
                 Default: False.
             max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
                 Use None or 0 for no limit. Default: None.
-            update_schedule (Optional[dict]): Update parameters. If None, the worker only peforms rollouts.
-                Expects keys 'update_interval' to indicate how frequent update is called, 'num_updates'
-                to indicate how many updates to perform every update interval, and 'steps_before_update' to indicate
-                how many steps to perform before beginning to update.
+            update_spec (Optional[dict]): Update parameters. If None, the worker only peforms rollouts.
+                Matches the structure of an Agent's update_spec dict and will be "defaulted" by that dict.
+                See `input_parsing/parse_update_spec.py` for more details.
         Returns:
             dict: Execution statistics.
         """
         assert num_timesteps is not None or num_episodes is not None, "ERROR: One of `num_timesteps` or `num_episodes` " \
                                                                       "must be provided!"
         # Are we updating or just acting/observing?
-        self.set_update_schedule(update_schedule)
+        default_dict(update_spec, self.agent.update_spec)
 
         num_timesteps = num_timesteps or 0
         num_episodes = num_episodes or 0
@@ -81,9 +89,9 @@ class SingleThreadedWorker(Worker):
         timesteps_executed = 0
         episodes_executed = 0
         env_frames = 0
-        episode_rewards = []
-        episode_durations = []
-        episode_steps = []
+        episode_rewards = list()
+        episode_durations = list()
+        episode_steps = list()
         start = time.monotonic()
 
         # Only run everything for at most num_timesteps (if defined).
@@ -97,21 +105,20 @@ class SingleThreadedWorker(Worker):
 
             # Start a new episode.
             episode_start = time.monotonic()  # wall time
-            state = self.environment.reset()
+            state, _, _, _ = self.environment.reset()
             while True:
-                actions = self.agent.get_action(states=state, deterministic=deterministic)
+                action = self.agent.get_action(states=state, deterministic=deterministic)
 
                 # Accumulate the reward over n env-steps (equals one action pick). n=self.repeat_actions
                 reward = 0
-                for _ in xrange(self.repeat_actions):
-                    #
-                    state, step_reward, terminal, info = self.environment.step(actions=actions)
+                for _ in range_(self.repeat_actions):
+                    state, step_reward, terminal, info = self.environment.step(actions=action)
                     env_frames += 1
                     reward += step_reward
                     if terminal:
                         break
 
-                self.agent.observe(states=state, actions=actions, internals=None, rewards=reward, terminals=terminal)
+                self.agent.observe(states=state, actions=action, internals=None, rewards=reward, terminals=terminal)
 
                 self.update_if_necessary(timesteps_executed)
                 episode_reward += reward

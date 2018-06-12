@@ -595,8 +595,10 @@ class GraphBuilder(Specifiable):
                 fetch_list.append(self.call_registry[key])
                 return fetch_list, feed_dict
 
-        raise YARLError("ERROR: No op found for out-Socket '{}' given the input-combinations: {}!".
-                        format(socket_name, input_combinations))
+        required_inputs = [k[1] for k in self.call_registry.keys() if k[0] == socket_name]
+        raise YARLError("ERROR: No op found for out-Socket '{}' given the input-combinations: {}! "
+                        "The following input-combinations are required for '{}':\n"
+                        "{}".format(socket_name, input_combinations, socket_name, required_inputs))
 
     def trace_back_sockets(self, trace_set):
         """

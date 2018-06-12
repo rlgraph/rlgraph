@@ -23,7 +23,7 @@
     },
     {
       "type": "dense",
-      "units": 3,
+      "units": 2,
       "scope": "output-layer"
     }
   ],

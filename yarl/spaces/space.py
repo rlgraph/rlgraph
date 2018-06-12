@@ -59,6 +59,20 @@ class Space(Specifiable):
         ret._add_batch_rank(add_batch_rank)
         return ret
 
+    def batched(self, samples):
+        """
+        Makes sure that `samples` is always returned with a batch rank no matter whether
+        it already has one or not (in which case this method returns a batch of 1) or
+        whether this Space has a batch rank or not.
+
+        Args:
+            samples (any): The samples to be batched. If already batched, return as-is.
+
+        Returns:
+            any: The batched sample.
+        """
+        return NotImplementedError
+
     @property
     def shape(self):
         """

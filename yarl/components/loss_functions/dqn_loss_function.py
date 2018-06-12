@@ -56,7 +56,7 @@ class DQNLossFunction(LossFunction):
             assert in_space.has_batch_rank, "ERROR: Space in Socket '{}' to DQNLossFunction must have a " \
                                             "batch rank (0th position)!".format(in_sock.name, self.name)
 
-        self.action_space = input_spaces["actions"]
+        self.action_space = action_space
         # Check for IntBox and num_categories.
         assert isinstance(self.action_space, IntBox) and self.action_space.num_categories is not None, \
             "ERROR: action_space for DQN must be IntBox (for now) and have a `num_categories` attribute that's " \
@@ -85,5 +85,4 @@ class DQNLossFunction(LossFunction):
 
             # Calculate the TD-delta (target - current estimate).
             td_delta = (rewards + self.discount * q_sp_ap_values) - q_s_a_values
-            average_over_actions = tf.reduce_mean(input_tensor=td_delta, axis=-1)
-            return tf.pow(x=average_over_actions, y=2)
+            return tf.pow(x=td_delta, y=2)

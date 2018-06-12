@@ -55,10 +55,10 @@ class RandomEnv(Env):
     def reset(self):
         return self.step()
 
-    def step(self, action=None):
-        if action is not None:
-            assert self.action_space.contains(action), "ERROR: Given action ({}) in step is not part of action " \
-                                                       "Space ({})!".format(action, self.action_space)
+    def step(self, actions=None):
+        if actions is not None:
+            assert self.action_space.contains(actions), "ERROR: Given action ({}) in step is not part of action " \
+                                                       "Space ({})!".format(actions, self.action_space)
         return self.state_space.sample(), self.reward_space.sample(), \
             np.random.choice([True, False], p=[self.terminal_prob, 1.0 - self.terminal_prob]), None
 

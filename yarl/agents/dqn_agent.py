@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import copy
+import numpy as np
 
 from yarl.agents import Agent
 from yarl.components import CONNECT_ALL, Synchronizable, Merger, Splitter, Memory, DQNLossFunction
@@ -77,7 +78,7 @@ class DQNAgent(Agent):
         core.define_inputs("terminals", space=IntBox(2, add_batch_rank=True))
         core.define_inputs("deterministic", space=bool)
         core.define_inputs("time_step", space=int)
-        core.define_outputs("act", "add_records", "reset_memory", "learn", "sync_target_qnet")
+        core.define_outputs("act", "add_records", "learn", "sync_target_qnet")  # TODO: reset_memory?
 
         # Add the Q-net, copy it (target-net) and add the target-net.
         self.target_policy = self.policy.copy(scope="target-policy")
@@ -143,20 +144,21 @@ class DQNAgent(Agent):
         core.connect((self.target_policy, "sync"), "sync_target_qnet")
 
     def get_action(self, states, deterministic=False):
+        batched_states = self.state_space.batched(states)
+        remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
         self.timesteps += 1
-        return self.graph_executor.execute("act", inputs=dict(state=states))
+        actions = self.graph_executor.execute("act", inputs=dict(states=batched_states, time_step=self.timesteps))
+        if remove_batch_rank:
+            return actions[0]
+        return actions
 
     def _observe_graph(self, states, actions, internals, rewards, terminals):
-        self.graph_executor.execute("add_records", inputs={
-            "states": states,
-            "actions": actions,
-            "rewards": rewards,
-            "terminals": terminals
-        })
-
-        # Every n steps, do a learn.
-        if self.update_spec["unit"] == "timesteps" and (self.timesteps % self.update_spec["frequency"]) == 0:
-            self.update()
+        self.graph_executor.execute("add_records", inputs=dict(
+            states=states,
+            actions=actions,
+            rewards=rewards,
+            terminals=terminals
+        ))
 
     def update(self, batch=None):
         return self.graph_executor.execute("learn")

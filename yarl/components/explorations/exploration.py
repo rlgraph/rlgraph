@@ -75,19 +75,21 @@ class Exploration(Component):
                           method=self._graph_fn_pick)
 
     def check_input_spaces(self, input_spaces, action_space):
-        self.action_space = action_space
+        self.action_space = action_space.with_batch_rank()
         # TODO: Extend this component for continuous action spaces using noise-based exploration.
         assert isinstance(self.action_space, IntBox), "ERROR: Only IntBox Spaces supported in Exploration Component " \
                                                       "so far!"
         assert self.action_space.has_batch_rank, "ERROR: `action_space` does not have batch rank!"
+        assert self.action_space.num_categories is not None and self.action_space.num_categories > 0, \
+            "ERROR: `action_space` must have `num_categories` defined and > 0!"
 
     def _graph_fn_pick(self, do_explore, sample_deterministic, sample_stochastic):
         """
         Args:
             do_explore (DataOp): The bool coming from the epsilon-exploration component specifying
                 whether to use exploration or not.
-            action (DataOp): The output from our action-distribution (parameterized by the neural network) and
-                drawn either by sampling or by max-likelihood picking.
+            sample_deterministic (DataOp): The output from our distribution's "sample_deterministic" Socket.
+            sample_stochastic (DataOp): The output from our distribution's "sample_stochastic" Socket.
 
         Returns:
             DataOp: The DataOp representing the action. This will match the shape of self.action_space.

@@ -45,9 +45,6 @@ class NNOutputCleanup(Component):
     def __init__(self, bias=None, scope="nn-output-cleanup", **kwargs):
         """
         Args:
-            # FixMe: Experimentally removed requirement for action/target space in ctor of all Components.
-            #target_space (Space): The target Space that the NN output tries to reach (by sending out parameters
-            #    for a distribution that matches this target Space).
             bias (any): An optional bias that will be added to the output of the network.
             TODO: For now, only IntBoxes -> Categorical are supported. We'll add support for continuous action spaces later
         """
@@ -77,8 +74,15 @@ class NNOutputCleanup(Component):
         # Discrete action space. Make sure, all dimensions have the same bounds and the lower bound is 0.
         if self.target_space.global_bounds is False:
             raise YARLError("ERROR: `target_space` must not have individual lower and upper bounds!")
-        elif self.target_space.num_categories == 0:
+        elif self.target_space.num_categories is None or self.target_space.num_categories == 0:
             raise YARLError("ERROR: `target_space` must have a `num_categories` of larger 0!")
+
+        # Make sure target_space matches NN output space.
+        flat_dim_target_space = self.target_space.flat_dim_with_categories
+        flat_dim_nn_output = in_space.flat_dim
+        assert flat_dim_nn_output == flat_dim_target_space, \
+            "ERROR: `flat_dim_target_space` ({}) must match `flat_dim_nn_output` " \
+            "({})!".format(flat_dim_target_space, flat_dim_nn_output)
 
         # Do some remaining interface assembly.
         # If we have a bias layer, connect it before the actual cleanup.
@@ -88,9 +92,9 @@ class NNOutputCleanup(Component):
                 [log(b) for _ in xrange(self.target_space.flat_dim) for b in self.bias]
             )
             self.add_component(bias_layer, connections=dict(input="nn_output"))
-            # Place our cleanup after the bias layer.
+            # Place our cleanup behind the bias layer.
             self.add_graph_fn([(bias_layer, "output")], "parameters", self._graph_fn_cleanup)
-        # Otherwise, place our cleanup directly after the nn-output.
+        # Otherwise, place our cleanup directly behind the nn-output.
         else:
             self.add_graph_fn("nn_output", "parameters", self._graph_fn_cleanup)
 
