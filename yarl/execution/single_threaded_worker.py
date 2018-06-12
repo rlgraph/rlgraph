@@ -71,7 +71,7 @@ class SingleThreadedWorker(Worker):
                 Default: False.
             max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
                 Use None or 0 for no limit. Default: None.
-            update_spec (Optional[dict]): Update parameters. If None, the worker only peforms rollouts.
+            update_spec (Optional[dict]): Update parameters. If None, the worker only performs rollouts.
                 Matches the structure of an Agent's update_spec dict and will be "defaulted" by that dict.
                 See `input_parsing/parse_update_spec.py` for more details.
         Returns:
@@ -81,6 +81,7 @@ class SingleThreadedWorker(Worker):
                                                                       "must be provided!"
         # Are we updating or just acting/observing?
         update_spec = default_dict(update_spec, self.agent.update_spec)
+        self.set_update_schedule(update_spec)
 
         num_timesteps = num_timesteps or 0
         num_episodes = num_episodes or 0
@@ -121,7 +122,7 @@ class SingleThreadedWorker(Worker):
 
                 self.agent.observe(states=state, actions=action, internals=None, rewards=reward, terminals=terminal)
 
-                self.update_if_necessary(timesteps_executed, update_spec)
+                self.update_if_necessary(timesteps_executed)
                 episode_reward += reward
                 timesteps_executed += 1
                 episode_timestep += 1

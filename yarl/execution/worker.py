@@ -40,10 +40,10 @@ class Worker(object):
         self.repeat_actions = repeat_actions
 
         # Update schedule if worker is performing updates.
-        #self.updating = False
-        #self.update_interval = None
-        #self.update_steps = None
-        #self.steps_before_update = None
+        self.updating = None
+        self.update_interval = None
+        self.update_steps = None
+        self.steps_before_update = None
 
     def execute_timesteps(self, num_timesteps, deterministic, update_schedule=None):
         """
@@ -59,7 +59,7 @@ class Worker(object):
         Returns:
             dict: Execution statistics.
         """
-        raise NotImplementedError
+        pass
 
     def execute_episodes(self, num_episodes, max_timesteps_per_episode, update_schedule=None):
         """
@@ -76,19 +76,34 @@ class Worker(object):
         Returns:
             dict: Execution statistics.
         """
-        raise NotImplementedError
+        pass
 
-    def update_if_necessary(self, timesteps_executed, update_spec):
+    def update_if_necessary(self, timesteps_executed):
         """
         Calls update on the agent according to the update schedule set for this worker.
 
         Args:
             timesteps_executed (int): Timesteps executed thus far.
-            update_spec (dict): The update_spec spec-dict.
         """
-        if update_spec["do_updates"] is True:
-            if timesteps_executed > update_spec["steps_before_update"] and \
-                    timesteps_executed % update_spec["update_interval"] == 0:
-                for _ in range_(update_spec["update_steps"]):
+        if self.updating:
+            if timesteps_executed > self.steps_before_update and \
+                    timesteps_executed % self.update_interval == 0:
+                for _ in range_(self.update_steps):
                     self.agent.update()
 
+    def set_update_schedule(self, update_schedule=None):
+        """
+        Sets this worker's update schedule. By default, a worker is not updating but only acting
+        and observing samples.
+
+        Args:
+            update_schedule (Optional[dict]): Update parameters. If None, the worker only peforms rollouts.
+                Expects keys 'update_interval' to indicate how frequent update is called, 'num_updates'
+                to indicate how many updates to perform every update interval, and 'steps_before_update' to indicate
+                how many steps to perform before beginning to update.
+        """
+        if update_schedule is not None:
+            self.updating = True
+            self.steps_before_update = update_schedule['steps_before_update']
+            self.update_interval = update_schedule['update_interval']
+            self.update_steps = update_schedule['update_steps']
