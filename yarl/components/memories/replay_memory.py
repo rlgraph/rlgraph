@@ -131,9 +131,9 @@ class ReplayMemory(Memory):
         if self.next_states:
             # Valid indices are non-terminal indices
             terminal_indices = self.read_variable(self.record_registry['/terminals'], indices=indices)
-            terminal_indices = tf.Print(terminal_indices, [terminal_indices], summarize=100,
-                                        message='terminal_indices = ')
-            indices = tf.Print(indices, [indices], summarize=100, message='indices = ')
+            # terminal_indices = tf.Print(terminal_indices, [terminal_indices], summarize=100,
+            #                            message='terminal_indices = ')
+            # indices = tf.Print(indices, [indices], summarize=100, message='indices = ')
             mask = tf.logical_not(x=tf.cast(terminal_indices, dtype=tf.bool))
             # mask = tf.Print(mask, [mask], summarize=100, message= 'mask = ')
             indices = tf.boolean_mask(

@@ -98,7 +98,7 @@ def parse_update_spec(update_spec):
         # The number of consecutive `Agent.update()` calls per update.
         update_steps=1,
         # The batch size with which to update (e.g. when pulling records from a memory).
-        batch_size = 64,
+        batch_size=64,
     )
     update_spec = default_dict(update_spec, default_spec)
 

@@ -38,7 +38,7 @@ class TestDQNAgent(unittest.TestCase):
         Creates a DQNAgent and runs it for a few steps in the random Env.
         """
         env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
-        agent = DQNAgent.from_spec("configs/test_simple_dqn_agent.json",
+        agent = DQNAgent.from_spec("configs/test_dqn_agent_for_2_actions.json",
                                    state_space=env.state_space,
                                    action_space=env.action_space
                                    )
@@ -58,15 +58,12 @@ class TestDQNAgent(unittest.TestCase):
         Creates a DQNAgent and runs it via a Runner on a simple 2x2 GridWorld.
         """
         env = GridWorld("2x2")
-        agent = DQNAgent.from_spec("configs/test_simple_dqn_agent.json",
+        agent = DQNAgent.from_spec("configs/test_dqn_agent_for_4_actions.json",
                                    state_space=env.state_space,
-                                   action_space=env.action_space,
-
+                                   action_space=env.action_space
                                    )
 
-        worker = SingleThreadedWorker(agent=agent, env=env)
-        results = worker.execute_timesteps(1000, deterministic=True)
+        worker = SingleThreadedWorker(environment=env, agent=agent)
+        results = worker.execute_timesteps(10000, deterministic=True)
 
         print(results)
-
-        # TODO: assert good results :)

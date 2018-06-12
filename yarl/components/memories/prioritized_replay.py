@@ -204,8 +204,8 @@ class PrioritizedReplay(Memory):
 
             return weight / max_weight
 
-        sample_indices = tf.Print(sample_indices, [sample_indices], summarize=1000,
-                                  message='sample indices in retrieve = ')
+        # sample_indices = tf.Print(sample_indices, [sample_indices], summarize=1000,
+        #                          message='sample indices in retrieve = ')
 
         corrected_weights = tf.map_fn(
             fn=importance_sampling_fn,

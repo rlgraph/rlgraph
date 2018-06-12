@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import numpy as np
 from six.moves import xrange as range_
+import tensorflow as tf
 import time
 
 from yarl.utils.util import default_dict
@@ -140,23 +141,8 @@ class SingleThreadedWorker(Worker):
                 break
 
         total_time = (time.monotonic() - start) or 1e-10
-        # Total time of run.
-        self.logger.info("Finished execution in {} s".format(total_time))
-        # Total (RL) timesteps (actions) done (and timesteps/sec).
-        self.logger.info("Time steps (actions) executed: {} ({} ops/s)".
-                         format(timesteps_executed, timesteps_executed / total_time))
-        # Total env-timesteps done (including action repeats) (and env-timesteps/sec).
-        self.logger.info("Env frames executed (incl. action repeats): {} ({} frames/s)".
-                         format(env_frames, env_frames / total_time))
-        # Total episodes done (and episodes/min).
-        self.logger.info("Episodes finished: {} ({} episodes/min)".
-                         format(episodes_executed, episodes_executed/(total_time*60)))
-        self.logger.info("Mean episode runtime: {}s".format(np.mean(episode_durations)))
-        self.logger.info("Mean episode reward: {}".format(np.mean(episode_rewards)))
-        self.logger.info("Max. episode reward: {}".format(np.max(episode_rewards)))
-        self.logger.info("Final episode reward: {}".format(episode_rewards[-1]))
 
-        return dict(
+        results = dict(
             runtime=total_time,
             # Agent act/observe throughput.
             timesteps_executed=timesteps_executed,
@@ -165,9 +151,27 @@ class SingleThreadedWorker(Worker):
             env_frames=env_frames,
             env_frames_per_second=(env_frames / total_time),
             episodes_executed=episodes_executed,
-            episodes_per_minute=(episodes_executed/(total_time*60)),
+            episodes_per_minute=(episodes_executed/(total_time / 60)),
             mean_episode_runtime=np.mean(episode_durations),
             mean_episode_reward=np.mean(episode_rewards),
             max_episode_reward=np.max(episode_rewards),
             final_episode_reward=episode_rewards[-1]
         )
+
+        # Total time of run.
+        self.logger.info("Finished execution in {} s".format(total_time))
+        # Total (RL) timesteps (actions) done (and timesteps/sec).
+        self.logger.info("Time steps (actions) executed: {} ({} ops/s)".
+                         format(results['timesteps_executed'], results['ops_per_second']))
+        # Total env-timesteps done (including action repeats) (and env-timesteps/sec).
+        self.logger.info("Env frames executed (incl. action repeats): {} ({} frames/s)".
+                         format(results['env_frames'], results['env_frames_per_second']))
+        # Total episodes done (and episodes/min).
+        self.logger.info("Episodes finished: {} ({} episodes/min)".
+                         format(results['episodes_executed'], results['episodes_per_minute']))
+        self.logger.info("Mean episode runtime: {}s".format(results['mean_episode_runtime']))
+        self.logger.info("Mean episode reward: {}".format(results['mean_episode_reward']))
+        self.logger.info("Max. episode reward: {}".format(results['max_episode_reward']))
+        self.logger.info("Final episode reward: {}".format(results['final_episode_reward']))
+
+        return results

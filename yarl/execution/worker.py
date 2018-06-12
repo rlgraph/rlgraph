@@ -40,10 +40,10 @@ class Worker(object):
         self.repeat_actions = repeat_actions
 
         # Update schedule if worker is performing updates.
-        self.updating = False
-        self.update_interval = None
-        self.update_steps = None
-        self.steps_before_update = None
+        #self.updating = False
+        #self.update_interval = None
+        #self.update_steps = None
+        #self.steps_before_update = None
 
     def execute_timesteps(self, num_timesteps, deterministic, update_schedule=None):
         """
