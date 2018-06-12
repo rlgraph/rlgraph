@@ -36,14 +36,24 @@ class ReplayMemory(Memory):
         insert_records (no_op): Triggers an insertion of in-Socket "records" into the memory.
         get_records (any): Pulls "num_records" (in-Socket) single records from the memory and returns them.
     """
-    def __init__(self, capacity=1000, next_states=True, scope="replay-memory", **kwargs):
+    def __init__(
+        self,
+        capacity=1000,
+        next_states=True,
+        sample_terminals=True,
+        scope="replay-memory",
+        **kwargs
+    ):
         """
         Args:
-            next_states (bool): Whether to include s' in the return values of the out-Socket "get_records".
+            next_states (bool): If true include next states in the return values of the out-Socket "get_records".
+            sample_terminals (bool): If true, terminal states are included in "get_records". If false they are
+                filtered out (or not sampled to begin with) which affects sampling performance.
         """
         super(ReplayMemory, self).__init__(capacity, scope=scope, **kwargs)
 
         self.next_states = next_states
+        self.sample_terminals = sample_terminals
 
         self.index = None
         self.size = None
@@ -125,31 +135,40 @@ class ReplayMemory(Memory):
         return records
 
     def _graph_fn_get_records(self, num_records):
-        indices = tf.range(start=0, limit=self.read_variable(self.size))
+        size = self.read_variable(self.size)
 
-        # TODO When would we use a replay memory without next-states?
-        if self.next_states:
-            # Valid indices are non-terminal indices
-            terminal_indices = self.read_variable(self.record_registry['/terminals'], indices=indices)
-            # terminal_indices = tf.Print(terminal_indices, [terminal_indices], summarize=100,
-            #                            message='terminal_indices = ')
-            # indices = tf.Print(indices, [indices], summarize=100, message='indices = ')
-            mask = tf.logical_not(x=tf.cast(terminal_indices, dtype=tf.bool))
-            # mask = tf.Print(mask, [mask], summarize=100, message= 'mask = ')
-            indices = tf.boolean_mask(
-                tensor=indices,
-                mask=mask
-            )
+        # No zeroing out.
+        if self.sample_terminals:
+            index = self.read_variable(self.index)
+            indices = tf.random_uniform(shape=(num_records,), maxval=size, dtype=tf.int32)
+            indices = (index - 1 - indices) % self.capacity
+            return self.read_records(indices=indices)
+        else:
+            indices = tf.range(start=0, limit=self.read_variable(self.size))
 
-        # Choose with uniform probability from all valid indices.
-        # TODO problem - if there are no valid indices, we cannot return anything
-        num_valid_indices = tf.shape(input=indices)[0]
-        probabilities = tf.ones(shape=[num_valid_indices, num_valid_indices])
-        samples = tf.multinomial(logits=probabilities, num_samples=num_valid_indices)
-        # samples = tf.Print(samples, [samples, tf.shape(samples)], summarize=100, message='samples / shape = ')
+            # TODO When would we use a replay memory without next-states?
+            if self.next_states:
+                # Valid indices are non-terminal indices
+                terminal_indices = self.read_variable(self.record_registry['/terminals'], indices=indices)
+                # terminal_indices = tf.Print(terminal_indices, [terminal_indices], summarize=100,
+                #                            message='terminal_indices = ')
+                # indices = tf.Print(indices, [indices], summarize=100, message='indices = ')
+                mask = tf.logical_not(x=tf.cast(terminal_indices, dtype=tf.bool))
+                # mask = tf.Print(mask, [mask], summarize=100, message= 'mask = ')
+                indices = tf.boolean_mask(
+                    tensor=indices,
+                    mask=mask
+                )
 
-        # Gather sampled indices from all indices.
-        sampled_indices = tf.gather(params=indices, indices=tf.cast(x=samples[0], dtype=tf.int32))
-        # sampled_indices = tf.Print(sampled_indices, [sampled_indices], summarize=100, message='sampled indices = ')
+            # Choose with uniform probability from all valid indices.
+            # TODO problem - if there are no valid indices, we cannot return anything
+            num_valid_indices = tf.shape(input=indices)[0]
+            probabilities = tf.ones(shape=[num_valid_indices, num_valid_indices])
+            samples = tf.multinomial(logits=probabilities, num_samples=num_valid_indices)
+            # samples = tf.Print(samples, [samples, tf.shape(samples)], summarize=100, message='samples / shape = ')
 
-        return self.read_records(indices=sampled_indices)
+            # Gather sampled indices from all indices.
+            sampled_indices = tf.gather(params=indices, indices=tf.cast(x=samples[0], dtype=tf.int32))
+            # sampled_indices = tf.Print(sampled_indices, [sampled_indices], summarize=100, message='sampled indices = ')
+
+            return self.read_records(indices=sampled_indices)
