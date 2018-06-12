@@ -42,7 +42,7 @@ class LocalOptimizer(Optimizer):
         if backend == "tf":
             grads_and_vars = DataOpTuple(self.optimizer.compute_gradients(
                 loss=loss,
-                var_list=list(variables.values())
+                var_list=list(variables.values()) if isinstance(variables, dict) else variables
             ))
 
             return grads_and_vars

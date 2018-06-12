@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import backend
+from yarl.utils.util import get_rank
 from yarl.components.loss_functions import LossFunction
 from yarl.spaces import IntBox
 
@@ -65,12 +66,12 @@ class DQNLossFunction(LossFunction):
     def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, q_values_sp):
         """
         Args:
-            q_values_s (SingleDataOp): The Q-values representing the expected accumulated discounted returns when in
-                s and taking different actions a.
-            actions (SingleDataOp): The actions that were actually taken in states s (from a memory).
-            rewards (SingleDataOp): The rewards that we received after having taken a in s (from a memory).
-            q_values_sp (SingleDataOp): The Q-values representing the expected accumulated discounted returns when in s'
-                and taking different actions a'.
+            q_values_s (SingleDataOp): The batch of Q-values representing the expected accumulated discounted returns
+                when in s and taking different actions a.
+            actions (SingleDataOp): The batch of actions that were actually taken in states s (from a memory).
+            rewards (SingleDataOp): The batch of rewards that we received after having taken a in s (from a memory).
+            q_values_sp (SingleDataOp): The batch of Q-values representing the expected accumulated discounted
+                returns when in s' and taking different actions a'.
 
         Returns:
             SingleDataOp: The loss values vector (one single value for each batch item).
@@ -85,4 +86,7 @@ class DQNLossFunction(LossFunction):
 
             # Calculate the TD-delta (target - current estimate).
             td_delta = (rewards + self.discount * q_sp_ap_values) - q_s_a_values
+            # Reduce over the composite actions?
+            if get_rank(td_delta) > 1:
+                td_delta = tf.reduce_mean(input_tensor=td_delta, axis=-1)
             return tf.pow(x=td_delta, y=2)

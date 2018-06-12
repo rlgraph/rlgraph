@@ -53,10 +53,10 @@ class TestReplayMemory(unittest.TestCase):
         ))
 
         observation = self.record_space.sample(size=1)
-        test.test(out_socket_names="insert", inputs=observation, expected_outputs=None)
+        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
 
         observation = self.record_space.sample(size=100)
-        test.test(out_socket_names="insert", inputs=observation, expected_outputs=None)
+        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
 
     def test_capacity(self):
         """
@@ -82,7 +82,7 @@ class TestReplayMemory(unittest.TestCase):
 
         # Insert one more element than capacity
         observation = self.record_space.sample(size=self.capacity + 1)
-        test.test(out_socket_names="insert", inputs=observation, expected_outputs=None)
+        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
 
         size_value, index_value = test.get_variable_values(buffer_size, buffer_index)
         # Size should be equivalent to capacity when full.
@@ -106,11 +106,11 @@ class TestReplayMemory(unittest.TestCase):
 
         # Insert 2 Elements.
         observation = non_terminal_records(self.record_space, 2)
-        test.test(out_socket_names="insert", inputs=observation, expected_outputs=None)
+        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
 
         # Assert we can now fetch 2 elements.
         num_records = 2
-        batch = test.test(out_socket_names="sample", inputs=num_records, expected_outputs=None)
+        batch = test.test(out_socket_names="get_records", inputs=num_records, expected_outputs=None)
         print('Result batch = {}'.format(batch))
         self.assertEqual(2, len(batch['terminals']))
         # Assert next states key is there
@@ -118,25 +118,25 @@ class TestReplayMemory(unittest.TestCase):
 
         # Assert we cannot fetch more than 2 elements because size is 2.
         num_records = 5
-        batch = test.test(out_socket_names="sample", inputs=num_records, expected_outputs=None)
+        batch = test.test(out_socket_names="get_records", inputs=num_records, expected_outputs=None)
         self.assertEqual(2, len(batch['terminals']))
 
         # Now insert over capacity, note all elements here are non-terminal.
         observation = non_terminal_records(self.record_space, self.capacity)
-        test.test(out_socket_names="insert", inputs=observation, expected_outputs=None)
+        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
 
         # Assert we can fetch exactly capacity elements.
         num_records = self.capacity
-        batch = test.test(out_socket_names="sample", inputs=num_records, expected_outputs=None)
+        batch = test.test(out_socket_names="get_records", inputs=num_records, expected_outputs=None)
         self.assertEqual(self.capacity, len(batch['terminals']))
 
         # Now insert 5 terminal elements.
         observation = terminal_records(self.record_space, 5)
-        test.test(out_socket_names="insert", inputs=observation, expected_outputs=None)
+        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
 
         # Try to fetch capacity elements again.
         num_records = self.capacity
-        batch = test.test(out_socket_names="sample", inputs=num_records, expected_outputs=None)
+        batch = test.test(out_socket_names="get_records", inputs=num_records, expected_outputs=None)
 
         # We now expect to be able to sample capacity - 5 elements due to terminals.
         expected = self.capacity - 5
@@ -158,9 +158,9 @@ class TestReplayMemory(unittest.TestCase):
 
         # Insert 2 Elements.
         observation = non_terminal_records(self.record_space, 2)
-        test.test(out_socket_names="insert", inputs=observation, expected_outputs=None)
+        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
 
         # Assert we can now fetch 2 elements.
         num_records = 2
-        batch = test.test(out_socket_names="sample", inputs=num_records, expected_outputs=None)
+        batch = test.test(out_socket_names="get_records", inputs=num_records, expected_outputs=None)
         self.assertTrue('next_states' not in batch)

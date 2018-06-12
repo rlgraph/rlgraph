@@ -27,12 +27,19 @@ from yarl.utils.ops import FlattenedDataOp
 class ReplayMemory(Memory):
     """
     Implements a standard replay memory to sample randomized batches.
-    """
 
+    API:
+    ins:
+        records (any): The records to insert via a call to out-Socket "insert_records".
+        num_records (int): The number of records to pull via out-Socket "get_records".
+    outs:
+        insert_records (no_op): Triggers an insertion of in-Socket "records" into the memory.
+        get_records (any): Pulls "num_records" (in-Socket) single records from the memory and returns them.
+    """
     def __init__(self, capacity=1000, next_states=True, scope="replay-memory", **kwargs):
         """
         Args:
-            next_states (bool): Whether to include s' in the return values of the out-Socket "sample".
+            next_states (bool): Whether to include s' in the return values of the out-Socket "get_records".
         """
         super(ReplayMemory, self).__init__(capacity, scope=scope, **kwargs)
 
@@ -42,10 +49,11 @@ class ReplayMemory(Memory):
         self.size = None
         self.states = None
 
-        # Extend our interface ("sample").
+        # Extend our interface ("get_records").
         self.define_inputs("num_records")
-        self.define_outputs("sample")
-        self.add_graph_fn(inputs="num_records", outputs="sample", method=self._graph_fn_get_records, flatten_ops=False)
+        self.define_outputs("get_records")
+        self.add_graph_fn(inputs="num_records", outputs="get_records",
+                          method=self._graph_fn_get_records, flatten_ops=False)
 
     def create_variables(self, input_spaces, action_space):
         super(ReplayMemory, self).create_variables(input_spaces, action_space)
@@ -123,7 +131,8 @@ class ReplayMemory(Memory):
         if self.next_states:
             # Valid indices are non-terminal indices
             terminal_indices = self.read_variable(self.record_registry['/terminals'], indices=indices)
-            terminal_indices = tf.Print(terminal_indices, [terminal_indices], summarize=100, message='terminal_indices = ')
+            terminal_indices = tf.Print(terminal_indices, [terminal_indices], summarize=100,
+                                        message='terminal_indices = ')
             indices = tf.Print(indices, [indices], summarize=100, message='indices = ')
             mask = tf.logical_not(x=tf.cast(terminal_indices, dtype=tf.bool))
             # mask = tf.Print(mask, [mask], summarize=100, message= 'mask = ')

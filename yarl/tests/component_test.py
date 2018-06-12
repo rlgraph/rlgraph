@@ -36,6 +36,7 @@ class ComponentTest(object):
             input_spaces (Optional[dict]): Dict with component's in-Socket names as keys and Space objects as values.
                 Describes the input Spaces for the component. None if the Component to be tested has no
                 in-Sockets.
+            action_space (Optional[Space]): The action space to pass into the GraphBuilder.
             seed (Optional[int]): The seed to use for random-seeding the Model object.
                 If None, do not seed the Graph (things may behave non-deterministically).
             logging_level (Optional[int]): When provided, sets YARL's root_logger's logging level to this value.

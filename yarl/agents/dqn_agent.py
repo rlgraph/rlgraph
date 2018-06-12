@@ -46,8 +46,8 @@ class DQNAgent(Agent):
 
         self.discount = discount
         self.memory = Memory.from_spec(memory_spec)
-        self.record_space = Dict(states=self.state_space, actions=self.action_space, rewards=float, terminals=IntBox(1),
-                                 add_batch_rank=False)
+        self.record_space = Dict(states=self.state_space, actions=self.action_space, rewards=float,
+                                 terminals=IntBox(1), add_batch_rank=False)
         self.double_q = double_q
         self.duelling_q = duelling_q
 
@@ -78,7 +78,7 @@ class DQNAgent(Agent):
         core.define_inputs("terminals", space=IntBox(2, add_batch_rank=True))
         core.define_inputs("deterministic", space=bool)
         core.define_inputs("time_step", space=int)
-        core.define_outputs("act", "add_records", "learn", "sync_target_qnet")  # TODO: reset_memory?
+        core.define_outputs("actions", "insert_records", "update", "sync_target_qnet")  # TODO: reset_memory?
 
         # Add the Q-net, copy it (target-net) and add the target-net.
         self.target_policy = self.policy.copy(scope="target-policy")
@@ -103,12 +103,12 @@ class DQNAgent(Agent):
         # timestep into Exploration.
         core.connect("time_step", (self.exploration, "time_step"))
 
-        # Network output into Exploration's "nn_output" Socket -> into "act".
+        # Network output into Exploration's "nn_output" Socket -> into "actions".
         core.connect((self.policy, "sample_deterministic"),
                      (self.exploration, "sample_deterministic"), label="from_env")
         core.connect((self.policy, "sample_stochastic"),
                      (self.exploration, "sample_stochastic"), label="from_env")
-        core.connect((self.exploration, "action"), "act")
+        core.connect((self.exploration, "action"), "actions")
 
         # Actions, rewards, terminals into Merger.
         for in_ in ["actions", "rewards", "terminals"]:
@@ -118,10 +118,10 @@ class DQNAgent(Agent):
         # Merger's "output" into Memory's "records".
         core.connect((self.merger, "output"), (self.memory, "records"))
         # Memory's "add_records" functionality.
-        core.connect((self.memory, "insert"), "add_records")
+        core.connect((self.memory, "insert_records"), "insert_records")
 
-        # Memory's "sample" (to Splitter) and "num_records" (constant batch-size value).
-        core.connect((self.memory, "sample"), (self.splitter, "input"))
+        # Memory's "get_records" (to Splitter) and "num_records" (constant batch-size value).
+        core.connect((self.memory, "get_records"), (self.splitter, "input"))
         core.connect(self.update_spec["batch_size"], (self.memory, "num_records"))
 
         # Splitter's outputs.
@@ -137,7 +137,7 @@ class DQNAgent(Agent):
         # Connect the Optimizer.
         core.connect((self.loss_function, "loss"), (self.optimizer, "loss"))
         core.connect((self.policy, "_variables"), (self.optimizer, "vars"))
-        core.connect((self.optimizer, "step"), "learn")
+        core.connect((self.optimizer, "step"), "update")
 
         # Add syncing capability for target-net.
         core.connect((self.policy, "_variables"), (self.target_policy, "_values"))

@@ -23,6 +23,7 @@ import numpy as np
 
 from yarl import YARLError, Specifiable, backend
 from yarl.components import Component, Socket, GraphFunction
+from yarl.spaces import Space
 from yarl.spaces.space_utils import split_flattened_input_ops, convert_ops_to_op_records, get_space_from_op
 from yarl.utils.util import all_combinations, force_list, force_tuple, get_shape
 from yarl.utils.ops import SingleDataOp, FlattenedDataOp, DataOpRecord

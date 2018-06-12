@@ -32,12 +32,20 @@ class PrioritizedReplay(Memory):
 
     """
     Implements pure TensorFlow prioritized replay.
+
+    API:
+    ins:
+        records (any): The records to insert via a call to out-Socket "insert_records".
+        num_records (int): The number of records to pull via out-Socket "get_records".
+        indices (int): The number of records to pull via out-Socket "get_records".
+    outs:
+        insert_records (no_op): Triggers an insertion of in-Socket "records" into the memory.
+        get_records (any): Pulls "num_records" (in-Socket) single records from the memory and returns them.
     """
     def __init__(self, capacity=1000, next_states=True, alpha=1.0, beta=0.0, scope="prioritized-replay", **kwargs):
         """
-        Creates a prioritized replay.
-
         Args:
+            next_states (bool): Whether to include s' in the return values of the out-Socket "get_records".
             alpha (float): Degree to which prioritization is applied, 0.0 implies no
                 prioritization (uniform), 1.0 full prioritization.
             beta (float): Importance weight factor, 0.0 for no importance correction, 1.0
@@ -59,11 +67,11 @@ class PrioritizedReplay(Memory):
         self.beta = beta
 
         self.define_inputs("num_records", "indices", "update")
-        self.define_outputs("sample", "sample_indices", "update_records", "weights")
+        self.define_outputs("get_records", "record_indices", "update_records", "weights")
 
         self.add_graph_fn(
             inputs="num_records",
-            outputs=["sample", "sample_indices", "weights"],
+            outputs=["get_records", "record_indices", "weights"],
             method=self._graph_fn_get_records,
             flatten_ops=False
         )

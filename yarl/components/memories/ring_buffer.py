@@ -27,6 +27,18 @@ class RingBuffer(Memory):
     """
     Simple ring-buffer to be used for on-policy sampling based on sample count
     or episodes. Fetches most recently added memories.
+
+    API:
+    ins:
+        records (any): The records to insert via a call to out-Socket "insert_records".
+        num_records (int): The number of records to pull via out-Socket "get_records".
+        Optional:
+            num_episodes (int): The number of episodes to pull via out-Socket "get_episodes".
+    outs:
+        insert (no_op): Triggers an insertion of in-Socket "records" into the memory.
+        get_records (any): Pulls "num_records" (in-Socket) single records from the memory and returns them.
+        Optional:
+            get_episodes (any): Pulls "num_episodes" (in-Socket) entire episodes from the memory and returns them.
     """
     def __init__(self, capacity=1000, episode_semantics=False, scope="ring-buffer", **kwargs):
         super(RingBuffer, self).__init__(capacity, scope=scope, **kwargs)
@@ -35,19 +47,20 @@ class RingBuffer(Memory):
         self.size = None
         self.states = None
 
-        # Extend our interface ("sample").
+        # Extend our interface ("get_records").
         self.define_inputs("num_records")
-        self.define_outputs("sample")
-        self.add_graph_fn(inputs="num_records", outputs="sample", method=self._graph_fn_get_records, flatten_ops=False)
+        self.define_outputs("get_records")
+        self.add_graph_fn(inputs="num_records", outputs="get_records",
+                          method=self._graph_fn_get_records, flatten_ops=False)
 
         self.episode_semantics = episode_semantics
         self.num_episodes = None
         self.episode_indices = None
         if self.episode_semantics:
-            # Extend our interface ("episodes").
+            # Extend our interface ("get_episodes").
             self.define_inputs("num_episodes")
-            self.define_outputs("episodes")
-            self.add_graph_fn(inputs="num_episodes", outputs="episodes", method=self._graph_fn_get_episodes,
+            self.define_outputs("get_episodes")
+            self.add_graph_fn(inputs="num_episodes", outputs="get_episodes", method=self._graph_fn_get_episodes,
                               flatten_ops=False)
 
     def create_variables(self, input_spaces, action_space):

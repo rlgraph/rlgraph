@@ -67,7 +67,7 @@ class RayAgent(object):
             Sample dict containing the record space specified by the agent's space definitions.
         """
         # Agent must define op to return batches.
-        return self.agent.call_graph_op(op="sample")
+        return self.agent.call_graph_op(op="get_records")
 
     def get_host(self):
         """

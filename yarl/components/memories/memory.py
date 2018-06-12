@@ -24,8 +24,13 @@ from yarl.spaces import Space
 class Memory(Component):
     """
     Abstract memory component.
-    """
 
+    API:
+    ins:
+        records (any): The records to insert via a call to out-Socket "insert_records".
+    outs:
+        insert_records (no_op): Triggers an insertion of in-Socket "records" into the memory.
+    """
     def __init__(self, capacity=1000, scope="memory", **kwargs):
         """
         Args:
@@ -40,15 +45,15 @@ class Memory(Component):
 
         # Add default Sockets and insert GraphFunction.
         self.define_inputs("records")
-        self.define_outputs("insert")
+        self.define_outputs("insert_records")
 
-        self.add_graph_fn(inputs="records", outputs="insert", method=self._graph_fn_insert)
+        self.add_graph_fn(inputs="records", outputs="insert_records", method=self._graph_fn_insert)
 
     def create_variables(self, input_spaces, action_space):
         # Store our record-space for convenience.
         self.record_space = input_spaces["records"]
 
-        #  Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
+        # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
         self.record_registry = self.get_variable(
             name="memory", trainable=False,
             from_space=self.record_space,
