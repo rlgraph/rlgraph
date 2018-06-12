@@ -46,9 +46,12 @@ class TestDQNAgent(unittest.TestCase):
         worker = SingleThreadedWorker(environment=env, agent=agent)
         results = worker.execute_timesteps(1000, deterministic=True)
 
-        print(results)
-
-        # TODO: assert good results :)
+        self.assertEqual(results["timesteps_executed"], 1000)
+        self.assertEqual(results["env_frames"], 1000)
+        # Assert deterministic execution of Env and Agent.
+        self.assertAlmostEqual(results["mean_episode_reward"], 4.607321286981477)
+        self.assertAlmostEqual(results["max_episode_reward"], 24.909519721955455)
+        self.assertAlmostEqual(results["final_episode_reward"], 1.3333066872744532)
 
     def test_dqn_on_2x2_grid_world(self):
         """
