@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from six.moves import xrange
+
 import logging
 import ray
 
@@ -48,6 +50,18 @@ class RayExecutor(object):
             num_cpus=self.cluster_spec['ray_num_cpus'],
             num_gpus=self.cluster_spec['ray_num_cpus']
         )
+
+    def create_remote_workers(self, cls, num_actors, *args):
+        """
+        Creates Ray actors for remote execution.
+        Args:
+            cls (RayWorker): Actor class, must be an instance of RayWorker.
+            num_actors (int): Num
+            *args (any): Arguments for RayWorker class.
+        Returns:
+            list: Remote Ray actors.
+        """
+        return [cls.remote(args) for _ in xrange(num_actors)]
 
     def setup_execution(self):
         """
