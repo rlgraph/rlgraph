@@ -19,7 +19,6 @@ from __future__ import print_function
 
 import numpy as np
 from six.moves import xrange as range_
-import tensorflow as tf
 import time
 
 from yarl.utils.util import default_dict
