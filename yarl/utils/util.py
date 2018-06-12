@@ -78,6 +78,8 @@ def dtype(dtype_, to="tf"):
         return np.float64 if to == "np" else tf.float64
     elif dtype_ in ["int", "int32", int, np.int32, be.int32]:
         return np.int32 if to == "np" else tf.int32
+    elif dtype_ in ["int64", np.int64]:
+        return np.int64 if to == "np" else tf.int64
 
     raise YARLError("Error: Type conversion to '{}' for type '{}' not supported.".format(to, str(dtype_)))
 
