@@ -22,3 +22,8 @@ from yarl.execution.single_threaded_worker import SingleThreadedWorker
 
 __all__ = ["Worker", "SingleThreadedWorker"]
 
+Worker.__lookup_classes__ = dict(
+   single=SingleThreadedWorker,
+   single_threaded_worker=SingleThreadedWorker,
+   single_threaded=SingleThreadedWorker
+)

@@ -20,8 +20,10 @@ from __future__ import print_function
 import logging
 from six.moves import xrange as range_
 
+from yarl import Specifiable
 
-class Worker(object):
+
+class Worker(Specifiable):
     """
     Generic worker to locally interact with simulator environments.
     """
