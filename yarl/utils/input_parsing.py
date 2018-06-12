@@ -50,11 +50,11 @@ def parse_execution_spec(execution_spec):
     # If no spec given.
     default_spec = dict(
         mode="single",
-        buffer_enabled=False,
-        buffer_size=100,  # only if buffer_enabled=True
         distributed_spec=None,
         session_config=None,
-        seed=None
+        seed=None,  # random seed for the tf graph
+        enable_profiler=False,  # enabling the tf profiler?
+        profiler_frequency=1000  # with which frequency do we print out profiler information?
     )
     execution_spec = default_dict(execution_spec, default_spec)
 
@@ -73,6 +73,29 @@ def parse_execution_spec(execution_spec):
         execution_spec["session_config"] = execution_spec.get("session_config")
 
     return execution_spec
+
+
+def parse_observe_spec(observe_spec):
+    """
+    Parses parameters for `Agent.observe()` calls and inserts default values where necessary.
+
+    Args:
+        observe_spec (Optional[dict]): Observe spec dict.
+
+    Returns:
+        dict: The sanitized observe_spec dict.
+    """
+    # If no spec given.
+    default_spec = dict(
+        # Do we buffer observations in python before sending them through the graph?
+        buffer_enabled=True,
+        # Fill buffer with n records before sending them through the graph.
+        buffer_size=100,  # only if buffer_enabled=True
+        # The unit in which we measure frequency: one of "timesteps", "episodes", "sec".
+    )
+    observe_spec = default_dict(observe_spec, default_spec)
+
+    return observe_spec
 
 
 def parse_update_spec(update_spec):

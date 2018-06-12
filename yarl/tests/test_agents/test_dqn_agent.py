@@ -60,7 +60,9 @@ class TestDQNAgent(unittest.TestCase):
         env = GridWorld("2x2")
         agent = DQNAgent.from_spec("configs/test_dqn_agent_for_4_actions.json",
                                    state_space=env.state_space,
-                                   action_space=env.action_space
+                                   action_space=env.action_space,
+                                   observe_spec=dict(buffer_size=200),
+                                   execution_spec=dict(seed=10)
                                    )
 
         worker = SingleThreadedWorker(environment=env, agent=agent)

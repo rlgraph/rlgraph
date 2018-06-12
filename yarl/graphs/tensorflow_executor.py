@@ -89,13 +89,14 @@ class TensorFlowExecutor(GraphExecutor):
         fetch_list, feed_dict = self.graph_builder.get_execution_inputs(output_socket_names=sockets, inputs=inputs)
         ret = self.monitored_session.run(fetch_list, feed_dict=feed_dict,
                                          options=self.session_options, run_metadata=self.run_metadata)
-        if self.profile_step % 1000 == 0:
-            self.profiler.add_step(self.profile_step, self.run_metadata)
-            self.profiler.profile_operations(
-                options=tf.profiler.ProfileOptionBuilder(
-                    tf.profiler.ProfileOptionBuilder.time_and_memory()).with_node_names().build()
-            )
-        self.profile_step += 1
+        if self.execution_spec["enable_profiler"] is True:
+            if self.profile_step % self.execution_spec["profiler_frequency"] == 0:
+                self.profiler.add_step(self.profile_step, self.run_metadata)
+                self.profiler.profile_operations(
+                    options=tf.profiler.ProfileOptionBuilder(
+                        tf.profiler.ProfileOptionBuilder.time_and_memory()).with_node_names().build()
+                )
+            self.profile_step += 1
 
         if len(fetch_list) == 1:
             return ret[0]
@@ -271,7 +272,8 @@ class TensorFlowExecutor(GraphExecutor):
         self.session = self.monitored_session._tf_sess()
 
         # Setup the tf Profiler.
-        self.profiler = tf.profiler.Profiler(self.session.graph)
+        if self.execution_spec["enable_profiler"] is True:
+            self.profiler = tf.profiler.Profiler(self.session.graph)
 
     def load_model(self, path=None):
         pass

@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from yarl import Specifiable, backend
 from yarl.graphs.graph_executor import GraphExecutor
-from yarl.utils.input_parsing import parse_execution_spec, parse_update_spec
+from yarl.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
 from yarl.components import  Exploration, PreprocessorStack, NeuralNetwork, Policy, Optimizer, SGDOptimizer
 from yarl.graphs import GraphBuilder
 from yarl.spaces import Space
@@ -41,6 +41,7 @@ class Agent(Specifiable):
         exploration_spec=None,
         execution_spec=None,
         optimizer_spec=None,
+        observe_spec=None,
         update_spec=None
     ):
         """
@@ -56,7 +57,8 @@ class Agent(Specifiable):
             exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
             optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
-            update_spec (Optional[dict]): Spec-dict to specify update settings.
+            observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
+            update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
         """
         self.logger = logging.getLogger(__name__)
 
@@ -82,10 +84,11 @@ class Agent(Specifiable):
         self.internals_buffer = None
         self.reward_buffer = None
         self.terminal_buffer = None
-        self.buffer_enabled = self.execution_spec["buffer_enabled"]
-        if self.buffer_enabled:
-            self.buffer_size = self.execution_spec["buffer_size"]
+
+        self.observe_spec = parse_observe_spec(observe_spec)
+        if self.observe_spec["buffer_enabled"]:
             self.reset_buffers()
+
         # Global timesteps counter.
         self.timesteps = 0
 
@@ -163,7 +166,7 @@ class Agent(Specifiable):
             rewards = np.asarray([rewards])
             terminals = np.asarray([terminals])
 
-        if self.buffer_enabled:
+        if self.observe_spec["buffer_enabled"] is True:
             self.states_buffer.extend(states)
             self.actions_buffer.extend(actions)
             self.internals_buffer.extend(internals)
@@ -171,7 +174,7 @@ class Agent(Specifiable):
             self.terminal_buffer.extend(terminals)
 
             # Inserts per episode or when full.
-            if len(self.reward_buffer) >= self.buffer_size or terminals:
+            if len(self.reward_buffer) >= self.observe_spec["buffer_size"] or terminals:
                 self._observe_graph(
                     states=np.asarray(self.states_buffer),
                     actions=np.asarray(self.actions_buffer),
