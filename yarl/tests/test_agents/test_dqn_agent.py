@@ -83,6 +83,7 @@ class TestDQNAgent(unittest.TestCase):
         Creates a DQNAgent and runs it via a Runner on the CartPole Env.
         """
         env = OpenAIGymEnv("CartPole-v0")
+        env.seed(20)
         agent = DQNAgent.from_spec(
             "configs/test_dqn_agent_for_cartpole.json",
             state_space=env.state_space,
@@ -98,7 +99,7 @@ class TestDQNAgent(unittest.TestCase):
 
         self.assertEqual(results["timesteps_executed"], 10000)
         self.assertEqual(results["env_frames"], 10000)
-        self.assertAlmostEqual(results["mean_episode_reward"], 77.51937984496124)
+        self.assertAlmostEqual(results["mean_episode_reward"], 78.125)
         self.assertAlmostEqual(results["max_episode_reward"], 200.0)
-        self.assertAlmostEqual(results["final_episode_reward"], 22.0)
-        self.assertEqual(results["episodes_executed"], 129)
+        self.assertAlmostEqual(results["final_episode_reward"], 46.0)
+        self.assertEqual(results["episodes_executed"], 128)
