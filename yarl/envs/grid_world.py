@@ -213,13 +213,13 @@ class GridWorld(Env):
         next_state_type = self.world[next_y, next_x]
         if next_state_type == "H":
             self.is_terminal = True
-            self.reward = -1 if self.reward_function == "sparse" else -100
+            self.reward = -5 if self.reward_function == "sparse" else -100
         elif next_state_type == "F":
             self.is_terminal = False
-            self.reward = -1 if self.reward_function == "sparse" else -10
+            self.reward = -3 if self.reward_function == "sparse" else -10
         elif next_state_type in [" ", "S"]:
             self.is_terminal = False
-            self.reward = 0 if self.reward_function == "sparse" else -1
+            self.reward = -1
         elif next_state_type == "G":
             self.is_terminal = True
             self.reward = 1 if self.reward_function == "sparse" else -50

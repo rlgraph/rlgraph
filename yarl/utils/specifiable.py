@@ -24,7 +24,8 @@ import os
 import re
 import yaml
 
-from .yarl_error import YARLError
+from yarl.utils.yarl_error import YARLError
+from yarl.utils.util import default_dict
 
 
 class Specifiable(object):
@@ -95,8 +96,13 @@ class Specifiable(object):
         # None: Try __default__object (if no args/kwargs), only then constructor of cls (using args/kwargs).
         if type_ is None:
             # We have a default object: Deepcopy that and return it.
-            if cls.__default_constructor__ is not None and ctor_args == list() and ctor_kwargs == dict():
+            if cls.__default_constructor__ is not None and ctor_args == list():
                 constructor = cls.__default_constructor__
+                # Default partial's keywords into ctor_kwargs.
+                if isinstance(constructor, partial):
+                    kwargs = default_dict(ctor_kwargs, constructor.keywords)
+                    constructor = partial(constructor.func, **kwargs)
+                    ctor_kwargs = dict()  # erase to avoid duplicate kwarg error
             # Try our luck with this class itself.
             else:
                 constructor = cls

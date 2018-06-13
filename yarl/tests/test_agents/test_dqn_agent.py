@@ -40,9 +40,9 @@ class TestDQNAgent(unittest.TestCase):
         env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
         agent = DQNAgent.from_spec(
             "configs/test_dqn_agent_for_2_actions.json",
-             state_space=env.state_space,
-             action_space=env.action_space
-         )
+            state_space=env.state_space,
+            action_space=env.action_space
+        )
 
         worker = SingleThreadedWorker(environment=env, agent=agent)
         results = worker.execute_timesteps(1000, deterministic=True)
@@ -59,14 +59,22 @@ class TestDQNAgent(unittest.TestCase):
         Creates a DQNAgent and runs it via a Runner on a simple 2x2 GridWorld.
         """
         env = GridWorld("2x2")
-        agent = DQNAgent.from_spec("configs/test_dqn_agent_for_4_actions.json",
-                                   state_space=env.state_space,
-                                   action_space=env.action_space,
-                                   observe_spec=dict(buffer_size=200),
-                                   execution_spec=dict(seed=10)
-                                   )
+        agent = DQNAgent.from_spec(
+            "configs/test_dqn_agent_for_4_actions.json",
+            state_space=env.state_space,
+            action_space=env.action_space,
+            observe_spec=dict(buffer_size=100),
+            execution_spec=dict(seed=10),
+            update_spec=dict(batch_size=16),
+            optimizer_spec=dict(learning_rate=0.01)
+        )
 
         worker = SingleThreadedWorker(environment=env, agent=agent)
-        results = worker.execute_timesteps(10000, deterministic=True)
+        results = worker.execute_timesteps(1000, deterministic=True)
 
-        print(results)
+        self.assertEqual(results["timesteps_executed"], 1000)
+        self.assertEqual(results["env_frames"], 1000)
+        self.assertAlmostEqual(results["mean_episode_reward"], -2.9283276450511946)
+        self.assertAlmostEqual(results["final_episode_reward"], 0)
+        self.assertEqual(results["episodes_executed"], 293)
+

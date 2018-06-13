@@ -43,9 +43,10 @@ class Worker(Specifiable):
 
         # Update schedule if worker is performing updates.
         self.updating = None
+        self.steps_before_update = None
         self.update_interval = None
         self.update_steps = None
-        self.steps_before_update = None
+        self.sync_interval = None
 
     def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, deterministic=False):
         """
@@ -122,8 +123,11 @@ class Worker(Specifiable):
             timesteps_executed (int): Timesteps executed thus far.
         """
         if self.updating:
+            # Are we allowed to update?
             if timesteps_executed > self.steps_before_update and \
-                    timesteps_executed % self.update_interval == 0:
+                    (self.agent.observe_spec["buffer_enabled"] is False or  # no update before some data in buffer
+                     timesteps_executed >= self.agent.observe_spec["buffer_size"]) and \
+                    timesteps_executed % self.update_interval == 0:  # update frequency check
                 for _ in range_(self.update_steps):
                     self.agent.update()
 
@@ -133,7 +137,7 @@ class Worker(Specifiable):
         and observing samples.
 
         Args:
-            update_schedule (Optional[dict]): Update parameters. If None, the worker only peforms rollouts.
+            update_schedule (Optional[dict]): Update parameters. If None, the worker only performs rollouts.
                 Expects keys 'update_interval' to indicate how frequent update is called, 'num_updates'
                 to indicate how many updates to perform every update interval, and 'steps_before_update' to indicate
                 how many steps to perform before beginning to update.
@@ -143,3 +147,4 @@ class Worker(Specifiable):
             self.steps_before_update = update_schedule['steps_before_update']
             self.update_interval = update_schedule['update_interval']
             self.update_steps = update_schedule['update_steps']
+            self.sync_interval= update_schedule['sync_interval']

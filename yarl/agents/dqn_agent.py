@@ -161,6 +161,9 @@ class DQNAgent(Agent):
         ))
 
     def update(self, batch=None):
+        # Should we synch the target net? (timesteps-1 b/c it has been increased already in get_action)
+        if (self.timesteps - 1) % self.update_spec["sync_interval"] == 0:
+            self.graph_executor.execute("sync_target_qnet")
         return self.graph_executor.execute("update")
 
     def __repr__(self):

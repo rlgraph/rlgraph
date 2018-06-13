@@ -50,6 +50,17 @@ class TestLossFunctions(unittest.TestCase):
             rewards=np.array([9.4, -1.23]),
             q_values_s_=np.array([[12.0, -8.0], [22.3, 10.5]]),
         )
+        """
+        Calculation:
+        batch of 2, gamma=1.0
+        Q(s'a') = [12 -8] [22.3 10.5] -> max(a') = [12] [22.3]
+        Q(s,a)  = [10.0] [-90.6]
+        L = E(batch)| ((r + gamma max(a')Q(s'a') ) - Q(s,a))^2 |
+        L = ((9.4 + 1.0*12 - 10.0)^2 + (-1.23 + 1.0*22.3 - -90.6)^2) / 2
+        L = ((129.96) + (12470.1889)) / 2
+        L = 6300.07445
+        """
+
         # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
         expected_loss_per_item = np.array([129.95999, 12470.188], dtype=np.float32)
         test.test(out_socket_names="loss_per_item", inputs=input_, expected_outputs=expected_loss_per_item)

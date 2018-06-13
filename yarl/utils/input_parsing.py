@@ -17,7 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .util import default_dict
+from yarl import YARLError
+from yarl.utils.util import default_dict
 
 
 def parse_saver_spec(saver_spec):
@@ -122,7 +123,15 @@ def parse_update_spec(update_spec):
         update_steps=1,
         # The batch size with which to update (e.g. when pulling records from a memory).
         batch_size=64,
+        sync_interval=128
     )
     update_spec = default_dict(update_spec, default_spec)
+    # Assert that the synch interval is a multiple of the update_interval.
+    if update_spec["sync_interval"] / update_spec["update_interval"] != \
+        update_spec["sync_interval"] // update_spec["update_interval"]:
+        raise YARLError(
+            "ERROR: sync_interval ({}) must be multiple of update_interval "
+            "({})!".format(update_spec["sync_interval"], update_spec["update_interval"])
+        )
 
     return update_spec

@@ -104,7 +104,7 @@ class TensorFlowExecutor(GraphExecutor):
 
     def update_profiler_if_necessary(self):
         """
-        Updates profiler according to specification..
+        Updates profiler according to specification.
         """
         if self.profile_step % self.profiling_frequency == 0:
             self.profiler.add_step(self.profile_step, self.run_metadata)
