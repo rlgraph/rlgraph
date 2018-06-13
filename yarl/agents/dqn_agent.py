@@ -22,7 +22,7 @@ import numpy as np
 
 from yarl.agents import Agent
 from yarl.components import CONNECT_ALL, Synchronizable, Merger, Splitter, Memory, DQNLossFunction
-from yarl.spaces import Dict, IntBox, FloatBox, BoolBox
+from yarl.spaces import Dict, IntBox, FloatBox
 from yarl.utils.visualization_util import get_graph_markup
 
 
@@ -98,7 +98,7 @@ class DQNAgent(Agent):
 
         # States (from Env) into preprocessor -> into q-net
         core.connect("states", (self.preprocessor_stack, "input"))
-        core.connect((self.preprocessor_stack, "output"), (self.policy, "input"), label="from_env")
+        core.connect((self.preprocessor_stack, "output"), (self.policy, "nn_input"), label="from_env")
 
         # timestep into Exploration.
         core.connect("time_step", (self.exploration, "time_step"))
@@ -125,18 +125,18 @@ class DQNAgent(Agent):
         core.connect(self.update_spec["batch_size"], (self.memory, "num_records"))
 
         # Splitter's outputs.
-        core.connect((self.splitter, "/states"), (self.policy, "input"), label="s_from_memory")  # label s from mem
+        core.connect((self.splitter, "/states"), (self.policy, "nn_input"), label="s_from_memory")  # label s from mem
         core.connect((self.splitter, "/actions"), (self.loss_function, "actions"))
         core.connect((self.splitter, "/rewards"), (self.loss_function, "rewards"))
-        core.connect((self.splitter, "/next_states"), (self.target_policy, "input"))
+        core.connect((self.splitter, "/next_states"), (self.target_policy, "nn_input"))
         if self.double_q:
-            core.connect((self.splitter, "/next_states"), (self.policy, "input"), label="sp_from_memory")
+            core.connect((self.splitter, "/next_states"), (self.policy, "nn_input"), label="sp_from_memory")
 
         # Loss-function needs both q-values (qnet and target).
-        core.connect((self.policy, "nn_output"), (self.loss_function, "q_values"), label="s_from_memory")
-        core.connect((self.target_policy, "nn_output"), (self.loss_function, "qt_values_s_"))
+        core.connect((self.policy, "logits"), (self.loss_function, "q_values"), label="s_from_memory")
+        core.connect((self.target_policy, "logits"), (self.loss_function, "qt_values_s_"))
         if self.double_q:
-            core.connect((self.policy, "nn_output"), (self.loss_function, "q_values_s_"), label="sp_from_memory")
+            core.connect((self.policy, "logits"), (self.loss_function, "q_values_s_"), label="sp_from_memory")
 
         # Connect the Optimizer.
         core.connect((self.loss_function, "loss"), (self.optimizer, "loss"))

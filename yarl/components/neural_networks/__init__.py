@@ -19,10 +19,7 @@ from __future__ import print_function
 
 from yarl.components.neural_networks.neural_network import NeuralNetwork
 from yarl.components.neural_networks.policy import Policy
+from yarl.components.neural_networks.nn_output_adapter import NNOutputAdapter
 
 
-NeuralNetwork.__lookup_classes__ = dict(
-    policy=Policy
-)
-
-__all__ = ["NeuralNetwork", "Policy"]
+__all__ = ["NeuralNetwork", "Policy", "NNOutputAdapter"]

@@ -30,17 +30,21 @@ if get_backend() == "tf":
     import tensorflow as tf
 
 
-class NNOutputCleanup(Component):
+class NNOutputAdapter(Component):
     """
-    A Component that cleans up neural network output and gets it ready for parameterizing a distribution Component.
+    A Component that cleans up a neural network's output and gets it ready for parameterizing a Distribution Component.
     Cleanup includes reshaping (for the desired action space), adding a distribution bias, making sure probs are not
     0.0 or 1.0, etc..
 
     API:
     ins:
-        nn_output (SingleDataOp): The raw neural net output to be cleaned up for further processing in a Distribution.
+        nn_output (SingleDataOp): The raw neural net output to be cleaned up for further processing in a
+            Distribution.
     outs:
-        parameters (SingleDataOp): The cleaned up output (translated into Distribution-readable parameters).
+        logits (SingleDataOp): The reshaped, cleaned-up NN output logits (after possible bias) but before being
+            translated into Distribution parameters (e.g. via Softmax).
+        parameters (SingleDataOp): The final results of translating the raw NN-output into Distribution-readable
+            parameters.
     """
     def __init__(self, bias=None, scope="nn-output-cleanup", **kwargs):
         """
@@ -48,14 +52,14 @@ class NNOutputCleanup(Component):
             bias (any): An optional bias that will be added to the output of the network.
             TODO: For now, only IntBoxes -> Categorical are supported. We'll add support for continuous action spaces later
         """
-        super(NNOutputCleanup, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
+        super(NNOutputAdapter, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
 
         self.target_space = None
         self.bias = bias
 
         # Define our interface.
         self.define_inputs("nn_output")
-        self.define_outputs("parameters")
+        self.define_outputs("logits", "parameters")
 
     def check_input_spaces(self, input_spaces, action_space):
         in_space = input_spaces["nn_output"]  # type: Space
@@ -93,10 +97,10 @@ class NNOutputCleanup(Component):
             )
             self.add_component(bias_layer, connections=dict(input="nn_output"))
             # Place our cleanup behind the bias layer.
-            self.add_graph_fn([(bias_layer, "output")], "parameters", self._graph_fn_cleanup)
+            self.add_graph_fn([(bias_layer, "output")], ["logits", "parameters"], self._graph_fn_cleanup)
         # Otherwise, place our cleanup directly behind the nn-output.
         else:
-            self.add_graph_fn("nn_output", "parameters", self._graph_fn_cleanup)
+            self.add_graph_fn("nn_output", ["logits", "parameters"], self._graph_fn_cleanup)
 
     def _graph_fn_cleanup(self, nn_outputs_plus_bias):
         """
@@ -104,15 +108,18 @@ class NNOutputCleanup(Component):
         parameters from the NN-output).
 
         Args:
-            nn_outputs_plus_bias (SingleDataOp): The already biased (optional) and flattened data coming from an NN.
+            nn_outputs_plus_bias (SingleDataOp): The (possibly) biased and flattened data coming from an NN.
 
         Returns:
-            SingleDataOp: The parameters, ready to be passed to a Distribution object's in-Socket "parameters".
+            tuple:
+                "logits" (SingleDataOp): The (possibly) biased and reshaped NN-output logits.
+                "parameters" (SingleDataOp): The parameters, ready to be passed to a Distribution object's in-Socket
+                    "parameters".
         """
-        # Reshape logits to action shape
+        # Reshape logits to action shape.
         shape = self.target_space.get_shape(with_batch_rank=-1, with_category_rank=True)
         if get_backend() == "tf":
             logits = tf.reshape(tensor=nn_outputs_plus_bias, shape=shape)
 
             # Convert logits into probabilities and clamp them at SMALL_NUMBER.
-            return tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
+            return logits, tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)

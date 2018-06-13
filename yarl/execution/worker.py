@@ -54,7 +54,7 @@ class Worker(Specifiable):
 
         Args:
             num_timesteps (int): Number of time steps to execute.
-             max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
+            max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
                 Use None or 0 for no limit. Default: None.
             update_spec (Optional[dict]): Update parameters. If None, the worker only peforms rollouts.
                 Expects keys 'update_interval' to indicate how frequent update is called, 'num_updates'
@@ -81,21 +81,6 @@ class Worker(Specifiable):
         """
         pass
 
-    def execute_and_get_episodes(self, num_episodes, max_timesteps_per_episode=0, deterministic=False):
-        """
-        Executes episodes and returns experiences as separate episode sequences.
-        Intended for distributed data collection without performing updates.
-
-        Args:
-            num_episodes (int): Number of episodes to execute.
-            max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
-                Use None or 0 for no limit. Default: None.
-            deterministic (Optional[bool]): Indicates deterministic execution.
-        Returns:
-            EnvSample: EnvSample object holding the collected episodes.
-        """
-        pass
-
     def execute_episodes(self, num_episodes, max_timesteps_per_episode=0, update_spec=None, deterministic=False):
         """
         Executes environment for a fixed number of episodes.
@@ -111,6 +96,21 @@ class Worker(Specifiable):
             deterministic (Optional[bool]): Indicates deterministic execution.
         Returns:
             dict: Execution statistics.
+        """
+        pass
+
+    def execute_and_get_episodes(self, num_episodes, max_timesteps_per_episode=0, deterministic=False):
+        """
+        Executes episodes and returns experiences as separate episode sequences.
+        Intended for distributed data collection without performing updates.
+
+        Args:
+            num_episodes (int): Number of episodes to execute.
+            max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
+                Use None or 0 for no limit. Default: None.
+            deterministic (Optional[bool]): Indicates deterministic execution.
+        Returns:
+            EnvSample: EnvSample object holding the collected episodes.
         """
         pass
 

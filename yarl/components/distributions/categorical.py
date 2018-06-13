@@ -17,19 +17,26 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from yarl import get_backend
+from yarl.utils import util
 from yarl.components.distributions.distribution import Distribution
-from yarl.components.distributions.bernoulli import Bernoulli
-from yarl.components.distributions.beta import Beta
-from yarl.components.distributions.categorical import Categorical
-from yarl.components.distributions.normal import Normal
 
-Distribution.__lookup_classes__ = dict(
-    bernoulli=Bernoulli,
-    categorical=Categorical,
-    normaldistribution=Normal,
-    gaussian=Normal,
-    beta=Beta
-)
+if get_backend() == "tf":
+    import tensorflow as tf
 
-__all__ = ["Distribution", "Bernoulli", "Categorical", "Normal", "Beta"]
 
+class Categorical(Distribution):
+    """
+    A categorical distribution object defined by a n values {p0, p1, ...} that add up to 1, the probabilities
+    for picking one of the n categories.
+    """
+    def __init__(self, scope="categorical", **kwargs):
+        super(Categorical, self).__init__(scope=scope, **kwargs)
+
+    def _graph_fn_parameterize(self, probs):
+        if get_backend() == "tf":
+            return tf.distributions.Categorical(probs=probs, dtype=util.dtype("int"))
+
+    def _graph_fn_sample_deterministic(self, distribution):
+        if get_backend() == "tf":
+            return tf.argmax(input=distribution.probs, axis=-1, output_type=util.dtype("int"))

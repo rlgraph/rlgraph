@@ -20,7 +20,7 @@ from __future__ import print_function
 from yarl import Specifiable, get_backend
 from yarl.graphs.graph_executor import GraphExecutor
 from yarl.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
-from yarl.components import  Exploration, PreprocessorStack, NeuralNetwork, Policy, Optimizer, SGDOptimizer
+from yarl.components import  Exploration, PreprocessorStack, NeuralNetwork, Policy, Optimizer
 from yarl.graphs import GraphBuilder
 from yarl.spaces import Space
 

@@ -19,30 +19,29 @@ from __future__ import print_function
 
 from yarl import YARLError
 from yarl.spaces import IntBox, FloatBox
-from yarl.components import Component, CONNECT_OUTS, CONNECT_ALL, NNOutputCleanup, Normal, Categorical
-from yarl.components.neural_networks import NeuralNetwork
+from yarl.components import Component, CONNECT_OUTS, CONNECT_ALL
+from yarl.components.distributions import Normal, Categorical
+from yarl.components.neural_networks.neural_network import NeuralNetwork
+from yarl.components.neural_networks.nn_output_adapter import NNOutputAdapter
 
 
 class Policy(Component):
     """
-    A Policy is a Component without own graph_fns that contains a NeuralNetwork with an attached NNOutputCleanup
+    A Policy is a Component without own graph_fns that contains a NeuralNetwork with an attached NNOutputAdapter
     followed by a Distribution Component.
     The NeuralNetwork's and the Distribution's out-Sockets are all exposed so one can extract the direct
     NN-output but also query actions (stochastically or deterministically) from the distribution.
 
     API:
     ins:
-        input (SingleDataOp): The input to the neural network.
-        Optional:
-            sync_in (DataOpTuple): See Synchronizable Component. If writable=True.
+        nn_input (SingleDataOp): The input to the neural network.
     outs:
         nn_output (SingleDataOp): The raw output of the neural network (before it's cleaned-up and passed through
-            our action distribution).
+            our NNOutputAdapter).
+        logits (SingleDataOp): The reshaped and possibly biased NN outputs.
         sample_stochastic: See Distribution component.
         sample_deterministic: See Distribution component.
         entropy: See Distribution component.
-        Optional:
-            sync (DataOpTuple): See Synchronizable Component. If writable=True.
     """
     def __init__(self, neural_network, scope="policy", **kwargs):
         """
@@ -53,19 +52,20 @@ class Policy(Component):
         super(Policy, self).__init__(scope=scope, **kwargs)
 
         self.neural_network = NeuralNetwork.from_spec(neural_network)
-        self.nn_cleanup = NNOutputCleanup()
+        self.nn_output_adapter = NNOutputAdapter()
         self.distribution = None  # to be determined once we know the action Space
 
         # Define our interface (some of the input/output Sockets will be defined depending on the NeuralNetwork's
         # own interface, e.g. "sync_in" may be missing if the NN is not writable):
         self.define_outputs("sample_stochastic", "sample_deterministic", "entropy")
 
-        # Add NN, NN-cleanup and Distribution Components.
-        # This may additionally define the in-Socket "sync_in" and the out-Socket "sync".
+        # Add NN, connect it through and then rename its "output" into Policy's "nn_output".
         self.add_component(self.neural_network, connections=CONNECT_ALL)
+        self.rename_socket("input", "nn_input")
         self.rename_socket("output", "nn_output")
 
-        self.add_component(self.nn_cleanup, leave_open="nn_output")
+        # Add the Adapter, but leave its "nn_output" open. Only connect the logits Socket.
+        self.add_component(self.nn_output_adapter, leave_open="nn_output", connections="logits")
 
     def check_input_spaces(self, input_spaces, action_space):
         # The Distribution to sample (or pick) actions from.
@@ -82,6 +82,6 @@ class Policy(Component):
         # This defines out-Sockets "sample_stochastic/sample_deterministic/entropy".
         self.add_component(self.distribution, connections=CONNECT_OUTS)
 
-        # Plug-in cleanup Component between NN and Distribution.
-        self.connect((self.neural_network, "output"), (self.nn_cleanup, "nn_output"))
-        self.connect((self.nn_cleanup, "parameters"), (self.distribution, "parameters"))
+        # Plug-in Adapter Component between NN and Distribution.
+        self.connect((self.neural_network, "output"), (self.nn_output_adapter, "nn_output"))
+        self.connect((self.nn_output_adapter, "parameters"), (self.distribution, "parameters"))
