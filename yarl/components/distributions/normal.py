@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import get_backend
+from yarl.spaces import Tuple
 from yarl.components.distributions.distribution import Distribution
 
 if get_backend() == "tf":
