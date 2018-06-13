@@ -77,7 +77,7 @@ class Worker(Specifiable):
                 Use None or 0 for no limit. Default: None.
             deterministic (Optional[bool]): Indicates deterministic execution.
         Returns:
-            dict: Collected experience samples.
+            EnvSample: EnvSample object holding the collected experiences.
         """
         pass
 
@@ -92,8 +92,7 @@ class Worker(Specifiable):
                 Use None or 0 for no limit. Default: None.
             deterministic (Optional[bool]): Indicates deterministic execution.
         Returns:
-            list: List of episode sequences, each as a dict of states,
-                actions, internals, rewards and terminals.
+            EnvSample: EnvSample object holding the collected episodes.
         """
         pass
 

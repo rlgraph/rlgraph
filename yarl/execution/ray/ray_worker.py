@@ -24,6 +24,7 @@ from yarl.backend_system import get_distributed_backend
 from yarl.agents import Agent
 from yarl.envs import Env
 from yarl.execution import Worker
+from yarl.execution.env_sample import EnvSample
 
 if get_distributed_backend() == "ray":
     import ray
@@ -44,7 +45,7 @@ class RayWorker(Worker):
             repeat_actions (int): How often actions are repeated after retrieving them from the agent.
         """
         # Should be set.
-        assert distributed_backend == "ray"
+        assert get_distributed_backend() == "ray"
 
         # First create env from spec.
         environment = Env.from_spec(env_spec)
@@ -112,21 +113,23 @@ class RayWorker(Worker):
                     # Just return all samples collected so far.
                     if break_on_terminal:
                         total_time = (time.monotonic() - start) or 1e-10
-                        return dict(
-                            runtime=total_time,
-                            # Agent act/observe throughput.
-                            timesteps_executed=timesteps_executed,
-                            ops_per_second=(timesteps_executed / total_time),
-                            # Env frames including action repeats.
-                            env_frames=env_frames,
-                            env_frames_per_second=(env_frames / total_time),
-                            episodes_executed=1,
-                            episodes_per_minute=(1 / (total_time / 60)),
-                            episode_rewards=episode_reward,
+                        return EnvSample(
                             states=states,
                             actions=actions,
                             rewards=rewards,
-                            terminals=terminals
+                            terminals=terminals,
+                            metrics=dict(
+                                runtime=total_time,
+                                # Agent act/observe throughput.
+                                timesteps_executed=timesteps_executed,
+                                ops_per_second=(timesteps_executed / total_time),
+                                # Env frames including action repeats.
+                                env_frames=env_frames,
+                                env_frames_per_second=(env_frames / total_time),
+                                episodes_executed=1,
+                                episodes_per_minute=(1 / (total_time / 60)),
+                                episode_rewards=episode_reward
+                            )
                         )
                     else:
                         break
@@ -136,21 +139,24 @@ class RayWorker(Worker):
 
         # Otherwise return when all time steps done
         total_time = (time.monotonic() - start) or 1e-10
-        return dict(
-            runtime=total_time,
-            # Agent act/observe throughput.
-            timesteps_executed=timesteps_executed,
-            ops_per_second=(timesteps_executed / total_time),
-            # Env frames including action repeats.
-            env_frames=env_frames,
-            env_frames_per_second=(env_frames / total_time),
-            episodes_executed=episodes_executed,
-            episodes_per_minute=(1 / (total_time / 60)),
-            episode_rewards=episode_rewards,
+
+        return EnvSample(
             states=states,
             actions=actions,
             rewards=rewards,
-            terminals=terminals
+            terminals=terminals,
+            metrics=dict(
+                runtime=total_time,
+                # Agent act/observe throughput.
+                timesteps_executed=timesteps_executed,
+                ops_per_second=(timesteps_executed / total_time),
+                # Env frames including action repeats.
+                env_frames=env_frames,
+                env_frames_per_second=(env_frames / total_time),
+                episodes_executed=episodes_executed,
+                episodes_per_minute=(1 / (total_time / 60)),
+                episode_rewards=episode_rewards,
+            )
         )
 
     # TODO decide later if using separate methods here for apex
