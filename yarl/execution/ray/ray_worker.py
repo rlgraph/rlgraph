@@ -19,12 +19,14 @@ from __future__ import print_function
 
 from six.moves import xrange
 import time
-import ray
 
-from yarl import distributed_backend
+from yarl import backend_system
 from yarl.agents import Agent
 from yarl.envs import Env
 from yarl.execution import Worker
+
+if backend_system.backend == "ray":
+    import ray
 
 
 @ray.remote

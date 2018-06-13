@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.utils.backend_system import backend, distributed_backend, set_backend, set_distributed_backend
 from yarl.utils.initializer import Initializer
 from yarl.utils.ops import DataOp, SingleDataOp, DataOpDict, DataOpTuple, ContainerDataOp, FlattenedDataOp
 from yarl.utils.specifiable import Specifiable
@@ -27,7 +26,7 @@ from yarl.utils.yarl_error import YARLError
 
 
 __all__ = [
-    "backend", "distributed_backend", "set_backend", "set_distributed_backend", "YARLError",
+     "YARLError",
     "Initializer", "Specifiable",
     "dtype", "get_shape", "get_rank", "force_tuple", "force_list",
     "logging_formatter", "root_logger", "tf_logger", "print_logging_handler",
