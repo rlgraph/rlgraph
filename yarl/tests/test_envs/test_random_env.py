@@ -36,7 +36,7 @@ class TestGridWorld(unittest.TestCase):
         env = RandomEnv(state_space=FloatBox(shape=(2,2)), action_space=IntBox(2), deterministic=True)
 
         # Simple test runs with fixed actions.
-        s, r, t, _ = env.reset()
+        s = env.reset()
         recursive_assert_almost_equal(s, np.array([[0.77132064, 0.02075195], [0.63364823, 0.74880388]]))
         s, r, t, _ = env.step(env.action_space.sample())
         recursive_assert_almost_equal(s, np.array([[0.76053071, 0.16911084], [0.08833981, 0.68535982]]))

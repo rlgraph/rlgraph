@@ -83,7 +83,7 @@ def recursive_assert_almost_equal(x, y, decimals=7):
             recursive_assert_almost_equal(v, y[i], decimals=decimals)
     # Boolean stuff.
     elif isinstance(x, (np.bool_, bool)):
-        assert x is y
+        assert bool(x) is bool(y), "ERROR: x ({}) is not y ({})!".format(x, y)
     # Everything else.
     else:
         np.testing.assert_almost_equal(x, y, decimal=decimals)

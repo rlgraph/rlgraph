@@ -77,13 +77,15 @@ class TestPreprocessors(unittest.TestCase):
         test.test(out_socket_names="output", inputs=input_, expected_outputs=expected)
 
     def test_split_graph_on_flatten(self):
-        space = Dict.from_spec(dict(
-            a=Tuple(FloatBox(shape=(1, 1, 2)), FloatBox(shape=(1, 2, 2))),
-            b=FloatBox(shape=(2, 2, 3)),
-            c=dict(type=float, shape=(2,)),
-            d=IntBox(3),
+        space = Dict.from_spec(
+            dict(
+                a=Tuple(FloatBox(shape=(1, 1, 2)), FloatBox(shape=(1, 2, 2))),
+                b=FloatBox(shape=(2, 2, 3)),
+                c=dict(type=float, shape=(2,)),
+                d=IntBox(3)
+            ),
             add_batch_rank=True
-        ))
+        )
 
         test = ComponentTest(component=Flatten(), input_spaces=dict(input=space))
 
