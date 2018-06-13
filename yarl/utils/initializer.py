@@ -20,9 +20,9 @@ from __future__ import print_function
 import numpy as np
 
 from yarl.backend_system import backend
-from .yarl_error import YARLError
-from .specifiable import Specifiable
-from .util import dtype
+from yarl.utils.yarl_error import YARLError
+from yarl.utils.specifiable import Specifiable
+from yarl.utils.util import dtype
 
 
 class Initializer(Specifiable):
