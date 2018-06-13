@@ -21,7 +21,7 @@ import tensorflow as tf
 from tensorflow.python.client import device_lib
 
 from yarl.graphs.graph_executor import GraphExecutor
-from yarl.backend_system import set_distributed_backend, get_distributed_backend
+from yarl.backend_system import get_distributed_backend
 
 
 class TensorFlowExecutor(GraphExecutor):
@@ -73,11 +73,11 @@ class TensorFlowExecutor(GraphExecutor):
         else:
             self.default_device = default_device
 
-        # Initialize distributed backend.
-        distributed_backend_ = self.execution_spec.get("distributed_backend", "distributed_tf")
-
-        self.logger.info("Updating global distributed backend setting with backend {}".format(distributed_backend_))
-        set_distributed_backend(distributed_backend_)
+        # # Initialize distributed backend.
+        # distributed_backend_ = self.execution_spec.get("distributed_backend", "distributed_tf")
+        #
+        # self.logger.info("Updating global distributed backend setting with backend {}".format(distributed_backend_))
+        # set_distributed_backend(distributed_backend_)
 
     def build(self):
         # Prepare for graph assembly.
@@ -136,9 +136,9 @@ class TensorFlowExecutor(GraphExecutor):
         Only relevant, if we are running in distributed mode.
         """
         if self.execution_mode == "distributed":
-            if distributed_backend == "distributed_tf":
+            if get_distributed_backend() == "distributed_tf":
                 self.setup_distributed_tf()
-            elif distributed_backend == "horovod":
+            elif get_distributed_backend() == "horovod":
                 self.setup_horovod_execution()
 
     def setup_distributed_tf(self):
@@ -166,7 +166,7 @@ class TensorFlowExecutor(GraphExecutor):
         Sets up Horovod.
         """
         # Check again to avoid import if unset which will crash if horovod is not installed.
-        if distributed_backend == "horovod":
+        if get_distributed_backend() == "horovod":
             import horovod.tensorflow as hvd
             self.logger.info("Setting up Horovod execution.")
             hvd.init()
