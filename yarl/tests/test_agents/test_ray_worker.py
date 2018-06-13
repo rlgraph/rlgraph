@@ -18,9 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
-from yarl.execution.ray import RayWorker
 
-from yarl import set_distributed_backend
+from yarl import init_backend
 
 
 class TestRayWorker(unittest.TestCase):
@@ -37,6 +36,9 @@ class TestRayWorker(unittest.TestCase):
         """
         Simply tests if time-step execution loop works and returns the samples.
         """
+        init_backend("tf", "ray")
+        from yarl.execution.ray import RayWorker
+
         worker = RayWorker(
             env_spec=self.env_spec,
             agent_config=self.agent_config,

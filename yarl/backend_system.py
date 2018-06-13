@@ -30,6 +30,11 @@ distributed_compatible_backends = dict(
 )
 
 
+def get_backend():
+    global backend
+    return backend
+
+
 def init_backend(_backend=None, _distributed_backend=None):
     """
     Initializes global backend variables.

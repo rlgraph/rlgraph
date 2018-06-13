@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import numpy as np
 
-from yarl.backend_system import backend
+from yarl.backend_system import get_backend
 from yarl.utils.yarl_error import YARLError
 from yarl.utils.specifiable import Specifiable
 from yarl.utils.util import dtype
@@ -40,7 +40,7 @@ class Initializer(Specifiable):
         # The actual underlying initializer object.
         self.initializer = None
 
-        if backend == "tf":
+        if get_backend() == "tf":
             import tensorflow as tf
         else:
             tf = None

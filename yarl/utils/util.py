@@ -26,11 +26,11 @@ import logging
 import sys
 import tensorflow as tf
 
-from yarl.backend_system import backend
+from yarl.backend_system import get_backend
 from yarl.utils.yarl_error import YARLError
 from yarl.utils.ops import DataOpTuple
 
-if backend == "tf":
+if get_backend() == "tf":
     import tensorflow as be
 else:
     import pytorch as be
