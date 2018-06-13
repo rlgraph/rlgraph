@@ -23,13 +23,14 @@ from yarl import get_distributed_backend
 from yarl.agents import Agent
 from yarl.execution.ray import RayWorker
 from yarl.execution.ray.ray_executor import RayExecutor
+import random
 from threading import Thread
 import time
 
+from yarl.execution.ray.ray_util import create_colocated_agents, RayTaskPool
+
 if get_distributed_backend() == "ray":
     import ray
-
-from yarl.execution.ray.ray_util import create_colocated_agents, RayTaskPool
 
 
 class ApexExecutor(RayExecutor):
@@ -60,6 +61,10 @@ class ApexExecutor(RayExecutor):
         # and pass them to the learner.
         self.prioritized_replay_tasks = RayTaskPool()
         self.replay_sampling_task_depth = self.cluster_spec['task_queue_depth']
+
+        # How often weights are synced to remote workers.
+        self.weight_sync_steps = self.cluster_spec['weight_sync_steps']
+        self.steps_since_weights_synced = dict()
 
         # These are the tasks actually interacting with the environment.
         self.env_sample_tasks = RayTaskPool()
@@ -112,9 +117,12 @@ class ApexExecutor(RayExecutor):
 
         # Env interaction tasks via RayWorkers which each
         # have a local agent.
+        weights = self.local_agent.get_weights()
         for ray_worker in self.ray_workers:
+            self.steps_since_weights_synced[ray_worker] = 0
+            ray_worker.set_weights.remote(weights)
             for _ in range(self.env_interaction_task_depth):
-                self.env_sample_tasks.add_task(ray_worker, ray_worker.remote.execute_and_get_timesteps(
+                self.env_sample_tasks.add_task(ray_worker, ray_worker.execute_and_get_timesteps.remote(
                     num_timesteps=self.worker_sample_size,
                     break_on_terminal=True
                 ))
@@ -157,11 +165,32 @@ class ApexExecutor(RayExecutor):
         """
         Performs a single step on the distributed Ray execution.
         """
+        # Env steps done during this rollout.
         env_steps = 0
+        weights = None
         # 1. Fetch results from RayWorkers.
-        for ray_worker, env_task in self.env_sample_tasks.get_completed():
-            # TODO wrap batch in object
-            # TODO check if learner updated, kick off update
+        for ray_worker, env_sample in self.env_sample_tasks.get_completed():
+            # Randomly add env sample to a local replay actor.
+            random_actor = random.choice(self.ray_replay_agents)
+            sample_data = env_sample.get_batch()
+
+            # TODO: Check if we should break on terminal, in that case this here overestimates num of frames
+            env_steps += self.worker_sample_size
+            random_actor.observe.remote(
+                states=sample_data['states'],
+                actions=sample_data['actions'],
+                internals=None,
+                rewards=sample_data['rewards'],
+                terminal=sample_data['terminal']
+            )
+
+            self.steps_since_weights_synced[ray_worker] += self.worker_sample_size
+            if self.steps_since_weights_synced[ray_worker] >= self.weight_sync_steps:
+                if weights is None or self.update_worker.update_done:
+                    self.update_worker.update_done = False
+                    weights = ray.put(self.local_agent.get_weights())
+                ray_worker.set_weights.remote(weights)
+                self.steps_since_weights_synced[ray_worker] = 0
 
             # Reschedule environment samples.
             self.env_sample_tasks.add_task(ray_worker, ray_worker.remote.execute_and_get_timesteps(
@@ -217,6 +246,9 @@ class UpdateWorker(Thread):
         # Terminate when host process terminates.
         self.daemon = True
 
+        # Flag for main thread.
+        self.update_done = False
+
     def run(self):
         while True:
             # Fetch input for update, update
@@ -225,3 +257,5 @@ class UpdateWorker(Thread):
             if sample_batch is not None:
                 loss = self.agent.update(batch=sample_batch)
                 self.output_queue.put((agent, sample_batch, loss))
+                self.update_done = True
+
