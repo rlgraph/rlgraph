@@ -37,13 +37,11 @@ class TestGridWorld(unittest.TestCase):
 
         # Simple test runs with fixed actions.
         # X=player's position
-        s, r, t, _ = env.reset()  # ["XH", " G"]  X=player's position
+        s = env.reset()  # ["XH", " G"]  X=player's position
         self.assertTrue(s == 0)
-        self.assertTrue(r == 0.0)
-        self.assertTrue(t is False)
         s, r, t, _ = env.step(2)  # down: [" H", "XG"]
         self.assertTrue(s == 1)
-        self.assertTrue(r == 0.0)
+        self.assertTrue(r == -1.0)
         self.assertTrue(t is False)
         s, r, t, _ = env.step(1)  # right: [" H", " X"]
         self.assertTrue(s == 3)
@@ -53,20 +51,20 @@ class TestGridWorld(unittest.TestCase):
         env.reset()  # ["XH", " G"]  X=player's position
         s, r, t, _ = env.step(1)  # right: [" X", " G"] -> in the hole
         self.assertTrue(s == 2)
-        self.assertTrue(r == -1.0)
+        self.assertTrue(r == -5.0)
         self.assertTrue(t is True)
 
         # Run against a wall.
         env.reset()  # ["XH", " G"]  X=player's position
         s, r, t, _ = env.step(3)  # left: ["XH", " G"]
         self.assertTrue(s == 0)
-        self.assertTrue(r == 0.0)
+        self.assertTrue(r == -1.0)
         self.assertTrue(t is False)
         s, r, t, _ = env.step(2)  # down: [" H", "XG"]
         self.assertTrue(s == 1)
-        self.assertTrue(r == 0.0)
+        self.assertTrue(r == -1.0)
         self.assertTrue(t is False)
         s, r, t, _ = env.step(0)  # up: ["XH", " G"]
         self.assertTrue(s == 0)
-        self.assertTrue(r == 0.0)
+        self.assertTrue(r == -1.0)
         self.assertTrue(t is False)

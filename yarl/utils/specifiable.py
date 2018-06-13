@@ -95,8 +95,12 @@ class Specifiable(object):
         constructor = None
         # None: Try __default__object (if no args/kwargs), only then constructor of cls (using args/kwargs).
         if type_ is None:
-            # We have a default object: Deepcopy that and return it.
-            if cls.__default_constructor__ is not None and ctor_args == list():
+            # We have a default constructor that was defined directly by cls (not by its children).
+            if cls.__default_constructor__ is not None and ctor_args == list() and \
+                    (not hasattr(cls.__bases__[0], "__default_constructor__") or
+                     cls.__bases__[0].__default_constructor__ is None or
+                     cls.__bases__[0].__default_constructor__ is not cls.__default_constructor__
+                    ):
                 constructor = cls.__default_constructor__
                 # Default partial's keywords into ctor_kwargs.
                 if isinstance(constructor, partial):
