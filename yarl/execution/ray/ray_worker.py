@@ -22,6 +22,8 @@ import time
 import ray
 
 from yarl import distributed_backend
+from yarl.agents import Agent
+from yarl.envs import Env
 from yarl.execution import Worker
 
 
@@ -31,10 +33,21 @@ class RayWorker(Worker):
     Ray wrapper for single threaded worker, provides further api methods to interact
     with the agent used in the worker.
     """
-    def __init__(self, **kwargs):
-        # Should be set
+    def __init__(self, env_spec, agent_config, repeat_actions=1):
+        """
+        Creates agent and environment for Ray worker.
+        Args:
+            env_spec (dict): Environment config for environment to run.
+            agent_config (dict): Agent configuration dict.
+            repeat_actions (int): How often actions are repeated after retrieving them from the agent.
+        """
+        # Should be set.
         assert distributed_backend == "ray"
-        super(RayWorker, self).__init__(**kwargs)
+
+        # Only create agent and environment in remote object.
+        agent = Agent.from_spec(agent_config)
+        environment = Env.from_spec(env_spec)
+        super(RayWorker, self).__init__(environment, agent, repeat_actions)
 
     # Remote functions to interact with this workers agent.
     def call_agent_op(self, op, inputs=None):

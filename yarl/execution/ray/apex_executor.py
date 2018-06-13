@@ -17,10 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from six.moves import queue
+
 from yarl.agents import Agent
+from yarl.execution.ray import RayWorker
 from yarl.execution.ray.ray_executor import RayExecutor
 from threading import Thread
-from six.moves import queue
 import time
 
 import ray
@@ -35,28 +37,33 @@ class ApexExecutor(RayExecutor):
 
     https://arxiv.org/abs/1803.00933
     """
-    def __init__(self, agent_config, environment_id, cluster_spec):
+    def __init__(self, environment_spec, agent_config, repeat_actions, cluster_spec):
         """
         Args:
+            environment_spec (dict): Environment spec. Each worker in the cluster will instantiate
+                an environment using this spec.
             agent_config (dict): Config dict containing agent and execution specs.
-            environment_id (str): Environment identifier. Each worker in the cluster will instantiate
-                an environment using this id.
+            # TODO this does not seem like it belong shere
+            repeat_actions (int): How often actions are repeated after retrieving them from the agent.
+
         """
         super(ApexExecutor, self).__init__(cluster_spec)
-        self.config = agent_config
-
+        self.environment_spec = environment_spec
         # Must specify an agent type.
-        assert "type" in self.config
-        self.environment_id = environment_id
+        assert "type" in self.agent_config
+        self.agent_config = agent_config
+        self.repeat_actions = repeat_actions
 
         # These are the Ray remote tasks which sample batches from the replay memory
         # and pass them to the learner.
         self.prioritized_replay_tasks = RayTaskPool()
+        self.replay_sampling_task_depth = self.cluster_spec['task_queue_depth']
 
         # These are the tasks actually interacting with the environment.
         self.env_sample_tasks = RayTaskPool()
-        self.replay_sampling_task_depth = self.cluster_spec['task_queue_depth']
         self.env_interaction_task_depth = self.cluster_spec['env_interaction_task_depth']
+
+        self.worker_sample_size = self.cluster_spec['num_worker_samples']
 
     def setup_execution(self):
         # Start Ray.
@@ -67,7 +74,7 @@ class ApexExecutor(RayExecutor):
         self.update_output_queue = queue.Queue()
 
         # Create local worker agent according to spec.
-        self.local_agent = Agent.from_spec(self.config)
+        self.local_agent = Agent.from_spec(self.agent_config)
 
         # Set up worker thread for performing updates.
         self.update_worker = UpdateWorker(
@@ -79,27 +86,36 @@ class ApexExecutor(RayExecutor):
         # Create remote sample workers based on ray cluster spec.
         self.num_sample_workers = self.cluster_spec['num_workers']
         self.ray_replay_agents = create_colocated_agents(
-            agent_config=self.config,
+            agent_config=self.agent_config,
             num_agents=self.num_sample_workers
         )
 
-        self.env_sample_agents = None
+        # Create remote workers for data collection.
+        self.ray_workers = self.create_remote_workers(
+            RayWorker,
+            self.num_sample_workers,
+            [self.environment_spec, self.agent_config, self.repeat_actions]
+        )
 
     def init_tasks(self):
         """
-        Triggers Remote ray tasks.
+        Initializes Remote ray worker tasks.
         """
 
-        # Prioritized replay sampling tasks.
+        # Prioritized replay sampling tasks via RayAgents.
         for ray_agent in self.ray_replay_agents:
             for _ in range(self.replay_sampling_task_depth):
                 # This initializes remote tasks to sample from the prioritized replay memories of each worker.
                 self.prioritized_replay_tasks.add_task(ray_agent, ray_agent.get_batch.remote())
 
-        # Env interaction tasks.
-        for ray_agent in self.env_sample_agents:
-            # TODO create wrapper for local env workers?
-            pass
+        # Env interaction tasks via RayWorkers which each
+        # have a local agent.
+        for ray_worker in self.ray_workers:
+            for _ in range(self.env_interaction_task_depth):
+                self.env_sample_tasks.add_task(ray_worker, ray_worker.remote.execute_and_get_timesteps(
+                    num_timesteps=self.worker_sample_size,
+                    break_on_terminal=True
+                ))
 
     def execute_workload(self, workload):
         """
@@ -139,12 +155,22 @@ class ApexExecutor(RayExecutor):
         """
         Performs a single step on the distributed Ray execution.
         """
-        # TODO Iterate over sample tasks
         env_steps = 0
+        # 1. Fetch results from RayWorkers.
+        for ray_worker, env_task in self.env_sample_tasks.get_completed():
+            # TODO wrap batch in object
+            # TODO check if learner updated, kick off update
+
+            # Reschedule environment samples.
+            self.env_sample_tasks.add_task(ray_worker, ray_worker.remote.execute_and_get_timesteps(
+                num_timesteps=self.worker_sample_size,
+                break_on_terminal=True
+            ))
+
         # 2. Fetch completed replay priority sampling task, move to worker, reschedule.
-        for ray_worker, replay_remote_task in self.prioritized_replay_tasks.get_completed():
+        for ray_agent, replay_remote_task in self.prioritized_replay_tasks.get_completed():
             # Immediately schedule new batch sampling tasks on these workers.
-            self.prioritized_replay_tasks.add_task(ray_worker, ray_worker.get_batch.remote())
+            self.prioritized_replay_tasks.add_task(ray_agent, ray_agent.get_batch.remote())
 
             # Retrieve results via id.
             sampled_batch = ray.get(object_ids=replay_remote_task)
@@ -152,14 +178,14 @@ class ApexExecutor(RayExecutor):
             # Pass to the agent doing the actual updates.
             # The ray worker is passed along because we need to update its priorities later in the subsequent
             # task (see loop below).
-            self.sample_input_queue.put((ray_worker, sampled_batch))
+            self.sample_input_queue.put((ray_agent, sampled_batch))
 
         # 3. Update priorities on priority sampling workers using loss values produced by update worker.
         while not self.update_output_queue.empty():
-            ray_worker, sampled_batch, loss = self.update_output_queue.get()
+            ray_agent, sampled_batch, loss = self.update_output_queue.get()
 
             # Use generic graph call op.
-            ray_worker.call_graph_op.remote("update_priorities", [sampled_batch, loss])
+            ray_agent.call_graph_op.remote("update_priorities", [sampled_batch, loss])
         return env_steps
 
 
