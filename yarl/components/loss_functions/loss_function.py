@@ -39,7 +39,12 @@ class LossFunction(Component):
         """
         Args:
             *inputs (str): The names of our in-Sockets.
+
+        Keyword Args:
+            discount (float): The discount factor (gamma).
         """
+        self.discount = kwargs.pop("discount", 0.98)
+
         super(LossFunction, self).__init__(scope=kwargs.pop("scope", "loss-function"), **kwargs)
 
         # Build our interface with a flexible number of in-Sockets.

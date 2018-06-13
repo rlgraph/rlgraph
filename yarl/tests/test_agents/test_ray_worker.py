@@ -24,7 +24,7 @@ from yarl import set_distributed_backend
 
 class TestRayWorker(unittest.TestCase):
 
-    env_spec =dict(
+    env_spec = dict(
       type="openai",
       gym_env="CartPole-v0"
     )

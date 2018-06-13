@@ -125,14 +125,18 @@ class DQNAgent(Agent):
         core.connect(self.update_spec["batch_size"], (self.memory, "num_records"))
 
         # Splitter's outputs.
-        core.connect((self.splitter, "/states"), (self.policy, "input"), label="from_memory")
+        core.connect((self.splitter, "/states"), (self.policy, "input"), label="s_from_memory")  # label s from mem
         core.connect((self.splitter, "/actions"), (self.loss_function, "actions"))
         core.connect((self.splitter, "/rewards"), (self.loss_function, "rewards"))
         core.connect((self.splitter, "/next_states"), (self.target_policy, "input"))
+        if self.double_q:
+            core.connect((self.splitter, "/next_states"), (self.policy, "input"), label="sp_from_memory")
 
         # Loss-function needs both q-values (qnet and target).
-        core.connect((self.policy, "nn_output"), (self.loss_function, "q_values"), label="from_memory")
-        core.connect((self.target_policy, "nn_output"), (self.loss_function, "q_values_s_"))
+        core.connect((self.policy, "nn_output"), (self.loss_function, "q_values"), label="s_from_memory")
+        core.connect((self.target_policy, "nn_output"), (self.loss_function, "qt_values_s_"))
+        if self.double_q:
+            core.connect((self.policy, "nn_output"), (self.loss_function, "q_values_s_"), label="sp_from_memory")
 
         # Connect the Optimizer.
         core.connect((self.loss_function, "loss"), (self.optimizer, "loss"))

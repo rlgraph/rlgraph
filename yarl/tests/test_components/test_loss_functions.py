@@ -38,7 +38,7 @@ class TestLossFunctions(unittest.TestCase):
         test = ComponentTest(
             component=dqn_loss_function,
             input_spaces=dict(q_values=q_values_space, actions=action_space, rewards=FloatBox(add_batch_rank=True),
-                              q_values_s_=q_values_space
+                              qt_values_s_=q_values_space
                               ),
             action_space=action_space
         )
@@ -48,7 +48,7 @@ class TestLossFunctions(unittest.TestCase):
             q_values=np.array([[10.0, -10.0], [-0.101, -90.6]]),
             actions=np.array([0, 1]),
             rewards=np.array([9.4, -1.23]),
-            q_values_s_=np.array([[12.0, -8.0], [22.3, 10.5]]),
+            qt_values_s_=np.array([[12.0, -8.0], [22.3, 10.5]]),
         )
         """
         Calculation:
@@ -64,7 +64,7 @@ class TestLossFunctions(unittest.TestCase):
         # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
         expected_loss_per_item = np.array([129.95999, 12470.188], dtype=np.float32)
         test.test(out_socket_names="loss_per_item", inputs=input_, expected_outputs=expected_loss_per_item)
-        # Just expect the mean over the batch.
+        # Expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
         test.test(out_socket_names="loss", inputs=input_, expected_outputs=expected_loss)
 
@@ -78,7 +78,7 @@ class TestLossFunctions(unittest.TestCase):
         test = ComponentTest(
             component=dqn_loss_function,
             input_spaces=dict(q_values=q_values_space, actions=action_space, rewards=FloatBox(add_batch_rank=True),
-                              q_values_s_=q_values_space
+                              qt_values_s_=q_values_space
                               ),
             action_space=action_space
         )
@@ -89,7 +89,7 @@ class TestLossFunctions(unittest.TestCase):
                                [[4.1, -11.1, 7.5, 2.1], [21.3, 9.5, -0.101, -90.6]]]),
             actions=np.array([[0, 3], [1, 2]]),
             rewards=np.array([9.4, -1.23]),
-            q_values_s_=np.array([[[12.0, -8.0, 7.8, 4.0], [16.2, -2.6, -6.001, 90.1]],
+            qt_values_s_=np.array([[[12.0, -8.0, 7.8, 4.0], [16.2, -2.6, -6.001, 90.1]],
                                [[5.1, -12.1, 8.5, 3.1], [22.3, 10.5, 1.098, -89.2]]]),
         )
         # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
