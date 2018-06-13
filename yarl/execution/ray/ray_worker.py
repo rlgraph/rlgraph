@@ -44,9 +44,15 @@ class RayWorker(Worker):
         # Should be set.
         assert distributed_backend == "ray"
 
+        # First create env from spec.
+        environment = Env.from_spec(env_spec)
+
+        # Then update agent config.
+        agent_config['state_space'] = environment.state_space
+        agent_config['action_space'] = environment.action_space
+
         # Only create agent and environment in remote object.
         agent = Agent.from_spec(agent_config)
-        environment = Env.from_spec(env_spec)
         super(RayWorker, self).__init__(environment, agent, repeat_actions)
 
     # Remote functions to interact with this workers agent.
@@ -76,7 +82,7 @@ class RayWorker(Worker):
         rewards = []
         terminals = []
         episode_rewards = []
-        state, _, _, _ = self.environment.reset()
+        state = self.environment.reset()
 
         while timesteps_executed < num_timesteps:
             # The reward accumulated over one episode.
