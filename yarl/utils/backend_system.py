@@ -59,7 +59,12 @@ def set_distributed_backend(_distributed_backend=None):
             try:
                 import horovod
             except ModuleNotFoundError as e:
-                raise YARLError("INIT ERROR: Cannot run YARL with distributed backend horovod.")
+                raise YARLError("INIT ERROR: Cannot run YARL with distributed backend Horovod.")
+        elif distributed_backend == "ray":
+            try:
+                import ray
+            except ModuleNotFoundError as e:
+                raise YARLError("INIT ERROR: Cannot run YARL with distributed backend Ray.")
         else:
             raise YARLError("Distributed backend {} not supported".format(distributed_backend))
 

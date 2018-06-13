@@ -17,10 +17,34 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.execution.ray.ray_agent import RayAgent
-from yarl.execution.ray.ray_worker import RayWorker
-from yarl.execution.ray.ray_executor import RayExecutor
-from yarl.execution.ray.apex_executor import ApexExecutor
+import unittest
 
-__all__ = ["RayExecutor", "ApexExecutor", "RayAgent", "RayWorker"]
+from yarl import set_distributed_backend
 
+
+class TestRayWorker(unittest.TestCase):
+
+    env_spec =dict(
+      type="openai",
+      gym_env="CartPole-v0"
+    )
+    agent_config = dict(
+        type="random"
+    )
+
+    def test_get_timesteps(self):
+        """
+        Simply tests if time-step execution loop works and returns the samples.
+        """
+        # Ensure Ray is set.
+        set_distributed_backend(_distributed_backend="ray")
+        from yarl.execution.ray import RayWorker
+
+        worker = RayWorker(
+            env_spec=self.env_spec,
+            agent_config=self.agent_config,
+        )
+
+        # Test when breaking on terminal.
+        result = worker.execute_and_get_timesteps(100, break_on_terminal=True)
+        print(result)
