@@ -61,35 +61,7 @@ class DQNLossFunction(LossFunction):
             "ERROR: action_space for DQN must be IntBox (for now) and have a `num_categories` attribute that's " \
             "not None!"
 
-    def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, qt_values_sp):
-        """
-        Args:
-            q_values_s (SingleDataOp): The batch of Q-values representing the expected accumulated discounted returns
-                when in s and taking different actions a.
-            actions (SingleDataOp): The batch of actions that were actually taken in states s (from a memory).
-            rewards (SingleDataOp): The batch of rewards that we received after having taken a in s (from a memory).
-            qt_values_sp (SingleDataOp): The batch of Q-values representing the expected accumulated discounted
-                returns (estimated by the target net) when in s' and taking different actions a'.
-
-        Returns:
-            SingleDataOp: The loss values vector (one single value for each batch item).
-        """
-        if backend == "tf":
-            # Qt(s',a') -> Use the max(a') one (from the target network).
-            qt_sp_ap_values = tf.reduce_max(input_tensor=qt_values_sp, axis=-1)
-
-            # Q(s,a) -> Use the Q-value of the action actually taken before.
-            one_hot = tf.one_hot(indices=actions, depth=self.action_space.num_categories)
-            q_s_a_values = tf.reduce_sum(input_tensor=(q_values_s * one_hot), axis=-1)
-
-            # Calculate the TD-delta (target - current estimate).
-            td_delta = (rewards + self.discount * qt_sp_ap_values) - q_s_a_values
-            # Reduce over the composite actions?
-            if get_rank(td_delta) > 1:
-                td_delta = tf.reduce_mean(input_tensor=td_delta, axis=-1)
-            return tf.pow(x=td_delta, y=2)
-
-    def _graph_fn_loss_per_item_with_double_q(self, q_values_s, actions, rewards, qt_values_sp, q_values_sp=None):
+    def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, qt_values_sp, q_values_sp=None):
         """
         Args:
             q_values_s (SingleDataOp): The batch of Q-values representing the expected accumulated discounted returns
@@ -128,3 +100,4 @@ class DQNLossFunction(LossFunction):
             if get_rank(td_delta) > 1:
                 td_delta = tf.reduce_mean(input_tensor=td_delta, axis=-1)
             return tf.pow(x=td_delta, y=2)
+
