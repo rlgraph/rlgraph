@@ -21,7 +21,7 @@ from cached_property import cached_property
 import numpy as np
 import re
 
-from yarl import backend, YARLError
+from yarl import get_backend, YARLError
 from yarl.utils import dtype, Initializer
 from yarl.spaces.space import Space
 
@@ -124,7 +124,7 @@ class BoxSpace(Space):
         add_batch_rank = self.has_batch_rank if add_batch_rank is None else add_batch_rank
         batch_rank = () if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,)
         shape = tuple(batch_rank + self.shape)
-        if backend == "tf":
+        if get_backend() == "tf":
             import tensorflow as tf
             # TODO: re-evaluate the cutting of a leading '/_?' (tf doesn't like it)
             name = re.sub(r'^/_?', "", name)

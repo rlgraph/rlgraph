@@ -17,13 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import backend
+from yarl import get_backend
 from yarl.components.layers.preprocessing import PreprocessLayer
 from yarl.utils.util import default_dict
 
 from .stack import Stack
 
-if backend == "tf":
+if get_backend() == "tf":
     import tensorflow as tf
 
 
@@ -66,7 +66,7 @@ class PreprocessorStack(Stack):
         self.add_graph_fn(resets, "reset", self._graph_fn_reset)
 
     def _graph_fn_reset(self, *preprocessor_resets):
-        if backend == "tf":
+        if get_backend() == "tf":
             with tf.control_dependencies(preprocessor_resets):
                 return tf.no_op()
 

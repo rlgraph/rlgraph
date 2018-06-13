@@ -18,9 +18,12 @@ from __future__ import division
 from __future__ import print_function
 
 from six.moves import xrange
-
 import logging
-import ray
+from yarl import get_distributed_backend
+
+
+if get_distributed_backend() == "ray":
+    import ray
 
 
 class RayExecutor(object):

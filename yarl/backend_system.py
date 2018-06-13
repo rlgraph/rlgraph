@@ -20,10 +20,10 @@ from __future__ import print_function
 from yarl.utils.yarl_error import YARLError
 
 # Default backend ('tf' for tensorflow or 'pt' for PyTorch)
-# backend = "tf"
+BACKEND = "tf"
 
 # Default distributed backend is distributed TensorFlow.
-#distributed_backend = "distributed_tf"
+DISTRIBUTED_BACKEND = "ray"
 
 distributed_compatible_backends = dict(
     tf=["distributed_tf", "ray", "horovod"]
@@ -31,8 +31,11 @@ distributed_compatible_backends = dict(
 
 
 def get_backend():
-    global backend
-    return backend
+    return BACKEND
+
+
+def get_distributed_backend():
+    return DISTRIBUTED_BACKEND
 
 
 def init_backend(_backend=None, _distributed_backend=None):
@@ -105,7 +108,7 @@ def set_backend(backend_):
     if backend_ is not None:
         backend = backend_
         # Try TensorFlow
-        if backend == "tf" or backend == "tf-eager":
+        if get_backend() == "tf" or backend == "tf-eager":
             try:
                 import tensorflow as tf
             except ModuleNotFoundError as e:

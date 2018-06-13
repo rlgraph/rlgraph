@@ -17,12 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import backend
+from yarl import get_backend
 from yarl.utils.util import get_rank
 from yarl.components.loss_functions import LossFunction
 from yarl.spaces import IntBox
 
-if backend == "tf":
+if get_backend() == "tf":
     import tensorflow as tf
 
 
@@ -77,7 +77,7 @@ class DQNLossFunction(LossFunction):
         Returns:
             SingleDataOp: The loss values vector (one single value for each batch item).
         """
-        if backend == "tf":
+        if get_backend() == "tf":
             if self.double_q:
                 # For double-Q, we no longer use the max(a')Qt(s'a') value.
                 # Instead, the a' used to get the Qt(s'a') is given by argmax(a') Q(s',a') <- Q=q-net, not target net!

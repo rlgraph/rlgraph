@@ -30,7 +30,7 @@ def backend_executor(backend="tf"):
 
     Returns: Executioner for the specified backend.
     """
-    if backend == "tf":
+    if get_backend() == "tf":
         return TensorFlowExecutor
 
 

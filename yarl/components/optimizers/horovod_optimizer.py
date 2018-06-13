@@ -17,11 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import backend, distributed_backend
+from yarl import get_backend, get_distributed_backend
 from yarl.components.optimizers.optimizer import Optimizer
 
 
-if backend == "tf" and distributed_backend == "horovod":
+if get_backend() == "tf" and get_distributed_backend() == "horovod":
     import horovod.tensorflow as hvd
 
 

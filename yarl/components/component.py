@@ -23,7 +23,7 @@ import numpy as np
 import re
 import uuid
 
-from yarl import YARLError, backend, Specifiable
+from yarl import YARLError, get_backend, Specifiable
 from yarl.utils.ops import SingleDataOp
 from yarl.components.socket_and_graph_fn import Socket, GraphFunction
 from yarl.utils.ops import DataOpDict
@@ -38,9 +38,9 @@ CONNECT_OUTS = 0x2
 # Whether to expose all in/out-Sockets (in calls to add_component(s))
 CONNECT_ALL = 0x4
 
-if backend == "tf":
+if get_backend() == "tf":
     import tensorflow as tf
-elif backend == "tf-eager":
+elif get_backend() == "tf-eager":
     import tensorflow as tf
     import tensorflow.contrib.eager as eager
 
@@ -177,7 +177,7 @@ class Component(Specifiable):
         # Allow the Component to check its input Space.
         self.check_input_spaces(input_spaces, action_space)
         # Allow the Component to create all its variables.
-        if backend == "tf":
+        if get_backend() == "tf":
             with tf.variable_scope(self.global_scope):
                 self.create_variables(input_spaces, action_space)
         # Add all created variables up the parent/container hierarchy.
@@ -277,7 +277,7 @@ class Component(Specifiable):
                 var = from_space.get_tensor_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable,
                                                      initializer=initializer)
         # Direct variable creation (using the backend).
-        elif backend == "tf":
+        elif get_backend() == "tf":
             # Provide a shape, if initializer is not given or it is an actual Initializer object (rather than an array
             # of fixed values, for which we then don't need a shape as it comes with one).
             if initializer is None or isinstance(initializer, tf.keras.initializers.Initializer):
@@ -289,7 +289,7 @@ class Component(Specifiable):
             var = tf.get_variable(
                 name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
             )
-        elif backend == "tf-eager":
+        elif get_backend == "tf-eager":
             shape = tuple((() if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,))
                           + (shape or ()))
 
@@ -319,9 +319,9 @@ class Component(Specifiable):
                 Variables. Default: False.
 
         Returns:
-            dict: A dict mapping variable names to their backend variables.
+            dict: A dict mapping variable names to their get_backend variables.
         """
-        if backend == "tf":
+        if get_backend() == "tf":
             collections = kwargs.pop("collections", None) or tf.GraphKeys.TRAINABLE_VARIABLES
             custom_scope_separator = kwargs.pop("custom_scope_separator", "/")
             global_scope = kwargs.pop("global_scope", True)
@@ -1119,7 +1119,7 @@ class Component(Specifiable):
         Returns:
             Optional[op]: The graph operation representing the update (or None).
         """
-        if backend == "tf":
+        if get_backend() == "tf":
             return tf.scatter_update(ref=variable, indices=indices, updates=updates)
 
     @staticmethod
@@ -1134,7 +1134,7 @@ class Component(Specifiable):
         Returns:
             Optional[op]: None or the graph operation representing the assginment.
         """
-        if backend == "tf":
+        if get_backend() == "tf":
             return tf.assign(ref=ref, value=value)
 
     @staticmethod
@@ -1149,7 +1149,7 @@ class Component(Specifiable):
         Returns:
             any: Variable values.
         """
-        if backend == "tf":
+        if get_backend() == "tf":
             if indices is not None:
                 # Could be redundant, question is if there may be special read operations
                 # in other backends, or read from remote variable requiring extra args.

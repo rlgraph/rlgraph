@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import backend
+from yarl import get_backend
 from yarl.spaces import Space
 from yarl.utils.util import SMALL_NUMBER
 from yarl.components.layers.preprocessing import PreprocessLayer
@@ -48,7 +48,7 @@ class Normalize(PreprocessLayer):
         min_value = input_
         max_value = input_
 
-        if backend == "tf":
+        if get_backend() == "tf":
             import tensorflow as tf
             # Iteratively reduce dimensionality across all axes to get the min/max values for each sample in the batch.
             for axis in self.axes:

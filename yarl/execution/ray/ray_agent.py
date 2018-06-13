@@ -19,10 +19,10 @@ from __future__ import print_function
 
 import os
 
-from yarl import distributed_backend
+from yarl import get_distributed_backend
 from yarl.agents import Agent
 
-if distributed_backend == "ray":
+if get_distributed_backend() == "ray":
     import ray
 
 

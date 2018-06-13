@@ -64,7 +64,7 @@ def dtype(dtype_, to="tf"):
         TensorFlow or Numpy data type (depending on `to` parameter).
     """
     # bool: tensorflow
-    if backend == "tf":
+    if get_backend() == "tf":
         if dtype_ in ["bool", bool, np.bool_, be.bool]:
             return np.bool_ if to == "np" else be.bool
     # bool: pytorch backend (not supported)
@@ -94,7 +94,7 @@ def get_rank(tensor):
     Returns:
         The rank of the given tensor.
     """
-    if backend == "tf":
+    if get_backend() == "tf":
         return tensor.get_shape().ndims
 
 

@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import Specifiable, backend
+from yarl import Specifiable, get_backend
 from yarl.graphs.graph_executor import GraphExecutor
 from yarl.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
 from yarl.components import  Exploration, PreprocessorStack, NeuralNetwork, Policy, Optimizer, SGDOptimizer
@@ -100,7 +100,7 @@ class Agent(Specifiable):
         # Create our GraphBuilder and -Executor.
         self.graph_builder = GraphBuilder(action_space=self.action_space)
         self.graph_executor = GraphExecutor.from_spec(
-            backend,
+            get_backend(),
             graph_builder=self.graph_builder,
             execution_spec=self.execution_spec
         )  # type: GraphExecutor

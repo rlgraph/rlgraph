@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import backend
+from yarl import get_backend
 from yarl.utils import root_logger
 from yarl.components import CONNECT_ALL
 from yarl.graphs import GraphBuilder
@@ -62,7 +62,7 @@ class ComponentTest(object):
 
         # Build the model.
         self.graph_executor = GraphExecutor.from_spec(
-            backend,
+            get_backend(),
             graph_builder=self.graph_builder,
             execution_spec=dict(seed=self.seed)
         )

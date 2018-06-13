@@ -21,7 +21,7 @@ import tensorflow as tf
 from tensorflow.python.client import device_lib
 
 from yarl.graphs.graph_executor import GraphExecutor
-from yarl.backend_system import set_distributed_backend, distributed_backend
+from yarl.backend_system import set_distributed_backend, get_distributed_backend
 
 
 class TensorFlowExecutor(GraphExecutor):

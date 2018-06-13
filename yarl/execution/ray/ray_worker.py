@@ -20,12 +20,12 @@ from __future__ import print_function
 from six.moves import xrange
 import time
 
-from yarl.backend_system import get_backend
+from yarl.backend_system import get_distributed_backend
 from yarl.agents import Agent
 from yarl.envs import Env
 from yarl.execution import Worker
 
-if get_backend() == "ray":
+if get_distributed_backend() == "ray":
     import ray
 
 

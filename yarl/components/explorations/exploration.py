@@ -17,13 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import YARLError, backend
+from yarl import get_backend
 from yarl.utils.util import dtype
 from yarl.components import Component
-from yarl.spaces import Space, IntBox
+from yarl.spaces import IntBox
 from .epsilon_exploration import EpsilonExploration
 
-if backend == "tf":
+if get_backend() == "tf":
     import tensorflow as tf
 
 
@@ -95,7 +95,7 @@ class Exploration(Component):
         Returns:
             DataOp: The DataOp representing the action. This will match the shape of self.action_space.
         """
-        if backend == "tf":
+        if get_backend() == "tf":
             return tf.cond(do_explore,
                            # (1,) = Adding artificial batch rank.
                            true_fn=lambda: tf.random_uniform(shape=(1,) + self.action_space.shape,

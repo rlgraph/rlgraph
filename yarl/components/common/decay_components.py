@@ -19,11 +19,11 @@ from __future__ import print_function
 
 from functools import partial
 
-from yarl import backend
+from yarl import get_backend
 from yarl.utils import util
 from yarl.components import Component
 
-if backend == "tf":
+if get_backend() == "tf":
     import tensorflow as tf
 
 
@@ -81,7 +81,7 @@ class DecayComponent(Component):
         Returns:
             DataOp: The decay'd value depending on the current time step.
         """
-        if backend == "tf":
+        if get_backend() == "tf":
             return tf.cond(
                 pred=(time_step <= self.start_timestep),
                 # We are still in pre-decay time.
@@ -119,7 +119,7 @@ class PolynomialDecay(DecayComponent):
         self.power = power
 
     def decay(self, time_steps_in_decay_window):
-        if backend == "tf":
+        if get_backend() == "tf":
             return tf.train.polynomial_decay(
                 learning_rate=self.from_,
                 global_step=time_steps_in_decay_window,
@@ -163,7 +163,7 @@ class ExponentialDecay(DecayComponent):
         self.half_life_timesteps = half_life if half_life is not None else self.num_timesteps / num_half_lives
 
     def decay(self, time_steps_in_decay_window):
-        if backend == "tf":
+        if get_backend() == "tf":
             return tf.train.exponential_decay(
                 learning_rate=self.from_,
                 global_step=time_steps_in_decay_window,

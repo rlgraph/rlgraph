@@ -17,12 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import backend
+from yarl import get_backend
 
 from yarl.utils.initializer import Initializer
 from .nn_layer import NNLayer
 
-if backend == "tf":
+if get_backend() == "tf":
     import tensorflow as tf
 
 
@@ -63,7 +63,7 @@ class DenseLayer(NNLayer):
         self.biases_init = Initializer.from_spec(shape=biases_shape, specification=self.biases_spec)
 
         # Wrapper for backend.
-        if backend == "tf":
+        if get_backend() == "tf":
             self.layer = tf.layers.Dense(
                 units=self.units,
                 kernel_initializer=self.weights_init.initializer,

@@ -27,7 +27,7 @@ from yarl.utils.yarl_error import YARLError
 
 __all__ = [
      "YARLError",
-    "Initializer", "Specifiable",
+     "Initializer", "Specifiable",
     "dtype", "get_shape", "get_rank", "force_tuple", "force_list",
     "logging_formatter", "root_logger", "tf_logger", "print_logging_handler",
     "DataOp", "SingleDataOp", "DataOpDict", "DataOpTuple", "ContainerDataOp", "FlattenedDataOp",

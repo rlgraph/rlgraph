@@ -21,12 +21,12 @@ from math import log
 import numpy as np
 from six.moves import xrange as range_
 
-from yarl import backend, YARLError, SMALL_NUMBER
+from yarl import get_backend, YARLError, SMALL_NUMBER
 from yarl.components import Component
 from yarl.components.layers import DenseLayer
 from yarl.spaces import Space, IntBox, ContainerSpace
 
-if backend == "tf":
+if get_backend() == "tf":
     import tensorflow as tf
 
 
@@ -111,7 +111,7 @@ class NNOutputCleanup(Component):
         """
         # Reshape logits to action shape
         shape = self.target_space.get_shape(with_batch_rank=-1, with_category_rank=True)
-        if backend == "tf":
+        if get_backend() == "tf":
             logits = tf.reshape(tensor=nn_outputs_plus_bias, shape=shape)
 
             # Convert logits into probabilities and clamp them at SMALL_NUMBER.

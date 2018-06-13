@@ -20,10 +20,11 @@ from __future__ import print_function
 import os
 
 import logging
-from yarl import YARLError
+from yarl import YARLError, get_distributed_backend
 from yarl.execution.ray import RayAgent
 
-import ray
+if get_distributed_backend() == "ray":
+    import ray
 
 
 # Largely follow utils used in Ray RLlib ported to use the RayAgent wrapper.

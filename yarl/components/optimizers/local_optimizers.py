@@ -17,11 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import backend
+from yarl import get_backend
 from yarl.components.optimizers.optimizer import Optimizer
 from yarl.utils.ops import DataOpTuple
 
-if backend == "tf":
+if get_backend() == "tf":
     import tensorflow as tf
 
 
@@ -39,7 +39,7 @@ class LocalOptimizer(Optimizer):
         self.optimizer = None
 
     def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
-        if backend == "tf":
+        if get_backend() == "tf":
             grads_and_vars = DataOpTuple(self.optimizer.compute_gradients(
                 loss=loss,
                 var_list=list(variables.values()) if isinstance(variables, dict) else variables
@@ -48,7 +48,7 @@ class LocalOptimizer(Optimizer):
             return grads_and_vars
 
     def _graph_fn_apply_gradients(self, grads_and_vars):
-        if backend == "tf":
+        if get_backend() == "tf":
             return self.optimizer.apply_gradients(
                 grads_and_vars=grads_and_vars
             )
@@ -66,7 +66,7 @@ class GradientDescentOptimizer(LocalOptimizer):
             **kwargs
         )
 
-        if backend == "tf":
+        if get_backend() == "tf":
             self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
 
 
@@ -80,7 +80,7 @@ class AdamOptimizer(LocalOptimizer):
             learning_rate=learning_rate, scope=kwargs.pop("scope", "adam-optimizer"), **kwargs
         )
 
-        if backend == "tf":
+        if get_backend() == "tf":
             self.optimizer = tf.train.AdamOptimizer(
                 learning_rate=self.learning_rate,
                 beta1=kwargs.pop("beta_1", kwargs.pop("beta1", 0.9)),
@@ -98,7 +98,7 @@ class NadamOptimizer(LocalOptimizer):
             learning_rate=learning_rate, scope=kwargs.pop("scope", "nadam-optimizer"), **kwargs
         )
 
-        if backend == "tf":
+        if get_backend() == "tf":
             self.optimizer = tf.keras.optimizers.Nadam(
                 lr=self.learning_rate,
                 beta_1=kwargs.pop("beta_1", kwargs.pop("beta1", 0.9)),
@@ -120,7 +120,7 @@ class AdagradOptimizer(LocalOptimizer):
             **kwargs
         )
 
-        if backend == "tf":
+        if get_backend() == "tf":
             self.optimizer = tf.train.AdagradOptimizer(
                 learning_rate=self.learning_rate,
                 initial_accumulator_value=kwargs.pop("initial_accumulator_value", 0.1)
@@ -137,7 +137,7 @@ class AdadeltaOptimizer(LocalOptimizer):
             learning_rate=learning_rate, scope=kwargs.pop("scope", "adadelta-optimizer"), **kwargs
         )
 
-        if backend == "tf":
+        if get_backend() == "tf":
             self.optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.learning_rate, rho=kwargs.pop("rho", 0.95))
 
 
@@ -151,7 +151,7 @@ class SGDOptimizer(LocalOptimizer):
             learning_rate=learning_rate, scope=kwargs.pop("scope", "sgd-optimizer"), **kwargs
         )
 
-        if backend == "tf":
+        if get_backend() == "tf":
             self.optimizer = tf.keras.optimizers.SGD(
                 lr=self.learning_rate, momentum=kwargs.pop("momentum", 0.0), decay=kwargs.pop("decay", 0.0),
                 nesterov=kwargs.pop("nesterov", False))
@@ -167,5 +167,5 @@ class RMSPropOptimizer(LocalOptimizer):
             learning_rate=learning_rate, scope=kwargs.pop("scope", "rmsprop-optimizer"), **kwargs
         )
 
-        if backend == "tf":
+        if get_backend() == "tf":
             self.optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.learning_rate, rho=kwargs.pop("rho", 0.95))

@@ -17,12 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import YARLError, backend
+from yarl import YARLError, get_backend
 from yarl.utils.ops import DataOpDict, SingleDataOp
 from yarl.utils.util import get_shape
 from yarl.components import Component, Socket
 
-if backend == "tf":
+if get_backend() == "tf":
     import tensorflow as tf
 
 
@@ -90,6 +90,6 @@ class Synchronizable(Component):
             syncs.append(self.assign_variable(var_to, var_from))
 
         # Bundle everything into one "sync"-op.
-        if backend == "tf":
+        if get_backend() == "tf":
             with tf.control_dependencies(syncs):
                 return tf.no_op()

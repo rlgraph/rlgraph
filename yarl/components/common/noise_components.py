@@ -17,10 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import backend
+from yarl import get_backend
 from yarl.components import Component
 
-if backend == "tf":
+if get_backend() == "tf":
     import tensorflow as tf
 
 
@@ -75,7 +75,7 @@ class ConstantNoise(NoiseComponent):
         self.value = value
 
     def noise(self):
-        if backend == "tf":
+        if get_backend() == "tf":
             return tf.constant(self.value)
 
 
@@ -90,7 +90,7 @@ class GaussianNoise(NoiseComponent):
         self.sd = sd
 
     def noise(self):
-        if backend == "tf":
+        if get_backend() == "tf":
             return tf.random_normal(
                 shape=(1,) + self.action_space.shape,
                 mean=self.mean,
@@ -120,7 +120,7 @@ class OrnsteinUhlenbeckNoise(NoiseComponent):
         self.theta = theta
 
     def noise(self):
-        if backend == "tf":
+        if get_backend() == "tf":
             standard_noise = tf.random_normal(
                 shape=self.action_space.shape,
                 mean=0.0,

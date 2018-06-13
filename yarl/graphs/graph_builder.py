@@ -21,15 +21,14 @@ import itertools
 import logging
 import numpy as np
 
-from yarl import YARLError, Specifiable, backend
+from yarl import YARLError, Specifiable, get_backend
 from yarl.components import Component, Socket, GraphFunction
-from yarl.spaces import Space
 from yarl.spaces.space_utils import split_flattened_input_ops, convert_ops_to_op_records, get_space_from_op
 from yarl.utils.util import all_combinations, force_list, force_tuple, get_shape
 from yarl.utils.ops import SingleDataOp, FlattenedDataOp, DataOpRecord
 from yarl.utils.debug_printout import print_out_component
 
-if backend == "tf":
+if get_backend() == "tf":
     import tensorflow as tf
 
 
@@ -300,7 +299,7 @@ class GraphBuilder(Specifiable):
             graph_fn (GraphFunction): GraphFunction to assign device to.
             assigned_device (str): Device identifier.
         """
-        if backend == "tf":
+        if get_backend() == "tf":
             if assigned_device not in self.available_devices:
                 self.logger.error("Assigned device {} for graph_fn {} not in available devices:\n {}".
                                   format(assigned_device, graph_fn, self.available_devices))

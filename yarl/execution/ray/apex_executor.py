@@ -19,13 +19,15 @@ from __future__ import print_function
 
 from six.moves import queue
 
+from yarl import get_distributed_backend
 from yarl.agents import Agent
 from yarl.execution.ray import RayWorker
 from yarl.execution.ray.ray_executor import RayExecutor
 from threading import Thread
 import time
 
-import ray
+if get_distributed_backend() == "ray":
+    import ray
 
 from yarl.execution.ray.ray_util import create_colocated_agents, RayTaskPool
 
