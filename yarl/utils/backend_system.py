@@ -26,7 +26,7 @@ backend = "tf"
 distributed_backend = "distributed_tf"
 
 distributed_compatible_backends = dict(
-    tf=["distributed_tf", "horovod"]
+    tf=["distributed_tf", "ray", "horovod"]
 )
 
 

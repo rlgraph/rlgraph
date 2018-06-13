@@ -82,7 +82,7 @@ class RayWorker(Worker):
         rewards = []
         terminals = []
         episode_rewards = []
-        state, _, _, _ = self.environment.reset()
+        state = self.environment.reset()
 
         while timesteps_executed < num_timesteps:
             # The reward accumulated over one episode.
