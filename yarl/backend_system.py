@@ -20,17 +20,37 @@ from __future__ import print_function
 from yarl.utils.yarl_error import YARLError
 
 # Default backend ('tf' for tensorflow or 'pt' for PyTorch)
-backend = "tf"
+# backend = "tf"
 
 # Default distributed backend is distributed TensorFlow.
-distributed_backend = "distributed_tf"
+#distributed_backend = "distributed_tf"
 
 distributed_compatible_backends = dict(
     tf=["distributed_tf", "ray", "horovod"]
 )
 
 
-def set_distributed_backend(_distributed_backend=None):
+def init_backend(_backend=None, _distributed_backend=None):
+    """
+    Initializes global backend variables.
+    Args:
+        _backend (Optional[str]): Execution backend for the computation graph. Defaults
+            to TensorFlow ("tf").
+        _distributed_backend (Optional[str]): Distributed backend. Must be compatible with _backend.
+            Defaults to Ray ("ray).
+
+    Returns:
+
+    """
+    if _backend is None:
+        _backend = "tf"
+    set_backend(_backend)
+    if _distributed_backend is None:
+        _distributed_backend = "ray"
+    set_distributed_backend(_distributed_backend)
+
+
+def set_distributed_backend(_distributed_backend):
     """
     Sets the distributed backend. Must be compatible with configured backend.
 
@@ -41,7 +61,6 @@ def set_distributed_backend(_distributed_backend=None):
 
     if _distributed_backend is not None:
         distributed_backend = _distributed_backend
-
         # Distributed backend must be compatible with backend.
         if distributed_backend not in distributed_compatible_backends[backend]:
            raise YARLError("Distributed backend {} not compatible with backend {}. Compatible backends"
@@ -69,7 +88,7 @@ def set_distributed_backend(_distributed_backend=None):
             raise YARLError("Distributed backend {} not supported".format(distributed_backend))
 
 
-def set_backend(backend_=None):
+def set_backend(backend_):
     """
     Gets or sets the computation backend for YARL.
 
@@ -102,4 +121,3 @@ def set_backend(backend_=None):
                 raise YARLError("INIT ERROR: Cannot run YARL in backend 'tf-eager'! "
                                 "Your version of tf ({}) does not support eager execution. Update with "
                                 "`pip install --upgrade tensorflow`.".format(tf.__version__))
-

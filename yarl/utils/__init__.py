@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.utils.backend_system import backend, distributed_backend, set_backend, set_distributed_backend
+from yarl.backend_system import backend, distributed_backend, set_backend, set_distributed_backend
 from yarl.utils.initializer import Initializer
 from yarl.utils.ops import DataOp, SingleDataOp, DataOpDict, DataOpTuple, ContainerDataOp, FlattenedDataOp
 from yarl.utils.specifiable import Specifiable

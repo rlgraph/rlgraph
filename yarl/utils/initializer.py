@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import numpy as np
 
-from .backend_system import backend
+from yarl.backend_system import backend
 from .yarl_error import YARLError
 from .specifiable import Specifiable
 from .util import dtype

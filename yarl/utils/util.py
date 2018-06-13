@@ -26,7 +26,7 @@ import logging
 import sys
 import tensorflow as tf
 
-from yarl.utils.backend_system import backend
+from yarl.backend_system import backend
 from yarl.utils.yarl_error import YARLError
 from yarl.utils.ops import DataOpTuple
 
