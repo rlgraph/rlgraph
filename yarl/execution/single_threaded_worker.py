@@ -106,7 +106,7 @@ class SingleThreadedWorker(Worker):
 
             # Start a new episode.
             episode_start = time.monotonic()  # wall time
-            state, _, _, _ = self.environment.reset()
+            state = self.environment.reset()
             while True:
                 action = self.agent.get_action(states=state, deterministic=deterministic)
 

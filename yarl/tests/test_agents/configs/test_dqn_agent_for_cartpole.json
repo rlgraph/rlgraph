@@ -1,0 +1,48 @@
+{
+  "type": "dqn",
+
+  "memory_spec":
+  {
+    "type": "replay",
+    "capacity": 128
+  },
+
+  "preprocessing_spec":
+  [
+    {
+      "type": "flatten"
+    }
+  ],
+
+  "network_spec":
+  [
+    {
+      "type": "dense",
+      "units": 16,
+      "scope": "hid1"
+    },
+    {
+      "type": "dense",
+      "units": 2,
+      "scope": "output-layer"
+    }
+  ],
+
+  "exploration_spec":
+  {
+    "non_explore_behavior": "max-likelihood",
+    "epsilon_spec": {
+      "decay": "linear_decay",
+      "from": 1.0,
+      "to": 0.1,
+      "start_timestep": 0,
+      "num_timesteps": 1000
+    }
+  },
+
+  "update_spec": {
+    "do_updates": true,
+    "update_interval": 4,
+    "batch_size": 64
+  }
+}

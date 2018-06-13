@@ -53,7 +53,7 @@ class Env(Specifiable):
         Resets the state of the environment, returning an initial observation.
 
         Returns:
-            tuple: A tuple of (state, reward, is-terminal, info).
+            tuple: The Env's state after the reset.
         """
         raise NotImplementedError
 

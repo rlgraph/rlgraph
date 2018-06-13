@@ -93,10 +93,7 @@ class OpenAIGymEnv(Env):
             Space: The translated yarl Space.
         """
         if isinstance(space, gym.spaces.Discrete):
-            if space.n == 2:
-                return BoolBox()
-            else:
-                return IntBox(space.n)
+            return IntBox(space.n)
         elif isinstance(space, gym.spaces.MultiBinary):
             return BoolBox(shape=(space.n,))
         elif isinstance(space, gym.spaces.MultiDiscrete):

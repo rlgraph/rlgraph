@@ -22,7 +22,7 @@ import unittest
 
 from yarl.agents import DQNAgent
 import yarl.spaces as spaces
-from yarl.envs import GridWorld, RandomEnv
+from yarl.envs import GridWorld, RandomEnv, OpenAIGymEnv
 from yarl.execution.single_threaded_worker import SingleThreadedWorker
 from yarl.utils import root_logger
 
@@ -39,7 +39,7 @@ class TestDQNAgent(unittest.TestCase):
         """
         env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
         agent = DQNAgent.from_spec(
-            "configs/test_dqn_agent_for_2_actions.json",
+            "configs/test_dqn_agent_for_random_env.json",
             state_space=env.state_space,
             action_space=env.action_space
         )
@@ -60,13 +60,13 @@ class TestDQNAgent(unittest.TestCase):
         """
         env = GridWorld("2x2")
         agent = DQNAgent.from_spec(
-            "configs/test_dqn_agent_for_4_actions.json",
+            "configs/test_dqn_agent_for_2x2_grid.json",
             state_space=env.state_space,
             action_space=env.action_space,
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=10),
-            update_spec=dict(batch_size=16),
-            optimizer_spec=dict(learning_rate=0.01)
+            update_spec=dict(update_interval=4, batch_size=16, sync_interval=32),
+            optimizer_spec=dict(learning_rate=0.013)
         )
 
         worker = SingleThreadedWorker(environment=env, agent=agent)
@@ -74,7 +74,31 @@ class TestDQNAgent(unittest.TestCase):
 
         self.assertEqual(results["timesteps_executed"], 1000)
         self.assertEqual(results["env_frames"], 1000)
-        self.assertAlmostEqual(results["mean_episode_reward"], -2.9283276450511946)
+        self.assertAlmostEqual(results["mean_episode_reward"], -2.522292993630573)
         self.assertAlmostEqual(results["final_episode_reward"], 0)
-        self.assertEqual(results["episodes_executed"], 293)
+        self.assertEqual(results["episodes_executed"], 314)
 
+    def test_dqn_on_cart_pole(self):
+        """
+        Creates a DQNAgent and runs it via a Runner on the CartPole Env.
+        """
+        env = OpenAIGymEnv("CartPole-v0")
+        agent = DQNAgent.from_spec(
+            "configs/test_dqn_agent_for_cartpole.json",
+            state_space=env.state_space,
+            action_space=env.action_space,
+            observe_spec=dict(buffer_size=100),
+            execution_spec=dict(seed=10),
+            update_spec=dict(batch_size=20, update_interval=4, sync_interval=32),
+            optimizer_spec=dict(learning_rate=0.00005)
+        )
+
+        worker = SingleThreadedWorker(environment=env, agent=agent)
+        results = worker.execute_timesteps(10000, deterministic=True)
+
+        self.assertEqual(results["timesteps_executed"], 10000)
+        self.assertEqual(results["env_frames"], 10000)
+        self.assertAlmostEqual(results["mean_episode_reward"], 77.51937984496124)
+        self.assertAlmostEqual(results["max_episode_reward"], 200.0)
+        self.assertAlmostEqual(results["final_episode_reward"], 22.0)
+        self.assertEqual(results["episodes_executed"], 129)

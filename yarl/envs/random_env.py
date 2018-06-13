@@ -53,7 +53,7 @@ class RandomEnv(Env):
         return seed
 
     def reset(self):
-        return self.step()
+        return self.step()[0]  # 0=state
 
     def step(self, actions=None):
         if actions is not None:

@@ -28,7 +28,8 @@
     }
   ],
 
-  "exploration_spec": {
+  "exploration_spec":
+  {
     "non_explore_behavior": "max-likelihood",
     "epsilon_spec": {
       "decay": "linear_decay",

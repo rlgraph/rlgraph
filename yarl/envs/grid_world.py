@@ -177,7 +177,7 @@ class GridWorld(Env):
         self.reward = 0.0
         self.is_terminal = False
         self.refresh_state()
-        return self.state, self.reward, self.is_terminal, None
+        return self.state
 
     def step(self, actions, set_discrete_pos=None):
         """
