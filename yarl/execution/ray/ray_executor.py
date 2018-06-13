@@ -48,7 +48,7 @@ class RayExecutor(object):
         ray.init(
             redis_address=self.cluster_spec['redis_host'],
             num_cpus=self.cluster_spec['ray_num_cpus'],
-            num_gpus=self.cluster_spec['ray_num_cpus']
+            num_gpus=self.cluster_spec['ray_num_gpus']
         )
 
     def create_remote_workers(self, cls, num_actors, *args):

@@ -837,10 +837,10 @@ class Component(Specifiable):
             label (Optional[str]): An optional label for the connection. The label will be passed along the ops
                 through the Sockets and graph_fns and must be used to specify ops if there is an ambiguity.
         """
-        print('type from = {}'.format(type(from_)))
-        print(from_)
-        print('type to = {}'.format(type(to_)))
-        print(to_)
+        # print('type from = {}'.format(type(from_)))
+        # print(from_)
+        # print('type to = {}'.format(type(to_)))
+        # print(to_)
 
         self._connect_disconnect(from_, to_, label=label, disconnect_=False)
 
