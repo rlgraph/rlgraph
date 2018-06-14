@@ -21,6 +21,8 @@ import os
 
 import logging
 from yarl import YARLError, get_distributed_backend
+from yarl.agents import Agent
+from yarl.envs import Environment
 from yarl.execution.ray import RayAgent
 
 if get_distributed_backend() == "ray":
@@ -122,3 +124,41 @@ def split_local_non_local_agents(ray_agents):
         else:
             non_local.append(a)
     return local, non_local
+
+
+def build_agent_from_config(agent_config):
+    """
+    Builds agent without using from_spec as Ray cannot handle kwargs correctly
+    at the moment.
+
+    Args:
+        agent_config (dict): Agent config. Must contain 'type' field to lookup constructor.
+
+    Returns:
+        Agent: YARL agent object.
+    """
+    agent_cls = Agent.__lookup_classes__.get(agent_config['type'])
+
+    # TODO add other params once confirmed this workaround works, this is for random agent testing.
+    return agent_cls(
+        state_space=agent_config['state_space'],
+        action_space=agent_config['action_space']
+    )
+
+
+def build_env_from_config(env_spec):
+    """
+    Builds environment without using from_spec as Ray cannot handle kwargs correctly
+    at the moment.
+
+    Args:
+        env_spec (dict): Environment specificaton. Must contain 'type' field to lookup constructor.
+
+    Returns:
+        Environment: Env object.
+    """
+    env_cls = Environment.__lookup_classes__.get(env_spec['type'])
+
+    # TODO add other params once confirmed this workaround works.
+    return env_cls(env_spec['gym_env'])
+

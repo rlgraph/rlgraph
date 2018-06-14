@@ -22,9 +22,10 @@ import time
 
 from yarl.backend_system import get_distributed_backend
 from yarl.agents import Agent
-from yarl.envs import Env
+from yarl.envs import Environment
 from yarl.execution import Worker
 from yarl.execution.env_sample import EnvSample
+from yarl.execution.ray.ray_util import build_env_from_config, build_agent_from_config
 
 if get_distributed_backend() == "ray":
     import ray
@@ -48,21 +49,16 @@ class RayWorker(Worker):
         assert get_distributed_backend() == "ray"
 
         # Ray cannot handle **kwargs in remote objects.
-        env_cls = Env.__lookup_classes__.get(env_spec['type'])
-        environment = env_cls(env_spec['gym_env'])
+        environment = build_env_from_config(env_spec)
+
         # Then update agent config.
         agent_config['state_space'] = environment.state_space
         agent_config['action_space'] = environment.action_space
 
         # Only create agent and environment in remote object.
 
-        # Kwargs args are not supported by Ray actors, have to manually unpack.
-        agent_cls = Agent.__lookup_classes__.get( agent_config['type'])
-        # TODO add other params, this is for random agent testing.
-        agent = agent_cls(
-            state_space=agent_config['state_space'],
-            action_space=agent_config['action_space']
-        )
+        # Ray cannot handle **kwargs in remote objects.
+        agent = build_agent_from_config(agent_config)
         super(RayWorker, self).__init__(environment, agent, repeat_actions)
 
     # Remote functions to interact with this workers agent.

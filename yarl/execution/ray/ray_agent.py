@@ -20,7 +20,7 @@ from __future__ import print_function
 import os
 
 from yarl import get_distributed_backend
-from yarl.agents import Agent
+from yarl.execution.ray.ray_util import build_agent_from_config
 
 if get_distributed_backend() == "ray":
     import ray
@@ -41,7 +41,7 @@ class RayAgent(object):
                 agent.
         """
         assert "type" in agent_config
-        self.agent = Agent.from_spec(agent_config)
+        self.agent = build_agent_from_config(agent_config)
 
     # TODO mostly mirroring agent API here - should we inherit from agent, even if we then use
     # a child agent to execute?
