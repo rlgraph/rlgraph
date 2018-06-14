@@ -121,7 +121,10 @@ class SingleThreadedWorker(Worker):
 
                 self.agent.observe(states=state, actions=action, internals=None, rewards=reward, terminals=terminal)
 
-                self.update_if_necessary(timesteps_executed)
+                loss = self.update_if_necessary(timesteps_executed)
+                #if loss is not None:
+                #    self.logger.info("LOSS: {}".format(loss))
+
                 episode_reward += reward
                 timesteps_executed += 1
                 episode_timestep += 1

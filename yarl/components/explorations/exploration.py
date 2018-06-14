@@ -36,9 +36,10 @@ class Exploration(Component):
     API:
     ins:
         time_step (int): The current global time step (used to determine the extend of the exploration).
-        sample_deterministic (any): The Policy's deterministic (max-likelihood) "sampling" output.
+        sample_deterministic (any): The Policy's deterministic (max-likelihood) sampling output.
         sample_stochastic (any): The Policy's stochastic sampling output.
     outs:
+        do_explore (bool): Whether we chose to explore (act randomly) or not (act according to `non_explore_behavior`).
         action (any): A single action choice according to our exploration settings and Policy's distribution.
         # TODO: actions (any): A batch of actions taken from a batch of NN-outputs without any exploration.
     """
@@ -46,7 +47,6 @@ class Exploration(Component):
                  scope="exploration", **kwargs):
         """
         Args:
-            #FixMe: Experimentally removed: action_space (IntBox): The action Space.
             non_explore_behavior (str): One of:
                 max-likelihood: When not exploring, pick an action deterministically (max-likelihood) from the
                     Policy's distribution.
@@ -62,11 +62,13 @@ class Exploration(Component):
 
         # Define our interface.
         self.define_inputs("time_step", "sample_deterministic", "sample_stochastic")
-        self.define_outputs("action")
+        self.define_outputs("action", "do_explore")
 
         # Add epsilon Component (TODO: once we have noise-based: only if specified.)
         self.epsilon_exploration = EpsilonExploration.from_spec(epsilon_spec)
-        self.add_component(self.epsilon_exploration, connections=["time_step"])
+        self.add_component(self.epsilon_exploration)
+        self.connect("time_step", (self.epsilon_exploration, "time_step"))
+        self.connect((self.epsilon_exploration, "do_explore"), "do_explore")
 
         # Add our own graph_fn and connect its output to the "action" Socket.
         self.add_graph_fn(inputs=[(self.epsilon_exploration, "do_explore"),

@@ -222,7 +222,7 @@ class GridWorld(Env):
             self.reward = -1
         elif next_state_type == "G":
             self.is_terminal = True
-            self.reward = 1 if self.reward_function == "sparse" else -50
+            self.reward = 1 if self.reward_function == "sparse" else 50
         else:
             raise NotImplementedError
 

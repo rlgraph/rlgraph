@@ -20,7 +20,8 @@ from __future__ import print_function
 from yarl import get_backend
 
 from yarl.utils.initializer import Initializer
-from .nn_layer import NNLayer
+from yarl.components.layers.nn.nn_layer import NNLayer
+from yarl.components.layers.nn.activation_functions import get_activation_function
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -30,20 +31,22 @@ class DenseLayer(NNLayer):
     """
     A dense (or "fully connected") NN-layer.
     """
-    def __init__(self, units, scope="dense-layer", *sub_components, **kwargs):
+    def __init__(self, units, *sub_components, **kwargs):
         """
         Args:
             units (int): The number of nodes in this layer.
 
         Keyword Args:
+            activation (Optional[callable,str]): The activation function to use. Default: None (linear).
             weights_spec (any): A specifier for a weights initializer.
             biases_spec (any): A specifier for a biases initializer. If False, use no biases.
         """
         # Remove kwargs before calling super().
+        self.activation = kwargs.pop("activation", None)
         self.weights_spec = kwargs.pop("weights_spec", None)
         self.biases_spec = kwargs.pop("biases_spec", False)
 
-        super(DenseLayer, self).__init__(*sub_components, scope=scope, **kwargs)
+        super(DenseLayer, self).__init__(*sub_components, scope=kwargs.pop("scope", "dense-layer"), **kwargs)
 
         # At build time.
         self.weights_init = None
@@ -66,6 +69,7 @@ class DenseLayer(NNLayer):
         if get_backend() == "tf":
             self.layer = tf.layers.Dense(
                 units=self.units,
+                activation=get_activation_function(self.activation),
                 kernel_initializer=self.weights_init.initializer,
                 use_bias=(self.biases_spec is not False),
                 bias_initializer=self.biases_init.initializer,

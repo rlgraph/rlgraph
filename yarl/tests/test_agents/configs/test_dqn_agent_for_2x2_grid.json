@@ -19,12 +19,8 @@
     {
       "type": "dense",
       "units": 10,
+      "activation": "linear",
       "scope": "hidden-layer"
-    },
-    {
-      "type": "dense",
-      "units": 4,
-      "scope": "output-layer"
     }
   ],
 
@@ -34,7 +30,7 @@
     "epsilon_spec": {
       "decay": "linear_decay",
       "from": 1.0,
-      "to": 0.1,
+      "to": 0.2,
       "start_timestep": 0,
       "num_timesteps": 1000
     }

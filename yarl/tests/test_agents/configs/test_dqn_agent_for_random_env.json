@@ -19,12 +19,8 @@
     {
       "type": "dense",
       "units": 3,
+      "activation": "tanh",
       "scope": "hidden-layer"
-    },
-    {
-      "type": "dense",
-      "units": 2,
-      "scope": "output-layer"
     }
   ],
 

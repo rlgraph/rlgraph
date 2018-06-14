@@ -46,12 +46,12 @@ class TestExplorations(unittest.TestCase):
             test.test(out_socket_names="do_explore", inputs=i, expected_outputs=e)
 
     def test_exploration_with_discrete_action_space(self):
-        # 2x2 action-pick, each action with 5 categories.
+        # 2x2 action-pick, each composite action with 5 categories.
         action_space = IntBox(5, shape=(2, 2), add_batch_rank=True)
         # Our distribution to go into the Exploration object.
         distribution = Categorical()
         nn_output_adapter = NNOutputAdapter()
-        nn_output_space = FloatBox(shape=(action_space.flat_dim_with_categories,), add_batch_rank=True)
+        nn_output_space = FloatBox(shape=(13,), add_batch_rank=True)  # 13: Any flat nn-output should be ok.
         exploration = Exploration()
         # The Component to test.
         component_to_test = Component(scope="categorical-plus-exploration")
@@ -68,20 +68,16 @@ class TestExplorations(unittest.TestCase):
                              input_spaces=dict(nn_output=nn_output_space, time_step=int),
                              action_space=action_space)
 
-        # Parameters for Categorical (batch-size=2, 2x2x5 action space).
+        # fake output from last NN layer (shape=(13,))
         inputs = dict(nn_output=np.array([[100.0, 50.0, 25.0, 12.5, 6.25,
                                            200.0, 100.0, 50.0, 25.0, 12.5,
-                                           1.0, 1.0, 1.0, 25.0, 1.0,
-                                           1.0, 2.0, 2.0, 1.0, 0.5,
+                                           1.0, 1.0, 25.0
                                            ],
                                           [123.4, 34.7, 98.2, 1.2, 120.0,
                                            200.0, 200.0, 0.00009, 10.0, 300.0,
-                                           0.567, 0.678, 0.789, 0.8910, 0.91011,
-                                           0.1, 0.1, 0.2, 0.1, 0.5,
+                                           0.567, 0.678, 0.789
                                            ]
                                           ]),
                       time_step=10000)
-        expected = np.array([[[0, 0], [3, 1]], [[0, 4], [4, 4]]])
+        expected = np.array([[[3, 1], [3, 2]], [[1, 1], [3, 2]]])
         test.test(out_socket_names="action", inputs=inputs, expected_outputs=expected)
-
-

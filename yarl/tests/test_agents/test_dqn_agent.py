@@ -64,9 +64,9 @@ class TestDQNAgent(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space,
             observe_spec=dict(buffer_size=100),
-            execution_spec=dict(seed=10),
-            update_spec=dict(update_interval=4, batch_size=16, sync_interval=32),
-            optimizer_spec=dict(learning_rate=0.013)
+            execution_spec=dict(seed=20),
+            update_spec=dict(update_interval=4, batch_size=8, sync_interval=32),
+            optimizer_spec=dict(learning_rate=0.007)
         )
 
         worker = SingleThreadedWorker(environment=env, agent=agent)
@@ -74,9 +74,10 @@ class TestDQNAgent(unittest.TestCase):
 
         self.assertEqual(results["timesteps_executed"], 1000)
         self.assertEqual(results["env_frames"], 1000)
-        self.assertAlmostEqual(results["mean_episode_reward"], -2.812307692307692)
-        self.assertAlmostEqual(results["final_episode_reward"], 0)
-        self.assertEqual(results["episodes_executed"], 325)
+        self.assertAlmostEqual(results["mean_episode_reward"], -3.060810810810811)
+        self.assertAlmostEqual(results["max_episode_reward"], 0.0)
+        self.assertAlmostEqual(results["final_episode_reward"], -1)
+        self.assertEqual(results["episodes_executed"], 296)
 
     def test_dqn_on_cart_pole(self):
         """
@@ -90,8 +91,8 @@ class TestDQNAgent(unittest.TestCase):
             action_space=env.action_space,
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=10),
-            update_spec=dict(batch_size=20, update_interval=4, sync_interval=32),
-            optimizer_spec=dict(learning_rate=0.00005)
+            update_spec=dict(update_interval=4, batch_size=16, sync_interval=32),
+            optimizer_spec=dict(learning_rate=0.002)
         )
 
         worker = SingleThreadedWorker(environment=env, agent=agent)

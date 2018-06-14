@@ -18,9 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import get_backend
-
 from yarl.utils.initializer import Initializer
-from .nn_layer import NNLayer
+from yarl.components.layers.nn.nn_layer import NNLayer
+from yarl.components.layers.nn.activation_functions import get_activation_function
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -30,7 +30,7 @@ class Conv2DLayer(NNLayer):
     """
     A Conv2D NN-layer.
     """
-    def __init__(self, filters, kernel_size, strides, scope="conv-2d", *sub_components, **kwargs):
+    def __init__(self, filters, kernel_size, strides, *sub_components, **kwargs):
         """
         Args:
             filters (int): The number of filters to produce in the channel-rank.
@@ -40,10 +40,10 @@ class Conv2DLayer(NNLayer):
                 for both directions).
 
         Keyword Args:
+            activation (Optional[callable,str]): The activation function to use. Default: None (linear).
             padding (str): One of 'valid' or 'same'. Default: 'valid'.
             data_format (str): One of 'channels_last' (default) or 'channels_first'. Specifies which rank (first or
                 last) is the color-channel. If the input Space is with batch, the batch always has the first rank.
-            activation (Optional[op]): The activation function to use. Default: None.
             kernel_spec (any): A specifier for the kernel-weights initializer. Use None for the default initializer.
                 Default: None.
             bias_spec (any): A specifier for the biases-weights initializer. Use None for the default initializer.
@@ -51,13 +51,13 @@ class Conv2DLayer(NNLayer):
             # TODO: regularization specs
         """
         # Remove kwargs before calling super().
+        self.activation = kwargs.pop("activation", None)
         self.padding = kwargs.pop("padding", "valid")
         self.data_format = kwargs.pop("data_format", "channels_last")
-        self.activation = kwargs.pop("activation", None)
         self.kernel_spec = kwargs.pop("kernel_spec", None)
         self.biases_spec = kwargs.pop("biases_spec", False)
 
-        super(Conv2DLayer, self).__init__(*sub_components, scope=scope, **kwargs)
+        super(Conv2DLayer, self).__init__(*sub_components, scope=kwargs.pop("scope", "conv-2d"), **kwargs)
 
         self.filters = filters
         self.kernel_size = kernel_size if isinstance(kernel_size, (tuple, list)) else (kernel_size, kernel_size)
@@ -81,7 +81,7 @@ class Conv2DLayer(NNLayer):
                 filters=self.filters, kernel_size=self.kernel_size,
                 strides=self.strides, padding=self.padding,
                 data_format=self.data_format,
-                activation=self.activation,
+                activation=get_activation_function(self.activation),
                 use_bias=(self.biases_spec is not False),
                 kernel_initializer=self.kernel_init.initializer,
                 bias_initializer=self.biases_init.initializer

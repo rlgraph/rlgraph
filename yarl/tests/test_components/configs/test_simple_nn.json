@@ -1,16 +1,11 @@
 {
   "scope": "test-network",
-  "writable": false,
   "layers": [
     {
-      "type": "yarl.components.layers.nn.DenseLayer",
+      "type": "dense",
+      "activation": "linear",
       "units": 2,
       "scope": "hidden-layer"
-    },
-    {
-      "type": "yarl.components.layers.nn.DenseLayer",
-      "units": 2,
-      "scope": "output-layer"
     }
   ]
 }

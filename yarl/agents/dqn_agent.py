@@ -78,7 +78,10 @@ class DQNAgent(Agent):
         core.define_inputs("terminals", space=IntBox(2, add_batch_rank=True))
         core.define_inputs("deterministic", space=bool)
         core.define_inputs("time_step", space=int)
-        core.define_outputs("get_actions", "insert_records", "update", "sync_target_qnet")  # TODO: reset_memory?
+        core.define_outputs("get_actions", "insert_records", "update", "sync_target_qnet",
+                            # for debugging purposes:
+                            "q_values", "loss", "memory_states", "memory_actions", "memory_rewards", "memory_terminals",
+                            "do_explore")
 
         # Add the Q-net, copy it (target-net) and add the target-net.
         self.target_policy = self.policy.copy(scope="target-policy")
@@ -109,6 +112,7 @@ class DQNAgent(Agent):
         core.connect((self.policy, "sample_stochastic"),
                      (self.exploration, "sample_stochastic"), label="from_env")
         core.connect((self.exploration, "action"), "get_actions")
+        core.connect((self.exploration, "do_explore"), "do_explore")
 
         # Actions, rewards, terminals into Merger.
         for in_ in ["actions", "rewards", "terminals"]:
@@ -126,20 +130,26 @@ class DQNAgent(Agent):
 
         # Splitter's outputs.
         core.connect((self.splitter, "/states"), (self.policy, "nn_input"), label="s_from_memory")  # label s from mem
+        core.connect((self.splitter, "/states"), "memory_states")
         core.connect((self.splitter, "/actions"), (self.loss_function, "actions"))
+        core.connect((self.splitter, "/actions"), "memory_actions")
         core.connect((self.splitter, "/rewards"), (self.loss_function, "rewards"))
+        core.connect((self.splitter, "/rewards"), "memory_rewards")
+        core.connect((self.splitter, "/terminals"), "memory_terminals")
         core.connect((self.splitter, "/next_states"), (self.target_policy, "nn_input"))
         if self.double_q:
             core.connect((self.splitter, "/next_states"), (self.policy, "nn_input"), label="sp_from_memory")
 
         # Loss-function needs both q-values (qnet and target).
         core.connect((self.policy, "logits"), (self.loss_function, "q_values"), label="s_from_memory")
+        core.connect((self.policy, "logits"), "q_values")
         core.connect((self.target_policy, "logits"), (self.loss_function, "qt_values_s_"))
         if self.double_q:
             core.connect((self.policy, "logits"), (self.loss_function, "q_values_s_"), label="sp_from_memory")
 
         # Connect the Optimizer.
         core.connect((self.loss_function, "loss"), (self.optimizer, "loss"))
+        core.connect((self.loss_function, "loss"), "loss")
         core.connect((self.policy, "_variables"), (self.optimizer, "vars"))
         core.connect((self.optimizer, "step"), "update")
 
@@ -151,7 +161,10 @@ class DQNAgent(Agent):
         batched_states = self.state_space.batched(states)
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
         self.timesteps += 1
-        actions = self.graph_executor.execute("get_actions", inputs=dict(states=batched_states, time_step=self.timesteps))
+        actions, q_values, do_explore = self.graph_executor.execute(
+            ["get_actions", "q_values", "do_explore"], inputs=dict(states=batched_states, time_step=self.timesteps)
+        )
+        print("states={} action={} q_values={} do_explore={}".format(states, actions, q_values, do_explore))
         if remove_batch_rank:
             return actions[0]
         return actions
@@ -168,7 +181,8 @@ class DQNAgent(Agent):
         # Should we synch the target net? (timesteps-1 b/c it has been increased already in get_action)
         if (self.timesteps - 1) % self.update_spec["sync_interval"] == 0:
             self.graph_executor.execute("sync_target_qnet")
-        return self.graph_executor.execute("update")
+        _, loss, s_, a_, r_, t_ = self.graph_executor.execute(["update", "loss", "memory_states", "memory_actions", "memory_rewards", "memory_terminals"])
+        return loss, s_, a_, r_, t_
 
     def __repr__(self):
         return "DQNAgent(doubleQ={})".format(self.double_q)

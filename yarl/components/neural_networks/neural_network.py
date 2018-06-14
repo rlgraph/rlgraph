@@ -17,8 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components import CONNECT_ALL, Stack, Synchronizable
-from yarl.utils.util import default_dict
+from yarl.components import Stack
 
 
 class NeuralNetwork(Stack):
@@ -33,19 +32,12 @@ class NeuralNetwork(Stack):
                 (or any other Components) to this Network.
 
         Keyword Args:
-            writable (bool): Whether this NN can be synced to by another (equally structured) NN.
-                Default: False.
             layers (Optional[list]): An optional list of Layer objects or spec-dicts to overwrite(!)
                 *layers.
         """
-        # Synchronizable?
-        self.writable = kwargs.pop("writable", False)
         # In case layers come in via a spec dict -> push it into *layers.
         layers_args = kwargs.pop("layers", layers)
         # Add a default scope (if not given) and pass on via kwargs.
         kwargs["scope"] = kwargs.get("scope", "neural-network")
         super(NeuralNetwork, self).__init__(*layers_args, **kwargs)
 
-        # Add Synchronizable API to ours.
-        if self.writable:
-            self.add_component(Synchronizable(), connections=CONNECT_ALL)

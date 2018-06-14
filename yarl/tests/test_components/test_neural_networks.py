@@ -35,7 +35,7 @@ class TestNeuralNetworks(unittest.TestCase):
         space = FloatBox(shape=(3,), add_batch_rank=True)
 
         # Create a simple neural net from json.
-        neural_net = NeuralNetwork.from_file("configs/test_simple_nn.json")
+        neural_net = NeuralNetwork.from_file("configs/test_simple_nn.json")  # type: NeuralNetwork
 
         # Do not seed, we calculate expectations manually.
         test = ComponentTest(component=neural_net, input_spaces=dict(input=space), seed=None)
@@ -43,12 +43,9 @@ class TestNeuralNetworks(unittest.TestCase):
         # Batch of size=3.
         input_ = np.array([[0.1, 0.2, 0.3], [1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])
         # Calculate output manually.
-        var_dict = neural_net.get_variables("hidden-layer/dense/kernel",
-                                            "output-layer/dense/kernel",
-                                            global_scope=False)
-        w1_value, w2_value = test.get_variable_values(var_dict["hidden-layer/dense/kernel"],
-                                                      var_dict["output-layer/dense/kernel"])
-        expected = np.matmul(np.matmul(input_, w1_value), w2_value)
+        var_dict = neural_net.get_variables("hidden-layer/dense/kernel", global_scope=False)
+        w1_value = test.get_variable_values(var_dict["hidden-layer/dense/kernel"])
+        expected = np.matmul(input_, w1_value)
         test.test(out_socket_names="output", inputs=input_, expected_outputs=expected, decimals=5)
 
     def test_complex_nn_assembly_from_file(self):

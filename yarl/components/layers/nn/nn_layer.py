@@ -26,7 +26,7 @@ class NNLayer(Layer):
     A generic NN-layer object.
     """
     def __init__(self, *sub_components, **kwargs):
-        super(NNLayer, self).__init__(*sub_components, **kwargs)
+        super(NNLayer, self).__init__(*sub_components, scope=kwargs.pop("scope", "nn-layer"), **kwargs)
 
         # The wrapped layer object.
         self.layer = None

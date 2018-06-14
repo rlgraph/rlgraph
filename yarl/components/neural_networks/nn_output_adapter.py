@@ -46,20 +46,26 @@ class NNOutputAdapter(Component):
         parameters (SingleDataOp): The final results of translating the raw NN-output into Distribution-readable
             parameters.
     """
-    def __init__(self, bias=None, scope="nn-output-cleanup", **kwargs):
+    def __init__(self, action_output_name=None, biases_spec=False, scope="nn-output-adapter", **kwargs):
         """
         Args:
-            bias (any): An optional bias that will be added to the output of the network.
+            biases_spec (any): An optional biases_spec to create a biases YARL Initializer that will be used to
+                initialize the biases of the ActionLayer.
+            action_output_name (str): The name of the out-Socket to push the raw action output through (before
+                parameterization for the Distribution).
             TODO: For now, only IntBoxes -> Categorical are supported. We'll add support for continuous action spaces later
         """
         super(NNOutputAdapter, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
 
+        self.biases_spec = biases_spec
         self.target_space = None
-        self.bias = bias
+        self.flat_dim_target_space = 0
+        self.last_nn_layer = None
+        self.action_output_name = action_output_name or "logits"
 
         # Define our interface.
         self.define_inputs("nn_output")
-        self.define_outputs("logits", "parameters")
+        self.define_outputs(self.action_output_name, "parameters")
 
     def check_input_spaces(self, input_spaces, action_space):
         in_space = input_spaces["nn_output"]  # type: Space
@@ -69,7 +75,7 @@ class NNOutputAdapter(Component):
 
         # Check action/target Space.
         self.target_space = action_space.with_batch_rank()
-        assert self.target_space .has_batch_rank, "ERROR: `self.target_space ` does not have batch rank!"
+        assert self.target_space.has_batch_rank, "ERROR: `self.target_space ` does not have batch rank!"
         if not isinstance(self.target_space, IntBox):
             raise YARLError("ERROR: `target_space` must be IntBox. Continuous target spaces will be supported later!")
 
@@ -80,27 +86,25 @@ class NNOutputAdapter(Component):
             raise YARLError("ERROR: `target_space` must have a `num_categories` of larger 0!")
 
         # Make sure target_space matches NN output space.
-        flat_dim_target_space = self.target_space.flat_dim_with_categories
-        # NN output may have a batch-rank inferred or not (its first rank may be ? or some memory-batch number).
+        self.flat_dim_target_space = self.target_space.flat_dim_with_categories
+        # NN output may have a batch-rank inferred or not (its first rank may be '?' or some memory-batch number).
         # Hence, always assume first rank to be batch.
-        flat_dim_nn_output = in_space.flat_dim if in_space.has_batch_rank else np.product(in_space.get_shape()[1:])
-        assert flat_dim_nn_output == flat_dim_target_space, \
-            "ERROR: `flat_dim_target_space` ({}) must match `flat_dim_nn_output` " \
-            "({})!".format(flat_dim_target_space, flat_dim_nn_output)
+        #flat_dim_nn_output = in_space.flat_dim if in_space.has_batch_rank else np.product(in_space.get_shape()[1:])
+        #assert flat_dim_nn_output == flat_dim_target_space, \
+        #    "ERROR: `flat_dim_target_space` ({}) must match `flat_dim_nn_output` " \
+        #    "({})!".format(flat_dim_target_space, flat_dim_nn_output)
 
         # Do some remaining interface assembly.
-        # If we have a bias layer, connect it before the actual cleanup.
-        if self.bias is not None:
-            bias_layer = DenseLayer(
-                units=self.target_space.num_categories, biases_spec=self.bias if np.isscalar(self.bias) else
-                [log(b) for _ in range_(self.target_space.flat_dim) for b in self.bias]
-            )
-            self.add_component(bias_layer, connections=dict(input="nn_output"))
-            # Place our cleanup behind the bias layer.
-            self.add_graph_fn([(bias_layer, "output")], ["logits", "parameters"], self._graph_fn_cleanup)
-        # Otherwise, place our cleanup directly behind the nn-output.
-        else:
-            self.add_graph_fn("nn_output", ["logits", "parameters"], self._graph_fn_cleanup)
+        self.last_nn_layer = DenseLayer(
+            units=self.flat_dim_target_space,
+            biases_spec=self.biases_spec if np.isscalar(self.biases_spec) or self.biases_spec is None else
+            [log(b) for _ in range_(self.target_space.flat_dim) for b in self.biases_spec]
+        )
+        self.add_component(self.last_nn_layer)
+        self.connect("nn_output", (self.last_nn_layer, "input"))
+        # Add our computation between last layer and distribution.
+        self.add_graph_fn([(self.last_nn_layer, "output")],
+                          [self.action_output_name, "parameters"], self._graph_fn_cleanup)
 
     def _graph_fn_cleanup(self, nn_outputs_plus_bias):
         """
@@ -123,3 +127,4 @@ class NNOutputAdapter(Component):
 
             # Convert logits into probabilities and clamp them at SMALL_NUMBER.
             return logits, tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
+

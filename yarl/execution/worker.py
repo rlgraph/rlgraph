@@ -120,6 +120,9 @@ class Worker(Specifiable):
 
         Args:
             timesteps_executed (int): Timesteps executed thus far.
+
+        Returns:
+            float: The summed up loss (over all self.update_steps).
         """
         if self.updating:
             # Are we allowed to update?
@@ -127,8 +130,14 @@ class Worker(Specifiable):
                     (self.agent.observe_spec["buffer_enabled"] is False or  # no update before some data in buffer
                      timesteps_executed >= self.agent.observe_spec["buffer_size"]) and \
                     timesteps_executed % self.update_interval == 0:  # update frequency check
+                loss = 0
                 for _ in range_(self.update_steps):
-                    self.agent.update()
+                    l, s_, a_, r_, t_ = self.agent.update()
+                    self.logger.info("FROM MEM: s={} a={} r={} t={}".format(s_, a_, r_, t_))
+                    loss += l
+                return loss
+
+        return None
 
     def set_update_schedule(self, update_schedule=None):
         """
