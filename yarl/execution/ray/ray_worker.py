@@ -93,14 +93,14 @@ class RayWorker(object):
             terminal = False
             while True:
                 action = self.agent.get_action(states=state, deterministic=deterministic)
-
                 states.append(state)
                 actions.append(action)
 
                 # Accumulate the reward over n env-steps (equals one action pick). n=self.repeat_actions
                 reward = 0
+                next_state = None
                 for _ in xrange(self.repeat_actions):
-                    state, step_reward, terminal, info = self.environment.step(actions=action)
+                    next_state, step_reward, terminal, info = self.environment.step(actions=action)
                     env_frames += 1
                     reward += step_reward
 
@@ -108,6 +108,7 @@ class RayWorker(object):
                 terminals.append(terminal)
                 timesteps_executed += 1
                 episode_timestep += 0
+                state = next_state
 
                 if terminal or (0 < num_timesteps <= timesteps_executed) or \
                         (0 < max_timesteps_per_episode <= episode_timestep):
