@@ -31,7 +31,7 @@ if get_distributed_backend() == "ray":
 
 
 @ray.remote
-class RayWorker(Worker):
+class RayWorker(object):
     """
     Ray wrapper for single threaded worker, provides further api methods to interact
     with the agent used in the worker.
@@ -48,15 +48,15 @@ class RayWorker(Worker):
         assert get_distributed_backend() == "ray"
 
         # Ray cannot handle **kwargs in remote objects.
-        environment = RayExecutor.build_env_from_config(env_spec)
+        self.environment = RayExecutor.build_env_from_config(env_spec)
 
         # Then update agent config.
-        agent_config['state_space'] = environment.state_space
-        agent_config['action_space'] = environment.action_space
+        agent_config['state_space'] = self.environment.state_space
+        agent_config['action_space'] = self.environment.action_space
 
         # Ray cannot handle **kwargs in remote objects.
-        agent = RayExecutor.build_agent_from_config(agent_config)
-        super(RayWorker, self).__init__(environment, agent, repeat_actions)
+        self.agent = RayExecutor.build_agent_from_config(agent_config)
+        self.repeat_actions = repeat_actions
 
     # Remote functions to interact with this workers agent.
     def call_agent_op(self, op, inputs=None):

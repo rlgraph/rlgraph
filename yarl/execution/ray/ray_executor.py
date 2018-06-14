@@ -98,13 +98,8 @@ class RayExecutor(object):
         Returns:
             Agent: YARL agent object.
         """
-        agent_cls = Agent.__lookup_classes__.get(agent_config['type'])
-
-        # TODO add other params once confirmed this workaround works, this is for random agent testing.
-        return agent_cls(
-            state_space=agent_config['state_space'],
-            action_space=agent_config['action_space']
-        )
+        agent_cls = Agent.__lookup_classes__.get(agent_config.pop('type'))
+        return agent_cls(**agent_config)
 
     @staticmethod
     def build_env_from_config(env_spec):
@@ -119,6 +114,4 @@ class RayExecutor(object):
             Environment: Env object.
         """
         env_cls = Environment.__lookup_classes__.get(env_spec['type'])
-
-        # TODO add other params once confirmed this workaround works.
         return env_cls(env_spec['gym_env'])
