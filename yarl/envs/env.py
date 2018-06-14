@@ -21,7 +21,7 @@ from yarl import Specifiable
 from yarl.spaces import Space
 
 
-class Env(Specifiable):
+class Environment(Specifiable):
     """
     An Env class used to run experiment-based RL.
     """

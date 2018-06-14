@@ -23,11 +23,11 @@ import time
 
 from yarl import YARLError
 from yarl.utils.util import dtype
-from yarl.envs import Env
+from yarl.envs import Environment
 from yarl.spaces import *
 
 
-class OpenAIGymEnv(Env):
+class OpenAIGymEnv(Environment):
     """
     OpenAI Gym Integration: https://gym.openai.com/.
     """

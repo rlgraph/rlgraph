@@ -23,11 +23,11 @@ import random
 from six.moves import xrange
 import time
 
-from yarl.envs import Env
+from yarl.envs import Environment
 import yarl.spaces as spaces
 
 
-class RandomEnv(Env):
+class RandomEnv(Environment):
     """
     An Env producing random states no matter what actions come in.
     """
