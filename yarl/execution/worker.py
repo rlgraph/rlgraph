@@ -30,7 +30,7 @@ class Worker(Specifiable):
 
     def __init__(self, environment, agent, repeat_actions=1):
         """
-        Initializes an executor
+        Initializes a a worker.
         Args:
             environment (env): Environment to execute.
             agent (Agent): Agent to execute environment on.

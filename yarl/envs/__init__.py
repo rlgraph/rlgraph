@@ -17,13 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.envs.env import Env
+from yarl.envs.env import Environment
 from yarl.envs.grid_world import GridWorld
 from yarl.envs.openai_gym import OpenAIGymEnv
 from yarl.envs.random_env import RandomEnv
 
 
-Env.__lookup_classes__ = dict(
+Environment.__lookup_classes__ = dict(
     gridworld=GridWorld,
     openai=OpenAIGymEnv,
     openaigymenv=OpenAIGymEnv,
@@ -32,4 +32,4 @@ Env.__lookup_classes__ = dict(
     random = RandomEnv,
 )
 
-__all__ = ["Env", "GridWorld", "OpenAIGymEnv", "RandomEnv"]
+__all__ = ["Environment", "GridWorld", "OpenAIGymEnv", "RandomEnv"]

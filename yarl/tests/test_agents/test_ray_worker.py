@@ -18,7 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
+from time import sleep
+
+from yarl import get_distributed_backend
 from yarl.execution.ray import RayWorker
+
+if get_distributed_backend() == "ray":
+    import ray
 
 
 class TestRayWorker(unittest.TestCase):
@@ -31,18 +37,47 @@ class TestRayWorker(unittest.TestCase):
         type="random"
     )
 
+    def setUp(self):
+        """
+        Inits a local redis and scheduler.
+        """
+        ray.init()
+
     def test_get_timesteps(self):
         """
         Simply tests if time-step execution loop works and returns the samples.
         """
 
-        # NOTE: This test would require initializing ray, which starts multiple services.
-        # ray.init()
-        worker = RayWorker.remote(
-            env_spec=self.env_spec,
-            agent_config=self.agent_config,
-        )
+        worker = RayWorker.remote(self.env_spec, self.agent_config)
 
         # Test when breaking on terminal.
-        #result = worker.execute_and_get_timesteps(100, break_on_terminal=True)
-        #print(result)
+        # Init remote task.
+        task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=True)
+        sleep(5)
+        # Retrieve result.
+        result = ray.get(task)
+        observations = result.get_batch()
+        print('Task results, break on terminal = True:')
+        print(observations)
+        print(result.get_metrics())
+
+        self.assertLessEqual(len(observations['terminals']), 100)
+        # There can only be one terminal in there because we break on terminals:
+        terminals = 0
+        for elem in observations['terminals']:
+            if elem is True:
+                terminals += 1
+        self.assertEqual(terminals, 1)
+
+        # Now run exactly 100 steps.
+        task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=False)
+        sleep(5)
+        # Retrieve result.
+        result = ray.get(task)
+        observations = result.get_batch()
+        print('Task results, break on terminal = False:')
+        print(observations)
+        print(result.get_metrics())
+
+        # We do not break on terminal so there should be exactly 100 steps.
+        self.assertEqual(len(observations['terminals']), 100)

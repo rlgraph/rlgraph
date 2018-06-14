@@ -23,11 +23,11 @@ import random
 from six.moves import xrange
 import time
 
-from yarl.envs import Env
+from yarl.envs import Environment
 import yarl.spaces as spaces
 
 
-class GridWorld(Env):
+class GridWorld(Environment):
     """
     A classic grid world where the action space is up,down,left,right and the
     field types are:

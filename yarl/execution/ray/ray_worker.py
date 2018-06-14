@@ -21,17 +21,15 @@ from six.moves import xrange
 import time
 
 from yarl.backend_system import get_distributed_backend
-from yarl.agents import Agent
-from yarl.envs import Env
-from yarl.execution import Worker
 from yarl.execution.env_sample import EnvSample
+from yarl.execution.ray import RayExecutor
 
 if get_distributed_backend() == "ray":
     import ray
 
 
 @ray.remote
-class RayWorker(Worker):
+class RayWorker(object):
     """
     Ray wrapper for single threaded worker, provides further api methods to interact
     with the agent used in the worker.
@@ -47,16 +45,16 @@ class RayWorker(Worker):
         # Should be set.
         assert get_distributed_backend() == "ray"
 
-        # First create env from spec.
-        environment = Env.from_spec(env_spec)
+        # Ray cannot handle **kwargs in remote objects.
+        self.environment = RayExecutor.build_env_from_config(env_spec)
 
         # Then update agent config.
-        agent_config['state_space'] = environment.state_space
-        agent_config['action_space'] = environment.action_space
+        agent_config['state_space'] = self.environment.state_space
+        agent_config['action_space'] = self.environment.action_space
 
-        # Only create agent and environment in remote object.
-        agent = Agent.from_spec(agent_config)
-        super(RayWorker, self).__init__(environment, agent, repeat_actions)
+        # Ray cannot handle **kwargs in remote objects.
+        self.agent = RayExecutor.build_agent_from_config(agent_config)
+        self.repeat_actions = repeat_actions
 
     # Remote functions to interact with this workers agent.
     def call_agent_op(self, op, inputs=None):
@@ -85,12 +83,12 @@ class RayWorker(Worker):
         rewards = []
         terminals = []
         episode_rewards = []
-        state = self.environment.reset()
 
         while timesteps_executed < num_timesteps:
             # The reward accumulated over one episode.
+            state = self.environment.reset()
             episode_reward = 0
-
+            episode_timestep = 0
             # Whether the episode has terminated.
             terminal = False
             while True:
@@ -108,8 +106,11 @@ class RayWorker(Worker):
 
                 rewards.append(reward)
                 terminals.append(terminal)
+                timesteps_executed += 1
+                episode_timestep += 0
 
-                if terminal:
+                if terminal or (0 < num_timesteps <= timesteps_executed) or \
+                        (0 < max_timesteps_per_episode <= episode_timestep):
                     # Just return all samples collected so far.
                     if break_on_terminal:
                         total_time = (time.monotonic() - start) or 1e-10
@@ -119,6 +120,8 @@ class RayWorker(Worker):
                             rewards=rewards,
                             terminals=terminals,
                             metrics=dict(
+                                # Just pass this to know later how this sample was configured.
+                                break_on_terminal=break_on_terminal,
                                 runtime=total_time,
                                 # Agent act/observe throughput.
                                 timesteps_executed=timesteps_executed,
@@ -146,6 +149,7 @@ class RayWorker(Worker):
             rewards=rewards,
             terminals=terminals,
             metrics=dict(
+                break_on_terminal=break_on_terminal,
                 runtime=total_time,
                 # Agent act/observe throughput.
                 timesteps_executed=timesteps_executed,

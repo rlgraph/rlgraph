@@ -17,14 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .agent import Agent
+from yarl.agents.agent import Agent
 from yarl.agents.dqn_agent import DQNAgent
+from yarl.agents.random_agent import RandomAgent
 
 
 Agent.__lookup_classes__ = dict(
     dqn=DQNAgent,
-    dqnagent=DQNAgent
+    dqnagent=DQNAgent,
+    random=RandomAgent
 )
 
-__all__ = ["Agent", "DQNAgent"]
+__all__ = ["Agent", "DQNAgent", "RandomAgent"]
 
