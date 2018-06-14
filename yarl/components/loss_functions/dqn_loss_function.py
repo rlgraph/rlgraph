@@ -41,7 +41,7 @@ class DQNLossFunction(LossFunction):
         self.double_q = double_q
 
         # Pass our in-Socket names to parent c'tor.
-        input_sockets = ["q_values", "actions", "rewards", "qt_values_s_"]
+        input_sockets = ["q_values", "actions", "rewards", "terminals", "qt_values_s_"]
         # For double-Q, we need an additional input for the q-net's s'-q-values (not the target's ones!).
         if self.double_q:
             input_sockets.append("q_values_s_")
@@ -61,13 +61,15 @@ class DQNLossFunction(LossFunction):
             "ERROR: action_space for DQN must be IntBox (for now) and have a `num_categories` attribute that's " \
             "not None!"
 
-    def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, qt_values_sp, q_values_sp=None):
+    def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None):
         """
         Args:
             q_values_s (SingleDataOp): The batch of Q-values representing the expected accumulated discounted returns
                 when in s and taking different actions a.
             actions (SingleDataOp): The batch of actions that were actually taken in states s (from a memory).
             rewards (SingleDataOp): The batch of rewards that we received after having taken a in s (from a memory).
+            terminals (SingleDataOp): The batch of terminal signals that we received after having taken a in s
+                (from a memory).
             qt_values_sp (SingleDataOp): The batch of Q-values representing the expected accumulated discounted
                 returns (estimated by the target net) when in s' and taking different actions a'.
             q_values_sp (Optional[SingleDataOp]): If `self.double_q` is True: The batch of Q-values representing the
@@ -89,6 +91,13 @@ class DQNLossFunction(LossFunction):
             else:
                 # Qt(s',a') -> Use the max(a') one (from the target network).
                 qt_sp_ap_values = tf.reduce_max(input_tensor=qt_values_sp, axis=-1)
+
+            # Ignore Q(s'a') values if s' is a terminal state. Instead use 0.0 as the state-action value for s'a'.
+            # Note that in that case, the next_state (s') is not the correct next state and should be disregarded.
+            # See Chapter 3.4 in "RL - An Introduction" (2017 draft) by A. Barto and R. Sutton for a detailed analysis.
+            qt_sp_ap_values = tf.where(condition=tf.cast(terminals, tf.bool),
+                                       x=tf.zeros(shape=tuple(qt_sp_ap_values.shape.as_list())),
+                                       y=qt_sp_ap_values)
 
             # Q(s,a) -> Use the Q-value of the action actually taken before.
             one_hot = tf.one_hot(indices=actions, depth=self.action_space.num_categories)

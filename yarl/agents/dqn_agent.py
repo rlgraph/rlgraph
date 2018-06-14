@@ -135,6 +135,7 @@ class DQNAgent(Agent):
         core.connect((self.splitter, "/actions"), "memory_actions")
         core.connect((self.splitter, "/rewards"), (self.loss_function, "rewards"))
         core.connect((self.splitter, "/rewards"), "memory_rewards")
+        core.connect((self.splitter, "/terminals"), (self.loss_function, "terminals"))
         core.connect((self.splitter, "/terminals"), "memory_terminals")
         core.connect((self.splitter, "/next_states"), (self.target_policy, "nn_input"))
         if self.double_q:

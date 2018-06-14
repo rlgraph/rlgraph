@@ -67,7 +67,11 @@ class Environment(Specifiable):
                 Environment's action_space (a call to self.action_space.contains(action) must return True)
 
         Returns:
-            tuple: A tuple of (state after(!) executing the given actions(s), reward, is-terminal, info).
+            tuple:
+                - The state s' after(!) executing the given actions(s).
+                - The reward received after taking a in s.
+                - Whether s' is a terminal state.
+                - Some Environment specific info.
         """
         raise NotImplementedError
 
