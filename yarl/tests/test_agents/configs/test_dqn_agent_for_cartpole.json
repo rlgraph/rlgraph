@@ -18,8 +18,8 @@
   [
     {
       "type": "dense",
-      "units": 10,
-      "activation": "linear",
+      "units": 16,
+      "activation": "relu",
       "scope": "hidden"
     }
   ],
@@ -30,9 +30,9 @@
     "epsilon_spec": {
       "decay": "linear_decay",
       "from": 1.0,
-      "to": 0.2,
+      "to": 0.1,
       "start_timestep": 0,
-      "num_timesteps": 10000
+      "num_timesteps": 1200
     }
   },
 

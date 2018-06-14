@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.envs.env import Environment
+from yarl.envs.environment import Environment
 from yarl.envs.grid_world import GridWorld
 from yarl.envs.openai_gym import OpenAIGymEnv
 from yarl.envs.random_env import RandomEnv

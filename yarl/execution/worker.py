@@ -133,7 +133,7 @@ class Worker(Specifiable):
                 loss = 0
                 for _ in range_(self.update_steps):
                     l, s_, a_, r_, t_ = self.agent.update()
-                    self.logger.info("FROM MEM: s={} a={} r={} t={}".format(s_, a_, r_, t_))
+                    #self.logger.info("FROM MEM: s={} a={} r={} t={}".format(s_, a_, r_, t_))
                     loss += l
                 return loss
 

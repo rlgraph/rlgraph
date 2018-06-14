@@ -165,7 +165,7 @@ class DQNAgent(Agent):
         actions, q_values, do_explore = self.graph_executor.execute(
             ["get_actions", "q_values", "do_explore"], inputs=dict(states=batched_states, time_step=self.timesteps)
         )
-        print("states={} action={} q_values={} do_explore={}".format(states, actions, q_values, do_explore))
+        #print("states={} action={} q_values={} do_explore={}".format(states, actions, q_values, do_explore))
         if remove_batch_rank:
             return actions[0]
         return actions
