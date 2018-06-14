@@ -52,8 +52,8 @@ class TestRayWorker(unittest.TestCase):
 
         # Test when breaking on terminal.
         # Init remote task.
-        task = worker.remote.execute_and_get_timesteps(100, break_on_terminal=True)
+        task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=True)
 
         # Retrieve
         result = ray.get(task)
-        print(result)
+        #print(result)

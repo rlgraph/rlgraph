@@ -21,11 +21,10 @@ from six.moves import xrange
 import time
 
 from yarl.backend_system import get_distributed_backend
-from yarl.agents import Agent
-from yarl.envs import Environment
+
 from yarl.execution import Worker
 from yarl.execution.env_sample import EnvSample
-from yarl.execution.ray.ray_util import build_env_from_config, build_agent_from_config
+from yarl.execution.ray import RayExecutor
 
 if get_distributed_backend() == "ray":
     import ray
@@ -49,16 +48,14 @@ class RayWorker(Worker):
         assert get_distributed_backend() == "ray"
 
         # Ray cannot handle **kwargs in remote objects.
-        environment = build_env_from_config(env_spec)
+        environment = RayExecutor.build_env_from_config(env_spec)
 
         # Then update agent config.
         agent_config['state_space'] = environment.state_space
         agent_config['action_space'] = environment.action_space
 
-        # Only create agent and environment in remote object.
-
         # Ray cannot handle **kwargs in remote objects.
-        agent = build_agent_from_config(agent_config)
+        agent = RayExecutor.build_agent_from_config(agent_config)
         super(RayWorker, self).__init__(environment, agent, repeat_actions)
 
     # Remote functions to interact with this workers agent.
