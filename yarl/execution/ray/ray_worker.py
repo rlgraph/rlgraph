@@ -21,8 +21,6 @@ from six.moves import xrange
 import time
 
 from yarl.backend_system import get_distributed_backend
-
-from yarl.execution import Worker
 from yarl.execution.env_sample import EnvSample
 from yarl.execution.ray import RayExecutor
 
@@ -85,12 +83,12 @@ class RayWorker(object):
         rewards = []
         terminals = []
         episode_rewards = []
-        state = self.environment.reset()
 
         while timesteps_executed < num_timesteps:
             # The reward accumulated over one episode.
+            state = self.environment.reset()
             episode_reward = 0
-
+            episode_timestep = 0
             # Whether the episode has terminated.
             terminal = False
             while True:
@@ -108,9 +106,10 @@ class RayWorker(object):
 
                 rewards.append(reward)
                 terminals.append(terminal)
-                timesteps_executed +=1
+                timesteps_executed += 1
+                episode_timestep += 0
 
-                if terminal:
+                if terminal or (0 < max_timesteps_per_episode <= episode_timestep):
                     # Just return all samples collected so far.
                     if break_on_terminal:
                         total_time = (time.monotonic() - start) or 1e-10
