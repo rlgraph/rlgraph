@@ -109,7 +109,8 @@ class RayWorker(object):
                 timesteps_executed += 1
                 episode_timestep += 0
 
-                if terminal or (0 < max_timesteps_per_episode <= episode_timestep):
+                if terminal or (0 < num_timesteps <= timesteps_executed) or \
+                        (0 < max_timesteps_per_episode <= episode_timestep):
                     # Just return all samples collected so far.
                     if break_on_terminal:
                         total_time = (time.monotonic() - start) or 1e-10
@@ -119,6 +120,8 @@ class RayWorker(object):
                             rewards=rewards,
                             terminals=terminals,
                             metrics=dict(
+                                # Just pass this to know later how this sample was configured.
+                                break_on_terminal=break_on_terminal,
                                 runtime=total_time,
                                 # Agent act/observe throughput.
                                 timesteps_executed=timesteps_executed,
@@ -146,6 +149,7 @@ class RayWorker(object):
             rewards=rewards,
             terminals=terminals,
             metrics=dict(
+                break_on_terminal=break_on_terminal,
                 runtime=total_time,
                 # Agent act/observe throughput.
                 timesteps_executed=timesteps_executed,
