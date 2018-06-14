@@ -18,10 +18,16 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
+
+from yarl import get_distributed_backend
 from yarl.execution.ray import RayWorker
+
+if get_distributed_backend() == "ray":
+    import ray
 
 
 class TestRayWorker(unittest.TestCase):
+
 
     env_spec = dict(
       type="openai",
@@ -31,18 +37,26 @@ class TestRayWorker(unittest.TestCase):
         type="random"
     )
 
+    def setUp(self):
+        """
+        Inits a local redis and scheduler.
+        """
+        ray.init()
+
     def test_get_timesteps(self):
         """
         Simply tests if time-step execution loop works and returns the samples.
         """
 
-        # NOTE: This test would require initializing ray, which starts multiple services.
-        # ray.init()
         worker = RayWorker.remote(
             env_spec=self.env_spec,
             agent_config=self.agent_config,
         )
 
         # Test when breaking on terminal.
-        #result = worker.execute_and_get_timesteps(100, break_on_terminal=True)
-        #print(result)
+        # Init remote task.
+        task = worker.remote.execute_and_get_timesteps(100, break_on_terminal=True)
+
+        # Retrieve
+        result = ray.get(task)
+        print(result)
