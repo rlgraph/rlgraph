@@ -108,6 +108,7 @@ class RayWorker(object):
 
                 rewards.append(reward)
                 terminals.append(terminal)
+                timesteps_executed +=1
 
                 if terminal:
                     # Just return all samples collected so far.

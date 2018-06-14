@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
+from time import sleep
 
 from yarl import get_distributed_backend
 from yarl.execution.ray import RayWorker
@@ -27,7 +28,6 @@ if get_distributed_backend() == "ray":
 
 
 class TestRayWorker(unittest.TestCase):
-
 
     env_spec = dict(
       type="openai",
@@ -53,7 +53,8 @@ class TestRayWorker(unittest.TestCase):
         # Test when breaking on terminal.
         # Init remote task.
         task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=True)
-
+        sleep(10)
         # Retrieve
         result = ray.get(task)
-        #print(result)
+        print(result.get_batch())
+        print(result.get_metrics())
