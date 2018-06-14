@@ -48,10 +48,7 @@ class TestRayWorker(unittest.TestCase):
         Simply tests if time-step execution loop works and returns the samples.
         """
 
-        worker = RayWorker.remote(
-            env_spec=self.env_spec,
-            agent_config=self.agent_config,
-        )
+        worker = RayWorker.remote(self.env_spec, self.agent_config)
 
         # Test when breaking on terminal.
         # Init remote task.
