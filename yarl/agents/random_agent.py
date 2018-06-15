@@ -34,12 +34,18 @@ class RandomAgent(Agent):
     def build_graph(self):
         pass
 
-    def call_graph_op(self, op, inputs=None):
-        pass
-
     def get_action(self, states, deterministic=False):
         return self.action_space.sample()
 
     def update(self, batch=None):
         pass
 
+    # Override these with pass so we can use them when testing distributed strategies.
+    def set_weights(self, weights):
+        pass
+
+    def get_weights(self):
+        pass
+
+    def call_graph_op(self, op, inputs=None):
+        pass

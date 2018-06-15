@@ -28,6 +28,7 @@ class TensorFlowExecutor(GraphExecutor):
     """
     A Tensorflow executioner manages execution via TensorFlow sessions.
     """
+
     def __init__(self, **kwargs):
         super(TensorFlowExecutor, self).__init__(**kwargs)
         self.global_training_timestep = None
@@ -315,3 +316,11 @@ class TensorFlowExecutor(GraphExecutor):
         if not filename.endswith('.meta'):
             self.logger.warn('Filename for TensorFlow meta graph should end with .meta.')
         self.saver.export_meta_graph(filename=filename)
+
+    def get_weights(self):
+        # Default out-socket pulls on variables.
+        return self.execute(sockets="_variables")
+
+    def set_weights(self, weights):
+        # Note that this can only assign components which have been declared synchronizable.
+        self.execute(sockets="sync", inputs=dict(sync_in=weights))
