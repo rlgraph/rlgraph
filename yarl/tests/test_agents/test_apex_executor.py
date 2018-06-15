@@ -59,8 +59,6 @@ class TestRayExecutor(unittest.TestCase):
         """
         ray.init()
 
-
-
     def test_apex_workload(self):
         # Define executor, test assembly.
         executor = ApexExecutor(

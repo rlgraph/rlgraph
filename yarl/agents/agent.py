@@ -274,3 +274,25 @@ class Agent(Specifiable):
         """
         self.graph_executor.load_model(path=path)
 
+    def get_weights(self):
+        """
+        Returns all weights the agents computation graph. Delegates this task to the
+        graph executor.
+
+        Returns:
+            any: Weights and optionally weight meta data for this model.
+        """
+        self.graph_executor.get_weights()
+
+    def set_weights(self, weights):
+        """
+        Sets weights of this agent.  Delegates this task to the
+        graph executor.
+
+        Args:
+            weights (any): Weights and optionally meta data to update depending on the backend.
+
+        Raises:
+            ValueError if weights do not match graph weights in shapes and types.
+        """
+        self.graph_executor.set_weights(weights=weights)
