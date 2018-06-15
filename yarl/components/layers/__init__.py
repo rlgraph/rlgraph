@@ -20,13 +20,13 @@ from __future__ import print_function
 from yarl.utils.util import default_dict
 
 # Basics.
-from .stack import Stack
-from .layer import Layer
-from .preprocessor_stack import PreprocessorStack
+from yarl.components.layers.stack import Stack
+from yarl.components.layers.layer import Layer
+from yarl.components.layers.preprocessor_stack import PreprocessorStack
 # Preprocessing Layers.
-from .preprocessing import *
+from yarl.components.layers.preprocessing import *
 # NN-Layers.
-from .nn import *
+from yarl.components.layers.nn import *
 
 # The Stacks.
 Stack.__lookup_classes__ = dict(

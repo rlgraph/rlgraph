@@ -17,16 +17,18 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .nn_layer import NNLayer
-from .concat_layer import ConcatLayer
-from .conv2d_layer import Conv2DLayer
-from .dense_layer import DenseLayer
+from yarl.components.layers.nn.nn_layer import NNLayer
+from yarl.components.layers.nn.concat_layer import ConcatLayer
+from yarl.components.layers.nn.conv2d_layer import Conv2DLayer
+from yarl.components.layers.nn.dense_layer import DenseLayer
+from yarl.components.layers.nn.dueling_layer import DuelingLayer
 
 NNLayer.__lookup_classes__ = dict(
     concat=ConcatLayer,
     conv2d=Conv2DLayer,
     dense=DenseLayer,
-    fc=DenseLayer  # alias
+    fc=DenseLayer,  # alias
+    dueling=DuelingLayer
 )
 
-__all__ = ["NNLayer", "ConcatLayer", "Conv2DLayer", "DenseLayer"]
+__all__ = ["NNLayer", "ConcatLayer", "Conv2DLayer", "DenseLayer", "DuelingLayer"]

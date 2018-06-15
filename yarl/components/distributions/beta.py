@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from yarl import get_backend
 from yarl.components.distributions.distribution import Distribution
+from yarl.spaces import Tuple
 
 if get_backend() == "tf":
     import tensorflow as tf

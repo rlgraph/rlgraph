@@ -47,7 +47,7 @@ class ReplayMemory(Memory):
         """
         Args:
             next_states (bool): If true include next states in the return values of the out-Socket "get_records".
-            sample_terminals (bool): If true, terminal states are included in "get_records". If false they are
+            sample_terminals (bool): If True, terminal states are included in "get_records". If false they are
                 filtered out (or not sampled to begin with) which affects sampling performance.
         """
         super(ReplayMemory, self).__init__(capacity, scope=scope, **kwargs)
