@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl.agents.agent import Agent
+from yarl.agents.apex_agent import ApexAgent
 from yarl.agents.dqn_agent import DQNAgent
 from yarl.agents.random_agent import RandomAgent
 
@@ -25,6 +26,8 @@ from yarl.agents.random_agent import RandomAgent
 Agent.__lookup_classes__ = dict(
     dqn=DQNAgent,
     dqnagent=DQNAgent,
+    apex=ApexAgent,
+    apexagent=ApexAgent,
     random=RandomAgent
 )
 
