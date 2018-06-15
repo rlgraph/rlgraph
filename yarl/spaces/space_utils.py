@@ -316,17 +316,21 @@ def sanity_check_space(
     """
     # Check the types.
     if allowed_types is not None:
-        if not isinstance(space, allowed_types):
+        if not isinstance(space, tuple(allowed_types)):
             raise YARLError("ERROR: Space ({}) is not an instance of {}!".format(space, allowed_types))
 
     if non_allowed_types is not None:
-        if isinstance(space, non_allowed_types):
+        if isinstance(space, tuple(non_allowed_types)):
             raise YARLError("ERROR: Space ({}) must not be an instance of {}!".format(space, non_allowed_types))
 
     if must_have_batch_rank is not None:
         if space.has_batch_rank != must_have_batch_rank:
-            if space.has_batch_rank:
-                raise YARLError("ERROR: Space ({}) has a batch rank, but is not allowed!".format(space))
+            # Last chance: Check for rank >= 2, that would be ok as well.
+            if must_have_batch_rank is True and len(space.get_shape(with_batch_rank=True)) >= 2:
+                pass
+            # Something is wrong.
+            elif space.has_batch_rank is True:
+                raise YARLError("ERROR: Space ({}) has a batch rank, but is not allowed to!".format(space))
             else:
                 raise YARLError("ERROR: Space ({}) does not have a batch rank, but must have one!".format(space))
 

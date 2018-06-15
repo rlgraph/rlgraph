@@ -40,8 +40,8 @@ class NNLayer(Layer):
         for in_sock in self.input_sockets:
             in_space = input_spaces[in_sock.name]
             # - NNLayers always need FloatBoxes as input (later, add Container Spaces containing only FloatBoxes).
-            # - At least rank=2 (batched).
-            sanity_check_space(in_space, allowed_types=[FloatBox], rank=[2, None])
+            # - Must have batch rank.
+            sanity_check_space(in_space, allowed_types=[FloatBox], must_have_batch_rank=True)
 
     def _graph_fn_apply(self, *inputs):
         """

@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import get_backend
-from yarl.components import NNLayer
+from yarl.components.layers.nn.nn_layer import NNLayer
 
 
 if get_backend() == "tf":

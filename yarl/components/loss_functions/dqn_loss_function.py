@@ -89,24 +89,30 @@ class DQNLossFunction(LossFunction):
                 one_hot = tf.one_hot(indices=a_primes, depth=self.action_space.num_categories)
                 qt_sp_ap_values = tf.reduce_sum(input_tensor=(qt_values_sp * one_hot), axis=-1)
             else:
-                # Qt(s',a') -> Use the max(a') one (from the target network).
+                # Qt(s',a') -> Use the max(a') value (from the target network).
                 qt_sp_ap_values = tf.reduce_max(input_tensor=qt_values_sp, axis=-1)
 
             # Ignore Q(s'a') values if s' is a terminal state. Instead use 0.0 as the state-action value for s'a'.
             # Note that in that case, the next_state (s') is not the correct next state and should be disregarded.
             # See Chapter 3.4 in "RL - An Introduction" (2017 draft) by A. Barto and R. Sutton for a detailed analysis.
-            qt_sp_ap_values = tf.where(condition=tf.cast(terminals, tf.bool),
-                                       x=tf.zeros(shape=tuple(qt_sp_ap_values.shape.as_list())),
+            qt_sp_ap_values = tf.where(condition=terminals,
+                                       x=tf.zeros(shape=tf.shape(qt_sp_ap_values)),
                                        y=qt_sp_ap_values)
 
             # Q(s,a) -> Use the Q-value of the action actually taken before.
             one_hot = tf.one_hot(indices=actions, depth=self.action_space.num_categories)
             q_s_a_values = tf.reduce_sum(input_tensor=(q_values_s * one_hot), axis=-1)
 
+            # Make sure the rewards vector (batch) is broadcast in the correct way.
+            if get_rank(q_s_a_values) > 1:
+                rewards = tf.expand_dims(rewards, axis=1)
+
             # Calculate the TD-delta (target - current estimate).
             td_delta = (rewards + self.discount * qt_sp_ap_values) - q_s_a_values
-            # Reduce over the composite actions?
+
+            # Reduce over the composite actions, if any.
             if get_rank(td_delta) > 1:
                 td_delta = tf.reduce_mean(input_tensor=td_delta, axis=-1)
+
             return tf.pow(x=td_delta, y=2)
 
