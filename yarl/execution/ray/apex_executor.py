@@ -40,14 +40,14 @@ class ApexExecutor(RayExecutor):
 
     https://arxiv.org/abs/1803.00933
     """
-    def __init__(self, environment_spec, agent_config, repeat_actions, cluster_spec):
+    def __init__(self, environment_spec, agent_config, cluster_spec, repeat_actions=1):
         """
         Args:
             environment_spec (dict): Environment spec. Each worker in the cluster will instantiate
                 an environment using this spec.
             agent_config (dict): Config dict containing agent and execution specs.
-            # TODO this does not seem like it belong shere
-            repeat_actions (int): How often actions are repeated after retrieving them from the agent.
+            # TODO this does not seem like it belongs here
+            repeat_actions (Optional[int]): How often actions are repeated after retrieving them from the agent.
 
         """
         super(ApexExecutor, self).__init__(cluster_spec)
@@ -156,6 +156,7 @@ class ApexExecutor(RayExecutor):
         self.logger.info("Time steps (actions) executed: {} ({} ops/s)".
                          format(timesteps_executed, timesteps_executed / total_time))
 
+        # TODO add more stats from steps
         return dict(
             runtime=total_time,
             timesteps_executed=timesteps_executed,
