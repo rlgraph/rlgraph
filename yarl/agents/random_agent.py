@@ -34,6 +34,9 @@ class RandomAgent(Agent):
     def build_graph(self):
         pass
 
+    def call_graph_op(self, op, inputs=None):
+        pass
+
     def get_action(self, states, deterministic=False):
         return self.action_space.sample()
 
