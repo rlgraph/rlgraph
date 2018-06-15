@@ -288,3 +288,70 @@ def deep_tuple(x):
     # A primitive -> keep as is.
     else:
         return x
+
+
+def sanity_check_space(
+        space, allowed_types=None, non_allowed_types=None, must_have_batch_rank=None, must_have_categories=None,
+        rank=None, num_categories=None
+):
+    """
+    Sanity checks a given Space for certain criteria and raises exceptions if they are not met.
+
+    Args:
+        space (Space): The Space object to check.
+        allowed_types (Optional[List[type]]): A list of types that this Space must be an instance of.
+        non_allowed_types (Optional[List[type]]): A list of type that this Space must not be an instance of.
+        must_have_batch_rank (Optional[bool]): Whether the Space  must (True) or must not (False) have the
+            `has_batch_rank` property set to True. None, if it doesn't matter.
+        must_have_categories (Optional[bool]): For IntBoxes, whether the Space must (True) or must not (False) have
+            global bounds with `num_categories` > 0. None, if it doesn't matter.
+        rank (Optional[int,tuple]): An int or a tuple (min,max) range within which the Space's rank must lie.
+            None if it doesn't matter.
+        num_categories (Optional[int,tuple]): An int or a tuple (min,max) range within which the Space's
+            `num_categories` rank must lie. Only valid for IntBoxes.
+            None if it doesn't matter.
+
+    Raises:
+        YARLError: Various YARLErrors, if any of the conditions is not met.
+    """
+    # Check the types.
+    if allowed_types is not None:
+        if not isinstance(space, allowed_types):
+            raise YARLError("ERROR: Space ({}) is not an instance of {}!".format(space, allowed_types))
+
+    if non_allowed_types is not None:
+        if isinstance(space, non_allowed_types):
+            raise YARLError("ERROR: Space ({}) must not be an instance of {}!".format(space, non_allowed_types))
+
+    if must_have_batch_rank is not None:
+        if space.has_batch_rank != must_have_batch_rank:
+            if space.has_batch_rank:
+                raise YARLError("ERROR: Space ({}) has a batch rank, but is not allowed!".format(space))
+            else:
+                raise YARLError("ERROR: Space ({}) does not have a batch rank, but must have one!".format(space))
+
+    if must_have_categories is not None:
+        if not isinstance(space, IntBox):
+            raise YARLError("ERROR: Space ({}) is not an IntBox. Only IntBox Spaces can have categories!".format(space))
+        elif space.global_bounds is False:
+            raise YARLError("ERROR: Space ({}) must have categories (globally valid value bounds)!".format(space))
+
+    if rank is not None:
+        if isinstance(rank, int):
+            if space.rank != rank:
+                raise YARLError("ERROR: Space ({}) has rank {}, but must have rank {}!".format(space, space.rank, rank))
+        elif not ((rank[0] or 0) <= space.rank <= (rank[1] or float("inf"))):
+            raise YARLError("ERROR: Space ({}) has rank {}, but its rank must be between {} and "
+                            "{}!".format(space, space.rank, rank[0], rank[1]))
+
+    if num_categories is not None:
+        if not isinstance(space, IntBox):
+            raise YARLError("ERROR: Space ({}) is not an IntBox. Only IntBox Spaces can have categories!".format(space))
+        elif space.num_categories is None or space.num_categories == 0:
+            if isinstance(num_categories, int):
+                if space.num_categories != num_categories:
+                    raise YARLError("ERROR: Space ({}) has `num_categories` {}, but must have {}!".
+                                    format(space, space.num_categories, num_categories))
+            elif not ((num_categories[0] or 0) <= space.num_categories <= (num_categories[1] or float("inf"))):
+                raise YARLError("ERROR: Space ({}) has `num_categories` {}, but this value must be between {} and "
+                                "{}!".format(space, space.num_categories, num_categories[0], num_categories[1]))

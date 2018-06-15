@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl.components.layers.layer import Layer
-from yarl.spaces import ContainerSpace
+from yarl.spaces import FloatBox, sanity_check_space
 
 
 class NNLayer(Layer):
@@ -39,12 +39,9 @@ class NNLayer(Layer):
         # Loop through all our in-Sockets and sanity check each one of them for:
         for in_sock in self.input_sockets:
             in_space = input_spaces[in_sock.name]
-            # a) Must not be  ContainerSpace (not supported yet for NNLayers, doesn't seem to make sense).
-            assert not isinstance(in_space, ContainerSpace), "ERROR: Cannot handle container input Spaces " \
-                                                             "in layer '{}' (atm; may soon do)!".format(self.name)
-            # b) All input Spaces need batch ranks (we are passing through NNs after all).
-            #assert in_space.has_batch_rank,\
-            #    "ERROR: Space in Socket 'input' to layer '{}' must have a batch rank (0th position)!".format(self.name)
+            # - NNLayers always need FloatBoxes as input (later, add Container Spaces containing only FloatBoxes).
+            # - At least rank=2 (batched).
+            sanity_check_space(in_space, allowed_types=[FloatBox], rank=[2, None])
 
     def _graph_fn_apply(self, *inputs):
         """

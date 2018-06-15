@@ -26,6 +26,7 @@ from yarl.spaces.float_box import FloatBox
 from yarl.spaces.int_box import IntBox
 from yarl.spaces.bool_box import BoolBox
 from yarl.spaces.containers import ContainerSpace, Dict, Tuple, FLAT_TUPLE_CLOSE, FLAT_TUPLE_OPEN
+from yarl.spaces.space_utils import sanity_check_space
 
 
 Space.__lookup_classes__ = dict({
@@ -55,5 +56,6 @@ Space.__default_constructor__ = partial(FloatBox, 1.0)
 
 
 __all__ = ["Space", "BoxSpace", "FloatBox", "IntBox", "BoolBox",
-           "ContainerSpace", "Dict", "Tuple", "FLAT_TUPLE_CLOSE", "FLAT_TUPLE_OPEN"]
+           "ContainerSpace", "Dict", "Tuple", "FLAT_TUPLE_CLOSE", "FLAT_TUPLE_OPEN",
+           "sanity_check_space"]
 
