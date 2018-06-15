@@ -152,3 +152,24 @@ class GraphExecutor(Specifiable):
             dict: Dict mapping device identifiers (keys) to assigned components (list of component names).
         """
         pass
+
+    def get_weights(self):
+        """
+        Returns all weights for computation graph of  this graph executor.
+
+        Returns:
+            any: Weights for this graph..
+        """
+        raise NotImplementedError
+
+    def set_weights(self, weights):
+        """
+        Sets weights of the underlying computation graph..
+
+        Args:
+            weights (any): Weights and optionally meta data to update depending on the backend.
+
+        Raises:
+            ValueError if weights do not match graph weights in shapes and types.
+        """
+        raise NotImplementedError

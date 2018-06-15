@@ -97,18 +97,15 @@ class RayAgent(object):
 
     def get_weights(self):
         """
-        Returns the weights of this agent.
-
-        Returns:
-            any: Weight matrix and meta data
+        Returns the weights of this agent. See Agent API for docs.
         """
-        return self.agent.call_graph_op(op="get_weights")
+        return self.agent.get_weights()
 
     def set_weights(self, weights):
         """
-        Returns the weights of this agent.
+        Sets the weights of this agent. See Agent API for docs.
         """
-        return self.agent.call_graph_op(op="set_weights", inputs=weights)
+        return self.agent.set_weights(weights=weights)
 
     def observe(self, states, actions, internals, reward, terminal):
         """

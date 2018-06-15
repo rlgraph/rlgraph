@@ -40,3 +40,12 @@ class RandomAgent(Agent):
     def update(self, batch=None):
         pass
 
+    # Override these with pass so we can use them when testing distributed strategies.
+    def set_weights(self, weights):
+        pass
+
+    def get_weights(self):
+        pass
+
+    def call_graph_op(self, op, inputs=None):
+        pass
