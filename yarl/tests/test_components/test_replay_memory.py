@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 
 from yarl.components.memories.replay_memory import ReplayMemory
-from yarl.spaces import Dict, IntBox
+from yarl.spaces import Dict, BoolBox
 from yarl.tests import ComponentTest
 from yarl.tests.test_util import non_terminal_records, terminal_records
 
@@ -33,7 +33,7 @@ class TestReplayMemory(unittest.TestCase):
         states=dict(state1=float, state2=float),
         actions=dict(action1=float),
         reward=float,
-        terminals=IntBox(low=0, high=1),
+        terminals=BoolBox(),
         add_batch_rank=True
     )
     memory_variables = ["size", "index"]

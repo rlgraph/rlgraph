@@ -22,7 +22,7 @@ import numpy as np
 
 from yarl.agents import Agent
 from yarl.components import CONNECT_ALL, Synchronizable, Merger, Splitter, Memory, DQNLossFunction
-from yarl.spaces import Dict, IntBox, FloatBox
+from yarl.spaces import Dict, IntBox, FloatBox, BoolBox
 from yarl.utils.visualization_util import get_graph_markup
 
 
@@ -47,7 +47,7 @@ class DQNAgent(Agent):
         self.discount = discount
         self.memory = Memory.from_spec(memory_spec)
         self.record_space = Dict(states=self.state_space, actions=self.action_space, rewards=float,
-                                 terminals=IntBox(1), add_batch_rank=False)
+                                 terminals=BoolBox(), add_batch_rank=False)
         self.double_q = double_q
         self.duelling_q = duelling_q
 
@@ -75,7 +75,7 @@ class DQNAgent(Agent):
         core.define_inputs("states", space=self.state_space.with_batch_rank())
         core.define_inputs("actions", space=self.action_space.with_batch_rank())
         core.define_inputs("rewards", space=FloatBox(add_batch_rank=True))
-        core.define_inputs("terminals", space=IntBox(2, add_batch_rank=True))
+        core.define_inputs("terminals", space=BoolBox(add_batch_rank=True))
         core.define_inputs("deterministic", space=bool)
         core.define_inputs("time_step", space=int)
         core.define_outputs("get_actions", "insert_records", "update", "sync_target_qnet",

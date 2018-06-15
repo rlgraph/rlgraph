@@ -98,12 +98,14 @@ class RingBuffer(Memory):
             prev_num_episodes = self.read_variable(self.num_episodes)
 
             # Newly inserted episodes.
-            inserted_episodes = tf.reduce_sum(input_tensor=records['/terminals'], axis=0)
+            inserted_episodes = tf.reduce_sum(input_tensor=tf.cast(records['/terminals'], dtype=tf.int32), axis=0)
 
             # Episodes previously existing in the range we inserted to as indicated
             # by count of terminals in the that slice.
             insert_terminal_slice = self.read_variable(self.record_registry['/terminals'], update_indices)
-            episodes_in_insert_range = tf.reduce_sum(input_tensor=insert_terminal_slice, axis=0)
+            episodes_in_insert_range = tf.reduce_sum(
+                input_tensor=tf.cast(insert_terminal_slice, dtype=tf.int32), axis=0
+            )
 
             # prev_num_episodes = tf.Print(prev_num_episodes, [
             #     prev_num_episodes,
