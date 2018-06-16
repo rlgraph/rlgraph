@@ -21,7 +21,7 @@ import unittest
 import numpy as np
 
 from yarl.components.memories import PrioritizedReplay
-from yarl.spaces import Dict, IntBox, FloatBox
+from yarl.spaces import Dict, IntBox, BoolBox, FloatBox
 from yarl.tests import ComponentTest
 from yarl.tests.test_util import non_terminal_records
 
@@ -34,7 +34,7 @@ class TestPrioritizedReplay(unittest.TestCase):
         states=dict(state1=float, state2=float),
         actions=dict(action1=float),
         reward=float,
-        terminals=IntBox(low=0, high=1),
+        terminals=BoolBox(),
         add_batch_rank=True
     )
     memory_variables = ["size", "index", "max-priority"]

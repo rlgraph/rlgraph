@@ -37,7 +37,10 @@ class TestLossFunctions(unittest.TestCase):
 
         test = ComponentTest(
             component=dqn_loss_function,
-            input_spaces=dict(q_values=q_values_space, actions=action_space, rewards=FloatBox(add_batch_rank=True),
+            input_spaces=dict(q_values=q_values_space,
+                              actions=action_space,
+                              rewards=FloatBox(add_batch_rank=True),
+                              terminals=BoolBox(add_batch_rank=True),
                               qt_values_s_=q_values_space
                               ),
             action_space=action_space
@@ -48,6 +51,7 @@ class TestLossFunctions(unittest.TestCase):
             q_values=np.array([[10.0, -10.0], [-0.101, -90.6]]),
             actions=np.array([0, 1]),
             rewards=np.array([9.4, -1.23]),
+            terminals=np.array([False, False]),
             qt_values_s_=np.array([[12.0, -8.0], [22.3, 10.5]]),
         )
         """
@@ -79,6 +83,7 @@ class TestLossFunctions(unittest.TestCase):
             component=dqn_loss_function,
             input_spaces=dict(q_values=q_values_space, actions=action_space,
                               rewards=FloatBox(add_batch_rank=True),
+                              terminals=BoolBox(add_batch_rank=True),
                               qt_values_s_=q_values_space,
                               q_values_s_=q_values_space,  # The Q-values for s' from the policy (not the target-policy)
                               ),
@@ -90,6 +95,7 @@ class TestLossFunctions(unittest.TestCase):
             q_values=np.array([[10.0, -10.0, 12.4], [-0.101, -4.6, -9.3]]),
             actions=np.array([2, 1]),
             rewards=np.array([10.3, -4.25]),
+            terminals=np.array([False, True]),
             qt_values_s_=np.array([[-12.3, 1.2, 1.4], [12.2, -11.5, 9.2]]),
             q_values_s_=np.array([[-10.3, 1.5, 1.4], [8.2, -10.9, 9.3]]),
         )
@@ -97,17 +103,17 @@ class TestLossFunctions(unittest.TestCase):
         Calculation:
         batch of 2, gamma=0.9
         a' = [1 2]  <- argmax(a')Q(s'a')
-        Qt(s'.) = [-12.3  1.2  1.4] [12.2  -11.5  9.2] -> Qt(s'a') = [1.2] [9.2]
+        Qt(s'.) = [-12.3  1.2  1.4] [12.2  -11.5  9.2] -> Qt(s'a') = [1.2] [0.0 <- normally 9.2, but terminal(!) = True]
         a = [2 1]
         Q(s,a)  = [12.4] [-4.6]
         L = E(batch)| ((r + gamma Qt(s'( argmax(a') Q(s'a') )) ) - Q(s,a))^2 |
-        L = ((10.3 + 0.9*1.2 - 12.4)^2 + (-4.25 + 0.9*9.2 - -4.6)^2) / 2
-        L = ((1.0404) + (74.4769)) / 2
-        L = 37.75865
+        L = ((10.3 + 0.9*1.2 - 12.4)^2 + (-4.25 + 0.9*0.0 - -4.6)^2) / 2
+        L = ((1.0404) + (0.1224999)) / 2
+        L = 0.58145
         """
 
         # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
-        expected_loss_per_item = np.array([1.040399, 74.47688], dtype=np.float32)
+        expected_loss_per_item = np.array([1.040399, 0.1224999], dtype=np.float32)
         test.test(out_socket_names="loss_per_item", inputs=input_, expected_outputs=expected_loss_per_item)
         # Expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
@@ -118,11 +124,14 @@ class TestLossFunctions(unittest.TestCase):
         # Thus, each action pick consists of 2 composite-actions chosen from a set of 4 possible single actions.
         action_space = IntBox(4, shape=(2,), add_batch_rank=True)
         q_values_space = FloatBox(shape=action_space.get_shape(with_category_rank=True), add_batch_rank=True)
-        dqn_loss_function = DQNLossFunction(discount=1.0)  # gamma=1.0: keep it simple
+        dqn_loss_function = DQNLossFunction(discount=0.8)
 
         test = ComponentTest(
             component=dqn_loss_function,
-            input_spaces=dict(q_values=q_values_space, actions=action_space, rewards=FloatBox(add_batch_rank=True),
+            input_spaces=dict(q_values=q_values_space,
+                              actions=action_space,
+                              rewards=FloatBox(add_batch_rank=True),
+                              terminals=BoolBox(add_batch_rank=True),
                               qt_values_s_=q_values_space
                               ),
             action_space=action_space
@@ -134,12 +143,27 @@ class TestLossFunctions(unittest.TestCase):
                                [[4.1, -11.1, 7.5, 2.1], [21.3, 9.5, -0.101, -90.6]]]),
             actions=np.array([[0, 3], [1, 2]]),
             rewards=np.array([9.4, -1.23]),
+            terminals=np.array([False, True]),
             qt_values_s_=np.array([[[12.0, -8.0, 7.8, 4.0], [16.2, -2.6, -6.001, 90.1]],
-                               [[5.1, -12.1, 8.5, 3.1], [22.3, 10.5, 1.098, -89.2]]]),
+                                   [[5.1, -12.1, 8.5, 3.1], [22.3, 10.5, 1.098, -89.2]]]),
         )
+
+        """
+        Calculation:
+        batch of 2, gamma=1.0
+        Qt(s'a') = [[12 -8 7.8 4] [16.2 -2.6 -6.001 90.1]] [[5.1 -12.1 8.5 3.1] [22.3 10.5 1.098 -89.2]] ->
+            max(a')Qt(s'a') = [[12 90.1] [0 0] <- would have been [8.5 22.3], but terminal=True]
+        Q(s,a)  = [10.0 98.1] [-11.1 -0.101]
+        L = E(batch)| ((r + gamma max(a')Qt(s'a') ) - Q(s,a))^2 |
+        L = (((9.4 + 0.8*12 - 10.0) + (9.4 + 0.8*90.1 - 98.1))/2)^2 + ((((-1.23 + 0.8*0.0 - -11.1) + (-1.23 + 0.8*0.0 - -0.101))/2)^2) / 2
+        L = ((-3.81)^2 + (4.3705)^2) / 2
+        L = (14.516082 + 19.101274) / 2
+        L = 16.808678
+        """
+
         # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
-        expected_loss_per_item = np.array([1.177221, 629.2822], dtype=np.float32)
-        test.test(out_socket_names="loss_per_item", inputs=input_, expected_outputs=expected_loss_per_item)
+        expected_loss_per_item = np.array([14.516082, 19.101274], dtype=np.float32)
+        print(test.test(out_socket_names="loss_per_item", inputs=input_, expected_outputs=None))
         # Just expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
         test.test(out_socket_names="loss", inputs=input_, expected_outputs=expected_loss)

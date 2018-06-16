@@ -22,7 +22,7 @@ import numpy as np
 from six.moves import xrange
 
 from yarl.components.memories.ring_buffer import RingBuffer
-from yarl.spaces import Dict, IntBox
+from yarl.spaces import Dict, BoolBox
 from yarl.tests import ComponentTest
 from yarl.tests.test_util import non_terminal_records, terminal_records
 
@@ -38,7 +38,7 @@ class TestRingBufferMemory(unittest.TestCase):
         states=dict(state1=float, state2=float),
         actions=dict(action1=float),
         reward=float,
-        terminals=IntBox(low=0, high=1),
+        terminals=BoolBox(),
         add_batch_rank=True
     )
     # Generic memory variables.
@@ -249,9 +249,8 @@ class TestRingBufferMemory(unittest.TestCase):
         # - 2 terminal values 1
         # - Terminal values spaced apart 1 index due to the insertion order
         self.assertEqual(len(episodes['terminals']), self.capacity)
-        self.assertEqual(sum(episodes['terminals']), 2)
-        self.assertEqual(episodes['terminals'][0], 1)
-        self.assertEqual(episodes['terminals'][2], 1)
+        self.assertEqual(episodes['terminals'][0], True)
+        self.assertEqual(episodes['terminals'][2], True)
 
     def test_latest_batch(self):
         """

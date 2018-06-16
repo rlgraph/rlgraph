@@ -33,14 +33,14 @@ def non_terminal_records(record_space, num_samples):
         Dict: Sampled records with all terminal values set to 0.
     """
     record_sample = record_space.sample(size=num_samples)
-    record_sample['terminals'] = np.zeros(num_samples)
+    record_sample['terminals'] = np.full(shape=(num_samples,), fill_value=np.bool_(False))
 
     return record_sample
 
 
 def terminal_records(record_space, num_samples):
     """
-    Samples a number of records and enforces all terminals to be 1,
+    Samples a number of records and enforces all terminals to be True,
     which is needed for testing memories.
 
     Args:
@@ -48,10 +48,10 @@ def terminal_records(record_space, num_samples):
         num_samples (int): Number of samples to draw.
 
     Returns:
-        Dict: Sampled records with all terminal values set to 1.
+        Dict: Sampled records with all terminal values set to True.
     """
     record_sample = record_space.sample(size=num_samples)
-    record_sample['terminals'] = np.ones(num_samples)
+    record_sample['terminals'] = np.full(shape=(num_samples,), fill_value=np.bool_(True))
 
     return record_sample
 

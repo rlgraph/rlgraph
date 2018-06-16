@@ -153,7 +153,7 @@ class ReplayMemory(Memory):
                 # terminal_indices = tf.Print(terminal_indices, [terminal_indices], summarize=100,
                 #                            message='terminal_indices = ')
                 # indices = tf.Print(indices, [indices], summarize=100, message='indices = ')
-                mask = tf.logical_not(x=tf.cast(terminal_indices, dtype=tf.bool))
+                mask = tf.logical_not(x=terminal_indices)
                 # mask = tf.Print(mask, [mask], summarize=100, message= 'mask = ')
                 indices = tf.boolean_mask(
                     tensor=indices,
