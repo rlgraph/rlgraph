@@ -78,7 +78,7 @@ class ApexAgent(Agent):
         core.define_inputs("terminals", space=IntBox(2, add_batch_rank=True))
         core.define_inputs("deterministic", space=bool)
         core.define_inputs("time_step", space=int)
-        core.define_outputs("get_actions", "insert_records", "update", "sync_target_qnet",
+        core.define_outputs("get_actions", "insert_records", "update", "sync_target_qnet", "get_batch",
                             # for debugging purposes:
                             "q_values", "loss", "memory_states", "memory_actions", "memory_rewards", "memory_terminals",
                             "do_explore")
@@ -126,6 +126,8 @@ class ApexAgent(Agent):
 
         # Memory's "get_records" (to Splitter) and "num_records" (constant batch-size value).
         core.connect((self.memory, "get_records"), (self.splitter, "input"))
+        core.connect((self.memory, "get_records"), "get_batch")
+
         core.connect(self.update_spec["batch_size"], (self.memory, "num_records"))
 
         # Splitter's outputs.
@@ -180,7 +182,9 @@ class ApexAgent(Agent):
         # In apex, syncing is based on num steps trained, not steps sampled.
         if (self.train_time_steps - 1) % self.update_spec["sync_interval"] == 0:
             self.graph_executor.execute("sync_target_qnet")
-        _, loss, s_, a_, r_, t_ = self.graph_executor.execute(["update", "loss", "memory_states", "memory_actions", "memory_rewards", "memory_terminals"])
+        _, loss, s_, a_, r_, t_ = self.graph_executor.execute(
+            ["update", "loss", "memory_states", "memory_actions", "memory_rewards", "memory_terminals"]
+        )
         self.train_time_steps += 1
         return loss, s_, a_, r_, t_
 
