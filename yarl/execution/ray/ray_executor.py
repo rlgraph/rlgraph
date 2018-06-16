@@ -19,6 +19,8 @@ from __future__ import print_function
 
 from six.moves import xrange
 import logging
+import numpy as np
+
 from yarl import get_distributed_backend
 from yarl.agents import Agent
 from yarl.envs import Environment
@@ -43,6 +45,9 @@ class RayExecutor(object):
                 agents on a Ray cluster.
         """
         self.logger = logging.getLogger(__name__)
+
+        # Ray workers for remote data collection.
+        self.ray_workers = None
         self.cluster_spec = cluster_spec
 
     def ray_init(self):
@@ -115,3 +120,36 @@ class RayExecutor(object):
         """
         env_cls = Environment.__lookup_classes__.get(env_spec['type'])
         return env_cls(env_spec['gym_env'])
+
+    def get_worker_results(self):
+        """
+        Fetches execution statistics from remote workers and aggregates them.
+
+        Returns:
+            dict: Aggregate worker statistics.
+        """
+        min_rewards = []
+        max_rewards = []
+        mean_rewards = []
+        final_rewards = []
+        episodes_executed = 0
+        steps_executed = 0
+
+        for ray_worker in self.ray_workers:
+            task = ray_worker.get_workload_statistics.remote()
+            metrics = ray.get(task)
+            min_rewards.append(metrics['min_episode_reward'])
+            max_rewards.append(metrics['max_episode_reward'])
+            mean_rewards.append(metrics['mean_episode_reward'])
+            episodes_executed += metrics['episodes_executed']
+            steps_executed += metrics['worker_steps']
+            final_rewards.append(metrics['final_episode_reward'])
+
+        return dict(
+            min_reward=np.min(min_rewards),
+            max_reward=np.max(max_rewards),
+            mean_reward=np.mean(mean_rewards),
+            mean_final_reward=np.mean(final_rewards),
+            episodes_executed=episodes_executed,
+            steps_executed=steps_executed
+        )

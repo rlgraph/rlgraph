@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from six.moves import xrange
+import numpy as np
 import time
 
 from yarl.backend_system import get_distributed_backend
@@ -56,6 +57,12 @@ class RayWorker(object):
         self.agent = RayExecutor.build_agent_from_config(agent_config)
         self.repeat_actions = repeat_actions
 
+        # Save these so they can be fetched after training if desired.
+        self.episode_rewards = []
+        self.episode_timesteps = []
+        self.total_worker_steps = 0
+        self.episodes_executed = 0
+
     # Remote functions to interact with this workers agent.
     def call_agent_op(self, op, inputs=None):
         self.agent.call_graph_op(op, inputs)
@@ -76,13 +83,11 @@ class RayWorker(object):
         """
         start = time.monotonic()
         timesteps_executed = 0
-        episodes_executed = 0
         env_frames = 0
         states = []
         actions = []
         rewards = []
         terminals = []
-        episode_rewards = []
 
         while timesteps_executed < num_timesteps:
             # The reward accumulated over one episode.
@@ -113,6 +118,9 @@ class RayWorker(object):
                 if terminal or (0 < num_timesteps <= timesteps_executed) or \
                         (0 < max_timesteps_per_episode <= episode_timestep):
                     # Just return all samples collected so far.
+                    self.episode_rewards.append(episode_reward)
+                    self.episode_timesteps.append(episode_timestep)
+                    self.total_worker_steps += timesteps_executed
                     if break_on_terminal:
                         total_time = (time.monotonic() - start) or 1e-10
                         return EnvSample(
@@ -138,8 +146,7 @@ class RayWorker(object):
                     else:
                         break
 
-            episodes_executed += 1
-            episode_rewards.append(episode_reward)
+            self.episodes_executed += 1
 
         # Otherwise return when all time steps done
         total_time = (time.monotonic() - start) or 1e-10
@@ -158,15 +165,26 @@ class RayWorker(object):
                 # Env frames including action repeats.
                 env_frames=env_frames,
                 env_frames_per_second=(env_frames / total_time),
-                episodes_executed=episodes_executed,
+                episodes_executed=self.episodes_executed,
                 episodes_per_minute=(1 / (total_time / 60)),
-                episode_rewards=episode_rewards,
+                episode_rewards=self.episode_rewards,
             )
         )
 
-    # TODO decide later if using separate methods here for apex
-    # def set_weights(self, weights):
-    #     self.agent.call_graph_op("set_weights", weights)
-    #
-    # def get_batch(self):
-    #     return self.agent.call_graph_op("sample")
+    def set_weights(self, weights):
+        self.agent.set_weights(weights)
+
+    def get_batch(self):
+        return self.agent.call_graph_op("sample")
+
+    def get_workload_statistics(self):
+        return dict(
+            episode_timesteps=self.episode_timesteps,
+            episode_rewards=self.episode_rewards,
+            min_episode_reward=np.min(self.episode_rewards),
+            max_episode_reward=np.max(self.episode_rewards),
+            mean_episode_reward=np.mean(self.episode_rewards),
+            final_episode_reward=self.episode_rewards[-1],
+            episodes_executed=self.episodes_executed,
+            worker_steps=self.total_worker_steps
+        )
