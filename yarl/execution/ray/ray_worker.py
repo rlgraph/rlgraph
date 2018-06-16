@@ -63,6 +63,11 @@ class RayWorker(object):
         self.total_worker_steps = 0
         self.episodes_executed = 0
 
+        # Step time and steps done per call to execute_and_get to measure throughput of this worker.
+        self.sample_times = []
+        self.sample_steps = []
+        self.sample_env_frames = []
+
     # Remote functions to interact with this workers agent.
     def call_agent_op(self, op, inputs=None):
         self.agent.call_graph_op(op, inputs)
@@ -123,6 +128,9 @@ class RayWorker(object):
                     self.total_worker_steps += timesteps_executed
                     if break_on_terminal:
                         total_time = (time.monotonic() - start) or 1e-10
+                        self.sample_steps.append(timesteps_executed)
+                        self.sample_times.append(total_time)
+                        self.sample_env_frames.append(env_frames)
                         return EnvSample(
                             states=states,
                             actions=actions,
@@ -150,6 +158,9 @@ class RayWorker(object):
 
         # Otherwise return when all time steps done
         total_time = (time.monotonic() - start) or 1e-10
+        self.sample_steps.append(timesteps_executed)
+        self.sample_times.append(total_time)
+        self.sample_env_frames.append(env_frames)
 
         return EnvSample(
             states=states,
@@ -186,5 +197,7 @@ class RayWorker(object):
             mean_episode_reward=np.mean(self.episode_rewards),
             final_episode_reward=self.episode_rewards[-1],
             episodes_executed=self.episodes_executed,
-            worker_steps=self.total_worker_steps
+            worker_steps=self.total_worker_steps,
+            mean_worker_ops_per_second=sum(self.sample_steps) / sum(self.sample_times),
+            mean_worker_env_frames_per_second=sum(self.sample_env_frames) / sum(self.sample_times)
         )

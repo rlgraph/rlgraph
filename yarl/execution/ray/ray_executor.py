@@ -132,6 +132,8 @@ class RayExecutor(object):
         max_rewards = []
         mean_rewards = []
         final_rewards = []
+        worker_op_throughputs = []
+        worker_env_frame_throughputs = []
         episodes_executed = 0
         steps_executed = 0
 
@@ -144,6 +146,8 @@ class RayExecutor(object):
             episodes_executed += metrics['episodes_executed']
             steps_executed += metrics['worker_steps']
             final_rewards.append(metrics['final_episode_reward'])
+            worker_op_throughputs.append(metrics['mean_worker_ops_per_second'])
+            worker_env_frame_throughputs.append(metrics['mean_worker_env_frames_per_second'])
 
         return dict(
             min_reward=np.min(min_rewards),
@@ -151,5 +155,10 @@ class RayExecutor(object):
             mean_reward=np.mean(mean_rewards),
             mean_final_reward=np.mean(final_rewards),
             episodes_executed=episodes_executed,
-            steps_executed=steps_executed
+            steps_executed=steps_executed,
+            # Identify potential straggling workers.
+            mean_worker_op_throughput=np.mean(worker_op_throughputs),
+            min_worker_op_throughput=np.min(worker_op_throughputs),
+            max_worker_op_throughput=np.max(worker_op_throughputs),
+            mean_worker_env_frame_throughput=np.mean(worker_op_throughputs)
         )

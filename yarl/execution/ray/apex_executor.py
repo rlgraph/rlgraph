@@ -162,9 +162,9 @@ class ApexExecutor(RayExecutor):
         # TODO how do we obtain reward statistics from remote workers?
         # 1. Can either locally  collect per worker and fetch remotely
         worker_stats = self.get_worker_results()
-        self.logger.info()
+        self.logger.info("Retrieved worker stats for {} workers:".format(len(self.ray_workers)))
+        self.logger.info(worker_stats)
 
-        # TODO worker throughput?
         return dict(
             # Overall stats.
             runtime=total_time,
@@ -173,7 +173,9 @@ class ApexExecutor(RayExecutor):
             mean_step_time=np.mean(step_times),
             throughput=timesteps_executed / total_time,
             # Worker stats.
-            mean_worker_throughput=worker_stats['mean_reward'],
+            mean_worker_op_throughput=worker_stats['mean_worker_op_throughput'],
+            max_worker_op_throughput=worker_stats['max_worker_op_throughput'],
+            min_worker_op_throughput=worker_stats['min_worker_op_throughput'],
             mean_worker_reward=worker_stats['mean_reward'],
             max_worker_reward=worker_stats['max_reward'],
             min_worker_reward=worker_stats['min_reward'],
