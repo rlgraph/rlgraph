@@ -68,6 +68,12 @@ class RayWorker(object):
         self.sample_steps = []
         self.sample_env_frames = []
 
+        # To continue running through multiple exec calls.
+        self.last_state = self.environment.reset()
+
+        # Was the last state a terminal state so env should be reset in next call?
+        self.last_terminal = False
+
     # Remote functions to interact with this workers agent.
     def call_agent_op(self, op, inputs=None):
         self.agent.call_graph_op(op, inputs)
@@ -88,15 +94,24 @@ class RayWorker(object):
         """
         start = time.monotonic()
         timesteps_executed = 0
+        # Executed episodes within this exec call.
+        episodes_executed = 0
         env_frames = 0
         states = []
         actions = []
         rewards = []
         terminals = []
 
+        # Continue in last state from prior execution.
+        state = self.last_state
+
         while timesteps_executed < num_timesteps:
+            # Reset env either if finished an episode in current loop or if last state
+            # from previous execution was terminal.
+            if self.last_terminal is True or episodes_executed > 0:
+                state = self.environment.reset()
+
             # The reward accumulated over one episode.
-            state = self.environment.reset()
             episode_reward = 0
             episode_timestep = 0
             # Whether the episode has terminated.
@@ -122,11 +137,14 @@ class RayWorker(object):
 
                 if terminal or (0 < num_timesteps <= timesteps_executed) or \
                         (0 < max_timesteps_per_episode <= episode_timestep):
+                    episodes_executed += 1
                     # Just return all samples collected so far.
                     self.episode_rewards.append(episode_reward)
                     self.episode_timesteps.append(episode_timestep)
                     self.total_worker_steps += timesteps_executed
+
                     if break_on_terminal:
+                        self.last_terminal = True
                         total_time = (time.monotonic() - start) or 1e-10
                         self.sample_steps.append(timesteps_executed)
                         self.sample_times.append(total_time)
@@ -157,6 +175,7 @@ class RayWorker(object):
             self.episodes_executed += 1
 
         # Otherwise return when all time steps done
+        self.last_terminal = terminal
         total_time = (time.monotonic() - start) or 1e-10
         self.sample_steps.append(timesteps_executed)
         self.sample_times.append(total_time)
