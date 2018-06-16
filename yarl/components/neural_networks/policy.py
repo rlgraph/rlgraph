@@ -22,12 +22,12 @@ from yarl.spaces import IntBox, FloatBox
 from yarl.components import Component, CONNECT_OUTS, CONNECT_ALL, Synchronizable
 from yarl.components.distributions import Normal, Categorical
 from yarl.components.neural_networks.neural_network import NeuralNetwork
-from yarl.components.neural_networks.nn_output_adapter import NNOutputAdapter
+from yarl.components.neural_networks.action_adapter import ActionAdapter
 
 
 class Policy(Component):
     """
-    A Policy is a Component without own graph_fns that contains a NeuralNetwork with an attached NNOutputAdapter
+    A Policy is a Component without own graph_fns that contains a NeuralNetwork with an attached ActionAdapter
     followed by a Distribution Component.
     The NeuralNetwork's and the Distribution's out-Sockets are all exposed so one can extract the direct
     NN-output but also query actions (stochastically or deterministically) from the distribution.
@@ -37,30 +37,36 @@ class Policy(Component):
         nn_input (SingleDataOp): The input to the neural network.
     outs:
         nn_output (SingleDataOp): The raw output of the neural network (before it's cleaned-up and passed through
-            our NNOutputAdapter).
-        logits (SingleDataOp): The reshaped and possibly biased NN outputs.
+            our ActionAdapter).
+        action_layer_output (SingleDataOp): The already reshaped output of the action layer of the ActionAdapter.
+        parameters (SingleDataOp): The softmaxed action_layer_outputs (probability parameters) going into the
+            Distribution Component.
+        logits (SingleDataOp): The logs of the parameter (probability) values.
         sample_stochastic: See Distribution component.
         sample_deterministic: See Distribution component.
         entropy: See Distribution component.
     """
-    def __init__(self, neural_network, writable=False, scope="policy", **kwargs):
+    def __init__(self, neural_network, writable=False, action_adapter_spec=None, scope="policy", **kwargs):
         """
         Args:
             neural_network (Union[NeuralNetwork,dict]): The NeuralNetwork Component or a specification dict to build
                 one.
             writable (bool): Whether this Policy can be synced to by another (equally structured) Policy.
                 Default: False.
+            action_adapter_spec (Optional[dict]): A spec-dict to create an ActionAdapter. USe None for the default
+                ActionAdapter object.
         """
         super(Policy, self).__init__(scope=scope, **kwargs)
 
         self.neural_network = NeuralNetwork.from_spec(neural_network)
         self.writable = writable
-        self.nn_output_adapter = NNOutputAdapter()
+        self.action_adapter = ActionAdapter.from_spec(action_adapter_spec)
         self.distribution = None  # to be determined once we know the action Space
 
         # Define our interface (some of the input/output Sockets will be defined depending on the NeuralNetwork's
         # own interface, e.g. "sync_in" may be missing if the NN is not writable):
-        self.define_outputs("sample_stochastic", "sample_deterministic", "entropy", "logits")
+        self.define_outputs("action_layer_output", "parameters", "logits",
+                            "sample_stochastic", "sample_deterministic", "entropy")
 
         # Add NN, connect it through and then rename its "output" into Policy's "nn_output".
         self.add_component(self.neural_network, connections=CONNECT_ALL)
@@ -68,9 +74,11 @@ class Policy(Component):
         self.rename_socket("output", "nn_output")
 
         # Add the Adapter, connect the network's "output" into it and the "logits" Socket.
-        self.add_component(self.nn_output_adapter)
-        self.connect((self.neural_network, "output"), (self.nn_output_adapter, "nn_output"))
-        self.connect((self.nn_output_adapter, "logits"), "logits")
+        self.add_component(self.action_adapter)
+        self.connect((self.neural_network, "output"), (self.action_adapter, "nn_output"))
+        self.connect((self.action_adapter, "action_layer_output"), "action_layer_output")
+        self.connect((self.action_adapter, "parameters"), "parameters")
+        self.connect((self.action_adapter, "logits"), "logits")
 
         # Add Synchronizable API to ours.
         if self.writable:
@@ -91,4 +99,4 @@ class Policy(Component):
         # This defines out-Sockets "sample_stochastic/sample_deterministic/entropy".
         self.add_component(self.distribution, connections=CONNECT_OUTS)
         # Plug-in Adapter Component into Distribution.
-        self.connect((self.nn_output_adapter, "parameters"), (self.distribution, "parameters"))
+        self.connect((self.action_adapter, "parameters"), (self.distribution, "parameters"))

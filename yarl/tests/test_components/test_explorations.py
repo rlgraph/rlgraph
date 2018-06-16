@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import unittest
 
-from yarl.components import Component, NNOutputAdapter, Categorical, Exploration, EpsilonExploration, LinearDecay
+from yarl.components import Component, ActionAdapter, Categorical, Exploration, EpsilonExploration, LinearDecay
 from yarl.spaces import *
 from yarl.tests import ComponentTest
 
@@ -50,16 +50,16 @@ class TestExplorations(unittest.TestCase):
         action_space = IntBox(5, shape=(2, 2), add_batch_rank=True)
         # Our distribution to go into the Exploration object.
         distribution = Categorical()
-        nn_output_adapter = NNOutputAdapter()
+        action_adapter = ActionAdapter()
         nn_output_space = FloatBox(shape=(13,), add_batch_rank=True)  # 13: Any flat nn-output should be ok.
         exploration = Exploration()
         # The Component to test.
         component_to_test = Component(scope="categorical-plus-exploration")
         component_to_test.define_inputs("nn_output", "time_step")
         component_to_test.define_outputs("action")
-        component_to_test.add_components(nn_output_adapter, distribution, exploration)
-        component_to_test.connect("nn_output", [nn_output_adapter, "nn_output"])
-        component_to_test.connect([nn_output_adapter, "parameters"], [distribution, "parameters"])
+        component_to_test.add_components(action_adapter, distribution, exploration)
+        component_to_test.connect("nn_output", [action_adapter, "nn_output"])
+        component_to_test.connect([action_adapter, "parameters"], [distribution, "parameters"])
         component_to_test.connect([distribution, "sample_deterministic"], [exploration, "sample_deterministic"])
         component_to_test.connect([distribution, "sample_stochastic"], [exploration, "sample_stochastic"])
         component_to_test.connect("time_step", [exploration, "time_step"])

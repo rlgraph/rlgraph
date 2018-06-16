@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from yarl.components.neural_networks.neural_network import NeuralNetwork
 from yarl.components.neural_networks.policy import Policy
-from yarl.components.neural_networks.nn_output_adapter import NNOutputAdapter
+from yarl.components.neural_networks.action_adapter import ActionAdapter
 
 
-__all__ = ["NeuralNetwork", "Policy", "NNOutputAdapter"]
+__all__ = ["NeuralNetwork", "Policy", "ActionAdapter"]

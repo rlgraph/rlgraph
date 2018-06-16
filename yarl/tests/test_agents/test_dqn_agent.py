@@ -40,6 +40,8 @@ class TestDQNAgent(unittest.TestCase):
         env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
         agent = DQNAgent.from_spec(
             "configs/test_dqn_agent_for_random_env.json",
+            double_q=False,
+            dueling_q=False,
             state_space=env.state_space,
             action_space=env.action_space
         )
@@ -61,6 +63,8 @@ class TestDQNAgent(unittest.TestCase):
         env = GridWorld("2x2")
         agent = DQNAgent.from_spec(
             "configs/test_dqn_agent_for_2x2_grid.json",
+            double_q=False,
+            dueling_q=False,
             state_space=env.state_space,
             action_space=env.action_space,
             observe_spec=dict(buffer_size=100),
@@ -87,6 +91,8 @@ class TestDQNAgent(unittest.TestCase):
         env.seed(10)
         agent = DQNAgent.from_spec(
             "configs/test_dqn_agent_for_cartpole.json",
+            double_q=False,
+            dueling_q=False,
             state_space=env.state_space,
             action_space=env.action_space,
             observe_spec=dict(buffer_size=100),

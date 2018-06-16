@@ -21,8 +21,8 @@ import copy
 import numpy as np
 
 from yarl.agents import Agent
-from yarl.components import CONNECT_ALL, Synchronizable, Merger, Splitter, Memory, DQNLossFunction
-from yarl.spaces import Dict, IntBox, FloatBox, BoolBox
+from yarl.components import CONNECT_ALL, Synchronizable, Merger, Splitter, Memory, DQNLossFunction, Policy
+from yarl.spaces import Dict, FloatBox, BoolBox
 from yarl.utils.visualization_util import get_graph_markup
 
 
@@ -34,13 +34,13 @@ class DQNAgent(Agent):
     [3] Dueling Network Architectures for Deep Reinforcement Learning, Wang et al. - 2016
     """
 
-    def __init__(self, discount=0.98, memory_spec=None, double_q=False, duelling_q=False, **kwargs):
+    def __init__(self, discount=0.98, memory_spec=None, double_q=True, dueling_q=True, **kwargs):
         """
         Args:
             discount (float): The discount factor (gamma).
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
             double_q (bool): Whether to use the double DQN loss function (see [2]).
-            duelling_q (bool): Whether to use a duelling DQN setup (see [3]).
+            dueling_q (bool): Whether to use a dueling layer in the ActionAdapter  (see [3]).
         """
         super(DQNAgent, self).__init__(**kwargs)
 
@@ -49,14 +49,17 @@ class DQNAgent(Agent):
         self.record_space = Dict(states=self.state_space, actions=self.action_space, rewards=float,
                                  terminals=BoolBox(), add_batch_rank=False)
         self.double_q = double_q
-        self.duelling_q = duelling_q
+        self.dueling_q = dueling_q
 
         # The target policy (is synced from the q-net policy every n steps).
         self.target_policy = None
         # The global copy of the q-net (if we are running in distributed mode).
         self.global_qnet = None
 
-        # TODO: "states_preprocessed" in-Socket + connect properly
+        self.policy = Policy(
+            neural_network=self.neural_network, action_adapter_spec=dict(add_dueling_layer=self.dueling_q)
+        )
+
         self.merger = Merger(output_space=self.record_space)
         splitter_input_space = copy.deepcopy(self.record_space)
         splitter_input_space["next_states"] = self.state_space

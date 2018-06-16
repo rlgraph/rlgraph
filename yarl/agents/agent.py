@@ -72,7 +72,6 @@ class Agent(Specifiable):
 
         if network_spec is not None:
             self.neural_network = NeuralNetwork.from_spec(network_spec)
-            self.policy = Policy(neural_network=self.neural_network)
 
         self.preprocessor_stack = PreprocessorStack.from_spec(preprocessing_spec)
         self.exploration = Exploration.from_spec(exploration_spec)
