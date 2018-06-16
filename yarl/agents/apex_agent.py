@@ -21,7 +21,7 @@ import copy
 import numpy as np
 
 from yarl.agents import Agent
-from yarl.components import CONNECT_ALL, Synchronizable, Merger, Splitter, Memory, DQNLossFunction
+from yarl.components import CONNECT_ALL, Synchronizable, Merger, Splitter, Memory, DQNLossFunction, PrioritizedReplay
 from yarl.spaces import Dict, IntBox, FloatBox
 from yarl.utils.visualization_util import get_graph_markup
 
@@ -48,7 +48,8 @@ class ApexAgent(Agent):
 
         self.discount = discount
         self.train_time_steps = 0
-        self.memory = Memory.from_spec(memory_spec)
+
+        self.memory = PrioritizedReplay.from_spec(memory_spec)
         self.record_space = Dict(states=self.state_space, actions=self.action_space, rewards=float,
                                  terminals=IntBox(1), add_batch_rank=False)
 
@@ -65,7 +66,6 @@ class ApexAgent(Agent):
         self.loss_function = DQNLossFunction(double_q=True)
 
         self.assemble_meta_graph()
-        markup = get_graph_markup(self.graph_builder.core_component)
         self.build_graph()
 
     def assemble_meta_graph(self):
@@ -76,8 +76,14 @@ class ApexAgent(Agent):
         core.define_inputs("actions", space=self.action_space.with_batch_rank())
         core.define_inputs("rewards", space=FloatBox(add_batch_rank=True))
         core.define_inputs("terminals", space=IntBox(2, add_batch_rank=True))
+
+        # Inputs for priority updates, indices and losses to use for priority updates.
+        core.define_inputs("sample_indices", space=FloatBox(add_batch_rank=True))
+        core.define_inputs("sample_losses", space=FloatBox(add_batch_rank=True))
+
         core.define_inputs("deterministic", space=bool)
         core.define_inputs("time_step", space=int)
+
         core.define_outputs("get_actions", "insert_records", "update", "sync_target_qnet", "get_batch",
                             # for debugging purposes:
                             "q_values", "loss", "memory_states", "memory_actions", "memory_rewards", "memory_terminals",
@@ -126,7 +132,13 @@ class ApexAgent(Agent):
 
         # Memory's "get_records" (to Splitter) and "num_records" (constant batch-size value).
         core.connect((self.memory, "get_records"), (self.splitter, "input"))
+
+        # For sampling batches on the replay shard.
         core.connect((self.memory, "get_records"), "get_batch")
+
+        # for updating priorities from external indices/loss.
+        core.connect("sample_indices", (self.memory, "indices"))
+        core.connect("sample_losses", (self.memory, "updates"))
 
         core.connect(self.update_spec["batch_size"], (self.memory, "num_records"))
 
@@ -169,6 +181,32 @@ class ApexAgent(Agent):
         if remove_batch_rank:
             return actions[0]
         return actions
+
+    def get_batch(self):
+        """
+        Samples a batch and  from the priority replay memory.
+
+        Returns:
+            batch, ndarray: Sample batch and indices sampled.
+        """
+        batch, indices, weights = self.graph_executor.execute(sockets="get_batch")
+
+        # Return indices so we later now which priorities to update.
+        return batch, indices
+
+    def update_priorities(self, indices, loss):
+        """
+        Updates priorities of provided indices in replay memory via externally
+        provided loss.
+
+        Args:
+            indices (ndarray): Indices to update in replay memory.
+            loss (ndarray):  Loss values for indices.
+        """
+        self.graph_executor.execute(
+            sockets=["sample_indices", "sample_losses"],
+            inputs=dict(sample_indices=indices, sample_losses=loss)
+        )
 
     def _observe_graph(self, states, actions, internals, rewards, terminals):
         self.graph_executor.execute("insert_records", inputs=dict(
