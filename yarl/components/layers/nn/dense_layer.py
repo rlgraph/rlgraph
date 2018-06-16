@@ -42,7 +42,6 @@ class DenseLayer(NNLayer):
             biases_spec (any): A specifier for a biases initializer. If False, use no biases.
         """
         # Remove kwargs before calling super().
-        self.activation = kwargs.pop("activation", None)
         self.weights_spec = kwargs.pop("weights_spec", None)
         self.biases_spec = kwargs.pop("biases_spec", False)
 
@@ -69,7 +68,7 @@ class DenseLayer(NNLayer):
         if get_backend() == "tf":
             self.layer = tf.layers.Dense(
                 units=self.units,
-                activation=get_activation_function(self.activation),
+                activation=get_activation_function(self.activation, *self.activation_params),
                 kernel_initializer=self.weights_init.initializer,
                 use_bias=(self.biases_spec is not False),
                 bias_initializer=self.biases_init.initializer,

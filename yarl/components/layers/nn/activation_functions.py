@@ -26,7 +26,7 @@ if get_backend() == "tf":
     import tensorflow as tf
 
 
-def get_activation_function(activation_function=None, **kwargs):
+def get_activation_function(activation_function=None, *other_parameters):
     """
     Returns an activation function (callable) to use in a NN layer.
 
@@ -35,9 +35,7 @@ def get_activation_function(activation_function=None, **kwargs):
             - already a callable (return just that)
             - a lookup key (str)
             - None: Use linear activation.
-
-    Keyword Args:
-        alpha (any): Possible extra parameter used for some of the activation functions.
+        other_parameters (any): Possible extra parameter(s) used for some of the activation functions.
 
     Returns:
         callable: The backend-dependent activation function.
@@ -62,12 +60,12 @@ def get_activation_function(activation_function=None, **kwargs):
         return tf.nn.selu
     # Swish function: x * sigmoid(x)
     # https://arxiv.org/abs/1710.05941
-    elif activation_function == 'swish':
+    elif activation_function == "swish":
         return lambda x: x * tf.sigmoid(x)
     # Leaky ReLU: x * [alpha if x < 0 else 1.0]
     elif activation_function in ["lrelu", "leaky_relu"]:
-        alpha = kwargs.get("alpha", 0.2)
-        return partial(tf.nn.leaky_relu(alpha=alpha))
+        alpha = other_parameters[0] if len(other_parameters) > 0 else 0.2
+        return partial(tf.nn.leaky_relu, alpha=alpha)
     # Concatenated ReLU:
     elif activation_function == "crelu":
         return tf.nn.crelu

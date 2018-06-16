@@ -51,7 +51,6 @@ class Conv2DLayer(NNLayer):
             # TODO: regularization specs
         """
         # Remove kwargs before calling super().
-        self.activation = kwargs.pop("activation", None)
         self.padding = kwargs.pop("padding", "valid")
         self.data_format = kwargs.pop("data_format", "channels_last")
         self.kernel_spec = kwargs.pop("kernel_spec", None)
@@ -81,7 +80,7 @@ class Conv2DLayer(NNLayer):
                 filters=self.filters, kernel_size=self.kernel_size,
                 strides=self.strides, padding=self.padding,
                 data_format=self.data_format,
-                activation=get_activation_function(self.activation),
+                activation=get_activation_function(self.activation, *self.activation_params),
                 use_bias=(self.biases_spec is not False),
                 kernel_initializer=self.kernel_init.initializer,
                 bias_initializer=self.biases_init.initializer

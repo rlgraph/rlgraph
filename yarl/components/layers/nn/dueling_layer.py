@@ -36,10 +36,11 @@ class DuelingLayer(NNLayer):
     def _graph_fn_apply(self, input_):
         """
         Args:
-            input_ (SingleDataOp): The outputs from a previous Layer.
+            input_ (SingleDataOp): The inputs to this layer. These must already be reshaped according to the action
+                space.
 
         Returns:
-            SingleDataOp: The final calculated Q values based on: Q = V + [A - mean(A)]
+            SingleDataOp: The final calculated Q values (for each composite action) based on: Q = V + [A - mean(A)]
         """
         # Use the very first node as value function output.
         # Use all following nodes as advantage function output.

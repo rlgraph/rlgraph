@@ -26,6 +26,10 @@ class NNLayer(Layer):
     A generic NN-layer object.
     """
     def __init__(self, *sub_components, **kwargs):
+        # Most NN layers have an activation function (some with parameters e.g. leaky ReLU).
+        self.activation = kwargs.pop("activation", None)
+        self.activation_params = kwargs.pop("activation_params", [])
+
         super(NNLayer, self).__init__(*sub_components, scope=kwargs.pop("scope", "nn-layer"), **kwargs)
 
         # The wrapped layer object.

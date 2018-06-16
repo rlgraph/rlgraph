@@ -52,7 +52,7 @@ class ConcatLayer(NNLayer):
         # Make sure all inputs have the same shape except for the last rank.
         for key, in_space in input_spaces.items():
             assert in1_space.shape[:-1] == in_space.shape[:-1], \
-                "ERROR: input spaces to ConcatLayer must have same shape except for last rank. {}'s shape is {}, but " \
+                "ERROR: Input spaces to ConcatLayer must have same shape except for last rank. {}'s shape is {}, but " \
                 "'input1's shape is {}.".format(key, in_space.shape, in1_space.shape)
 
     def create_variables(self, input_spaces, action_space):

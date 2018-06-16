@@ -29,7 +29,7 @@ class TestNNLayer(unittest.TestCase):
     """
     Tests for the different NNLayer Components. Each layer is tested separately.
     """
-    def test_dense(self):
+    def test_dense_layer(self):
         # Space must contain batch dimension (otherwise, NNlayer will complain).
         space = FloatBox(shape=(2,), add_batch_rank=True)
 
@@ -43,7 +43,19 @@ class TestNNLayer(unittest.TestCase):
         expected = np.array([[2.5, 2.5]])
         test.test(out_socket_names="output", inputs=input_, expected_outputs=expected)
 
-    def test_conv2d(self):
+    def test_dense_layer_with_leaky_relu_activation(self):
+        input_space = FloatBox(shape=(3,), add_batch_rank=True)
+
+        dense_layer = DenseLayer(units=4, weights_spec=2.0, biases_spec=0.5, activation="lrelu")
+        test = ComponentTest(component=dense_layer, input_spaces=dict(input=input_space))
+
+        # Batch of size=1 (can increase this to any larger number).
+        input_ = np.array([[0.5, 2.0, 1.5], [-1.0, -2.0, -1.5]])
+        expected = np.array([[8.5, 8.5, 8.5, 8.5], [-8.5*0.2, -8.5*0.2, -8.5*0.2, -8.5*0.2]],
+                            dtype=np.float32)  # 0.2=leaky-relu
+        test.test(out_socket_names="output", inputs=input_, expected_outputs=expected)
+
+    def test_conv2d_layer(self):
         # Space must contain batch dimension (otherwise, NNlayer will complain).
         space = FloatBox(shape=(2, 2, 3), add_batch_rank=True)  # e.g. a simple 3-color image
 
@@ -61,7 +73,7 @@ class TestNNLayer(unittest.TestCase):
                              ])
         test.test(out_socket_names="output", inputs=input_, expected_outputs=expected)
 
-    def test_concat(self):
+    def test_concat_layer(self):
         # Spaces must contain batch dimension (otherwise, NNlayer will complain).
         space0 = FloatBox(shape=(2, 3), add_batch_rank=True)
         space1 = FloatBox(shape=(2, 1), add_batch_rank=True)
