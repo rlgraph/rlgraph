@@ -20,7 +20,7 @@ from __future__ import print_function
 from yarl import get_backend
 from yarl.utils.util import get_rank
 from yarl.components.loss_functions import LossFunction
-from yarl.spaces import IntBox
+from yarl.spaces import IntBox, sanity_check_space
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -50,6 +50,7 @@ class DQNLossFunction(LossFunction):
             *input_sockets, scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs
         )
         self.action_space = None
+        self.ranks_to_reduce = 0  # How many ranks do we have to reduce to get down to the final loss per batch item?
 
     def check_input_spaces(self, input_spaces, action_space):
         """
@@ -57,9 +58,10 @@ class DQNLossFunction(LossFunction):
         """
         self.action_space = action_space
         # Check for IntBox and num_categories.
-        assert isinstance(self.action_space, IntBox) and self.action_space.num_categories is not None, \
-            "ERROR: action_space for DQN must be IntBox (for now) and have a `num_categories` attribute that's " \
-            "not None!"
+        sanity_check_space(
+            self.action_space, allowed_types=[IntBox], must_have_categories=True, must_have_batch_rank=True
+        )
+        self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 
     def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None):
         """
@@ -92,27 +94,27 @@ class DQNLossFunction(LossFunction):
                 # Qt(s',a') -> Use the max(a') value (from the target network).
                 qt_sp_ap_values = tf.reduce_max(input_tensor=qt_values_sp, axis=-1)
 
+            # Make sure the rewards vector (batch) is broadcast correctly.
+            for _ in range(get_rank(qt_sp_ap_values) - 1):
+                rewards = tf.expand_dims(rewards, axis=1)
+
             # Ignore Q(s'a') values if s' is a terminal state. Instead use 0.0 as the state-action value for s'a'.
             # Note that in that case, the next_state (s') is not the correct next state and should be disregarded.
             # See Chapter 3.4 in "RL - An Introduction" (2017 draft) by A. Barto and R. Sutton for a detailed analysis.
             qt_sp_ap_values = tf.where(condition=terminals,
-                                       x=tf.zeros(shape=tf.shape(qt_sp_ap_values)),
+                                       x=tf.zeros_like(qt_sp_ap_values),
                                        y=qt_sp_ap_values)
 
             # Q(s,a) -> Use the Q-value of the action actually taken before.
             one_hot = tf.one_hot(indices=actions, depth=self.action_space.num_categories)
             q_s_a_values = tf.reduce_sum(input_tensor=(q_values_s * one_hot), axis=-1)
 
-            # Make sure the rewards vector (batch) is broadcast in the correct way.
-            if get_rank(q_s_a_values) > 1:
-                rewards = tf.expand_dims(rewards, axis=1)
-
             # Calculate the TD-delta (target - current estimate).
             td_delta = (rewards + self.discount * qt_sp_ap_values) - q_s_a_values
 
             # Reduce over the composite actions, if any.
             if get_rank(td_delta) > 1:
-                td_delta = tf.reduce_mean(input_tensor=td_delta, axis=-1)
+                td_delta = tf.reduce_mean(input_tensor=td_delta, axis=list(range(1, self.ranks_to_reduce + 1)))
 
             return tf.pow(x=td_delta, y=2)
 
