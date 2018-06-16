@@ -163,8 +163,8 @@ class DQNAgent(Agent):
     def get_action(self, states, deterministic=False):
         batched_states = self.state_space.batched(states)
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
-        # TODO should these not be the num of states in batch?
-        self.timesteps += 1
+        # Increase timesteps by the batch size (number of states in batch).
+        self.timesteps += batched_states.ndim
         actions, q_values, do_explore = self.graph_executor.execute(
             ["get_actions", "q_values", "do_explore"], inputs=dict(states=batched_states, time_step=self.timesteps)
         )

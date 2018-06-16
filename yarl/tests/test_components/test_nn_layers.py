@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 import numpy as np
 
-from yarl.components.layers import DenseLayer, Conv2DLayer, ConcatLayer
+from yarl.components.layers import DenseLayer, Conv2DLayer, ConcatLayer, DuelingLayer
 from yarl.spaces import FloatBox
 from yarl.tests import ComponentTest
 
@@ -92,4 +92,38 @@ class TestNNLayer(unittest.TestCase):
                       [[1.1, 2.1, 3.1, 3.0, 1.3, 2.3],
                        [4.1, 5.1, 6.1, 4.0, 3.3, 4.3]]], dtype=np.float32)
         test.test(out_socket_names="output", inputs=inputs, expected_outputs=expected)
+
+    def test_dueling_layer(self):
+        # Action Space is: IntBox(3, shape=(4,2)) ->
+        # Input space to dueling layer is then: FloatBox(shape=(4,2,4)) <- 4 due to 1 (value) +3 (advantages)
+        input_space = FloatBox(shape=(4, 2, 4), add_batch_rank=True)
+
+        dueling_layer = DuelingLayer()
+        test = ComponentTest(component=dueling_layer, input_spaces=dict(input=input_space))
+
+        # Batch of 1 sample.
+        inputs = dict(input=np.array(
+            [
+                [
+                    [[2.0, 0.1, 0.2, 0.3], [2.1, 0.4, 0.5, 0.6]],
+                    [[2.2, 0.7, 0.8, 0.9], [2.3, 1.0, 1.1, 1.2]],
+                    [[2.4, 1.3, 1.4, 1.5], [2.5, 1.6, 1.7, 1.8]],
+                    [[2.6, 1.9, 2.0, 2.1], [2.7, 2.2, 2.3, 2.4]]
+                ]
+            ]
+        ))
+        """
+        Calculation: 1st item is always the state-value, last three the advantages per action.
+        """
+        expected = np.array(
+            [
+                [
+                    [[1.9, 2.0, 2.1], [2.0, 2.1, 2.2]],
+                    [[2.1, 2.2, 2.3], [2.2, 2.3, 2.4]],
+                    [[2.3, 2.4, 2.5], [2.4, 2.5, 2.6]],
+                    [[2.5, 2.6, 2.7], [2.6, 2.7, 2.8]]
+                ]
+            ]
+        )
+        test.test(out_socket_names="output", inputs=inputs, expected_outputs=expected, decimals=5)
 
