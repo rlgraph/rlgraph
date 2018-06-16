@@ -89,7 +89,7 @@ class Agent(Specifiable):
         if self.observe_spec["buffer_enabled"]:
             self.reset_buffers()
 
-        # Global timesteps counter.
+        # Global timee step counter.
         self.timesteps = 0
 
         # Create the Agent's optimizer.

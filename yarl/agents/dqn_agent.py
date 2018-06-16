@@ -161,6 +161,7 @@ class DQNAgent(Agent):
     def get_action(self, states, deterministic=False):
         batched_states = self.state_space.batched(states)
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
+        # TODO should these not be the num of states in batch?
         self.timesteps += 1
         actions, q_values, do_explore = self.graph_executor.execute(
             ["get_actions", "q_values", "do_explore"], inputs=dict(states=batched_states, time_step=self.timesteps)
@@ -179,7 +180,7 @@ class DQNAgent(Agent):
         ))
 
     def update(self, batch=None):
-        # Should we synch the target net? (timesteps-1 b/c it has been increased already in get_action)
+        # Should we sync the target net? (timesteps-1 b/c it has been increased already in get_action)
         if (self.timesteps - 1) % self.update_spec["sync_interval"] == 0:
             self.graph_executor.execute("sync_target_qnet")
         _, loss, s_, a_, r_, t_ = self.graph_executor.execute(["update", "loss", "memory_states", "memory_actions", "memory_rewards", "memory_terminals"])
