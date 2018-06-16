@@ -255,7 +255,7 @@ class PrioritizedReplay(Memory):
                 element=priority,
                 insert_op=tf.minimum
             )
-            # Keep trick of current max priority element.
+            # Keep track of current max priority element.
             max_priority_ = tf.maximum(x=max_priority_, y=priority)
 
             with tf.control_dependencies(control_inputs=[tf.group(sum_insert, min_insert)]):

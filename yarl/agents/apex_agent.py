@@ -47,6 +47,7 @@ class ApexAgent(Agent):
         super(ApexAgent, self).__init__(**kwargs)
 
         self.discount = discount
+        self.train_time_steps = 0
         self.memory = Memory.from_spec(memory_spec)
         self.record_space = Dict(states=self.state_space, actions=self.action_space, rewards=float,
                                  terminals=IntBox(1), add_batch_rank=False)
@@ -176,10 +177,11 @@ class ApexAgent(Agent):
         ))
 
     def update(self, batch=None):
-        # Should we sync the target net? (timesteps-1 b/c it has been increased already in get_action)
-        if (self.timesteps - 1) % self.update_spec["sync_interval"] == 0:
+        # In apex, syncing is based on num steps trained, not steps sampled.
+        if (self.train_time_steps - 1) % self.update_spec["sync_interval"] == 0:
             self.graph_executor.execute("sync_target_qnet")
         _, loss, s_, a_, r_, t_ = self.graph_executor.execute(["update", "loss", "memory_states", "memory_actions", "memory_rewards", "memory_terminals"])
+        self.train_time_steps += 1
         return loss, s_, a_, r_, t_
 
     def __repr__(self):
