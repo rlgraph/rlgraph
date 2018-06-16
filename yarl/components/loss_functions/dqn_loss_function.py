@@ -59,7 +59,7 @@ class DQNLossFunction(LossFunction):
         self.action_space = action_space
         # Check for IntBox and num_categories.
         sanity_check_space(
-            self.action_space, allowed_types=[IntBox], must_have_categories=True, must_have_batch_rank=True
+            self.action_space, allowed_types=[IntBox], must_have_categories=True
         )
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 

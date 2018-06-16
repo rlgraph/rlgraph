@@ -249,8 +249,6 @@ class ApexExecutor(RayExecutor):
         return env_steps
 
 
-
-
 class UpdateWorker(Thread):
     """
     Executes learning separate from the main event loop as described in the Ape-X paper.
@@ -289,4 +287,3 @@ class UpdateWorker(Thread):
                 loss = self.agent.update(batch=sample_batch)
                 self.output_queue.put((agent, sample_batch, loss))
                 self.update_done = True
-
