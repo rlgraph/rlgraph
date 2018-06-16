@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import get_backend
+from yarl.spaces import sanity_check_space
 from yarl.components.layers.nn.nn_layer import NNLayer
 
 
@@ -33,6 +34,16 @@ class DuelingLayer(NNLayer):
 
     [1] Dueling Network Architectures for Deep Reinforcement Learning, Wang et al. - 2016
     """
+    def __init__(self, scope="dueling-layer", **kwargs):
+        super(DuelingLayer, self).__init__(scope=scope, **kwargs)
+        self.num_advantage_values = None
+
+    def check_input_spaces(self, input_spaces, action_space):
+        super(DuelingLayer, self).check_input_spaces(input_spaces, action_space)
+        in_space = input_spaces["input"]
+        # Last rank is the [value + advantage-values] rank, store the number of advantage values here.
+        self.num_advantage_values = in_space.get_shape(with_batch_rank=True)[-1] - 1
+
     def _graph_fn_apply(self, input_):
         """
         Args:
@@ -44,8 +55,7 @@ class DuelingLayer(NNLayer):
         """
         # Use the very first node as value function output.
         # Use all following nodes as advantage function output.
-        value_, advantages = tf.split(input_, (1, -1), axis=-1)
-
         if get_backend() == "tf":
-            mean_advantage = tf.reduce_mean(advantages, axis=-1)
+            value_, advantages = tf.split(input_, (1, self.num_advantage_values), axis=-1)
+            mean_advantage = tf.reduce_mean(advantages, axis=-1, keepdims=True)
             return value_ + advantages - mean_advantage

@@ -130,7 +130,8 @@ class Agent(Specifiable):
 
     def get_action(self, states, deterministic=False):
         """
-        Retrieves action(s) for the passed state(s).
+        Returns action(s) for the passed state(s). If `states` is a single state, returns a single action, otherwise,
+        returns a batch of actions, where batch-size = number of states passed in.
 
         Args:
             states (Union[dict,np.ndarray]): State dict/tuple or numpy array.
@@ -138,7 +139,7 @@ class Agent(Specifiable):
                 when retrieving an action.
 
         Returns:
-            any: Actions as dict/tuple/np.ndarray (depending on `self.action_space`).
+            any: Action(s) as dict/tuple/np.ndarray (depending on `self.action_space`).
         """
         raise NotImplementedError
 
