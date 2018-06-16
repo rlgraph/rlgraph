@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from six.moves import queue
-
+import numpy as np
 from yarl import get_distributed_backend
 from yarl.agents import Agent
 from yarl.execution.ray import RayWorker
@@ -64,6 +64,8 @@ class ApexExecutor(RayExecutor):
 
         # How often weights are synced to remote workers.
         self.weight_sync_steps = self.cluster_spec['weight_sync_steps']
+        # Necessary for target network updates.
+        self.weight_syncs_executed = 0
         self.steps_since_weights_synced = dict()
 
         # These are the tasks actually interacting with the environment.
@@ -137,6 +139,7 @@ class ApexExecutor(RayExecutor):
         - Have a separate learn thread sample batches from the memory and compute updates
         - Sync weights to the shared model so remot eworkers can update their weights.
         """
+        # TODO this could be in the generic ray executor.
         start = time.monotonic()
         self.init_tasks()
 
@@ -148,18 +151,34 @@ class ApexExecutor(RayExecutor):
         # Call _execute_step as many times as required.
         while timesteps_executed < num_timesteps:
             step_time = time.monotonic()
-            executed = self._execute_step()
+            worker_steps_executed, update_steps = self._execute_step()
             step_times.append(time.monotonic() - step_time)
-            timesteps_executed += executed
+            timesteps_executed += worker_steps_executed
 
         total_time = (time.monotonic() - start) or 1e-10
-        self.logger.info("Time steps (actions) executed: {} ({} ops/s)".
+        self.logger.info("Time steps executed: {} ({} ops/s)".
                          format(timesteps_executed, timesteps_executed / total_time))
 
-        # TODO add more stats from steps
+        # TODO how do we obtain reward statistics from remote workers?
+        # 1. Can either locally  collect per worker and fetch remotely
+        worker_stats = self.get_worker_results()
+        self.logger.info()
+
+        # TODO worker throughput?
         return dict(
+            # Overall stats.
             runtime=total_time,
             timesteps_executed=timesteps_executed,
+            ops_per_second=(timesteps_executed / total_time),
+            mean_step_time=np.mean(step_times),
+            throughput=timesteps_executed / total_time,
+            # Worker stats.
+            mean_worker_throughput=worker_stats['mean_reward'],
+            mean_worker_reward=worker_stats['mean_reward'],
+            max_worker_reward=worker_stats['max_reward'],
+            min_worker_reward=worker_stats['min_reward'],
+            # This is the mean final episode over all workers.
+            final_reward=worker_stats['mean_final_reward']
         )
 
     def _execute_step(self):
@@ -174,6 +193,9 @@ class ApexExecutor(RayExecutor):
             # Randomly add env sample to a local replay actor.
             random_actor = random.choice(self.ray_replay_agents)
             sample_data = env_sample.get_batch()
+
+            #  TODO fetch episode/reward metrics, return to main loop?
+            sample_metrics = env_sample.get_metrics()
 
             # TODO: Check if we should break on terminal, in that case this here overestimates num of frames
             env_steps += self.worker_sample_size
@@ -191,6 +213,7 @@ class ApexExecutor(RayExecutor):
                     self.update_worker.update_done = False
                     weights = ray.put(self.local_agent.get_weights())
                 ray_worker.set_weights.remote(weights)
+                self.weight_syncs_executed += 1
                 self.steps_since_weights_synced[ray_worker] = 0
 
             # Reschedule environment samples.
@@ -217,8 +240,13 @@ class ApexExecutor(RayExecutor):
             ray_agent, sampled_batch, loss = self.update_output_queue.get()
 
             # Use generic graph call op.
+            # TODO realize in apex agent
+            # TODO arg needs to be dict with socket names
             ray_agent.call_graph_op.remote("update_priorities", [sampled_batch, loss])
+
         return env_steps
+
+
 
 
 class UpdateWorker(Thread):
