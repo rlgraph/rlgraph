@@ -159,8 +159,6 @@ class ApexExecutor(RayExecutor):
         self.logger.info("Time steps executed: {} ({} ops/s)".
                          format(timesteps_executed, timesteps_executed / total_time))
 
-        # TODO how do we obtain reward statistics from remote workers?
-        # 1. Can either locally  collect per worker and fetch remotely
         worker_stats = self.get_worker_results()
         self.logger.info("Retrieved worker stats for {} workers:".format(len(self.ray_workers)))
         self.logger.info(worker_stats)
@@ -195,11 +193,6 @@ class ApexExecutor(RayExecutor):
             # Randomly add env sample to a local replay actor.
             random_actor = random.choice(self.ray_replay_agents)
             sample_data = env_sample.get_batch()
-
-            #  TODO fetch episode/reward metrics, return to main loop?
-            sample_metrics = env_sample.get_metrics()
-
-            # TODO: Check if we should break on terminal, in that case this here overestimates num of frames
             env_steps += self.worker_sample_size
             random_actor.observe.remote(
                 states=sample_data['states'],
@@ -221,7 +214,7 @@ class ApexExecutor(RayExecutor):
             # Reschedule environment samples.
             self.env_sample_tasks.add_task(ray_worker, ray_worker.remote.execute_and_get_timesteps(
                 num_timesteps=self.worker_sample_size,
-                break_on_terminal=True
+                break_on_terminal=False
             ))
 
         # 2. Fetch completed replay priority sampling task, move to worker, reschedule.
