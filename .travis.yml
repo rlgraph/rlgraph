@@ -1,0 +1,34 @@
+sudo: required
+dist: trusty
+language: python
+
+services:
+  - docker
+
+matrix:
+  include:
+  - env:
+    - DOCKER_JOB_NAME='yarl_py2'
+    - DOCKER_IMAGE='tensorflow/tensorflow:latest'
+  - env:
+    - DOCKER_JOB_NAME='yarl_py3'
+    - DOCKER_IMAGE='tensorflow/tensorflow:latest-py3'
+
+before_install:
+  - docker pull ${DOCKER_IMAGE}
+  - docker run -d --rm --name ${DOCKER_JOB_NAME} -v $(pwd):/yarl ${DOCKER_IMAGE} /bin/bash -c 'while true; do sleep 1; done';
+
+install:
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U pip';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install pytest-xdist';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /yarl && python -m pip install .';
+
+script:
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /yarl && python -m pytest -s';
+
+notifications:
+  email:
+    recipients:
+      - dev@yarl-project.org
+    on_success: never
+    on_failure: always
