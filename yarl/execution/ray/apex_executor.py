@@ -192,6 +192,7 @@ class ApexExecutor(RayExecutor):
         for ray_worker, env_sample in self.env_sample_tasks.get_completed():
             # Randomly add env sample to a local replay actor.
             random_actor = random.choice(self.ray_replay_agents)
+
             sample_data = env_sample.get_batch()
             env_steps += self.worker_sample_size
             random_actor.observe.remote(
@@ -223,22 +224,21 @@ class ApexExecutor(RayExecutor):
             self.prioritized_replay_tasks.add_task(ray_agent, ray_agent.get_batch.remote())
 
             # Retrieve results via id.
-            sampled_batch = ray.get(object_ids=replay_remote_task)
+            sampled_batch, sample_indices = ray.get(object_ids=replay_remote_task)
 
             # Pass to the agent doing the actual updates.
             # The ray worker is passed along because we need to update its priorities later in the subsequent
             # task (see loop below).
-            self.sample_input_queue.put((ray_agent, sampled_batch))
+            self.sample_input_queue.put((ray_agent, sampled_batch, sample_indices))
 
         # 3. Update priorities on priority sampling workers using loss values produced by update worker.
         while not self.update_output_queue.empty():
-            ray_agent, sampled_batch, loss = self.update_output_queue.get()
+            ray_agent, indices, loss = self.update_output_queue.get()
 
-            # Use generic graph call op.
-            # TODO realize in apex agent
-            # TODO arg needs to be dict with socket names
-            ray_agent.call_graph_op.remote("update_priorities", [sampled_batch, loss])
-
+            # TODO this is not very clean:
+            # The point of this is that the ray agent itself should be generic
+            # and does not need an api method to update priorities.
+            ray_agent.agent.update_priorities(indices, loss)
         return env_steps
 
 
@@ -273,10 +273,12 @@ class UpdateWorker(Thread):
 
     def run(self):
         while True:
-            # Fetch input for update, update
-            agent, sample_batch = self.input_queue.get()
+            # Fetch input for update:
+            # Replay agent used
+            agent, sample_batch, indices = self.input_queue.get()
 
             if sample_batch is not None:
                 loss = self.agent.update(batch=sample_batch)
-                self.output_queue.put((agent, sample_batch, loss))
+                # Just pass back indices for updating.
+                self.output_queue.put((agent, indices, loss))
                 self.update_done = True

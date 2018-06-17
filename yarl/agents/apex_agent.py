@@ -21,7 +21,8 @@ import copy
 import numpy as np
 
 from yarl.agents import Agent
-from yarl.components import CONNECT_ALL, Synchronizable, Merger, Splitter, Memory, DQNLossFunction, PrioritizedReplay
+from yarl.components import CONNECT_ALL, Synchronizable, Merger, Splitter, Memory, DQNLossFunction, PrioritizedReplay, \
+    Policy
 from yarl.spaces import Dict, IntBox, FloatBox
 from yarl.utils.visualization_util import get_graph_markup
 
@@ -49,6 +50,7 @@ class ApexAgent(Agent):
         self.discount = discount
         self.train_time_steps = 0
 
+        # Apex always uses prioritized replay (not Memory.from_spec())
         self.memory = PrioritizedReplay.from_spec(memory_spec)
         self.record_space = Dict(states=self.state_space, actions=self.action_space, rewards=float,
                                  terminals=IntBox(1), add_batch_rank=False)
@@ -57,6 +59,9 @@ class ApexAgent(Agent):
         self.target_policy = None
         # The global copy of the q-net (if we are running in distributed mode).
         self.global_qnet = None
+
+        # Apex always uses dueling.
+        self.policy = Policy(neural_network=self.neural_network, action_adapter_spec=dict(add_dueling_layer=True))
 
         # TODO: "states_preprocessed" in-Socket + connect properly
         self.merger = Merger(output_space=self.record_space)
@@ -103,13 +108,11 @@ class ApexAgent(Agent):
         # Add the loss function and optimizer.
         core.add_components(self.loss_function, self.optimizer)
 
-        # Now connect everything ...
-
         # States (from Env) into preprocessor -> into q-net
         core.connect("states", (self.preprocessor_stack, "input"))
         core.connect((self.preprocessor_stack, "output"), (self.policy, "nn_input"), label="from_env")
 
-        # timestep into Exploration.
+        # Timestep into Exploration.
         core.connect("time_step", (self.exploration, "time_step"))
 
         # Network output into Exploration's "nn_output" Socket -> into "actions".

@@ -27,9 +27,6 @@ from yarl.utils.ops import FlattenedDataOp
 
 
 class PrioritizedReplay(Memory):
-    # XXX: this could maybe later inherit from replay buffer, is kept separate for now
-    # until design fully clear.
-
     """
     Implements pure TensorFlow prioritized replay.
 
