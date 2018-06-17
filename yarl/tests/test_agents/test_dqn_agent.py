@@ -83,6 +83,32 @@ class TestDQNAgent(unittest.TestCase):
         self.assertAlmostEqual(results["final_episode_reward"], -1)
         self.assertEqual(results["episodes_executed"], 301)
 
+    def test_double_dqn_on_2x2_grid_world(self):
+        """
+        Creates a double DQNAgent and runs it via a Runner on a simple 2x2 GridWorld.
+        """
+        env = GridWorld("2x2")
+        agent = DQNAgent.from_spec(
+            "configs/test_dqn_agent_for_2x2_grid.json",
+            dueling_q=False,
+            state_space=env.state_space,
+            action_space=env.action_space,
+            observe_spec=dict(buffer_size=100),
+            execution_spec=dict(seed=10),
+            update_spec=dict(update_interval=4, batch_size=24, sync_interval=32),
+            optimizer_spec=dict(learning_rate=0.05)
+        )
+
+        worker = SingleThreadedWorker(environment=env, agent=agent)
+        results = worker.execute_timesteps(1000, deterministic=True)
+
+        self.assertEqual(results["timesteps_executed"], 1000)
+        self.assertEqual(results["env_frames"], 1000)
+        self.assertAlmostEqual(results["mean_episode_reward"], -3.0614886731391584)
+        self.assertAlmostEqual(results["max_episode_reward"], 0.0)
+        self.assertAlmostEqual(results["final_episode_reward"], -1)
+        self.assertEqual(results["episodes_executed"], 309)
+
     def test_dqn_on_cart_pole(self):
         """
         Creates a DQNAgent and runs it via a Runner on the CartPole Env.
