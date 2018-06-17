@@ -50,7 +50,8 @@ class TestRayExecutor(unittest.TestCase):
         task_queue_depth=1,
         weight_sync_steps=100,
         env_interaction_task_depth=1,
-        num_worker_samples=100
+        num_worker_samples=100,
+        learn_queue_size=1
     )
 
     def test_apex_workload(self):

@@ -54,16 +54,17 @@ class RayExecutor(object):
         """
         Connects to a Ray cluster or starts one if none exists.
         """
-        self.logger.info("Initializing Ray cluster with cluster spec: {}".format(
-            self.cluster_spec
-        ))
+        self.logger.info("Initializing Ray cluster with cluster spec:")
+        for spec_key, value in self.cluster_spec.items():
+            self.logger.info("{}: {}".format(spec_key, value))
+
         # Avoiding accidentally starting local redis clusters.
         if 'redis_host' not in self.cluster_spec:
-            self.logger.warning("Warning: No redis host provided, starting local redis server.")
+            self.logger.warning("Warning: No redis address provided, starting local redis server.")
         ray.init(
-            redis_address=self.cluster_spec['redis_host'] if 'redis_host' in self.cluster_spec else None,
+            redis_address=self.cluster_spec['redis_address'] if 'redis_address' in self.cluster_spec else None,
             num_cpus=self.cluster_spec['ray_num_cpus'] if 'ray_num_cpus' in self.cluster_spec else None,
-            num_gpus=self.cluster_spec['ray_num_gpus'] if 'ray_num_gpus' in self.cluster_spec else None,
+            num_gpus=self.cluster_spec['ray_num_gpus'] if 'ray_num_gpus' in self.cluster_spec else None
         )
 
     def create_remote_workers(self, cls, num_actors, *args):
