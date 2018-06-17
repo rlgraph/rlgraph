@@ -72,3 +72,54 @@ class TestPolicies(unittest.TestCase):
         # Distribution's entropy.
         expected_h = np.array([1.6048075, 0.694136])
         test.test(out_socket_names="entropy", inputs=states, expected_outputs=expected_h)
+
+    def test_policy_for_discrete_action_space_with_dueling_layer(self):
+        # state_space (NN is a simple single fc-layer relu network (2 units), random biases, random weights).
+        state_space = FloatBox(shape=(3,), add_batch_rank=True)
+
+        # action_space (2 possible actions).
+        action_space = IntBox(2, add_batch_rank=True)
+
+        # Policy with additional dueling layer.
+        policy = Policy(neural_network="configs/test_lrelu_nn.json", action_adapter_spec=dict(add_dueling_layer=True))
+        test = ComponentTest(component=policy, input_spaces=dict(nn_input=state_space), action_space=action_space)
+
+        # Some NN inputs (3 input nodes, batch size=3).
+        states = np.array([[-0.01, 0.02, -0.03], [0.04, -0.05, 0.06], [-0.07, 0.08, -0.09]])
+        # Raw NN-output (3 hidden nodes). All weights=1.5, no biases.
+        expected_nn_output = np.array([[-0.003, -0.003, -0.003],
+                                       [0.07499999, 0.07499999, 0.07499999],
+                                       [-0.012, -0.012, -0.012]], dtype=np.float32)
+        test.test(out_socket_names="nn_output", inputs=states, expected_outputs=expected_nn_output)
+
+        # Raw action layer output; Expected shape=(3,3): 3=batch, 2=action categories + 1 value function output
+        expected_action_layer_output = np.array(
+            [
+                [5.4288674e-03, 2.5407227e-03, -1.2159464e-05],
+                [-1.3572167e-01, -6.3518062e-02, 3.0398369e-04],
+                [2.1715473e-02, 1.0162892e-02, -4.8637856e-05],
+            ], dtype=np.float32)
+        test.test(out_socket_names="action_layer_output", inputs=states, expected_outputs=expected_action_layer_output)
+
+        # Parameter (probabilities). Softmaxed action_layer_outputs.
+        expected_probabilities_output = np.array(
+            [
+                [0.3342592, 0.3332953, 0.3324455],
+                [0.3105026, 0.3337512, 0.3557463],
+                [0.3370425, 0.3331712, 0.3297863],
+            ], dtype=np.float32)
+        test.test(out_socket_names="parameters", inputs=states, expected_outputs=expected_probabilities_output)
+        # Logits: log of the parameters.
+        test.test(out_socket_names="logits", inputs=states, expected_outputs=np.log(expected_probabilities_output))
+
+        # Stochastic sample.
+        expected_actions = np.array([0, 2, 2])
+        test.test(out_socket_names="sample_stochastic", inputs=states, expected_outputs=expected_actions)
+
+        # Deterministic sample.
+        expected_actions = np.array([0, 2, 0])
+        test.test(out_socket_names="sample_deterministic", inputs=states, expected_outputs=expected_actions)
+
+        # Distribution's entropy.
+        expected_h = np.array([1.0986098, 1.0970745, 1.0985726])
+        test.test(out_socket_names="entropy", inputs=states, expected_outputs=expected_h)

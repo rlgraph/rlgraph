@@ -1,0 +1,14 @@
+{
+  "scope": "test-network",
+  "layers": [
+    {
+      "type": "dense",
+      "activation": "lrelu",
+      "activation_params": [0.1],
+      "units": 3,
+      "weights_spec": 1.5,
+      "biases_spec": false,
+      "scope": "hidden-layer"
+    }
+  ]
+}
