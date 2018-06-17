@@ -53,12 +53,6 @@ class TestRayExecutor(unittest.TestCase):
         num_worker_samples=100
     )
 
-    def setUp(self):
-        """
-        Inits a local redis and scheduler.
-        """
-        ray.init()
-
     def test_apex_workload(self):
         # Define executor, test assembly.
         executor = ApexExecutor(
@@ -66,10 +60,13 @@ class TestRayExecutor(unittest.TestCase):
             agent_config=self.agent_config,
             cluster_spec=self.cluster_spec
         )
+        print("Successfully created executor.")
 
         # Kicks off remote tasks.
         executor.init_tasks()
+        print("Initialized Apex executor Ray tasks, starting workload:")
 
         # Executes actual workload.
         result = executor.execute_workload(workload=dict(num_timesteps=10000))
+        print("Finished executing workload:")
         print(result)

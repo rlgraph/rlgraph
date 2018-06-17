@@ -47,13 +47,16 @@ class RayExecutor(object):
         self.logger = logging.getLogger(__name__)
 
         # Ray workers for remote data collection.
-        self.ray_workers = None
+        self.ray_remote_workers = None
         self.cluster_spec = cluster_spec
 
     def ray_init(self):
         """
         Connects to a Ray cluster or starts one if none exists.
         """
+        self.logger.info("Initializing Ray cluster with cluster spec: {}".format(
+            self.cluster_spec
+        ))
         ray.init(
             redis_address=self.cluster_spec['redis_host'],
             num_cpus=self.cluster_spec['ray_num_cpus'],
@@ -137,7 +140,7 @@ class RayExecutor(object):
         episodes_executed = 0
         steps_executed = 0
 
-        for ray_worker in self.ray_workers:
+        for ray_worker in self.ray_remote_workers:
             task = ray_worker.get_workload_statistics.remote()
             metrics = ray.get(task)
             min_rewards.append(metrics['min_episode_reward'])

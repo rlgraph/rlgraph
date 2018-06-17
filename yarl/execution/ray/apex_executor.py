@@ -53,7 +53,7 @@ class ApexExecutor(RayExecutor):
         super(ApexExecutor, self).__init__(cluster_spec)
         self.environment_spec = environment_spec
         # Must specify an agent type.
-        assert "type" in self.agent_config
+        assert "type" in agent_config
         self.agent_config = agent_config
         self.repeat_actions = repeat_actions
 
@@ -74,8 +74,11 @@ class ApexExecutor(RayExecutor):
 
         self.worker_sample_size = self.cluster_spec['num_worker_samples']
 
+        self.logger.info("Setting up execution for Apex executor.")
+        self.setup_execution()
+
     def setup_execution(self):
-        # Start Ray.
+        # Start Ray cluster and connect to it.
         self.ray_init()
 
         # Setup queues for communication between main communication loop and learner.
@@ -93,16 +96,20 @@ class ApexExecutor(RayExecutor):
         )
 
         # Create remote sample workers based on ray cluster spec.
-        self.num_sample_workers = self.cluster_spec['num_workers']
-        self.ray_replay_agents = create_colocated_agents(
+        self.num_local_workers = self.cluster_spec['num_local_workers']
+        self.num_remote_workers = self.cluster_spec['num_remote_workers']
+
+        self.logger.info("Initializing {} local replay agents.".format(self.num_local_workers))
+        self.ray_local_replay_agents = create_colocated_agents(
             agent_config=self.agent_config,
-            num_agents=self.num_sample_workers
+            num_agents=self.num_local_workers
         )
 
         # Create remote workers for data collection.
-        self.ray_workers = self.create_remote_workers(
+        self.logger.info("Initializing {} remote data collection agents.".format(self.num_remote_workers))
+        self.ray_remote_workers = self.create_remote_workers(
             RayWorker,
-            self.num_sample_workers,
+            self.num_remote_workers,
             [self.environment_spec, self.agent_config, self.repeat_actions]
         )
 
@@ -112,7 +119,7 @@ class ApexExecutor(RayExecutor):
         """
 
         # Prioritized replay sampling tasks via RayAgents.
-        for ray_agent in self.ray_replay_agents:
+        for ray_agent in self.ray_local_replay_agents:
             for _ in range(self.replay_sampling_task_depth):
                 # This initializes remote tasks to sample from the prioritized replay memories of each worker.
                 self.prioritized_replay_tasks.add_task(ray_agent, ray_agent.get_batch.remote())
@@ -120,7 +127,7 @@ class ApexExecutor(RayExecutor):
         # Env interaction tasks via RayWorkers which each
         # have a local agent.
         weights = self.local_agent.get_weights()
-        for ray_worker in self.ray_workers:
+        for ray_worker in self.ray_remote_workers:
             self.steps_since_weights_synced[ray_worker] = 0
             ray_worker.set_weights.remote(weights)
             for _ in range(self.env_interaction_task_depth):
@@ -160,7 +167,7 @@ class ApexExecutor(RayExecutor):
                          format(timesteps_executed, timesteps_executed / total_time))
 
         worker_stats = self.get_worker_results()
-        self.logger.info("Retrieved worker stats for {} workers:".format(len(self.ray_workers)))
+        self.logger.info("Retrieved worker stats for {} workers:".format(len(self.ray_remote_workers)))
         self.logger.info(worker_stats)
 
         return dict(
@@ -191,7 +198,7 @@ class ApexExecutor(RayExecutor):
         # 1. Fetch results from RayWorkers.
         for ray_worker, env_sample in self.env_sample_tasks.get_completed():
             # Randomly add env sample to a local replay actor.
-            random_actor = random.choice(self.ray_replay_agents)
+            random_actor = random.choice(self.ray_local_replay_agents)
 
             sample_data = env_sample.get_batch()
             env_steps += self.worker_sample_size
