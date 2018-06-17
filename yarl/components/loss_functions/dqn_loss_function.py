@@ -29,7 +29,7 @@ if get_backend() == "tf":
 class DQNLossFunction(LossFunction):
     """
     The classic 2015 DQN Loss Function:
-    L = Expectation-over-uniform-batch(r + gamma x max_a'Qt(s',a') - Qn(s,a))²
+    L = Expectation-over-uniform-batch(r + gamma x max_a'Qt(s',a') - Qn(s,a))^2
     Where Qn is the "normal" Q-network and Qt is the "target" net (which is a little behind Qn for stability purposes).
     """
 

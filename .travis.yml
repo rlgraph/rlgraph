@@ -21,10 +21,14 @@ before_install:
 install:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U pip';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install pytest-xdist';
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /yarl && python -m pip install .';
+  # In the future, add further extra packages here, like horovod, pytorch, or ray
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /yarl && python -m pip install .[gym]';
 
 script:
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /yarl && python -m pytest -s';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /yarl && python -m pytest -s yarl/tests/test_core';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /yarl && python -m pytest -s yarl/tests/test_envs';
+  # - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /yarl && python -m pytest -s yarl/tests/test_components';
+  # - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /yarl && python -m pytest -s yarl/tests/test_agents';
 
 notifications:
   email:
