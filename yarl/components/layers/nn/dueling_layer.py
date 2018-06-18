@@ -80,12 +80,14 @@ class DuelingLayer(NNLayer):
         # Use all following nodes as advantage function output.
         if get_backend() == "tf":
             # Separate out the single state-value node.
-            state_value, advantages = tf.split(flat_input, (1, self.num_advantage_values), axis=-1)
-            state_value = tf.squeeze(state_value, axis=-1)
+            state_value, advantages = tf.split(
+                value=flat_input, num_or_size_splits=(1, self.num_advantage_values), axis=-1
+            )
+            state_value = tf.squeeze(input=state_value, axis=-1)
             # Now we have to reshape the advantages according to our action space.
             shape = list(self.target_space.get_shape(with_batch_rank=-1, with_category_rank=True))
             advantages = tf.reshape(tensor=advantages, shape=shape)
             # Calculate the q-values according to [1] and return.
-            mean_advantage = tf.reduce_mean(advantages, axis=-1, keepdims=True)
+            mean_advantage = tf.reduce_mean(input_tensor=advantages, axis=-1, keepdims=True)
             # state-value, advantages, q_values
             return state_value, advantages, state_value + advantages - mean_advantage
