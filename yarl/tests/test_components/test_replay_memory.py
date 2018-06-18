@@ -45,8 +45,7 @@ class TestReplayMemory(unittest.TestCase):
         """
         memory = ReplayMemory(
             capacity=self.capacity,
-            next_states=True,
-            sample_terminals=False
+            next_states=True
         )
         test = ComponentTest(component=memory, input_spaces=dict(
             records=self.record_space,
@@ -65,8 +64,7 @@ class TestReplayMemory(unittest.TestCase):
         """
         memory = ReplayMemory(
             capacity=self.capacity,
-            next_states=True,
-            sample_terminals=False
+            next_states=True
         )
         test = ComponentTest(component=memory, input_spaces=dict(
             records=self.record_space,
@@ -95,12 +93,11 @@ class TestReplayMemory(unittest.TestCase):
 
     def test_batch_retrieve(self):
         """
-        Tests if retrieval correctly manages capacity and zeros out terminals.
+        Tests if retrieval correctly manages capacity.
         """
         memory = ReplayMemory(
             capacity=self.capacity,
-            next_states=True,
-            sample_terminals=False
+            next_states=True
         )
         test = ComponentTest(component=memory, input_spaces=dict(
             records=self.record_space,
@@ -124,7 +121,7 @@ class TestReplayMemory(unittest.TestCase):
         batch = test.test(out_socket_names="get_records", inputs=num_records, expected_outputs=None)
         self.assertEqual(2, len(batch['terminals']))
 
-        # Now insert over capacity, note all elements here are non-terminal.
+        # Now insert over capacity.
         observation = non_terminal_records(self.record_space, self.capacity)
         test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
 
@@ -133,18 +130,6 @@ class TestReplayMemory(unittest.TestCase):
         batch = test.test(out_socket_names="get_records", inputs=num_records, expected_outputs=None)
         self.assertEqual(self.capacity, len(batch['terminals']))
 
-        # Now insert 5 terminal elements.
-        observation = terminal_records(self.record_space, 5)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
-
-        # Try to fetch capacity elements again.
-        num_records = self.capacity
-        batch = test.test(out_socket_names="get_records", inputs=num_records, expected_outputs=None)
-
-        # We now expect to be able to sample capacity - 5 elements due to terminals.
-        expected = self.capacity - 5
-        self.assertEqual(expected, len(batch['terminals']))
-
     def test_with_terminals_no_next_states(self):
         """
         Tests retrieval works if next state option is deactivated and
@@ -152,8 +137,7 @@ class TestReplayMemory(unittest.TestCase):
         """
         memory = ReplayMemory(
             capacity=self.capacity,
-            next_states=False,
-            sample_terminals=True
+            next_states=False
         )
         test = ComponentTest(component=memory, input_spaces=dict(
             records=self.record_space,
@@ -175,36 +159,6 @@ class TestReplayMemory(unittest.TestCase):
         # No next state key.
         self.assertTrue('next_states' not in batch)
 
-    def test_with_terminals_and_next_states(self):
-        """
-        Tests retrieval works if next state option is deactivated and
-        that no next_states key is present.
-        """
-        memory = ReplayMemory(
-            capacity=self.capacity,
-            next_states=True,
-            sample_terminals=True
-        )
-        test = ComponentTest(component=memory, input_spaces=dict(
-            records=self.record_space,
-            num_records=int
-        ))
-
-        # Insert 2 terminal Elements.
-        observation = terminal_records(self.record_space, 2)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
-
-        # Assert we can now fetch 2 elements.
-        num_records = 2
-        batch = test.test(out_socket_names="get_records", inputs=num_records, expected_outputs=None)
-
-        # Sampled 2 elements
-        self.assertEqual(num_records, len(batch['terminals']))
-        # Both are terminal
-        self.assertTrue(batch['terminals'][0] and batch['terminals'][1])
-        # Next state key in batch.
-        self.assertTrue('next_states' in batch)
-
     def test_without_next_state(self):
         """
         Tests retrieval works if next state option is deactivated and
@@ -212,8 +166,7 @@ class TestReplayMemory(unittest.TestCase):
         """
         memory = ReplayMemory(
             capacity=self.capacity,
-            next_states=False,
-            sample_terminals=False
+            next_states=False
         )
         test = ComponentTest(component=memory, input_spaces=dict(
             records=self.record_space,
