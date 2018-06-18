@@ -132,11 +132,9 @@ class ReplayMemory(Memory):
 
     def _graph_fn_get_records(self, num_records):
         size = self.read_variable(self.size)
-        # TODO do we want to prohibit duplicates?
-        available = tf.minimum(x=size, y=num_records)
 
         # Sample and retrieve a random range, including terminals.
         index = self.read_variable(self.index)
-        indices = tf.random_uniform(shape=(available,), maxval=size, dtype=tf.int32)
+        indices = tf.random_uniform(shape=(num_records,), maxval=size, dtype=tf.int32)
         indices = (index - 1 - indices) % self.capacity
         return self.read_records(indices=indices)

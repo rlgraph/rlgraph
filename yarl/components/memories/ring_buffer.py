@@ -185,14 +185,8 @@ class RingBuffer(Memory):
         return records
 
     def _graph_fn_get_records(self, num_records):
-        stored_records = self.read_variable(self.size)
         index = self.read_variable(self.index)
-
-        # We do not return duplicate records here.
-        available_records = tf.minimum(x=stored_records, y=num_records)
-        indices = tf.range(start=index - 1 - available_records, limit=index - 1) % self.capacity
-
-        # TODO zeroing out terminals per flag?
+        indices = tf.range(start=index - 1 - num_records, limit=index - 1) % self.capacity
         return self.read_records(indices=indices)
 
     def _graph_fn_get_episodes(self, num_episodes):
