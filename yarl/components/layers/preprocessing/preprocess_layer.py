@@ -35,7 +35,7 @@ class PreprocessLayer(Layer):
 
         # Define the reset operation (no input sockets necessary).
         self.define_outputs("reset")
-        self.add_graph_fn(None, "reset", self._graph_fn_reset)
+        self.add_graph_fn(None, "reset", self._graph_fn_reset, flatten_ops=False)
 
     def _graph_fn_reset(self):
         """

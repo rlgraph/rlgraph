@@ -75,8 +75,8 @@ def recursive_assert_almost_equal(x, y, decimals=7):
             assert k in y, "ERROR: y does not have x's key='{}'!".format(k)
             recursive_assert_almost_equal(v, y[k], decimals=decimals)
     # A tuple type.
-    elif isinstance(x, tuple):
-        assert isinstance(y, tuple), "ERROR: If x is tuple, y needs to be a tuple as well!"
+    elif isinstance(x, (tuple, list)):
+        assert isinstance(y, (tuple, list)), "ERROR: If x is tuple, y needs to be a tuple as well!"
         assert len(y) == len(x), "ERROR: y does not have the same length as " \
                                  "x ({} vs {})!".format(len(y), len(x))
         for i, v in enumerate(x):

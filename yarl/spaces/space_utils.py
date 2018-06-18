@@ -149,38 +149,35 @@ def split_flattened_input_ops(add_auto_key_as_first_param, *ops):
         YARLError: If there are more than 1 flattened ops in ops and their keys don't match 100%.
     """
     # Collect FlattenedDataOp for checking their keys (must match).
-    flattened = [op.items() for op in ops if isinstance(op, FlattenedDataOp)]
+    flattened = [op.items() for op in ops if len(op) > 1 or "" not in op]
     # If it's more than 1, make sure they match. If they don't match: raise Error.
     if len(flattened) > 1:
-        # Loop through the first one and make sure all others match.
-        for key, value in flattened[0]:
-            for other in flattened[1:]:
-                k_other, v_other = next(iter(other))
+        # Loop through the non-first ones and make sure all keys match vs the first one.
+        for other in flattened[1:]:
+            iter_ = iter(other)
+            for key, value in flattened[0]:
+                k_other, v_other = next(iter_)
                 if key != k_other:  # or get_shape(v_other) != get_shape(value):
                     raise YARLError("ERROR: Flattened ops have a key mismatch ({} vs {})!".format(key, k_other))
 
-    # We have (matching) ContainerDataOps: Split the calls.
+    # We have one or many (matching) ContainerDataOps: Split the calls.
     if len(flattened) > 0:
         # The first op that is a FlattenedDataOp.
-        guide_op = next(op for op in ops if isinstance(op, FlattenedDataOp))
+        guide_op = next(op for op in ops if len(op) > 1 or "" not in op)
         # Re-create our iterators.
-        flattened = [op.items() if isinstance(op, FlattenedDataOp) else op for op in ops]
         collected_call_params = FlattenedDataOp()
         # Do the single split calls to our computation func.
-        for key, value in guide_op.items():
+        for key in guide_op.keys():
             # Prep input params for a single call.
-            params = [key, value] if add_auto_key_as_first_param else [value]
-            # Pull along the other ops' values for the guide_op's current key
-            # (all container ops match structure-wise).
-            for other in flattened[1:]:
-                v_other = next(iter(other))[1]  # if isinstance(other, odict_items) else other
-                params.append(v_other)
+            params = [key] if add_auto_key_as_first_param is True else []
+            for op in ops:
+                params.append(op[key] if key in op else op[""])
             # Now do the single call.
             collected_call_params[key] = params
         return collected_call_params
     # We don't have any container ops: No splitting possible. Return as is.
     else:
-        return ops
+        return tuple(([""] if add_auto_key_as_first_param is True else [])+[op[""] for op in ops])
 
 
 def unflatten_op(op):

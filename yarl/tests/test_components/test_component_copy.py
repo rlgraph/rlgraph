@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import unittest
 import numpy as np
-from six.moves import xrange
+from six.moves import xrange as range_
 
 from yarl.components import Component
 from yarl.components.layers.preprocessing import Flatten
@@ -55,6 +55,6 @@ class TestComponentCopy(unittest.TestCase):
             output1=np.array([0.5, 2.0, 1.0, 2.0]),
             output2=np.array([1.0, 2.0, 3.0, 4.0])
         )
-        for i in xrange(2):
+        for i in range_(2):
             test.test(out_socket_names="output"+str(i+1), inputs=input_, expected_outputs=expected["output"+str(i+1)])
 

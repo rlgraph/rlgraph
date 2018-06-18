@@ -310,7 +310,9 @@ class GraphBuilder(Specifiable):
 
     def run_through_graph_fn(self, graph_fn):
         """
-        FixMe: Wrong: Generates a list of all possible input DataOp combinations to be passed through the graph_fn.
+        Pushes all incoming ops through the method of this GraphFunction object.
+        The ops are collected from incoming Sockets and optionally flattened and/or split
+        before pushing them through the method and the return values optionally unflattened.
 
         Args:
             graph_fn (GraphFunction): The GraphFunction object to run through (its method) with all
@@ -341,10 +343,24 @@ class GraphBuilder(Specifiable):
                     call_params = split_flattened_input_ops(graph_fn.add_auto_key_as_first_param, *flattened_ops)
                     # There is some splitting to do. Call graph_fn many times (one for each split).
                     if isinstance(call_params, FlattenedDataOp):
-                        ops = FlattenedDataOp()
+                        ops = dict()
+                        num_return_values = -1
                         for key, params in call_params.items():
-                            ops[key] = graph_fn.method(*params)
-                    # No splitting to do. Pass everything once and as-is.
+                            ops[key] = force_tuple(graph_fn.method(*params))
+                            if num_return_values >= 0 and num_return_values != len(ops[key]):
+                                raise YARLError("Different split-runs through {} do not return the same number of "
+                                                "values!".format(graph_fn.name))
+                            num_return_values = len(ops[key])
+                        # Un-split the results dict into a tuple of `num_return_values` slots.
+                        un_split_ops = list()
+                        for i in range(num_return_values):
+                            dict_with_singles = FlattenedDataOp()
+                            for key in call_params.keys():
+                                dict_with_singles[key] = ops[key][i]
+                            un_split_ops.append(dict_with_singles)
+                        ops = tuple(un_split_ops)
+
+                    # No splitting to do: Pass everything as-is.
                     else:
                         ops = graph_fn.method(*call_params)
                 else:
@@ -353,9 +369,10 @@ class GraphBuilder(Specifiable):
             else:
                 ops = graph_fn.method(*actual_call_params)
 
-            # Need to un-flatten return values?
-            if graph_fn.unflatten_ops:
-                ops = graph_fn.unflatten_output_ops(*force_tuple(ops))
+            # OBSOLETE: always must un-flatten all return values. Otherwise, we would allow Dict Spaces
+            # with '/' keys in them, which is not allowed.
+            #if graph_fn.unflatten_ops:
+            ops = graph_fn.unflatten_output_ops(*force_tuple(ops))
 
             # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
             ops = force_tuple(ops)

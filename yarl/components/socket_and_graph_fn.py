@@ -23,7 +23,7 @@ import re
 
 from yarl import YARLError
 from yarl.spaces.space_utils import flatten_op, unflatten_op, get_space_from_op
-from yarl.utils.ops import SingleDataOp, DataOpRecord
+from yarl.utils.ops import SingleDataOp, DataOpRecord, FlattenedDataOp
 
 _logger = logging.getLogger(__name__)
 
@@ -282,7 +282,7 @@ class GraphFunction(object):
 
         for i, op in enumerate(ops):
             # A FlattenedDataOp: Try to re-nest it and then compare it to input_template_op's structure.
-            if isinstance(op, dict):  # allow any dict to be un-flattened
+            if isinstance(op, FlattenedDataOp):
                 ret.append(unflatten_op(op))
             # All others are left as-is.
             else:

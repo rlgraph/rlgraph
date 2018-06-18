@@ -17,6 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
+
+from yarl.utils.ops import FlattenedDataOp
 from yarl.components import Component
 
 
@@ -56,8 +59,8 @@ class Dummy1to2(Component):
         output1
         output2
     """
-    def __init__(self, scope="dummy-1-to-2"):
-        super(Dummy1to2, self).__init__(scope=scope, flatten_ops=False)
+    def __init__(self, scope="dummy-1-to-2", **kwargs):
+        super(Dummy1to2, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
         self.define_inputs("input")
         self.define_outputs("output1", "output2")
         self.add_graph_fn("input", ["output1", "output2"], self._graph_fn_1to2)
@@ -128,4 +131,92 @@ class Dummy0to1(Component):
 
     def _graph_fn_0to1(self):
         return self.var
+
+
+class NoFlattenNoSplitDummy(Component):
+    """
+    A dummy component with a 2-to-2 graph_fn mapping with flatten/split settings all set to False.
+
+    API:
+    ins:
+        in1
+        in2
+    outs:
+        out1: in2
+        out2: in1
+    """
+    def __init__(self, scope="dummy-2-to-2-no-options", **kwargs):
+        super(NoFlattenNoSplitDummy, self).__init__(scope=scope, **kwargs)
+
+        self.define_inputs("in1", "in2")
+        self.define_outputs("out1", "out2")
+        self.add_graph_fn(["in1", "in2"], ["out1", "out2"],
+                          self._graph_fn_2_to_2,
+                          flatten_ops=False, split_ops=False)
+
+    def _graph_fn_2_to_2(self, input1, input2):
+        return input2, input1
+
+
+class FlattenSplitDummy(Component):
+    """
+    A dummy component with a 2-to-2 graph_fn mapping with flatten/split settings set to True.
+
+    API:
+    ins:
+        in1_fsu (flat, split, unflat)
+        in2_fsu
+    outs:
+        out1_fsu: in1_fsu + 1.0
+        out2_fsu: in1_fsu + in2_fsu
+    """
+    def __init__(self, scope="dummy-2-to-2-all-options", constant_value=1.0, **kwargs):
+        super(FlattenSplitDummy, self).__init__(scope=scope, **kwargs)
+
+        self.constant_value = np.array(constant_value)
+
+        self.define_inputs("in1_fsu", "in2_fsu")
+        self.define_outputs("out1_fsu", "out2_fsu")
+        self.add_graph_fn(["in1_fsu", "in2_fsu"], ["out1_fsu", "out2_fsu"],
+                          self._graph_fn_2_to_2,
+                          flatten_ops=True, split_ops=True)
+
+    def _graph_fn_2_to_2(self, input1, input2):
+        return input1 + self.constant_value, input1 + input2
+
+
+class OnlyFlattenDummy(Component):
+    """
+    A dummy component with a 2-to-3 graph_fn mapping with only flatten_ops=True.
+
+    API:
+    ins:
+        in1_f (flat)
+        in2_f
+    outs:
+        out1: dict(in1_f key: in1_f value + in2_f)
+        out2: dict(in1_f key: in1_f value - in2_f)
+        out3: in2_f
+    """
+    def __init__(self, scope="dummy-2-to-2-all-options", constant_value=1.0, **kwargs):
+        super(OnlyFlattenDummy, self).__init__(scope=scope, **kwargs)
+
+        self.constant_value = np.array(constant_value)
+
+        self.define_inputs("in1", "in2")
+        self.define_outputs("out1", "out2", "out3")
+        self.add_graph_fn(["in1", "in2"], ["out1", "out2", "out3"],
+                          self._graph_fn_2_to_3,
+                          flatten_ops=True, split_ops=False)
+
+    def _graph_fn_2_to_3(self, input1, input2):
+        """
+        NOTE: Both input1 and input2 are flattened dicts.
+        """
+        ret = FlattenedDataOp()
+        ret2 = FlattenedDataOp()
+        for k, v in input1.items():
+            ret[k] = v + input2[""]
+            ret2[k] = v - input2[""]
+        return ret, ret2, input2
 

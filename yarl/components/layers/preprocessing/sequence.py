@@ -17,11 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections import OrderedDict
 from six.moves import xrange
 
 import tensorflow as tf
 
+from yarl.utils.ops import FlattenedDataOp
 from yarl.utils.util import get_rank, force_list
 from yarl.components.layers.preprocessing import PreprocessLayer
 
@@ -125,7 +125,7 @@ class Sequence(PreprocessLayer):
             index_plus_1 = self.assign_variable(ref=self.index, value=((self.index + 1) % self.sequence_length))
 
         with tf.control_dependencies(control_inputs=[index_plus_1]):
-            sequences = OrderedDict()
+            sequences = FlattenedDataOp()
             # Collect the correct previous inputs from the buffer to form the output sequence.
             for key in inputs.keys():
                 n_in = [self.buffer[key][(self.index + n) % self.sequence_length] for n in xrange(self.sequence_length)]
