@@ -116,10 +116,10 @@ class TestReplayMemory(unittest.TestCase):
         # Assert next states key is there
         self.assertTrue('next_states' in batch)
 
-        # Assert we cannot fetch more than 2 elements because size is 2.
+        # Test duplicate sampling.
         num_records = 5
         batch = test.test(out_socket_names="get_records", inputs=num_records, expected_outputs=None)
-        self.assertEqual(2, len(batch['terminals']))
+        self.assertEqual(5, len(batch['terminals']))
 
         # Now insert over capacity.
         observation = non_terminal_records(self.record_space, self.capacity)
