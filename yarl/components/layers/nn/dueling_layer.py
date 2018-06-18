@@ -33,10 +33,31 @@ class DuelingLayer(NNLayer):
     Q = V + A - [mean(A)] (for details, see Equation (9) in: [1])
 
     [1] Dueling Network Architectures for Deep Reinforcement Learning, Wang et al. - 2016
+
+    API:
+    ins:
+        input (SingleDataOp): The flattened input to the dueling layer. Its number of nodes corresponds to:
+            Flattened action-space + 1 (state-value).
+    outs:
+        state_value (SingleDataOp): The single state-value (not dependent on actions).
+        advantage_values (SingleDataOp): The already reshaped advantage values per action.
+        q_values (SingleDataOp): The already reshaped state-action (q) values per action.
     """
     def __init__(self, scope="dueling-layer", **kwargs):
-        super(DuelingLayer, self).__init__(scope=scope, **kwargs)
+        # We have 3 out-Sockets for our apply graph_fn.
+        super(DuelingLayer, self).__init__(scope=scope, num_graph_fn_outputs=3, **kwargs)
+
+        # Define our interface.
+        # Rename output sockets into proper names.
+        self.rename_socket("output0", "state_value")
+        self.rename_socket("output1", "advantage_values")
+        self.rename_socket("output2", "q_values")
+        # Add a mirrored "output" (q_values) for clarity.
+        self.define_outputs("output")
+        self.connect("q_values", "output")
+
         self.num_advantage_values = None
+        self.target_space = None
 
     def check_input_spaces(self, input_spaces, action_space):
         super(DuelingLayer, self).check_input_spaces(input_spaces, action_space)
@@ -44,18 +65,27 @@ class DuelingLayer(NNLayer):
         # Last rank is the [value + advantage-values] rank, store the number of advantage values here.
         self.num_advantage_values = in_space.get_shape(with_batch_rank=True)[-1] - 1
 
-    def _graph_fn_apply(self, input_):
+        self.target_space = action_space.with_batch_rank()
+
+    def _graph_fn_apply(self, flat_input):
         """
         Args:
-            input_ (SingleDataOp): The inputs to this layer. These must already be reshaped according to the action
-                space.
+            flat_input (SingleDataOp): The flattened inputs to this layer. These must include the single node for the
+                state-value.
 
         Returns:
-            SingleDataOp: The final calculated Q values (for each composite action) based on: Q = V + [A - mean(A)]
+            SingleDataOp: The calculated, reshaped Q values (for each composite action) based on: Q = V + [A - mean(A)]
         """
         # Use the very first node as value function output.
         # Use all following nodes as advantage function output.
         if get_backend() == "tf":
-            value_, advantages = tf.split(input_, (1, self.num_advantage_values), axis=-1)
+            # Separate out the single state-value node.
+            state_value, advantages = tf.split(flat_input, (1, self.num_advantage_values), axis=-1)
+            state_value = tf.squeeze(state_value, axis=-1)
+            # Now we have to reshape the advantages according to our action space.
+            shape = list(self.target_space.get_shape(with_batch_rank=-1, with_category_rank=True))
+            advantages = tf.reshape(tensor=advantages, shape=shape)
+            # Calculate the q-values according to [1] and return.
             mean_advantage = tf.reduce_mean(advantages, axis=-1, keepdims=True)
-            return value_ + advantages - mean_advantage
+            # state-value, advantages, q_values
+            return state_value, advantages, state_value + advantages - mean_advantage
