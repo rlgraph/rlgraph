@@ -104,22 +104,22 @@ class TestPolicies(unittest.TestCase):
         # Parameter (probabilities). Softmaxed action_layer_outputs.
         expected_probabilities_output = np.array(
             [
-                [0.3342592, 0.3332953, 0.3324455],
-                [0.3105026, 0.3337512, 0.3557463],
-                [0.3370425, 0.3331712, 0.3297863],
+                [0.5006382, 0.4993618],
+                [0.4840499, 0.5159501],
+                [0.5025529, 0.4974472],
             ], dtype=np.float32)
         test.test(out_socket_names="parameters", inputs=states, expected_outputs=expected_probabilities_output)
         # Logits: log of the parameters.
         test.test(out_socket_names="logits", inputs=states, expected_outputs=np.log(expected_probabilities_output))
 
         # Stochastic sample.
-        expected_actions = np.array([0, 2, 2])
+        expected_actions = np.array([0, 1, 1])
         test.test(out_socket_names="sample_stochastic", inputs=states, expected_outputs=expected_actions)
 
         # Deterministic sample.
-        expected_actions = np.array([0, 2, 0])
+        expected_actions = np.array([0, 1, 0])
         test.test(out_socket_names="sample_deterministic", inputs=states, expected_outputs=expected_actions)
 
         # Distribution's entropy.
-        expected_h = np.array([1.0986098, 1.0970745, 1.0985726])
+        expected_h = np.array([0.6931463, 0.6926383, 0.6931342])
         test.test(out_socket_names="entropy", inputs=states, expected_outputs=expected_h)

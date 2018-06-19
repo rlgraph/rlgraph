@@ -48,11 +48,7 @@ class Optimizer(Component):
         """
         self.two_step = kwargs.pop("two_step", False)
 
-        super(Optimizer, self).__init__(
-            scope=kwargs.pop("scope", "optimizer"),
-            flatten_ops=kwargs.pop("flatten_ops", False),
-            **kwargs
-        )
+        super(Optimizer, self).__init__(scope=kwargs.pop("scope", "optimizer"), **kwargs)
 
         self.learning_rate = learning_rate
 

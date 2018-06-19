@@ -34,7 +34,7 @@ class Merger(Component):
         assert isinstance(output_space, ContainerSpace), "ERROR: `output_space` must be a ContainerSpace " \
                                                          "(Dict or Tuple)!"
         # We are merging already SingleDataOps: Do not flatten.
-        super(Merger, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
+        super(Merger, self).__init__(scope=scope, **kwargs)
 
         self.output_space = output_space
         assert isinstance(output_space, ContainerSpace),\

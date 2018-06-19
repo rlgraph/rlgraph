@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl.components import Component
-from yarl.spaces import Space
 
 
 class Memory(Component):
@@ -47,7 +46,8 @@ class Memory(Component):
         self.define_inputs("records")
         self.define_outputs("insert_records")
 
-        self.add_graph_fn(inputs="records", outputs="insert_records", method=self._graph_fn_insert)
+        self.add_graph_fn(inputs="records", outputs="insert_records", method=self._graph_fn_insert,
+                          flatten_ops=True, split_ops=False)
 
     def create_variables(self, input_spaces, action_space):
         # Store our record-space for convenience.

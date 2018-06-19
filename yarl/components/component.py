@@ -75,10 +75,6 @@ class Component(Specifiable):
                 shared global model or local to the worker. Defaults to False and will be ignored if set to
                 True in non-distributed mode.
             is_core (bool): Whether this Component is the Model's core Component.
-            flatten_ops (bool): See `self.add_graph_fn` and GraphFunction's c'tor for more details.
-            split_ops (bool): See `self.add_graph_fn` and GraphFunction's c'tor for more details.
-            add_auto_key_as_first_param (bool): See `self.add_graph_fn` and GraphFunction's c'tor for more details.
-            unflatten_ops (bool): See `self.add_graph_fn` and GraphFunction's c'tor for more details.
 
             sub_components (Component): An alternative way to pass in a list of Components to be added as
                 sub-components to this one.
@@ -100,11 +96,6 @@ class Component(Specifiable):
         self.device = kwargs.pop("device", None)
         self.global_component = kwargs.pop("global_component", False)
         self.is_core = kwargs.pop("is_core", False)
-
-        self.flatten_ops = kwargs.pop("flatten_ops", True)
-        self.split_ops = kwargs.pop("split_ops", False)
-        self.add_auto_key_as_first_param = kwargs.pop("add_auto_key_as_first_param", False)
-        self.unflatten_ops = kwargs.pop("unflatten_ops", True)
 
         inputs = util.force_list(kwargs.pop("inputs", []))
         outputs = util.force_list(kwargs.pop("outputs", []))
@@ -150,7 +141,7 @@ class Component(Specifiable):
         self.define_outputs("_variables", *outputs)
 
         # Adds the default "_variables" out-Socket responsible for sending out all our variables.
-        self.add_graph_fn(None, "_variables", self._graph_fn__variables, flatten_ops=False, unflatten_ops=False)
+        self.add_graph_fn(None, "_variables", self._graph_fn__variables, flatten_ops=False)
 
         # Add the sub-components.
         components_to_add = components_to_add if len(components_to_add) > 0 else kwargs.get("sub_components", [])
@@ -517,8 +508,7 @@ class Component(Specifiable):
             self.output_sockets.remove(socket)
 
     def add_graph_fn(self, inputs, outputs, method,
-                     flatten_ops=None, split_ops=None,
-                     add_auto_key_as_first_param=None, unflatten_ops=None):
+                     flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False):
         """
         Links a set (A) of sockets via a graph_fn to a set (B) of other sockets via a graph_fn function.
         Any socket in B is thus linked back to all sockets in A (requires all A sockets).
@@ -530,14 +520,12 @@ class Component(Specifiable):
                 (without the _graph_ prefix) or the method itself (callable).
                 The `method`'s signature and number of return values has to match the
                 number of input- and output Sockets provided here.
-            flatten_ops (Optional[bool,Set[str]]): Passed to GraphFunction's c'tor. See GraphFunction
-                for details. Overwrites this Component's `self.flatten_ops`.
-            split_ops (Optional[bool,Set[str]]): Passed to GraphFunction's c'tor. See GraphFunction
-                for details. Overwrites this Component's `self.split_ops`.
-            add_auto_key_as_first_param (Optional[bool]): Passed to GraphFunction's c'tor. See GraphFunction for details.
-                Overwrites this Component's `self.add_auto_key_as_first_param`.
-            unflatten_ops (Optional[bool]): Passed to GraphFunction's c'tor. See GraphFunction for details.
-                Overwrites this Component's `self.unflatten_ops`.
+            flatten_ops (bool,Set[str]): Passed to GraphFunction's c'tor. See GraphFunction for details.
+                Default: False.
+            split_ops (bool,Set[str]): Passed to GraphFunction's c'tor. See GraphFunction for details.
+                Default: False.
+            add_auto_key_as_first_param (bool): Passed to GraphFunction's c'tor. See GraphFunction for details.
+                Default: False.
 
         Raises:
             YARLError: If method_name is None and not exactly one member method found that starts with `_graph_`.
@@ -550,17 +538,8 @@ class Component(Specifiable):
         # Compile a list of all needed Sockets and create internal ones if they do not exist yet.
         input_sockets = [self.get_socket(s, create_internal_if_not_found=True) for s in inputs]
         output_sockets = [self.get_socket(s, create_internal_if_not_found=True) for s in outputs]
-        # Add the graph_fn record to all input and output sockets.
-        # Fetch default params.
-        if flatten_ops is None:
-            flatten_ops = self.flatten_ops
-        if split_ops is None:
-            split_ops = self.split_ops
-        if add_auto_key_as_first_param is None:
-            add_auto_key_as_first_param = self.add_auto_key_as_first_param
-        if unflatten_ops is None:
-            unflatten_ops = self.unflatten_ops
 
+        # Add the graph_fn record to all input and output sockets.
         graph_fn = GraphFunction(
             method=method,
             component=self,
@@ -569,7 +548,6 @@ class Component(Specifiable):
             flatten_ops=flatten_ops,
             split_ops=split_ops,
             add_auto_key_as_first_param=add_auto_key_as_first_param,
-            unflatten_ops=unflatten_ops
         )
         self.graph_fns.append(graph_fn)
 
@@ -585,6 +563,26 @@ class Component(Specifiable):
         # FixMe: What if an internal graph_fn input is blocked with a constant value? Need test case for that.
         if len(input_sockets) == 0 and graph_fn.name != "_variables":
             self.no_input_graph_fns.add(graph_fn)
+
+    def change_graph_fn_options(self, name, flatten_ops=None, split_ops=None, add_auto_key_as_first_param=None):
+        """
+        Changes the options of one of our graph_fns.
+
+        Args:
+            name (str): The name of the graph_fn to change.
+            flatten_ops (Optional[bool]): If not None, change this option of the graph_fn to the given value.
+            split_ops (Optional[bool]): If not None, change this option of the graph_fn to the given value.
+            add_auto_key_as_first_param (Optional[bool]): If not None, change this option of the graph_fn
+                to the given value.
+        """
+        for graph_fn in self.graph_fns:  # type: GraphFunction
+            if graph_fn.name == name:
+                if flatten_ops is not None:
+                    graph_fn.flatten_ops = flatten_ops
+                if split_ops is not None:
+                    graph_fn.split_ops = split_ops
+                if add_auto_key_as_first_param is not None:
+                    graph_fn.add_auto_key_as_first_param = add_auto_key_as_first_param
 
     def add_component(self, component, leave_open=None, connections=None):
         """
@@ -967,6 +965,26 @@ class Component(Specifiable):
                 out_sock_i += 1
             self.connect(from_component.output_sockets[out_sock_i], to_component.input_sockets[in_sock_i], label=label)
             out_sock_i += 1
+
+    # TEST: try getting sockets via the []-lookup operator.
+    def __getitem__(self, socket_name):
+        """
+        Use the []-lookup operator to get Sockets of this Component (in- and out-Socket names must be unique so it
+        won't matter here, which type we lookup).
+
+        Args:
+            socket_name (str): The name of the Socket of this Component to return.
+
+        Returns:
+            Socket: The found Socket.
+
+        Raises:
+            KeyError: If Socket with the given name could not be found in this Component.
+        """
+        socket = self.get_socket_by_name(self, socket_name)
+        if socket is None:
+            raise KeyError("ERROR: Socket with name '{}' not found in Component '{}'!".format(socket_name, self.name))
+        return socket
 
     def get_socket(self, socket=None, type_=None, create_internal_if_not_found=False):
         """

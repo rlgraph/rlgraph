@@ -55,7 +55,7 @@ class Exploration(Component):
             epsilon_spec (any): The spec or Component object itself to construct an EpsilonExploration Component.
             noise_spec (dict): The specification dict for a noise generator that adds noise to the NN's output.
         """
-        super(Exploration, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
+        super(Exploration, self).__init__(scope=scope, **kwargs)
 
         self.action_space = None
         self.non_explore_behavior = non_explore_behavior

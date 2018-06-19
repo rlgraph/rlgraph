@@ -49,8 +49,7 @@ class PreprocessorStack(Stack):
             YARLError: If sub-components' number of inputs/outputs do not match.
         """
         default_dict(kwargs, dict(scope=kwargs.pop("scope", "preprocessor-stack"),
-                                  sub_component_inputs="input", sub_component_outputs="output",
-                                  flatten_ops=False))
+                                  sub_component_inputs="input", sub_component_outputs="output"))
         super(PreprocessorStack, self).__init__(*preprocessors, **kwargs)
 
         # Now that the sub-components are constructed, make sure they are all ProprocessorLayer objects.

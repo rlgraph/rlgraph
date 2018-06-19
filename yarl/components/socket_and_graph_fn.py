@@ -149,8 +149,7 @@ class GraphFunction(object):
     on further to the outgoing Sockets.
     """
     def __init__(self, method, component, input_sockets, output_sockets,
-                 flatten_ops=True, split_ops=True,
-                 add_auto_key_as_first_param=False, unflatten_ops=True):
+                 flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False):
         """
         Args:
             method (Union[str,callable]): The method of the graph_fn (must be the name (w/o _graph prefix)
@@ -180,9 +179,10 @@ class GraphFunction(object):
                         The key can now be used to index into variables equally structured as B.
                 Has no effect if `split_ops` is False.
                 (default: False).
-            unflatten_ops (bool): Whether to re-establish a nested structure of DataOps
-                for graph_fn-returned FlattenedDataOps.
-                (default: True)
+            # OBSOLETE: Always unflatten all return values of graph_fns.
+            #unflatten_ops (bool): Whether to re-establish a nested structure of DataOps
+            #    for graph_fn-returned FlattenedDataOps.
+            #    (default: True)
 
         Raises:
             YARLError: If a graph_fn with the given name cannot be found in the component.
@@ -194,7 +194,7 @@ class GraphFunction(object):
         self.flatten_ops = flatten_ops
         self.split_ops = split_ops
         self.add_auto_key_as_first_param = add_auto_key_as_first_param
-        self.unflatten_ops = unflatten_ops
+        # self.unflatten_ops = unflatten_ops
 
         if isinstance(method, str):
             self.name = method

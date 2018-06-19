@@ -50,12 +50,19 @@ class PrioritizedReplay(Memory):
         """
         super(PrioritizedReplay, self).__init__(capacity, scope=scope, **kwargs)
 
+        self.next_states = next_states
+
         # Variables.
         self.index = None
         self.size = None
         self.states = None
         self.max_priority = None
-        self.next_states = next_states
+        self.sum_segment_buffer = None
+        self.sum_segment_tree = None
+        self.min_segment_buffer = None
+        self.min_segment_tree = None
+
+        self.priority_capacity = 0
 
         # TODO check if we allow 0.0 as well.
         assert alpha > 0.0

@@ -45,8 +45,7 @@ class Layer(Stack):
         self.num_graph_fn_inputs = kwargs.pop("num_graph_fn_inputs", 1)
         self.num_graph_fn_outputs = kwargs.pop("num_graph_fn_outputs", 1)
         # By default, switch on splitting for all Layers.
-        super(Layer, self).__init__(*sub_components, expose_outs=False,
-                                    split_ops=kwargs.pop("split_ops", True), **kwargs)
+        super(Layer, self).__init__(*sub_components, expose_outs=False, **kwargs)
 
         # No sub-components, just create empty in-Sockets.
         if len(sub_components) == 0:
@@ -69,7 +68,7 @@ class Layer(Stack):
         inputs = sub_components[-1].output_sockets if len(sub_components) > 0 else self.input_sockets
         inputs = [in_ for in_ in inputs if in_.name != "_variables"]
         outputs = [out_ for out_ in self.output_sockets if out_.name != "_variables"]
-        self.add_graph_fn(inputs, outputs, "apply")
+        self.add_graph_fn(inputs, outputs, "apply", flatten_ops=True, split_ops=True)
 
     def check_input_spaces(self, input_spaces, action_space):
         # Make sure the number of items in the connected input_space matches what we said about our num_graph_fn_inputs.

@@ -47,7 +47,7 @@ class DQNLossFunction(LossFunction):
             input_sockets.append("q_values_s_")
 
         super(DQNLossFunction, self).__init__(
-            *input_sockets, scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs
+            *input_sockets, scope=scope, **kwargs
         )
         self.action_space = None
         self.ranks_to_reduce = 0  # How many ranks do we have to reduce to get down to the final loss per batch item?

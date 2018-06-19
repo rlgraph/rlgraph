@@ -45,8 +45,8 @@ class Sequence(PreprocessLayer):
         """
         # Switch off split (it's switched on for all LayerComponents by default).
         # -> accept any Space -> flatten to OrderedDict -> input & return OrderedDict -> re-nest.
-        super(Sequence, self).__init__(scope=scope, split_ops=kwargs.pop("split_ops", False),
-                                       **kwargs)
+        super(Sequence, self).__init__(scope=scope, **kwargs)
+        self.change_graph_fn_options("apply", flatten_ops=True, split_ops=False)
 
         self.sequence_length = seq_length
         self.add_rank = add_rank

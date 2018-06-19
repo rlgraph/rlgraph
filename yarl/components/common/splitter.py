@@ -50,7 +50,7 @@ class Splitter(Component):
             output_names = [key for key in flat_dict.keys()]
         self.define_outputs(*output_names)
         # Insert our simple splitting graph_fn.
-        self.add_graph_fn("input", output_names, self._graph_fn_split)
+        self.add_graph_fn("input", output_names, self._graph_fn_split, flatten_ops=True)
 
     def _graph_fn_split(self, input_):
         """

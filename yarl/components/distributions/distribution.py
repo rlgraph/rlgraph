@@ -64,7 +64,7 @@ class Distribution(Component):
                 Distribution and another one.
                 Default: False.
         """
-        super(Distribution, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
+        super(Distribution, self).__init__(scope=scope, **kwargs)
 
         # Define a generic Distribution interface.
         self.define_inputs("parameters")
