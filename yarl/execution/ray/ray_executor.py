@@ -20,6 +20,7 @@ from __future__ import print_function
 from six.moves import xrange
 import logging
 import numpy as np
+import time
 
 from yarl import get_distributed_backend
 from yarl.agents import Agent
@@ -81,20 +82,73 @@ class RayExecutor(object):
 
     def setup_execution(self):
         """
-        Creates and initializes all remote agents on the Ray cluster.
+        Creates and initializes all remote agents on the Ray cluster. Does not
+        schedule any tasks yet.
         """
         raise NotImplementedError
 
+    def init_tasks(self):
+        """
+        Initializes Remote ray worker tasks. Calling this method will result in
+        actually scheduling tasks on Ray, as opposed to setup_execution which just
+        creates the relevant remote actors.
+        """
+        pass
+
     def execute_workload(self, workload):
         """
-        Executes a given workload according to a specific distributed update semantic.
+        Executes a workload via Ape-X semantics. The main loop performs the following
+        steps until the specified number of steps or episodes is finished:
 
-        Args:
-            workload (dict): Dict specifying workload by describing environments, number of steps
-                or episodes to execute, and termination conditions.
+        - Retrieve sample batches via Ray from remote workers
+        - Insert these into the local memory
+        - Have a separate learn thread sample batches from the memory and compute updates
+        - Sync weights to the shared model so remot eworkers can update their weights.
+        """
+        start = time.monotonic()
+        self.init_tasks()
 
-        Returns:
-            dict: Summary statistics of distributed workload.
+        # Assume time step based initially.
+        num_timesteps = workload['num_timesteps']
+        timesteps_executed = 0
+        step_times = []
+
+        # Call _execute_step as many times as required.
+        while timesteps_executed < num_timesteps:
+            step_time = time.monotonic()
+            worker_steps_executed, update_steps = self._execute_step()
+            step_times.append(time.monotonic() - step_time)
+            timesteps_executed += worker_steps_executed
+
+        total_time = (time.monotonic() - start) or 1e-10
+        self.logger.info("Time steps executed: {} ({} ops/s)".
+                         format(timesteps_executed, timesteps_executed / total_time))
+
+        worker_stats = self.get_worker_results()
+        self.logger.info("Retrieved worker stats for {} workers:".format(len(self.ray_remote_workers)))
+        self.logger.info(worker_stats)
+
+        return dict(
+            # Overall stats.
+            runtime=total_time,
+            timesteps_executed=timesteps_executed,
+            ops_per_second=(timesteps_executed / total_time),
+            mean_step_time=np.mean(step_times),
+            throughput=timesteps_executed / total_time,
+            # Worker stats.
+            mean_worker_op_throughput=worker_stats['mean_worker_op_throughput'],
+            max_worker_op_throughput=worker_stats['max_worker_op_throughput'],
+            min_worker_op_throughput=worker_stats['min_worker_op_throughput'],
+            mean_worker_reward=worker_stats['mean_reward'],
+            max_worker_reward=worker_stats['max_reward'],
+            min_worker_reward=worker_stats['min_reward'],
+            # This is the mean final episode over all workers.
+            final_reward=worker_stats['mean_final_reward']
+        )
+
+    def _execute_step(self):
+        """
+        Actual private implementer of each step of the workload executed.
         """
         raise NotImplementedError
 
