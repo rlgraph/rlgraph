@@ -28,6 +28,8 @@ from yarl.execution.worker import Worker
 class SingleThreadedWorker(Worker):
 
     def __init__(self, **kwargs):
+        self.render = kwargs.pop("render", False)
+
         super(SingleThreadedWorker, self).__init__(**kwargs)
 
         self.logger.info("Initialized single-threaded executor with\n environment id {} and agent {}".format(
@@ -107,6 +109,8 @@ class SingleThreadedWorker(Worker):
             # Start a new episode.
             episode_start = time.monotonic()  # wall time
             state = self.environment.reset()
+            if self.render:
+                self.environment.render()
             while True:
                 action = self.agent.get_action(states=state, deterministic=deterministic)
 
@@ -115,6 +119,8 @@ class SingleThreadedWorker(Worker):
                 next_state = None
                 for _ in range_(self.repeat_actions):
                     next_state, step_reward, terminal, info = self.environment.step(actions=action)
+                    if self.render:
+                        self.environment.render()
                     env_frames += 1
                     reward += step_reward
                     if terminal:
@@ -123,8 +129,8 @@ class SingleThreadedWorker(Worker):
                 self.agent.observe(states=state, actions=action, internals=None, rewards=reward, terminals=terminal)
 
                 loss = self.update_if_necessary(timesteps_executed)
-                #if loss is not None:
-                #    self.logger.info("LOSS: {}".format(loss))
+                if loss is not None:
+                    self.logger.info("LOSS: {}".format(loss))
 
                 episode_reward += reward
                 timesteps_executed += 1

@@ -81,6 +81,9 @@ class OpenAIGymEnv(Environment):
         state, reward, terminal, info = self.gym_env.step(actions)
         return state, reward, terminal, info
 
+    def render(self):
+        self.gym_env.render("human")
+
     @staticmethod
     def translate_space(space):
         """

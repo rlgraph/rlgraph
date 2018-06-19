@@ -20,7 +20,7 @@ from __future__ import print_function
 import math
 import numpy as np
 import random
-from six.moves import xrange
+from six.moves import xrange as range_
 import time
 
 from yarl.envs import Environment
@@ -213,7 +213,7 @@ class GridWorld(Environment):
         next_state_type = self.world[next_y, next_x]
         if next_state_type == "H":
             self.is_terminal = True
-            self.reward = -5 if self.reward_function == "sparse" else -100
+            self.reward = -50 if self.reward_function == "sparse" else -100
         elif next_state_type == "F":
             self.is_terminal = False
             self.reward = -3 if self.reward_function == "sparse" else -10
@@ -232,7 +232,7 @@ class GridWorld(Environment):
 
     def render(self):
         # paints itself
-        for row in xrange(len(self.world)):
+        for row in range_(len(self.world)):
             for col, val in enumerate(self.world[row]):
                 if self.x == col and self.y == row:
                     print("X", end="")
@@ -298,8 +298,8 @@ class GridWorld(Environment):
         # 1st channel -> walls (127) and goal (255)
         # 2nd channel -> dangers (fire=127, holes=255)
         # 3rd channel -> pawn position (255)
-        for row in xrange(self.n_row):
-            for col in xrange(self.n_col):
+        for row in range_(self.n_row):
+            for col in range_(self.n_col):
                 field = self.world[row, col]
                 if field == "F":
                     self.camera_pixels[row, col, 0] = 127
