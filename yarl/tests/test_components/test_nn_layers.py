@@ -97,7 +97,7 @@ class TestNNLayer(unittest.TestCase):
         # Action Space is: IntBox(3, shape=(4,2)) ->
         # Flat input space to dueling layer is then 3x4x2 + 1: FloatBox(shape=(25,)).
         input_space = FloatBox(shape=(25,), add_batch_rank=True)
-        action_space = IntBox(3, shape=(4,2))
+        action_space = IntBox(3, shape=(4, 2))
 
         dueling_layer = DuelingLayer()
         test = ComponentTest(component=dueling_layer, input_spaces=dict(input=input_space), action_space=action_space)

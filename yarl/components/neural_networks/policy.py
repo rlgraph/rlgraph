@@ -74,11 +74,11 @@ class Policy(Component):
         self.rename_socket("output", "nn_output")
 
         # Add the Adapter, connect the network's "output" into it and the "logits" Socket.
-        self.add_component(self.action_adapter)
+        self.add_component(self.action_adapter, connections=CONNECT_OUTS)
         self.connect((self.neural_network, "output"), (self.action_adapter, "nn_output"))
-        self.connect((self.action_adapter, "action_layer_output"), "action_layer_output")
-        self.connect((self.action_adapter, "parameters"), "parameters")
-        self.connect((self.action_adapter, "logits"), "logits")
+        #self.connect((self.action_adapter, "action_layer_output"), "action_layer_output")
+        #self.connect((self.action_adapter, "parameters"), "parameters")
+        #self.connect((self.action_adapter, "logits"), "logits")
 
         # Add Synchronizable API to ours.
         if self.writable:

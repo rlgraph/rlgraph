@@ -50,6 +50,10 @@ class TestActionAdapters(unittest.TestCase):
         ], dtype=np.float32)
         test.test(out_socket_names="action_layer_output", inputs=inputs, expected_outputs=expected_action_layer_output)
 
+        expected_action_layer_output_reshaped = np.reshape(expected_action_layer_output, newshape=(2, 3, 2, 2))
+        test.test(out_socket_names="action_layer_output_reshaped",
+                  inputs=inputs, expected_outputs=expected_action_layer_output_reshaped)
+
         expected_parameters = np.array([
             [[[0.5] * 2] * 2] * 3,
             [[[0.5] * 2] * 2] * 3,
@@ -61,3 +65,30 @@ class TestActionAdapters(unittest.TestCase):
             [[[-0.6931472] * 2] * 2] * 3,
         ], dtype=np.float32)
         test.test(out_socket_names="logits", inputs=inputs, expected_outputs=expected_logits)
+
+    def test_action_adapter_with_dueling_layer(self):
+        # Last NN layer.
+        last_nn_layer_space = FloatBox(shape=(7,), add_batch_rank=True)
+        # Action Space.
+        action_space = IntBox(4, shape=(2,))
+
+        action_adapter = ActionAdapter(weights_spec=2.0, biases_spec=0.5, activation="linear", add_dueling_layer=True)
+        test = ComponentTest(component=action_adapter, input_spaces=dict(nn_output=last_nn_layer_space),
+                             action_space=action_space)
+
+        # Batch of 2 samples.
+        inputs = np.array([[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6], [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6]])
+        # 1: state value
+        # 8: advantage values for the flattened action space.
+        # 2.0 (weights) * SUM(inputs) + 0.5 (bias) = 4.7 for first sample, 18.7 for second sample in batch.
+        expected_action_layer_output = np.array([[4.7] * (1+8), [18.7] * (1+8)], dtype=np.float32)
+        test.test(out_socket_names="action_layer_output", inputs=inputs, expected_outputs=expected_action_layer_output)
+
+        state_values = np.array([4.7, 18.7], dtype=np.float32)
+        test.test(out_socket_names="state_value", inputs=inputs, expected_outputs=state_values)
+
+        expected_advantage_values = np.array([[[4.7]*4]*2, [[18.7]*4]*2], dtype=np.float32)
+        test.test(out_socket_names="advantage_values", inputs=inputs, expected_outputs=expected_advantage_values)
+
+        expected_q_values = np.array([[[4.7]*4]*2, [[18.7]*4]*2], dtype=np.float32)
+        test.test(out_socket_names="q_values", inputs=inputs, expected_outputs=expected_q_values)

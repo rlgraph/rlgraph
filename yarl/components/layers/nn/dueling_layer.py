@@ -18,8 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import get_backend
-from yarl.spaces import sanity_check_space
 from yarl.components.layers.nn.nn_layer import NNLayer
+from yarl.utils.util import get_rank
 
 
 if get_backend() == "tf":
@@ -83,11 +83,17 @@ class DuelingLayer(NNLayer):
             state_value, advantages = tf.split(
                 value=flat_input, num_or_size_splits=(1, self.num_advantage_values), axis=-1
             )
-            state_value = tf.squeeze(input=state_value, axis=-1)
             # Now we have to reshape the advantages according to our action space.
             shape = list(self.target_space.get_shape(with_batch_rank=-1, with_category_rank=True))
             advantages = tf.reshape(tensor=advantages, shape=shape)
             # Calculate the q-values according to [1] and return.
             mean_advantage = tf.reduce_mean(input_tensor=advantages, axis=-1, keepdims=True)
+
+            # Make sure we broadcast the state_value correctly for the upcoming q_value calculation.
+            state_value_expanded = state_value
+            for _ in range(get_rank(advantages) - 2):
+                state_value_expanded = tf.expand_dims(state_value_expanded, axis=1)
+            q_values = state_value_expanded + advantages - mean_advantage
+
             # state-value, advantages, q_values
-            return state_value, advantages, state_value + advantages - mean_advantage
+            return tf.squeeze(state_value, axis=-1), advantages, q_values

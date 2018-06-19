@@ -101,6 +101,24 @@ class TestPolicies(unittest.TestCase):
             ], dtype=np.float32)
         test.test(out_socket_names="action_layer_output", inputs=states, expected_outputs=expected_action_layer_output)
 
+        # State-values: One for each item in the batch (simply take first out-node of action_layer).
+        expected_state_value_output = np.array([5.4288674e-03, -1.3572167e-01, 2.1715473e-02], dtype=np.float32)
+        test.test(out_socket_names="state_value", inputs=states, expected_outputs=expected_state_value_output)
+
+        # Advantage-values: One for each action-choice per item in the batch (simply take second and third out-node
+        # of action_layer).
+        expected_advantage_values_output = np.array([[2.5407227e-03, -1.2159464e-05],
+                                                     [-6.3518062e-02, 3.0398369e-04],
+                                                     [1.0162892e-02, -4.8637856e-05]], dtype=np.float32)
+        test.test(out_socket_names="advantage_values", inputs=states, expected_outputs=expected_advantage_values_output)
+
+        # Q-values: One for each action-choice per item in the batch (calculate from state-values and advantage-values
+        # using numpy).
+        expected_q_values_output = np.reshape(expected_state_value_output, newshape=(3, 1)) + \
+                                   expected_advantage_values_output - \
+                                   np.mean(expected_advantage_values_output, axis=-1, keepdims=True)
+        test.test(out_socket_names="q_values", inputs=states, expected_outputs=expected_q_values_output)
+
         # Parameter (probabilities). Softmaxed action_layer_outputs.
         expected_probabilities_output = np.array(
             [
@@ -113,7 +131,7 @@ class TestPolicies(unittest.TestCase):
         test.test(out_socket_names="logits", inputs=states, expected_outputs=np.log(expected_probabilities_output))
 
         # Stochastic sample.
-        expected_actions = np.array([0, 1, 1])
+        expected_actions = np.array([1, 0, 0])
         test.test(out_socket_names="sample_stochastic", inputs=states, expected_outputs=expected_actions)
 
         # Deterministic sample.
