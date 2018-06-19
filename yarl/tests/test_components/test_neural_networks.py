@@ -43,9 +43,10 @@ class TestNeuralNetworks(unittest.TestCase):
         # Batch of size=3.
         input_ = np.array([[0.1, 0.2, 0.3], [1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])
         # Calculate output manually.
-        var_dict = neural_net.get_variables("hidden-layer/dense/kernel", global_scope=False)
+        var_dict = neural_net.get_variables("hidden-layer/dense/kernel", "hidden-layer/dense/bias", global_scope=False)
         w1_value = test.get_variable_values(var_dict["hidden-layer/dense/kernel"])
-        expected = np.matmul(input_, w1_value)
+        b1_value = test.get_variable_values(var_dict["hidden-layer/dense/bias"])
+        expected = np.matmul(input_, w1_value) + b1_value
         test.test(out_socket_names="output", inputs=input_, expected_outputs=expected, decimals=5)
 
     def test_complex_nn_assembly_from_file(self):
