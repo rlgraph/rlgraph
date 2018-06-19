@@ -17,10 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from math import log
-import numpy as np
-from six.moves import xrange as range_
-
 from yarl import get_backend, SMALL_NUMBER
 from yarl.components import Component
 from yarl.components.layers import DenseLayer, DuelingLayer
@@ -32,46 +28,69 @@ if get_backend() == "tf":
 
 class ActionAdapter(Component):
     """
-    A Component that cleans up a neural network's output and gets it ready for parameterizing a Distribution Component.
-    Cleanup includes:
-    - Sending the NN output through a Dense layer whose number of units matches the flattened action space.
-    - Reshaping (for the unflattened action Space).
-    - Depending on options: Adding a DuelingLayer.
-    - Translating the outputs into probabilities and logits.
+    A Component that cleans up a neural network's flat output and gets it ready for parameterizing a
+    Distribution Component.
+    Processing steps include:
+    - Sending the raw, flattened NN output through a Dense layer whose number of units matches the flattened
+        action space (+1 if `add_dueling_layer` is True).
+    - Depending on options:
+        - Either: Adding a DuelingLayer (with own reshape).
+        - Or: Reshaping (according to the action Space).
+    - Translating the reshaped outputs into probabilities and logits.
 
     API:
     ins:
-        nn_output (SingleDataOp): The raw neural net output to be cleaned up for further processing in a
-            Distribution.
+        nn_output (SingleDataOp): The raw, flattened neural network output to be processed by this ActionAdapter.
     outs:
-        action_layer_output (SingleDataOp): The reshaped NN output (e.g. q-values) before being translated into
-            Distribution parameters (e.g. via Softmax).
-        logits (SingleDataOp): log(action_layer_output).
-        parameters (SingleDataOp): The final results of translating the raw NN-output into Distribution-readable
-            parameters.
+        action_layer_output (SingleDataOp): The `nn_output` sent through `self.action_layer`.
+        Optional:
+            If add_dueling_layer=True:
+                state_value (SingleDataOp): The state value diverged from the first output node of the previous layer.
+                advantage_values (SingleDataOp): The advantage values (already reshaped) for the different actions.
+                q_values (SingleDataOp): The Q-values (already reshaped) for the different state-action pairs.
+                    Calculated according to the dueling layer logic.
+            else:
+                action_layer_output_reshaped (SingleDataOp): The action layer output, reshaped according to the action
+                    space.
+        parameters (SingleDataOp): The final results of translating nn_output into Distribution-readable
+            parameters (e.g. probabilities).
+        logits (SingleDataOp): Usually just `log(parameters)`.
     """
-    def __init__(self, biases_spec=False, add_dueling_layer=False, scope="action-adapter", **kwargs):
+    def __init__(self, weights_spec=None, biases_spec=False, activation=None, add_dueling_layer=False,
+                 scope="action-adapter", **kwargs):
         """
         Args:
-            biases_spec (any): An optional biases_spec to create a biases YARL Initializer that will be used to
-                initialize the biases of the ActionLayer.
-            #action_output_name (str): The name of the out-Socket to push the raw action output through (before
-            #    parameterization for the Distribution).
-            #TODO: For now, only IntBoxes -> Categorical are supported. We'll add support for continuous action spaces later
+            weights_spec (Optional[]): An optional YARL Initializer spec that will be used to initialize the weights
+                of `self.action layer`. Default: None (use default initializer).
+            biases_spec (any): An optional YARL Initializer spec that will be used to initialize the biases
+                of `self.action layer`. Default: False (no biases).
+            activation (Optional[str]): The activation function to use for `self.action_layer`.
+                Default: None (=linear).
             add_dueling_layer (bool): If True, a DuelingLayer will be inserted after action_layer and reshaping
                 steps and the parameterization step.
+                Default: False.
         """
-        super(ActionAdapter, self).__init__(scope=scope, flatten_ops=kwargs.pop("flatten_ops", False), **kwargs)
+        super(ActionAdapter, self).__init__(scope=scope, **kwargs)
 
+        self.weights_spec = weights_spec
         self.biases_spec = biases_spec
-        self.add_dueling_layer = add_dueling_layer
-
+        self.activation = activation
         self.target_space = None
+
+        # Our (dense) action layer representing the flattened action space.
         self.action_layer = None
+
+        # An optional dueling layer after the action_layer.
+        self.add_dueling_layer = add_dueling_layer
+        self.dueling_layer = None
 
         # Define our interface.
         self.define_inputs("nn_output")
         self.define_outputs("action_layer_output", "parameters", "logits")
+        if self.add_dueling_layer is True:
+            self.define_outputs("state_value", "advantage_values", "q_values")
+        else:
+            self.define_outputs("action_layer_output_reshaped")
 
     def check_input_spaces(self, input_spaces, action_space):
         # Check the input Space.
@@ -87,26 +106,38 @@ class ActionAdapter(Component):
         # Create the action layer.
         self.action_layer = DenseLayer(
             units=self.target_space.flat_dim_with_categories + (1 if self.add_dueling_layer is True else 0),
-            biases_spec=self.biases_spec if np.isscalar(self.biases_spec) or self.biases_spec is None else
-            [log(b) for _ in range_(self.target_space.flat_dim) for b in self.biases_spec]
+            activation=self.activation,
+            weights_spec=self.weights_spec,
+            biases_spec=self.biases_spec
+            # if np.isscalar(self.biases_spec) or self.biases_spec is None else
+            # [log(b) for _ in range_(self.target_space.flat_dim) for b in self.biases_spec]
         )
+        # And connect it to the incoming "nn_output".
         self.add_component(self.action_layer)
         self.connect("nn_output", (self.action_layer, "input"))
 
-        # Connect our simple reshape graph_fn after the (dense) action_layer output.
-        self.add_graph_fn([(self.action_layer, "output")], "action_layer_output", self._graph_fn_reshape)
+        # Expose the action_layer's output via "action_layer_output".
+        self.connect((self.action_layer, "output"), "action_layer_output")
+        #self.action_layer["output"] > self["action_layer_output"]
 
-        # Add the dueling layer.
+        # Add an optional dueling layer.
         if self.add_dueling_layer:
-            dueling_layer = DuelingLayer()
-            self.add_component(dueling_layer)
-            self.connect("action_layer_output", (dueling_layer, "input"))
-            # Connect the dueling layer to our parameters graph_fn.
-            self.add_graph_fn([(dueling_layer, "input")], ["logits", "parameters"],
+            self.dueling_layer = DuelingLayer()
+            self.add_component(self.dueling_layer)
+            self.connect("action_layer_output", (self.dueling_layer, "input"))
+            self.connect((self.dueling_layer, "state_value"), "state_value")
+            self.connect((self.dueling_layer, "advantage_values"), "advantage_values")
+            self.connect((self.dueling_layer, "q_values"), "q_values")
+            # Create parameters and logits from the q_values of the dueling layer.
+            self.add_graph_fn([(self.dueling_layer, "q_values")], ["logits", "parameters"],
                               self._graph_fn_generate_parameters)
+        # Without dueling layer.
         else:
-            # Connect the output of the reshape to the parameters graph_fn.
-            self.add_graph_fn("action_layer_output", ["logits", "parameters"],
+            # Connect the output of the action layer to our reshape graph_fn.
+            self.add_graph_fn("action_layer_output", "action_layer_output_reshaped",
+                              self._graph_fn_reshape)
+            # Then to our generate_parameters graph_fn.
+            self.add_graph_fn("action_layer_output_reshaped", ["logits", "parameters"],
                               self._graph_fn_generate_parameters)
 
     def _graph_fn_reshape(self, action_layer_output):
@@ -123,31 +154,27 @@ class ActionAdapter(Component):
         # Reshape action_output to action shape.
         shape = list(self.target_space.get_shape(with_batch_rank=-1, with_category_rank=True))
 
-        # Add the value function output (1 node) to the last rank.
-        if self.add_dueling_layer:
-            shape[-1] += 1
-
         if get_backend() == "tf":
-            reshaped = tf.reshape(tensor=action_layer_output, shape=shape)
-            return reshaped
+            action_layer_output_reshaped = tf.reshape(tensor=action_layer_output, shape=shape)
+            return action_layer_output_reshaped
 
-    def _graph_fn_generate_parameters(self, reshaped_nn_output):
+    def _graph_fn_generate_parameters(self, action_layer_output_reshaped):
         """
         Creates properties/parameters and logits from some reshaped output.
 
         Args:
-            reshaped_nn_output (SingleDataOp): The output of some layer that is already reshaped
+            action_layer_output_reshaped (SingleDataOp): The output of some layer that is already reshaped
                 according to our action Space.
 
         Returns:
             tuple:
-                "logits" (SingleDataOp): The reshaped action_layer output.
                 "parameters" (SingleDataOp): The parameters, ready to be passed to a Distribution object's in-Socket
-                    "parameters".
+                    "parameters" (usually some probabilities or loc/scale pairs).
+                "logits" (SingleDataOp): The log(parameters) values.
         """
         if get_backend() == "tf":
             # TODO: Missing support for continuous actions.
-            parameters = tf.maximum(x=tf.nn.softmax(logits=reshaped_nn_output, axis=-1), y=SMALL_NUMBER)
+            parameters = tf.maximum(x=tf.nn.softmax(logits=action_layer_output_reshaped, axis=-1), y=SMALL_NUMBER)
             # Log probs.
             logits = tf.log(parameters)
             # Convert logits into probabilities and clamp them at SMALL_NUMBER.
