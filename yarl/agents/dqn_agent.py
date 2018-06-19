@@ -53,8 +53,6 @@ class DQNAgent(Agent):
 
         # The target policy (is synced from the q-net policy every n steps).
         self.target_policy = None
-        # The global copy of the q-net (if we are running in distributed mode).
-        self.global_qnet = None
 
         self.policy = Policy(
             neural_network=self.neural_network, action_adapter_spec=dict(add_dueling_layer=self.dueling_q)
@@ -64,7 +62,7 @@ class DQNAgent(Agent):
         splitter_input_space = copy.deepcopy(self.record_space)
         splitter_input_space["next_states"] = self.state_space
         self.splitter = Splitter(input_space=splitter_input_space)
-        self.loss_function = DQNLossFunction(double_q=self.double_q)
+        self.loss_function = DQNLossFunction(discount=self.discount, double_q=self.double_q)
 
         self.assemble_meta_graph()
         markup = get_graph_markup(self.graph_builder.core_component)
@@ -90,7 +88,7 @@ class DQNAgent(Agent):
         self.target_policy = self.policy.copy(scope="target-policy")
         # Make target_policy writable
         self.target_policy.add_component(Synchronizable(), connections=CONNECT_ALL)
-        core.add_components(self.target_policy)
+        core.add_components(self.policy, self.target_policy)
         # Add an Exploration for the q-net (target-net doesn't need one).
         core.add_components(self.exploration)
 
@@ -147,11 +145,13 @@ class DQNAgent(Agent):
             core.connect((self.splitter, "/next_states"), (self.policy, "nn_input"), label="sp_from_memory")
 
         # Loss-function needs both q-values (qnet and target).
-        core.connect((self.policy, "logits"), (self.loss_function, "q_values"), label="s_from_memory")
-        core.connect((self.policy, "logits"), "q_values")
-        core.connect((self.target_policy, "logits"), (self.loss_function, "qt_values_s_"))
+        q_values_socket = "q_values" if self.dueling_q is True else "action_layer_output_reshaped"
+        core.connect((self.policy, q_values_socket), (self.loss_function, "q_values"), label="s_from_memory")
+        core.connect((self.policy, q_values_socket), "q_values")
+        core.connect((self.target_policy, q_values_socket), (self.loss_function, "qt_values_s_"))
+
         if self.double_q:
-            core.connect((self.policy, "logits"), (self.loss_function, "q_values_s_"), label="sp_from_memory")
+            core.connect((self.policy, q_values_socket), (self.loss_function, "q_values_s_"), label="sp_from_memory")
 
         # Connect the Optimizer.
         core.connect((self.loss_function, "loss"), (self.optimizer, "loss"))
@@ -188,7 +188,9 @@ class DQNAgent(Agent):
         # Should we sync the target net? (timesteps-1 b/c it has been increased already in get_action)
         if (self.timesteps - 1) % self.update_spec["sync_interval"] == 0:
             self.graph_executor.execute("sync_target_qnet")
-        _, loss, s_, a_, r_, t_ = self.graph_executor.execute(["update", "loss", "memory_states", "memory_actions", "memory_rewards", "memory_terminals"])
+            print("SYNCHED!")
+        _, loss, q_, s_, a_, r_, t_ = self.graph_executor.execute(["update", "loss", "q_values", "memory_states", "memory_actions", "memory_rewards", "memory_terminals"])
+        #print("Q-VALS: {}".format(q_))
         return loss, s_, a_, r_, t_
 
     def __repr__(self):

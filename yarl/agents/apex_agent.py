@@ -63,12 +63,11 @@ class ApexAgent(Agent):
         # Apex always uses dueling.
         self.policy = Policy(neural_network=self.neural_network, action_adapter_spec=dict(add_dueling_layer=True))
 
-        # TODO: "states_preprocessed" in-Socket + connect properly
         self.merger = Merger(output_space=self.record_space)
         splitter_input_space = copy.deepcopy(self.record_space)
         splitter_input_space["next_states"] = self.state_space
         self.splitter = Splitter(input_space=splitter_input_space)
-        self.loss_function = DQNLossFunction(double_q=True)
+        self.loss_function = DQNLossFunction(discount=self.discount, double_q=True)
 
         self.assemble_meta_graph()
         self.build_graph()
@@ -187,7 +186,7 @@ class ApexAgent(Agent):
 
     def get_batch(self):
         """
-        Samples a batch and  from the priority replay memory.
+        Samples a batch from the priority replay memory.
 
         Returns:
             batch, ndarray: Sample batch and indices sampled.

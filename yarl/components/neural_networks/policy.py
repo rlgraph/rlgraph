@@ -38,7 +38,16 @@ class Policy(Component):
     outs:
         nn_output (SingleDataOp): The raw output of the neural network (before it's cleaned-up and passed through
             our ActionAdapter).
-        action_layer_output (SingleDataOp): The already reshaped output of the action layer of the ActionAdapter.
+        action_layer_output (SingleDataOp): The flat output of the action layer of the ActionAdapter.
+        Optional:
+            If action_adapter has a DuelingLayer:
+                state_value (SingleDataOp): The state value diverged from the first output node of the previous layer.
+                advantage_values (SingleDataOp): The advantage values (already reshaped) for the different actions.
+                q_values (SingleDataOp): The Q-values (already reshaped) for the different state-action pairs.
+                    Calculated according to the dueling layer logic.
+            else:
+                action_layer_output_reshaped (SingleDataOp): The action layer output, reshaped according to the action
+                    space.
         parameters (SingleDataOp): The softmaxed action_layer_outputs (probability parameters) going into the
             Distribution Component.
         logits (SingleDataOp): The logs of the parameter (probability) values.
@@ -65,8 +74,7 @@ class Policy(Component):
 
         # Define our interface (some of the input/output Sockets will be defined depending on the NeuralNetwork's
         # own interface, e.g. "sync_in" may be missing if the NN is not writable):
-        self.define_outputs("action_layer_output", "parameters", "logits",
-                            "sample_stochastic", "sample_deterministic", "entropy")
+        self.define_outputs("parameters", "logits", "sample_stochastic", "sample_deterministic", "entropy")
 
         # Add NN, connect it through and then rename its "output" into Policy's "nn_output".
         self.add_component(self.neural_network, connections=CONNECT_ALL)
