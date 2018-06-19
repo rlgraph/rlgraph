@@ -39,11 +39,13 @@ class DenseLayer(NNLayer):
         Keyword Args:
             activation (Optional[callable,str]): The activation function to use. Default: None (linear).
             weights_spec (any): A specifier for a weights initializer.
-            biases_spec (any): A specifier for a biases initializer. If False, use no biases.
+                If None, use the default initializer.
+            biases_spec (any): A specifier for a biases initializer.
+                If False, use no biases. If None, use the default initializer (0.0).
         """
         # Remove kwargs before calling super().
         self.weights_spec = kwargs.pop("weights_spec", None)
-        self.biases_spec = kwargs.pop("biases_spec", False)
+        self.biases_spec = kwargs.pop("biases_spec", None)
 
         super(DenseLayer, self).__init__(*sub_components, scope=kwargs.pop("scope", "dense-layer"), **kwargs)
 
