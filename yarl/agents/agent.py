@@ -42,7 +42,8 @@ class Agent(Specifiable):
         execution_spec=None,
         optimizer_spec=None,
         observe_spec=None,
-        update_spec=None
+        update_spec=None,
+        summary_spec=None
     ):
         """
         Generic agent which parses and sanitizes configuration specs.
@@ -59,6 +60,7 @@ class Agent(Specifiable):
             optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
             observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
             update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
+            summary_spec (Optional[dict]): Spec-dict to specify training summary settings.
         """
         self.logger = logging.getLogger(__name__)
 
@@ -93,15 +95,18 @@ class Agent(Specifiable):
 
         # Create the Agent's optimizer.
         self.optimizer = Optimizer.from_spec(optimizer_spec)
-        # Our update-spec dict tells the Agent how to update (e.g. memory batch size).
+        # Update-spec dict tells the Agent how to update (e.g. memory batch size).
         self.update_spec = parse_update_spec(update_spec)
+        # Summary-spec dict tells the Executor how to write summaries to a file.
+        self.summary_spec = summary_spec
 
         # Create our GraphBuilder and -Executor.
         self.graph_builder = GraphBuilder(action_space=self.action_space)
         self.graph_executor = GraphExecutor.from_spec(
             get_backend(),
             graph_builder=self.graph_builder,
-            execution_spec=self.execution_spec
+            execution_spec=self.execution_spec,
+            summary_spec=self.summary_spec,
         )  # type: GraphExecutor
 
     def reset_buffers(self):

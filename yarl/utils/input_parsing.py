@@ -27,7 +27,7 @@ def parse_saver_spec(saver_spec):
 
 
 def parse_summary_spec(summary_spec):
-    default_spec = dict()
+    default_spec = dict(directory="summaries/")
     return default_dict(summary_spec, default_spec)
 
 

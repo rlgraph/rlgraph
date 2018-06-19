@@ -45,7 +45,7 @@ class TensorFlowExecutor(GraphExecutor):
 
         # Summary settings.
         self.summary_writer = None
-        self.summary_configuration_op = None
+        #self.summary_configuration_op = None
         self.summaries = list()  # List of summary objects of all our components.
 
         # The session for the computation graph.
@@ -241,7 +241,14 @@ class TensorFlowExecutor(GraphExecutor):
         Args:
             hooks (list): List of hooks to use for Saver and Summarizer in Session. Should be appended to.
         """
-        pass
+        # TensorFlow summary writer object
+        self.summary_writer = tf.summary.FileWriter(
+            logdir=self.summary_spec["directory"],
+            graph=self.graph,
+            max_queue=10,
+            flush_secs=120,
+            filename_suffix=None
+        )
 
     def setup_session(self, hooks):
         """
