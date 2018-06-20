@@ -54,7 +54,7 @@ class Conv2DLayer(NNLayer):
         self.padding = kwargs.pop("padding", "valid")
         self.data_format = kwargs.pop("data_format", "channels_last")
         self.kernel_spec = kwargs.pop("kernel_spec", None)
-        self.biases_spec = kwargs.pop("biases_spec", False)
+        self.biases_spec = kwargs.pop("biases_spec", None)
 
         super(Conv2DLayer, self).__init__(*sub_components, scope=kwargs.pop("scope", "conv-2d"), **kwargs)
 
@@ -83,7 +83,7 @@ class Conv2DLayer(NNLayer):
                 activation=get_activation_function(self.activation, *self.activation_params),
                 use_bias=(self.biases_spec is not False),
                 kernel_initializer=self.kernel_init.initializer,
-                bias_initializer=self.biases_init.initializer
+                bias_initializer=(self.biases_init.initializer or tf.zeros_initializer())
             )
 
             # Now build the layer so that its variables get created.

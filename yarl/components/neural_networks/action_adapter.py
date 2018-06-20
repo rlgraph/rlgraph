@@ -56,7 +56,7 @@ class ActionAdapter(Component):
             parameters (e.g. probabilities).
         logits (SingleDataOp): Usually just `log(parameters)`.
     """
-    def __init__(self, weights_spec=None, biases_spec=False, activation=None, add_dueling_layer=False,
+    def __init__(self, weights_spec=None, biases_spec=None, activation=None, add_dueling_layer=False,
                  scope="action-adapter", **kwargs):
         """
         Args:
@@ -108,9 +108,8 @@ class ActionAdapter(Component):
             units=self.target_space.flat_dim_with_categories + (1 if self.add_dueling_layer is True else 0),
             activation=self.activation,
             weights_spec=self.weights_spec,
-            biases_spec=self.biases_spec
-            # if np.isscalar(self.biases_spec) or self.biases_spec is None else
-            # [log(b) for _ in range_(self.target_space.flat_dim) for b in self.biases_spec]
+            biases_spec=self.biases_spec,
+            scope="action-layer"
         )
         # And connect it to the incoming "nn_output".
         self.add_component(self.action_layer)

@@ -73,7 +73,7 @@ class DenseLayer(NNLayer):
                 activation=get_activation_function(self.activation, *self.activation_params),
                 kernel_initializer=self.weights_init.initializer,
                 use_bias=(self.biases_spec is not False),
-                bias_initializer=self.biases_init.initializer,
+                bias_initializer=(self.biases_init.initializer or tf.zeros_initializer()),
             )
 
             # Now build the layer so that its variables get created.
