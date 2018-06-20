@@ -30,22 +30,17 @@ class Initializer(Specifiable):
         """
         Args:
             shape (tuple): The shape of the Variables to initialize.
-            specification (any): Some spec that determines the nature of this initializer.
+            specification (any): A spec that determines the nature of this initializer.
 
         Raises:
-            YARLError: If fixed shape in specification does not match `self.shape`.
+            YARLError: If a fixed shape in `specification` does not match `shape`.
         """
         # The shape of the variable to be initialized.
         self.shape = shape
         # The actual underlying initializer object.
         self.initializer = None
 
-        if get_backend() == "tf":
-            import tensorflow as tf
-        else:
-            tf = None
-
-        # No spec -> Leave initializer as None (will then use default; for tf: Xavier uniform).
+        # No spec -> Leave initializer as None (will then use default; e.g. for tf weights: Xavier uniform).
         if specification is None or specification is False:
             pass
         # Fixed values spec -> Use them, just do sanity checking.
@@ -68,4 +63,7 @@ class Initializer(Specifiable):
             else:
                 raise YARLError("ERROR: Bad specification given ({}) for Initializer object!".format(specification))
 
-            self.initializer = tf.constant_initializer(value=specification, dtype=dtype("float32"))
+            # Create the backend initializer object.
+            if get_backend() == "tf":
+                import tensorflow as tf
+                self.initializer = tf.constant_initializer(value=specification, dtype=dtype("float32"))

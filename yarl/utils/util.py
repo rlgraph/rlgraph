@@ -215,3 +215,36 @@ def clamp(x, min_, max_):
         float: The clamped value.
     """
     return max(min_, min(x, max_))
+
+
+def softmax(x, axis=-1):
+    """
+    Returns the softmax values for x as:
+    S(xi) = e^xi / SUMj(e^xj), where j goes over all elements in x.
+
+    Thanks to alvas for the trick with the max for numerical stability:
+    https://stackoverflow.com/questions/34968722/how-to-implement-the-softmax-function-in-python
+
+    Args:
+        x (np.ndarray): The input to the softmax function.
+
+    Returns:
+        np.ndarray: The softmax over x.
+    """
+    e_x = np.exp(x - np.max(x, axis=axis, keepdims=True))
+    return e_x / np.sum(e_x, axis=axis, keepdims=True)
+
+
+def relu(x, alpha=0.0):
+    """
+    Implementation of the leaky ReLU function:
+    y = x * alpha if x < 0 else x
+
+    Args:
+        x (np.ndarray): The input values.
+        alpha (float): A scaling ("leak") factor to use for negative x.
+
+    Returns:
+        np.ndarray: The leaky ReLU output for x.
+    """
+    return np.maximum(x, x*alpha, x)
