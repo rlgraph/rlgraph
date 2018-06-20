@@ -192,7 +192,7 @@ class ApexExecutor(RayExecutor):
             # TODO this is not very clean:
             # The point of this is that the ray agent itself should be generic
             # and does not need an api method to update priorities.
-            ray_agent.agent.update_priorities(indices, loss)
+            ray_agent.agent.update_priorities.remote(indices, loss)
         return env_steps
 
 
