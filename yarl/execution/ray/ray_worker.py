@@ -101,6 +101,7 @@ class RayWorker(object):
         actions = []
         rewards = []
         terminals = []
+        next_states = []
 
         # Continue in last state from prior execution.
         state = self.last_state
@@ -131,6 +132,7 @@ class RayWorker(object):
 
                 rewards.append(reward)
                 terminals.append(terminal)
+                next_states.append(next_state)
                 timesteps_executed += 1
                 episode_timestep += 0
                 state = next_state
@@ -154,6 +156,7 @@ class RayWorker(object):
                             actions=actions,
                             rewards=rewards,
                             terminals=terminals,
+                            next_states=next_states,
                             metrics=dict(
                                 # Just pass this to know later how this sample was configured.
                                 break_on_terminal=break_on_terminal,
@@ -186,6 +189,7 @@ class RayWorker(object):
             actions=actions,
             rewards=rewards,
             terminals=terminals,
+            next_states=next_states,
             metrics=dict(
                 break_on_terminal=break_on_terminal,
                 runtime=total_time,
