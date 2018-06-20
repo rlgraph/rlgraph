@@ -45,7 +45,7 @@ class PreprocessLayer(Layer):
             This could be useful if the preprocessor stores certain episode-sequence information
             to do the processing and this information has to be reset after the episode terminates.
         """
-        return tf.no_op()  # Not mandatory.
+        return tf.no_op(name="reset-op")  # Not mandatory.
 
     def _graph_fn_apply(self, *inputs):
         """

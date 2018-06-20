@@ -301,16 +301,19 @@ class TensorFlowExecutor(GraphExecutor):
             ready_op = None
 
         def init_fn(scaffold, session):
-            file = None
-            # No specific file given -> Use latest checkpoint.
+            # NOTE: `self.load_from_file` is either True or a string value.
+            # - No specific file given -> Use latest checkpoint.
             if self.load_from_file is True:
                 file = tf.train.latest_checkpoint(
                     checkpoint_dir=self.saver_spec["directory"],
                     latest_filename=None
                 )
-            # File given -> Look for it in cwd, then in our checkpoint directory.
-            elif not os.path.isfile(self.load_from_file):
-                file = os.path.join(self.saver_spec["directory"], self.load_from_file)
+            # - File given -> Look for it in cwd, then in our checkpoint directory.
+            else:
+                assert isinstance(self.load_from_file, str)
+                file = self.load_from_file
+                if not os.path.isfile(file):
+                    file = os.path.join(self.saver_spec["directory"], self.load_from_file)
 
             if file is not None:
                 scaffold.saver.restore(sess=session, save_path=file)
