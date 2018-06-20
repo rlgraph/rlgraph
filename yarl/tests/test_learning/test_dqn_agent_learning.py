@@ -17,44 +17,20 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import logging
 import unittest
+import logging
 
+from yarl.envs import GridWorld, OpenAIGymEnv
 from yarl.agents import DQNAgent
-import yarl.spaces as spaces
-from yarl.envs import GridWorld, RandomEnv, OpenAIGymEnv
-from yarl.execution.single_threaded_worker import SingleThreadedWorker
+from yarl.execution import SingleThreadedWorker
 from yarl.utils import root_logger
 
 
-class TestDQNAgent(unittest.TestCase):
+class TestDQNAgentAssembly(unittest.TestCase):
     """
-    Tests the DQN Agent on simple deterministic learning tasks.
+    Tests the DQN Agent assembly on the random Env.
     """
     root_logger.setLevel(level=logging.INFO)
-
-    def test_dqn_assembly(self):
-        """
-        Creates a DQNAgent and runs it for a few steps in the random Env.
-        """
-        env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
-        agent = DQNAgent.from_spec(
-            "configs/test_dqn_agent_for_random_env.json",
-            double_q=False,
-            dueling_q=False,
-            state_space=env.state_space,
-            action_space=env.action_space
-        )
-
-        worker = SingleThreadedWorker(environment=env, agent=agent)
-        results = worker.execute_timesteps(1000, deterministic=True)
-
-        self.assertEqual(results["timesteps_executed"], 1000)
-        self.assertEqual(results["env_frames"], 1000)
-        # Assert deterministic execution of Env and Agent.
-        self.assertAlmostEqual(results["mean_episode_reward"], 4.607321286981477)
-        self.assertAlmostEqual(results["max_episode_reward"], 24.909519721955455)
-        self.assertAlmostEqual(results["final_episode_reward"], 1.3333066872744532)
 
     def test_dqn_on_2x2_grid_world(self):
         """
@@ -73,11 +49,12 @@ class TestDQNAgent(unittest.TestCase):
             optimizer_spec=dict(learning_rate=0.05)
         )
 
+        time_steps = 10000
         worker = SingleThreadedWorker(environment=env, agent=agent)
-        results = worker.execute_timesteps(1000, deterministic=True)
+        results = worker.execute_timesteps(time_steps, deterministic=True)
 
-        self.assertEqual(results["timesteps_executed"], 1000)
-        self.assertEqual(results["env_frames"], 1000)
+        self.assertEqual(results["timesteps_executed"], time_steps)
+        self.assertEqual(results["env_frames"], time_steps)
         self.assertAlmostEqual(results["mean_episode_reward"], -2.6261398176291793)
         self.assertAlmostEqual(results["max_episode_reward"], 0.0)
         self.assertAlmostEqual(results["final_episode_reward"], -1)

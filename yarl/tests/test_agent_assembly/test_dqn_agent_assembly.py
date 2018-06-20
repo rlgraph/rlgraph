@@ -20,26 +20,28 @@ from __future__ import print_function
 import logging
 import unittest
 
-from yarl.agents import ApexAgent
+from yarl.agents import DQNAgent
 import yarl.spaces as spaces
-from yarl.envs import RandomEnv
+from yarl.envs import GridWorld, RandomEnv, OpenAIGymEnv
 from yarl.execution.single_threaded_worker import SingleThreadedWorker
 from yarl.utils import root_logger
 
 
-class TestApexAgent(unittest.TestCase):
+class TestDQNAgentAssembly(unittest.TestCase):
     """
-    Tests the Apex Agent on simple deterministic learning tasks.
+    Tests the DQN Agent assembly on the RandomEnv.
     """
     root_logger.setLevel(level=logging.INFO)
 
-    def test_apex_assembly(self):
+    def test_dqn_assembly(self):
         """
         Creates a DQNAgent and runs it for a few steps in the random Env.
         """
         env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
-        agent = ApexAgent.from_spec(
+        agent = DQNAgent.from_spec(
             "configs/test_dqn_agent_for_random_env.json",
+            double_q=False,
+            dueling_q=False,
             state_space=env.state_space,
             action_space=env.action_space
         )
@@ -49,3 +51,8 @@ class TestApexAgent(unittest.TestCase):
 
         self.assertEqual(results["timesteps_executed"], 1000)
         self.assertEqual(results["env_frames"], 1000)
+        # Assert deterministic execution of Env and Agent.
+        self.assertAlmostEqual(results["mean_episode_reward"], 4.607321286981477)
+        self.assertAlmostEqual(results["max_episode_reward"], 24.909519721955455)
+        self.assertAlmostEqual(results["final_episode_reward"], 1.3333066872744532)
+

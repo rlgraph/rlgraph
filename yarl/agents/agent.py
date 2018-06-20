@@ -97,16 +97,13 @@ class Agent(Specifiable):
         self.optimizer = Optimizer.from_spec(optimizer_spec)
         # Update-spec dict tells the Agent how to update (e.g. memory batch size).
         self.update_spec = parse_update_spec(update_spec)
-        # Summary-spec dict tells the Executor how to write summaries to a file.
-        self.summary_spec = summary_spec
 
         # Create our GraphBuilder and -Executor.
-        self.graph_builder = GraphBuilder(action_space=self.action_space)
+        self.graph_builder = GraphBuilder(action_space=self.action_space, summary_spec=summary_spec)
         self.graph_executor = GraphExecutor.from_spec(
             get_backend(),
             graph_builder=self.graph_builder,
-            execution_spec=self.execution_spec,
-            summary_spec=self.summary_spec,
+            execution_spec=self.execution_spec
         )  # type: GraphExecutor
 
     def reset_buffers(self):
