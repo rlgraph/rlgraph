@@ -25,7 +25,6 @@ from yarl.execution.ray import RayWorker
 from yarl.execution.ray.ray_executor import RayExecutor
 import random
 from threading import Thread
-import time
 
 from yarl.execution.ray.ray_util import create_colocated_agents, RayTaskPool
 

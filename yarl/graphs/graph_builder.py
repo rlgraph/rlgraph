@@ -24,6 +24,7 @@ import numpy as np
 from yarl import YARLError, Specifiable, get_backend
 from yarl.components import Component, Socket, GraphFunction
 from yarl.spaces.space_utils import split_flattened_input_ops, convert_ops_to_op_records, get_space_from_op
+from yarl.utils.input_parsing import parse_summary_spec
 from yarl.utils.util import all_combinations, force_list, force_tuple, get_shape
 from yarl.utils.ops import SingleDataOp, FlattenedDataOp, DataOpRecord
 from yarl.utils.debug_printout import print_out_component
@@ -38,17 +39,20 @@ class GraphBuilder(Specifiable):
     components, sockets and connections and creating the underlying computation
     graph.
     """
-    def __init__(self, name="model", action_space=None):
+    def __init__(self, name="model", action_space=None, summary_spec=None):
         """
         Args:
             name (str): The name of this GraphBuilder and of the meta-graph's core component.
             action_space (Optional[Space]): The action Space information to be passed into calls to each Components'
                 `when_input_complete` methods.
+            summary_spec (Optional[dict]): A specification dict that defines, which summaries we would like to
+                create in the graph and register with each Component.
         """
         # The name of this model. Our core Component gets this name.
         self.logger = logging.getLogger(__name__)
         self.name = name
         self.action_space = action_space
+        self.summary_spec = parse_summary_spec(summary_spec)
 
         # All components assigned to each device, for debugging and analysis.
         self.device_component_assignments = dict()
@@ -57,8 +61,6 @@ class GraphBuilder(Specifiable):
 
         # Create an empty core Component into which everything will be assembled by an Algo.
         self.core_component = Component(name=self.name, is_core=True)
-        # List of variables (by scope/name) of all our components.
-        self.variables = dict()
         # A dict used for lookup of all combinations that are possible for a given set of given in-Socket
         # names (inside a call to `self.call`).
         self.input_combinations = dict()
@@ -158,7 +160,7 @@ class GraphBuilder(Specifiable):
         assert component.input_complete is True, "ERROR: Component {} is not input complete!".format(component.name)
         self.logger.info("Component {} is input-complete; space-dict={}".format(component.name, input_spaces))
         # Component is complete now, allow it to sanity check its inputs and create its variables.
-        component.when_input_complete(input_spaces, self.action_space)
+        component.when_input_complete(input_spaces, self.action_space, self.summary_spec["summaries_regexp"])
 
         # Push forward no-input graph_fns.
         for graph_fn in component.no_input_graph_fns:

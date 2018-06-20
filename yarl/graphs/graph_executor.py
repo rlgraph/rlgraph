@@ -20,34 +20,41 @@ from __future__ import print_function
 import logging
 
 from yarl import Specifiable
-from yarl.utils.input_parsing import parse_saver_spec, parse_summary_spec, parse_execution_spec
+from yarl.utils.input_parsing import parse_saver_spec, parse_execution_spec
 
 
 class GraphExecutor(Specifiable):
     """
-    A graph executor manages local and distributed execution of graphs by encapsulating
+    A GraphExecutor manages local and distributed execution of graphs by encapsulating
     session management, distributed optimization and communication.
     """
     def __init__(
         self,
         graph_builder,
         saver_spec=None,
-        summary_spec=None,
         execution_spec=None,
+        load_from_file=None
     ):
         """
         Abstract graph executor.
         Args:
             graph_builder (GraphBuilder): A graph builder which manages the YARL metagraph.
             saver_spec (dict): The saver specification for saving this graph to disk.
-            summary_spec (dict): The specification dict for summary generation.
             execution_spec (dict): The specification dict for the execution types (local vs distributed, etc..) and
                 settings (cluster types, etc..).
+            load_from_file (Optional[bool,str]): If not None/False: Loads a previously stored checkpoint of the
+                graph from an existing file. Thereby, supported values are:
+                True: Use the latest checkpoint saved in `self.saver_spec["directory"]`.
+                str: Use the given path/filename to load from.
         """
         self.logger = logging.getLogger(__name__)
+
+        self.graph_builder = graph_builder
+
         self.saver_spec = parse_saver_spec(saver_spec)
-        self.summary_spec = parse_summary_spec(summary_spec)
+        self.summary_spec = self.graph_builder.summary_spec
         self.execution_spec = parse_execution_spec(execution_spec)  # sanitize again (after Agent); one never knows
+        self.load_from_file = load_from_file
 
         self.seed = self.execution_spec.get("seed")
 
@@ -55,8 +62,6 @@ class GraphExecutor(Specifiable):
         self.execution_mode = self.execution_spec.get("mode", "single")
         self.session_config = self.execution_spec["session_config"]
         self.distributed_spec = self.execution_spec.get("distributed_spec")
-
-        self.graph_builder = graph_builder
 
     def build(self):
         """

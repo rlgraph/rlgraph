@@ -60,7 +60,7 @@ class Agent(Specifiable):
             optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
             observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
             update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
-            summary_spec (Optional[dict]): Spec-dict to specify training summary settings.
+            summary_spec (Optional[dict]): Spec-dict to specify summary settings.
         """
         self.logger = logging.getLogger(__name__)
 

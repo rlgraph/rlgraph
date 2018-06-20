@@ -17,17 +17,40 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os.path
+
 from yarl import YARLError
 from yarl.utils.util import default_dict
 
 
 def parse_saver_spec(saver_spec):
-    default_spec = dict(max_checkpoints=5)
+    default_spec = dict(
+        # The directory in which to store model checkpoint files.
+        directory=os.path.expanduser("~/yarl_checkpoints/"),  # default=home dir
+        # The base file name for a saved checkpoint.
+        checkpoint_basename="model.ckpt",
+        # How many files to maximally store for one graph.
+        max_checkpoints=5,
+        # Every how many seconds do we save? None if saving frequency should be step based.
+        save_secs=600,
+        # Every how many steps do we save? None if saving frequency should be time (seconds) based.
+        save_steps=None
+    )
     return default_dict(saver_spec, default_spec)
 
 
 def parse_summary_spec(summary_spec):
-    default_spec = dict(directory="summaries/")
+    default_spec = dict(
+        # The directory in which to store the summary files.
+        directory=os.path.expanduser("~/yarl_summaries/"),  # default=home dir
+        # A regexp pattern that a summary op (including its global scope) has to match in order for it to
+        # be included in the graph's summaries.
+        summaries_regexp="",
+        # Every how many seconds do we save a summary? None if saving frequency should be step based.
+        save_secs=120,
+        # Every how many steps do we save a summary? None if saving frequency should be time (seconds) based.
+        save_steps=None
+    )
     return default_dict(summary_spec, default_spec)
 
 

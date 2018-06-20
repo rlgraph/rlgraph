@@ -131,10 +131,17 @@ class Component(Specifiable):
         # Contains our GraphFunctions that have no in-Sockets.
         self.no_input_graph_fns = set()
 
-        # All Variables that are held by this component (and its sub-components?) by name.
-        # key=full-scope variable name
+        # All Variables that are held by this component (and its sub-components) by name.
+        # key=full-scope variable name (scope=component/sub-component scope)
         # value=the actual variable
         self.variables = dict()
+        # All summary ops that are held by this component (and its sub-components) by name.
+        # key=full-scope summary name (scope=component/sub-component scope)
+        # value=the actual summary op
+        self.summaries = dict()
+        # The regexp that a summary's full-scope name has to match in order for it to be generated and registered.
+        # This will be set by the GraphBuilder at build time.
+        self.summary_regexp = None
 
         # Assemble this Component from the constructor specs.
         self.define_inputs(*inputs)
@@ -152,7 +159,7 @@ class Component(Specifiable):
         for connection in connections:
             self.connect(connection[0], connection[1])
 
-    def when_input_complete(self, input_spaces, action_space):
+    def when_input_complete(self, input_spaces, action_space, summary_regexp=None):
         """
         Wrapper that calls both `create_variables` and `assert_input_spaces` in sequence and passes the dict with
         the input_spaces for each in-Socket (kay=Socket's name) as parameter.
@@ -160,17 +167,22 @@ class Component(Specifiable):
         Args:
             input_spaces (Dict[str,Space]): A dict with Space/shape information.
                 keys=in-Socket name (str); values=the associated Space
-            FixMe: Experimental attempt to get rid of the necessity to pass action_space into many Components' constructors
             action_space (Space): The action Space of the Agent/GraphBuilder. Can be used to construct and connect
                 more Components (which rely on this information). This eliminates the need to pass the action Space
                 information into many Components' constructors.
+            summary_regexp (Optional[str]): A regexp (str) that defines, which summaries should be generated
+                and registered.
         """
+        # Store the summary_regexp to use.
+        self.summary_regexp = summary_regexp
+
         # Allow the Component to check its input Space.
         self.check_input_spaces(input_spaces, action_space)
         # Allow the Component to create all its variables.
         if get_backend() == "tf":
             with tf.variable_scope(self.global_scope):
                 self.create_variables(input_spaces, action_space)
+
         # Add all created variables up the parent/container hierarchy.
         self.propagate_variables()
 
@@ -210,6 +222,7 @@ class Component(Specifiable):
         """
         Adds already created Variables to our registry. This could be useful if the variables are not created
         by our own `self.get_variable` method, but by some backend-specific object (e.g. tf.layers).
+        Also auto-creates summaries (regulated by `self.summary_regexp`) for the given variables.
 
         Args:
             variables (SingleDataOp): The Variable objects to register.
@@ -220,6 +233,11 @@ class Component(Specifiable):
             # key = re.sub(r'({}).*?([\w\-.]+):\d+$'.format(self.global_scope), r'\1/\2', var.name)
             key = re.sub(r':\d+$', "", var.name)
             self.variables[key] = var
+
+            # Auto-create the summary for the variable.
+            summary_name = var.name[len(self.global_scope) + (1 if self.global_scope else 0):]
+            summary_name = re.sub(r':\d+$', "", summary_name)
+            self.create_summary(summary_name, var)
 
     def get_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True,
                      from_space=None, add_batch_rank=False, flatten=False):
@@ -280,7 +298,7 @@ class Component(Specifiable):
             var = tf.get_variable(
                 name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
             )
-        elif get_backend == "tf-eager":
+        elif get_backend() == "tf-eager":
             shape = tuple((() if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,))
                           + (shape or ()))
 
@@ -288,9 +306,14 @@ class Component(Specifiable):
                 name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
             )
 
-        # Registers the new variable in this Component and all its parent Components.
+        # Registers the new variable with this Component.
         key = ((self.global_scope + "/") if self.global_scope else "") + name
-        self.variables[key] = var
+        # Container-var: Save individual Variables.
+        if isinstance(var, OrderedDict):
+            for sub_key, v in var.items():
+                self.variables[key+sub_key] = v
+        else:
+            self.variables[key] = var
 
         return var
 
@@ -336,14 +359,14 @@ class Component(Specifiable):
                 return ret
             # Return only variables of this Component by name.
             else:
-                return self.variables_by_name(custom_scope_separator, global_scope, names)
+                return self.get_variables_by_name(custom_scope_separator, global_scope, names)
 
-    def variables_by_name(self, custom_scope_separator, global_scope, names):
+    def get_variables_by_name(self, custom_scope_separator, global_scope, names):
         """
         Retrieves this components variables by name.
-        Args:
-            names (List[str]): Lookup name strings for variables. None for all.
 
+        Args:
+            names (List[str]): List of names of Variable to return.
             custom_scope_separator (str): The separator to use in the returned dict for scopes.
                 Default: '/'.
             global_scope (bool): Whether to use keys in the returned dict that include the global-scopes of the
@@ -351,7 +374,6 @@ class Component(Specifiable):
 
         Returns:
             dict: Dict containing the requested names as keys and variables as values.
-
         """
         variables = dict()
         for name in names:
@@ -364,6 +386,60 @@ class Component(Specifiable):
                 else:
                     variables[name] = self.variables[global_scope_name]
         return variables
+
+    def create_summary(self, name, values, type_="histogram"):
+        """
+        Creates a summary op (and adds it to the graph).
+        Skips those, whose full name does not match `self.summary_regexp`.
+
+        Args:
+            name (str): The name for the summary. This has to match `self.summary_regexp`.
+                The name should not contain a "summary"-prefix or any global scope information
+                (both will be added automatically by this method).
+            values (op): The op to summarize.
+            type_ (str): The summary type to create. Currently supported are:
+                "histogram", "scalar" and "text".
+        """
+        # Prepend the "summaries/"-prefix.
+        name = "summaries/"+name
+        # Get global name.
+        global_name = ((self.global_scope + "/") if self.global_scope else "") + name
+        # Skip non matching summaries.
+        if not re.search(self.summary_regexp, global_name):
+            return
+
+        summary = None
+        if get_backend() == "tf":
+            ctor = getattr(tf.summary, type_)
+            summary = ctor(name, values)
+
+        # Registers the new summary with this Component.
+        if global_name in self.summaries:
+            raise YARLError("ERROR: Summary with name '{}' already exists in {}'s summary "
+                            "registry!".format(global_name, self.name))
+        self.summaries[global_name] = summary
+        self.propagate_summary(global_name)
+
+    def propagate_summary(self, key_):
+        """
+        Propagates a single summary op of this Component to its parents' summaries registries.
+
+        Args:
+            key_ (str): The lookup key for the summary to propagate.
+        """
+        # Return if there is no parent.
+        if self.parent_component is None:
+            return
+
+        # If already there -> Error.
+        if key_ in self.parent_component.summaries:
+            #if self.variables[key] is not self.parent_component.variables[key]:
+            raise YARLError("ERROR: Summary registry of '{}' already has a summary under key '{}'!". \
+                            format(self.parent_component.name, key_))
+        self.parent_component.summaries[key_] = self.summaries[key_]
+
+        # Recurse up the container hierarchy.
+        self.parent_component.propagate_summary(key_)
 
     def define_inputs(self, *sockets, **kwargs):
         """
