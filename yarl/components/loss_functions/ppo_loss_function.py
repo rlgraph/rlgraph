@@ -20,7 +20,7 @@ from __future__ import print_function
 from yarl import get_backend
 from yarl.utils.util import get_rank
 from yarl.components.loss_functions import LossFunction
-from yarl.spaces import IntBox, sanity_check_space
+from yarl.spaces import IntBox, sanity_check_space, FloatBox
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -33,28 +33,31 @@ class PPOLossFunction(LossFunction):
     https://arxiv.org/abs/1707.06347
     """
 
-    def __init__(self, scope="ppo-loss-function", **kwargs):
+    def __init__(self, clip_ratio=0.2, scope="ppo-loss-function", **kwargs):
         """
-
+        Args:
+            clip_ratio (float): How much to clip the likelihood ratio between old and new policy when updating.
+            **kwargs:
         """
+        self.clip_ratio = clip_ratio
 
-        # Pass our in-Socket names to parent c'tor.
+        # Pass our in-Socket names to parent constructor.
         input_sockets = ["actions", "rewards", "terminals"]
-
         super(PPOLossFunction, self).__init__(
             *input_sockets, scope=scope, **kwargs
         )
         self.action_space = None
-        self.ranks_to_reduce = 0  # How many ranks do we have to reduce to get down to the final loss per batch item?
+        # How many ranks do we have to reduce to get down to the final loss per batch item?
+        self.ranks_to_reduce = 0
 
     def check_input_spaces(self, input_spaces, action_space):
         """
         Do some sanity checking on the incoming Spaces:
         """
         self.action_space = action_space
-        # Check for IntBox and num_categories.
+        # Check for IntBox and FloatBox.?
         sanity_check_space(
-            self.action_space, allowed_types=[IntBox], must_have_categories=True
+            self.action_space, allowed_types=[IntBox, FloatBox], must_have_categories=False
         )
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 

@@ -17,8 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .exploration import Exploration
-from .epsilon_exploration import EpsilonExploration
+from yarl.components.explorations.exploration import Exploration
+from yarl.components.explorations.epsilon_exploration import EpsilonExploration
 
 __all__ = ["Exploration", "EpsilonExploration"]
 

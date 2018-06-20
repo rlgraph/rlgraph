@@ -61,7 +61,7 @@ def get_activation_function(activation_function=None, *other_parameters):
     # Swish function: x * sigmoid(x)
     # https://arxiv.org/abs/1710.05941
     elif activation_function == "swish":
-        return lambda x: x * tf.sigmoid(x)
+        return lambda x: x * tf.sigmoid(x=x)
     # Leaky ReLU: x * [alpha if x < 0 else 1.0]
     elif activation_function in ["lrelu", "leaky_relu"]:
         alpha = other_parameters[0] if len(other_parameters) > 0 else 0.2
