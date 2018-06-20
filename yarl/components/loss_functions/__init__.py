@@ -17,11 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .loss_function import LossFunction
-from .dqn_loss_function import DQNLossFunction
+from yarl.components.loss_functions.loss_function import LossFunction
+from yarl.components.loss_functions.dqn_loss_function import DQNLossFunction
+from yarl.components.loss_functions.ppo_loss_function import PPOLossFunction
 
 LossFunction.__lookup_classes__ = dict(
-    dqnlossfunction=DQNLossFunction
+    dqnlossfunction=DQNLossFunction,
+    ppolossfunction=PPoLossFunction
 )
 
-__all__ = ["LossFunction", "DQNLossFunction"]
+__all__ = ["LossFunction", "DQNLossFunction", "PPOLossFunction"]
