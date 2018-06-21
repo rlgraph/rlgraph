@@ -17,11 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .splitter import Splitter
-from .merger import Merger
-from .synchronizable import Synchronizable
-from .decay_components import *
-from .noise_components import *
+from yarl.components.common.splitter import Splitter
+from yarl.components.common.merger import Merger
+from yarl.components.common.synchronizable import Synchronizable
+from yarl.components.common.decay_components import *
+from yarl.components.common.noise_components import *
+from yarl.components.common.fixed_loop import FixedLoop
 
 
 DecayComponent.__lookup_classes__ = dict(
@@ -41,5 +42,6 @@ NoiseComponent.__lookup_classes__ = dict(
 __all__ = ["Splitter", "Merger",
            "Synchronizable",
            "DecayComponent", "LinearDecay", "PolynomialDecay", "ExponentialDecay",
-           "NoiseComponent", "ConstantNoise", "GaussianNoise", "OrnsteinUhlenbeckNoise"]
+           "NoiseComponent", "ConstantNoise", "GaussianNoise", "OrnsteinUhlenbeckNoise",
+           "FixedLoop"]
 
