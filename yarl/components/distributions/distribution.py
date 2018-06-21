@@ -67,13 +67,15 @@ class Distribution(Component):
         super(Distribution, self).__init__(scope=scope, **kwargs)
 
         # Define a generic Distribution interface.
-        self.define_inputs("parameters")
-        self.define_outputs("sample_stochastic", "sample_deterministic", "entropy")
+        self.define_inputs("parameters", "values")
+        self.define_outputs("sample_stochastic", "sample_deterministic", "entropy", "log_prob")
+
         # "distribution" will be an internal Socket used to connect the GraphFunctions with each other.
         self.add_graph_fn("parameters", "distribution", self._graph_fn_parameterize)
         self.add_graph_fn("distribution", "sample_stochastic", self._graph_fn_sample_stochastic)
         self.add_graph_fn("distribution", "sample_deterministic", self._graph_fn_sample_deterministic)
         self.add_graph_fn("distribution", "entropy", self._graph_fn_entropy)
+        self.add_graph_fn(["distribution", "values"], "log_prob", self._graph_fn_log_prob)
 
         # Add KL-Divergence Sockets and graph_fn?
         if expose_kl_divergence is True:
@@ -142,6 +144,22 @@ class Distribution(Component):
             DataOp: The max-likelihood value.
         """
         raise NotImplementedError
+
+    @staticmethod
+    def _graph_fn_log_prob(distribution, values):
+        """
+        Probability density/mass function.
+
+        Args:
+            distribution (DataOp): The (already parameterized) backend-specific distribution from which a sample
+                should be drawn. This is simply the output of `self._graph_fn_parameterize`.
+            values (SingleDataOp): Values of which to compute log prob.
+
+        Returns:
+            DataOp: Log prob.
+        """
+        if get_backend() == "tf":
+            return distribution.log_prob(value=values)
 
     @staticmethod
     def _graph_fn_sample_stochastic(distribution):
