@@ -34,7 +34,11 @@ class TestDistributions(unittest.TestCase):
 
         # The Component to test.
         bernoulli = Bernoulli(expose_draw=True)  # add the "draw" Socket
-        test = ComponentTest(component=bernoulli, input_spaces=dict(parameters=param_space, max_likelihood=BoolBox()))
+        test = ComponentTest(component=bernoulli, input_spaces=dict(
+            parameters=param_space,
+            max_likelihood=BoolBox(),
+            values=FloatBox()
+        ))
 
         # Batch of size=1 and deterministic.
         input_ = {
@@ -64,7 +68,11 @@ class TestDistributions(unittest.TestCase):
 
         # The Component to test.
         categorical = Categorical(expose_draw=True)  # add the "draw" Socket
-        test = ComponentTest(component=categorical, input_spaces=dict(parameters=param_space, max_likelihood=BoolBox()))
+        test = ComponentTest(component=categorical, input_spaces=dict(
+            parameters=param_space,
+            max_likelihood=BoolBox(),
+            values=FloatBox(),
+          ))
 
         # Batch of size=1 and deterministic.
         input_ = {
@@ -109,7 +117,7 @@ class TestDistributions(unittest.TestCase):
 
         # The Component to test.
         categorical = Categorical()  # no "draw" Socket
-        test = ComponentTest(component=categorical, input_spaces=dict(parameters=param_space))
+        test = ComponentTest(component=categorical, input_spaces=dict(parameters=param_space, values=FloatBox()))
 
         # Batch of size=1 and deterministic.
         input_ = np.array([[[0.5, 0.5],
@@ -145,7 +153,11 @@ class TestDistributions(unittest.TestCase):
 
         # The Component to test.
         normal = Normal(expose_draw=True)  # add the "draw" Socket
-        test = ComponentTest(component=normal, input_spaces=dict(parameters=param_space, max_likelihood=BoolBox()))
+        test = ComponentTest(component=normal, input_spaces=dict(
+            parameters=param_space,
+            max_likelihood=BoolBox(),
+            values=FloatBox()
+        ))
 
         # Batch of size=2 and deterministic.
         input_ = {

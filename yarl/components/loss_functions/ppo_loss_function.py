@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import get_backend
-from yarl.utils.util import get_rank
+from yarl.components import Distribution
 from yarl.components.loss_functions import LossFunction
 from yarl.spaces import IntBox, sanity_check_space, FloatBox
 
@@ -61,9 +61,10 @@ class PPOLossFunction(LossFunction):
         )
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 
-    def _graph_fn_loss_per_item(self, actions, rewards, terminals, prev_log_likelihood):
+    def _graph_fn_loss_per_item(self, distribution, actions, rewards, terminals, prev_log_likelihood):
         """
         Args:
+            distribution (Distribution): Distribution object which must provide a log likelihood function.
             actions (SingleDataOp): The batch of actions that were actually taken in states s (from a memory).
             rewards (SingleDataOp): The batch of rewards that we received after having taken a in s (from a memory).
             terminals (SingleDataOp): The batch of terminal signals that we received after having taken a in s
@@ -73,10 +74,9 @@ class PPOLossFunction(LossFunction):
             SingleDataOp: The loss values vector (one single value for each batch item).
         """
         if get_backend() == "tf":
-            # TODO compute log likelihood of current batch
-            current_log_likelihood = None
+            # TODO is this how we want to call this?
+            current_log_likelihood = Distribution._graph_fn_log_prob(distribution, values=actions)
 
-            # TODO mean
             likelihood_ratio = tf.exp(x=(current_log_likelihood / prev_log_likelihood))
             unclipped_objective = likelihood_ratio * rewards
             clipped_objective = tf.clip_by_value(
@@ -85,5 +85,6 @@ class PPOLossFunction(LossFunction):
                 clip_value_max=(1 + self.clip_ratio),
             ) * rewards
 
-            return -tf.minimum(x=unclipped_objective, y=clipped_objective)
+            surrogative_objective = tf.minimum(x=unclipped_objective, y=clipped_objective)
+            return tf.reduce_mean(input_tensor=-surrogative_objective, axis=0)
 
