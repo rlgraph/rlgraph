@@ -23,6 +23,7 @@ from yarl.components.common.synchronizable import Synchronizable
 from yarl.components.common.decay_components import *
 from yarl.components.common.noise_components import *
 from yarl.components.common.fixed_loop import FixedLoop
+from yarl.components.common.sampler import Sampler
 
 
 DecayComponent.__lookup_classes__ = dict(
@@ -43,5 +44,5 @@ __all__ = ["Splitter", "Merger",
            "Synchronizable",
            "DecayComponent", "LinearDecay", "PolynomialDecay", "ExponentialDecay",
            "NoiseComponent", "ConstantNoise", "GaussianNoise", "OrnsteinUhlenbeckNoise",
-           "FixedLoop"]
+           "FixedLoop", "Sampler"]
 

@@ -90,6 +90,6 @@ class PPOLossFunction(LossFunction):
                 clip_value_max=(1 + self.clip_ratio),
             ) * rewards
 
-            surrogative_objective = tf.minimum(x=unclipped_objective, y=clipped_objective)
-            return tf.reduce_mean(input_tensor=-surrogative_objective, axis=0)
+            surrogate_objective = tf.minimum(x=unclipped_objective, y=clipped_objective)
+            return tf.reduce_mean(input_tensor=-surrogate_objective, axis=0)
 
