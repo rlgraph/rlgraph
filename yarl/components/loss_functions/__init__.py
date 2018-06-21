@@ -23,7 +23,7 @@ from yarl.components.loss_functions.ppo_loss_function import PPOLossFunction
 
 LossFunction.__lookup_classes__ = dict(
     dqnlossfunction=DQNLossFunction,
-    ppolossfunction=PPoLossFunction
+    ppolossfunction=PPOLossFunction
 )
 
 __all__ = ["LossFunction", "DQNLossFunction", "PPOLossFunction"]
