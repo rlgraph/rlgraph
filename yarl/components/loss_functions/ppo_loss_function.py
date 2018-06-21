@@ -61,17 +61,29 @@ class PPOLossFunction(LossFunction):
         )
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 
-    def _graph_fn_loss_per_item(self, actions, rewards, terminals):
+    def _graph_fn_loss_per_item(self, actions, rewards, terminals, prev_log_likelihood):
         """
         Args:
-
             actions (SingleDataOp): The batch of actions that were actually taken in states s (from a memory).
             rewards (SingleDataOp): The batch of rewards that we received after having taken a in s (from a memory).
             terminals (SingleDataOp): The batch of terminal signals that we received after having taken a in s
                 (from a memory).
+            prev_log_likelihood (SingleDataOp): Log likelihood to compare to when computing likelihood ratios.
         Returns:
             SingleDataOp: The loss values vector (one single value for each batch item).
         """
         if get_backend() == "tf":
-            pass
+            # TODO compute log likelihood of current batch
+            current_log_likelihood = None
+
+            # TODO mean
+            likelihood_ratio = tf.exp(x=(current_log_likelihood / prev_log_likelihood))
+            unclipped_objective = likelihood_ratio * rewards
+            clipped_objective = tf.clip_by_value(
+                t=likelihood_ratio,
+                clip_value_min=(1 - self.clip_ratio),
+                clip_value_max=(1 + self.clip_ratio),
+            ) * rewards
+
+            return -tf.minimum(x=unclipped_objective, y=clipped_objective)
 
