@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import get_backend
-from yarl.components import Distribution
+from yarl.components import Categorical
 from yarl.components.loss_functions import LossFunction
 from yarl.spaces import IntBox, sanity_check_space, FloatBox
 
@@ -50,6 +50,8 @@ class PPOLossFunction(LossFunction):
         # How many ranks do we have to reduce to get down to the final loss per batch item?
         self.ranks_to_reduce = 0
 
+        self.distribution = None
+
     def check_input_spaces(self, input_spaces, action_space):
         """
         Do some sanity checking on the incoming Spaces:
@@ -60,6 +62,9 @@ class PPOLossFunction(LossFunction):
             self.action_space, allowed_types=[IntBox, FloatBox], must_have_categories=False
         )
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
+
+        # TODO: Make this flexible with different distributions.
+        self.distribution = Categorical()
 
     def _graph_fn_loss_per_item(self, distribution, actions, rewards, terminals, prev_log_likelihood):
         """
@@ -74,8 +79,8 @@ class PPOLossFunction(LossFunction):
             SingleDataOp: The loss values vector (one single value for each batch item).
         """
         if get_backend() == "tf":
-            # TODO is this how we want to call this?
-            current_log_likelihood = Distribution._graph_fn_log_prob(distribution, values=actions)
+            # Call graph_fn of a sub-Component directly.
+            current_log_likelihood = self.distribution._graph_fn_log_prob(distribution, values=actions)
 
             likelihood_ratio = tf.exp(x=(current_log_likelihood / prev_log_likelihood))
             unclipped_objective = likelihood_ratio * rewards
