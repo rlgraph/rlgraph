@@ -29,7 +29,7 @@ class Sampler(Component):
     A Sampling component can be used to sample entries from an input op, e.g.
     to repeatedly perform sub-sampling.
     """
-    def __init__(self, input_space, sampling_strategy="uniform", scope="fixed-loop", **kwargs):
+    def __init__(self, input_space, sampling_strategy="uniform", scope="sampler", **kwargs):
         """
         Args:
             input_space (Space): The input space to sample on.
@@ -43,10 +43,11 @@ class Sampler(Component):
         self.define_inputs("sample_size")
         self.define_inputs(*self.input_names)
         # Returns the same ops.
-        self.define_outputs(*self.input_names)
+        output_names = ['out_{}'.format(name) for name in self.input_names]
+        self.define_outputs(output_names)
 
         self.input_names.append("sample_size")
-        self.add_graph_fn(self.input_names, "sample", self._graph_fn_sample)
+        self.add_graph_fn(self.input_names, output_names, self._graph_fn_sample)
 
     def _graph_fn_sample(self, sample_size, *inputs):
         """
