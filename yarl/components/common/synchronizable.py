@@ -41,7 +41,7 @@ class Synchronizable(Component):
         """
         self.collections = kwargs.pop("collections", None)
 
-        super(Synchronizable, self).__init__(*args, **kwargs)
+        super(Synchronizable, self).__init__(*args, scope=kwargs.pop("scope", "synchronizable"), **kwargs)
 
         # Define our interface.
 

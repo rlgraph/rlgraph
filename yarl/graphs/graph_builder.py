@@ -134,13 +134,15 @@ class GraphBuilder(Specifiable):
             if len(in_sock.incoming_connections) == 0 and in_sock not in component.unconnected_sockets_in_meta_graph:
                 raise YARLError("Component '{}' has in-Socket ({}) without any incoming connections! If this is "
                                 "intended before the build process, you have to add the Socket to the Component's "
-                                "`unconnected_sockets_in_meta_graph` set. Then this error will be supressed for "
+                                "`unconnected_sockets_in_meta_graph` set. Then this error will be suppressed for "
                                 "Component '{}'.".format(component.name, in_sock.name, component.name, in_sock.name))
 
         # Check all the component's graph_fns for input-completeness.
         for graph_fn in component.graph_fns:  # type: GraphFunction
             for in_sock_rec in graph_fn.input_sockets.values():
-                if len(in_sock_rec["socket"].incoming_connections) == 0:
+                in_sock = in_sock_rec["socket"]
+                if len(in_sock.incoming_connections) == 0 and \
+                        in_sock not in component.unconnected_sockets_in_meta_graph:
                     raise YARLError("GraphFn {}/{} has in-Socket ({}) without any incoming "
                                     "connections!".format(component.name, graph_fn.name, in_sock_rec["socket"].name))
 
@@ -485,7 +487,8 @@ class GraphBuilder(Specifiable):
                 for in_sock_name, in_sock_record in graph_fn.input_sockets.items():
                     if len(in_sock_record["socket"].op_records) == 0:
                         raise YARLError("in-Socket '{}' of GraphFunction '{}' of Component '{}' does not have "
-                                        "any incoming ops!".format(in_sock_name, graph_fn.name, component.name))
+                                        "any incoming ops!".format(in_sock_name, graph_fn.name,
+                                                                   component.global_scope))
 
         # Check component's sub-components for input-completeness (recursively).
         for sub_component in component.sub_components.values():  # type: Component
@@ -494,7 +497,8 @@ class GraphBuilder(Specifiable):
                 for in_sock in sub_component.input_sockets:
                     if in_sock.space is None:
                         raise YARLError("Component '{}' is not input-complete. In-Socket '{}' does not " \
-                                        "have any incoming connections.".format(sub_component.name, in_sock.name))
+                                        "have any incoming connections.".
+                                        format(sub_component.global_scope, in_sock.name))
 
             # Recursively call this method on all the sub-component's sub-components.
             self.sanity_check_build(sub_component)

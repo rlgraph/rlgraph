@@ -251,7 +251,7 @@ class GraphFunction(object):
         """
         # The returned sequence of output ops.
         ret = []
-        in_socket_names = self.input_sockets.keys()
+        in_socket_names = list(self.input_sockets.keys())
         for i, op in enumerate(ops):
             # self.flatten_ops cannot be False here.
             if self.flatten_ops is True or (isinstance(self.flatten_ops, set) and

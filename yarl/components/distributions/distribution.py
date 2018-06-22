@@ -18,9 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import get_backend
-from yarl.utils import util
 from yarl.components import Component
-from yarl.spaces import ContainerSpace, Tuple
+from yarl.spaces import ContainerSpace
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -151,9 +150,9 @@ class Distribution(Component):
         Probability density/mass function.
 
         Args:
-            distribution (DataOp): The (already parameterized) backend-specific distribution from which a sample
-                should be drawn. This is simply the output of `self._graph_fn_parameterize`.
-            values (SingleDataOp): Values of which to compute log prob.
+            distribution (DataOp): The (already parameterized) backend-specific distribution for which the log_prob
+                should be calculated. This is simply the output of `self._graph_fn_parameterize`.
+            values (SingleDataOp): Values of which to compute log probs.
 
         Returns:
             DataOp: Log prob.
