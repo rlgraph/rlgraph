@@ -131,7 +131,7 @@ class ApexExecutor(RayExecutor):
             ray_worker.set_weights.remote(weights)
             for _ in range(self.env_interaction_task_depth):
                 self.env_sample_tasks.add_task(ray_worker, ray_worker.execute_and_get_timesteps.remote(
-                    num_timesteps=self.worker_sample_size,
+                    self.worker_sample_size,
                     break_on_terminal=True
                 ))
 
