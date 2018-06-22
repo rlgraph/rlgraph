@@ -154,7 +154,8 @@ class Agent(Specifiable):
         Args:
             states (Union[dict, ndarray]): States dict or array.
             actions (Union[dict, ndarray]): Actions dict or array containing actions performed for the given state(s).
-            internals (Union[list, None]): Internal state(s) returned by agent for the given states.
+            internals (Union[list]): Internal state(s) returned by agent for the given states. Must be
+                empty list if no internals available.
             rewards (float): Scalar reward(s) observed.
             terminals (bool): Boolean indicating terminal.
 
@@ -198,7 +199,8 @@ class Agent(Specifiable):
         Args:
             states (Union[dict,ndarray]): States dict or array.
             actions (Union[dict,ndarray]): Actions dict or array containing actions performed for the given state(s).
-            internals (Union[list,None]): Internal state(s) returned by agent for the given states.
+            internals (Union[list]): Internal state(s) returned by agent for the given states. Must be an empty list
+                if no internals availables.
             rewards (Union[ndarray,list,float]): Scalar reward(s) observed.
             terminals (Union[list,bool]): Boolean indicating terminal.
         """
