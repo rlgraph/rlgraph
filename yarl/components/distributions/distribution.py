@@ -182,10 +182,11 @@ class Distribution(Component):
             DataOp: (batch-wise) KL-divergence between the two distributions.
         """
         if get_backend() == "tf":
-            return tf.distributions.kl_divergence(
-                distribution_a=distribution_a,
-                distribution_b=distribution_b,
-                allow_nan_stats=True,
-                name=None
-            )
-
+            return tf.no_op()
+            # TODO: never tested. tf throws error: NotImplementedError: No KL(distribution_a || distribution_b) registered for distribution_a type Bernoulli and distribution_b type ndarray
+            #return tf.distributions.kl_divergence(
+            #    distribution_a=distribution_a,
+            #    distribution_b=distribution_b,
+            #    allow_nan_stats=True,
+            #    name=None
+            #)
