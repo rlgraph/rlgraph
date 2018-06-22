@@ -161,6 +161,11 @@ class Agent(Specifiable):
 
         """
         batched_states = self.state_space.batched(states)
+
+        # Check for illegal internals.
+        if internals is None:
+            internals = []
+
         # Add batch rank?
         if batched_states.ndim == np.asarray(states).ndim + 1:
             states = np.asarray([states])

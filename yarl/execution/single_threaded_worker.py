@@ -126,7 +126,7 @@ class SingleThreadedWorker(Worker):
                     if terminal:
                         break
 
-                self.agent.observe(states=state, actions=action, internals=None, rewards=reward, terminals=terminal)
+                self.agent.observe(states=state, actions=action, internals=[], rewards=reward, terminals=terminal)
 
                 loss = self.update_if_necessary(timesteps_executed)
                 if loss is not None:
