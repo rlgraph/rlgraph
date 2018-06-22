@@ -37,18 +37,23 @@ class TestSamplerComponent(unittest.TestCase):
             add_batch_rank=True
         )
 
-        sampler = Sampler(input_space=input_space)
+        sampler = Sampler()
         test = ComponentTest(component=sampler, input_spaces=dict(
             sample_size=int,
-            inputs=input_space
+            sample=input_space
         ))
 
         samples = input_space.sample(size=100)
         subsample = test.test(
-            out_socket_names="sample",
+            out_socket_names="subsample",
             inputs=dict(
-                inputs=samples,
-                samle_size=10
+                sample_size=10,
+                sample=samples
             ),
             expected_outputs=None)
+
+        self.assertEqual(len(subsample["actions"]["action1"]), 10)
+        self.assertEqual(len(subsample["states"]["state1"]), 10)
+        self.assertEqual(len(subsample["terminals"]), 10)
+
         print(subsample)
