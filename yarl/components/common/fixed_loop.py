@@ -17,26 +17,43 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from yarl import YARLError
 from yarl.components import Component
 
 
 class FixedLoop(Component):
     """
-    A FixedLoop component is used to iteratively call graph functions of
-    another computation, e.g. in an optimization.
+    A FixedLoop component is used to iteratively call other GraphFunctions, e.g. in an optimization.
     """
-
-    def __init__(self, iterations, call_component, scope="fixed-loop", **kwargs):
+    def __init__(self, num_iterations, call_component, graph_fn_name, scope="fixed-loop", **kwargs):
         """
         Args:
-            iterations (int): How often the
+            num_iterations (int): How often to call the given GraphFn.
             call_component (Component): Component providing graph fn to call within loop.
+            graph_fn_name (str): The name of the graph_fn in call_component.
         """
-        assert iterations > 0
-        super(FixedLoop, self).__init__(scope=scope, **kwargs)
-        self.iterations = iterations
-        self.call_component = call_component
-        self.define_outputs("fixed_loop_result")
+        assert num_iterations > 0
 
-    def _graph_fn_call_loop(self):
-        pass
+        super(FixedLoop, self).__init__(scope=scope, **kwargs)
+
+        self.num_iterations = num_iterations
+        self.graph_fn_to_call = None
+        for graph_fn in call_component.graph_fns:
+            if graph_fn.name == graph_fn_name:
+                self.graph_fn_to_call = graph_fn
+                break
+        if not self.graph_fn_to_call:
+            raise YARLError("ERROR: GraphFn '{}' not found in Component '{}'!".format(graph_fn_name,
+                                                                                      call_component.global_scope))
+        # TODO: Do we sum up, append to list, ...?
+        self.define_outputs("fixed_loop_result")
+        self.add_component(call_component)
+
+        self.add_graph_fn()  # TODO:
+
+    def _graph_fn_call_loop(self, *params):
+        ret = None
+        for _ in range(self.num_iterations):
+            ret = self.graph_fn_to_call(*params)
+        # For now, just return last result.
+        return ret

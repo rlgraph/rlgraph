@@ -39,26 +39,26 @@ class Sampler(Component):
         super(Sampler, self).__init__(scope=scope, **kwargs)
         self.sampling_strategy = sampling_strategy
 
+        # Define our interface.
         self.define_inputs("sample_size", "sample")
-        # Returns the same ops.
         self.define_outputs("subsample")
-
+        # Connect the graph_fn, only flatten the incoming sample, not sample_size.
         self.add_graph_fn(["sample_size", "sample"], "subsample", self._graph_fn_subsample,
                           flatten_ops={"sample"})
 
-    def _graph_fn_subsample(self, sample_size, input_):
+    def _graph_fn_subsample(self, sample_size, sample):
         """
         Takes a set of inputs and subsamples.
 
         Args:
-            sample_size (int): Subsample size.
-            input_ (FlattenedDataOp): Input tensors (in a FlattenedDataOp) to subsample from.
+            sample_size (SingleDataOp[int]): Subsample size.
+            sample (FlattenedDataOp): Input tensors (in a FlattenedDataOp) to subsample from.
                 All values (tensors) should all be the same size.
 
         Returns:
             FlattenedDataOp: The sub-sampled inputs (will be unflattened automatically).
         """
-        batch_size = tf.shape(input=next(iter(input_.values())))[0]
+        batch_size = tf.shape(input=next(iter(sample.values())))[0]
 
         if get_backend() == "tf":
             sample_indices = tf.random_uniform(
@@ -66,11 +66,7 @@ class Sampler(Component):
                 maxval=batch_size,
                 dtype=tf.int32
             )
-            ret = FlattenedDataOp()
-            for key, tensor in input_.items():
-                ret[key] = tf.gather(params=tensor, indices=sample_indices)
-            return ret
-
-
-
-
+            subsample = FlattenedDataOp()
+            for key, tensor in sample.items():
+                subsample[key] = tf.gather(params=tensor, indices=sample_indices)
+            return subsample
