@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import logging
 import os
 
 from yarl import get_distributed_backend
@@ -40,6 +41,8 @@ class RayAgent(object):
             agent_config (dict): Agent config dict. Must contain a "type" key identifying the desired
                 agent.
         """
+        self.logger = logging.getLogger(__name__)
+        self.logger.info("Initializing ray agent with config: {}".format(agent_config))
         assert "type" in agent_config
         self.agent = RayExecutor.build_agent_from_config(agent_config)
 

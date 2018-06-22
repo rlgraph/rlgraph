@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from copy import deepcopy
+
 from six.moves import xrange
 import logging
 import numpy as np
@@ -164,8 +166,10 @@ class RayExecutor(object):
         Returns:
             Agent: YARL agent object.
         """
-        agent_cls = Agent.__lookup_classes__.get(agent_config.pop('type'))
-        return agent_cls(**agent_config)
+        config = deepcopy(agent_config)
+        # Pop type on a copy because this may be called by multiple classes/worker types.
+        agent_cls = Agent.__lookup_classes__.get(config.pop('type'))
+        return agent_cls(**config)
 
     @staticmethod
     def build_env_from_config(env_spec):
