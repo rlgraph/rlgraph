@@ -40,25 +40,26 @@ class Sampler(Component):
         self.sampling_strategy = sampling_strategy
 
         # Define our interface.
-        self.define_inputs("sample_size", "sample")
-        self.define_outputs("subsample")
+        self.define_inputs("sample_size", "inputs")
+        self.define_outputs("sample")
         # Connect the graph_fn, only flatten the incoming sample, not sample_size.
-        self.add_graph_fn(["sample_size", "sample"], "subsample", self._graph_fn_subsample,
-                          flatten_ops={"sample"})
+        self.add_graph_fn(["sample_size", "inputs"], "sample", self._graph_fn_sample,
+                          flatten_ops={"inputs"})
 
-    def _graph_fn_subsample(self, sample_size, sample):
+    def _graph_fn_sample(self, sample_size, inputs):
         """
-        Takes a set of inputs and subsamples.
+        Takes a set of input tensors and uniformly samples a subset of the
+        specified size from them.
 
         Args:
             sample_size (SingleDataOp[int]): Subsample size.
-            sample (FlattenedDataOp): Input tensors (in a FlattenedDataOp) to subsample from.
+            inputs (FlattenedDataOp): Input tensors (in a FlattenedDataOp) to sample from.
                 All values (tensors) should all be the same size.
 
         Returns:
             FlattenedDataOp: The sub-sampled inputs (will be unflattened automatically).
         """
-        batch_size = tf.shape(input=next(iter(sample.values())))[0]
+        batch_size = tf.shape(input=next(iter(inputs.values())))[0]
 
         if get_backend() == "tf":
             sample_indices = tf.random_uniform(
@@ -66,7 +67,7 @@ class Sampler(Component):
                 maxval=batch_size,
                 dtype=tf.int32
             )
-            subsample = FlattenedDataOp()
-            for key, tensor in sample.items():
-                subsample[key] = tf.gather(params=tensor, indices=sample_indices)
-            return subsample
+            sample = FlattenedDataOp()
+            for key, tensor in inputs.items():
+                sample[key] = tf.gather(params=tensor, indices=sample_indices)
+            return sample

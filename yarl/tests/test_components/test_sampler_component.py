@@ -40,20 +40,20 @@ class TestSamplerComponent(unittest.TestCase):
         sampler = Sampler()
         test = ComponentTest(component=sampler, input_spaces=dict(
             sample_size=int,
-            sample=input_space
+            inputs=input_space
         ))
 
         samples = input_space.sample(size=100)
-        subsample = test.test(
-            out_socket_names="subsample",
+        sample = test.test(
+            out_socket_names="sample",
             inputs=dict(
                 sample_size=10,
-                sample=samples
+                inputs=samples
             ),
             expected_outputs=None)
 
-        self.assertEqual(len(subsample["actions"]["action1"]), 10)
-        self.assertEqual(len(subsample["states"]["state1"]), 10)
-        self.assertEqual(len(subsample["terminals"]), 10)
+        self.assertEqual(len(sample["actions"]["action1"]), 10)
+        self.assertEqual(len(sample["states"]["state1"]), 10)
+        self.assertEqual(len(sample["terminals"]), 10)
 
-        print(subsample)
+        print(sample)
