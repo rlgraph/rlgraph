@@ -131,18 +131,19 @@ class GraphBuilder(Specifiable):
 
         # Check all the Component's in-Sockets for being connected from a Space/Socket.
         for in_sock in component.input_sockets:  # type: Socket
-            if len(in_sock.incoming_connections) == 0 and in_sock not in component.unconnected_sockets_in_meta_graph:
+            if len(in_sock.incoming_connections) == 0 and \
+                    in_sock.name not in component.unconnected_sockets_in_meta_graph:
                 raise YARLError("Component '{}' has in-Socket ({}) without any incoming connections! If this is "
-                                "intended before the build process, you have to add the Socket to the Component's "
-                                "`unconnected_sockets_in_meta_graph` set. Then this error will be suppressed for "
-                                "Component '{}'.".format(component.name, in_sock.name, component.name, in_sock.name))
+                                "intended before the build process, you have to add the Socket's name to the "
+                                "Component's `unconnected_sockets_in_meta_graph` set. Then this error will be "
+                                "suppressed for this Component.".format(component.name, in_sock.name))
 
         # Check all the component's graph_fns for input-completeness.
         for graph_fn in component.graph_fns:  # type: GraphFunction
             for in_sock_rec in graph_fn.input_sockets.values():
                 in_sock = in_sock_rec["socket"]
                 if len(in_sock.incoming_connections) == 0 and \
-                        in_sock not in component.unconnected_sockets_in_meta_graph:
+                        in_sock.name not in component.unconnected_sockets_in_meta_graph:
                     raise YARLError("GraphFn {}/{} has in-Socket ({}) without any incoming "
                                     "connections!".format(component.name, graph_fn.name, in_sock_rec["socket"].name))
 
@@ -184,7 +185,12 @@ class GraphBuilder(Specifiable):
         self.push_from_graph_fn(variables_graph_fn)
 
     def push_from_socket(self, socket):
-        assert socket.space is not None
+        # Skip this Socket, if it doesn't have a Space (no incoming connection).
+        # Assert that it's ok for the component to leave this Socket open.
+        if socket.space is None:
+            assert socket.name in socket.component.unconnected_sockets_in_meta_graph
+            return
+
         for outgoing in socket.outgoing_connections:
             # Push Socket into Socket.
             if isinstance(outgoing, Socket):
@@ -485,7 +491,8 @@ class GraphBuilder(Specifiable):
             if graph_fn.input_complete is False:
                 # Look for the missing in-Socket and raise an Error.
                 for in_sock_name, in_sock_record in graph_fn.input_sockets.items():
-                    if len(in_sock_record["socket"].op_records) == 0:
+                    if len(in_sock_record["socket"].op_records) == 0 and \
+                            in_sock_name not in component.unconnected_sockets_in_meta_graph:
                         raise YARLError("in-Socket '{}' of GraphFunction '{}' of Component '{}' does not have "
                                         "any incoming ops!".format(in_sock_name, graph_fn.name,
                                                                    component.global_scope))

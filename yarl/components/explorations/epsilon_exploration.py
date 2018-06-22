@@ -57,7 +57,7 @@ class EpsilonExploration(Component):
 
         # Add the decay component and make time_step our (only) input.
         self.add_component(self.decay_component)
-        self.add_component(self.bernoulli_component, leave_open="values")
+        self.add_component(self.bernoulli_component)
 
         # Define our interface:
         self.define_inputs("time_step")

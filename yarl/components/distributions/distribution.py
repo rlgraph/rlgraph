@@ -34,40 +34,28 @@ class Distribution(Component):
     ins:
         parameters (numeric): The parameters of the distribution (e.g. mean and variance for a Gaussian).
             The Space of parameters must have a batch-rank.
-        Optional:
-            max_likelihood (bool): Whether to sample or to get the max-likelihood value (deterministic) when
-                using the "draw" out-Socket. This Socket is optional and can be switched on via the constructor parameter:
-                "expose_draw"=True.
-            other_distribution (backend-specific distribution object): Input distribution for calculating the
-                KL-divergence between this Distribution and "other_distribution".
+        values (numeric): Values for which we want log probabilities returned.
+        max_likelihood (bool): Whether to sample or to get the max-likelihood value (deterministic) when
+            using the "draw" out-Socket. This Socket is optional and can be switched on via the constructor parameter:
+            "expose_draw"=True.
+        other_distribution (backend-specific distribution object): Input distribution for calculating the
+            KL-divergence between this Distribution and "other_distribution".
     outs:
         sample_stochastic (numeric): Returns a stochastic sample from the distribution.
         sample_deterministic (numeric): Returns the max-likelihood value (deterministic) from the distribution.
         entropy (float): The entropy value of the distribution.
-        Optional:
-            draw (numeric): Draws a sample from the distribution (if max_likelihood is True, this is will be
-                a deterministic draw, otherwise a stochastic sample). This Socket is optional and can be switched on via
-                the constructor parameter: "expose_draw"=True. By default, this Socket is not exposed.
-            kl_divergence (numeric): The Kullback-Leibler Divergence between this Distribution and another one.
+        log_prob (numeric): The log probabilities for given values.
+        draw (numeric): Draws a sample from the distribution (if max_likelihood is True, this is will be
+            a deterministic draw, otherwise a stochastic sample). This Socket is optional and can be switched on via
+            the constructor parameter: "expose_draw"=True. By default, this Socket is not exposed.
+        kl_divergence (numeric): The Kullback-Leibler Divergence between this Distribution and another one.
     """
-    def __init__(self, expose_draw=False, expose_kl_divergence=False, scope="distribution", **kwargs):
-        """
-        Args:
-            expose_draw (bool): Whether this Component should expose an out-Socket named "draw"
-                (needing also a 'max_likelihood' in-Socket). This additional out-Socket either returns a
-                stochastic or a deterministic sample from the distribution, depending on the provided
-                "max_likelihood" in-Socket bool value.
-                Default: False.
-            expose_kl_divergence (bool): Whether this Component should expose one in-Socket ("other_distribution")
-                and an out-Socket "kl_divergence" for calculating the Kullback-Leibler Divergence between this
-                Distribution and another one.
-                Default: False.
-        """
+    def __init__(self, scope="distribution", **kwargs):
         super(Distribution, self).__init__(scope=scope, **kwargs)
 
         # Define a generic Distribution interface.
-        self.define_inputs("parameters", "values")
-        self.define_outputs("sample_stochastic", "sample_deterministic", "entropy", "log_prob")
+        self.define_inputs("parameters", "values", "other_distribution", "max_likelihood")
+        self.define_outputs("sample_stochastic", "sample_deterministic", "draw", "entropy", "log_prob", "distribution")
 
         # "distribution" will be an internal Socket used to connect the GraphFunctions with each other.
         self.add_graph_fn("parameters", "distribution", self._graph_fn_parameterize)
@@ -75,18 +63,11 @@ class Distribution(Component):
         self.add_graph_fn("distribution", "sample_deterministic", self._graph_fn_sample_deterministic)
         self.add_graph_fn("distribution", "entropy", self._graph_fn_entropy)
         self.add_graph_fn(["distribution", "values"], "log_prob", self._graph_fn_log_prob)
+        self.add_graph_fn(["distribution", "other_distribution"], "kl_divergence", self._graph_fn_kl_divergence)
+        self.add_graph_fn(["distribution", "max_likelihood"], "draw", self._graph_fn_draw)
 
-        # Add KL-Divergence Sockets and graph_fn?
-        if expose_kl_divergence is True:
-            self.define_inputs("other_distribution")
-            self.define_outputs("distribution")
-            self.add_graph_fn(["distribution", "other_distribution"], "kl_divergence", self._graph_fn_kl_divergence)
-
-        # If we need the flexible out-Socket "draw", add it here and connect it.
-        if expose_draw is True:
-            self.define_inputs("max_likelihood")
-            self.define_outputs("draw")
-            self.add_graph_fn(["distribution", "max_likelihood"], "draw", self._graph_fn_draw)
+        # Make some in-Sockets optional (don't need to be connected; will not sanity check these).
+        self.unconnected_sockets_in_meta_graph.update(["values", "max_likelihood", "other_distribution"])
 
     def check_input_spaces(self, input_spaces, action_space):
         in_space = input_spaces["parameters"]
@@ -145,22 +126,6 @@ class Distribution(Component):
         raise NotImplementedError
 
     @staticmethod
-    def _graph_fn_log_prob(distribution, values):
-        """
-        Probability density/mass function.
-
-        Args:
-            distribution (DataOp): The (already parameterized) backend-specific distribution for which the log_prob
-                should be calculated. This is simply the output of `self._graph_fn_parameterize`.
-            values (SingleDataOp): Values of which to compute log probs.
-
-        Returns:
-            DataOp: Log prob.
-        """
-        if get_backend() == "tf":
-            return distribution.log_prob(value=values)
-
-    @staticmethod
     def _graph_fn_sample_stochastic(distribution):
         """
         Returns an actual sample for a given distribution.
@@ -173,6 +138,22 @@ class Distribution(Component):
             DataOp: The drawn sample.
         """
         return distribution.sample()
+
+    @staticmethod
+    def _graph_fn_log_prob(distribution, values):
+        """
+        Probability density/mass function.
+
+        Args:
+            distribution (DataOp): The (already parameterized) backend-specific distribution for which the log
+                probabilities should be calculated. This is simply the output of `self._graph_fn_parameterize`.
+            values (SingleDataOp): Values for which to compute the log probabilities given `distribution`.
+
+        Returns:
+            DataOp: The log probability of the given values.
+        """
+        if get_backend() == "tf":
+            return distribution.log_prob(value=values)
 
     @staticmethod
     def _graph_fn_entropy(distribution):

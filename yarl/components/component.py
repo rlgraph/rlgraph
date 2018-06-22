@@ -122,7 +122,7 @@ class Component(Specifiable):
         # Only then can we create our variables. Model will do this.
         self.input_complete = False
 
-        # A set of in-Sockets for which it is ok, not to be connected after the
+        # A set of in-Socket names for which it is ok, not to be connected after the
         # YARL-meta graph is passed on for building.
         self.unconnected_sockets_in_meta_graph = set()
 
@@ -724,7 +724,7 @@ class Component(Specifiable):
                 in_sock = component.get_socket_by_name(component, in_sock_name)
                 assert in_sock is not None, "ERROR: in-Socket '{}/{}' in `leave_open` list could not be " \
                     "found!".format(component.name, in_sock_name)
-                component.unconnected_sockets_in_meta_graph.add(in_sock)
+                component.unconnected_sockets_in_meta_graph.add(in_sock.name)
 
         # Preprocess the connections spec.
         connect_spec = dict()
@@ -1255,7 +1255,8 @@ class Component(Specifiable):
         """
         Checks whether this Component is "input-complete" and stores the result in self.input_complete.
         Input-completeness is reached (only once and then it stays that way) if all in-Sockets to this component
-        have at least one op defined in their Socket.ops set.
+        (whose name is not in `self.unconnected_sockets_in_meta_graph` have at least one op defined in
+        their `ops` set.
 
         Returns:
             Optional[dict]: A space-dict if the Component is input-complete, None otherwise.
@@ -1265,7 +1266,7 @@ class Component(Specifiable):
         space_dict = dict()
         self.input_complete = True
         for in_socket in self.input_sockets:
-            if in_socket.space is None:
+            if in_socket.space is None and in_socket.name not in self.unconnected_sockets_in_meta_graph:
                 self.input_complete = False
                 return None
             else:
