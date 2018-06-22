@@ -34,7 +34,7 @@ class TestApexAgent(unittest.TestCase):
     """
     Tests the ApexAgent assembly on the RandomEnv.
     """
-    root_logger.setLevel(level=logging.DEBUG)
+    root_logger.setLevel(level=logging.INFO)
 
     def test_apex_assembly(self):
         """
@@ -62,7 +62,7 @@ class TestApexAgent(unittest.TestCase):
         state_space = env.state_space
         action_space = env.action_space
         agent = ApexAgent.from_spec(
-            "configs/test_dqn_agent_for_random_env.json",
+            "configs/test_apex_agent_for_random_env.json",
             state_space=state_space,
             action_space=action_space
         )
