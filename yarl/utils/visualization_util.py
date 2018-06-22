@@ -31,6 +31,7 @@ def get_graph_markup(component, level=0, draw_graph_fns=False):
     Args:
         component (Component): Component to generate meta-graph markup for.
         level (int): Indentation level. If >= 1, return this component as sub-component.
+        draw_graph_fns (bool): Include graph fns in plot.
 
     Returns:
         str: Meta-graph markup string.
