@@ -132,9 +132,10 @@ class Worker(Specifiable):
                     timesteps_executed % self.update_interval == 0:  # update frequency check
                 loss = 0
                 for _ in range_(self.update_steps):
-                    l, s_, a_, r_, t_ = self.agent.update()
+                    #l, s_, a_, r_, t_ = self.agent.update()
+                    loss += self.agent.update()
                     #self.logger.info("FROM MEM: s={} a={} r={} t={}".format(s_, a_, r_, t_))
-                    loss += l
+                    #loss += l
                 return loss
 
         return None

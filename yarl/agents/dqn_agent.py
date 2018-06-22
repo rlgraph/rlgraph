@@ -65,24 +65,25 @@ class DQNAgent(Agent):
         self.loss_function = DQNLossFunction(discount=self.discount, double_q=self.double_q)
 
         self.assemble_meta_graph()
-        markup = get_graph_markup(self.graph_builder.core_component)
-        print(markup)
+        # markup = get_graph_markup(self.graph_builder.core_component)
+        # print(markup)
         self.build_graph()
 
     def assemble_meta_graph(self):
         core = self.graph_builder.core_component
 
         # Define our interface.
-        core.define_inputs("states", space=self.state_space.with_batch_rank())
-        core.define_inputs("actions", space=self.action_space.with_batch_rank())
-        core.define_inputs("rewards", space=FloatBox(add_batch_rank=True))
-        core.define_inputs("terminals", space=BoolBox(add_batch_rank=True))
-        core.define_inputs("deterministic", space=bool)
+        core.define_inputs("states_from_env", "external_batch_states", "external_batch_next_states",
+                           "states_for_memory", space=self.state_space.with_batch_rank())
+        core.define_inputs("actions_for_memory", "external_batch_actions", space=self.action_space.with_batch_rank())
+        core.define_inputs("rewards_for_memory", "external_batch_rewards", space=FloatBox(add_batch_rank=True))
+        core.define_inputs("terminals_for_memory", "external_batch_terminals", space=BoolBox(add_batch_rank=True))
+
+        #core.define_inputs("deterministic", space=bool)
         core.define_inputs("time_step", space=int)
-        core.define_outputs("get_actions", "insert_records", "update", "sync_target_qnet", "get_batch",
-                            # for debugging purposes:
-                            "q_values", "loss", "memory_states", "memory_actions", "memory_rewards", "memory_terminals",
-                            "do_explore")
+        core.define_outputs("get_actions", "insert_records",
+                            "update_from_memory", "update_from_external_batch",
+                            "sync_target_qnet", "get_batch", "loss")
 
         # Add the Q-net, copy it (target-net) and add the target-net.
         self.target_policy = self.policy.copy(scope="target-policy")
@@ -100,64 +101,58 @@ class DQNAgent(Agent):
 
         # Now connect everything ...
 
-        # States (from Env) into preprocessor -> into q-net
-        core.connect("states", (self.preprocessor_stack, "input"))
-        core.connect((self.preprocessor_stack, "output"), (self.policy, "nn_input"), label="from_env")
+        # All external/env states into preprocessor (memory already preprocessed).
+        core.connect("states_from_env", (self.preprocessor_stack, "input"), label="env,s")
+        core.connect("external_batch_states", (self.preprocessor_stack, "input"), label="ext,s")
+        core.connect("external_batch_next_states", (self.preprocessor_stack, "input"), label="ext,sp")
+        core.connect((self.preprocessor_stack, "output"), (self.policy, "nn_input"),
+                     label="s"+(",sp" if self.double_q else ""))
 
-        # timestep into Exploration.
+        # Timestep into Exploration.
         core.connect("time_step", (self.exploration, "time_step"))
 
-        # Network output into Exploration's "nn_output" Socket -> into "actions".
+        # Policy output into Exploration -> into "actions".
         core.connect((self.policy, "sample_deterministic"),
-                     (self.exploration, "sample_deterministic"), label="from_env")
+                     (self.exploration, "sample_deterministic"), label="env")
         core.connect((self.policy, "sample_stochastic"),
-                     (self.exploration, "sample_stochastic"), label="from_env")
+                     (self.exploration, "sample_stochastic"), label="env")
         core.connect((self.exploration, "action"), "get_actions")
-        core.connect((self.exploration, "do_explore"), "do_explore")
+        #core.connect((self.exploration, "do_explore"), "do_explore")
 
-        # Actions, rewards, terminals into Merger.
+        # Insert records into memory via merger.
+        core.connect("states_for_memory", (self.preprocessor_stack, "input"), label="to_mem")
+        core.connect((self.preprocessor_stack, "output"), (self.merger, "/states"), label="to_mem")
         for in_ in ["actions", "rewards", "terminals"]:
-            core.connect(in_, (self.merger, "/"+in_))
-        # Preprocessed states into Merger.
-        core.connect((self.preprocessor_stack, "output"), (self.merger, "/states"))
-        # Merger's "output" into Memory's "records".
+            core.connect(in_+"_for_memory", (self.merger, "/"+in_))
         core.connect((self.merger, "output"), (self.memory, "records"))
-        # Memory's "add_records" functionality.
         core.connect((self.memory, "insert_records"), "insert_records")
 
-        # Memory's "get_records" (to Splitter) and "num_records" (constant batch-size value).
-        core.connect((self.memory, "get_records"), (self.splitter, "input"))
-        core.connect((self.memory, "get_records"), "get_batch")
-
+        # Learn from Memory via get_batch and Splitter.
         core.connect(self.update_spec["batch_size"], (self.memory, "num_records"))
-
-        # Splitter's outputs.
-        core.connect((self.splitter, "/states"), (self.policy, "nn_input"), label="s_from_memory")  # label s from mem
-        core.connect((self.splitter, "/states"), "memory_states")
+        core.connect((self.memory, "get_records"), (self.splitter, "input"), label="mem")
+        core.connect((self.memory, "get_records"), "get_batch")
+        core.connect((self.splitter, "/states"), (self.policy, "nn_input"), label="mem,s")
         core.connect((self.splitter, "/actions"), (self.loss_function, "actions"))
-        core.connect((self.splitter, "/actions"), "memory_actions")
         core.connect((self.splitter, "/rewards"), (self.loss_function, "rewards"))
-        core.connect((self.splitter, "/rewards"), "memory_rewards")
         core.connect((self.splitter, "/terminals"), (self.loss_function, "terminals"))
-        core.connect((self.splitter, "/terminals"), "memory_terminals")
-        core.connect((self.splitter, "/next_states"), (self.target_policy, "nn_input"))
+        core.connect((self.splitter, "/next_states"), (self.target_policy, "nn_input"), label="mem,sp")
         if self.double_q:
-            core.connect((self.splitter, "/next_states"), (self.policy, "nn_input"), label="sp_from_memory")
+            core.connect((self.splitter, "/next_states"), (self.policy, "nn_input"), label="mem,sp")
 
-        # Loss-function needs both q-values (qnet and target).
+        # Only send ext and mem labelled ops into loss function.
         q_values_socket = "q_values" if self.dueling_q is True else "action_layer_output_reshaped"
-        core.connect((self.policy, q_values_socket), (self.loss_function, "q_values"), label="s_from_memory")
-        core.connect((self.policy, q_values_socket), "q_values")
-        core.connect((self.target_policy, q_values_socket), (self.loss_function, "qt_values_s_"))
-
+        core.connect((self.policy, q_values_socket), (self.loss_function, "q_values"), label="ext,mem,s")
+        #core.connect((self.policy, q_values_socket), "q_values")
+        core.connect((self.target_policy, q_values_socket), (self.loss_function, "qt_values_s_"), label="ext,mem")
         if self.double_q:
-            core.connect((self.policy, q_values_socket), (self.loss_function, "q_values_s_"), label="sp_from_memory")
+            core.connect((self.policy, q_values_socket), (self.loss_function, "q_values_s_"), label="ext,mem,sp")
 
         # Connect the Optimizer.
         core.connect((self.loss_function, "loss"), (self.optimizer, "loss"))
         core.connect((self.loss_function, "loss"), "loss")
         core.connect((self.policy, "_variables"), (self.optimizer, "vars"))
-        core.connect((self.optimizer, "step"), "update")
+        core.connect((self.optimizer, "step"), "update_from_memory", label="mem")
+        core.connect((self.optimizer, "step"), "update_from_external_batch", label="ext")
 
         # Add syncing capability for target-net.
         core.connect((self.policy, "_variables"), (self.target_policy, "_values"))
@@ -168,8 +163,8 @@ class DQNAgent(Agent):
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
         # Increase timesteps by the batch size (number of states in batch).
         self.timesteps += len(batched_states)
-        actions, q_values, do_explore = self.graph_executor.execute(
-            ["get_actions", "q_values", "do_explore"], inputs=dict(states=batched_states, time_step=self.timesteps)
+        actions = self.graph_executor.execute(
+            "get_actions", inputs=dict(states_from_env=batched_states, time_step=self.timesteps)
         )
         #print("states={} action={} q_values={} do_explore={}".format(states, actions, q_values, do_explore))
         if remove_batch_rank:
@@ -178,20 +173,30 @@ class DQNAgent(Agent):
 
     def _observe_graph(self, states, actions, internals, rewards, terminals):
         self.graph_executor.execute("insert_records", inputs=dict(
-            states=states,
-            actions=actions,
-            rewards=rewards,
-            terminals=terminals
+            states_for_memory=states,
+            actions_for_memory=actions,
+            rewards_for_memory=rewards,
+            terminals_for_memory=terminals
         ))
 
     def update(self, batch=None):
         # Should we sync the target net? (timesteps-1 b/c it has been increased already in get_action)
         if (self.timesteps - 1) % self.update_spec["sync_interval"] == 0:
             self.graph_executor.execute("sync_target_qnet")
-            print("SYNCHED!")
-        _, loss, q_, s_, a_, r_, t_ = self.graph_executor.execute(["update", "loss", "q_values", "memory_states", "memory_actions", "memory_rewards", "memory_terminals"])
-        #print("Q-VALS: {}".format(q_))
-        return loss, s_, a_, r_, t_
+        if batch is None:
+            _, loss = self.graph_executor.execute(["update_from_memory", "loss"])
+        else:
+            batch_input = dict(
+                external_batch_states=batch["states"],
+                external_batch_actions=batch["actions"],
+                external_batch_rewards=batch["rewards"],
+                external_batch_terminals=batch["terminals"],
+                external_batch_next_states=batch["next_states"]
+            )
+            _, loss = self.graph_executor.execute(
+                ["update_from_external_batch", "loss"], inputs=batch_input
+            )
+        return loss
 
     def __repr__(self):
         return "DQNAgent(doubleQ={})".format(self.double_q)
