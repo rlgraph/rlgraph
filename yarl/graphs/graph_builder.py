@@ -161,7 +161,7 @@ class GraphBuilder(Specifiable):
             input_spaces (dict): A dict mapping all in-Socket names of `component` to a Space object.
         """
         assert component.input_complete is True, "ERROR: Component {} is not input complete!".format(component.name)
-        self.logger.info("Component {} is input-complete; space-dict={}".format(component.name, input_spaces))
+        self.logger.debug("Component {} is input-complete; space-dict={}".format(component.name, input_spaces))
         # Component is complete now, allow it to sanity check its inputs and create its variables.
         component.when_input_complete(input_spaces, self.action_space, self.summary_spec["summaries_regexp"])
 
@@ -220,7 +220,7 @@ class GraphBuilder(Specifiable):
 
         # Store the Space as this Socket's.
         space = socket.incoming_connections[0]
-        self.logger.info("Space {} -> Socket {}/{}".format(space, socket.component.name, socket.name))
+        self.logger.debug("Space {} -> Socket {}/{}".format(space, socket.component.name, socket.name))
         socket.space = space
 
         # Create the placeholder and wrap it in a DataOpRecord with no labels.
@@ -243,7 +243,7 @@ class GraphBuilder(Specifiable):
 
         was_input_complete = next_socket.component.input_complete
 
-        self.logger.info("Socket {}/{} -> Socket {}/{}".format(socket.component.name, socket.name,
+        self.logger.debug("Socket {}/{} -> Socket {}/{}".format(socket.component.name, socket.name,
                                                                next_socket.component.name, next_socket.name))
         next_socket.space = socket.space
         # Make sure we filter those op-records that already have at least one label and that do not
@@ -408,7 +408,7 @@ class GraphBuilder(Specifiable):
 
             # Move graph_fn results into next Socket(s).
             for i, (socket, op_rec) in enumerate(zip(graph_fn.output_sockets, op_records)):
-                self.logger.info("GraphFn {}/{} -> return-slot {} -> {} -> Socket {}/{}".format(
+                self.logger.debug("GraphFn {}/{} -> return-slot {} -> {} -> Socket {}/{}".format(
                     graph_fn.component.name, graph_fn.name, i, ops, socket.component.name, socket.name)
                 )
                 # Store op_rec in the respective outgoing Socket (and make sure Spaces match).
