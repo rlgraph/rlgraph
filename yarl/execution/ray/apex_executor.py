@@ -111,9 +111,9 @@ class ApexExecutor(RayExecutor):
         # Create remote workers for data collection.
         self.logger.info("Initializing {} remote data collection agents.".format(self.num_remote_workers))
         self.ray_remote_workers = self.create_remote_workers(
-            RayWorker,
-            self.num_remote_workers,
-            [self.environment_spec, self.agent_config, self.repeat_actions]
+            RayWorker, self.num_remote_workers,
+            # *args
+            self.environment_spec, self.agent_config, self.repeat_actions
         )
 
     def init_tasks(self):

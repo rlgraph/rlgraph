@@ -80,7 +80,7 @@ class RayExecutor(object):
         Returns:
             list: Remote Ray actors.
         """
-        return [cls.remote(args) for _ in xrange(num_actors)]
+        return [cls.remote(*args) for _ in xrange(num_actors)]
 
     def setup_execution(self):
         """
