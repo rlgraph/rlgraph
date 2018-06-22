@@ -167,8 +167,8 @@ class ApexExecutor(RayExecutor):
                 self.steps_since_weights_synced[ray_worker] = 0
 
             # Reschedule environment samples.
-            self.env_sample_tasks.add_task(ray_worker, ray_worker.remote.execute_and_get_timesteps(
-                num_timesteps=self.worker_sample_size,
+            self.env_sample_tasks.add_task(ray_worker, ray_worker.execute_and_get_timesteps.remote(
+                self.worker_sample_size,
                 break_on_terminal=False
             ))
 
@@ -178,6 +178,8 @@ class ApexExecutor(RayExecutor):
             self.prioritized_replay_tasks.add_task(ray_agent, ray_agent.get_batch.remote())
 
             # Retrieve results via id.
+            result = ray.get(object_ids=replay_remote_task)
+            self.logger.info("Get result of replay task: {}".format(result))
             sampled_batch, sample_indices = ray.get(object_ids=replay_remote_task)
 
             # Pass to the agent doing the actual updates.
