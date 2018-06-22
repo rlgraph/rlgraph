@@ -18,13 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
-from time import sleep
-
-from yarl import get_distributed_backend
 from yarl.execution.ray import ApexExecutor
-
-if get_distributed_backend() == "ray":
-    import ray
 
 
 class TestRayExecutor(unittest.TestCase):
@@ -51,7 +45,9 @@ class TestRayExecutor(unittest.TestCase):
         weight_sync_steps=100,
         env_interaction_task_depth=1,
         num_worker_samples=100,
-        learn_queue_size=1
+        learn_queue_size=1,
+        num_local_workers=1,
+        num_remote_workers=1
     )
 
     def test_apex_workload(self):
