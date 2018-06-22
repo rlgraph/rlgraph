@@ -114,11 +114,11 @@ class Socket(object):
                 self.op_records.add(DataOpRecord(from_))
             # Socket: Add the label for ops passed to this Socket.
             elif label is not None:
-                assert isinstance(from_, Socket), "ERROR: No `label` ({}) allowed if `from_` ({}) is not a Socket " \
+                assert isinstance(from_, Socket), "ERROR: No `label`(s) ({}) allowed if `from_` ({}) is not a Socket " \
                                                   "object!".format(label, str(from_))
                 if self not in from_.labels:
                     from_.labels[self] = set()
-                from_.labels[self].add(label)
+                from_.labels[self].update(label.split(","))
             self.incoming_connections.append(from_)
 
     def disconnect_from(self, from_):
