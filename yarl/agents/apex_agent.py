@@ -23,8 +23,7 @@ import numpy as np
 from yarl.agents import Agent
 from yarl.components import CONNECT_ALL, Synchronizable, Merger, Splitter, Memory, DQNLossFunction, PrioritizedReplay, \
     Policy
-from yarl.spaces import Dict, IntBox, FloatBox
-from yarl.utils.visualization_util import get_graph_markup
+from yarl.spaces import Dict, IntBox, FloatBox, BoolBox
 
 
 class ApexAgent(Agent):
@@ -199,10 +198,10 @@ class ApexAgent(Agent):
 
     def _observe_graph(self, states, actions, internals, rewards, terminals):
         self.graph_executor.execute("insert_records", inputs=dict(
-            states=states,
-            actions=actions,
-            rewards=rewards,
-            terminals=terminals
+            states_for_memory=states,
+            actions_for_memory=actions,
+            rewards_for_memory=rewards,
+            terminals_for_memory=terminals
         ))
 
     def update(self, batch=None):
