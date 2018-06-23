@@ -142,7 +142,6 @@ class ApexAgent(Agent):
         # Only send ext and mem labelled ops into loss function.
         q_values_socket = "q_values"
         core.connect((self.policy, q_values_socket), (self.loss_function, "q_values"), label="ext,mem,s")
-        #core.connect((self.policy, q_values_socket), "q_values")
         core.connect((self.target_policy, q_values_socket), (self.loss_function, "qt_values_s_"), label="ext,mem")
         core.connect((self.policy, q_values_socket), (self.loss_function, "q_values_s_"), label="ext,mem,sp")
 
@@ -152,6 +151,11 @@ class ApexAgent(Agent):
         core.connect((self.policy, "_variables"), (self.optimizer, "vars"))
         core.connect((self.optimizer, "step"), "update_from_memory", label="mem")
         core.connect((self.optimizer, "step"), "update_from_external_batch", label="ext")
+
+        # Connect loss to updating priority values and indices to update.
+        core.connect((self.loss_function, "loss"), (self.memory, "update"))
+        # TODO correct?
+        core.connect((self.memory, "record_indices"), (self.memory, "indices"))
 
         # Add syncing capability for target-net.
         core.connect((self.policy, "_variables"), (self.target_policy, "_values"))
@@ -177,6 +181,9 @@ class ApexAgent(Agent):
         Returns:
             batch, ndarray: Sample batch and indices sampled.
         """
+        result =  self.graph_executor.execute(sockets="get_batch")
+        print('GET BATCH #############')
+        print(result)
         batch, indices, weights = self.graph_executor.execute(sockets="get_batch")
 
         # Return indices so we later now which priorities to update.

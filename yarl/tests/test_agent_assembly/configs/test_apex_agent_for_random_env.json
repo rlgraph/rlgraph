@@ -3,7 +3,7 @@
 
   "memory_spec":
   {
-    "type": "replay",
+    "type": "prioritized_replay",
     "capacity": 10
   },
 
