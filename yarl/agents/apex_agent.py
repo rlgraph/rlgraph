@@ -85,7 +85,7 @@ class ApexAgent(Agent):
         core.define_inputs("time_step", space=int)
         core.define_outputs("get_actions", "insert_records",
                             "update_from_memory", "update_from_external_batch",
-                            "sync_target_qnet", "get_batch", "loss")
+                            "sync_target_qnet", "get_batch", "get_indices", "loss")
 
         # Add the Q-net, copy it (target-net) and add the target-net.
         self.target_policy = self.policy.copy(scope="target-policy")
@@ -100,8 +100,6 @@ class ApexAgent(Agent):
 
         # Add the loss function and optimizer.
         core.add_components(self.loss_function, self.optimizer)
-
-        # Now connect everything ...
 
         # All external/env states into preprocessor (memory already preprocessed).
         core.connect("states_from_env", (self.preprocessor_stack, "input"), label="env,s")
@@ -131,7 +129,11 @@ class ApexAgent(Agent):
         # Learn from Memory via get_batch and Splitter.
         core.connect(self.update_spec["batch_size"], (self.memory, "num_records"))
         core.connect((self.memory, "get_records"), (self.splitter, "input"), label="mem")
+
+        # To get obtain a batch and its indices.
         core.connect((self.memory, "get_records"), "get_batch")
+        core.connect((self.memory, "record_indices"), "get_indices")
+
         core.connect((self.splitter, "/states"), (self.policy, "nn_input"), label="mem,s")
         core.connect((self.splitter, "/actions"), (self.loss_function, "actions"))
         core.connect((self.splitter, "/rewards"), (self.loss_function, "rewards"))
@@ -181,10 +183,7 @@ class ApexAgent(Agent):
         Returns:
             batch, ndarray: Sample batch and indices sampled.
         """
-        result =  self.graph_executor.execute(sockets="get_batch")
-        print('GET BATCH #############')
-        print(result)
-        batch, indices, weights = self.graph_executor.execute(sockets="get_batch")
+        batch, indices = self.graph_executor.execute(sockets=["get_batch", "get"])
 
         # Return indices so we later now which priorities to update.
         return batch, indices
