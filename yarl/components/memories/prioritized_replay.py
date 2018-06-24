@@ -24,6 +24,7 @@ import numpy as np
 from yarl.components.memories.memory import Memory
 from yarl.components.memories.segment_tree import SegmentTree
 from yarl.utils.ops import FlattenedDataOp
+from yarl.utils.util import get_batch_size
 
 
 class PrioritizedReplay(Memory):
@@ -55,12 +56,14 @@ class PrioritizedReplay(Memory):
         # Variables.
         self.index = None
         self.size = None
-        self.states = None
         self.max_priority = None
         self.sum_segment_buffer = None
         self.sum_segment_tree = None
         self.min_segment_buffer = None
         self.min_segment_tree = None
+
+        # List of flattened keys in our state Space.
+        self.flat_state_keys = None
 
         self.priority_capacity = 0
 
@@ -72,6 +75,9 @@ class PrioritizedReplay(Memory):
 
         self.define_inputs("num_records", "indices", "update")
         self.define_outputs("get_records", "record_indices", "update_records", "weights")
+        # Make the "update" and "indices" in-Sockets not a requirement for input-completeness
+        # to avoid circular dependencies.
+        self.unconnected_sockets_in_meta_graph.update({"update", "indices"})
 
         self.add_graph_fn(
             inputs="num_records",
@@ -126,17 +132,17 @@ class PrioritizedReplay(Memory):
         )
         self.min_segment_tree = SegmentTree(self.min_segment_buffer, self.priority_capacity)
 
+        # Store the flat names for the structure of our state Space.
         if self.next_states:
             assert 'states' in self.record_space
-
             # Next states are not represented as explicit keys in the registry
             # as this would cause extra memory overhead.
-            self.states = []
-            for state in self.record_space["states"].keys():
-                self.states.append('/states/{}'.format(state))
+            self.flat_state_keys = list(self.record_space["states"].flatten(
+                mapping=lambda key, space: ("/" if key else "")+key).values()
+            )
 
     def _graph_fn_insert(self, records):
-        num_records = tf.shape(input=records['/terminals'])[0]
+        num_records = get_batch_size(records["/terminals"])
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
@@ -235,14 +241,13 @@ class PrioritizedReplay(Memory):
             next_indices = (indices + 1) % self.capacity
 
             # Next states are read via index shift from state variables.
-            for state_name in self.states:
-                next_states = self.read_variable(self.record_registry[state_name], next_indices)
-                next_state_name = re.sub(r'^/states/', "/next_states/", state_name)
-                records[next_state_name] = next_states
+            for flat_state_key in self.flat_state_keys:
+                next_states = self.read_variable(self.record_registry["/states"+flat_state_key], next_indices)
+                records["/next_states"+flat_state_key] = next_states
         return records
 
     def _graph_fn_update_records(self, indices, update):
-        num_records = tf.shape(input=indices)[0]
+        num_records = get_batch_size(indices)
         max_priority = 0.0
 
         # Update has to be sequential.

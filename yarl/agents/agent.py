@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import time
+
 from yarl import Specifiable, get_backend
 from yarl.graphs.graph_executor import GraphExecutor
 from yarl.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
@@ -43,7 +45,8 @@ class Agent(Specifiable):
         optimizer_spec=None,
         observe_spec=None,
         update_spec=None,
-        summary_spec=None
+        summary_spec=None,
+        name="agent"
     ):
         """
         Generic agent which parses and sanitizes configuration specs.
@@ -61,7 +64,10 @@ class Agent(Specifiable):
             observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
             update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
+            name (str): Some name for this Agent object.
         """
+        self.name = name
+
         self.logger = logging.getLogger(__name__)
 
         self.state_space = Space.from_spec(state_space).with_batch_rank(False)
@@ -118,8 +124,21 @@ class Agent(Specifiable):
 
     def assemble_meta_graph(self):
         """
+        Wrapper for the actual `_assemble_meta_graph()` method. Times the meta-graph assembly and logs it.
+        """
+        start_time = time.monotonic()
+        self.logger.info("Start assembly of YARL meta-graph for Agent '{}' ...".format(self.name))
+        self._assemble_meta_graph(self.graph_builder.core_component)
+        assembly_time = time.monotonic() - start_time
+        self.logger.info("YARL meta-graph assembly for Agent '{}' took {}sec.".format(self.name, assembly_time))
+
+    def _assemble_meta_graph(self, core):
+        """
         Assembles the YARL meta computation graph by combining specified YARL Components.
         Each agent implements this to build its algorithm logic.
+
+        Args:
+            core (Component): The Agent's GraphBuilder's `core_component` object.
         """
         raise NotImplementedError
 
@@ -154,7 +173,7 @@ class Agent(Specifiable):
         Args:
             states (Union[dict, ndarray]): States dict or array.
             actions (Union[dict, ndarray]): Actions dict or array containing actions performed for the given state(s).
-            internals (Union[list]): Internal state(s) returned by agent for the given states. Must be
+            internals (Union[list]): Internal state(s) returned by agent for the given states.Must be
                 empty list if no internals available.
             rewards (float): Scalar reward(s) observed.
             terminals (bool): Boolean indicating terminal.
@@ -205,7 +224,7 @@ class Agent(Specifiable):
             states (Union[dict,ndarray]): States dict or array.
             actions (Union[dict,ndarray]): Actions dict or array containing actions performed for the given state(s).
             internals (Union[list]): Internal state(s) returned by agent for the given states. Must be an empty list
-                if no internals availables.
+                if no internals available.
             rewards (Union[ndarray,list,float]): Scalar reward(s) observed.
             terminals (Union[list,bool]): Boolean indicating terminal.
         """

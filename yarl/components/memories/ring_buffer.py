@@ -21,6 +21,7 @@ import tensorflow as tf
 
 from yarl.spaces.space_utils import FlattenedDataOp
 from yarl.components.memories.memory import Memory
+from yarl.utils.util import get_batch_size
 
 
 class RingBuffer(Memory):
@@ -87,7 +88,7 @@ class RingBuffer(Memory):
             )
 
     def _graph_fn_insert(self, records):
-        num_records = tf.shape(input=records['/terminals'])[0]
+        num_records = get_batch_size(records["/terminals"])
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
