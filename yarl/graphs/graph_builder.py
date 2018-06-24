@@ -132,7 +132,7 @@ class GraphBuilder(Specifiable):
         """
         component = component or self.core_component
 
-        if self.logger.level < logging.INFO:
+        if self.logger.level <= logging.INFO:
             component_print_out(component)
 
         # Check all the Component's in-Sockets for being connected from a Space/Socket.
