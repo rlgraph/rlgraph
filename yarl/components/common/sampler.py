@@ -20,6 +20,7 @@ from __future__ import print_function
 from yarl import get_backend
 from yarl.components import Component
 from yarl.utils.ops import FlattenedDataOp
+from yarl.utils.util import get_batch_size
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -59,7 +60,7 @@ class Sampler(Component):
         Returns:
             FlattenedDataOp: The sub-sampled inputs (will be unflattened automatically).
         """
-        batch_size = tf.shape(input=next(iter(inputs.values())))[0]
+        batch_size = get_batch_size(next(iter(inputs.values())))
 
         if get_backend() == "tf":
             sample_indices = tf.random_uniform(

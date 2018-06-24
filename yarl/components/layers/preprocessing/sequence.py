@@ -22,7 +22,7 @@ from six.moves import xrange
 import tensorflow as tf
 
 from yarl.utils.ops import FlattenedDataOp
-from yarl.utils.util import get_rank, force_list
+from yarl.utils.util import get_rank, force_list, get_batch_size
 from yarl.components.layers.preprocessing import PreprocessLayer
 
 
@@ -117,7 +117,7 @@ class Sequence(PreprocessLayer):
         dependencies = force_list(insert_inputs)
         if self.first_rank_is_batch:
             for key, value in inputs.items():
-                dependencies.append(tf.assert_equal(x=tf.shape(input=value)[0], y=1))
+                dependencies.append(tf.assert_equal(x=get_batch_size(value), y=1))
 
         # Make sure the input has been inserted ..
         with tf.control_dependencies(control_inputs=dependencies):
