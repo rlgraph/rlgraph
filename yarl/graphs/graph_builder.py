@@ -39,6 +39,9 @@ class GraphBuilder(Specifiable):
     components, sockets and connections and creating the underlying computation
     graph.
     """
+    # Break graph building if caught in a loop.
+    MAX_RECURSIVE_CALLS = 100
+
     def __init__(self, name="model", action_space=None, summary_spec=None):
         """
         Args:
@@ -58,6 +61,9 @@ class GraphBuilder(Specifiable):
         self.device_component_assignments = dict()
         self.available_devices = None
         self.default_device = None
+
+        # Counting recursive steps.
+        self.build_steps= 0
 
         # Create an empty core Component into which everything will be assembled by an Algo.
         self.core_component = Component(name=self.name, is_core=True)
@@ -126,7 +132,7 @@ class GraphBuilder(Specifiable):
         """
         component = component or self.core_component
 
-        if self.logger.level <= logging.INFO:
+        if self.logger.level < logging.INFO:
             component_print_out(component)
 
         # Check all the Component's in-Sockets for being connected from a Space/Socket.
@@ -149,6 +155,11 @@ class GraphBuilder(Specifiable):
 
         # Recursively call this method on all the sub-component's sub-components.
         for sub_component in component.sub_components.values():
+            self.build_steps += 1
+            if self.build_steps >= self.MAX_RECURSIVE_CALLS:
+                raise YARLError("Error sanity checking graph, reached max recursion steps: {}".format(
+                    self.MAX_RECURSIVE_CALLS
+                ))
             self.sanity_check_meta_graph(sub_component)
 
     def build_component(self, component, input_spaces):
