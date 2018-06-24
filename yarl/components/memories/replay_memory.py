@@ -22,6 +22,7 @@ import tensorflow as tf
 
 from yarl.components.memories.memory import Memory
 from yarl.utils.ops import FlattenedDataOp
+from yarl.utils.util import get_batch_size
 
 
 class ReplayMemory(Memory):
@@ -79,7 +80,7 @@ class ReplayMemory(Memory):
             self.states = ["/states{}".format(flat_key) for flat_key in self.record_space["states"].flatten().keys()]
 
     def _graph_fn_insert(self, records):
-        num_records = tf.shape(input=records['/terminals'])[0]
+        num_records = get_batch_size(records["/terminals"])
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 

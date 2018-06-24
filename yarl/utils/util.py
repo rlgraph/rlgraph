@@ -92,7 +92,7 @@ def get_rank(tensor):
         tensor (any): The input tensor.
 
     Returns:
-        The rank of the given tensor.
+        int: The rank of the given tensor.
     """
     if get_backend() == "tf":
         return tensor.get_shape().ndims
@@ -100,13 +100,14 @@ def get_rank(tensor):
 
 def get_shape(op, flat=False, no_batch=False):
     """
-    Returns the shape of the tensor as a tuple.
+    Returns the (static) shape of the tensor as a tuple.
 
     Args:
         op (DataOp): The input op.
         flat (bool): Whether to return the flattened shape (the product of all ints in the shape tuple).
             Default: False.
         no_batch (bool): Whether to exclude a possible 0th batch rank (None) from the returned shape.
+            Default: False.
 
     Returns:
         tuple: The shape of the given op.
@@ -134,6 +135,20 @@ def get_shape(op, flat=False, no_batch=False):
         return shape
     else:
         return np.prod(shape)
+
+
+def get_batch_size(tensor):
+    """
+    Returns the (dynamic) batch size (dim of 0th rank) of an input tensor.
+
+    Args:
+        tensor (SingleDataOp): The input tensor.
+
+    Returns:
+        SingleDataOp: The op holding the batch size information of the given tensor.
+    """
+    if get_backend() == "tf":
+        return tf.shape(tensor)[0]
 
 
 def force_list(elements, to_tuple=False):

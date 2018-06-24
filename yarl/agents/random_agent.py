@@ -31,9 +31,6 @@ class RandomAgent(Agent):
     def __init__(self, state_space, action_space):
         super(RandomAgent, self).__init__(state_space, action_space)
 
-    def build_graph(self):
-        pass
-
     def get_action(self, states, deterministic=False):
         return self.action_space.sample()
 
