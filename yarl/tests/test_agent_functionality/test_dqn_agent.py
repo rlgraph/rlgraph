@@ -27,11 +27,11 @@ from yarl.execution.single_threaded_worker import SingleThreadedWorker
 from yarl.utils import root_logger
 
 
-class TestDQNAgentAssembly(unittest.TestCase):
+class TestDQNAgentFunctionality(unittest.TestCase):
     """
-    Tests the DQN Agent assembly on the RandomEnv.
+    Tests the DQN Agent's assembly and functionality.
     """
-    root_logger.setLevel(level=logging.INFO)
+    root_logger.setLevel(level=logging.DEBUG)
 
     def test_dqn_assembly(self):
         """
@@ -39,7 +39,7 @@ class TestDQNAgentAssembly(unittest.TestCase):
         """
         env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
         agent = DQNAgent.from_spec(
-            "configs/test_dqn_agent_for_random_env.json",
+            "configs/dqn_agent_for_random_env.json",
             double_q=False,
             dueling_q=False,
             state_space=env.state_space,
@@ -47,12 +47,36 @@ class TestDQNAgentAssembly(unittest.TestCase):
         )
 
         worker = SingleThreadedWorker(environment=env, agent=agent)
-        results = worker.execute_timesteps(1000, deterministic=True)
+        timesteps = 100
+        results = worker.execute_timesteps(timesteps, deterministic=True)
 
-        self.assertEqual(results["timesteps_executed"], 1000)
-        self.assertEqual(results["env_frames"], 1000)
+        print(results)
+
+        self.assertEqual(results["timesteps_executed"], timesteps)
+        self.assertEqual(results["env_frames"], timesteps)
         # Assert deterministic execution of Env and Agent.
-        self.assertAlmostEqual(results["mean_episode_reward"], 4.607321286981477)
-        self.assertAlmostEqual(results["max_episode_reward"], 24.909519721955455)
-        self.assertAlmostEqual(results["final_episode_reward"], 1.3333066872744532)
+        self.assertAlmostEqual(results["mean_episode_reward"], 5.923551400230593)
+        self.assertAlmostEqual(results["max_episode_reward"], 14.312868008192979)
+        self.assertAlmostEqual(results["final_episode_reward"], 0.14325251090518198)
+
+    def test_dqn_functionality(self):
+        """
+        Creates a DQNAgent and runs it for a few steps in a GridWorld to vigorously test
+        all steps of the learning process.
+        """
+        env = GridWorld(save_mode=True)  # no holes, just fire
+        agent = DQNAgent.from_spec(  # type: DQNAgent
+            "configs/dqn_agent_for_functionality_test.json",
+            double_q=True,
+            dueling_q=True,
+            state_space=env.state_space,
+            action_space=env.action_space
+        )
+        #replay_memory = agent.memory
+
+        worker = SingleThreadedWorker(environment=env, agent=agent)
+        worker.execute_timesteps(1, deterministic=True)
+
+        memory_content = agent.memory.variables
+
 

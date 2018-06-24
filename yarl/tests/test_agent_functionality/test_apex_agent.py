@@ -42,7 +42,7 @@ class TestApexAgent(unittest.TestCase):
         """
         env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
         agent = ApexAgent.from_spec(
-            "configs/test_dqn_agent_for_random_env.json",
+            "configs/apex_agent_for_random_env.json",
             state_space=env.state_space,
             action_space=env.action_space
         )
@@ -62,7 +62,7 @@ class TestApexAgent(unittest.TestCase):
         state_space = env.state_space
         action_space = env.action_space
         agent = ApexAgent.from_spec(
-            "configs/test_apex_agent_for_random_env.json",
+            "configs/apex_agent_for_random_env.json",
             state_space=state_space,
             action_space=action_space
         )
