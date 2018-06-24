@@ -153,7 +153,7 @@ class ApexAgent(Agent):
         core.connect((self.optimizer, "step"), "update_from_external_batch", label="ext")
 
         # Connect loss to updating priority values and indices to update.
-        core.connect((self.loss_function, "loss"), (self.memory, "update"))
+        core.connect((self.loss_function, "loss_per_item"), (self.memory, "update"))
         # TODO correct?
         core.connect((self.memory, "record_indices"), (self.memory, "indices"))
 

@@ -130,7 +130,7 @@ class Agent(Specifiable):
         self.logger.info("Start assembly of YARL meta-graph for Agent '{}' ...".format(self.name))
         self._assemble_meta_graph(self.graph_builder.core_component)
         assembly_time = time.monotonic() - start_time
-        self.logger.info("YARL meta-graph assembly for Agent '{}' took {}sec.".format(self.name, assembly_time))
+        self.logger.info("YARL meta-graph assembly for Agent '{}' took {} s.".format(self.name, assembly_time))
 
     def _assemble_meta_graph(self, core):
         """
