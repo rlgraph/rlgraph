@@ -137,9 +137,7 @@ class PrioritizedReplay(Memory):
             assert 'states' in self.record_space
             # Next states are not represented as explicit keys in the registry
             # as this would cause extra memory overhead.
-            self.flat_state_keys = list(self.record_space["states"].flatten(
-                mapping=lambda key, space: ("/" if key else "")+key).values()
-            )
+            self.flat_state_keys = list(self.record_space["states"].flatten().keys())
 
     def _graph_fn_insert(self, records):
         num_records = get_batch_size(records["/terminals"])
