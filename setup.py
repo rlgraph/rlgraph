@@ -31,7 +31,8 @@ install_requires = [
     'pyyaml',
     'pytest',
     'six',
-    'tensorflow'
+    'tensorflow',
+    'requests'
 ]
 
 setup_requires = []
