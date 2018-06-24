@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import requests
+
 from yarl import YARLError
 from yarl.components import Socket, GraphFunction
 from yarl.spaces import Space
@@ -162,3 +164,43 @@ def get_graph_markup(component, level=0, draw_graph_fns=False):
     markup += "\n"
 
     return markup
+
+
+def send_graph_markup(component, host='localhost', port=8080, token=None, ssl=False, path='markup',
+                      level=0, draw_graph_fns=True, **kwargs):
+    """
+    Send graph markup to HTTP(s) host for pseudo-interactive plotting.
+
+    Args:
+        component (Component): component to plot.
+        host (str): HTTP host to send markup to.
+        port (int): Port on host to connect to.
+        token (str): Optional token to identify at host.
+        ssl (bool): Use HTTPS or not.
+        path (str): Path to post data to (e.g. 'markup' for `host:port/markup`)
+        level (int): level argument for `get_graph_markup()`.
+        draw_graph_fns (bool): create markup for graph fns, argument for `get_graph_markup()`.
+        **kwargs: Keyword arguments will be passed to the `requests.post()` function.
+
+    Returns:
+        bool: True if markup generation succeeded and server accepted the request, False otherwise
+
+    """
+    graph_markup = get_graph_markup(component, level=0, draw_graph_fns=draw_graph_fns)
+    if not graph_markup:
+        return False
+
+    target_url = "{protocol}://{host}:{port}/{path}".format(
+        protocol='https' if ssl else 'http',
+        host=host,
+        port=port,
+        path=path
+    )
+    result = requests.post(target_url, data=dict(graph_markup=graph_markup, token=token), **kwargs)
+
+    if result.status_code == 200:
+        # Only return true if everything went well.
+        return True
+
+    # No, we do not follow redirects. Anything other than 200 leads to an error.
+    return False
