@@ -27,7 +27,7 @@ from yarl.spaces.space_utils import split_flattened_input_ops, convert_ops_to_op
 from yarl.utils.input_parsing import parse_summary_spec
 from yarl.utils.util import all_combinations, force_list, force_tuple, get_shape
 from yarl.utils.ops import SingleDataOp, FlattenedDataOp, DataOpRecord
-from yarl.utils.debug_printout import print_out_component
+from yarl.utils.component_printout import component_print_out
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -127,7 +127,7 @@ class GraphBuilder(Specifiable):
         component = component or self.core_component
 
         if self.logger.level <= logging.INFO:
-            print_out_component(component)
+            component_print_out(component)
 
         # Check all the Component's in-Sockets for being connected from a Space/Socket.
         for in_sock in component.input_sockets:  # type: Socket
@@ -484,7 +484,7 @@ class GraphBuilder(Specifiable):
         component = component or self.core_component
 
         if self.logger.level <= logging.INFO:
-            print_out_component(component)
+            component_print_out(component)
 
         # Check all the component's graph_fns for input-completeness.
         for graph_fn in component.graph_fns:

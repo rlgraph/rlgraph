@@ -23,7 +23,7 @@ from yarl.utils.ops import SingleDataOp
 from yarl.components import Component, Socket
 
 
-def print_out_component(component, phase=None):
+def component_print_out(component, phase=None):
     """
     Prints out an already built Component in the following way (example):
 
@@ -76,6 +76,7 @@ def print_out_component(component, phase=None):
         txt += "\t'{}':\n".format(sub_component.name)
         if sub_component.input_complete is False:
             txt += "\t\tNOT INPUT COMPLETE\n"
+        txt += "\t\tins:\n"
         for in_sock in sub_component.input_sockets:
             for in_coming in in_sock.incoming_connections:
                 if hasattr(in_coming, "name"):
@@ -88,6 +89,7 @@ def print_out_component(component, phase=None):
                     txt += "\t\tconst({}) -> '{}'\n".format(in_coming.constant_value, in_sock.name)
                 else:
                     txt += "\t\t'{}'\n".format(in_coming)
+        txt += "\t\touts:\n"
         for out_sock in sub_component.output_sockets:
             for out_going in out_sock.outgoing_connections:
                 if hasattr(out_going, "name"):
