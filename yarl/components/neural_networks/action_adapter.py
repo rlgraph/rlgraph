@@ -17,10 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from math import log
+
 from yarl import get_backend, SMALL_NUMBER
 from yarl.components import Component
 from yarl.components.layers import DenseLayer, DuelingLayer
-from yarl.spaces import Space, IntBox, ContainerSpace, sanity_check_space
+from yarl.spaces import Space, IntBox, FloatBox, Tuple, ContainerSpace, sanity_check_space
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -99,13 +101,23 @@ class ActionAdapter(Component):
 
         # Check the target (action) Space.
         self.target_space = action_space.with_batch_rank()
-        sanity_check_space(self.target_space, must_have_batch_rank=True, allowed_types=[IntBox],
-                           must_have_categories=True)
+
+        if isinstance(self.target_space, IntBox):
+            sanity_check_space(self.target_space, must_have_batch_rank=True, allowed_types=[IntBox],
+                               must_have_categories=True)
+        else:
+            # Fixme: Are there other restraints on continuous action spaces? E.g. no dueling layers?
+            sanity_check_space(self.target_space, must_have_batch_rank=True, allowed_types=[FloatBox])
 
     def create_variables(self, input_spaces, action_space):
         # Create the action layer.
+        if isinstance(self.target_space, IntBox):
+            units = self.target_space.flat_dim_with_categories
+        else:
+            units = 2 * self.target_space.flat_dim  # Those two dimensions are the mean and log sd
+
         self.action_layer = DenseLayer(
-            units=self.target_space.flat_dim_with_categories + (1 if self.add_dueling_layer is True else 0),
+            units=units + (1 if self.add_dueling_layer is True else 0),
             activation=self.activation,
             weights_spec=self.weights_spec,
             biases_spec=self.biases_spec,
@@ -151,7 +163,12 @@ class ActionAdapter(Component):
             SingleDataOp: The reshaped action_layer_output.
         """
         # Reshape action_output to action shape.
-        shape = list(self.target_space.get_shape(with_batch_rank=-1, with_category_rank=True))
+        if isinstance(self.target_space, IntBox):
+            shape = list(self.target_space.get_shape(with_batch_rank=-1, with_category_rank=True))
+        elif isinstance(self.target_space, FloatBox):
+            shape = [-1, 2] + list(self.target_space.get_shape(with_batch_rank=False))  # Manually add moments rank
+        else:
+            raise NotImplementedError
 
         if get_backend() == "tf":
             action_layer_output_reshaped = tf.reshape(tensor=action_layer_output, shape=shape)
@@ -172,9 +189,30 @@ class ActionAdapter(Component):
                 "logits" (SingleDataOp): The log(parameters) values.
         """
         if get_backend() == "tf":
-            # TODO: Missing support for continuous actions.
-            parameters = tf.maximum(x=tf.nn.softmax(logits=action_layer_output_reshaped, axis=-1), y=SMALL_NUMBER)
-            # Log probs.
-            logits = tf.log(parameters)
+            if isinstance(self.target_space, IntBox):
+                # Discrete actions
+                parameters = tf.maximum(x=tf.nn.softmax(logits=action_layer_output_reshaped, axis=-1), y=SMALL_NUMBER)
+
+                # Log probs.
+                logits = tf.log(parameters)
+            elif isinstance(self.target_space, FloatBox):
+                # Continuous actions
+                mean, log_sd = tf.split(action_layer_output_reshaped, 2, 1)
+
+                # Remove moments rank
+                mean = tf.squeeze(mean, axis=1)
+                log_sd = tf.squeeze(log_sd, axis=1)
+
+                # Clip log_sd. log(SMALL_NUMBER) is negative
+                log_sd = tf.clip_by_value(t=log_sd, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER))
+
+                # Turn log sd into sd
+                sd = tf.exp(log_sd)
+
+                logits = (tf.log(mean), log_sd)
+                parameters = (mean, sd)
+            else:
+                raise NotImplementedError
+
             # Convert logits into probabilities and clamp them at SMALL_NUMBER.
             return logits, parameters

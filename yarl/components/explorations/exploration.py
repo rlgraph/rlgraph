@@ -17,11 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import get_backend
+from yarl import get_backend, YARLError
 from yarl.utils.util import dtype
 from yarl.components import Component
-from yarl.spaces import IntBox
-from .epsilon_exploration import EpsilonExploration
+from yarl.spaces import IntBox, FloatBox
+from yarl.components.explorations.epsilon_exploration import EpsilonExploration
+from yarl.components.common import NoiseComponent
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -61,33 +62,73 @@ class Exploration(Component):
         self.non_explore_behavior = non_explore_behavior
 
         # Define our interface.
-        self.define_inputs("time_step", "sample_deterministic", "sample_stochastic")
-        self.define_outputs("action", "do_explore")
+        self.define_inputs("sample_deterministic", "sample_stochastic", "time_step")
+        self.define_outputs("action", "do_explore", "noise")
 
-        # Add epsilon Component (TODO: once we have noise-based: only if specified.)
-        self.epsilon_exploration = EpsilonExploration.from_spec(epsilon_spec)
-        self.add_component(self.epsilon_exploration)
-        self.connect("time_step", (self.epsilon_exploration, "time_step"))
-        self.connect((self.epsilon_exploration, "do_explore"), "do_explore")
+        self.epsilon_exploration = None
+        self.noise_component = None
 
-        # Add our own graph_fn and connect its output to the "action" Socket.
-        self.add_graph_fn(inputs=[(self.epsilon_exploration, "do_explore"),
-                                  "sample_deterministic", "sample_stochastic"],
-                          outputs="action",
-                          method=self._graph_fn_pick)
+        # Don't allow both epsilon and noise component
+        if epsilon_spec and noise_spec:
+            raise YARLError("Cannot use both epsilon exploration and a noise component at the same time.")
+
+        # Add epsilon component
+        if epsilon_spec:
+            self.epsilon_exploration = EpsilonExploration.from_spec(epsilon_spec)
+            self.add_component(self.epsilon_exploration)
+            self.connect("time_step", (self.epsilon_exploration, "time_step"))
+            self.connect((self.epsilon_exploration, "do_explore"), "do_explore")
+
+            # Add our own graph_fn and connect its output to the "action" Socket.
+            self.add_graph_fn(inputs=[(self.epsilon_exploration, "do_explore"),
+                                      "sample_deterministic", "sample_stochastic"],
+                              outputs="action",
+                              method=self._graph_fn_pick)
+
+        # Add noise component
+        elif noise_spec:
+            # Currently no noise component uses the time_step variable
+            self.unconnected_sockets_in_meta_graph.add("time_step")
+
+            self.noise_component = NoiseComponent.from_spec(noise_spec)
+            self.add_component(self.noise_component)
+            self.connect((self.noise_component, "noise"), "noise")
+            self.add_graph_fn(inputs=[(self.noise_component, "noise"),
+                                      "sample_deterministic", "sample_stochastic"],
+                              outputs="action",
+                              method=self._graph_fn_add_noise)
+
+        # Don't explore at all
+        else:
+            if self.non_explore_behavior == "max-likelihood":
+                self.connect("sample_deterministic", "action")
+            else:
+                self.connect("sample_stochastic", "action")
 
     def check_input_spaces(self, input_spaces, action_space):
         self.action_space = action_space.with_batch_rank()
         assert self.action_space.has_batch_rank, "ERROR: `self.action_space` does not have batch rank!"
 
-        # TODO: Extend this component for continuous action spaces using noise-based exploration.
-        assert isinstance(self.action_space, IntBox), "ERROR: Only IntBox Spaces supported in Exploration Component " \
-                                                      "so far!"
-        assert self.action_space.num_categories is not None and self.action_space.num_categories > 0, \
-            "ERROR: `action_space` must have `num_categories` defined and > 0!"
+        if self.epsilon_exploration and self.noise_component:
+            # Check again at graph creation? This is currently redundant to the check in __init__
+            raise YARLError("Cannot use both epsilon exploration and a noise component at the same time.")
+
+        if self.epsilon_exploration:
+            # Currently only IntBox is allowed for discrete action spaces
+            assert isinstance(self.action_space, IntBox), "Only IntBox Spaces are currently supported " \
+                                                          "for exploration components."
+            assert self.action_space.num_categories is not None and self.action_space.num_categories > 0, \
+                "ERROR: `action_space` must have `num_categories` defined and > 0!"
+
+        elif self.noise_component:
+            assert isinstance(self.action_space, FloatBox), "Only FloatBox spaces are currently supported " \
+                                                            "for noise components."
 
     def _graph_fn_pick(self, do_explore, sample_deterministic, sample_stochastic):
         """
+        Exploration for discrete action spaces.
+        Either pick random daction (if `do_explore` is True), or return non-explorative action.
+
         Args:
             do_explore (DataOp): The bool coming from the epsilon-exploration component specifying
                 whether to use exploration or not.
@@ -106,6 +147,25 @@ class Exploration(Component):
                            false_fn=lambda: sample_deterministic if self.non_explore_behavior == "max-likelihood"
                            else sample_stochastic)
 
+    def _graph_fn_add_noise(self, noise, sample_deterministic, sample_stochastic):
+        """
+        Noise for continuous action spaces.
+        Return the action with added noise.
+
+        Args:
+            noise (DataOp): The noise coming from the noise component.
+            sample_deterministic (DataOp): The output from our distribution's "sample_deterministic" Socket.
+            sample_stochastic (DataOp): The output from our distribution's "sample_stochastic" Socket.
+
+        Returns:
+            DataOp: The DataOp representing the action. This will match the shape of self.action_space.
+
+        """
+        if get_backend() == "tf":
+            if self.non_explore_behavior == 'max-likelihood':
+                return sample_deterministic + noise
+            else:
+                return sample_stochastic + noise
 
 
 """        
