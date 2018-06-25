@@ -122,23 +122,28 @@ class Agent(Specifiable):
         self.reward_buffer = list()
         self.terminal_buffer = list()
 
-    def assemble_meta_graph(self):
+    def assemble_meta_graph(self, *params):
         """
         Wrapper for the actual `_assemble_meta_graph()` method. Times the meta-graph assembly and logs it.
+
+        Args:
+            params (any): List of parameters to pass on to the Agent's `_assemble_meta_graph` method (after
+                the core Component).
         """
         start_time = time.monotonic()
         self.logger.info("Start assembly of YARL meta-graph for Agent '{}' ...".format(self.name))
-        self._assemble_meta_graph(self.graph_builder.core_component)
+        self._assemble_meta_graph(self.graph_builder.core_component, *params)
         assembly_time = time.monotonic() - start_time
         self.logger.info("YARL meta-graph assembly for Agent '{}' took {} s.".format(self.name, assembly_time))
 
-    def _assemble_meta_graph(self, core):
+    def _assemble_meta_graph(self, core, *params):
         """
         Assembles the YARL meta computation graph by combining specified YARL Components.
         Each agent implements this to build its algorithm logic.
 
         Args:
             core (Component): The Agent's GraphBuilder's `core_component` object.
+            params (any): Params to be used freely by child Agent implementations.
         """
         raise NotImplementedError
 

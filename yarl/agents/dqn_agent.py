@@ -57,6 +57,9 @@ class DQNAgent(Agent):
         self.policy = Policy(
             neural_network=self.neural_network, action_adapter_spec=dict(add_dueling_layer=self.dueling_q)
         )
+        # Copy our Policy (target-net), make target-net synchronizable.
+        self.target_policy = self.policy.copy(scope="target-policy")
+        self.target_policy.add_component(Synchronizable(), connections=CONNECT_ALL)
 
         self.merger = Merger(output_space=self.record_space)
         splitter_input_space = copy.deepcopy(self.record_space)
@@ -64,14 +67,13 @@ class DQNAgent(Agent):
         self.splitter = Splitter(input_space=splitter_input_space)
         self.loss_function = DQNLossFunction(discount=self.discount, double_q=self.double_q)
 
-        self.assemble_meta_graph()
+        self.assemble_meta_graph(self.preprocessor_stack, self.memory, self.merger, self.splitter, self.policy,
+                                 self.target_policy, self.exploration, self.loss_function, self.optimizer)
         # markup = get_graph_markup(self.graph_builder.core_component)
         # print(markup)
         self.build_graph()
 
-    def assemble_meta_graph(self):
-        core = self.graph_builder.core_component
-
+    def _assemble_meta_graph(self, core, *params):
         # Define our interface.
         core.define_inputs("states_from_env", "external_batch_states", "external_batch_next_states",
                            "states_for_memory", space=self.state_space.with_batch_rank())
@@ -158,6 +160,85 @@ class DQNAgent(Agent):
         core.connect((self.policy, "_variables"), (self.target_policy, "_values"))
         core.connect((self.target_policy, "sync"), "sync_target_qnet")
 
+    def _assemble_meta_graph_test(self, core, preprocessor, memory, merger, splitter, policy, target_policy,
+                                  exploration, loss_function, optimizer):
+        # Define our Spaces.
+        state_space = self.state_space.with_batch_rank()
+        action_space = self.action_space.with_batch_rank()
+        reward_space = FloatBox(add_batch_rank=True)
+        terminal_space = BoolBox(add_batch_rank=True)
+
+        # Define our inputs.
+        inputs = dict(
+            states_from_env=state_space,
+
+            states_to_memory=state_space,
+            actions_to_memory=action_space,
+            rewards_to_memory=reward_space,
+            terminals_to_memory=terminal_space,
+
+            states_from_external=state_space,
+            next_states_from_external=state_space,
+            actions_from_external=action_space,
+            rewards_from_external=reward_space,
+            terminals_from_external=terminal_space,
+
+            time_step=bool,
+        )
+        core.define_inputs(inputs)
+        # Add all sub-components.
+        core.add_components(preprocessor, memory, merger, splitter, policy, target_policy, exploration,
+                            loss_function, optimizer)
+
+        # Env pathway.
+        preprocessed_states_from_env = preprocessor("states_from_env")
+        sample_deterministic, sample_stochastic = policy(
+            preprocessed_states_from_env, ["sample_deterministic", "sample_stochastic"]
+        )
+        action = exploration(["time_step", sample_deterministic, sample_stochastic])
+        core.define_outputs("get_actions", action)
+
+        # Insert into memory pathway.
+        preprocessed_states_to_mem = preprocessor("states_to_memory")
+        records = merger([preprocessed_states_to_mem, "actions_to_memory", "rewards_to_memory", "terminals_to_memory"])
+        insert_records_op = memory(records, "insert_records")
+        core.define_outputs("insert_records", insert_records_op)
+
+        # Syncing target-net.
+        policy_vars = policy(None, "_variables")
+        sync_op = target_policy(policy_vars, "sync")
+        core.define_outputs("sync_target_qnet", sync_op)
+
+        # Learn from memory.
+        q_values_socket_name = "q_values" if self.dueling_q is True else "action_layer_output_reshaped"
+        records_from_memory = memory(self.update_spec["batch_size"], "get_records")
+        s_mem, a_mem, r_mem, t_mem, sp_mem = splitter(records_from_memory)
+        q_values_s = policy(s_mem, q_values_socket_name)
+        qt_values_sp = target_policy(sp_mem, q_values_socket_name)
+        if self.double_q:
+            q_values_sp = policy(sp_mem, q_values_socket_name)
+            loss_per_item = loss_function([q_values_s, a_mem, r_mem, t_mem, qt_values_sp, q_values_sp], "loss_per_item")
+        else:
+            loss_per_item = loss_function([q_values_s, a_mem, r_mem, t_mem, qt_values_sp], "loss_per_item")
+        update_from_mem = optimizer(loss_per_item)
+        optimizer(policy_vars, None)  # TODO: this will probably not work
+        core.define_outputs("update_from_memory", update_from_mem)
+
+        # Learn from external batch.
+        preprocessed_s_from_external = preprocessor("states_from_external")
+        preprocessed_sp_from_external = preprocessor("next_states_from_external")
+        q_values_s = policy(preprocessed_s_from_external, q_values_socket_name)
+        qt_values_sp = target_policy(preprocessed_sp_from_external, q_values_socket_name)
+        if self.double_q:
+            q_values_sp = policy(preprocessed_sp_from_external, q_values_socket_name)
+            loss_per_item = loss_function([q_values_s, "actions_from_external", "rewards_from_external",
+                                           "terminals_from_external", qt_values_sp, q_values_sp], "loss_per_item")
+        else:
+            loss_per_item = loss_function([q_values_s, "actions_from_external", "rewards_from_external",
+                                           "terminals_from_external", qt_values_sp], "loss_per_item")
+        update_from_external = optimizer(loss_per_item)
+        core.define_outputs("update_from_external_batch", update_from_external)
+
     def get_action(self, states, deterministic=False):
         batched_states = self.state_space.batched(states)
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
@@ -200,3 +281,4 @@ class DQNAgent(Agent):
 
     def __repr__(self):
         return "DQNAgent(doubleQ={})".format(self.double_q)
+

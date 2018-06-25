@@ -47,11 +47,16 @@ class TestApexAgent(unittest.TestCase):
             action_space=env.action_space
         )
 
+        time_steps = 100
         worker = SingleThreadedWorker(environment=env, agent=agent)
-        results = worker.execute_timesteps(1000, deterministic=True)
+        results = worker.execute_timesteps(time_steps, deterministic=True)
 
-        self.assertEqual(results["timesteps_executed"], 1000)
-        self.assertEqual(results["env_frames"], 1000)
+        self.assertEqual(results["timesteps_executed"], time_steps)
+        self.assertEqual(results["env_frames"], time_steps)
+        # Assert deterministic execution of Env and Agent.
+        self.assertAlmostEqual(results["mean_episode_reward"], 5.923551400230593)
+        self.assertAlmostEqual(results["max_episode_reward"], 14.312868008192979)
+        self.assertAlmostEqual(results["final_episode_reward"], 0.14325251090518198)
 
     def test_get_batch(self):
         """

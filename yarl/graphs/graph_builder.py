@@ -205,6 +205,7 @@ class GraphBuilder(Specifiable):
         for outgoing in socket.outgoing_connections:
             # Push Socket into Socket.
             if isinstance(outgoing, Socket):
+                print("SOCK {}/{} -> {}/{}".format(socket.component.name, socket.name, outgoing.component.name, outgoing.name))
                 self.push_socket_into_socket(socket, outgoing)
             # Push Socket into GraphFunction.
             elif isinstance(outgoing, GraphFunction):
