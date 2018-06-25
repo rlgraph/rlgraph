@@ -49,24 +49,23 @@ class FixedLoop(Component):
             raise YARLError("ERROR: GraphFn '{}' not found in Component '{}'!".format(graph_fn_name,
                                                                                       call_component.global_scope))
         # TODO: Do we sum up, append to list, ...?
+        self.define_inputs("inputs")
         self.define_outputs("fixed_loop_result")
         self.add_component(call_component)
-
-        # TODO how do we get input args?
-        self.add_graph_fn()
+        self.add_graph_fn(["inputs"], "fixed_loop_result", self._graph_fn_call_loop, flatten_ops={"inputs"})
 
     def _graph_fn_call_loop(self, *params):
         """
         Calls the subcomponent of this loop the specified number of times and returns the final result.
         Args:
-            *params (any): Parameters for the call component.
+            *params (FlattenedDataOp): Parameters for the call component.
 
         Returns:
-            any: Result of the call,
+            any: Result of the call.
         """
 
         if get_backend() == "tf":
-            # Initial call
+            # Initial call.
             result = self.graph_fn_to_call(*params)
 
             def body(result, i):
