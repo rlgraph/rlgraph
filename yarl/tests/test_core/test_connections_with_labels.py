@@ -27,7 +27,7 @@ from yarl.utils import root_logger
 from yarl.tests.dummy_components import Dummy1to1
 
 
-class TestSingleSubComponents(unittest.TestCase):
+class TestConnectionsWithLabels(unittest.TestCase):
     """
     Tests for different ways to place different, but single sub-Components into the core.
     """
