@@ -17,8 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import YARLError
+from yarl import YARLError, get_backend
 from yarl.components import Component
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class FixedLoop(Component):
@@ -49,11 +52,30 @@ class FixedLoop(Component):
         self.define_outputs("fixed_loop_result")
         self.add_component(call_component)
 
-        self.add_graph_fn()  # TODO:
+        # TODO how do we get input args?
+        self.add_graph_fn()
 
     def _graph_fn_call_loop(self, *params):
-        ret = None
-        for _ in range(self.num_iterations):
-            ret = self.graph_fn_to_call(*params)
-        # For now, just return last result.
-        return ret
+        """
+        Calls the subcomponent of this loop the specified number of times and returns the final result.
+        Args:
+            *params (any): Parameters for the call component.
+
+        Returns:
+            any: Result of the call,
+        """
+
+        if get_backend() == "tf":
+            # Initial call
+            result = self.graph_fn_to_call(*params)
+
+            def body(result, i):
+                with tf.control_dependencies(control_inputs=result):
+                    result = self.graph_fn_to_call(*params)
+                return result, i + 1
+
+            def cond(result, i):
+                return i < self.num_iterations - 1
+
+            result, _ = tf.while_loop(cond=cond, body=body, loop_vars=(result, 0))
+            return result
