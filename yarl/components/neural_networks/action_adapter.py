@@ -190,26 +190,26 @@ class ActionAdapter(Component):
         """
         if get_backend() == "tf":
             if isinstance(self.target_space, IntBox):
-                # Discrete actions
+                # Discrete actions.
                 parameters = tf.maximum(x=tf.nn.softmax(logits=action_layer_output_reshaped, axis=-1), y=SMALL_NUMBER)
 
                 # Log probs.
-                logits = tf.log(parameters)
+                logits = tf.log(x=parameters)
             elif isinstance(self.target_space, FloatBox):
-                # Continuous actions
-                mean, log_sd = tf.split(action_layer_output_reshaped, 2, 1)
+                # Continuous actions.
+                mean, log_sd = tf.split(value=action_layer_output_reshaped, num_or_size_splits=2, axis=1)
 
-                # Remove moments rank
-                mean = tf.squeeze(mean, axis=1)
-                log_sd = tf.squeeze(log_sd, axis=1)
+                # Remove moments rank.
+                mean = tf.squeeze(input=mean, axis=1)
+                log_sd = tf.squeeze(input=log_sd, axis=1)
 
-                # Clip log_sd. log(SMALL_NUMBER) is negative
+                # Clip log_sd. log(SMALL_NUMBER) is negative.
                 log_sd = tf.clip_by_value(t=log_sd, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER))
 
-                # Turn log sd into sd
-                sd = tf.exp(log_sd)
+                # Turn log sd into sd.
+                sd = tf.exp(x=log_sd)
 
-                logits = (tf.log(mean), log_sd)
+                logits = (tf.log(x=mean), log_sd)
                 parameters = (mean, sd)
             else:
                 raise NotImplementedError
