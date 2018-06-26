@@ -114,20 +114,6 @@ class PPOAgent(Agent):
         # Return indices so we later now which priorities to update.
         return batch, indices
 
-    def update_priorities(self, indices, loss):
-        """
-        Updates priorities of provided indices in replay memory via externally
-        provided loss.
-
-        Args:
-            indices (ndarray): Indices to update in replay memory.
-            loss (ndarray):  Loss values for indices.
-        """
-        self.graph_executor.execute(
-            sockets=["sample_indices", "sample_losses"],
-            inputs=dict(sample_indices=indices, sample_losses=loss)
-        )
-
     def _observe_graph(self, states, actions, internals, rewards, terminals):
         self.graph_executor.execute("insert_records", inputs=dict(
             states_for_memory=states,
@@ -137,9 +123,6 @@ class PPOAgent(Agent):
         ))
 
     def update(self, batch=None):
-        # In apex, syncing is based on num steps trained, not steps sampled.
-        if (self.train_time_steps - 1) % self.update_spec["sync_interval"] == 0:
-            self.graph_executor.execute("sync_target_qnet")
         if batch is None:
             _, loss = self.graph_executor.execute(["update_from_memory", "loss"])
         else:
