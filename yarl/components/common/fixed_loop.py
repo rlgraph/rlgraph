@@ -43,7 +43,7 @@ class FixedLoop(Component):
         self.graph_fn_to_call = None
         for graph_fn in call_component.graph_fns:
             if graph_fn.name == graph_fn_name:
-                self.graph_fn_to_call = graph_fn
+                self.graph_fn_to_call = graph_fn.get_method()
                 break
         if not self.graph_fn_to_call:
             raise YARLError("ERROR: GraphFn '{}' not found in Component '{}'!".format(graph_fn_name,

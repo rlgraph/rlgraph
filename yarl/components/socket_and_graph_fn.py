@@ -237,6 +237,15 @@ class GraphFunction(object):
                     return False
         return True
 
+    def get_method(self):
+        """
+        This graph_fns method object.
+
+        Returns:
+            Callable: Method object to call.
+        """
+        return self.method
+
     def flatten_input_ops(self, *ops):
         """
         Flattens all DataOps in ops into FlattenedDataOp with auto-key generation.
