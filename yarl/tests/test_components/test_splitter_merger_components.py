@@ -30,6 +30,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
     """
     Tests the Splitter- and Merger-Components.
     """
+
     def test_splitter_component(self):
         space = Dict(
             a=dict(aa=bool, ab=float),
@@ -37,7 +38,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
             c=float,
             d=IntBox(low=0, high=255),
             e=IntBox(2),
-            f=FloatBox(shape=(3,2)),
+            f=FloatBox(shape=(3, 2)),
             g=Tuple(bool, FloatBox(shape=())),
             add_batch_rank=True
         )
@@ -64,13 +65,13 @@ class TestSplitterMergerComponents(unittest.TestCase):
             c=bool,
             d=IntBox(low=0, high=255),
             e=dict(ea=float),
-            f=FloatBox(shape=(3,2)),
+            f=FloatBox(shape=(3, 2)),
             add_batch_rank=False
         )
         # Using custom output names.
         component_to_test = Splitter(input_space=space, output_names=["atup0bool", "atup1cont", "bcont",
-                                                                               "cbool", "dintbox", "eeafloat",
-                                                                               "fcont"])
+                                                                      "cbool", "dintbox", "eeafloat",
+                                                                      "fcont"])
         test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
 
         # Single sample (no batch rank).

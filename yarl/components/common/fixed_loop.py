@@ -52,7 +52,7 @@ class FixedLoop(Component):
         self.define_inputs("inputs")
         self.define_outputs("fixed_loop_result")
         self.add_component(call_component)
-        self.add_graph_fn(["inputs"], "fixed_loop_result", self._graph_fn_call_loop, flatten_ops={"inputs"})
+        self.add_graph_fn("inputs", "fixed_loop_result", self._graph_fn_call_loop, flatten_ops={"inputs"})
 
     def _graph_fn_call_loop(self, *inputs):
         """

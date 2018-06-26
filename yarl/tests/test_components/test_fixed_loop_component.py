@@ -46,9 +46,7 @@ class TestFixedLoopComponent(unittest.TestCase):
 
         sample = test.test(
             out_socket_names="fixed_loop_result",
-            inputs=dict(
-                inputs=0
-            ),
+            inputs=0,
             expected_outputs=None
         )
 
