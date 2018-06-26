@@ -77,7 +77,7 @@ class FixedLoop(Component):
             result = self.graph_fn_to_call(*inputs)
 
             def body(result, i):
-                with tf.control_dependencies(control_inputs=result):
+                with tf.control_dependencies(control_inputs=[result]):
                     result = self.graph_fn_to_call(*inputs)
                 return result, i + 1
 
