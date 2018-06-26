@@ -71,7 +71,7 @@ class ApexAgent(Agent):
         self.assemble_meta_graph()
         self.build_graph()
 
-    def _assemble_meta_graph(self, core):
+    def _assemble_meta_graph(self, core, *params):
         # Define our interface.
         core.define_inputs("states_from_env", "external_batch_states", "external_batch_next_states",
                            "states_for_memory", space=self.state_space.with_batch_rank())
