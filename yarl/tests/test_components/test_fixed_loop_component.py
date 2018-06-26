@@ -30,7 +30,6 @@ class TestFixedLoopComponent(unittest.TestCase):
     """
     def test_fixed_loop_component(self):
         time_step_space = IntBox(1000, add_batch_rank=False)
-
         call_component = LinearDecay(from_=1.0, to_=0.0, start_timestep=0, num_timesteps=10)
 
         # Calls decay 10 times with same parameters.
@@ -39,14 +38,16 @@ class TestFixedLoopComponent(unittest.TestCase):
             call_component=call_component,
             graph_fn_name="value"
         )
+        loop.connect((loop, "inputs"), (call_component, "time_step"))
         test = ComponentTest(component=loop, input_spaces=dict(
-            time_step_space=time_step_space
+            time_step=time_step_space,
+            inputs=time_step_space
         ))
 
         sample = test.test(
             out_socket_names="fixed_loop_result",
             inputs=dict(
-                args=0
+                inputs=0
             ),
             expected_outputs=None
         )

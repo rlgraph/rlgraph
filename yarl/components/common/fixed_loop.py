@@ -54,11 +54,11 @@ class FixedLoop(Component):
         self.add_component(call_component)
         self.add_graph_fn(["inputs"], "fixed_loop_result", self._graph_fn_call_loop, flatten_ops={"inputs"})
 
-    def _graph_fn_call_loop(self, *params):
+    def _graph_fn_call_loop(self, *inputs):
         """
         Calls the subcomponent of this loop the specified number of times and returns the final result.
         Args:
-            *params (FlattenedDataOp): Parameters for the call component.
+            *inputs (FlattenedDataOp): Parameters for the call component.
 
         Returns:
             any: Result of the call.
@@ -66,11 +66,11 @@ class FixedLoop(Component):
 
         if get_backend() == "tf":
             # Initial call.
-            result = self.graph_fn_to_call(*params)
+            result = self.graph_fn_to_call(*inputs)
 
             def body(result, i):
                 with tf.control_dependencies(control_inputs=result):
-                    result = self.graph_fn_to_call(*params)
+                    result = self.graph_fn_to_call(*inputs)
                 return result, i + 1
 
             def cond(result, i):
