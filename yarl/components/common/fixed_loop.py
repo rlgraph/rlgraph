@@ -41,9 +41,12 @@ class FixedLoop(Component):
 
         self.num_iterations = num_iterations
         self.graph_fn_to_call = None
+
+        flatten_ops = False
         for graph_fn in call_component.graph_fns:
             if graph_fn.name == graph_fn_name:
                 self.graph_fn_to_call = graph_fn.get_method()
+                flatten_ops = graph_fn.flatten_ops
                 break
         if not self.graph_fn_to_call:
             raise YARLError("ERROR: GraphFn '{}' not found in Component '{}'!".format(graph_fn_name,
@@ -52,7 +55,12 @@ class FixedLoop(Component):
         self.define_inputs("inputs")
         self.define_outputs("fixed_loop_result")
         self.add_component(call_component)
-        self.add_graph_fn("inputs", "fixed_loop_result", self._graph_fn_call_loop, flatten_ops={"inputs"})
+        self.add_graph_fn(
+            "inputs",
+            "fixed_loop_result",
+            self._graph_fn_call_loop,
+            flatten_ops={"inputs"} if flatten_ops else None
+        )
 
     def _graph_fn_call_loop(self, *inputs):
         """
