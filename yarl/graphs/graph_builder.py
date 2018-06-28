@@ -29,7 +29,7 @@ from yarl.spaces import Space
 from yarl.spaces.space_utils import split_flattened_input_ops, get_space_from_op
 from yarl.utils.input_parsing import parse_summary_spec
 from yarl.utils.util import all_combinations, force_list, force_tuple, get_shape
-from yarl.utils.ops import SingleDataOp, FlattenedDataOp, DataOpRecord
+from yarl.utils.ops import SingleDataOp, FlattenedDataOp, DataOpRecord, DataOpRecordColumn
 from yarl.utils.component_printout import component_print_out
 
 if get_backend() == "tf":
@@ -73,6 +73,9 @@ class GraphBuilder(Specifiable):
         # A dict used for lookup of all combinations that are possible for a given set of given in-Socket
         # names (inside a call to `self.call`).
         #self.input_combinations = dict()
+
+        # Maps API method names to in- (placeholders) and out op columns (ops to pull).
+        self.api = dict()
 
         # Dict of op-record columns by key=op-column ID.
         #self.in_op_columns = OrderedDict()
@@ -160,9 +163,13 @@ class GraphBuilder(Specifiable):
     def build_meta_graph(self):
         # Call all API methods of the core and thereby, create empty in-op columns that serve as placeholders
         # and directed links for the build time.
-        for api_method_rec in self.core_component.api_methods.values():
-            params = [DataOpRecord(op=None)] * 1  # <- TODO: remove hard coded
-            api_method_rec.method(*params)
+        for method_name, api_method_rec in self.core_component.api_methods.items():
+            # Create an new in column and map it to the resulting out column.
+            in_op_col = DataOpRecordColumn(op_records=1)  # <- TODO: remove hard coded
+            outs = self.core_component.call(api_method_rec.method, in_op_col.op_records)
+            out_op_col = DataOpRecordColumn(op_records=outs)
+            # Register interface.
+            self.api[method_name] = (in_op_col, out_op_col)
 
     def collect_op_column(self, column):
         new_columns = set()

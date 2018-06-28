@@ -124,12 +124,14 @@ class DataOpRecord(object):
     """
     #_ID = -1
 
-    def __init__(self, op=None):
+    def __init__(self, op=None, column=None):
         #self.id = self.get_id()
         self.op = op
 
         # Set of (op-col ID, slot) tuples that are connected from this one.
         self.next = set()
+        # Link back to the column we belong to.
+        self.column = column
         # This op record's Component object.
         #self.component = None
 
@@ -147,7 +149,14 @@ class DataOpRecordColumn(object):
     def __init__(self, op_records, graph_fn=None, out_graph_fn_column=None, flatten_ops=False, split_ops=False,
                  add_auto_key_as_first_param=False, component=None):
         self.id = self.get_id()
-        self.op_records = op_records if not isinstance(op_records, int) else [DataOpRecord(op=None)] * op_records
+
+        if not isinstance(op_records, int):
+            self.op_records = op_records
+            # For graph_fn and convenience reasons, give a pointer to the column to each op in it.
+            for op_rec in self.op_records:
+                op_rec.column = self
+        else:
+            self.op_records = [DataOpRecord(op=None, column=self)] * op_records
 
         self.graph_fn = graph_fn
 
@@ -182,4 +191,4 @@ class APIMethodRecord(object):
 
         self.spaces = None
         self.in_op_columns = list()
-        self.out_op_columns = list()
+        #self.out_op_columns = list()

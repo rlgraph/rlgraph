@@ -218,10 +218,17 @@ class Component(Specifiable):
 
         # method is an API method.
         if method.__name__ in method_owner.api_methods:
+            api_method_rec = method_owner.api_methods[method.__name__]
             # Create op-record column to call API method with.
-            in_op_column = DataOpRecordColumn(op_records=2)
+            in_op_column = DataOpRecordColumn(op_records=len(in_op_recs))
+            api_method_rec.in_op_columns.append(in_op_column)
+
+            # Link from in_op_recs into the new column.
+            for i, op_rec in enumerate(in_op_recs):
+                op_rec.next.add(in_op_column.op_records[i])
             # Now actually call the API method with that column.
             return method(*in_op_column.op_records)
+
         # Method is a graph_fn.
         else:
             # Create 2 op-record columns, one going into the graph_fn and one getting out of there and link
@@ -232,11 +239,14 @@ class Component(Specifiable):
                 flatten_ops=flatten_ops, split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param,
                 component=self
             )
-            # Link from params into the new in_column_graph_fn.
+            # Link from in_op_recs into the new column.
             for i, op_rec in enumerate(in_op_recs):
                 op_rec.next.add(in_graph_fn_column.op_records[i])
 
-            return out_graph_fn_column
+            if len(out_graph_fn_column.op_records) == 1:
+                return out_graph_fn_column.op_records[0]
+            else:
+                return out_graph_fn_column.op_records
 
     def when_input_complete(self, input_spaces, action_space, summary_regexp=None):
         """
