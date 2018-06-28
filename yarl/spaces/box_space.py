@@ -39,7 +39,7 @@ class BoxSpace(Space):
             shape (tuple): The shape of this space.
             dtype (str): The data type (as string) for this Space.
 
-        Valid inputs:
+        Valid api_methods:
             BoxSpace(0.0, 1.0) # low and high are given as scalars and shape is assumed to be ()
                 -> single scalar between low and high.
             BoxSpace(-1.0, 1.0, (3,4)) # low and high are scalars, and shape is provided -> nD array

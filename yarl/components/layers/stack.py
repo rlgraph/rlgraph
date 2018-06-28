@@ -17,10 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from six.moves import xrange
+from six.moves import xrange as range_
 
 from yarl.components import Component
 from yarl.utils.util import force_list
+from yarl.utils.ops import DataOpRecord
 
 
 class Stack(Component):
@@ -30,7 +31,11 @@ class Stack(Component):
     interface as follows: The input(s) of the very first sub-component and the output(s) of the last sub
     component.
     All sub-components need to match in the number of input and output Sockets. E.g. the third sub-component's
-    number of outputs has to be the same as the forth sub-component's number of inputs.
+    number of outputs has to be the same as the forth sub-component's number of api_methods.
+
+    API:
+        call(input[, input2, ...]?): Sends one (or more, depending on the Stack structure) DataOpRecord(s) through
+            the stack and returns one (or more, depending on the Stack structure) DataOpRecords.
     """
     def __init__(self, *sub_components, **kwargs):
         """
@@ -38,7 +43,7 @@ class Stack(Component):
             sub_components (Component): The sub-components to add to the Stack and connect to each other.
 
         Keyword Args:
-            expose_ins (bool): Whether to expose the first sub-component's inputs (default: True).
+            expose_ins (bool): Whether to expose the first sub-component's api_methods (default: True).
             expose_outs (bool): Whether to expose the last sub-component's outputs (default: True).
             sub_component_inputs (Optional[List[str]]): List of in-Socket names of a sub-Component that should be
                 connected to the corresponding out-Sockets (`sub_component_outputs`) of the previous sub-Component.
@@ -46,7 +51,7 @@ class Stack(Component):
                 connected to the corresponding in-Sockets (`sub_component_inputs`) of the next sub-Component.
 
         Raises:
-            YARLError: If sub-components' number of inputs/outputs do not match.
+            YARLError: If sub-components' number of api_methods/outputs do not match.
         """
         expose_ins = kwargs.pop("expose_ins", True)
         expose_outs = kwargs.pop("expose_outs", True)
@@ -77,18 +82,13 @@ class Stack(Component):
             assert len(sub_component_inputs) == len(sub_component_outputs),\
                 "ERROR: `sub_component_inputs` () and `sub_component_outputs` () must have the same length!".\
                 format(sub_component_inputs, sub_component_outputs)
-            for i in xrange(len(sub_components) - 1):
+            for i in range_(len(sub_components) - 1):
                 for out_sock, in_sock in zip(sub_component_outputs, sub_component_inputs):
                     self.connect((sub_components[i], out_sock), (sub_components[i + 1], in_sock))
         # Or just all out- with in-Sockets.
         elif len(sub_components) > 0:
-            for i in xrange(len(sub_components) - 1):
+            for i in range_(len(sub_components) - 1):
                 self.connect(sub_components[i], sub_components[i+1])
-        ## Empty Stack -> Create "input" and "output" and connect them.
-        #else:
-        #    self.define_inputs("input")
-        #    self.define_outputs("output")
-        #    self.connect("input", "output")
 
     @classmethod
     def from_spec(cls, spec=None, **kwargs):

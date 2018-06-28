@@ -80,7 +80,7 @@ class TestActionAdapters(unittest.TestCase):
         inputs = np.array([[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6], [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6]])
         # 1: state value
         # 8: advantage values for the flattened action space.
-        # 2.0 (weights) * SUM(inputs) + 0.5 (bias) = 4.7 for first sample, 18.7 for second sample in batch.
+        # 2.0 (weights) * SUM(api_methods) + 0.5 (bias) = 4.7 for first sample, 18.7 for second sample in batch.
         expected_action_layer_output = np.array([[4.7] * (1+8), [18.7] * (1+8)], dtype=np.float32)
         test.test(out_socket_names="action_layer_output", inputs=inputs, expected_outputs=expected_action_layer_output)
 

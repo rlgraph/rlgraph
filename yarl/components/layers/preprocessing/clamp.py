@@ -29,8 +29,8 @@ class Clamp(PreprocessLayer):
     def __init__(self,  min_, max_, scope="clamp", **kwargs):
         """
         Args:
-            min_ (float): The min value that any value in the inputs may have.
-            max_ (float): The max value that any value in the inputs may have.
+            min_ (float): The min value that any value in the api_methods may have.
+            max_ (float): The max value that any value in the api_methods may have.
         """
         super(Clamp, self).__init__(scope=scope, **kwargs)
         self.min_ = min_

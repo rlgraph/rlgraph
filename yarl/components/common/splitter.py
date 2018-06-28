@@ -54,10 +54,10 @@ class Splitter(Component):
 
     def _graph_fn_split(self, input_):
         """
-        Splits our inputs into all its primitive Spaces in the "right" order. Returns n single ops.
+        Splits our api_methods into all its primitive Spaces in the "right" order. Returns n single ops.
 
         Args:
-            input_ (OrderedDict): The flattened inputs (each value is one primitive op).
+            input_ (OrderedDict): The flattened api_methods (each value is one primitive op).
 
         Returns:
             tuple: The (ordered) tuple of the primitive Spaces.

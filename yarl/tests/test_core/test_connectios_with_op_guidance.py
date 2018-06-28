@@ -24,7 +24,7 @@ import unittest
 from yarl.components import Component
 from yarl.tests import ComponentTest
 from yarl.utils import root_logger
-from yarl.tests.dummy_components import Dummy1to1, Dummy2to1
+from yarl.tests.dummy_components import Dummy1to1, DummyWithSubComponents
 
 
 class TestConnectionsWithOpGuidance(unittest.TestCase):
@@ -33,7 +33,21 @@ class TestConnectionsWithOpGuidance(unittest.TestCase):
     """
     root_logger.setLevel(level=logging.INFO)
 
-    def test_connecting_in1_and_1to1_to_1to1_no_labels(self):
+    def test_single_component(self):
+        """
+        'A' is 1to1: send "input" through A, receive output.
+        """
+        a = Dummy1to1(scope="A")
+        test = ComponentTest(component=a, input_spaces=dict(run=float))
+        test.test(api_method="run", params=np.array(1.1), expected_outputs=0.0)
+
+    def test_component_with_sub_component(self):
+        a = DummyWithSubComponents(scope="A")
+        test = ComponentTest(component=a, input_spaces=dict(run=float))
+
+        test.test(api_method="run", params=np.array(1.1), expected_outputs=0.0)
+
+    def test_simple_diamond_sub_component_setup(self):
         """
         Adds 4 sub-components (A, B, C, D) with 1-to-1 graph_fns to the core.
         in1 -> A (like preprocessor in DQN)
@@ -53,18 +67,21 @@ class TestConnectionsWithOpGuidance(unittest.TestCase):
         container.add_components(a, b, c, d)
 
         # Connect them on detailed op-level (see above for connection details).
-        in1_through_a = a("input1")  # send input1 through Component "a"
+        in1_through_a = a("input1")  # send input1 through Component A
         in2_through_a = a("input2")  # same with input2
-        # "Manually" split the 2 ops coming out of a via b and c.
-        b_out = b(in1_through_a)
+        # "Manually" split the 2 ops coming out of A: 2x->B and 1x->C.
+        b_out_1 = b(in1_through_a)
+        b_out_2 = b(in2_through_a)
         c_out = c(in2_through_a)
         # Merge b_out and c_out again into D (in1 and in2 Sockets).
-        final = d(b_out, c_out)
-        container.define_outputs("output", final)  # TODO:
+        final_1 = d(b_out_1, c_out)
+        final_2 = d(b_out_2, c_out)
+
+        container.connect(d["output"], "output")
 
         test = ComponentTest(component=container, input_spaces=dict(input1=float, input2=float))
 
-        # Push both inputs through graph to receive correct (single-op) output calculation.
+        # Push both api_methods through graph to receive correct (single-op) output calculation.
         test.test(out_socket_names="output", inputs=dict(input1=np.array(1.1), input2=np.array(0.5)),
                   expected_outputs=0.0)
 

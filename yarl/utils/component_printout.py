@@ -20,7 +20,7 @@ from __future__ import print_function
 import logging
 
 from yarl.utils.ops import SingleDataOp
-from yarl.components import Component, Socket
+from yarl.components import Component
 
 
 def component_print_out(component, phase=None):
@@ -80,11 +80,12 @@ def component_print_out(component, phase=None):
         for in_sock in sub_component.input_sockets:  # type: Socket
             for in_coming in in_sock.incoming_connections:
                 if hasattr(in_coming, "name"):
-                    labels = ""
-                    if isinstance(in_coming, Socket) and in_sock in in_coming.labels:
-                        labels = " (label="+str(in_coming.labels[in_sock])[1:-1]+")"
-                    txt += "\t\t'{}/{}' -> '{}' ({} ops){}\n".format(in_coming.component.name, in_coming.name, in_sock.name,
-                                                                     len(in_sock.op_records), labels)
+                    #labels = ""
+                    #if isinstance(in_coming, Socket) and in_sock in in_coming.labels:
+                    #    labels = " (label="+str(in_coming.labels[in_sock])[1:-1]+")"
+                    txt += "\t\t'{}/{}' -> '{}' ({} ops)\n".format(
+                        in_coming.component.name, in_coming.name, in_sock.name, len(in_sock.op_records)
+                    )
                 elif isinstance(in_coming, SingleDataOp):
                     txt += "\t\tconst({}) -> '{}'\n".format(in_coming.constant_value, in_sock.name)
                 else:

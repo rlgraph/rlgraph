@@ -70,7 +70,7 @@ class DuelingLayer(NNLayer):
     def _graph_fn_apply(self, flat_input):
         """
         Args:
-            flat_input (SingleDataOp): The flattened inputs to this layer. These must include the single node for the
+            flat_input (SingleDataOp): The flattened api_methods to this layer. These must include the single node for the
                 state-value.
 
         Returns:

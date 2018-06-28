@@ -46,7 +46,7 @@ class PreprocessorStack(Stack):
             preprocessors (PreprocessorLayer): The PreprocessorLayers to add to the Stack and connect to each other.
 
         Raises:
-            YARLError: If sub-components' number of inputs/outputs do not match.
+            YARLError: If sub-components' number of api_methods/outputs do not match.
         """
         default_dict(kwargs, dict(scope=kwargs.pop("scope", "preprocessor-stack"),
                                   sub_component_inputs="input", sub_component_outputs="output"))
@@ -61,7 +61,7 @@ class PreprocessorStack(Stack):
         # Connect each pre-processor's "reset" out-Socket to our graph_fn.
         resets = list()
         for preprocessor in self.sub_components.values():  # type: PreprocessLayer
-            resets.append(preprocessor.get_output("reset"))
+            resets.append(preprocessor["reset"])
         self.add_graph_fn(resets, "reset", self._graph_fn_reset)
 
     def _graph_fn_reset(self, *preprocessor_resets):

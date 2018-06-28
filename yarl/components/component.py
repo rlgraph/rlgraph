@@ -19,14 +19,13 @@ from __future__ import print_function
 
 from collections import Hashable, OrderedDict
 import copy
+import inspect
 import numpy as np
 import re
 import uuid
 
 from yarl import YARLError, get_backend, Specifiable
-from yarl.utils.ops import SingleDataOp
-from yarl.components.socket_and_graph_fn import Socket, GraphFunction
-from yarl.utils.ops import DataOpDict
+from yarl.utils.ops import SingleDataOp, DataOpDict, DataOpRecord, APIMethodRecord, DataOpRecordColumn
 from yarl.utils import util
 from yarl.spaces import Space
 
@@ -97,9 +96,12 @@ class Component(Specifiable):
         self.global_component = kwargs.pop("global_component", False)
         self.is_core = kwargs.pop("is_core", False)
 
-        inputs = util.force_list(kwargs.pop("inputs", []))
-        outputs = util.force_list(kwargs.pop("outputs", []))
-        connections = kwargs.pop("connections", [])
+        # A group ID counter for parallelly incoming op records that need to be processed together.
+        #self.op_group_id = 0
+
+        #api_methods = util.force_list(kwargs.pop("api_methods", []))
+        #outputs = util.force_list(kwargs.pop("outputs", []))
+        #connections = kwargs.pop("connections", [])
 
         assert not kwargs, "ERROR: kwargs ({}) still contains items!".format(kwargs)
 
@@ -107,16 +109,23 @@ class Component(Specifiable):
         self.sub_components = OrderedDict()
 
         # Simple list of all GraphFunction objects that have ever been added to this Component.
-        self.graph_fns = list()
+        #self.graph_fns = list()
 
         # Keep track of whether this Component has already been added to another Component and throw error
         # if this is done twice. Each Component can only be added once to a parent Component.
         self.parent_component = None  # type: Component
 
+        # Dicts holding information about which op-record-tuples go via which API methods into this Component
+        # and come out of it.
+        # keys=API method name; values=APIMethodRecord
+        self.api_methods = self.get_api_methods()
+        self.outputs = dict()
+        ### dict with key=API method name; value=list of in-Spaces that would go into the method.
+
         # This Component's Socket objects by functionality.
-        self.input_sockets = list()  # the exposed in-Sockets
-        self.output_sockets = list()  # the exposed out-Sockets
-        self.internal_sockets = list()  # internal (non-exposed) in/out-Sockets (e.g. used to connect 2 GraphFunctions)
+        #self.input_sockets = list()  # the exposed in-Sockets
+        #self.output_sockets = list()  # the exposed out-Sockets
+        #self.internal_sockets = list()  # internal (non-exposed) in/out-Sockets (e.g. used to connect 2 GraphFunctions)
 
         # Whether we know already all our in-Sockets' Spaces.
         # Only then can we create our variables. Model will do this.
@@ -124,12 +133,12 @@ class Component(Specifiable):
 
         # A set of in-Socket names for which it is ok, not to be connected after the
         # YARL-meta graph is passed on for building.
-        self.unconnected_sockets_in_meta_graph = set()
+        #self.unconnected_sockets_in_meta_graph = set()
 
         # Contains sub-Components of ours that do not have in-Sockets.
-        self.no_input_sub_components = set()
+        #self.no_input_sub_components = set()
         # Contains our GraphFunctions that have no in-Sockets.
-        self.no_input_graph_fns = set()
+        #self.no_input_graph_fns = set()
 
         # All Variables that are held by this component (and its sub-components) by name.
         # key=full-scope variable name (scope=component/sub-component scope)
@@ -143,21 +152,91 @@ class Component(Specifiable):
         # This will be set by the GraphBuilder at build time.
         self.summary_regexp = None
 
-        # Assemble this Component from the constructor specs.
-        self.define_inputs(*inputs)
-        self.define_outputs("_variables", *outputs)
+        #self.define_inputs(*api_methods)
+        #self.define_outputs("_variables", *outputs)
 
         # Adds the default "_variables" out-Socket responsible for sending out all our variables.
-        self.add_graph_fn(None, "_variables", self._graph_fn__variables, flatten_ops=False)
+        #self.add_graph_fn(None, "_variables", self._graph_fn__variables, flatten_ops=False)
 
         # Add the sub-components.
-        components_to_add = components_to_add if len(components_to_add) > 0 else kwargs.get("sub_components", [])
-        for sub_component_spec in components_to_add:
-            self.add_component(Component.from_spec(sub_component_spec))
+        #components_to_add = components_to_add if len(components_to_add) > 0 else kwargs.get("sub_components", [])
+        #for sub_component_spec in components_to_add:
+        #    self.add_component(Component.from_spec(sub_component_spec))
 
-        # Add the connections.
-        for connection in connections:
-            self.connect(connection[0], connection[1])
+        ## Add the connections.
+        #for connection in connections:
+        #    self.connect(connection[0], connection[1])
+
+    def get_api_methods(self):
+        ret = dict()
+        # look for all our API methods (those that use the `call` method).
+        for member in inspect.getmembers(self):
+            name, method = (member[0], member[1])
+            if name[0] != "_" and name != "define_api_method" and callable(method) and \
+                    re.search(r'\bself\.call\(', inspect.getsource(method)):
+                ret[name] = APIMethodRecord(method, component=self)
+        return ret
+
+    def call(self, method, params=None, flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False):
+        """
+        Performs either:
+        a) An assembly run through a graph_fn (without actually calling it) using the op-record column
+            provided.
+        b) An actual dynamic run through a graph_fn with the data (in the op_columns? TODO: fix for pytorch).
+
+        Args:
+            method (callable): The method (graph_fn or API method) to call.
+            params (DataOpRecordColumn): The DataOpRecordColumn to be pushed through the graph_fn.
+            flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
+                a FlattenedDataOp (with automatic key names).
+                Can also be a set of in-Socket names to flatten explicitly (True for all).
+                (default: True).
+            split_ops (Union[bool,Set[str]]): Whether to split all or some of the already flattened DataOps
+                and send the SingleDataOps one by one through the graph_fn.
+                Example: Spaces=A=Dict (container), B=int (primitive)
+                    The graph_fn should then expect for each primitive Space in A:
+                        _graph_fn(primitive-in-A (Space), B (int))
+                        NOTE that B will be the same in all calls for all primitive-in-A's.
+                (default: True).
+            add_auto_key_as_first_param (bool): If `split_ops` is not False, whether to send the
+                automatically generated flat key as the very first parameter into each call of the graph_fn.
+                Example: Spaces=A=float (primitive), B=Tuple (container)
+                    The graph_fn should then expect for each primitive Space in B:
+                        _graph_fn(key, A (float), primitive-in-B (Space))
+                        NOTE that A will be the same in all calls for all primitive-in-B's.
+                        The key can now be used to index into variables equally structured as B.
+                Has no effect if `split_ops` is False.
+                (default: False).
+
+        Returns:
+            The
+        """
+        in_op_recs = util.force_list(params)
+
+        # Owner of method:
+        method_owner = method.__self__
+
+        # method is an API method.
+        if method.__name__ in method_owner.api_methods:
+            # Create op-record column to call API method with.
+            in_op_column = DataOpRecordColumn(op_records=2)
+            # Now actually call the API method with that column.
+            return method(*in_op_column.op_records)
+        # Method is a graph_fn.
+        else:
+            # Create 2 op-record columns, one going into the graph_fn and one getting out of there and link
+            # them together via the graph_fn (w/o calling it).
+            out_graph_fn_column = DataOpRecordColumn(1)  # TODO: hardcoded: 1 return value
+            in_graph_fn_column = DataOpRecordColumn(
+                len(in_op_recs), graph_fn=method, out_graph_fn_column=out_graph_fn_column,
+                flatten_ops=flatten_ops, split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param,
+                component=self
+            )
+            # Link from params into the new in_column_graph_fn.
+            for i, op_rec in enumerate(in_op_recs):
+                op_rec.next.add(in_graph_fn_column.op_records[i])
+
+            return out_graph_fn_column
 
     def when_input_complete(self, input_spaces, action_space, summary_regexp=None):
         """
@@ -441,7 +520,29 @@ class Component(Specifiable):
         # Recurse up the container hierarchy.
         self.parent_component.propagate_summary(key_)
 
-    def define_inputs(self, *sockets, **kwargs):
+    def define_api_method(self, name, graph_fn, **kwargs):
+        """
+        Creates a very basic graph_fn based API method for this Component.
+        Alternative way for defining an API method directly in the Component via def.
+
+        Args:
+            name (str): The name of the API method to create.
+            graph_fn (callable): The graph_fn to wrap.
+
+        Keyword Args:
+            flatten_ops (bool,Set[int]): See `self.call` for details.
+            split_ops (bool,Set[int]): See `self.call` for details.
+            add_auto_key_as_first_param (bool): See `self.call` for details.
+        """
+        assert name not in self.api_methods and getattr(self, name, None) is None
+
+        def api_method(*inputs):
+            return self.call(graph_fn, params=inputs, **kwargs)
+
+        self.__setattr__(name, api_method)
+        self.api_methods[name] = APIMethodRecord(api_method, component=self)
+
+    def OBSOLETE_define_inputs(self, *sockets, **kwargs):
         """
         Calls add_sockets with type="in" and then connects each of the Sockets with the given
         Space.
@@ -460,7 +561,7 @@ class Component(Specifiable):
             for socket in sockets:
                 self.connect(space, self.get_socket(socket).name)
 
-    def define_outputs(self, *sockets):
+    def OBSOLETE_define_outputs(self, *sockets):
         """
         Calls add_sockets with type="out".
 
@@ -469,7 +570,7 @@ class Component(Specifiable):
         """
         self.add_sockets(*sockets, type="out")
 
-    def add_socket(self, name, value=None, **kwargs):
+    def OBSOLETE_add_socket(self, name, value=None, **kwargs):
         """
         Adds new input/output Sockets to this component.
 
@@ -518,7 +619,7 @@ class Component(Specifiable):
             op = SingleDataOp(constant_value=value)
             sock.connect_from(op)
 
-    def add_sockets(self, *socket_names, **kwargs):
+    def OBSOLETE_add_sockets(self, *socket_names, **kwargs):
         """
         Adds new input/output Sockets to this component.
 
@@ -537,7 +638,7 @@ class Component(Specifiable):
         for name in socket_names:
             self.add_socket(name, **kwargs)
 
-    def rename_socket(self, old_name, new_name):
+    def OBSOLETE_rename_socket(self, old_name, new_name):
         """
         Renames an already existing in- or out-Socket of this Component.
 
@@ -555,7 +656,7 @@ class Component(Specifiable):
             "ERROR: Socket with name '{}' already exists in Component '{}'!".format(new_name, self.name)
         socket.name = new_name
 
-    def remove_socket(self, socket_name):
+    def OBSOLETE_remove_socket(self, socket_name):
         """
         Removes an in- or out-Socket from this Component. The Socket to be removed must not have any connections yet
         from other (external) Components.
@@ -583,7 +684,7 @@ class Component(Specifiable):
         else:
             self.output_sockets.remove(socket)
 
-    def add_graph_fn(self, inputs, outputs, method,
+    def OBSOLETE_add_graph_fn(self, inputs, outputs, method,
                      flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False):
         """
         Links a set (A) of sockets via a graph_fn to a set (B) of other sockets via a graph_fn function.
@@ -633,14 +734,14 @@ class Component(Specifiable):
         for output_socket in output_sockets:
             output_socket.connect_from(graph_fn)
 
-        # If the GraphFunction has no inputs or only constant value inputs, we need to treat it separately during
+        # If the GraphFunction has no api_methods or only constant value api_methods, we need to treat it separately during
         # the build. Exception: _variables, which has to be built last after all our sub-components are done
         # creating their variables and pushing them up to this Component.
         # FixMe: What if an internal graph_fn input is blocked with a constant value? Need test case for that.
         if len(input_sockets) == 0 and graph_fn.name != "_variables":
             self.no_input_graph_fns.add(graph_fn)
 
-    def change_graph_fn_options(self, name, flatten_ops=None, split_ops=None, add_auto_key_as_first_param=None):
+    def OBSOLETE_change_graph_fn_options(self, name, flatten_ops=None, split_ops=None, add_auto_key_as_first_param=None):
         """
         Changes the options of one of our graph_fns.
 
@@ -660,147 +761,27 @@ class Component(Specifiable):
                 if add_auto_key_as_first_param is not None:
                     graph_fn.add_auto_key_as_first_param = add_auto_key_as_first_param
 
-    def add_component(self, component, leave_open=None, connections=None):
+    def add_components(self, *components):
         """
-        Adds a single Component as a sub-component to this one, thereby connecting certain Sockets of the
-        sub-component to the Sockets of this component.
-        - If to-be-connected Sockets of this Component do not exist yet, they will be created automatically
-            (and maybe renamed depending on the `connect` spec).
-        - Alternatively, in-Sockets of the sub-component may be added directly to constant values. In this case,
-            no new Sockets need to be generated.
+        Adds sub-components to this one.
 
         Args:
-            component (Component): The Component object to add to this one.
-            leave_open (Optional[List[str],str]): An optional list of str or a single str holding the in-Sockets' names,
-                which we expect to stay unconnected after the YARL meta graph assembly. These will be ignored during
-                the GraphBuilder's meta-graph sanity check.
-            connections (Optional[list,bool,str,CONNECT_INS,CONNECT_OUTS]): Specifies, which of the Sockets of the
-                added sub-component should be connected to which other Sockets.
-                If `connections` is a list, each item in `connections` is:
-                - a tuple: Connect the sub-component's Socket specified by the first item in the tuple to
-                    the Socket (or a constant value) specified by the second item in the tuple.
-                - a single string: Connect the sub-component's Socket specified by the string (name) to a Socket
-                    of the parent Component of the same name (will be created if it doesn't exist).
-                If `connections` is a string: Only the Socket with the given name is connected to this component's
-                    Socket with the same name.
-                If `connections` is CONNECT_INS: All in-Sockets of `component` will be connected to their respective
-                    counterparts in this Component.
-                If `connections` is CONNECT_OUTS: All out-Sockets of `component` will be connected to their respective
-                    counterparts in this Component.
-                If `connections` is CONNECT_ALL: All sockets of `component` (in and out) will be connected to their
-                    respective counterparts in this Component.
-
-                For example: We are adding a sub-component with the Sockets: "input" and "output".
-                connections=[("input", "exposed-in")]: Only the "input" Socket is connected to this component's Socket
-                    named "exposed-in".
-                connections=["input", ("output": "exposed-out")]: The "input" Socket is connected to this
-                    component's "input". The output Socket to a Socket named "exposed-out".
-                connections=["input", "output"]: Both "input" and "output" Sockets are connected into this component's
-                    interface (with their original names "input" and "output").
-                connections=[("input", np.array([[1, 2], [3, 4]]))]: Connect the "input" Socket of `component` with
-                    the given constant value.
+            components (List[Component]): The list of Component objects to be added into this one.
         """
-        # Make sure no two components with the same name are added to this one (own scope doesn't matter).
-        if component.name in self.sub_components:
-            raise YARLError("ERROR: Sub-Component with name '{}' already exists in this one!".format(component.name))
-        # Make sure each Component can only be added once to a parent/container Component.
-        elif component.parent_component is not None:
-            raise YARLError("ERROR: Sub-Component with name '{}' has already been added once to a container Component! "
-                            "Each Component can only be added once to a parent.".format(component.name))
-        component.parent_component = self
-        self.sub_components[component.name] = component
+        for component in components:
+            # Make sure no two components with the same name are added to this one (own scope doesn't matter).
+            if component.name in self.sub_components:
+                raise YARLError("ERROR: Sub-Component with name '{}' already exists in this one!".
+                                format(component.name))
+            # Make sure each Component can only be added once to a parent/container Component.
+            elif component.parent_component is not None:
+                raise YARLError("ERROR: Sub-Component with name '{}' has already been added once to a container "
+                                "Component! Each Component can only be added once to a parent.".format(component.name))
+            component.parent_component = self
+            self.sub_components[component.name] = component
 
-        # Register `component` as a no-input sub-component.
-        if len(component.input_sockets) == 0:
-            self.no_input_sub_components.add(component)
-
-        # Fix the sub-component's (and sub-sub-component's etc..) scope(s).
-        self.propagate_scope(component)
-
-        # Add some in-Sockets to the ok-to-leave-open set?
-        if leave_open is not None:
-            leave_open = util.force_list(leave_open)
-            for in_sock_name in leave_open:
-                in_sock = component.get_socket_by_name(component, in_sock_name)
-                assert in_sock is not None, "ERROR: in-Socket '{}/{}' in `leave_open` list could not be " \
-                    "found!".format(component.name, in_sock_name)
-                component.unconnected_sockets_in_meta_graph.add(in_sock.name)
-
-        # Preprocess the connections spec.
-        connect_spec = dict()
-        if connections is not None:
-            # More than one socket needs to be exposed.
-            if isinstance(connections, list):
-                for connection in connections:
-                    if isinstance(connection, str):
-                        # Leave name.
-                        connect_spec[connection] = connection
-                    elif isinstance(connection, (tuple, list)):
-                        # Change name from 1st element to 2nd element in tuple/list.
-                        connect_spec[connection[0]] = connection[1]
-            # Wildcard connections: connections=CONNECT_ALL(or True)|CONNECT_INS|CONNECT_OUTS.
-            elif connections in [CONNECT_INS, CONNECT_OUTS, CONNECT_ALL, True]:
-                connect_list = list()
-                if connections in [CONNECT_INS, CONNECT_ALL, True]:
-                    connect_list.extend(component.input_sockets)
-                if connections in [CONNECT_OUTS, CONNECT_ALL, True]:
-                    connect_list.extend(component.output_sockets)
-
-                for sock in connect_list:
-                    # Spare special Socket "_variables" from ever getting connected.
-                    if sock.name != "_variables":
-                        connect_spec[sock.name] = sock.name
-            # Single socket (`connections` given as string) needs to be exposed (name is kept).
-            else:
-                connect_spec[connections] = connections  # leave name
-
-        # Expose all Sockets in exposed_spec (create and connect them correctly).
-        for sub_component_sock, other_sock in connect_spec.items():
-            socket = self.get_socket((component, sub_component_sock))  # type: Socket
-            if socket is None:
-                raise YARLError("ERROR: Could not find Socket '{}' in input/output sockets of component '{}'!".
-                                format(sub_component_sock, component.name))
-            if not isinstance(other_sock, Socket):
-                new_socket = self.get_socket_by_name(self, other_sock)
-                # Doesn't exist yet -> add it.
-                if new_socket is None:
-                    # A constant value Socket -> create artificial name and connect directly with constant op (on python
-                    # side, not a constant in the graph).
-                    if not isinstance(other_sock, str):
-                        other_sock = SingleDataOp(constant_value=other_sock)
-                    else:
-                        self.add_socket(other_sock, type=socket.type)
-
-            # Connect the two Sockets.
-            if socket.type == "in":
-                self.connect(other_sock, [component, socket])
-            else:
-                self.connect([component, socket], other_sock)
-
-    def add_components(self, *components, **kwargs):
-        """
-        Adds sub-components to this one without connecting them with each other.
-
-        Args:
-            *components (Component): The list of ModelComponent objects to be added into this one.
-
-        Keyword Args:
-            connections (Union[dict,tuple,str]): Connection-spec for the component(s) to be passed to
-                self.add_component().
-                If more than one sub-components are added in the call and `connecttions` is a dict, lookup each
-                component's name in that dict and pass the found value to self.add_component. If `connections` is not
-                a dict, pass it as-is for each of the added sub-components.
-        """
-        connect = kwargs.pop("connections", None)
-        assert not kwargs
-
-        for c in components:
-            connect_ = None
-            # If `connect` is a dict, it may be a dict with keys=component name but could also be a dict
-            # with keys=Sockets to be renamed. Figure this out here and pass it to `self.add_component` accordingly.
-            if isinstance(connect, dict):
-                connect_ = connect.get(c.name)
-            self.add_component(c, connections=(connect_ or connect))
+            # Fix the sub-component's (and sub-sub-component's etc..) scope(s).
+            self.propagate_scope(component)
 
     def propagate_scope(self, sub_component):
         """
@@ -891,7 +872,7 @@ class Component(Specifiable):
 
         return new_component
 
-    def connect(self, from_, to_, label=None):
+    def OBSOLETE_connect(self, from_, to_):
         """
         Generic connection method to create connections: between
         - a Socket (from_) and another Socket (to_).
@@ -908,17 +889,10 @@ class Component(Specifiable):
         Args:
             from_ (any): The specifier of the connector (e.g. incoming Socket, an incoming Space).
             to_ (any): The specifier of the connectee (e.g. another Socket).
-            label (Optional[str]): An optional label for the connection. The label will be passed along the ops
-                through the Sockets and graph_fns and must be used to specify ops if there is an ambiguity.
         """
-        # print('type from = {}'.format(type(from_)))
-        # print(from_)
-        # print('type to = {}'.format(type(to_)))
-        # print(to_)
+        self._connect_disconnect(from_, to_, disconnect_=False)
 
-        self._connect_disconnect(from_, to_, label=label, disconnect_=False)
-
-    def disconnect(self, from_, to_):
+    def OBSOLETE_disconnect(self, from_, to_):
         """
         Removes a connection between:
         - a Socket (from_) and another Socket (to_).
@@ -934,31 +908,30 @@ class Component(Specifiable):
         """
         self._connect_disconnect(from_, to_, disconnect_=True)
 
-    def _connect_disconnect(self, from_, to_, label=None, disconnect_=False):
+    def OBSOLETE__connect_disconnect(self, from_, to_, disconnect_=False):
         """
         Actual private implementer for `connect` and `disconnect`.
 
         Args:
             from_ (any): See `self.connect` for details.
             to_ (any): See `self.connect` for details.
-            label (Optional[str]): See `self.connect` for details.
             disconnect_ (bool): Only used internally. Whether to actually disconnect (instead of connect).
         """
         # Connect a Space (other must be Socket).
         # Also, there are certain restrictions for the Socket's type.
         if isinstance(from_, (Space, dict, SingleDataOp)) or \
                 (not isinstance(from_, str) and isinstance(from_, Hashable) and from_ in Space.__lookup_classes__):
-            return self.connect_space_to_socket(from_, to_, label, disconnect_)
+            return self.connect_space_to_socket(from_, to_, disconnect_)
         # TODO: Special case: Never really done yet: Connecting an out-Socket to a Space (usually: action-space).
         elif isinstance(to_, (Space, dict)) or \
                 (not isinstance(to_, str) and isinstance(to_, Hashable) and to_ in Space.__lookup_classes__):
-            return self.connect_out_socket_to_space(from_, to_, label, disconnect_)
+            return self.connect_out_socket_to_space(from_, to_, disconnect_)
         # to_ is Component.
         if isinstance(to_, Component):
             # Both from_ and to_ are Components: Connect them Socket-by-Socket and return.
             if isinstance(from_, Component):
                 # -1 for the special "_variables" Socket, which should not be connected.
-                return self.connect_component_to_component(from_, to_, label)
+                return self.connect_component_to_component(from_, to_)  # , label
             # Get the 1 in-Socket of to_.
             to_socket_obj = to_.get_socket(type_="in")
         # to_ is Socket specifier.
@@ -973,6 +946,15 @@ class Component(Specifiable):
             assert disconnect_ is False  # hard assert
             to_socket_obj.connect_from(SingleDataOp(constant_value=from_))
             return
+        # from_ is a DataOpRecord with a Socket field. Connect the Sockets,
+        # and make sure that the from-Socket pushes that particular record into
+        # the out-Socket's record.
+        elif isinstance(from_, DataOpRecord):
+            assert from_.socket is not None
+            from_socket_obj = from_.socket
+            # Create a new op-rec for to_socket_obj.
+            to_op_rec = DataOpRecord(filter_by_socket_name=from_socket_obj.name, socket=to_socket_obj)
+            from_.push_op_into_recs.add(to_op_rec)
         # Regular Socket->Socket connection.
         else:
             from_socket_obj = self.get_socket(from_)
@@ -983,33 +965,31 @@ class Component(Specifiable):
             to_socket_obj.disconnect_from(from_socket_obj)
         else:
             from_socket_obj.connect_to(to_socket_obj)
-            to_socket_obj.connect_from(from_socket_obj, label=label)
+            to_socket_obj.connect_from(from_socket_obj)
 
-    def connect_space_to_socket(self, input_space, in_socket, label=None, disconnect=False):
+    def OBSOLETE_connect_space_to_socket(self, input_space, in_socket, disconnect=False):
         """
         Connects a space to an input-socket.
         Args:
             input_space (Union[Space, dict, SingleDataOp]): Input space or space definition.
             in_socket (Socket): Socket to connect.
-            label (Optional[str]): See `self.connect` for details.
             disconnect (bool): Only used internally. Whether to actually disconnect (instead of connect).
         """
         input_space = input_space if isinstance(input_space, (Space, SingleDataOp)) else Space.from_spec(input_space)
         socket_obj = self.get_socket(in_socket)
         assert socket_obj.type == "in", "ERROR: Cannot connect a Space to an 'out'-Socket!"
         if not disconnect:
-            socket_obj.connect_from(input_space, label=label)
+            socket_obj.connect_from(input_space)
         else:
             socket_obj.disconnect_from(input_space)
 
-    def connect_out_socket_to_space(self, out_socket, space, label=None, disconnect=False):
+    def OBSOLETE_connect_out_socket_to_space(self, out_socket, space, disconnect=False):
         """
         Connects an out socket to a space, e.g. an action space.
 
         Args:
             out_socket (Socket): Out-socket to connect.
             space (Union[Space, dict, SingleDataOp]): Space or space definition.
-            label (Optional[str]): See `self.connect` for details.
             disconnect (bool): Only used internally. Whether to actually disconnect (instead of connect).
         """
         to_space = space if isinstance(space, Space) else Space.from_spec(space)
@@ -1020,7 +1000,7 @@ class Component(Specifiable):
         else:
             socket_obj.disconnect_to(to_space)
 
-    def connect_component_to_component(self, from_component, to_component, label):
+    def OBSOLETE_connect_component_to_component(self, from_component, to_component):
         """
         Connects a component to another component via iterating over all their sockets.
         Components must have the same number of sockets.
@@ -1028,7 +1008,6 @@ class Component(Specifiable):
         Args:
             from_component (Component): Component from which to connect/
             to_component (Component): Component to connect to.
-            label (Optional[str]): See `self.connect` for details.
         """
         assert len(to_component.output_sockets) - 1 == len(from_component.input_sockets), \
             "ERROR: Can only connect two Components if their Socket numbers match! {} has {} out-Sockets while " \
@@ -1039,11 +1018,10 @@ class Component(Specifiable):
             # skip _variables Socket
             if from_component.output_sockets[out_sock_i].name == "_variables":
                 out_sock_i += 1
-            self.connect(from_component.output_sockets[out_sock_i], to_component.input_sockets[in_sock_i], label=label)
+            self.connect(from_component.output_sockets[out_sock_i], to_component.input_sockets[in_sock_i])
             out_sock_i += 1
 
-    # TEST: try getting sockets via the []-lookup operator.
-    def __getitem__(self, socket_name):
+    def OBSOLETE___getitem__(self, socket_name):
         """
         Use the []-lookup operator to get Sockets of this Component (in- and out-Socket names must be unique so it
         won't matter here, which type we lookup).
@@ -1062,7 +1040,55 @@ class Component(Specifiable):
             raise KeyError("ERROR: Socket with name '{}' not found in Component '{}'!".format(socket_name, self.name))
         return socket
 
-    def get_socket(self, socket=None, type_=None, create_internal_if_not_found=False):
+    def OBSOLETE___call__(self, *inputs):
+        """
+        FixMe: documentation.
+        Args:
+            *inputs ():
+
+        Returns:
+
+        """
+        assert len(inputs) == len(self.input_sockets)
+
+        # Create one DataOpRecord for each str input (an in-Socket's name).
+        for i, in_op_spec in enumerate(util.force_list(inputs)):
+            # Just a string: Create op_record with label so that only the Space from the Socket with that name
+            # can pass through.
+            if isinstance(in_op_spec, str):
+                # Socket is the parent's component's Socket with that name.
+                previous_socket = self.parent_component[in_op_spec]
+                next_op_rec = DataOpRecord(group=self.op_group_id, filter_by_socket_name=previous_socket.name)
+            # Already an op record.
+            else:
+                previous_socket = in_op_spec.socket
+                assert previous_socket is not None
+                next_op_rec = DataOpRecord(group=self.op_group_id)
+                # Tell the in_op record where it has to push its primitive op to.
+                in_op_spec.push_op_into_recs.add(next_op_rec)
+
+            # Auto-create the Socket->Socket connection.
+            self.connect(previous_socket, self.input_sockets[i])
+            # Store the input_ops in our in-Sockets.
+            self.input_sockets[i].op_records.add(next_op_rec)
+            # Make the in-Socket aware that it's using individual op-connections.
+            self.input_sockets[i].individual_in_connections = True
+
+        # Create one output op_record for each return value of the combination of our graph_fn.
+        out_ops = list()
+        for out_sock in self.output_sockets:
+            if out_sock.name == "_variables":
+                continue
+            out_op = DataOpRecord(group=self.op_group_id, socket=out_sock)
+            # Add it to the respective out-Socket.
+            out_sock.op_records.add(out_op)
+            out_ops.append(out_op)
+
+        self.op_group_id += 1
+
+        return out_ops[0] if len(out_ops) == 1 else out_ops
+
+    def OBSOLETE_get_socket(self, socket=None, type_=None, create_internal_if_not_found=False):
         """
         Returns a Component/Socket object pair given a specifier.
 
@@ -1151,34 +1177,8 @@ class Component(Specifiable):
 
         return socket_obj
 
-    def get_input(self, socket=None):
-        """
-        Helper method to retrieve one of our own in-Sockets by name (None for the only in-Socket
-        there is).
-
-        Args:
-            socket (Optional[str]): The name of the in-Socket to retrieve.
-
-        Returns:
-            Socket: The found in-Socket.
-        """
-        return self.get_socket(socket, type_="in")
-
-    def get_output(self, socket=None):
-        """
-        Helper method to retrieve one of our own out-Sockets by name (None for the only out-Socket
-        there is).
-
-        Args:
-            socket (Optional[str]): The name of the out-Socket to retrieve.
-
-        Returns:
-            Socket: The found out-Socket.
-        """
-        return self.get_socket(socket, type_="out")
-
     @staticmethod
-    def get_socket_by_name(component, name, type_=None):
+    def OBSOLETE_get_socket_by_name(component, name, type_=None):
         """
         Returns a Socket object of the given component by the name of the Socket. Or None if no Socket could be found.
 
@@ -1264,13 +1264,45 @@ class Component(Specifiable):
         assert self.input_complete is False
 
         space_dict = dict()
+        #self.input_complete = True
+        #for in_socket in self.input_sockets:
+        #    if in_socket.space is None and in_socket.name not in self.unconnected_sockets_in_meta_graph:
+        #        self.input_complete = False
+        #        return None
+        #    else:
+        #        space_dict[in_socket.name] = in_socket.space
+        #return space_dict
+
+
+        # Check, whether we are input-complete now.
         self.input_complete = True
-        for in_socket in self.input_sockets:
-            if in_socket.space is None and in_socket.name not in self.unconnected_sockets_in_meta_graph:
+
+        # Loop through all API methods.
+        for method_name, api_method_rec in self.api_methods.items():
+            # This API method must not be completed, ignore and don't add it to space_dict.
+            if api_method_rec.must_be_complete is False:
+                continue
+
+            if api_method_rec.spaces is None:
                 self.input_complete = False
                 return None
             else:
-                space_dict[in_socket.name] = in_socket.space
+                space_dict[method_name] = api_method_rec.spaces
+            #space_dict[api_method_rec] = list()
+            ## Loop through each of the APIMethodRecs' in op columns.
+            #for in_op_col in api_method_rec.in_op_columns:
+            #    # Loop through each op in the column.
+            #    for op_rec in in_op_col:
+            #        # Op not defined yet -> This column is not complete.
+            #        if op_rec.op is None:
+            #            break
+            #    # Loop completed normally: All ops in this column are defined -> so far: input complete.
+            #    else:
+            #        break
+            ## None of the op columns is complete -> We are not input complete.
+            #else:
+            #    self.input_complete = False
+            #    return None
         return space_dict
 
     def _graph_fn__variables(self):

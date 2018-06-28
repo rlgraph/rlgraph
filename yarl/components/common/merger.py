@@ -49,13 +49,13 @@ class Merger(Component):
 
     def _graph_fn_merge(self, *inputs):
         """
-        Merges the inputs into a single FlattenedDataOp.
+        Merges the api_methods into a single FlattenedDataOp.
 
         Args:
             *inputs (DataOp): The input items to be merged back into a FlattenedDataOp.
 
         Returns:
-            FlattenedDataOp: The FlattenedDataOp as a merger of all inputs.
+            FlattenedDataOp: The FlattenedDataOp as a merger of all api_methods.
         """
         ret = FlattenedDataOp()
         for i, op in enumerate(inputs):

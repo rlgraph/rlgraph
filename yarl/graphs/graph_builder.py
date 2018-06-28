@@ -17,13 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from collections import OrderedDict
 import itertools
 import logging
 import numpy as np
+import re
 
 from yarl import YARLError, Specifiable, get_backend
-from yarl.components import Component, Socket, GraphFunction
-from yarl.spaces.space_utils import split_flattened_input_ops, convert_ops_to_op_records, get_space_from_op
+from yarl.components import Component
+from yarl.spaces import Space
+from yarl.spaces.space_utils import split_flattened_input_ops, get_space_from_op
 from yarl.utils.input_parsing import parse_summary_spec
 from yarl.utils.util import all_combinations, force_list, force_tuple, get_shape
 from yarl.utils.ops import SingleDataOp, FlattenedDataOp, DataOpRecord
@@ -66,49 +69,83 @@ class GraphBuilder(Specifiable):
         self.build_steps= 0
 
         # Create an empty core Component into which everything will be assembled by an Algo.
-        self.core_component = Component(name=self.name, is_core=True)
+        self.core_component = None  # Component(name=self.name, is_core=True)
         # A dict used for lookup of all combinations that are possible for a given set of given in-Socket
         # names (inside a call to `self.call`).
-        self.input_combinations = dict()
+        #self.input_combinations = dict()
+
+        # Dict of op-record columns by key=op-column ID.
+        #self.in_op_columns = OrderedDict()
+        # Dict of unprocessed (and complete) op-record columns by key=op-column ID.
+        # Columns that have been forwarded will be erased again from this collection.
+        self.unprocessed_in_op_columns = OrderedDict()
+        self.unprocessed_complete_in_op_columns = OrderedDict()
 
         # Some registries that we need in order to build the Graph from core:
         # key=DataOpRecord; value=set of required DataOpRecords OR leftmost in-Sockets to calculate the key's op.
-        self.op_record_registry = dict()
+        #self.op_record_registry = dict()
         # Only for core's in-Sockets.
         # key=in-Socket name; value=DataOp (e.g. tf.placeholder) that goes into this socket.
-        self.in_socket_registry = dict()
+        #self.in_socket_registry = dict()
         # key=out-Socket name; value=set of necessary in-Socket names that we need in order to calculate
         #   the out-Socket's op output.
-        self.out_socket_registry = dict()
+        #self.out_socket_registry = dict()
         # Maps an out-Socket name+in-Socket/Space-combination to an actual DataOp to fetch from our Graph.
-        self.call_registry = dict()  # key=(FixMe: documentation)
+        #self.call_registry = dict()  # key=(FixMe: documentation)
 
-    def build_graph_from_meta_graph(self, available_devices, default_device):
+    def build_graph(self, input_spaces, available_devices, default_device):
         """
         Builds the actual backend-specific graph from the YARL metagraph.
         Loops through all our sub-components starting at core and assembles the graph by creating placeholders,
         following Socket->Socket connections and running through our GraphFunctions to generate DataOps.
 
         Args:
+            input_spaces (dict):
             available_devices (list): Devices which can be used to assign parts of the graph
                 during graph assembly.
             default_device (str): Default device identifier.
         """
+        # Build the meta-graph and collect all empty in-op-columns.
+        self.build_meta_graph()
+        for api_method_rec in self.core_component.api_methods.values():
+            for in_op_col in api_method_rec.in_op_columns:
+                self.collect_op_column(in_op_col)
+
         # Before we start, sanity check the meta graph for obvious flaws.
-        self.sanity_check_meta_graph()
+        #self.sanity_check_meta_graph()
 
         # Set devices usable for this graph.
         self.available_devices = available_devices
         self.default_device = default_device
 
+        # Collect all components and store their input-completeness state.
+        # TODO: remove hard-coding...
+        #input_completeness = dict({self.core_component: False,
+        #                           self.core_component.sub_components["dummy-with-sub-components"]: False})
+
         # Actually build the graph.
-        # Push all spaces to in-Sockets, then call build_component(core)
-        for in_sock in self.core_component.input_sockets:  # type: Socket
-            # Skip sockets already connected to constant values.
-            if len(in_sock.op_records) == 0:
-                self.push_space_into_socket(in_sock)
-        space_dict = self.core_component.check_input_completeness()
-        self.build_component(self.core_component, space_dict)
+        # Push all spaces through the API methods, then enter the main iterative DFS while loop.
+        for method_name, api_method_rec in self.core_component.api_methods.items():
+            self.push_spaces_into_api_method(input_spaces[method_name], api_method_rec)
+
+        # While some sub-components are still incomplete.
+        current_scope = self.core_component.global_scope
+        while not all(input_completeness.values()):
+            # Components to do on this level:
+            components = [
+                c for c in input_completeness.keys() if re.search(r'^{}'.format(current_scope), c.global_scope)
+            ]
+            for component in components:
+                was_input_complete = component.input_complete
+                space_dict = component.check_input_completeness()
+                # State changed -> Iterate through this component.
+                if space_dict is not None and was_input_complete is False:
+                    input_completeness[component] = True  # Change entry
+                    self.run_through_component(component, space_dict)
+
+        #space_dict = self.core_component.check_input_completeness()
+        #assert space_dict is not None
+        #self.build_component(self.core_component, space_dict)
 
         # Check whether all our components and graph_fns are now input-complete.
         self.sanity_check_build()
@@ -119,6 +156,32 @@ class GraphBuilder(Specifiable):
         # Registers actual ops with the different out-Sockets, so we know, which ops to execute for a given
         # out-Socket/input-feed-data combination.
         self.register_ops()
+
+    def build_meta_graph(self):
+        # Call all API methods of the core and thereby, create empty in-op columns that serve as placeholders
+        # and directed links for the build time.
+        for api_method_rec in self.core_component.api_methods.values():
+            params = [DataOpRecord(op=None)] * 1  # <- TODO: remove hard coded
+            api_method_rec.method(*params)
+
+    def collect_op_column(self, column):
+        new_columns = set()
+        for in_op_col in column:
+            self.unprocessed_in_op_columns[in_op_col.id] = in_op_col
+            if in_op_col.is_complete():
+                self.unprocessed_complete_in_op_columns[in_op_col.id] = in_op_col
+            # Follow each single op and collect new columns.
+            for op_rec in in_op_col.op_records:
+                # Follow each next op-column:
+                for next_op_rec in op_rec.next:
+                    # Completely new column: Process it.
+                    if next_op_rec[0] not in self.unprocessed_in_op_columns:
+                        # 0=column; 1=op-rec slot in that column
+                        new_columns.add(next_op_rec[0])
+
+        # Recurse:
+        for op_col in new_columns:
+            self.collect_op_column(op_col)
 
     def sanity_check_meta_graph(self, component=None):
         """
@@ -162,6 +225,54 @@ class GraphBuilder(Specifiable):
                 ))
             self.sanity_check_meta_graph(sub_component)
 
+    def push_spaces_into_api_method(self, spaces, api_method_rec):
+        """
+        Stores Spaces information for an APIMethodRecord and creates ops and op-records from the given Spaces.
+        The APIMethodRecord must be one of the core Component's.
+
+        Args:
+            spaces (List[Spaces,dict]: List of Space objects or specification dicts to create the Spaces that go into
+                the given APIMethodRecord.
+            api_method_rec (APIMethodRecord): The APIMethodRecord object to populate with op-records and Spaces.
+        """
+        assert api_method_rec.component.is_core,\
+            "ERROR: Can only push a Space into a core's API-method (method={})!".format(api_method_rec.method.__name__)
+
+        # Create the placeholder and wrap it in a DataOpRecord, then add the DataOpRecords as a column to the
+        # APIMethodRecord.
+        api_method_rec.spaces = list()
+        column = list()
+        for i, space in enumerate(force_list(spaces)):
+            if not isinstance(space, Space):
+                space = Space.from_spec(space)
+            api_method_rec.spaces.append(space)
+            op = space.get_tensor_variable(name=api_method_rec.method.__name__+"/"+str(i), is_input_feed=True)
+            op_rec = DataOpRecord(op=op)
+            column.append(op_rec)
+        api_method_rec.in_op_columns.append(column)
+
+        #op_rec = DataOpRecord(op)
+        #socket.op_records.add(op_rec)
+
+        # Keep track of which input op (e.g. tf.placeholder) goes into this Socket.
+        #self.in_socket_registry[socket.name] = op
+
+        # Remember, that this DataOp goes into a Socket at the very beginning of the Graph (e.g. a
+        # tf.placeholder).
+        #self.op_record_registry[op_rec] = {socket}
+
+    def run_through_component(self, component):
+        assert component.input_complete
+
+        for api_method_rec in component.api_methods:
+            # Loop through all op columns separately.
+            for in_op_col in api_method_rec.in_op_columns:
+                # Skip op columns that are already complete.
+                if self.check_op_column_complete(in_op_col):
+                    continue
+                # This op-column is not complete yet.
+
+
     def build_component(self, component, input_spaces):
         """
         Called when a Component has all its incoming Spaces known. Only then can we sanity check the input
@@ -169,31 +280,37 @@ class GraphBuilder(Specifiable):
 
         Args:
             component (Component): The Component that now has all its input Spaces defined.
-            input_spaces (dict): A dict mapping all in-Socket names of `component` to a Space object.
+            input_spaces (dict): A dict mapping all API method names of `component` to a tuple of Space objects that
+                go into the API method.
         """
         assert component.input_complete is True, "ERROR: Component {} is not input complete!".format(component.name)
         self.logger.debug("Component {} is input-complete; space-dict={}".format(component.name, input_spaces))
-        # Component is complete now, allow it to sanity check its inputs and create its variables.
+        # Component is complete now, allow it to sanity check its api_methods and create its variables.
         component.when_input_complete(input_spaces, self.action_space, self.summary_spec["summaries_regexp"])
 
-        # Push forward no-input graph_fns.
-        for graph_fn in component.no_input_graph_fns:
-            self.push_from_graph_fn(graph_fn)
+        # Call each method in input_spaces.
+        for method_name in input_spaces.keys():
+            api_method_rec = component.api_methods[method_name]
+            self.push_api_method_rec(api_method_rec)
 
-        # Build all sub-components that have no inputs.
-        for sub_component in component.no_input_sub_components:
-            # Assert input-completeness. input_spaces should be empty.
-            input_spaces = sub_component.check_input_completeness()
-            self.build_component(sub_component, input_spaces)
+    @staticmethod
+    def check_op_column_complete(op_column):
+        for op_rec in op_column:
+            if op_rec.op is None:
+                return False
+        else:
+            return True
 
-        # Loop through all in-Sockets' outgoing connections and push Spaces from them.
-        for in_socket in component.input_sockets:  # type: Socket
-            # Push this Socket's information further down.
-            self.push_from_socket(in_socket)
-
-        # At the very end, build our _variables out-Socket from the special "_variables" graph_fn.
-        variables_graph_fn = [gf for gf in component.graph_fns if gf.name == "_variables"][0]
-        self.push_from_graph_fn(variables_graph_fn)
+    def push_api_method_rec(self, api_method_rec):
+        # Check each input op column.
+        for in_op_col in api_method_rec.in_op_columns:
+            # Check whether this column is complete.
+            if self.check_op_column_complete(in_op_col):
+                pass
+            # Op column is not complete.
+            else:
+                # Check whether we have a matching
+                pass
 
     def push_from_socket(self, socket):
         # Skip this Socket, if it doesn't have a Space (no incoming connection).
@@ -205,7 +322,7 @@ class GraphBuilder(Specifiable):
         for outgoing in socket.outgoing_connections:
             # Push Socket into Socket.
             if isinstance(outgoing, Socket):
-                print("SOCK {}/{} -> {}/{}".format(socket.component.name, socket.name, outgoing.component.name, outgoing.name))
+                #print("SOCK {}/{} -> {}/{}".format(socket.component.name, socket.name, outgoing.component.name, outgoing.name))
                 self.push_socket_into_socket(socket, outgoing)
             # Push Socket into GraphFunction.
             elif isinstance(outgoing, GraphFunction):
@@ -215,39 +332,14 @@ class GraphBuilder(Specifiable):
                 raise YARLError("ERROR: Outgoing connection ({}) must be of type Socket or GraphFunction!".\
                                 format(outgoing))
 
-    def push_space_into_socket(self, socket):
+    def push_socket_into_socket(self, socket, next_socket):
         """
-        Stores Space information for a Socket. The Socket must be one of the core Component's
-        in-Socket with the Space already connected to it in `socket.incoming_connections`.
+        Pushes op records from one Socket into a next connected one.
 
         Args:
-            socket (Socket): The Socket to receive the Space's information.
+            socket (Socket): The Socket object to push from.
+            next_socket (Socket): The Socket object to push into.
         """
-        assert socket.component.is_core,\
-            "ERROR: Can only push a Space into a core's in-Socket (Socket={})!".format(socket)
-        assert socket.space is None, \
-            "ERROR: Can only push Space into a Socket ({}) that does not have one yet!".format(socket)
-        assert len(socket.incoming_connections) == 1, \
-            "ERROR: Socket '{}' already has an incoming connection. Cannot add Space to it.".format(socket)
-
-        # Store the Space as this Socket's.
-        space = socket.incoming_connections[0]
-        self.logger.debug("Space {} -> Socket {}/{}".format(space, socket.component.name, socket.name))
-        socket.space = space
-
-        # Create the placeholder and wrap it in a DataOpRecord with no labels.
-        op = space.get_tensor_variable(name=socket.name, is_input_feed=True)
-        op_rec = DataOpRecord(op)
-        socket.op_records.add(op_rec)
-
-        # Keep track of which input op (e.g. tf.placeholder) goes into this Socket.
-        self.in_socket_registry[socket.name] = op
-
-        # Remember, that this DataOp goes into a Socket at the very beginning of the Graph (e.g. a
-        # tf.placeholder).
-        self.op_record_registry[op_rec] = {socket}
-
-    def push_socket_into_socket(self, socket, next_socket):
         assert socket.space is not None
         assert next_socket.space is None or socket.space == next_socket.space,\
             "ERROR: Socket '{}' already has Space '{}', but incoming connection '{}' has Space '{}'! " \
@@ -258,21 +350,12 @@ class GraphBuilder(Specifiable):
         self.logger.debug("Socket {}/{} -> Socket {}/{}".format(socket.component.name, socket.name,
                                                                next_socket.component.name, next_socket.name))
         next_socket.space = socket.space
-        # Make sure we filter those op-records that already have at least one label and that do not
-        # have the label of this connection (from `incoming`).
-        socket_labels = socket.labels.get(next_socket, None)  # type: set
-        op_records = socket.op_records
-        # With filtering.
-        if socket_labels is not None:
-            filtered_op_records = set()
-            for op_rec in op_records:  # type: DataOpRecord
-                # If incoming op has no labels OR it has at least 1 label out of this Socket's
-                # labels for this connection -> Allow op through to this Socket.
-                if len(op_rec.labels) == 0 or len(set.intersection(op_rec.labels, socket_labels)):
-                    op_rec.labels.update(socket_labels)
-                    filtered_op_records.add(op_rec)
-            op_records = filtered_op_records
-        next_socket.op_records.update(op_records)
+
+        # Push the op-records into the next Socket.
+        for op_record in socket.op_records:  # type: DataOpRecord
+            if op_record.op is not None:
+                next_socket.push_op_from_incoming_socket(op_record.op, in_socket_name=socket.name,
+                                                         in_op_record=op_record)
 
         # Continue with the build logic.
         self.after_socket_update(next_socket, was_input_complete)
@@ -352,13 +435,22 @@ class GraphBuilder(Specifiable):
             # Make sure we call the computation method only once per input-op combination.
             if in_op_record_combination in graph_fn.in_out_records_map:
                 continue
+            # If any of the ops in the combination is not set yet -> skip this combination for now.
+            elif any([r.op is None for r in in_op_record_combination]):
+                continue
+            # Make sure only ops with the same group ID (or no group ID) are pushed through together.
+            # Find first non-None group ID, all others must match that one (or be None).
+            op_group = [r.group for r in in_op_record_combination if r.group is not None]
+            op_group = op_group[0] if len(op_group) > 0 else None
+            if any([r.group is not None and r.group != op_group for r in in_op_record_combination]):
+                continue
 
             # Replace constant-value Sockets with their SingleDataOp's constant numpy values
             # and the DataOps with their actual ops (`op` property of DataOp).
             actual_call_params = [
                 op_rec.op.constant_value if isinstance(op_rec.op, SingleDataOp) and
-                                            op_rec.op.constant_value is not None else op_rec.op for op_rec in
-                in_op_record_combination
+                                            op_rec.op.constant_value is not None
+                else op_rec.op for op_rec in in_op_record_combination
             ]
 
             # Build the ops from this input-combination.
@@ -411,36 +503,36 @@ class GraphBuilder(Specifiable):
                                                 len(graph_fn.output_sockets))
 
             # ops are now the raw graph_fn output: Need to convert it back to records.
-            new_label_set = set()
-            for rec in in_op_record_combination:  # type: DataOpRecord
-                new_label_set.update(rec.labels)
-            op_records = convert_ops_to_op_records(ops, labels=new_label_set)
-
-            graph_fn.in_out_records_map[in_op_record_combination] = op_records
+            op_records = list()
 
             # Move graph_fn results into next Socket(s).
-            for i, (socket, op_rec) in enumerate(zip(graph_fn.output_sockets, op_records)):
+            for i, socket in enumerate(graph_fn.output_sockets):
                 self.logger.debug("GraphFn {}/{} -> return-slot {} -> {} -> Socket {}/{}".format(
                     graph_fn.component.name, graph_fn.name, i, ops, socket.component.name, socket.name)
                 )
                 # Store op_rec in the respective outgoing Socket (and make sure Spaces match).
-                space = get_space_from_op(op_rec.op)
-                if len(socket.op_records) > 0:
-                    sanity_check_space = get_space_from_op(next(iter(socket.op_records)).op)
-                    assert space == sanity_check_space,\
-                        "ERROR: Newly calculated output op of graph_fn '{}' has different Space than existing one " \
-                        "({} vs {})!".format(graph_fn.name, space, sanity_check_space)
+                space = get_space_from_op(ops[i])
+                if socket.space is not None:
+                    assert space == socket.space,\
+                        "ERROR: Newly calculated output op of graph_fn '{}' has different Space than the Socket that " \
+                        "this op will go into ({} vs {})!".format(graph_fn.name, space, socket.space)
                 else:
                     socket.space = space
-                socket.op_records.add(op_rec)
 
+                # Add the new op to the Socket (or place into an existing (empty) op_record that matches the op_group).
+                op_rec = socket.push_op_from_incoming_graph_fn(op=ops[i], op_group=op_group)
                 self.op_record_registry[op_rec] = set(in_op_record_combination)
+
                 # Make sure all op_records do not contain SingleDataOps with constant_values. Any
                 # in-Socket-connected constant values need to be converted to actual ops during a graph_fn call.
                 assert not isinstance(op_rec.op, SingleDataOp), \
                     "ERROR: graph_fn '{}' returned a SingleDataOp with constant_value set to '{}'! " \
                     "This is not allowed. All graph_fns must return actual (non-constant) ops.". \
                     format(graph_fn.name, op_rec.op.constant_value)
+
+                op_records.append(op_rec)
+
+            graph_fn.in_out_records_map[in_op_record_combination] = tuple(op_records)
 
     def memoize_inputs(self):
         # Memoize possible input-combinations (from all our in-Sockets)
@@ -453,7 +545,7 @@ class GraphBuilder(Specifiable):
                 all_combinations(input_combination, descending_length=True)
 
     def register_ops(self):
-        # Now use the ready op/socket registries to determine for which out-Socket we need which inputs.
+        # Now use the ready op/socket registries to determine for which out-Socket we need which api_methods.
         # Then we will be able to derive the correct op for any given (out-Socket+in-Socket+in-shape)-combination
         # passed into the call method.
         for output_socket in self.core_component.output_sockets:  # type: Socket
@@ -524,13 +616,13 @@ class GraphBuilder(Specifiable):
 
     def get_execution_inputs(self, output_socket_names, inputs=None):
         """
-        Fetches graph inputs for execution.
+        Fetches graph api_methods for execution.
 
         Args:
             output_socket_names (Union[str,List[str]]): A name or a list of names of the out-Sockets to fetch from
             our core component.
-            inputs (Optional[dict,data]): Dict specifying the provided inputs for some in-Sockets.
-                Depending on these given inputs, the correct backend-ops can be selected within the given (out)-Sockets.
+            inputs (Optional[dict,data]): Dict specifying the provided api_methods for some in-Sockets.
+                Depending on these given api_methods, the correct backend-ops can be selected within the given (out)-Sockets.
                 Alternatively, can pass in data directly (not as a dict), but only if there is only one in-Socket in the
                 Model or only one of the in-Sockets is needed for the given out-Sockets.
 
@@ -559,7 +651,7 @@ class GraphBuilder(Specifiable):
             # Check whether data is given directly.
             if not isinstance(inputs, dict):
                 if only_input_socket_name is None:
-                    raise YARLError("ERROR: Input data (`inputs`) given directly (not as dict) AND more than one \n"
+                    raise YARLError("ERROR: Input data (`api_methods`) given directly (not as dict) AND more than one \n"
                                     "in-Socket in Model OR more than one in-Socket needed for given out-Sockets '{}'!".
                                     format(output_socket_names))
                 inputs = {only_input_socket_name: inputs}
@@ -573,7 +665,7 @@ class GraphBuilder(Specifiable):
 
             # Try all possible input combinations to see whether we got an op for that.
             # Input Socket names will be sorted alphabetically and combined from short sequences up to longer ones.
-            # Example: inputs={A: ..., B: ... C: ...}
+            # Example: api_methods={A: ..., B: ... C: ...}
             #   input_combinations=[ABC, AB, AC, BC, A, B, C]
 
             # These combinations have been memoized for fast lookup.
@@ -606,7 +698,7 @@ class GraphBuilder(Specifiable):
                 with the most Socket names, then going towards combinations with only one Socket name.
                 Each combination in itself should already be sorted alphabetically on the in-Socket names.
             fetch_list (list): Appends to this list, which ops to actually fetch.
-            input_dict (Optional[dict]): Dict specifying the provided inputs for some (core) in-Sockets.
+            input_dict (Optional[dict]): Dict specifying the provided api_methods for some (core) in-Sockets.
                 Passed through directly from the call method.
             feed_dict (dict): The feed_dict we are trying to build. When done,
                 needs to map input ops (not Socket names) to data.
@@ -635,7 +727,7 @@ class GraphBuilder(Specifiable):
                             value = np.array(value)
                         feed_dict[in_op] = value
                     return fetch_list, feed_dict
-        # No inputs -> Try whether this output socket comes without any inputs.
+        # No api_methods -> Try whether this output socket comes without any api_methods.
         else:
             key = (socket_name, (), ())
             if key in self.call_registry:
@@ -682,12 +774,20 @@ class GraphBuilder(Specifiable):
         else:
             return self.trace_back_sockets(new_trace_set)
 
-    def get_default_model(self):
+    def set_core_component(self, core_component):
         """
-        Fetches the initially created default container.
+        Sets the core Component that will contain all others.
+
+        Args:
+            core_component (Component): The component to set as core.
 
         Returns:
-            Component: The core container component.
+            Component: The new core Component.
         """
+        # Unset current core.
+        if self.core_component is not None:
+            self.core_component.is_core = False
+        # Set new core and return it.
+        core_component.is_core = True
+        self.core_component = core_component
         return self.core_component
-

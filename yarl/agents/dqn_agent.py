@@ -168,7 +168,7 @@ class DQNAgent(Agent):
         reward_space = FloatBox(add_batch_rank=True)
         terminal_space = BoolBox(add_batch_rank=True)
 
-        # Define our inputs.
+        # Define our api_methods.
         inputs = dict(
             states_from_env=state_space,
 
@@ -189,13 +189,14 @@ class DQNAgent(Agent):
         # Add all sub-components.
         core.add_components(preprocessor, memory, merger, splitter, policy, target_policy, exploration,
                             loss_function, optimizer)
+        core.add_graph_fn("states_from_env", "get_actions", self._graph_fn_act_test)
 
         # Env pathway.
-        preprocessed_states_from_env = preprocessor("states_from_env")
-        sample_deterministic, sample_stochastic = policy(
+        preprocessed_states_from_env = self.preprocessor.call("states_from_env")
+        sample_deterministic, sample_stochastic = self.policy(
             preprocessed_states_from_env, ["sample_deterministic", "sample_stochastic"]
         )
-        action = exploration(["time_step", sample_deterministic, sample_stochastic])
+        action = self.exploration.call(["time_step", sample_deterministic, sample_stochastic])
         core.define_outputs("get_actions", action)
 
         # Insert into memory pathway.
@@ -281,4 +282,13 @@ class DQNAgent(Agent):
 
     def __repr__(self):
         return "DQNAgent(doubleQ={})".format(self.double_q)
+
+    def _graph_fn_act_test(self, states_from_env, time_step):
+        # Env pathway.
+        preprocessed_states_from_env = self.preprocessor_stack(states_from_env)
+        sample_deterministic, sample_stochastic = self.policy(
+            preprocessed_states_from_env, ["sample_deterministic", "sample_stochastic"]
+        )
+        action = self.exploration([time_step, sample_deterministic, sample_stochastic])
+        return action
 

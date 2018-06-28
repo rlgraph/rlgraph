@@ -88,9 +88,9 @@ class RayAgent(object):
 
         Args:
             op (str): Name of the op, i.e. the name of its output socket on the YARL metagraph.
-            inputs (Optional[dict,np.array]): Dict specifying the provided inputs for some in-Sockets (key=in-Socket name,
+            inputs (Optional[dict,np.array]): Dict specifying the provided api_methods for some in-Sockets (key=in-Socket name,
                 values=the values that should go into this Socket (e.g. numpy arrays)).
-                Depending on these given inputs, the correct backend-ops can be selected within the given out-Sockets.
+                Depending on these given api_methods, the correct backend-ops can be selected within the given out-Sockets.
                 If only one out-Socket is given in `sockets`, and this out-Socket only needs a single in-Socket's data,
                 this in-Socket's data may be given here directly.
         Returns:

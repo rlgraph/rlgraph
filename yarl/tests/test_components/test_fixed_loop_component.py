@@ -38,7 +38,7 @@ class TestFixedLoopComponent(unittest.TestCase):
             call_component=call_component,
             graph_fn_name="value"
         )
-        loop.connect((loop, "inputs"), (call_component, "time_step"))
+        loop.connect((loop, "api_methods"), (call_component, "time_step"))
         test = ComponentTest(component=loop, input_spaces=dict(
             time_step=time_step_space,
             inputs=time_step_space

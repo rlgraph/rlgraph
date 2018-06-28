@@ -89,15 +89,97 @@ class FlattenedDataOp(DataOp, OrderedDict):
     pass
 
 
-class DataOpRecord(object):
-    def __init__(self, op, labels=None):
+class OBSOLETE_DataOpRecord(object):
+    """
+    A simple wrapper class for a DataOp carrying the op itself and some additional information about it.
+    """
+    def __init__(self, op=None, group=None, filter_by_socket_name=None, socket=None):
         """
         Args:
-            op (DataOp): The actual DataOp carried by this record.
-            labels (Set[str]): A set of string-labels that are associated with the DataOp.
+            op (Optional[DataOp]): The actual DataOp carried by this record. May be left empty at construction time.
+            group (Optional[int]): A group ID to guide the op (together with others with the same label) through the
+                Components and GraphFns.
+            filter_by_socket_name (Optional[str]): If given, signals that only ops coming from the Socket with that name,
+                can be placed into this record. This record must have an empty op for this.
+            socket (Socket): The Socket object that will hold this record.
         """
         self.op = op
-        self.labels = set(labels or [])
+        self.group = group
+        # Filtering tools to accept only raw ops from certain sources.
+        self.filter_by_socket_name = filter_by_socket_name
+        # If given, tells us into which succeeding record to push our primitive op to.
+        self.push_op_into_recs = set()
+
+        # The Socket object that holds this record (optional).
+        self.socket = socket
 
     def __hash__(self):
-        return hash(self.op)
+        # The following properties will not change (self.op might, which is why we can't use it here).
+        return hash(self.group) + hash(self.filter_by_socket_name)
+
+
+class DataOpRecord(object):
+    """
+    A simple wrapper class for a DataOp carrying the op itself and some additional information about it.
+    """
+    #_ID = -1
+
+    def __init__(self, op=None):
+        #self.id = self.get_id()
+        self.op = op
+
+        # Set of (op-col ID, slot) tuples that are connected from this one.
+        self.next = set()
+        # This op record's Component object.
+        #self.component = None
+
+    #def get_id(self):
+    #    self._ID += 1
+    #    return self._ID
+
+    #def __hash__(self):
+    #    return hash(self.id)
+
+
+class DataOpRecordColumn(object):
+    _ID = -1
+
+    def __init__(self, op_records, graph_fn=None, out_graph_fn_column=None, flatten_ops=False, split_ops=False,
+                 add_auto_key_as_first_param=False, component=None):
+        self.id = self.get_id()
+        self.op_records = op_records if not isinstance(op_records, int) else [DataOpRecord(op=None)] * op_records
+
+        self.graph_fn = graph_fn
+
+        # The column after passing this one through a graph_fn (only if `self.graph_fn` not None).
+        self.out_graph_fn_column = out_graph_fn_column
+
+        self.flatten_op = flatten_ops
+        self.split_ops = split_ops
+        self.add_auto_key_as_first_param = add_auto_key_as_first_param
+
+        self.component = component
+
+    def is_complete(self):
+        for op_rec in self.op_records:
+            if op_rec.op is None:
+                return False
+        return True
+
+    def get_id(self):
+        self._ID += 1
+        return self._ID
+
+    def __hash__(self):
+        return hash(self.id)
+
+
+class APIMethodRecord(object):
+    def __init__(self, method, component, must_be_complete=True):
+        self.method = method
+        self.component = component
+        self.must_be_complete = must_be_complete
+
+        self.spaces = None
+        self.in_op_columns = list()
+        self.out_op_columns = list()

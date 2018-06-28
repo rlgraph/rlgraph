@@ -69,7 +69,7 @@ class TestTwoSubComponents(unittest.TestCase):
 
     def test_1to1_to_2to1_component_with_constant_input_value(self):
         """
-        Adds two components in sequence, 1-to-1 and 2-to-1, to the core and blocks one of the inputs of 2-to-1
+        Adds two components in sequence, 1-to-1 and 2-to-1, to the core and blocks one of the api_methods of 2-to-1
         with a constant value (so that this constant value is not at the border of the core component).
         """
         core = Component(scope="container")

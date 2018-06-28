@@ -79,7 +79,7 @@ class TestConnectionsWithLabels(unittest.TestCase):
 
         test = ComponentTest(component=core, input_spaces=dict(input_c=float, input_a=float))
 
-        # Now pulling on "output" and providing both inputs should cause disambiguity, but it should chose
+        # Now pulling on "output" and providing both api_methods should cause disambiguity, but it should chose
         # the one fist in alphabetic order (input_a).
         # Expected output: input_a + 1.0
         test.test(out_socket_names="output", inputs=dict(input_c=np.array(1.5), input_a=np.array(2.1)),
@@ -88,7 +88,7 @@ class TestConnectionsWithLabels(unittest.TestCase):
     def test_connecting_in1_and_in2_to_1to1_to_out1_and_out2_with_labels(self):
         """
         Same as `test_connecting_in1_to_1to1_no_labels` but with labels.
-        So if we provide both inputs, it should know which one to take (instead of using alphabetic order).
+        So if we provide both api_methods, it should know which one to take (instead of using alphabetic order).
         """
         core = Component(inputs=["input_c", "input_a"], outputs="output", scope="container")
         dummy = Dummy1to1(scope="dummy")
@@ -106,7 +106,7 @@ class TestConnectionsWithLabels(unittest.TestCase):
 
         test = ComponentTest(component=core, input_spaces=dict(input_c=float, input_a=float))
 
-        # Now pulling on "output" and providing both inputs should not cause disambiguity since out out-Socket
+        # Now pulling on "output" and providing both api_methods should not cause disambiguity since out out-Socket
         # was connected to A's "output" through the label "from_in_c", so it should always use "input_c".
         # Expected output: input_c + 1.0
         test.test(out_socket_names="output", inputs=dict(input_c=np.array(1.5), input_a=np.array(2.1)),

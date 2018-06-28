@@ -29,18 +29,18 @@ if get_backend() == "tf":
 class ConcatLayer(NNLayer):
     """
     A simple concatenation layer wrapper. The ConcatLayer is a Layer without sub-components but with n
-    inputs and 1 output, where the in-Sockets's data are concatenated into one out-Socket by its GraphFunction.
+    api_methods and 1 output, where the in-Sockets's data are concatenated into one out-Socket by its GraphFunction.
     """
     def __init__(self, axis=-1, scope="concat-layer", num_graph_fn_inputs=2, **kwargs):
         """
         Args:
             axis (int): The axis along which to concatenate. Use negative numbers to count from end.
-                All inputs to this layer must have the same shape, except for the `axis` rank.
+                All api_methods to this layer must have the same shape, except for the `axis` rank.
                 Default: -1.
-            num_graph_fn_inputs (int): The number of inputs to concatenate (this is how many in-Sockets
+            num_graph_fn_inputs (int): The number of api_methods to concatenate (this is how many in-Sockets
                 will be created).
         """
-        # Set up the super class as one that takes `num_graph_fn_inputs` inputs in its computation and
+        # Set up the super class as one that takes `num_graph_fn_inputs` api_methods in its computation and
         # produces 1 output.
         super(ConcatLayer, self).__init__(scope=scope, num_graph_fn_inputs=num_graph_fn_inputs,
                                           num_graph_fn_outputs=1, **kwargs)
@@ -49,7 +49,7 @@ class ConcatLayer(NNLayer):
     def check_input_spaces(self, input_spaces, action_space):
         super(ConcatLayer, self).check_input_spaces(input_spaces, action_space)
         in1_space = input_spaces["input1"]
-        # Make sure all inputs have the same shape except for the last rank.
+        # Make sure all api_methods have the same shape except for the last rank.
         for key, in_space in input_spaces.items():
             assert in1_space.shape[:-1] == in_space.shape[:-1], \
                 "ERROR: Input spaces to ConcatLayer must have same shape except for last rank. {}'s shape is {}, but " \

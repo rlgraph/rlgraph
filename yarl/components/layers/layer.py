@@ -81,7 +81,7 @@ class Layer(Stack):
         This is where the graph-logic of this layer goes.
 
         Args:
-            *inputs (any): The input(s) to this layer. The number of inputs must match self.num_graph_fn_inputs.
+            *inputs (any): The input(s) to this layer. The number of api_methods must match self.num_graph_fn_inputs.
 
         Returns:
             The output(s) of this layer. The number of elements in the returned tuple must match self.num_graph_fn_outputs.

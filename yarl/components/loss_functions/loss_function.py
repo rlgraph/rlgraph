@@ -30,7 +30,7 @@ class LossFunction(Component):
 
     API:
     ins:
-        various inputs (depending on specific loss function type (the Agent))
+        various api_methods (depending on specific loss function type (the Agent))
     outs:
         loss (SingleDataOp): The average loss value (over all single items in a batch).
         loss_per_item (SingleDataOp): The loss value vector holding single loss values (one per item in a batch).
@@ -59,7 +59,7 @@ class LossFunction(Component):
         Returns the single loss values (one for each item in a batch).
 
         Args:
-            *inputs (DataOpTuple): The various inputs that this function needs to calculate the loss.
+            *inputs (DataOpTuple): The various api_methods that this function needs to calculate the loss.
 
         Returns:
             SingleDataOp: The tensor specifying the loss per item. The batch dimension of this tensor corresponds

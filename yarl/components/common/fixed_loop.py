@@ -49,14 +49,15 @@ class FixedLoop(Component):
             raise YARLError("ERROR: GraphFn '{}' not found in Component '{}'!".format(graph_fn_name,
                                                                                       call_component.global_scope))
         # TODO: Do we sum up, append to list, ...?
-        self.define_inputs("inputs")
+        self.define_inputs("api_methods")
         self.define_outputs("fixed_loop_result")
         self.add_component(call_component)
-        self.add_graph_fn("inputs", "fixed_loop_result", self._graph_fn_call_loop, flatten_ops={"inputs"})
+        self.add_graph_fn("api_methods", "fixed_loop_result", self._graph_fn_call_loop, flatten_ops={"api_methods"})
 
     def _graph_fn_call_loop(self, *inputs):
         """
-        Calls the subcomponent of this loop the specified number of times and returns the final result.
+        Calls the sub-component of this loop the specified number of times and returns the final result.
+
         Args:
             *inputs (FlattenedDataOp): Parameters for the call component.
 
@@ -68,13 +69,14 @@ class FixedLoop(Component):
             # Initial call.
             result = self.graph_fn_to_call(*inputs)
 
-            def body(result, i):
-                with tf.control_dependencies(control_inputs=result):
-                    result = self.graph_fn_to_call(*inputs)
-                return result, i + 1
+            def body(result_, i):
+                with tf.control_dependencies(control_inputs=result_):
+                    result_ = self.graph_fn_to_call(*inputs)
+                return result_, i + 1
 
-            def cond(result, i):
+            def cond(result_, i):
                 return i < self.num_iterations - 1
 
             result, _ = tf.while_loop(cond=cond, body=body, loop_vars=(result, 0))
             return result
+

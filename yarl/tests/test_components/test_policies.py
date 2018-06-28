@@ -39,7 +39,7 @@ class TestPolicies(unittest.TestCase):
         test = ComponentTest(component=policy, input_spaces=dict(nn_input=state_space), action_space=action_space)
         policy_params = test.graph_executor.read_variable_values(policy.variables)
 
-        # Some NN inputs (4 input nodes, batch size=2).
+        # Some NN api_methods (4 input nodes, batch size=2).
         states = np.array([[-0.08, 0.4, -0.05, -0.55], [13.0, -14.0, 10.0, -16.0]])
         # Raw NN-output.
         expected_nn_output = np.matmul(states, policy_params["policy/test-network/hidden-layer/dense/kernel"])
@@ -85,7 +85,7 @@ class TestPolicies(unittest.TestCase):
         test = ComponentTest(component=policy, input_spaces=dict(nn_input=state_space), action_space=action_space)
         policy_params = test.graph_executor.read_variable_values(policy.variables)
 
-        # Some NN inputs (3 input nodes, batch size=3).
+        # Some NN api_methods (3 input nodes, batch size=3).
         states = np.array([[-0.01, 0.02, -0.03], [0.04, -0.05, 0.06], [-0.07, 0.08, -0.09]])
         # Raw NN-output (3 hidden nodes). All weights=1.5, no biases.
         expected_nn_output = np.matmul(states, policy_params["policy/test-network/hidden-layer/dense/kernel"])

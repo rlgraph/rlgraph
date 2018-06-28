@@ -85,13 +85,13 @@ class TensorFlowExecutor(GraphExecutor):
         # self.logger.info("Updating global distributed backend setting with backend {}".format(distributed_backend_))
         # set_distributed_backend(distributed_backend_)
 
-    def build(self):
+    def build(self, input_spaces):
         # Prepare for graph assembly.
         self.init_execution()
         self.setup_graph()
 
         # Assemble graph via graph builder.
-        self.graph_builder.build_graph_from_meta_graph(self.available_devices, self.default_device)
+        self.graph_builder.build_graph(input_spaces, self.available_devices, self.default_device)
 
         # Set up any remaining session or monitoring configurations.
         self.finish_graph_setup()

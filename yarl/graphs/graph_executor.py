@@ -63,26 +63,30 @@ class GraphExecutor(Specifiable):
         self.session_config = self.execution_spec["session_config"]
         self.distributed_spec = self.execution_spec.get("distributed_spec")
 
-    def build(self):
+    def build(self, input_spaces):
         """
         Sets up the computation graph by:
         - Starting the Server, if necessary.
         - Setting up the computation graph object.
         - Assembling the computation graph defined inside our core component.
         - Setting up graph-savers, -summaries, and finalizing the graph.
+
+        Args:
+            input_spaces (dict): Dict with keys as core's API method names and values as tuples of Spaces that
+                should go into these API methods.
         """
         raise NotImplementedError
 
     def execute(self, sockets, inputs=None):
         """
-        Fetches one or more Socket outputs from the graph (given some inputs) and returns their outputs.
+        Fetches one or more Socket outputs from the graph (given some api_methods) and returns their outputs.
 
         Args:
             sockets (Union[str,List[str]]): A name or a list of names of the (out) Sockets to fetch from our core
                 component.
-            inputs (Optional[dict,np.array]): Dict specifying the provided inputs for some in-Sockets (key=in-Socket name,
+            inputs (Optional[dict,np.array]): Dict specifying the provided api_methods for some in-Sockets (key=in-Socket name,
                 values=the values that should go into this Socket (e.g. numpy arrays)).
-                Depending on these given inputs, the correct backend-ops can be selected within the given out-Sockets.
+                Depending on these given api_methods, the correct backend-ops can be selected within the given out-Sockets.
                 If only one out-Socket is given in `sockets`, and this out-Socket only needs a single in-Socket's data,
                 this in-Socket's data may be given here directly.
 

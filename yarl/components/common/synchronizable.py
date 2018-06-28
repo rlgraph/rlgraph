@@ -20,7 +20,7 @@ from __future__ import print_function
 from yarl import YARLError, get_backend
 from yarl.utils.ops import DataOpDict, SingleDataOp
 from yarl.utils.util import get_shape
-from yarl.components import Component, Socket
+from yarl.components import Component
 
 if get_backend() == "tf":
     import tensorflow as tf

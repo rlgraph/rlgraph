@@ -41,11 +41,11 @@ class Sampler(Component):
         self.sampling_strategy = sampling_strategy
 
         # Define our interface.
-        self.define_inputs("sample_size", "inputs")
+        self.define_inputs("sample_size", "api_methods")
         self.define_outputs("sample")
         # Connect the graph_fn, only flatten the incoming sample, not sample_size.
-        self.add_graph_fn(["sample_size", "inputs"], "sample", self._graph_fn_sample,
-                          flatten_ops={"inputs"})
+        self.add_graph_fn(["sample_size", "api_methods"], "sample", self._graph_fn_sample,
+                          flatten_ops={"api_methods"})
 
     def _graph_fn_sample(self, sample_size, inputs):
         """
@@ -58,7 +58,7 @@ class Sampler(Component):
                 All values (tensors) should all be the same size.
 
         Returns:
-            FlattenedDataOp: The sub-sampled inputs (will be unflattened automatically).
+            FlattenedDataOp: The sub-sampled api_methods (will be unflattened automatically).
         """
         batch_size = get_batch_size(next(iter(inputs.values())))
 

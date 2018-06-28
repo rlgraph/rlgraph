@@ -31,7 +31,7 @@ class Optimizer(Component):
         loss (SingleDataOp): The loss function's output.
         grads_and_vars (DataOpTuple): The zipped gradients plus corresponding variables to be fed back into the
             Optimizer for actually applying the gradients to the variables.
-        *inputs (any): Other necessary inputs for the specific type of optimizer (e.g. a time-step).
+        *api_methods (any): Other necessary api_methods for the specific type of optimizer (e.g. a time-step).
     outs:
         calc_grads_and_vars (DataOpTuple): The zipped gradients plus corresponding variables to be fed back into the
             Optimizer for actually applying the gradients to the variables (via in-Socket `grads_and_vars`).

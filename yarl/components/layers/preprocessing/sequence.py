@@ -51,9 +51,9 @@ class Sequence(PreprocessLayer):
         self.sequence_length = seq_length
         self.add_rank = add_rank
 
-        # Whether the first rank of the inputs is the batch dimension (known at build time).
+        # Whether the first rank of the api_methods is the batch dimension (known at build time).
         self.first_rank_is_batch = None
-        # The sequence-buffer where we store previous inputs.
+        # The sequence-buffer where we store previous api_methods.
         self.buffer = None
         # The index into the buffer.
         self.index = None
@@ -74,13 +74,13 @@ class Sequence(PreprocessLayer):
 
     def _graph_fn_apply(self, inputs):
         """
-        Sequences (stitches) together the incoming inputs by using our buffer (with stored older records).
+        Sequences (stitches) together the incoming api_methods by using our buffer (with stored older records).
         Sequencing happens within the last rank if `self.add_rank` is False, otherwise a new rank is added at the end for
         the sequencing.
 
         Args:
             inputs (FlattenedDataOp): The FlattenedDataOp to be sequenced.
-                One sequence is generated separately for each SingleDataOp in inputs.
+                One sequence is generated separately for each SingleDataOp in api_methods.
 
         Returns:
             FlattenedDataOp: The FlattenedDataOp holding the sequenced SingleDataOps as values.
@@ -126,11 +126,11 @@ class Sequence(PreprocessLayer):
 
         with tf.control_dependencies(control_inputs=[index_plus_1]):
             sequences = FlattenedDataOp()
-            # Collect the correct previous inputs from the buffer to form the output sequence.
+            # Collect the correct previous api_methods from the buffer to form the output sequence.
             for key in inputs.keys():
                 n_in = [self.buffer[key][(self.index + n) % self.sequence_length] for n in xrange(self.sequence_length)]
 
-                # Add the sequence-rank to the end of our inputs.
+                # Add the sequence-rank to the end of our api_methods.
                 if self.add_rank:
                     sequence = tf.stack(values=n_in, axis=-1)
                 # Concat the sequence items in the last rank.

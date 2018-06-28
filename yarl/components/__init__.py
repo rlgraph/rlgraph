@@ -21,7 +21,6 @@ from yarl.utils.util import default_dict
 
 # Core.
 from yarl.components.component import Component, CONNECT_INS, CONNECT_OUTS, CONNECT_ALL
-from yarl.components.socket_and_graph_fn import GraphFunction, Socket
 # Component child-classes.
 from yarl.components.common import *
 from yarl.components.distributions import *
@@ -43,6 +42,6 @@ default_dict(Component.__lookup_classes__, NeuralNetwork.__lookup_classes__)
 default_dict(Component.__lookup_classes__, Optimizer.__lookup_classes__)
 
 
-__all__ = ["Component", "CONNECT_INS", "CONNECT_OUTS", "GraphFunction", "Socket"] + \
+__all__ = ["Component", "CONNECT_INS", "CONNECT_OUTS", "GraphFunction"] + \
           list(set(map(lambda x: x.__name__, Component.__lookup_classes__.values())))
 

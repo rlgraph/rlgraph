@@ -17,18 +17,18 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import logging
 from collections import OrderedDict
+import logging
 import re
 
 from yarl import YARLError
-from yarl.spaces.space_utils import flatten_op, unflatten_op, get_space_from_op
+from yarl.spaces.space_utils import flatten_op, unflatten_op, get_space_from_op, convert_op_to_op_record
 from yarl.utils.ops import SingleDataOp, DataOpRecord, FlattenedDataOp
 
 _logger = logging.getLogger(__name__)
 
 
-class Socket(object):
+class ObsoleteSocket(object):
     """
     A Socket object describes a connection to other Sockets, GraphFunctions, or Spaces inside and between ModelComponents.
     One Socket either carries:
@@ -38,7 +38,7 @@ class Socket(object):
     - a dict of ops (nesting also supported)
 
     Also, each of the above possibilities can have many parallel solutions. These splits happen e.g. if two Sockets
-    connect to the same target Socket. In this case, the target Socket's inputs are treated as possible alternatives
+    connect to the same target Socket. In this case, the target Socket's api_methods are treated as possible alternatives
     and the Socket then implicitly produces two outputs that it further passes on to the next Sockets/GraphFunctions.
 
     When connected to a GraphFunction object, a Socket always represents one of the input parameters to the graph_fn
@@ -66,15 +66,9 @@ class Socket(object):
         # The inferred Space coming into this Socket.
         self.space = None
 
-        # A Socket ([from-sock]) takes a label for a specific outgoing connection ([to-sock]) via a call to:
-        # `Component.connect([from-sock], [to-sock], label="lab1")`.
-        # The following rules apply now:
-        # - [from-sock] will take all incoming ops (unless the incoming sock has its own filtering/labelling going on).
-        # - [from-sock] will only pass to [to-sock] (AND label with "lab1") those ops that either have no label yet or
-        #   that already carry the label "lab1". All other ops will not be passed to [to-sock].
-        # Also, when sent through a graph_fn, the resulting ops carry a union of all input ops' labels.
-        # key=[to-sock]'s component/name string; values=set of labels (str).
-        self.labels = dict()
+        # If True: This Socket - after assembly - already carries empty op_records that need to
+        # be populated. Non matching, incoming op_records are ignored.
+        self.individual_in_connections = False
 
         # The set of (alternative) DataOpRecords (op plus optional label(s)).
         self.op_records = set()
@@ -97,7 +91,7 @@ class Socket(object):
         if to_ in self.outgoing_connections:
             self.outgoing_connections.remove(to_)
 
-    def connect_from(self, from_, label=None):
+    def connect_from(self, from_):  #, label=None):
         """
         Adds an incoming connection to this Socket, either from a Space, a GraphFunction or from another Socket.
         This means that this Socket will receive `from_`'s ops during build time.
@@ -113,12 +107,12 @@ class Socket(object):
                 self.space = get_space_from_op(from_)
                 self.op_records.add(DataOpRecord(from_))
             # Socket: Add the label for ops passed to this Socket.
-            elif label is not None:
-                assert isinstance(from_, Socket), "ERROR: No `label`(s) ({}) allowed if `from_` ({}) is not a Socket " \
-                                                  "object!".format(label, str(from_))
-                if self not in from_.labels:
-                    from_.labels[self] = set()
-                from_.labels[self].update(label.split(","))
+            #elif label is not None:
+            #    assert isinstance(from_, Socket), "ERROR: No `label`(s) ({}) allowed if `from_` ({}) is not a Socket " \
+            #                                      "object!".format(label, str(from_))
+            #    if self not in from_.labels:
+            #        from_.labels[self] = set()
+            #    from_.labels[self].update(label.split(","))
             self.incoming_connections.append(from_)
 
     def disconnect_from(self, from_):
@@ -134,31 +128,102 @@ class Socket(object):
                 self.op_records = set()
             self.incoming_connections.remove(from_)
 
+    def push_op_from_incoming_socket(self, op, op_group=None, in_socket_name=None, in_op_record=None):
+        """
+        Pushes a primitive op into this Socket (from a previous/incoming Socket). Checks whether we are a Socket with
+        individual in-connections and if yet, tries to insert the op into one of our existing DataOpRecord objects.
+        Uses the given group ID, Socket name, etc.. to find a match.
+        If we are
+        If no existing record in this Socket is found, creates a new DataOpRecord
+        and inserts that.
+
+        Args:
+            op (op): The primitive op to insert into this Socket's `op_records` register.
+            op_group (Optional[int]): An optional op group ID to use for finding an already existing (but empty)
+                op_record.
+            in_socket_name (Optional[str]): An optional Socket name where the primitive `op` is coming from.
+            in_op_record (Optional[DataOpRecord]): An optional DataOpRecord that the primitive `op` belongs to.
+
+        Returns:
+            DataOpRecord: The complete DataOpRecord found (or created).
+        """
+        # Destination of the op is given by its op-record.
+        if in_op_record is not None and len(in_op_record.push_op_into_recs) > 0:
+            for target_rec in in_op_record.push_op_into_recs:
+                if target_rec.op is None:
+                    target_rec.op = op
+            return
+
+        # Try to find a destination op-record automatically or create a new op-record if no matching one found.
+        for to_op_record in self.op_records:
+            if op_group is not None and to_op_record.group != op_group:
+                continue
+            elif in_socket_name is not None and to_op_record.filter_by_socket_name is not None and \
+                    in_socket_name != to_op_record.filter_by_socket_name:
+                continue
+
+            # Found a matching group and/or matching from_socket_name -> store here.
+            if to_op_record.op is None:
+                to_op_record.op = op
+            break
+        # Nothing found -> Create new op_rec.
+        else:
+            to_op_record = convert_op_to_op_record(op, group=op_group)
+            self.op_records.add(to_op_record)
+
+        return to_op_record
+
+    def push_op_from_incoming_graph_fn(self, op, op_group=None):
+        """
+        Pushes a primitive op into this Socket (from an incoming GraphFunction).
+        Tries to find an already existing (empty) op record with the same group ID.
+        If no existing record in this Socket is found, creates a new DataOpRecord
+        and inserts that.
+
+        Args:
+            op (op): The primitive op to insert into this Socket's `op_records` register.
+            op_group (Optional[int]): An optional op group ID to use for finding an already existing (but empty)
+                op_record.
+
+        Returns:
+            DataOpRecord: The complete DataOpRecord found (or created).
+        """
+        # Try to find a destination op-record automatically or create a new op-record if no matching one found.
+        for to_op_record in self.op_records:
+            if op_group is not None and to_op_record.group != op_group:
+                continue
+
+            # Found a matching group and/or matching from_socket_name -> store here.
+            if to_op_record.op is None:
+                to_op_record.op = op
+            break
+        # Nothing found -> Create new op_rec.
+        else:
+            to_op_record = convert_op_to_op_record(op, group=op_group)
+            self.op_records.add(to_op_record)
+
+        return to_op_record
+
     def __str__(self):
         return "{}-Socket('{}/{}'{})".format(self.type, self.component.scope, self.name,
                                              " dev='{}'".format(self.component.device) if self.component.device else "")
 
 
-class GraphFunction(object):
+class OBSOLETEGraphFunction(object):
     """
     Class describing a segment of the graph defined by a graph_fn-method inside a Component.
     A GraphFunction is connected to incoming Sockets (these are the input parameters to the _graph-func) and to
     outgoing Sockets (these are the return values of the graph_fn).
-    Implements the update_from_input method which checks whether all necessary inputs to a graph_fn
-    are given and - if yes - starts producing output ops from these inputs and the graph_fn to be passed
+    Implements the update_from_input method which checks whether all necessary api_methods to a graph_fn
+    are given and - if yes - starts producing output ops from these api_methods and the graph_fn to be passed
     on further to the outgoing Sockets.
     """
-    def __init__(self, method, component, input_sockets, output_sockets,
-                 flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False):
+    def __init__(self, method, component, flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False):
         """
         Args:
             method (Union[str,callable]): The method of the graph_fn (must be the name (w/o _graph prefix)
                 of a method in `component` or directly a callable.
             component (Component): The Component object that this GraphFunction belongs to.
-            input_sockets (List[Socket]): The required input Sockets to be passed as parameters into the
-                graph_fn. In the order of graph_fn's parameters.
-            output_sockets (List[socket]): The Sockets associated with the return values coming from the graph_fn.
-                In the order of the returned values.
             flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
                 a FlattenedDataOp (with automatic key names).
                 Can also be a set of in-Socket names to flatten explicitly (True for all).
@@ -179,10 +244,6 @@ class GraphFunction(object):
                         The key can now be used to index into variables equally structured as B.
                 Has no effect if `split_ops` is False.
                 (default: False).
-            # OBSOLETE: Always unflatten all return values of graph_fns.
-            #unflatten_ops (bool): Whether to re-establish a nested structure of DataOps
-            #    for graph_fn-returned FlattenedDataOps.
-            #    (default: True)
 
         Raises:
             YARLError: If a graph_fn with the given name cannot be found in the component.
@@ -194,7 +255,6 @@ class GraphFunction(object):
         self.flatten_ops = flatten_ops
         self.split_ops = split_ops
         self.add_auto_key_as_first_param = add_auto_key_as_first_param
-        # self.unflatten_ops = unflatten_ops
 
         if isinstance(method, str):
             self.name = method
@@ -205,12 +265,10 @@ class GraphFunction(object):
             self.method = method
             self.name = re.sub(r'^_graph_fn_', "", method.__name__)
 
-        # Dict-records for input-sockets (by name) to keep information on their position and "op-completeness".
-        self.input_sockets = OrderedDict()
-        for i, in_sock in enumerate(input_sockets):
-            self.input_sockets[in_sock.name] = dict(socket=in_sock, pos=i)
-        # Just a list of Socket objects.
-        self.output_sockets = output_sockets
+        # List of lists of op-records that get passed through this graph_fn.
+        self.inputs = list()
+        # List of lists of op-records that come out of this graph_fn.
+        self.outputs = list()
 
         # Whether we have all necessary input-sockets for passing at least one input-op combination through
         # our computation method. As long as this is False, we return prematurely and wait for more ops to come in
@@ -225,26 +283,26 @@ class GraphFunction(object):
     def check_input_completeness(self):
         """
         Checks whether this GraphFunction is "input-complete" and stores the result in self.input_complete.
-        Input-completeness is reached (only once and then it stays that way) if all in-Sockets to this computation
-        have at least one op defined in their Socket.op_records set.
+        Input-completeness is reached (only once and then it stays that way) if all ops in one of the op-record-columns
+        are defined.
         """
         if not self.input_complete:
-            # Check, whether we are input-complete now (whether all in-Sockets have at least one op defined).
-            self.input_complete = True
-            for in_sock_rec in self.input_sockets.values():
-                if len(in_sock_rec["socket"].op_records) == 0:
-                    self.input_complete = False
-                    return False
-        return True
-
-    def get_method(self):
-        """
-        This graph_fns method object.
-
-        Returns:
-            Callable: Method object to call.
-        """
-        return self.method
+            # Check, whether we are input-complete now.
+            self.input_complete = False
+            # Loop through all op columns.
+            for in_op_col in self.inputs:
+                # Loop through each op in the column.
+                for op_rec in in_op_col:
+                    # Op not defined yet -> This column is not complete.
+                    if op_rec.op is None:
+                        break
+                # Loop completed normally: All ops in this column are defined -> input complete.
+                else:
+                    self.input_complete = True
+                    return True
+            return False
+        else:
+            return True
 
     def flatten_input_ops(self, *ops):
         """
@@ -253,18 +311,15 @@ class GraphFunction(object):
         will be ignored.
 
         Args:
-            *ops (DataOp): The items to flatten.
+            ops (DataOp): The list of DataOp objects to flatten.
 
         Returns:
-            tuple: All *ops as FlattenedDataOp.
+            Tuple[DataOp]: A new list with all ops as FlattenedDataOp.
         """
         # The returned sequence of output ops.
         ret = []
-        in_socket_names = list(self.input_sockets.keys())
         for i, op in enumerate(ops):
-            # self.flatten_ops cannot be False here.
-            if self.flatten_ops is True or (isinstance(self.flatten_ops, set) and
-                                            in_socket_names[i] in self.flatten_ops):
+            if self.flatten_ops is True or (isinstance(self.flatten_ops, set) and i in self.flatten_ops):
                 ret.append(flatten_op(op))
             else:
                 ret.append(op)
@@ -275,16 +330,16 @@ class GraphFunction(object):
     @staticmethod
     def unflatten_output_ops(*ops):
         """
-        Re-creates the originally nested input structure (as DataOpDict/DataOpTuple) of the given output ops.
+        Re-creates the originally nested input structure (as DataOpDict/DataOpTuple) of the given op-record column.
         Process all FlattenedDataOp with auto-generated keys, and leave the others untouched.
 
         Args:
-            *ops (DataOp): The ops that need to be re-nested (only process the FlattenedDataOp
+            ops (DataOp): The ops that need to be unflattened (only process the FlattenedDataOp
                 amongst these and ignore all others).
 
         Returns:
             Tuple[DataOp]: A tuple containing the ops as they came in, except that all FlattenedDataOp
-                have been un-flattened (re-nested) into their original ContainerDataOp structures.
+                have been un-flattened (re-nested) into their original structures.
         """
         # The returned sequence of output ops.
         ret = []
@@ -301,5 +356,5 @@ class GraphFunction(object):
         return tuple(ret)
 
     def __str__(self):
-        return "{}('{}' in=[{}] out=[{}])". \
-            format(type(self).__name__, self.name, str(self.input_sockets), str(self.output_sockets))
+        return "{}('{}')". \
+            format(type(self).__name__, self.name)

@@ -20,7 +20,7 @@ from __future__ import print_function
 import re
 import numpy as np
 
-from yarl.utils.util import YARLError, dtype, get_shape
+from yarl.utils.util import YARLError, dtype, get_shape, force_list
 from yarl.utils.ops import SingleDataOp, ContainerDataOp, DataOpDict, DataOpTuple, FlattenedDataOp, DataOpRecord
 from yarl.spaces import *
 
@@ -141,7 +141,7 @@ def split_flattened_input_ops(add_auto_key_as_first_param, *ops):
         *ops (DataOp): The input items into this GraphFunction.
 
     Returns:
-        Union[FlattenedDataOp,Tuple[DataOp]]: The sorted parameter tuples (by flat-key) to use as inputs in the
+        Union[FlattenedDataOp,Tuple[DataOp]]: The sorted parameter tuples (by flat-key) to use as api_methods in the
             calls to the graph_fn.
             If no FlattenedDataOp is in ops, returns ops as-is.
 
@@ -244,25 +244,22 @@ def unflatten_op(op):
     return deep_tuple(base_structure)
 
 
-def convert_ops_to_op_records(ops, labels=None):
+def convert_op_to_op_record(op, group=None):
     """
     Translates all elements in `ops` into DataOpRecords using the given labels and returns the tuple of
     DataOpRecords.
 
     Args:
-        ops (tuple): Tuple of primitive ops (e.g. tf ops) to convert into DataOpRecords.
-        labels (Optional[Set[str]]): Set of labels to give to each record.
+        op (op): A primitive op (e.g. tf op) to convert into a DataOpRecord.
+        group (Optional[int]): An op group ID to give to the generated op record.
 
     Returns:
-        tuple: Tuple matching `ops` but with the incoming ops wrapped as DataOpRecords.
+        DataOpRecord: The given op wrapped as DataOpRecord (with the given group ID).
     """
-    ret = list()
-    for op in ops:
-        # Convert to SingleDataOp with constant value if op is some primitive.
-        if isinstance(op, (int, float, bool, np.ndarray)):
-            op = SingleDataOp(constant_value=op)
-        ret.append(DataOpRecord(op, labels=labels))
-    return tuple(ret)
+    # Convert to SingleDataOp with constant value if op is some primitive.
+    if isinstance(op, (int, float, bool, np.ndarray)):
+        op = SingleDataOp(constant_value=op)
+    return DataOpRecord(op, group=group)
 
 
 def deep_tuple(x):

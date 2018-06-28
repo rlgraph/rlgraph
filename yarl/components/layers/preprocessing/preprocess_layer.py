@@ -27,7 +27,7 @@ class PreprocessLayer(Layer):
     A Layer that can serve as a preprocessing layer and also can act on complex container input
     spaces (Dict or Tuple).
     Do not override the `apply` graph_fn method. Instead, override the `preprocess` method, which
-    gets called automatically by `apply` after taking care of container inputs.
+    gets called automatically by `apply` after taking care of container api_methods.
     It is not required to implement the `reset` logic (or store any state information at all).
     """
     def __init__(self, scope="pre-process", **kwargs):

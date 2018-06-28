@@ -142,4 +142,4 @@ class TestExplorations(unittest.TestCase):
         self.assertAlmostEqual(10.0, np.mean(collected), places=1)
         self.assertAlmostEqual(2.0, np.std(collected), places=1)
 
-        # test.test(out_socket_names="noise", inputs=inputs, expected_outputs=expected)
+        # test.test(out_socket_names="noise", api_methods=api_methods, expected_outputs=expected)
