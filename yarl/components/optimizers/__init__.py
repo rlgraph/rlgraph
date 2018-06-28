@@ -21,11 +21,13 @@ from functools import partial
 
 from yarl.components.optimizers.horovod_optimizer import HorovodOptimizer
 from yarl.components.optimizers.local_optimizers import *
+from yarl.components.optimizers.multi_gpu_optimizer import MultiGpuOptimizer
 from yarl.components.optimizers.optimizer import Optimizer
 
 
 Optimizer.__lookup_classes__ = dict(
     horovod=HorovodOptimizer,
+    multigpi=MultiGpuOptimizer,
     # LocalOptimizers.
     gradientdescent=GradientDescentOptimizer,
     adagrad=AdagradOptimizer,
@@ -39,7 +41,7 @@ Optimizer.__lookup_classes__ = dict(
 # The default Optimizer to use if a spec is None and no args/kwars are given.
 Optimizer.__default_constructor__ = partial(GradientDescentOptimizer, learning_rate=0.0001)
 
-__all__ = ["Optimizer", "LocalOptimizer", "HorovodOptimizer",
+__all__ = ["Optimizer", "LocalOptimizer", "HorovodOptimizer","MultiGpuOptimizer",
            "GradientDescentOptimizer", "SGDOptimizer",
            "AdagradOptimizer", "AdadeltaOptimizer", "AdamOptimizer", "NadamOptimizer",
            "RMSPropOptimizer"]
