@@ -93,6 +93,12 @@ class TensorFlowExecutor(GraphExecutor):
         # Assemble graph via graph builder.
         self.graph_builder.build_graph_from_meta_graph(self.available_devices, self.default_device)
 
+        # TODO split graph assembly
+        self._build_device_strategy()
+
+        # Check device assignments for inconsistencies or unused devices.
+        self._sanity_check_devices()
+
         # Set up any remaining session or monitoring configurations.
         self.finish_graph_setup()
 
@@ -415,3 +421,42 @@ class TensorFlowExecutor(GraphExecutor):
     def set_weights(self, weights):
         # Note that this can only assign components which have been declared synchronizable.
         self.execute(sockets="sync", inputs=dict(sync_in=weights))
+
+    def _build_device_strategy(self):
+        """
+        When using multiple GPUs or other special devices, additional graph components
+        may be required to split up incoming data, load it to device memories, and aggregate
+        results.
+
+        In YARL, graph building and execution are separated so different device strategies can be
+        plugged into single agent definitions. For example, one agent may use a single cpu or GPU,
+        a local multi-gpu strategy and combine this with distributed sample collection via distributed
+        TensorFlow or Ray.
+
+        This method expands the meta graph according to the given device strategy if necessary.
+        """
+        # TODO 1. Default device strategy -> do nothing
+        # TODO 2. Custom device strategy -> User does everything
+        # TODO 3. sync-multi-gpu -> expand graph
+
+    def _sanity_check_devices(self):
+        """
+        Checks device assignments to identify unused or conflicting assignments.
+        """
+        assignments = self.graph_builder.device_component_assignments
+        used_devices = assignments.keys()
+
+        # Warn if some devices have not been assigned.
+        self.logger.info("Checking if all visible devices are in use. Available devices are: {}.".format(
+            self.available_devices
+        ))
+        for device in self.available_devices:
+            if device not in used_devices:
+                self.logger.warn("Warning: Device {} is usable but has not been assigned.".format(
+                    device
+                ))
+
+        # TODO check assignments for multi gpu strategy when implemented.
+
+
+
