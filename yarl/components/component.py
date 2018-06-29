@@ -61,6 +61,7 @@ class Component(Specifiable):
     A component also has a variable registry, the ability to save the component's structure and variable-values to disk,
     and supports adding its graph_fns to the overall computation graph.
     """
+
     def __init__(self, *components_to_add, **kwargs):
         """
         Args:
@@ -180,51 +181,97 @@ class Component(Specifiable):
 
         # Method is an API method.
         if method.__name__ in method_owner.api_methods:
-            api_method_rec = method_owner.api_methods[method.__name__]
-            # Create op-record column to call API method with.
-            in_op_column = DataOpRecordColumnIntoAPIMethod(op_records=len(params), component=self,
-                                                           api_method_rec=api_method_rec)
-            api_method_rec.in_op_columns.append(in_op_column)
-
-            # Link from in_op_recs into the new column.
-            for i, op_rec in enumerate(params):
-                op_rec.next.add(in_op_column.op_records[i])
-            # Now actually call the API method with that column, create an out column for that record and
-            # return the individual op-records.
-            out = method(*in_op_column.op_records)
-            out_op_column = DataOpRecordColumnFromAPIMethod(op_records=out, component=self)
-            api_method_rec.out_op_columns.append(out_op_column)
-            if len(out_op_column.op_records) == 1:
-                return out_op_column.op_records[0]
-            else:
-                return out_op_column.op_records
+            return self.call_api(method, method_owner, params)
 
         # Method is a graph_fn.
         else:
-            # Make sure the graph_fn belongs to this Component (not allowed to call graph_fn of other component
-            # directly).
-            assert method_owner is self
-            # Store a  graph_fn record in this component for better in/out-op-record-column reference.
-            if method.__name__ not in self.graph_fns:
-                self.graph_fns[method.__name__] = GraphFnRecord(graph_fn=method, component=self)
+            return self.call_graph_fn(method, method_owner, params, **kwargs)
 
-            # Create 2 op-record columns, one going into the graph_fn and one getting out of there and link
-            # them together via the graph_fn (w/o calling it).
-            out_graph_fn_column = DataOpRecordColumnFromGraphFn(1, component=self)  # TODO: hardcoded: 1 return value
-            in_graph_fn_column = DataOpRecordColumnIntoGraphFn(
-                len(params), component=self, graph_fn=method, out_graph_fn_column=out_graph_fn_column, **kwargs
-            )
-            self.graph_fns[method.__name__].in_op_columns.append(in_graph_fn_column)
-            self.graph_fns[method.__name__].out_op_columns.append(out_graph_fn_column)
+    def call_graph_fn(self, method, method_owner, params, **kwargs):
+        """
+        Excutes a dry run through a graph_fn (without calling it) just generating the empty
+        op-record-columns around the graph_fn (incoming and outgoing).
 
-            # Link from in_op_recs into the new column.
-            for i, op_rec in enumerate(params):
-                op_rec.next.add(in_graph_fn_column.op_records[i])
+        Args:
+            method (callable): The method (graph_fn or API method) to call.
+            method_owner (Component): Component this method belongs to.
+            *params (DataOpRecord): The DataOpRecords to be used  for calling the method.:
 
-            if len(out_graph_fn_column.op_records) == 1:
-                return out_graph_fn_column.op_records[0]
-            else:
-                return out_graph_fn_column.op_records
+        Keyword Args:
+            flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
+                a FlattenedDataOp (with automatic key names).
+                Can also be a set of in-Socket names to flatten explicitly (True for all).
+                (default: True).
+            split_ops (Union[bool,Set[str]]): Whether to split all or some of the already flattened DataOps
+                and send the SingleDataOps one by one through the graph_fn.
+                Example: Spaces=A=Dict (container), B=int (primitive)
+                    The graph_fn should then expect for each primitive Space in A:
+                        _graph_fn(primitive-in-A (Space), B (int))
+                        NOTE that B will be the same in all calls for all primitive-in-A's.
+                (default: True).
+            add_auto_key_as_first_param (bool): If `split_ops` is not False, whether to send the
+                automatically generated flat key as the very first parameter into each call of the graph_fn.
+                Example: Spaces=A=float (primitive), B=Tuple (container)
+                    The graph_fn should then expect for each primitive Space in B:
+                        _graph_fn(key, A (float), primitive-in-B (Space))
+                        NOTE that A will be the same in all calls for all primitive-in-B's.
+                        The key can now be used to index into variables equally structured as B.
+                Has no effect if `split_ops` is False.
+                (default: False).
+
+        """
+        # Make sure the graph_fn belongs to this Component (not allowed to call graph_fn of other component
+        # directly).
+        assert method_owner is self
+        # Store a  graph_fn record in this component for better in/out-op-record-column reference.
+        if method.__name__ not in self.graph_fns:
+            self.graph_fns[method.__name__] = GraphFnRecord(graph_fn=method, component=self)
+        # Create 2 op-record columns, one going into the graph_fn and one getting out of there and link
+        # them together via the graph_fn (w/o calling it).
+        out_graph_fn_column = DataOpRecordColumnFromGraphFn(1, component=self)  # TODO: hardcoded: 1 return value
+        in_graph_fn_column = DataOpRecordColumnIntoGraphFn(
+            len(params), component=self, graph_fn=method, out_graph_fn_column=out_graph_fn_column, **kwargs
+        )
+        self.graph_fns[method.__name__].in_op_columns.append(in_graph_fn_column)
+        self.graph_fns[method.__name__].out_op_columns.append(out_graph_fn_column)
+        # Link from in_op_recs into the new column.
+        for i, op_rec in enumerate(params):
+            op_rec.next.add(in_graph_fn_column.op_records[i])
+        if len(out_graph_fn_column.op_records) == 1:
+            return out_graph_fn_column.op_records[0]
+        else:
+            return out_graph_fn_column.op_records
+
+    def call_api(self, method, method_owner, *params):
+        """
+        Executes an assembly run through another API method (will actually call this API method for further assembly).
+
+        Args:
+            method (callable): The method (graph_fn or API method) to call.
+            method_owner (Component): Component this method belongs to.
+            *params (DataOpRecord): The DataOpRecords to be used  for calling the method.
+
+        Returns:
+            DataOpRecord: Output op of calling this api method.
+        """
+        api_method_rec = method_owner.api_methods[method.__name__]
+        # Create op-record column to call API method with.
+        in_op_column = DataOpRecordColumnIntoAPIMethod(op_records=len(params), component=self,
+                                                       api_method_rec=api_method_rec)
+        api_method_rec.in_op_columns.append(in_op_column)
+        # Link from in_op_recs into the new column.
+        for i, op_rec in enumerate(params):
+            op_rec.next.add(in_op_column.op_records[i])
+        # Now actually call the API method with that column, create an out column for that record and
+        # return the individual op-records.
+        out = method(*in_op_column.op_records)
+        out_op_column = DataOpRecordColumnFromAPIMethod(op_records=out, component=self)
+        api_method_rec.out_op_columns.append(out_op_column)
+
+        if len(out_op_column.op_records) == 1:
+            return out_op_column.op_records[0]
+        else:
+            return out_op_column.op_records
 
     def check_input_completeness(self):
         """
@@ -392,7 +439,7 @@ class Component(Specifiable):
             # of fixed values, for which we then don't need a shape as it comes with one).
             if initializer is None or isinstance(initializer, tf.keras.initializers.Initializer):
                 shape = tuple((() if add_batch_rank is False else
-                                 (None,) if add_batch_rank is True else (add_batch_rank,)) + (shape or ()))
+                               (None,) if add_batch_rank is True else (add_batch_rank,)) + (shape or ()))
             else:
                 shape = None
 
@@ -412,13 +459,13 @@ class Component(Specifiable):
         # Container-var: Save individual Variables.
         if isinstance(var, OrderedDict):
             for sub_key, v in var.items():
-                self.variables[key+sub_key] = v
+                self.variables[key + sub_key] = v
         else:
             self.variables[key] = var
 
         return var
 
-    def get_variables(self, *names,  **kwargs):
+    def get_variables(self, *names, **kwargs):
         """
         Utility method to get one or more component variable(s) by name(s).
 
@@ -483,7 +530,8 @@ class Component(Specifiable):
                 variables[re.sub(r'/', custom_scope_separator, name)] = self.variables[name]
             elif global_scope_name in self.variables:
                 if global_scope:
-                    variables[re.sub(r'/', custom_scope_separator, global_scope_name)] = self.variables[global_scope_name]
+                    variables[re.sub(r'/', custom_scope_separator, global_scope_name)] = self.variables[
+                        global_scope_name]
                 else:
                     variables[name] = self.variables[global_scope_name]
         return variables
@@ -502,7 +550,7 @@ class Component(Specifiable):
                 "histogram", "scalar" and "text".
         """
         # Prepend the "summaries/"-prefix.
-        name = "summaries/"+name
+        name = "summaries/" + name
         # Get global name.
         global_name = ((self.global_scope + "/") if self.global_scope else "") + name
         # Skip non matching summaries.
@@ -559,6 +607,7 @@ class Component(Specifiable):
 
         def api_method(*inputs):
             return self.call(graph_fn, *inputs, **kwargs)
+
         setattr(api_method, "__self__", self)
         setattr(api_method, "__name__", name)
         setattr(self, name, api_method)
@@ -597,7 +646,8 @@ class Component(Specifiable):
         if sub_component is None:
             sub_component = self
         elif self.global_scope:
-            sub_component.global_scope = self.global_scope + (("/"+sub_component.scope) if sub_component.scope else "")
+            sub_component.global_scope = self.global_scope + (
+                ("/" + sub_component.scope) if sub_component.scope else "")
         # Recurse.
         for sc in sub_component.sub_components.values():
             sub_component.propagate_scope(sc)
@@ -621,8 +671,8 @@ class Component(Specifiable):
             # -> Make sure the variable object is identical.
             if key in self.parent_component.variables:
                 if self.variables[key] is not self.parent_component.variables[key]:
-                    raise YARLError("ERROR: Variable registry of '{}' already has a variable under key '{}'!".\
-                        format(self.parent_component.name, key))
+                    raise YARLError("ERROR: Variable registry of '{}' already has a variable under key '{}'!". \
+                                    format(self.parent_component.name, key))
             self.parent_component.variables[key] = self.variables[key]
 
         # Recurse up the container hierarchy.
@@ -647,7 +697,7 @@ class Component(Specifiable):
             Component: The copied component object.
         """
         # Make sure we are still in the assembly phase (should not copy actual ops).
-        assert self.input_complete is False, "ERROR: Cannot copy a Component ('{}') that has already been built!".\
+        assert self.input_complete is False, "ERROR: Cannot copy a Component ('{}') that has already been built!". \
             format(self.name)
 
         if scope is None:
