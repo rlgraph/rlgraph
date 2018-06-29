@@ -42,8 +42,8 @@ class GraphBuilder(Specifiable):
     components, sockets and connections and creating the underlying computation
     graph.
     """
-    # Break graph building if caught in a loop.
-    MAX_RECURSIVE_CALLS = 100
+    # Break iterative DFS graph building if caught in a loop.
+    MAX_ITERATIVE_LOOPS = 100
 
     def __init__(self, name="model", action_space=None, summary_spec=None):
         """
@@ -183,8 +183,11 @@ class GraphBuilder(Specifiable):
             for i, space in enumerate(spaces):
                 if not isinstance(space, Space):
                     space = Space.from_spec(space)
+                # Generate a placeholder and store it as well as the Space itself.
                 in_op_records[i].op = space.get_tensor_variable(name="api-"+api_method_name+"/param-"+str(i),
                                                                 is_input_feed=True)
+                in_op_records[i].space = space
+
                 op_records_to_process.add(in_op_records[i])
 
         return op_records_to_process
@@ -209,6 +212,7 @@ class GraphBuilder(Specifiable):
                 out_op_rec.op = "done"
 
         # Re-iterate until our bag of op-recs to process is empty.
+        loop_counter = 0
         while len(op_records_to_process) > 0:
             op_records_list = list(op_records_to_process)
             new_op_records_to_process = list()
@@ -236,7 +240,9 @@ class GraphBuilder(Specifiable):
                                 spaces_dict = next_component.check_input_completeness()
                                 # call `when_input_complete` once on that Component.
                                 if spaces_dict is not None:
-                                    next_component.when_input_complete(spaces_dict)
+                                    self.logger.debug("Component {} is input-complete; spaces_dict={}".
+                                                      format(next_component.name, spaces_dict))
+                                    next_component.when_input_complete(spaces_dict, self.action_space)
 
                 # No next records.
                 else:
@@ -244,8 +250,9 @@ class GraphBuilder(Specifiable):
                     assert isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn)
                     # If column complete, call the graph_fn.
                     if op_rec.column.is_complete():
-                        # call the graph_fn with the given options.
-                        pass
+                        # Call the graph_fn with the given column and call-options.
+                        self.run_through_graph_fn_with_device_and_scope(op_rec.column)
+                        # Store all resulting op_recs to be processed next.
                     # If column incomplete, stop here for now.
                     else:
                         new_op_records_to_process.append(op_rec)
@@ -256,37 +263,12 @@ class GraphBuilder(Specifiable):
             for op_rec in new_op_records_to_process:
                 op_records_to_process.add(op_rec)
 
-    def run_through_component(self, component):
-        assert component.input_complete
-
-        for api_method_rec in component.api_methods:
-            # Loop through all op columns separately.
-            for in_op_col in api_method_rec.in_op_columns:
-                # Skip op columns that are already complete.
-                if self.check_op_column_complete(in_op_col):
-                    continue
-                # This op-column is not complete yet.
-
-
-    def build_component(self, component, input_spaces):
-        """
-        Called when a Component has all its incoming Spaces known. Only then can we sanity check the input
-        Spaces and create the Component's variables.
-
-        Args:
-            component (Component): The Component that now has all its input Spaces defined.
-            input_spaces (dict): A dict mapping all API method names of `component` to a tuple of Space objects that
-                go into the API method.
-        """
-        assert component.input_complete is True, "ERROR: Component {} is not input complete!".format(component.name)
-        self.logger.debug("Component {} is input-complete; space-dict={}".format(component.name, input_spaces))
-        # Component is complete now, allow it to sanity check its api_methods and create its variables.
-        component.when_input_complete(input_spaces, self.action_space, self.summary_spec["summaries_regexp"])
-
-        # Call each method in input_spaces.
-        for method_name in input_spaces.keys():
-            api_method_rec = component.api_methods[method_name]
-            self.push_api_method_rec(api_method_rec)
+            # Sanity check iterative loops.
+            loop_counter += 1
+            if loop_counter >= self.MAX_ITERATIVE_LOOPS:
+                raise YARLError("Sanity checking graph-build procedure: Reached max iteration steps: {}!".format(
+                    self.MAX_ITERATIVE_LOOPS
+                ))
 
     @staticmethod
     def check_op_column_complete(op_column):
@@ -296,73 +278,53 @@ class GraphBuilder(Specifiable):
         else:
             return True
 
-    def push_api_method_rec(self, api_method_rec):
-        # Check each input op column.
-        for in_op_col in api_method_rec.in_op_columns:
-            # Check whether this column is complete.
-            if self.check_op_column_complete(in_op_col):
-                pass
-            # Op column is not complete.
-            else:
-                # Check whether we have a matching
-                pass
-
-    def push_from_graph_fn(self, graph_fn):
+    def run_through_graph_fn_with_device_and_scope(self, op_rec_column):
         """
-        Builds outgoing graph function ops using `socket`'s component's device or the GraphBuilder's default
-        one.
+        Runs through a graph_fn with the given ops and thereby assigns a device (Component's device or GraphBuilder's
+        default) to the ops generated by a graph_fn.
 
         Args:
-            graph_fn (GraphFunction): Graph function object to build output ops for.
-        """
-        # Check for input-completeness of this graph_fn.
-        if graph_fn.check_input_completeness():
-            # We have to specify the device and the variable scope here as we will be running through a
-            # GraphFunction, which may add ops to the graph.
-            assigned_device = graph_fn.component.device or self.default_device
-            self.run_through_graph_fn_with_device_and_scope(graph_fn, assigned_device)
-
-            # Store assigned names for debugging.
-            if assigned_device not in self.device_component_assignments:
-                self.device_component_assignments[assigned_device] = [str(graph_fn)]
-            else:
-                self.device_component_assignments[assigned_device].append(str(graph_fn))
-
-            ## Keep moving through this graph_fn's out-Sockets (if input-complete).
-            #if graph_fn.input_complete:
-            #    for slot, out_socket in enumerate(graph_fn.output_sockets):
-            #        self.push_from_socket(out_socket)  #, graph_fn, slot)
-
-    def run_through_graph_fn_with_device_and_scope(self, graph_fn, assigned_device):
-        """
-        Assigns device to the ops generated by a graph_fn.
-
-        Args:
-            graph_fn (GraphFunction): GraphFunction to assign device to.
+            op_rec_column (DataOpRecordColumnIntoGraphFn): The column of DataOpRecords to be fed through the
+                graph_fn.
             assigned_device (str): Device identifier.
         """
+        # We have to specify the device and the variable scope here as we will be running through a
+        # GraphFunction, which may add ops to the graph.
+        assigned_device = op_rec_column.component.device or self.default_device
+
         if get_backend() == "tf":
             if assigned_device not in self.available_devices:
-                self.logger.error("Assigned device {} for graph_fn {} not in available devices:\n {}".
-                                  format(assigned_device, graph_fn, self.available_devices))
+                self.logger.error("Assigned device '{}' for graph_fn '{}' not in available devices:\n {}".
+                                  format(assigned_device, op_rec_column.graph_fn.__name__, self.available_devices))
 
             # Assign proper device to all ops created in this context manager.
             with tf.device(assigned_device):
                 # Name ops correctly according to our Component hierarchy.
-                with tf.name_scope(graph_fn.component.global_scope+('/' if graph_fn.component.global_scope else "")):
-                    self.logger.debug("Assigning device {} to graph_fn {} (scope {}).".
-                                      format(assigned_device, graph_fn, graph_fn.component.global_scope))
-                    self.run_through_graph_fn(graph_fn)
+                with tf.name_scope(op_rec_column.component.global_scope+
+                                   ('/' if op_rec_column.component.global_scope else "")):
+                    self.logger.debug(
+                        "Assigning device '{}' to graph_fn '{}' (scope '{}').".
+                        format(assigned_device, op_rec_column.graph_fn.__name__, op_rec_column.component.global_scope)
+                    )
+                    self.run_through_graph_fn(op_rec_column)
 
-    def run_through_graph_fn(self, graph_fn):
+        # Store assigned names for debugging.
+        if assigned_device not in self.device_component_assignments:
+            self.device_component_assignments[assigned_device] = [str(op_rec_column.graph_fn.__name__)]
+        else:
+            self.device_component_assignments[assigned_device].append(str(op_rec_column.graph_fn.__name__))
+
+    def run_through_graph_fn(self, op_rec_column):
         """
-        Pushes all incoming ops through the method of this GraphFunction object.
-        The ops are collected from incoming Sockets and optionally flattened and/or split
-        before pushing them through the method and the return values optionally unflattened.
+        Pushes all ops in the column through the respective graph_fn (graph_fn-spec and call-options are part of
+        the column).
+        Call options include flattening ops, flattening+splitting ops and (when splitting) adding the auto-generated
+        flat key as first parameter to the different (split) calls of graph_fn.
+        After the call
 
         Args:
-            graph_fn (GraphFunction): The GraphFunction object to run through (its method) with all
-                possible in-Socket combinations (only those that have not run yet through the method).
+            op_rec_column (DataOpRecordColumnIntoGraphFn): The column of DataOpRecords to be fed through the
+                graph_fn.
         """
         in_op_records = [in_sock_rec["socket"].op_records for in_sock_rec in graph_fn.input_sockets.values()]
         in_op_records_combinations = list(itertools.product(*in_op_records))

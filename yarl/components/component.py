@@ -181,13 +181,13 @@ class Component(Specifiable):
 
         # Method is an API method.
         if method.__name__ in method_owner.api_methods:
-            return self.call_api(method, method_owner, params)
+            return self.call_api(method, method_owner, *params)
 
         # Method is a graph_fn.
         else:
-            return self.call_graph_fn(method, method_owner, params, **kwargs)
+            return self.call_graph_fn(method, method_owner, *params, **kwargs)
 
-    def call_graph_fn(self, method, method_owner, params, **kwargs):
+    def call_graph_fn(self, method, method_owner, *params, **kwargs):
         """
         Excutes a dry run through a graph_fn (without calling it) just generating the empty
         op-record-columns around the graph_fn (incoming and outgoing).
@@ -195,7 +195,7 @@ class Component(Specifiable):
         Args:
             method (callable): The method (graph_fn or API method) to call.
             method_owner (Component): Component this method belongs to.
-            *params (DataOpRecord): The DataOpRecords to be used  for calling the method.:
+            *params (DataOpRecord): The DataOpRecords to be used for calling the method.:
 
         Keyword Args:
             flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
@@ -298,7 +298,7 @@ class Component(Specifiable):
                 spaces = [op_rec.space for op_rec in in_op_col.op_records]
                 # All Spaces are defined -> Store list of Spaces (for this column) in return dict.
                 if all(spaces):
-                    space_dict[method_name] = api_method_rec.spaces
+                    space_dict[method_name] = spaces
                     break
                 # Some Spaces are None.
                 else:
