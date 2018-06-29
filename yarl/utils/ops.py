@@ -208,7 +208,7 @@ class APIMethodRecord(object):
         self.component = component
         self.must_be_complete = must_be_complete
 
-        self.spaces = None
+        self.spaces = list()
         self.in_op_columns = list()
         self.out_op_columns = list()
 

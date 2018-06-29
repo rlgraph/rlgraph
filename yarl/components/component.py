@@ -97,21 +97,10 @@ class Component(Specifiable):
         self.device = kwargs.pop("device", None)
         self.global_component = kwargs.pop("global_component", False)
         self.is_core = kwargs.pop("is_core", False)
-
-        # A group ID counter for parallelly incoming op records that need to be processed together.
-        #self.op_group_id = 0
-
-        #api_methods = util.force_list(kwargs.pop("api_methods", []))
-        #outputs = util.force_list(kwargs.pop("outputs", []))
-        #connections = kwargs.pop("connections", [])
-
         assert not kwargs, "ERROR: kwargs ({}) still contains items!".format(kwargs)
 
         # Dict of sub-components that live inside this one (key=sub-component's scope).
         self.sub_components = OrderedDict()
-
-        # Simple list of all GraphFunction objects that have ever been added to this Component.
-        #self.graph_fns = list()
 
         # Keep track of whether this Component has already been added to another Component and throw error
         # if this is done twice. Each Component can only be added once to a parent Component.
@@ -124,25 +113,9 @@ class Component(Specifiable):
         # Registry for graph_fn records.
         self.graph_fns = dict()
 
-        ### dict with key=API method name; value=list of in-Spaces that would go into the method.
-
-        # This Component's Socket objects by functionality.
-        #self.input_sockets = list()  # the exposed in-Sockets
-        #self.output_sockets = list()  # the exposed out-Sockets
-        #self.internal_sockets = list()  # internal (non-exposed) in/out-Sockets (e.g. used to connect 2 GraphFunctions)
-
         # Whether we know already all our in-Sockets' Spaces.
         # Only then can we create our variables. Model will do this.
         self.input_complete = False
-
-        # A set of in-Socket names for which it is ok, not to be connected after the
-        # YARL-meta graph is passed on for building.
-        #self.unconnected_sockets_in_meta_graph = set()
-
-        # Contains sub-Components of ours that do not have in-Sockets.
-        #self.no_input_sub_components = set()
-        # Contains our GraphFunctions that have no in-Sockets.
-        #self.no_input_graph_fns = set()
 
         # All Variables that are held by this component (and its sub-components) by name.
         # key=full-scope variable name (scope=component/sub-component scope)
@@ -155,21 +128,6 @@ class Component(Specifiable):
         # The regexp that a summary's full-scope name has to match in order for it to be generated and registered.
         # This will be set by the GraphBuilder at build time.
         self.summary_regexp = None
-
-        #self.define_inputs(*api_methods)
-        #self.define_outputs("_variables", *outputs)
-
-        # Adds the default "_variables" out-Socket responsible for sending out all our variables.
-        #self.add_graph_fn(None, "_variables", self._graph_fn__variables, flatten_ops=False)
-
-        # Add the sub-components.
-        #components_to_add = components_to_add if len(components_to_add) > 0 else kwargs.get("sub_components", [])
-        #for sub_component_spec in components_to_add:
-        #    self.add_component(Component.from_spec(sub_component_spec))
-
-        ## Add the connections.
-        #for connection in connections:
-        #    self.connect(connection[0], connection[1])
 
     def get_api_methods(self):
         ret = dict()
@@ -217,8 +175,6 @@ class Component(Specifiable):
         Returns:
             The
         """
-        #in_op_recs = params
-
         # Owner of method:
         method_owner = method.__self__
 
@@ -350,7 +306,7 @@ class Component(Specifiable):
             summary_name = re.sub(r':\d+$', "", summary_name)
             self.create_summary(summary_name, var)
 
-    def get_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True,
+    def create_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True,
                      from_space=None, add_batch_rank=False, flatten=False):
         """
         Generates or returns a variable to use in the selected backend.
@@ -544,7 +500,6 @@ class Component(Specifiable):
 
         # If already there -> Error.
         if key_ in self.parent_component.summaries:
-            #if self.variables[key] is not self.parent_component.variables[key]:
             raise YARLError("ERROR: Summary registry of '{}' already has a summary under key '{}'!". \
                             format(self.parent_component.name, key_))
         self.parent_component.summaries[key_] = self.summaries[key_]
@@ -574,225 +529,6 @@ class Component(Specifiable):
         setattr(api_method, "__name__", name)
         setattr(self, name, api_method)
         self.api_methods[name] = APIMethodRecord(api_method, component=self)
-
-    def OBSOLETE_define_inputs(self, *sockets, **kwargs):
-        """
-        Calls add_sockets with type="in" and then connects each of the Sockets with the given
-        Space.
-
-        Args:
-            *sockets (List[Socket]): The list of in-Sockets to add.
-
-        Keyword Args:
-            space (Optional[Space]): The Space to connect to the in-Sockets.
-        """
-        self.add_sockets(*sockets, type="in")
-        space = kwargs.pop("space", None)
-        assert not kwargs
-
-        if space is not None:
-            for socket in sockets:
-                self.connect(space, self.get_socket(socket).name)
-
-    def OBSOLETE_define_outputs(self, *sockets):
-        """
-        Calls add_sockets with type="out".
-
-        Args:
-            *sockets (List[Socket]): The list of out-Sockets to add.
-        """
-        self.add_sockets(*sockets, type="out")
-
-    def OBSOLETE_add_socket(self, name, value=None, **kwargs):
-        """
-        Adds new input/output Sockets to this component.
-
-        Args:
-            name (str): The name for the Socket to be created.
-            value (Optional[numeric]): The constant value of the Socket (if this should be a constant-value Socket).
-
-        Keyword Args:
-            type (str): Either "in" or "out". If no type given, try to infer type by the name.
-                If name contains "input" -> type is "in", if name contains "output" -> type is "out".
-            internal (bool): True if this is an internal (non-exposed) Socket (e.g. used for connecting
-                2 GraphFunctions directly with each other).
-
-        Raises:
-            YARLError: If type is not given and cannot be inferred.
-        """
-        type_ = kwargs.pop("type", kwargs.pop("type_", None))
-        internal = kwargs.pop("internal", False)
-        assert not kwargs
-
-        # Make sure we don't add two sockets with the same name.
-        all_names = [sock.name for sock in self.input_sockets + self.output_sockets + self.internal_sockets]
-
-        # Try to infer type by socket name (if name contains 'input' or 'output').
-        if type_ is None:
-            mo = re.search(r'([\d_]|\b)(in|out)put([\d_]|\b)', name)
-            if mo:
-                type_ = mo.group(2)
-            if type_ is None:
-                raise YARLError("ERROR: Cannot infer socket type (in/out) from socket name: '{}'!".format(name))
-
-        if name in all_names:
-            raise YARLError("ERROR: Socket of name '{}' already exists in component '{}'!".format(name, self.name))
-
-        sock = Socket(name=name, component=self, type_=type_)
-
-        if internal:
-            self.internal_sockets.append(sock)
-        elif type_ == "in":
-            self.input_sockets.append(sock)
-        else:
-            self.output_sockets.append(sock)
-
-        # A constant value Socket.
-        if value is not None:
-            op = SingleDataOp(constant_value=value)
-            sock.connect_from(op)
-
-    def OBSOLETE_add_sockets(self, *socket_names, **kwargs):
-        """
-        Adds new input/output Sockets to this component.
-
-        Args:
-            *socket_names (List[str]): List of names for the Sockets to be created.
-
-        Keyword Args:
-            type (str): Either "in" or "out". If no type given, try to infer type by the name.
-                If name contains "input" -> type is "in", if name contains "output" -> type is "out".
-            internal (bool): True if this is an internal (non-exposed) Socket (e.g. used for connecting
-                2 GraphFunctions directly with each other).
-
-        Raises:
-            YARLError: If type is not given and cannot be inferred.
-        """
-        for name in socket_names:
-            self.add_socket(name, **kwargs)
-
-    def OBSOLETE_rename_socket(self, old_name, new_name):
-        """
-        Renames an already existing in- or out-Socket of this Component.
-
-        Args:
-            old_name (str): The current name of the Socket.
-            new_name (str): The new name of the Socket. No other Socket with this name must exist in this Component.
-        """
-        all_sockets = self.input_sockets + self.output_sockets + self.internal_sockets
-        socket = self.get_socket_by_name(self, old_name)  # type: Socket
-        assert socket in all_sockets,\
-            "ERROR: Socket with name '{}' not found in Component '{}'!".format(old_name, self.name)
-        # Make sure the new name is not taken yet.
-        socket_with_new_name = self.get_socket_by_name(self, new_name)
-        assert socket_with_new_name is None,\
-            "ERROR: Socket with name '{}' already exists in Component '{}'!".format(new_name, self.name)
-        socket.name = new_name
-
-    def OBSOLETE_remove_socket(self, socket_name):
-        """
-        Removes an in- or out-Socket from this Component. The Socket to be removed must not have any connections yet
-        from other (external) Components.
-
-        Args:
-            socket_name (str): The name of the Socket to be removed.
-        """
-        socket = self.get_socket_by_name(self, socket_name)  # type: Socket
-        assert socket, "ERROR: Socket with name '{}' not found in Component '{}'!".format(socket_name, self.name)
-        assert socket not in self.internal_sockets,\
-            "ERROR: Cannot remove an internal Socket ({}) in Component {}!".format(socket.name, self.name)
-
-        # Make sure this Socket is without connections.
-        if socket.type == "in" and len(socket.incoming_connections) > 0:
-            raise YARLError("ERROR: Cannot remove an in-Socket ('{}') that already has incoming connections!".
-                            format(socket.name))
-        elif socket.type == "out" and len(socket.outgoing_connections) > 0:
-            raise YARLError("ERROR: Cannot remove an out-Socket ('{}') that already has outgoing connections!".
-                            format(socket.name))
-
-        # in-Socket
-        if socket in self.input_sockets:
-            self.input_sockets.remove(socket)
-        # out-Socket
-        else:
-            self.output_sockets.remove(socket)
-
-    def OBSOLETE_add_graph_fn(self, inputs, outputs, method,
-                     flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False):
-        """
-        Links a set (A) of sockets via a graph_fn to a set (B) of other sockets via a graph_fn function.
-        Any socket in B is thus linked back to all sockets in A (requires all A sockets).
-
-        Args:
-            inputs (Optional[str,List[str]]): List or single input Socket specifiers to link from.
-            outputs (Optional[str,List[str]]): List or single output Socket specifiers to link to.
-            method (Union[str,callable]): The name of the template method to use for linking
-                (without the _graph_ prefix) or the method itself (callable).
-                The `method`'s signature and number of return values has to match the
-                number of input- and output Sockets provided here.
-            flatten_ops (bool,Set[str]): Passed to GraphFunction's c'tor. See GraphFunction for details.
-                Default: False.
-            split_ops (bool,Set[str]): Passed to GraphFunction's c'tor. See GraphFunction for details.
-                Default: False.
-            add_auto_key_as_first_param (bool): Passed to GraphFunction's c'tor. See GraphFunction for details.
-                Default: False.
-
-        Raises:
-            YARLError: If method_name is None and not exactly one member method found that starts with `_graph_`.
-        """
-        inputs = util.force_list(inputs)
-        outputs = util.force_list(outputs)
-
-        # TODO: Make it possible to call other graph_fns within a graph_fn and to call a sub-component's graph_fn within a graph_fn.
-        # TODO: Sanity check the tf methods signature (and return values from docstring?).
-        # Compile a list of all needed Sockets and create internal ones if they do not exist yet.
-        input_sockets = [self.get_socket(s, create_internal_if_not_found=True) for s in inputs]
-        output_sockets = [self.get_socket(s, create_internal_if_not_found=True) for s in outputs]
-
-        # Add the graph_fn record to all input and output sockets.
-        graph_fn = GraphFunction(
-            method=method,
-            component=self,
-            input_sockets=input_sockets,
-            output_sockets=output_sockets,
-            flatten_ops=flatten_ops,
-            split_ops=split_ops,
-            add_auto_key_as_first_param=add_auto_key_as_first_param,
-        )
-        self.graph_fns.append(graph_fn)
-
-        # Connect the graph_fn to all the given Sockets.
-        for input_socket in input_sockets:
-            input_socket.connect_to(graph_fn)
-        for output_socket in output_sockets:
-            output_socket.connect_from(graph_fn)
-
-        # If the GraphFunction has no api_methods or only constant value api_methods, we need to treat it separately during
-        # the build. Exception: _variables, which has to be built last after all our sub-components are done
-        # creating their variables and pushing them up to this Component.
-        # FixMe: What if an internal graph_fn input is blocked with a constant value? Need test case for that.
-        if len(input_sockets) == 0 and graph_fn.name != "_variables":
-            self.no_input_graph_fns.add(graph_fn)
-
-    def OBSOLETE_change_graph_fn_options(self, name, flatten_ops=None, split_ops=None, add_auto_key_as_first_param=None):
-        """
-        Changes the options of one of our graph_fns.
-
-        Args:
-            name (str): The name of the graph_fn to change.
-            flatten_ops (Optional[bool]): If not None, change this option of the graph_fn to the given value.
-            split_ops (Optional[bool]): If not None, change this option of the graph_fn to the given value.
-            add_auto_key_as_first_param (Optional[bool]): If not None, change this option of the graph_fn
-                to the given value.
-        """
-        for graph_fn in self.graph_fns:  # type: GraphFunction
-            if graph_fn.name == name:
-                if flatten_ops is not None:
-                    graph_fn.flatten_ops = flatten_ops
-                if split_ops is not None:
-                    graph_fn.split_ops = split_ops
-                if add_auto_key_as_first_param is not None:
-                    graph_fn.add_auto_key_as_first_param = add_auto_key_as_first_param
 
     def add_components(self, *components):
         """
@@ -876,6 +612,10 @@ class Component(Specifiable):
         Returns:
             Component: The copied component object.
         """
+        # Make sure we are still in the assembly phase (should not copy actual ops).
+        assert self.input_complete is False, "ERROR: Cannot copy a Component ('{}') that has already been built!".\
+            format(self.name)
+
         if scope is None:
             scope = self.scope
         if name is None:
@@ -896,342 +636,7 @@ class Component(Specifiable):
         new_component.global_component = global_component
         new_component.parent_component = None  # erase the parent pointer
 
-        # Then cut all the new_component's outside connections (no need to worry about the other side as
-        # they were not notified of the copied Sockets).
-        for socket in new_component.input_sockets:
-            socket.incoming_connections = list()
-        for socket in new_component.output_sockets:
-            socket.outgoing_connections = list()
-
         return new_component
-
-    def OBSOLETE_connect(self, from_, to_):
-        """
-        Generic connection method to create connections: between
-        - a Socket (from_) and another Socket (to_).
-        - a Socket and a Space (or the other way around).
-        `from_` and `to_` can be directly Socket objects but also Socket-specifiers. See `self.get_socket` for details
-        on possible ways of specifying a socket (by string, component-name, etc..).
-
-        Also, `from_` and/or `to_` may be Component objects. In that case, all out-Sockets of `from_` will be
-        connected to the respective in-Sockets of `to_`.
-
-        Note that more specialised methods are available and should be used to increase code
-        readability.
-
-        Args:
-            from_ (any): The specifier of the connector (e.g. incoming Socket, an incoming Space).
-            to_ (any): The specifier of the connectee (e.g. another Socket).
-        """
-        self._connect_disconnect(from_, to_, disconnect_=False)
-
-    def OBSOLETE_disconnect(self, from_, to_):
-        """
-        Removes a connection between:
-        - a Socket (from_) and another Socket (to_).
-        - a Socket and a Space (or the other way around).
-        `from_` and `to_` can be directly Socket objects but also Socket-specifiers. See `self.get_socket` for details
-        on possible ways of specifying a socket (by string, component-name, etc..).
-        Also, `from_` and/or `to_` may be Component objects. In that case, all out-Socket connections of `from_` to all
-        in-Socket connections of `to_` are cut.
-
-        Args:
-            from_ (any): See `self.connect` for details.
-            to_ (any): See `self.connect` for details.
-        """
-        self._connect_disconnect(from_, to_, disconnect_=True)
-
-    def OBSOLETE__connect_disconnect(self, from_, to_, disconnect_=False):
-        """
-        Actual private implementer for `connect` and `disconnect`.
-
-        Args:
-            from_ (any): See `self.connect` for details.
-            to_ (any): See `self.connect` for details.
-            disconnect_ (bool): Only used internally. Whether to actually disconnect (instead of connect).
-        """
-        # Connect a Space (other must be Socket).
-        # Also, there are certain restrictions for the Socket's type.
-        if isinstance(from_, (Space, dict, SingleDataOp)) or \
-                (not isinstance(from_, str) and isinstance(from_, Hashable) and from_ in Space.__lookup_classes__):
-            return self.connect_space_to_socket(from_, to_, disconnect_)
-        # TODO: Special case: Never really done yet: Connecting an out-Socket to a Space (usually: action-space).
-        elif isinstance(to_, (Space, dict)) or \
-                (not isinstance(to_, str) and isinstance(to_, Hashable) and to_ in Space.__lookup_classes__):
-            return self.connect_out_socket_to_space(from_, to_, disconnect_)
-        # to_ is Component.
-        if isinstance(to_, Component):
-            # Both from_ and to_ are Components: Connect them Socket-by-Socket and return.
-            if isinstance(from_, Component):
-                # -1 for the special "_variables" Socket, which should not be connected.
-                return self.connect_component_to_component(from_, to_)  # , label
-            # Get the 1 in-Socket of to_.
-            to_socket_obj = to_.get_socket(type_="in")
-        # to_ is Socket specifier.
-        else:
-            to_socket_obj = self.get_socket(to_)
-
-        # from_ is Component. Get the 1 out-Socket of from_.
-        if isinstance(from_, Component):
-            from_socket_obj = from_.get_socket(type_="out")
-        # from_ is a constant value -> create SingleDataOp with constant_value defined and connect from it.
-        elif isinstance(from_, (int, float, bool, np.ndarray)):
-            assert disconnect_ is False  # hard assert
-            to_socket_obj.connect_from(SingleDataOp(constant_value=from_))
-            return
-        # from_ is a DataOpRecord with a Socket field. Connect the Sockets,
-        # and make sure that the from-Socket pushes that particular record into
-        # the out-Socket's record.
-        elif isinstance(from_, DataOpRecord):
-            assert from_.socket is not None
-            from_socket_obj = from_.socket
-            # Create a new op-rec for to_socket_obj.
-            to_op_rec = DataOpRecord(filter_by_socket_name=from_socket_obj.name, socket=to_socket_obj)
-            from_.push_op_into_recs.add(to_op_rec)
-        # Regular Socket->Socket connection.
-        else:
-            from_socket_obj = self.get_socket(from_)
-
-        # (Dis)connect the two Sockets in both ways.
-        if disconnect_:
-            from_socket_obj.disconnect_to(to_socket_obj)
-            to_socket_obj.disconnect_from(from_socket_obj)
-        else:
-            from_socket_obj.connect_to(to_socket_obj)
-            to_socket_obj.connect_from(from_socket_obj)
-
-    def OBSOLETE_connect_space_to_socket(self, input_space, in_socket, disconnect=False):
-        """
-        Connects a space to an input-socket.
-        Args:
-            input_space (Union[Space, dict, SingleDataOp]): Input space or space definition.
-            in_socket (Socket): Socket to connect.
-            disconnect (bool): Only used internally. Whether to actually disconnect (instead of connect).
-        """
-        input_space = input_space if isinstance(input_space, (Space, SingleDataOp)) else Space.from_spec(input_space)
-        socket_obj = self.get_socket(in_socket)
-        assert socket_obj.type == "in", "ERROR: Cannot connect a Space to an 'out'-Socket!"
-        if not disconnect:
-            socket_obj.connect_from(input_space)
-        else:
-            socket_obj.disconnect_from(input_space)
-
-    def OBSOLETE_connect_out_socket_to_space(self, out_socket, space, disconnect=False):
-        """
-        Connects an out socket to a space, e.g. an action space.
-
-        Args:
-            out_socket (Socket): Out-socket to connect.
-            space (Union[Space, dict, SingleDataOp]): Space or space definition.
-            disconnect (bool): Only used internally. Whether to actually disconnect (instead of connect).
-        """
-        to_space = space if isinstance(space, Space) else Space.from_spec(space)
-        socket_obj = self.get_socket(out_socket)
-        assert socket_obj.type == "out", "ERROR: Cannot connect an 'in'-Socket to a Space!"
-        if not disconnect:
-            socket_obj.connect_to(to_space)
-        else:
-            socket_obj.disconnect_to(to_space)
-
-    def OBSOLETE_connect_component_to_component(self, from_component, to_component):
-        """
-        Connects a component to another component via iterating over all their sockets.
-        Components must have the same number of sockets.
-
-        Args:
-            from_component (Component): Component from which to connect/
-            to_component (Component): Component to connect to.
-        """
-        assert len(to_component.output_sockets) - 1 == len(from_component.input_sockets), \
-            "ERROR: Can only connect two Components if their Socket numbers match! {} has {} out-Sockets while " \
-            "{} has {} in-Sockets.".format(from_component.name, len(from_component.output_sockets), to_component.name,
-                                           len(to_component.input_sockets))
-        out_sock_i = 0
-        for in_sock_i in range(len(to_component.input_sockets)):
-            # skip _variables Socket
-            if from_component.output_sockets[out_sock_i].name == "_variables":
-                out_sock_i += 1
-            self.connect(from_component.output_sockets[out_sock_i], to_component.input_sockets[in_sock_i])
-            out_sock_i += 1
-
-    def OBSOLETE___getitem__(self, socket_name):
-        """
-        Use the []-lookup operator to get Sockets of this Component (in- and out-Socket names must be unique so it
-        won't matter here, which type we lookup).
-
-        Args:
-            socket_name (str): The name of the Socket of this Component to return.
-
-        Returns:
-            Socket: The found Socket.
-
-        Raises:
-            KeyError: If Socket with the given name could not be found in this Component.
-        """
-        socket = self.get_socket_by_name(self, socket_name)
-        if socket is None:
-            raise KeyError("ERROR: Socket with name '{}' not found in Component '{}'!".format(socket_name, self.name))
-        return socket
-
-    def OBSOLETE___call__(self, *inputs):
-        """
-        FixMe: documentation.
-        Args:
-            *inputs ():
-
-        Returns:
-
-        """
-        assert len(inputs) == len(self.input_sockets)
-
-        # Create one DataOpRecord for each str input (an in-Socket's name).
-        for i, in_op_spec in enumerate(util.force_list(inputs)):
-            # Just a string: Create op_record with label so that only the Space from the Socket with that name
-            # can pass through.
-            if isinstance(in_op_spec, str):
-                # Socket is the parent's component's Socket with that name.
-                previous_socket = self.parent_component[in_op_spec]
-                next_op_rec = DataOpRecord(group=self.op_group_id, filter_by_socket_name=previous_socket.name)
-            # Already an op record.
-            else:
-                previous_socket = in_op_spec.socket
-                assert previous_socket is not None
-                next_op_rec = DataOpRecord(group=self.op_group_id)
-                # Tell the in_op record where it has to push its primitive op to.
-                in_op_spec.push_op_into_recs.add(next_op_rec)
-
-            # Auto-create the Socket->Socket connection.
-            self.connect(previous_socket, self.input_sockets[i])
-            # Store the input_ops in our in-Sockets.
-            self.input_sockets[i].op_records.add(next_op_rec)
-            # Make the in-Socket aware that it's using individual op-connections.
-            self.input_sockets[i].individual_in_connections = True
-
-        # Create one output op_record for each return value of the combination of our graph_fn.
-        out_ops = list()
-        for out_sock in self.output_sockets:
-            if out_sock.name == "_variables":
-                continue
-            out_op = DataOpRecord(group=self.op_group_id, socket=out_sock)
-            # Add it to the respective out-Socket.
-            out_sock.op_records.add(out_op)
-            out_ops.append(out_op)
-
-        self.op_group_id += 1
-
-        return out_ops[0] if len(out_ops) == 1 else out_ops
-
-    def OBSOLETE_get_socket(self, socket=None, type_=None, create_internal_if_not_found=False):
-        """
-        Returns a Component/Socket object pair given a specifier.
-
-        Args:
-            socket (Optional[Tuple[Component,str],str,Socket]):
-                1) The name (str) of a local Socket.
-                2) tuple: (Component, Socket-name OR Socket-object)
-                3) Socket: An already given Socket -> return this Socket.
-                4) None: Return the only Socket available on the given side.
-            type_ (Optional[str]): Type of the Socket. If None, Socket could be either
-                'in' or 'out'. This must be given if the only-Socket is wanted (socket is None).
-            create_internal_if_not_found (bool): Whether to automatically create an internal Socket if the Socket
-                cannot be found.
-
-        Returns:
-            Socket: The Socket found or automatically created.
-
-        Raises:
-            YARLError: If the Socket cannot be found and create_internal_if_not_found is False.
-        """
-        # Socket is given as a Socket object (simple pass-through).
-        if isinstance(socket, Socket):
-            return socket
-
-        # Return the only Socket of this component on given side (type_ must be given in this case as 'in' or 'out').
-        elif socket is None:
-            assert type_ is not None, "ERROR: type_ needs to be specified if you want to get only-Socket!"
-            if type_ == "out":
-                socket_list = self.output_sockets
-            else:
-                socket_list = self.input_sockets
-
-            assert len(socket_list) == 1, "ERROR: More than one {}-Socket! Cannot return only-Socket.".format(type_)
-            return socket_list[0]
-
-        # Possible constant-value for auto-generated internal Socket.
-        constant_value = None
-
-        # Socket is given as str: Try to look up socket by name.
-        if isinstance(socket, str):
-            socket_name = socket
-            component = self
-            socket_obj = self.get_socket_by_name(self, socket, type_=type_)
-
-        # Socket is a constant value Socket defined by its value -> create this Socket with
-        # a unique name and connect it to a constant value DataOp.
-        elif isinstance(socket, (int, float, bool, np.ndarray)):
-            socket_name = self.name + "-" + str(uuid.uuid1())
-            component = self
-            socket_obj = None
-            constant_value = socket
-
-        # Socket is given as component/sock-name OR component/sock-obj pair:
-        # Could be ours, external, but also one of our sub-component's.
-        else:
-            assert len(socket) == 2,\
-                "ERROR: Faulty socket spec! " \
-                "External sockets need to be given as two item tuple: (Component, socket-name/obj)!"
-
-            component = socket[0]  # type: Component
-            if isinstance(component, str):
-                component = self.sub_components.get(component)
-                if component is None:
-                    raise YARLError("ERROR: 1st item in tuple-Socket specifier is not the name of a sub-Component!".
-                                    format(socket[0]))
-            assert isinstance(component, Component), \
-                "ERROR: First element in socket specifier is not of type Component, but of type: " \
-                "'{}'!".format(type(component).__name__)
-            socket_name = socket[1]
-            # Socket is given explicitly -> use it.
-            if isinstance(socket[1], Socket):
-                socket_obj = socket[1]
-            # Name is a string.
-            else:
-                socket_obj = self.get_socket_by_name(component, socket[1], type_=type_)
-
-        # No Socket found.
-        if socket_obj is None:
-            # Create new internal one?
-            if create_internal_if_not_found is True:
-                self.add_socket(socket_name, value=constant_value, type_="in", internal=True)
-                socket_obj = self.get_socket(socket_name)
-            else:
-                raise YARLError("ERROR: No {}Socket named '{}' found in {}!".
-                                format("" if type_ is None else type_+"-", socket_name, component.name))
-
-        return socket_obj
-
-    @staticmethod
-    def OBSOLETE_get_socket_by_name(component, name, type_=None):
-        """
-        Returns a Socket object of the given component by the name of the Socket. Or None if no Socket could be found.
-
-        Args:
-            component (Component): The Component object to search.
-            name (str): The name of the Socket we are looking for.
-            type_ (str): The type ("in" or "out") of the Socket we are looking for. Use None for any type.
-
-        Returns:
-            Optional[Socket]: The found Socket or None if no Socket by the given name was found in `component`.
-        """
-        if type_ != "in":
-            socket_obj = next((x for x in component.output_sockets +
-                               component.internal_sockets if x.name == name), None)
-            if type_ is None and not socket_obj:
-                socket_obj = next((x for x in component.input_sockets if x.name == name), None)
-        else:
-            socket_obj = next((x for x in component.input_sockets +
-                               component.internal_sockets if x.name == name), None)
-        return socket_obj
 
     @staticmethod
     def scatter_update_variable(variable, indices, updates):
@@ -1295,24 +700,12 @@ class Component(Specifiable):
             Optional[dict]: A space-dict if the Component is input-complete, None otherwise.
         """
         assert self.input_complete is False
-
         space_dict = dict()
-        #self.input_complete = True
-        #for in_socket in self.input_sockets:
-        #    if in_socket.space is None and in_socket.name not in self.unconnected_sockets_in_meta_graph:
-        #        self.input_complete = False
-        #        return None
-        #    else:
-        #        space_dict[in_socket.name] = in_socket.space
-        #return space_dict
 
-
-        # Check, whether we are input-complete now.
         self.input_complete = True
-
         # Loop through all API methods.
         for method_name, api_method_rec in self.api_methods.items():
-            # This API method must not be completed, ignore and don't add it to space_dict.
+            # This API method doesn't have to be completed, ignore and don't add it to space_dict.
             if api_method_rec.must_be_complete is False:
                 continue
 
@@ -1321,21 +714,7 @@ class Component(Specifiable):
                 return None
             else:
                 space_dict[method_name] = api_method_rec.spaces
-            #space_dict[api_method_rec] = list()
-            ## Loop through each of the APIMethodRecs' in op columns.
-            #for in_op_col in api_method_rec.in_op_columns:
-            #    # Loop through each op in the column.
-            #    for op_rec in in_op_col:
-            #        # Op not defined yet -> This column is not complete.
-            #        if op_rec.op is None:
-            #            break
-            #    # Loop completed normally: All ops in this column are defined -> so far: input complete.
-            #    else:
-            #        break
-            ## None of the op columns is complete -> We are not input complete.
-            #else:
-            #    self.input_complete = False
-            #    return None
+
         return space_dict
 
     def _graph_fn__variables(self):
@@ -1355,6 +734,4 @@ class Component(Specifiable):
         return DataOpDict(variables_dict)
 
     def __str__(self):
-        return "{}('{}' in={} out={})". \
-            format(type(self).__name__, self.name, str(list(map(lambda s: s.name, self.input_sockets))),
-                   str(list(map(lambda s: s.name, self.output_sockets))))
+        return "{}('{}' api={})".format(type(self).__name__, self.name, str(list(self.api_methods.keys())))

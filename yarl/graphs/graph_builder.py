@@ -29,7 +29,7 @@ from yarl.spaces import Space
 from yarl.spaces.space_utils import split_flattened_input_ops, get_space_from_op
 from yarl.utils.input_parsing import parse_summary_spec
 from yarl.utils.util import all_combinations, force_list, force_tuple, get_shape
-from yarl.utils.ops import SingleDataOp, FlattenedDataOp, DataOpRecord, DataOpRecordColumn
+from yarl.utils.ops import SingleDataOp, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn
 from yarl.utils.component_printout import component_print_out
 
 if get_backend() == "tf":
@@ -96,7 +96,7 @@ class GraphBuilder(Specifiable):
         # Maps an out-Socket name+in-Socket/Space-combination to an actual DataOp to fetch from our Graph.
         #self.call_registry = dict()  # key=(FixMe: documentation)
 
-    def build_graph(self, input_spaces, available_devices, default_device):
+    def build(self, input_spaces, available_devices, default_device):
         """
         Builds the actual backend-specific graph from the YARL metagraph.
         Loops through all our sub-components starting at core and assembles the graph by creating placeholders,
@@ -108,90 +108,33 @@ class GraphBuilder(Specifiable):
                 during graph assembly.
             default_device (str): Default device identifier.
         """
-        # Build the meta-graph and collect all empty in-op-columns.
+        # Build the meta-graph (generating empty op-record columns around API methods
+        # and graph_fns).
         self.build_meta_graph(input_spaces)
-        for api_method_rec in self.core_component.api_methods.values():
-            for in_op_col in api_method_rec.in_op_columns:
-                self.collect_op_column(in_op_col)
-
-        # Before we start, sanity check the meta graph for obvious flaws.
-        #self.sanity_check_meta_graph()
 
         # Set devices usable for this graph.
         self.available_devices = available_devices
         self.default_device = default_device
 
-        # Collect all components and store their input-completeness state.
-        # TODO: remove hard-coding...
-        #input_completeness = dict({self.core_component: False,
-        #                           self.core_component.sub_components["dummy-with-sub-components"]: False})
-
-        # Actually build the graph.
         # Push all spaces through the API methods, then enter the main iterative DFS while loop.
-        for method_name, api_method_rec in self.core_component.api_methods.items():
-            self.push_spaces_into_api_method(input_spaces[method_name], api_method_rec)
+        op_records_to_process = self.build_input_space_ops(input_spaces)
 
-        # While some sub-components are still incomplete.
-        current_scope = self.core_component.global_scope
-        while not all(input_completeness.values()):
-            # Components to do on this level:
-            components = [
-                c for c in input_completeness.keys() if re.search(r'^{}'.format(current_scope), c.global_scope)
-            ]
-            for component in components:
-                was_input_complete = component.input_complete
-                space_dict = component.check_input_completeness()
-                # State changed -> Iterate through this component.
-                if space_dict is not None and was_input_complete is False:
-                    input_completeness[component] = True  # Change entry
-                    self.run_through_component(component, space_dict)
-
-        #space_dict = self.core_component.check_input_completeness()
-        #assert space_dict is not None
-        #self.build_component(self.core_component, space_dict)
-
-        # Check whether all our components and graph_fns are now input-complete.
-        self.sanity_check_build()
-
-        # Memoize possible input combinations for out-Socket `execution` calls.
-        self.memoize_inputs()
-
-        # Registers actual ops with the different out-Sockets, so we know, which ops to execute for a given
-        # out-Socket/input-feed-data combination.
-        self.register_ops()
+        self.build_graph(op_records_to_process)
 
     def build_meta_graph(self, input_spaces):
         # Call all API methods of the core and thereby, create empty in-op columns that serve as placeholders
         # and directed links for the build time.
-        for method_name, api_method_rec in self.core_component.api_methods.items():
+        for api_method_name, api_method_rec in self.core_component.api_methods.items():
             # Create an new in column and map it to the resulting out column.
-            in_ops_records = [DataOpRecord()] * len(force_list(input_spaces[method_name]))
+            in_ops_records = [DataOpRecord()] * len(force_list(input_spaces[api_method_name]))
             self.core_component.call(api_method_rec.method, *in_ops_records)
-            #out_op_col = DataOpRecordColumn(op_records=outs)
             # Register interface.
-            self.api[method_name] = (in_ops_records, api_method_rec.out_op_columns[0].op_records)
-
-    def collect_op_column(self, column):
-        new_columns = set()
-        for in_op_col in column:
-            self.unprocessed_in_op_columns[in_op_col.id] = in_op_col
-            if in_op_col.is_complete():
-                self.unprocessed_complete_in_op_columns[in_op_col.id] = in_op_col
-            # Follow each single op and collect new columns.
-            for op_rec in in_op_col.op_records:
-                # Follow each next op-column:
-                for next_op_rec in op_rec.next:
-                    # Completely new column: Process it.
-                    if next_op_rec[0] not in self.unprocessed_in_op_columns:
-                        # 0=column; 1=op-rec slot in that column
-                        new_columns.add(next_op_rec[0])
-
-        # Recurse:
-        for op_col in new_columns:
-            self.collect_op_column(op_col)
+            self.api[api_method_name] = (in_ops_records, api_method_rec.out_op_columns[0].op_records)
 
     def sanity_check_meta_graph(self, component=None):
         """
+        TODO: Rewrite this method according to new API-method design.
+
         Checks whether all the `component`'s and its sub-components' in-Sockets are simply connected in the
         meta-graph and raises detailed error messages if not. A connection to an in-Socket is ok if ...
         a) it's coming from another Socket or
@@ -232,41 +175,97 @@ class GraphBuilder(Specifiable):
                 ))
             self.sanity_check_meta_graph(sub_component)
 
-    def push_spaces_into_api_method(self, spaces, api_method_rec):
+    def build_input_space_ops(self, input_spaces):
         """
-        Stores Spaces information for an APIMethodRecord and creates ops and op-records from the given Spaces.
-        The APIMethodRecord must be one of the core Component's.
+        Generates ops from Space information and stores these ops in the DataOpRecords of our API
+        methods.
 
         Args:
-            spaces (List[Spaces,dict]: List of Space objects or specification dicts to create the Spaces that go into
-                the given APIMethodRecord.
-            api_method_rec (APIMethodRecord): The APIMethodRecord object to populate with op-records and Spaces.
+            input_spaces (dict): Dict with keys=api-method names; values=list of Space objects or specification dicts
+                to create the Spaces that go into the APIMethodRecords.
+
+        Returns:
+            Set[DataOpRecord]: A set of DataOpRecords with which we should start the building
+                process.
         """
-        assert api_method_rec.component.is_core,\
-            "ERROR: Can only push a Space into a core's API-method (method={})!".format(api_method_rec.method.__name__)
+        op_records_to_process = set()
 
-        # Create the placeholder and wrap it in a DataOpRecord, then add the DataOpRecords as a column to the
-        # APIMethodRecord.
-        api_method_rec.spaces = list()
-        column = list()
-        for i, space in enumerate(force_list(spaces)):
-            if not isinstance(space, Space):
-                space = Space.from_spec(space)
-            api_method_rec.spaces.append(space)
-            op = space.get_tensor_variable(name=api_method_rec.method.__name__+"/"+str(i), is_input_feed=True)
-            op_rec = DataOpRecord(op=op)
-            column.append(op_rec)
-        api_method_rec.in_op_columns.append(column)
+        for api_method_name, (in_op_records, _) in self.api.items():
+            spaces = force_list(input_spaces[api_method_name])
+            assert len(spaces) == len(in_op_records)
 
-        #op_rec = DataOpRecord(op)
-        #socket.op_records.add(op_rec)
+            # Create the placeholder and store it in the given DataOpRecords.
+            for i, space in enumerate(spaces):
+                if not isinstance(space, Space):
+                    space = Space.from_spec(space)
+                in_op_records[i].op = space.get_tensor_variable(name="api-"+api_method_name+"/param-"+str(i),
+                                                                is_input_feed=True)
+                op_records_to_process.add(in_op_records[i])
 
-        # Keep track of which input op (e.g. tf.placeholder) goes into this Socket.
-        #self.in_socket_registry[socket.name] = op
+        return op_records_to_process
 
-        # Remember, that this DataOp goes into a Socket at the very beginning of the Graph (e.g. a
-        # tf.placeholder).
-        #self.op_record_registry[op_rec] = {socket}
+    def build_graph(self, op_records_to_process):
+        """
+        The actual iterative depth-first search algorithm to build our graph from the already existing
+        meta-Graph structure.
+        Starts from a bag of DataOpRecords populated with the initial placeholders (from input
+        Spaces). Keeps pushing these ops through the meta-graph until a non-complete graph_fn
+        or a non-complete Component (API-method) is reached. Replaces the ops in the bad with the
+        reached ones and re-iterates like this until all op-records in the entire meta-graph
+        have been filled with actual ops.
+
+        Args:
+            op_records_to_process (Set[DataOpRecord]): The initial set of DataOpRecords (with populated `op` fields
+                to start the build with).
+        """
+        # Tag very last out-op-records with op="last", so we know in the build process that we are done.
+        for _, out_op_records in self.api.values():
+            for out_op_col in out_op_records.out_op_columns:
+                for op_rec in out_op_col.op_records:
+                    op_rec.op = "done"
+
+        # Re-iterate until our bag of op-recs to process is empty.
+        while len(op_records_to_process) > 0:
+            op_records_list = list(op_records_to_process)
+            new_op_records_to_process = list()
+            for op_rec in op_records_list:  # type: DataOpRecord
+                # There are next records:
+                if len(op_rec.next) > 0:
+                    # Push the op-record forward one step.
+                    for next_op_rec in op_rec.next:  # type: DataOpRecord
+                        # If not last op in this API-method ("done") -> continue.
+                        # Otherwise, replace "done" with actual op.
+                        if next_op_rec.op != "done":
+                            assert next_op_rec.op is None
+                            new_op_records_to_process.append(next_op_rec)
+                        next_op_rec.op = op_rec.op
+
+                        # Did we enter a new Component? If yes, check input-completeness and
+                        if op_rec.component is not next_op_rec.component:
+                            # Not input complete yet -> Check now.
+                            if next_op_rec.component.input_complete is False:
+                                spaces_dict = next_op_rec.component.check_input_completeness()
+                                # call `when_input_complete` once on that Component.
+                                if spaces_dict is not None:
+                                    next_op_rec.component.when_input_complete(spaces_dict)
+
+                # No next records.
+                else:
+                    # Must be a graph_fn column.
+                    assert isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn)
+                    # If column complete, call the graph_fn.
+                    if op_rec.column.is_complete():
+                        # call the graph_fn with the given options.
+                        pass
+                    # If column incomplete, stop here for now.
+                    else:
+                        new_op_records_to_process.append(op_rec)
+
+            # Replace all old records with new ones.
+            for op_rec in op_records_list:
+                op_records_to_process.remove(op_rec)
+            for op_rec in new_op_records_to_process:
+                op_records_to_process.add(op_rec)
 
     def run_through_component(self, component):
         assert component.input_complete
