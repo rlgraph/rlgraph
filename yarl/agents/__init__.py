@@ -20,6 +20,7 @@ from __future__ import print_function
 from yarl.agents.agent import Agent
 from yarl.agents.apex_agent import ApexAgent
 from yarl.agents.dqn_agent import DQNAgent
+from yarl.agents.ppo_agent import PPOAgent
 from yarl.agents.random_agent import RandomAgent
 
 
@@ -28,8 +29,10 @@ Agent.__lookup_classes__ = dict(
     dqnagent=DQNAgent,
     apex=ApexAgent,
     apexagent=ApexAgent,
+    ppo=PPOAgent,
+    ppoagent=PPOAgent,
     random=RandomAgent
 )
 
-__all__ = ["Agent", "DQNAgent", "RandomAgent"]
+__all__ = ["Agent", "DQNAgent", "ApexAgent", "PPOAgent", "RandomAgent"]
 
