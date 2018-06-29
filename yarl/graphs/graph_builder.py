@@ -64,9 +64,10 @@ class GraphBuilder(Specifiable):
         self.device_component_assignments = dict()
         self.available_devices = None
         self.default_device = None
+        self.device_strategy = None
 
         # Counting recursive steps.
-        self.build_steps= 0
+        self.build_steps = 0
 
         # Create an empty core Component into which everything will be assembled by an Algo.
         self.core_component = None  # Component(name=self.name, is_core=True)
@@ -79,7 +80,7 @@ class GraphBuilder(Specifiable):
         self.unprocessed_in_op_columns = OrderedDict()
         self.unprocessed_complete_in_op_columns = OrderedDict()
 
-    def build(self, input_spaces, available_devices, default_device):
+    def build(self, input_spaces, available_devices, default_device=None, device_strategy='default'):
         """
         Builds the actual backend-specific graph from the YARL metagraph.
         Loops through all our sub-components starting at core and assembles the graph by creating placeholders,
@@ -89,7 +90,8 @@ class GraphBuilder(Specifiable):
             input_spaces (dict):
             available_devices (list): Devices which can be used to assign parts of the graph
                 during graph assembly.
-            default_device (str): Default device identifier.
+            default_device (Optional[str]): Default device identifier.
+            device_strategy (Optional[str]): Device strategy.
         """
         # Build the meta-graph (generating empty op-record columns around API methods
         # and graph_fns).
@@ -99,6 +101,7 @@ class GraphBuilder(Specifiable):
 
         # Set devices usable for this graph.
         self.available_devices = available_devices
+        self.device_strategy = device_strategy
         self.default_device = default_device
 
         # Push all spaces through the API methods, then enter the main iterative DFS while loop.
@@ -154,9 +157,9 @@ class GraphBuilder(Specifiable):
         # Recursively call this method on all the sub-component's sub-components.
         for sub_component in component.sub_components.values():
             self.build_steps += 1
-            if self.build_steps >= self.MAX_RECURSIVE_CALLS:
+            if self.build_steps >= self.MAX_ITERATIVE_LOOPS:
                 raise YARLError("Error sanity checking graph, reached max recursion steps: {}".format(
-                    self.MAX_RECURSIVE_CALLS
+                    self.MAX_ITERATIVE_LOOPS
                 ))
             self.sanity_check_meta_graph(sub_component)
 
@@ -293,26 +296,42 @@ class GraphBuilder(Specifiable):
         assigned_device = op_rec_column.component.device or self.default_device
 
         if get_backend() == "tf":
-            if assigned_device not in self.available_devices:
+            if assigned_device is not None and assigned_device not in self.available_devices:
                 self.logger.error("Assigned device '{}' for graph_fn '{}' not in available devices:\n {}".
                                   format(assigned_device, op_rec_column.graph_fn.__name__, self.available_devices))
 
-            # Assign proper device to all ops created in this context manager.
-            with tf.device(assigned_device):
+            if assigned_device is not None:
+                # These strategies always set a default device.
+                assert self.device_strategy == 'default' or self.device_strategy == 'multi_gpu_sync'
+                # Assign proper device to all ops created in this context manager.
+                with tf.device(assigned_device):
+                    # Name ops correctly according to our Component hierarchy.
+                    with tf.name_scope(op_rec_column.component.global_scope+
+                                       ('/' if op_rec_column.component.global_scope else "")):
+                        self.logger.debug(
+                            "Assigning device '{}' to graph_fn '{}' (scope '{}').".
+                                format(assigned_device, op_rec_column.graph_fn.__name__, op_rec_column.component.global_scope)
+                        )
+                        self.run_through_graph_fn(op_rec_column)
+            else:
+                # Custom device strategy with no default device.
+                assert self.device_strategy == 'custom'
                 # Name ops correctly according to our Component hierarchy.
-                with tf.name_scope(op_rec_column.component.global_scope+
+                with tf.name_scope(op_rec_column.component.global_scope +
                                    ('/' if op_rec_column.component.global_scope else "")):
                     self.logger.debug(
                         "Assigning device '{}' to graph_fn '{}' (scope '{}').".
-                        format(assigned_device, op_rec_column.graph_fn.__name__, op_rec_column.component.global_scope)
+                            format(assigned_device, op_rec_column.graph_fn.__name__,
+                                   op_rec_column.component.global_scope)
                     )
                     self.run_through_graph_fn(op_rec_column)
 
         # Store assigned names for debugging.
-        if assigned_device not in self.device_component_assignments:
-            self.device_component_assignments[assigned_device] = [str(op_rec_column.graph_fn.__name__)]
-        else:
-            self.device_component_assignments[assigned_device].append(str(op_rec_column.graph_fn.__name__))
+        if assigned_device is not None:
+            if assigned_device not in self.device_component_assignments:
+                self.device_component_assignments[assigned_device] = [str(op_rec_column.graph_fn.__name__)]
+            else:
+                self.device_component_assignments[assigned_device].append(str(op_rec_column.graph_fn.__name__))
 
     def run_through_graph_fn(self, op_rec_column):
         """
