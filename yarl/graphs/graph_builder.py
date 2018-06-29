@@ -346,7 +346,7 @@ class GraphBuilder(Specifiable):
                 graph_fn.
         """
         in_ops = [r.op for r in op_rec_column.op_records]
-        assert all(in_ops)  # just make sure
+        assert all(op is not None for op in in_ops)  # just make sure
 
         # Build the ops from this input-combination.
         # Flatten input items.
@@ -354,8 +354,7 @@ class GraphBuilder(Specifiable):
             flattened_ops = op_rec_column.flatten_input_ops(*in_ops)
             # Split into SingleDataOps?
             if op_rec_column.split_ops:
-                call_params = op_rec_column.split_flattened_input_ops(op_rec_column.add_auto_key_as_first_param,
-                                                                      *flattened_ops)
+                call_params = op_rec_column.split_flattened_input_ops(*flattened_ops)
                 # There is some splitting to do. Call graph_fn many times (one for each split).
                 if isinstance(call_params, FlattenedDataOp):
                     ops = dict()
@@ -415,6 +414,7 @@ class GraphBuilder(Specifiable):
             out_graph_fn_column.op_records[i].space = space
 
     def sanity_check_build(self, component=None):
+        # TODO: Obsolete method?
         """
         Checks whether all the `component`'s and sub-components's in-Sockets and graph_fns are input-complete and
         raises detailed error messages if not. Input-completeness means that ..
@@ -454,165 +454,24 @@ class GraphBuilder(Specifiable):
             # Recursively call this method on all the sub-component's sub-components.
             self.sanity_check_build(sub_component)
 
-    def OBSOLETE_get_execution_inputs(self, output_socket_names, inputs=None):
+    def get_execution_inputs(self, api_method, *params):
         """
-        Fetches graph api_methods for execution.
+        Creates a fetch-dict and a feed-dict for a graph session call.
 
         Args:
-            output_socket_names (Union[str,List[str]]): A name or a list of names of the out-Sockets to fetch from
-            our core component.
-            inputs (Optional[dict,data]): Dict specifying the provided api_methods for some in-Sockets.
-                Depending on these given api_methods, the correct backend-ops can be selected within the given (out)-Sockets.
-                Alternatively, can pass in data directly (not as a dict), but only if there is only one in-Socket in the
-                Model or only one of the in-Sockets is needed for the given out-Sockets.
+            api_method (str):
+            *params (any):
 
         Returns:
             tuple: fetch-dict, feed-dict with relevant args.
 9       """
-        output_socket_names = force_list(output_socket_names)
-
-        # Sanity check out-Socket names.
-        for out_sock_name in output_socket_names:
-            if out_sock_name not in self.out_socket_registry:
-                raise YARLError("ERROR: Out-Socket '{}' not found in Model! Make sure you are fetching by the \n"
-                                "correct out-Socket name.".format(out_sock_name))
-
-        only_input_socket_name = None  # the name of the only in-Socket possible here
-        # Some input is given.
-        if inputs is not None:
-            # Get only in-Socket ..
-            if len(self.core_component.input_sockets) == 1:
-                only_input_socket_name = self.core_component.input_sockets[0].name
-            # .. or only in-Socket for single(!), given out-Socket.
-            elif len(output_socket_names) == 1 and \
-                    len(self.out_socket_registry[output_socket_names[0]]) == 1:
-                only_input_socket_name = next(iter(self.out_socket_registry[output_socket_names[0]]))
-
-            # Check whether data is given directly.
-            if not isinstance(inputs, dict):
-                if only_input_socket_name is None:
-                    raise YARLError("ERROR: Input data (`api_methods`) given directly (not as dict) AND more than one \n"
-                                    "in-Socket in Model OR more than one in-Socket needed for given out-Sockets '{}'!".
-                                    format(output_socket_names))
-                inputs = {only_input_socket_name: inputs}
-            # Is a dict: Check whether it's a in-Socket name dict (leave as is) or a
-            # data dict (add in-Socket name as key).
-            else:
-                # We have more than one necessary in-Sockets (leave as is) OR
-                # the only necessary in-Socket name is not key of the dict -> wrap it.
-                if only_input_socket_name is not None and only_input_socket_name not in inputs:
-                    inputs = {only_input_socket_name: inputs}
-
-            # Try all possible input combinations to see whether we got an op for that.
-            # Input Socket names will be sorted alphabetically and combined from short sequences up to longer ones.
-            # Example: api_methods={A: ..., B: ... C: ...}
-            #   input_combinations=[ABC, AB, AC, BC, A, B, C]
-
-            # These combinations have been memoized for fast lookup.
-            key = tuple(sorted(inputs.keys()))
-            input_combinations = self.input_combinations.get(key)
-            if not input_combinations:
-                raise YARLError("ERROR: At least one of the given in-Socket names {} seems to be non-existent "
-                                "in Model!".format(key))
-
-        # No input given (maybe an out-Socket that doesn't require input).
-        else:
-            input_combinations = list(())
-
-        # Go through each (core) out-Socket names and collect the correct ops to go into the fetch_list.
-        fetch_list = list()
+        fetch_list = [op_rec.op for op_rec in self.api[api_method][1]]
         feed_dict = dict()
-        for out_socket_name in output_socket_names:
-            # Updates with relevant ops
-            fetch_list, feed_dict = self._get_execution_inputs_for_socket(
-                out_socket_name, input_combinations, fetch_list, inputs, feed_dict)
+        for i, param in enumerate(params):
+            placeholder = self.api[api_method][0][i].op
+            feed_dict[placeholder] = param
+
         return fetch_list, feed_dict
-
-    def OBSOLETE__get_execution_inputs_for_socket(self, socket_name, input_combinations, fetch_list, input_dict, feed_dict):
-        """
-        Helper (to avoid nested for loop-break) for the loop in get_execution_inputs.
-
-        Args:
-            socket_name (str): The name of the (core) out-Socket to process.
-            input_combinations (List[str]): The list of in-Socket (names) combinations starting with the combinations
-                with the most Socket names, then going towards combinations with only one Socket name.
-                Each combination in itself should already be sorted alphabetically on the in-Socket names.
-            fetch_list (list): Appends to this list, which ops to actually fetch.
-            input_dict (Optional[dict]): Dict specifying the provided api_methods for some (core) in-Sockets.
-                Passed through directly from the call method.
-            feed_dict (dict): The feed_dict we are trying to build. When done,
-                needs to map input ops (not Socket names) to data.
-
-        Returns:
-            tuple: fetch_list, feed-dict with relevant args.
-        """
-        if len(input_combinations) > 0:
-            # Check all (input+shape)-combinations and it we find one that matches what the user passed in as
-            # `input_dict` -> Take that one and move on to the next Socket by returning.
-            for input_combination in input_combinations:
-                # Get all Space-combinations (in-op) for this input combination
-                # (OBSOLETE: not possible anymore: in case an in-Socket has more than one connected incoming Spaces).
-                ops = [self.in_socket_registry[c] for c in input_combination]
-                # Get the shapes for this op_combination.
-                shapes = tuple(get_shape(op) for op in ops)
-                key = (socket_name, input_combination, shapes)
-                # This is a good combination -> Use the looked up op, return to process next out-Socket.
-                if key in self.call_registry:
-                    fetch_list.append(self.call_registry[key])
-                    # Add items to feed_dict.
-                    for in_sock_name, in_op in zip(input_combination, ops):
-                        value = input_dict[in_sock_name]
-                        # Numpy'ize scalar values (tf doesn't sometimes like python primitives).
-                        if isinstance(value, (float, int, bool)):
-                            value = np.array(value)
-                        feed_dict[in_op] = value
-                    return fetch_list, feed_dict
-        # No api_methods -> Try whether this output socket comes without any api_methods.
-        else:
-            key = (socket_name, (), ())
-            if key in self.call_registry:
-                fetch_list.append(self.call_registry[key])
-                return fetch_list, feed_dict
-
-        required_inputs = [k[1] for k in self.call_registry.keys() if k[0] == socket_name]
-        raise YARLError("ERROR: No op found for out-Socket '{}' given the input-combinations: {}! "
-                        "The following input-combinations are required for '{}':\n"
-                        "{}".format(socket_name, input_combinations, socket_name, required_inputs))
-
-    def OBSOLETE_trace_back_sockets(self, trace_set):
-        """
-        For a set of given ops, returns a list of all (core) in-Sockets that are required to calculate these ops.
-
-        Args:
-            trace_set (Set[Union[DataOpRecords,Socket]]): The set of DataOpRecord/Socket objects to trace-back till
-                the beginning of the Graph. Socket entries mean we have already reached the beginning of the Graph and
-                these will no further be traced back.
-
-        Returns:
-            Set[Socket]: in-Socket objects (from the core Component) that are required to calculate the DataOps
-                in `trace_set`.
-        """
-        # Recursively lookup op in op_record_registry until we hit a Socket.
-        new_trace_set = set()
-        for op_rec_or_socket in trace_set:
-            # We hit a Socket (we reached the beginning of the Graph). Stop tracing further back.
-            if isinstance(op_rec_or_socket, Socket):
-                if op_rec_or_socket.name not in self.in_socket_registry:
-                    raise YARLError("ERROR: in-Socket '{}' could not be found in in_socket_registry of "
-                                    "model!".format(op_rec_or_socket.name))
-                new_trace_set.add(op_rec_or_socket)
-            # A DataOpRecord: Sanity check that we already have this.
-            elif op_rec_or_socket not in self.op_record_registry:
-                # Could be a DataOpRecord of a SingleDataOp with constant_value set.
-                if not isinstance(op_rec_or_socket.op, SingleDataOp) or op_rec_or_socket.op.constant_value is None:
-                    raise YARLError("ERROR: DataOpRecord for op '{}' could not be found in op_record_registry of "
-                                    "model!".format(op_rec_or_socket.op))
-            else:
-                new_trace_set.update(self.op_record_registry[op_rec_or_socket])
-        if all([isinstance(i, Socket) for i in new_trace_set]):
-            return new_trace_set
-        else:
-            return self.trace_back_sockets(new_trace_set)
 
     def set_core_component(self, core_component):
         """

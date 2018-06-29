@@ -17,27 +17,18 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections import Hashable, OrderedDict
+from collections import OrderedDict
 import copy
 import inspect
-import numpy as np
 import re
-import uuid
 
 from yarl import YARLError, get_backend, Specifiable
-from yarl.utils.ops import SingleDataOp, DataOpDict, DataOpRecord, APIMethodRecord, DataOpRecordColumn, \
+from yarl.utils.ops import SingleDataOp, DataOpDict, DataOpRecord, APIMethodRecord, \
     DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn, DataOpRecordColumnIntoAPIMethod, \
     DataOpRecordColumnFromAPIMethod, GraphFnRecord
 from yarl.utils import util
 from yarl.spaces import Space
 
-# Some settings flags.
-# Whether to expose only in-Sockets (in calls to add_component(s)).
-CONNECT_INS = 0x1
-# Whether to expose only out-Sockets (in calls to add_component(s))
-CONNECT_OUTS = 0x2
-# Whether to expose all in/out-Sockets (in calls to add_component(s))
-CONNECT_ALL = 0x4
 
 if get_backend() == "tf":
     import tensorflow as tf

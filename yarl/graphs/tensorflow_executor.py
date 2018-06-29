@@ -129,8 +129,8 @@ class TensorFlowExecutor(GraphExecutor):
         # Set up any remaining session or monitoring configurations.
         self.finish_graph_setup()
 
-    def execute(self, sockets, inputs=None):
-        fetch_list, feed_dict = self.graph_builder.get_execution_inputs(output_socket_names=sockets, inputs=inputs)
+    def execute(self, api_method, *params):
+        fetch_list, feed_dict = self.graph_builder.get_execution_inputs(api_method, *params)
         ret = self.monitored_session.run(fetch_list, feed_dict=feed_dict,
                                          options=self.session_options, run_metadata=self.run_metadata)
 

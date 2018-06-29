@@ -28,7 +28,6 @@ import tensorflow as tf
 
 from yarl.backend_system import get_backend
 from yarl.utils.yarl_error import YARLError
-from yarl.utils.ops import DataOpTuple
 
 if get_backend() == "tf":
     import tensorflow as be
@@ -167,8 +166,7 @@ def force_list(elements, to_tuple=False):
     if to_tuple is True:
         ctor = tuple
     return ctor() if elements is None else ctor(elements) \
-        if isinstance(elements, (list, tuple)) and not isinstance(elements, DataOpTuple) \
-        else ctor([elements])
+        if type(elements) in [list, tuple] else ctor([elements])
 
 
 force_tuple = partial(force_list, to_tuple=True)

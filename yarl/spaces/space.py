@@ -20,7 +20,7 @@ from __future__ import print_function
 from collections import OrderedDict
 import copy
 
-from yarl import Specifiable
+from yarl.utils.specifiable import Specifiable
 
 
 class Space(Specifiable):

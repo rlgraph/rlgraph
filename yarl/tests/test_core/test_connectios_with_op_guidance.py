@@ -45,7 +45,7 @@ class TestConnectionsWithOpGuidance(unittest.TestCase):
         a = DummyWithSubComponents(scope="A")
         test = ComponentTest(component=a, input_spaces=dict(run1=float, run2=float))
 
-        test.test(api_method="run", params=np.array(1.1), expected_outputs=0.0)
+        test.test(api_method="run1", params=np.array(1.1), expected_outputs=(0.0, 1.0))
 
     def test_simple_diamond_sub_component_setup(self):
         """

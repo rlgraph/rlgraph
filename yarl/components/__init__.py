@@ -20,7 +20,7 @@ from __future__ import print_function
 from yarl.utils.util import default_dict
 
 # Core.
-from yarl.components.component import Component, CONNECT_INS, CONNECT_OUTS, CONNECT_ALL
+from yarl.components.component import Component
 # Component child-classes.
 from yarl.components.common import *
 from yarl.components.distributions import *
@@ -42,6 +42,6 @@ default_dict(Component.__lookup_classes__, NeuralNetwork.__lookup_classes__)
 default_dict(Component.__lookup_classes__, Optimizer.__lookup_classes__)
 
 
-__all__ = ["Component", "CONNECT_INS", "CONNECT_OUTS", "GraphFunction"] + \
+__all__ = ["Component", "GraphFunction"] + \
           list(set(map(lambda x: x.__name__, Component.__lookup_classes__.values())))
 

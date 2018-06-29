@@ -20,8 +20,7 @@ from __future__ import print_function
 from collections import OrderedDict
 import numpy as np
 
-from yarl import YARLError
-from yarl.spaces.space_utils import flatten_op, unflatten_op
+from yarl.utils.yarl_error import YARLError
 
 
 class DataOp(object):
@@ -160,17 +159,20 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
         self.split_ops = split_ops
         self.add_auto_key_as_first_param = add_auto_key_as_first_param
 
-    def flatten_input_ops(self):
+    def flatten_input_ops(self, *ops):
         """
         Flattens all DataOps in ops into FlattenedDataOp with auto-key generation.
         Ops whose Sockets are not in self.flatten_ops (if its a set)
         will be ignored.
 
+        Args:
+            *ops (op): The primitive ops to flatten.
+
         Returns:
             Tuple[DataOp]: A new tuple with all ops (or those specified by `flatten_ops` as FlattenedDataOp.
         """
-        ops = [r.op for r in self.op_records]
-        assert all(ops)
+        #ops = [r.op for r in self.op_records]
+        assert all(op is not None for op in ops)  # just make sure
 
         # The returned sequence of output ops.
         ret = []
@@ -183,13 +185,16 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
         # Always return a tuple for indexing into the return values.
         return tuple(ret)
 
-    def split_flattened_input_ops(self):
+    def split_flattened_input_ops(self, *ops):
         """
         Splits any FlattenedDataOp from `self.op_records.op` into its SingleDataOps and collects them to be passed
         one by one through some graph_fn. If more than one FlattenedDataOp exists in the ops,
         these must have the exact same keys.
         If `add_auto_key_as_first_param` is True: Add auto-key as very first parameter in each
         returned parameter tuple.
+
+        Args:
+            *ops (op): The primitive ops to split.
 
         Returns:
             Union[FlattenedDataOp,Tuple[DataOp]]: The sorted parameter tuples (by flat-key) to use as api_methods in the
@@ -199,8 +204,8 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
         Raises:
             YARLError: If there are more than 1 flattened ops in ops and their keys don't match 100%.
         """
-        ops = [r.op for r in self.op_records]
-        assert all(ops)
+        #ops = [r.op for r in self.op_records]
+        assert all(op is not None for op in ops)  # just make sure
 
         # Collect FlattenedDataOp for checking their keys (must match).
         flattened = [op.items() for op in ops if len(op) > 1 or "" not in op]
@@ -323,3 +328,107 @@ class GraphFnRecord(object):
 
         self.in_op_columns = list()
         self.out_op_columns = list()
+
+
+def flatten_op(op, scope_="", list_=None):
+    """
+    Flattens a single ContainerDataOp or a native python dict/tuple into a FlattenedDataOp with auto-key generation.
+
+    Args:
+        op (Union[ContainerDataOp,dict,tuple]): The item to flatten.
+        scope_ (str): The recursive scope for auto-key generation.
+        list_ (list): The list of tuples (key, value) to be converted into the final FlattenedDataOp.
+
+    Returns:
+        FlattenedDataOp: The flattened representation of the op.
+    """
+    ret = False
+
+    # Are we in the non-recursive (first) call?
+    if list_ is None:
+        # Flatten a SingleDataOp -> return FlattenedDataOp with only-key=""
+        if not isinstance(op, (ContainerDataOp, dict, tuple)):
+            return FlattenedDataOp([("", op)])
+        list_ = list()
+        ret = True
+
+    if isinstance(op, dict):
+        scope_ += "/"
+        for key in sorted(op.keys()):
+            flatten_op(op[key], scope_=scope_ + key, list_=list_)
+    elif isinstance(op, tuple):
+        scope_ += "/" + FLAT_TUPLE_OPEN
+        for i, c in enumerate(op):
+            flatten_op(c, scope_=scope_ + str(i) + FLAT_TUPLE_CLOSE, list_=list_)
+    else:
+        assert not isinstance(op, (dict, tuple, list))
+        list_.append((scope_, op))
+
+    # Non recursive (first) call -> Return the final FlattenedDataOp.
+    if ret:
+        return FlattenedDataOp(list_)
+
+
+def unflatten_op(op):
+    """
+    Takes a FlattenedDataOp with auto-generated keys and returns the corresponding
+    unflattened DataOp.
+    If the only key in the input FlattenedDataOp is "", it returns the SingleDataOp under
+    that key.
+
+    Args:
+        op (dict): The item to be unflattened (re-nested) into any DataOp. Usually a FlattenedDataOp, but can also
+            be a plain dict.
+
+    Returns:
+        DataOp: The unflattened (re-nested) item.
+    """
+    # Special case: FlattenedDataOp with only 1 SingleDataOp (key="").
+    if len(op) == 1 and "" in op:
+        return op[""]
+
+    # Normal case: FlattenedDataOp that came from a ContainerItem.
+    base_structure = None
+
+    for op_name, op_val in op.items():
+        parent_structure = None
+        parent_key = None
+        current_structure = None
+        type_ = None
+
+        op_key_list = op_name[1:].split("/")  # skip 1st char (/)
+        for sub_key in op_key_list:
+            mo = re.match(r'^{}(\d+){}$'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), sub_key)
+            if mo:
+                type_ = list
+                idx = int(mo.group(1))
+            else:
+                type_ = DataOpDict
+                idx = sub_key
+
+            if current_structure is None:
+                if base_structure is None:
+                    base_structure = [None] if type_ == list else DataOpDict()
+                current_structure = base_structure
+            elif parent_key is not None:
+                if isinstance(parent_structure, list) and parent_structure[parent_key] is None or \
+                        isinstance(parent_structure, DataOpDict) and parent_key not in parent_structure:
+                    current_structure = [None] if type_ == list else DataOpDict()
+                    parent_structure[parent_key] = current_structure
+                else:
+                    current_structure = parent_structure[parent_key]
+                    if type_ == list and len(current_structure) == idx:
+                        current_structure.append(None)
+
+            parent_structure = current_structure
+            parent_key = idx
+            if isinstance(parent_structure, list) and len(parent_structure) == parent_key:
+                parent_structure.append(None)
+
+        if type_ == list and len(current_structure) == parent_key:
+            current_structure.append(None)
+        current_structure[parent_key] = op_val
+
+    # Deep conversion from list to tuple.
+    return deep_tuple(base_structure)
+

@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from yarl import YARLError
 from yarl.spaces import IntBox, FloatBox
-from yarl.components import Component, CONNECT_OUTS, CONNECT_ALL, Synchronizable
+from yarl.components import Component, Synchronizable
 from yarl.components.distributions import Normal, Categorical
 from yarl.components.neural_networks.neural_network import NeuralNetwork
 from yarl.components.neural_networks.action_adapter import ActionAdapter

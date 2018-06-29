@@ -77,21 +77,16 @@ class GraphExecutor(Specifiable):
         """
         raise NotImplementedError
 
-    def execute(self, sockets, inputs=None):
+    def execute(self, api_method, *params):
         """
         Fetches one or more Socket outputs from the graph (given some api_methods) and returns their outputs.
 
         Args:
-            sockets (Union[str,List[str]]): A name or a list of names of the (out) Sockets to fetch from our core
-                component.
-            inputs (Optional[dict,np.array]): Dict specifying the provided api_methods for some in-Sockets (key=in-Socket name,
-                values=the values that should go into this Socket (e.g. numpy arrays)).
-                Depending on these given api_methods, the correct backend-ops can be selected within the given out-Sockets.
-                If only one out-Socket is given in `sockets`, and this out-Socket only needs a single in-Socket's data,
-                this in-Socket's data may be given here directly.
+            api_method (str): The name of the APi-method to call on our core Component.
+            *params (any): Values to be passed into the API-method.
 
         Returns:
-            Tuple (or single item) containing the results from fetching all the given out-Sockets.
+            Tuple (or single item) containing the return values of the API-method call.
         """
         raise NotImplementedError
 
