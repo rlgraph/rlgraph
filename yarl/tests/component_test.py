@@ -33,9 +33,9 @@ class ComponentTest(object):
         """
         Args:
             component (Component): The Component to be tested (may contain sub-components).
-            input_spaces (Optional[dict]): Dict with component's in-Socket names as keys and Space objects as values.
-                Describes the input Spaces for the component. None if the Component to be tested has no
-                in-Sockets.
+            input_spaces (Optional[dict]): Dict with component's API methods' names as keys and lists of Space objects
+                or Space specs as values. Describes the input Spaces for the component.
+                None, if the Component to be tested has no API methods with input parameters.
             action_space (Optional[Space]): The action space to pass into the GraphBuilder.
             seed (Optional[int]): The seed to use for random-seeding the Model object.
                 If None, do not seed the Graph (things may behave non-deterministically).

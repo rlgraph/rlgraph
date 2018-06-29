@@ -109,7 +109,7 @@ class GraphBuilder(Specifiable):
             default_device (str): Default device identifier.
         """
         # Build the meta-graph and collect all empty in-op-columns.
-        self.build_meta_graph()
+        self.build_meta_graph(input_spaces)
         for api_method_rec in self.core_component.api_methods.values():
             for in_op_col in api_method_rec.in_op_columns:
                 self.collect_op_column(in_op_col)
@@ -160,16 +160,16 @@ class GraphBuilder(Specifiable):
         # out-Socket/input-feed-data combination.
         self.register_ops()
 
-    def build_meta_graph(self):
+    def build_meta_graph(self, input_spaces):
         # Call all API methods of the core and thereby, create empty in-op columns that serve as placeholders
         # and directed links for the build time.
         for method_name, api_method_rec in self.core_component.api_methods.items():
             # Create an new in column and map it to the resulting out column.
-            in_op_col = DataOpRecordColumn(op_records=1)  # <- TODO: remove hard coded
-            outs = self.core_component.call(api_method_rec.method, in_op_col.op_records)
-            out_op_col = DataOpRecordColumn(op_records=outs)
+            in_ops_records = [DataOpRecord()] * len(force_list(input_spaces[method_name]))
+            self.core_component.call(api_method_rec.method, *in_ops_records)
+            #out_op_col = DataOpRecordColumn(op_records=outs)
             # Register interface.
-            self.api[method_name] = (in_op_col, out_op_col)
+            self.api[method_name] = (in_ops_records, api_method_rec.out_op_columns[0].op_records)
 
     def collect_op_column(self, column):
         new_columns = set()

@@ -17,9 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
-
 from collections import OrderedDict
+import numpy as np
 
 
 class DataOp(object):
@@ -146,26 +145,16 @@ class DataOpRecord(object):
 class DataOpRecordColumn(object):
     _ID = -1
 
-    def __init__(self, op_records, graph_fn=None, out_graph_fn_column=None, flatten_ops=False, split_ops=False,
-                 add_auto_key_as_first_param=False, component=None):
+    def __init__(self, op_records, component):
         self.id = self.get_id()
 
         if not isinstance(op_records, int):
-            self.op_records = op_records
+            self.op_records = [op_records] if isinstance(op_records, DataOpRecord) else list(op_records)
             # For graph_fn and convenience reasons, give a pointer to the column to each op in it.
             for op_rec in self.op_records:
                 op_rec.column = self
         else:
             self.op_records = [DataOpRecord(op=None, column=self)] * op_records
-
-        self.graph_fn = graph_fn
-
-        # The column after passing this one through a graph_fn (only if `self.graph_fn` not None).
-        self.out_graph_fn_column = out_graph_fn_column
-
-        self.flatten_op = flatten_ops
-        self.split_ops = split_ops
-        self.add_auto_key_as_first_param = add_auto_key_as_first_param
 
         self.component = component
 
@@ -183,6 +172,36 @@ class DataOpRecordColumn(object):
         return hash(self.id)
 
 
+class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
+    def __init__(self, op_records, component, graph_fn, out_graph_fn_column, flatten_ops=False,
+                 split_ops=False, add_auto_key_as_first_param=False):
+        super(DataOpRecordColumnIntoGraphFn, self).__init__(op_records=op_records, component=component)
+
+        self.graph_fn = graph_fn
+
+        # The column after passing this one through the graph_fn.
+        self.out_graph_fn_column = out_graph_fn_column
+
+        self.flatten_op = flatten_ops
+        self.split_ops = split_ops
+        self.add_auto_key_as_first_param = add_auto_key_as_first_param
+
+
+class DataOpRecordColumnFromGraphFn(DataOpRecordColumn):
+    pass
+
+
+class DataOpRecordColumnIntoAPIMethod(DataOpRecordColumn):
+    def __init__(self, op_records, component, api_method_rec):
+        super(DataOpRecordColumnIntoAPIMethod, self).__init__(op_records=op_records, component=component)
+
+        self.api_method_rec = api_method_rec
+
+
+class DataOpRecordColumnFromAPIMethod(DataOpRecordColumn):
+    pass
+
+
 class APIMethodRecord(object):
     def __init__(self, method, component, must_be_complete=True):
         self.method = method
@@ -191,4 +210,13 @@ class APIMethodRecord(object):
 
         self.spaces = None
         self.in_op_columns = list()
-        #self.out_op_columns = list()
+        self.out_op_columns = list()
+
+
+class GraphFnRecord(object):
+    def __init__(self, graph_fn, component):
+        self.graph_fn = graph_fn
+        self.component = component
+
+        self.in_op_columns = list()
+        self.out_op_columns = list()

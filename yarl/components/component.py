@@ -25,7 +25,9 @@ import re
 import uuid
 
 from yarl import YARLError, get_backend, Specifiable
-from yarl.utils.ops import SingleDataOp, DataOpDict, DataOpRecord, APIMethodRecord, DataOpRecordColumn
+from yarl.utils.ops import SingleDataOp, DataOpDict, DataOpRecord, APIMethodRecord, DataOpRecordColumn, \
+    DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn, DataOpRecordColumnIntoAPIMethod, \
+    DataOpRecordColumnFromAPIMethod, GraphFnRecord
 from yarl.utils import util
 from yarl.spaces import Space
 
@@ -119,7 +121,9 @@ class Component(Specifiable):
         # and come out of it.
         # keys=API method name; values=APIMethodRecord
         self.api_methods = self.get_api_methods()
-        self.outputs = dict()
+        # Registry for graph_fn records.
+        self.graph_fns = dict()
+
         ### dict with key=API method name; value=list of in-Spaces that would go into the method.
 
         # This Component's Socket objects by functionality.
@@ -177,16 +181,18 @@ class Component(Specifiable):
                 ret[name] = APIMethodRecord(method, component=self)
         return ret
 
-    def call(self, method, params=None, flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False):
+    def call(self, method, *params, **kwargs):
         """
         Performs either:
-        a) An assembly run through a graph_fn (without actually calling it) using the op-record column
-            provided.
-        b) An actual dynamic run through a graph_fn with the data (in the op_columns? TODO: fix for pytorch).
+        a) An assembly run through another API method (will actually call this API method for further assembly).
+        b) A dry run through a graph_fn (without calling it) just generating the empty op-record-columns around the
+            graph_fn (incoming and outgoing).
 
         Args:
             method (callable): The method (graph_fn or API method) to call.
-            params (DataOpRecordColumn): The DataOpRecordColumn to be pushed through the graph_fn.
+            *params (DataOpRecord): The DataOpRecords to be used  for calling the method.
+
+        Keyword Args:
             flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
                 a FlattenedDataOp (with automatic key names).
                 Can also be a set of in-Socket names to flatten explicitly (True for all).
@@ -211,36 +217,52 @@ class Component(Specifiable):
         Returns:
             The
         """
-        in_op_recs = util.force_list(params)
+        #in_op_recs = params
 
         # Owner of method:
         method_owner = method.__self__
 
-        # method is an API method.
+        # Method is an API method.
         if method.__name__ in method_owner.api_methods:
             api_method_rec = method_owner.api_methods[method.__name__]
             # Create op-record column to call API method with.
-            in_op_column = DataOpRecordColumn(op_records=len(in_op_recs))
+            in_op_column = DataOpRecordColumnIntoAPIMethod(op_records=len(params), component=self,
+                                                           api_method_rec=api_method_rec)
             api_method_rec.in_op_columns.append(in_op_column)
 
             # Link from in_op_recs into the new column.
-            for i, op_rec in enumerate(in_op_recs):
+            for i, op_rec in enumerate(params):
                 op_rec.next.add(in_op_column.op_records[i])
-            # Now actually call the API method with that column.
-            return method(*in_op_column.op_records)
+            # Now actually call the API method with that column, create an out column for that record and
+            # return the individual op-records.
+            out = method(*in_op_column.op_records)
+            out_op_column = DataOpRecordColumnFromAPIMethod(op_records=out, component=self)
+            api_method_rec.out_op_columns.append(out_op_column)
+            if len(out_op_column.op_records) == 1:
+                return out_op_column.op_records[0]
+            else:
+                return out_op_column.op_records
 
         # Method is a graph_fn.
         else:
+            # Make sure the graph_fn belongs to this Component (not allowed to call graph_fn of other component
+            # directly).
+            assert method_owner is self
+            # Store a  graph_fn record in this component for better in/out-op-record-column reference.
+            if method.__name__ not in self.graph_fns:
+                self.graph_fns[method.__name__] = GraphFnRecord(graph_fn=method, component=self)
+
             # Create 2 op-record columns, one going into the graph_fn and one getting out of there and link
             # them together via the graph_fn (w/o calling it).
-            out_graph_fn_column = DataOpRecordColumn(1)  # TODO: hardcoded: 1 return value
-            in_graph_fn_column = DataOpRecordColumn(
-                len(in_op_recs), graph_fn=method, out_graph_fn_column=out_graph_fn_column,
-                flatten_ops=flatten_ops, split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param,
-                component=self
+            out_graph_fn_column = DataOpRecordColumnFromGraphFn(1, component=self)  # TODO: hardcoded: 1 return value
+            in_graph_fn_column = DataOpRecordColumnIntoGraphFn(
+                len(params), component=self, graph_fn=method, out_graph_fn_column=out_graph_fn_column, **kwargs
             )
+            self.graph_fns[method.__name__].in_op_columns.append(in_graph_fn_column)
+            self.graph_fns[method.__name__].out_op_columns.append(out_graph_fn_column)
+
             # Link from in_op_recs into the new column.
-            for i, op_rec in enumerate(in_op_recs):
+            for i, op_rec in enumerate(params):
                 op_rec.next.add(in_graph_fn_column.op_records[i])
 
             if len(out_graph_fn_column.op_records) == 1:
@@ -547,9 +569,10 @@ class Component(Specifiable):
         assert name not in self.api_methods and getattr(self, name, None) is None
 
         def api_method(*inputs):
-            return self.call(graph_fn, params=inputs, **kwargs)
-
-        self.__setattr__(name, api_method)
+            return self.call(graph_fn, *inputs, **kwargs)
+        setattr(api_method, "__self__", self)
+        setattr(api_method, "__name__", name)
+        setattr(self, name, api_method)
         self.api_methods[name] = APIMethodRecord(api_method, component=self)
 
     def OBSOLETE_define_inputs(self, *sockets, **kwargs):

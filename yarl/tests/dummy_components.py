@@ -76,7 +76,7 @@ class DummyInputComplete(Component):
         self.constant_variable = self.get_variable(name="constant-variable", initializer=2.0)
 
     def run_plus(self, input_):
-        result = self.call(self._graph_fn_1, params=input_)
+        result = self.call(self._graph_fn_1, input_)
         return result
 
     def _graph_fn_1(self, input_):

@@ -43,7 +43,7 @@ class TestConnectionsWithOpGuidance(unittest.TestCase):
 
     def test_component_with_sub_component(self):
         a = DummyWithSubComponents(scope="A")
-        test = ComponentTest(component=a, input_spaces=dict(run=float))
+        test = ComponentTest(component=a, input_spaces=dict(run1=float, run2=float))
 
         test.test(api_method="run", params=np.array(1.1), expected_outputs=0.0)
 
