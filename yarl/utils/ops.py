@@ -186,6 +186,9 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
         self.split_ops = split_ops
         self.add_auto_key_as_first_param = add_auto_key_as_first_param
 
+    def __str__(self):
+        return "OpRecCol({} ops)->GraphFn('{}')".format(len(self.op_records), self.graph_fn.__name__)
+
 
 class DataOpRecordColumnFromGraphFn(DataOpRecordColumn):
     pass
@@ -196,6 +199,9 @@ class DataOpRecordColumnIntoAPIMethod(DataOpRecordColumn):
         super(DataOpRecordColumnIntoAPIMethod, self).__init__(op_records=op_records, component=component)
 
         self.api_method_rec = api_method_rec
+
+    def __str__(self):
+        return "OpRecCol({} ops)->APIMethod('{}')".format(len(self.op_records), self.api_method_rec.method.__name__)
 
 
 class DataOpRecordColumnFromAPIMethod(DataOpRecordColumn):

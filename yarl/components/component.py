@@ -709,7 +709,7 @@ class Component(Specifiable):
             if api_method_rec.must_be_complete is False:
                 continue
 
-            if api_method_rec.spaces is None:
+            if len(api_method_rec.spaces) == 0:
                 self.input_complete = False
                 return None
             else:

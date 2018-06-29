@@ -70,31 +70,14 @@ class GraphBuilder(Specifiable):
 
         # Create an empty core Component into which everything will be assembled by an Algo.
         self.core_component = None  # Component(name=self.name, is_core=True)
-        # A dict used for lookup of all combinations that are possible for a given set of given in-Socket
-        # names (inside a call to `self.call`).
-        #self.input_combinations = dict()
 
         # Maps API method names to in- (placeholders) and out op columns (ops to pull).
         self.api = dict()
 
-        # Dict of op-record columns by key=op-column ID.
-        #self.in_op_columns = OrderedDict()
         # Dict of unprocessed (and complete) op-record columns by key=op-column ID.
         # Columns that have been forwarded will be erased again from this collection.
         self.unprocessed_in_op_columns = OrderedDict()
         self.unprocessed_complete_in_op_columns = OrderedDict()
-
-        # Some registries that we need in order to build the Graph from core:
-        # key=DataOpRecord; value=set of required DataOpRecords OR leftmost in-Sockets to calculate the key's op.
-        #self.op_record_registry = dict()
-        # Only for core's in-Sockets.
-        # key=in-Socket name; value=DataOp (e.g. tf.placeholder) that goes into this socket.
-        #self.in_socket_registry = dict()
-        # key=out-Socket name; value=set of necessary in-Socket names that we need in order to calculate
-        #   the out-Socket's op output.
-        #self.out_socket_registry = dict()
-        # Maps an out-Socket name+in-Socket/Space-combination to an actual DataOp to fetch from our Graph.
-        #self.call_registry = dict()  # key=(FixMe: documentation)
 
     def build(self, input_spaces, available_devices, default_device):
         """
@@ -111,6 +94,8 @@ class GraphBuilder(Specifiable):
         # Build the meta-graph (generating empty op-record columns around API methods
         # and graph_fns).
         self.build_meta_graph(input_spaces)
+
+        # self.sanity_check_meta_graph()
 
         # Set devices usable for this graph.
         self.available_devices = available_devices
@@ -220,9 +205,8 @@ class GraphBuilder(Specifiable):
         """
         # Tag very last out-op-records with op="last", so we know in the build process that we are done.
         for _, out_op_records in self.api.values():
-            for out_op_col in out_op_records.out_op_columns:
-                for op_rec in out_op_col.op_records:
-                    op_rec.op = "done"
+            for out_op_rec in out_op_records:
+                out_op_rec.op = "done"
 
         # Re-iterate until our bag of op-recs to process is empty.
         while len(op_records_to_process) > 0:
@@ -241,13 +225,14 @@ class GraphBuilder(Specifiable):
                         next_op_rec.op = op_rec.op
 
                         # Did we enter a new Component? If yes, check input-completeness and
-                        if op_rec.component is not next_op_rec.component:
+                        if op_rec.column is None or op_rec.column.component is not next_op_rec.column.component:
+                            next_component = next_op_rec.column.component
                             # Not input complete yet -> Check now.
-                            if next_op_rec.component.input_complete is False:
-                                spaces_dict = next_op_rec.component.check_input_completeness()
+                            if next_component.input_complete is False:
+                                spaces_dict = next_component.check_input_completeness()
                                 # call `when_input_complete` once on that Component.
                                 if spaces_dict is not None:
-                                    next_op_rec.component.when_input_complete(spaces_dict)
+                                    next_component.when_input_complete(spaces_dict)
 
                 # No next records.
                 else:
@@ -318,7 +303,7 @@ class GraphBuilder(Specifiable):
                 # Check whether we have a matching
                 pass
 
-    def push_from_socket(self, socket):
+    def OBSOLETE_push_from_socket(self, socket):
         # Skip this Socket, if it doesn't have a Space (no incoming connection).
         # Assert that it's ok for the component to leave this Socket open.
         if socket.space is None:
@@ -338,7 +323,7 @@ class GraphBuilder(Specifiable):
                 raise YARLError("ERROR: Outgoing connection ({}) must be of type Socket or GraphFunction!".\
                                 format(outgoing))
 
-    def push_socket_into_socket(self, socket, next_socket):
+    def OBSOLETE_push_socket_into_socket(self, socket, next_socket):
         """
         Pushes op records from one Socket into a next connected one.
 
@@ -366,7 +351,7 @@ class GraphBuilder(Specifiable):
         # Continue with the build logic.
         self.after_socket_update(next_socket, was_input_complete)
 
-    def after_socket_update(self, socket, was_input_complete):
+    def OBSOLETE_after_socket_update(self, socket, was_input_complete):
         # The Component of the Socket has already been input-complete. Keep pushing the Socket forward.
         if was_input_complete is True:
             self.push_from_socket(socket)
@@ -540,7 +525,7 @@ class GraphBuilder(Specifiable):
 
             graph_fn.in_out_records_map[in_op_record_combination] = tuple(op_records)
 
-    def memoize_inputs(self):
+    def OBSOLETE_memoize_inputs(self):
         # Memoize possible input-combinations (from all our in-Sockets)
         # so we don't have to do this every time we get a call to `self.execute`.
         in_names = sorted(list(map(lambda s: s.name, self.core_component.input_sockets)))
@@ -550,7 +535,7 @@ class GraphBuilder(Specifiable):
             self.input_combinations[tuple(input_combination)] = \
                 all_combinations(input_combination, descending_length=True)
 
-    def register_ops(self):
+    def OBSOLETE_register_ops(self):
         # Now use the ready op/socket registries to determine for which out-Socket we need which api_methods.
         # Then we will be able to derive the correct op for any given (out-Socket+in-Socket+in-shape)-combination
         # passed into the call method.
@@ -620,7 +605,7 @@ class GraphBuilder(Specifiable):
             # Recursively call this method on all the sub-component's sub-components.
             self.sanity_check_build(sub_component)
 
-    def get_execution_inputs(self, output_socket_names, inputs=None):
+    def OBSOLETE_get_execution_inputs(self, output_socket_names, inputs=None):
         """
         Fetches graph api_methods for execution.
 
@@ -694,7 +679,7 @@ class GraphBuilder(Specifiable):
                 out_socket_name, input_combinations, fetch_list, inputs, feed_dict)
         return fetch_list, feed_dict
 
-    def _get_execution_inputs_for_socket(self, socket_name, input_combinations, fetch_list, input_dict, feed_dict):
+    def OBSOLETE__get_execution_inputs_for_socket(self, socket_name, input_combinations, fetch_list, input_dict, feed_dict):
         """
         Helper (to avoid nested for loop-break) for the loop in get_execution_inputs.
 
@@ -745,7 +730,7 @@ class GraphBuilder(Specifiable):
                         "The following input-combinations are required for '{}':\n"
                         "{}".format(socket_name, input_combinations, socket_name, required_inputs))
 
-    def trace_back_sockets(self, trace_set):
+    def OBSOLETE_trace_back_sockets(self, trace_set):
         """
         For a set of given ops, returns a list of all (core) in-Sockets that are required to calculate these ops.
 

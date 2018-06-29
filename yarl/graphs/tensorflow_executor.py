@@ -91,7 +91,7 @@ class TensorFlowExecutor(GraphExecutor):
         self.setup_graph()
 
         # Assemble graph via graph builder.
-        self.graph_builder.build_graph(input_spaces, self.available_devices, self.default_device)
+        self.graph_builder.build(input_spaces, self.available_devices, self.default_device)
 
         # TODO split graph assembly
         self._build_device_strategy()
