@@ -293,30 +293,45 @@ class GraphBuilder(Specifiable):
         """
         # We have to specify the device and the variable scope here as we will be running through a
         # GraphFunction, which may add ops to the graph.
-        # TODO What do we do if no default device exists?
         assigned_device = op_rec_column.component.device or self.default_device
 
         if get_backend() == "tf":
-            if assigned_device not in self.available_devices:
+            if assigned_device is not None and assigned_device not in self.available_devices:
                 self.logger.error("Assigned device '{}' for graph_fn '{}' not in available devices:\n {}".
                                   format(assigned_device, op_rec_column.graph_fn.__name__, self.available_devices))
 
-            # Assign proper device to all ops created in this context manager.
-            with tf.device(assigned_device):
+            if assigned_device is not None:
+                # These strategies always set a default device.
+                assert self.device_strategy == 'default' or self.device_strategy == 'multi_gpu_sync'
+                # Assign proper device to all ops created in this context manager.
+                with tf.device(assigned_device):
+                    # Name ops correctly according to our Component hierarchy.
+                    with tf.name_scope(op_rec_column.component.global_scope+
+                                       ('/' if op_rec_column.component.global_scope else "")):
+                        self.logger.debug(
+                            "Assigning device '{}' to graph_fn '{}' (scope '{}').".
+                                format(assigned_device, op_rec_column.graph_fn.__name__, op_rec_column.component.global_scope)
+                        )
+                        self.run_through_graph_fn(op_rec_column)
+            else:
+                # Custom device strategy with no default device.
+                assert self.device_strategy == 'custom'
                 # Name ops correctly according to our Component hierarchy.
-                with tf.name_scope(op_rec_column.component.global_scope+
+                with tf.name_scope(op_rec_column.component.global_scope +
                                    ('/' if op_rec_column.component.global_scope else "")):
                     self.logger.debug(
                         "Assigning device '{}' to graph_fn '{}' (scope '{}').".
-                        format(assigned_device, op_rec_column.graph_fn.__name__, op_rec_column.component.global_scope)
+                            format(assigned_device, op_rec_column.graph_fn.__name__,
+                                   op_rec_column.component.global_scope)
                     )
                     self.run_through_graph_fn(op_rec_column)
 
         # Store assigned names for debugging.
-        if assigned_device not in self.device_component_assignments:
-            self.device_component_assignments[assigned_device] = [str(op_rec_column.graph_fn.__name__)]
-        else:
-            self.device_component_assignments[assigned_device].append(str(op_rec_column.graph_fn.__name__))
+        if assigned_device is not None:
+            if assigned_device not in self.device_component_assignments:
+                self.device_component_assignments[assigned_device] = [str(op_rec_column.graph_fn.__name__)]
+            else:
+                self.device_component_assignments[assigned_device].append(str(op_rec_column.graph_fn.__name__))
 
     def run_through_graph_fn(self, op_rec_column):
         """
