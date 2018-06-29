@@ -26,9 +26,9 @@ import re
 from yarl import YARLError, Specifiable, get_backend
 from yarl.components import Component
 from yarl.spaces import Space
-from yarl.spaces.space_utils import split_flattened_input_ops, get_space_from_op
+from yarl.spaces.space_utils import get_space_from_op
 from yarl.utils.input_parsing import parse_summary_spec
-from yarl.utils.util import all_combinations, force_list, force_tuple, get_shape
+from yarl.utils.util import force_list, force_tuple, get_shape
 from yarl.utils.ops import SingleDataOp, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn
 from yarl.utils.component_printout import component_print_out
 
@@ -326,111 +326,74 @@ class GraphBuilder(Specifiable):
             op_rec_column (DataOpRecordColumnIntoGraphFn): The column of DataOpRecords to be fed through the
                 graph_fn.
         """
-        in_op_records = [in_sock_rec["socket"].op_records for in_sock_rec in graph_fn.input_sockets.values()]
-        in_op_records_combinations = list(itertools.product(*in_op_records))
+        in_ops = [r.op for r in op_rec_column.op_records]
+        assert all(in_ops)  # just make sure
 
-        for in_op_record_combination in in_op_records_combinations:
-            # Make sure we call the computation method only once per input-op combination.
-            if in_op_record_combination in graph_fn.in_out_records_map:
-                continue
-            # If any of the ops in the combination is not set yet -> skip this combination for now.
-            elif any([r.op is None for r in in_op_record_combination]):
-                continue
-            # Make sure only ops with the same group ID (or no group ID) are pushed through together.
-            # Find first non-None group ID, all others must match that one (or be None).
-            op_group = [r.group for r in in_op_record_combination if r.group is not None]
-            op_group = op_group[0] if len(op_group) > 0 else None
-            if any([r.group is not None and r.group != op_group for r in in_op_record_combination]):
-                continue
+        # Build the ops from this input-combination.
+        # Flatten input items.
+        if op_rec_column.flatten_ops is not False:
+            flattened_ops = op_rec_column.flatten_input_ops(*in_ops)
+            # Split into SingleDataOps?
+            if op_rec_column.split_ops:
+                call_params = op_rec_column.split_flattened_input_ops(op_rec_column.add_auto_key_as_first_param,
+                                                                      *flattened_ops)
+                # There is some splitting to do. Call graph_fn many times (one for each split).
+                if isinstance(call_params, FlattenedDataOp):
+                    ops = dict()
+                    num_return_values = -1
+                    for key, params in call_params.items():
+                        ops[key] = force_tuple(op_rec_column.graph_fn(*params))
+                        if num_return_values >= 0 and num_return_values != len(ops[key]):
+                            raise YARLError("Different split-runs through {} do not return the same number of "
+                                            "values!".format(op_rec_column.graph_fn.__name__))
+                        num_return_values = len(ops[key])
+                    # Un-split the results dict into a tuple of `num_return_values` slots.
+                    un_split_ops = list()
+                    for i in range(num_return_values):
+                        dict_with_singles = FlattenedDataOp()
+                        for key in call_params.keys():
+                            dict_with_singles[key] = ops[key][i]
+                        un_split_ops.append(dict_with_singles)
+                    ops = tuple(un_split_ops)
 
-            # Replace constant-value Sockets with their SingleDataOp's constant numpy values
-            # and the DataOps with their actual ops (`op` property of DataOp).
-            actual_call_params = [
-                op_rec.op.constant_value if isinstance(op_rec.op, SingleDataOp) and
-                                            op_rec.op.constant_value is not None
-                else op_rec.op for op_rec in in_op_record_combination
-            ]
-
-            # Build the ops from this input-combination.
-            # Flatten input items.
-            if graph_fn.flatten_ops is not False:
-                flattened_ops = graph_fn.flatten_input_ops(*actual_call_params)
-                # Split into SingleDataOps?
-                if graph_fn.split_ops:
-                    call_params = split_flattened_input_ops(graph_fn.add_auto_key_as_first_param, *flattened_ops)
-                    # There is some splitting to do. Call graph_fn many times (one for each split).
-                    if isinstance(call_params, FlattenedDataOp):
-                        ops = dict()
-                        num_return_values = -1
-                        for key, params in call_params.items():
-                            ops[key] = force_tuple(graph_fn.method(*params))
-                            if num_return_values >= 0 and num_return_values != len(ops[key]):
-                                raise YARLError("Different split-runs through {} do not return the same number of "
-                                                "values!".format(graph_fn.name))
-                            num_return_values = len(ops[key])
-                        # Un-split the results dict into a tuple of `num_return_values` slots.
-                        un_split_ops = list()
-                        for i in range(num_return_values):
-                            dict_with_singles = FlattenedDataOp()
-                            for key in call_params.keys():
-                                dict_with_singles[key] = ops[key][i]
-                            un_split_ops.append(dict_with_singles)
-                        ops = tuple(un_split_ops)
-
-                    # No splitting to do: Pass everything as-is.
-                    else:
-                        ops = graph_fn.method(*call_params)
+                # No splitting to do: Pass everything as-is.
                 else:
-                    ops = graph_fn.method(*flattened_ops)
-            # Just pass in everything as-is.
+                    ops = op_rec_column.graph_fn(*call_params)
             else:
-                ops = graph_fn.method(*actual_call_params)
+                ops = op_rec_column.graph_fn(*flattened_ops)
+        # Just pass in everything as-is.
+        else:
+            ops = op_rec_column.graph_fn(*in_ops)
 
-            # OBSOLETE: always must un-flatten all return values. Otherwise, we would allow Dict Spaces
-            # with '/' keys in them, which is not allowed.
-            #if graph_fn.unflatten_ops:
-            ops = graph_fn.unflatten_output_ops(*force_tuple(ops))
+        # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
+        ops = force_tuple(ops)
 
-            # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
-            ops = force_tuple(ops)
+        # Always un-flatten all return values. Otherwise, we would allow Dict Spaces
+        # with '/' keys in them, which is not allowed.
+        ops = op_rec_column.unflatten_output_ops(*ops)
 
-            # Make sure the number of returned ops matches the number of outgoing Sockets from thie graph_fn
-            assert len(ops) == len(graph_fn.output_sockets),\
-                "ERROR: Number of returned values of graph_fn '{}/{}' ({}) does not match number of out-Sockets ({}) " \
-                "of this GraphFunction!".format(graph_fn.component.name, graph_fn.name, len(ops),
-                                                len(graph_fn.output_sockets))
+        out_graph_fn_column = op_rec_column.out_graph_fn_column
 
-            # ops are now the raw graph_fn output: Need to convert it back to records.
-            op_records = list()
-
-            # Move graph_fn results into next Socket(s).
-            for i, socket in enumerate(graph_fn.output_sockets):
-                self.logger.debug("GraphFn {}/{} -> return-slot {} -> {} -> Socket {}/{}".format(
-                    graph_fn.component.name, graph_fn.name, i, ops, socket.component.name, socket.name)
-                )
-                # Store op_rec in the respective outgoing Socket (and make sure Spaces match).
-                space = get_space_from_op(ops[i])
-                if socket.space is not None:
-                    assert space == socket.space,\
-                        "ERROR: Newly calculated output op of graph_fn '{}' has different Space than the Socket that " \
-                        "this op will go into ({} vs {})!".format(graph_fn.name, space, socket.space)
-                else:
-                    socket.space = space
-
-                # Add the new op to the Socket (or place into an existing (empty) op_record that matches the op_group).
-                op_rec = socket.push_op_from_incoming_graph_fn(op=ops[i], op_group=op_group)
-                self.op_record_registry[op_rec] = set(in_op_record_combination)
-
-                # Make sure all op_records do not contain SingleDataOps with constant_values. Any
-                # in-Socket-connected constant values need to be converted to actual ops during a graph_fn call.
-                assert not isinstance(op_rec.op, SingleDataOp), \
-                    "ERROR: graph_fn '{}' returned a SingleDataOp with constant_value set to '{}'! " \
-                    "This is not allowed. All graph_fns must return actual (non-constant) ops.". \
-                    format(graph_fn.name, op_rec.op.constant_value)
-
-                op_records.append(op_rec)
-
-            graph_fn.in_out_records_map[in_op_record_combination] = tuple(op_records)
+        # Make sure the number of returned ops matches the number of op-records in the next column.
+        assert len(ops) == len(out_graph_fn_column.op_records),\
+            "ERROR: Number of returned values of graph_fn '{}/{}' ({}) does not match the number of op-records ({}) " \
+            "reserved for the return values of the method!".format(
+                op_rec_column.component.name, op_rec_column.graph_fn.__name__, len(ops),
+                len(out_graph_fn_column.op_records)
+            )
+        # Determine the Spaces for each out op and then move it into the respective op and Space slot of the
+        # out_graph_fn_column.
+        for i, op in enumerate(ops):
+            space = get_space_from_op(op)
+            # TODO: get already existing parallel column from the component's graph_fn records and
+            # compare Spaces with these for match (error if not).
+            #if socket.space is not None:
+            #    assert space == socket.space,\
+            #        "ERROR: Newly calculated output op of graph_fn '{}' has different Space than the Socket that " \
+            #        "this op will go into ({} vs {})!".format(graph_fn.name, space, socket.space)
+            #else:
+            out_graph_fn_column.op_records[i].op = op
+            out_graph_fn_column.op_records[i].space = space
 
     def sanity_check_build(self, component=None):
         """

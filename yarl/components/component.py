@@ -228,7 +228,7 @@ class Component(Specifiable):
             self.graph_fns[method.__name__] = GraphFnRecord(graph_fn=method, component=self)
         # Create 2 op-record columns, one going into the graph_fn and one getting out of there and link
         # them together via the graph_fn (w/o calling it).
-        out_graph_fn_column = DataOpRecordColumnFromGraphFn(1, component=self)  # TODO: hardcoded: 1 return value
+        out_graph_fn_column = DataOpRecordColumnFromGraphFn(1, component=self, graph_fn_name=method.__name__)  # TODO: hardcoded: 1 return value
         in_graph_fn_column = DataOpRecordColumnIntoGraphFn(
             len(params), component=self, graph_fn=method, out_graph_fn_column=out_graph_fn_column, **kwargs
         )

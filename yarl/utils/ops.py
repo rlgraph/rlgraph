@@ -20,6 +20,9 @@ from __future__ import print_function
 from collections import OrderedDict
 import numpy as np
 
+from yarl import YARLError
+from yarl.spaces.space_utils import flatten_op, unflatten_op
+
 
 class DataOp(object):
     """
@@ -88,35 +91,6 @@ class FlattenedDataOp(DataOp, OrderedDict):
     pass
 
 
-class OBSOLETE_DataOpRecord(object):
-    """
-    A simple wrapper class for a DataOp carrying the op itself and some additional information about it.
-    """
-    def __init__(self, op=None, group=None, filter_by_socket_name=None, socket=None):
-        """
-        Args:
-            op (Optional[DataOp]): The actual DataOp carried by this record. May be left empty at construction time.
-            group (Optional[int]): A group ID to guide the op (together with others with the same label) through the
-                Components and GraphFns.
-            filter_by_socket_name (Optional[str]): If given, signals that only ops coming from the Socket with that name,
-                can be placed into this record. This record must have an empty op for this.
-            socket (Socket): The Socket object that will hold this record.
-        """
-        self.op = op
-        self.group = group
-        # Filtering tools to accept only raw ops from certain sources.
-        self.filter_by_socket_name = filter_by_socket_name
-        # If given, tells us into which succeeding record to push our primitive op to.
-        self.push_op_into_recs = set()
-
-        # The Socket object that holds this record (optional).
-        self.socket = socket
-
-    def __hash__(self):
-        # The following properties will not change (self.op might, which is why we can't use it here).
-        return hash(self.group) + hash(self.filter_by_socket_name)
-
-
 class DataOpRecord(object):
     """
     A simple wrapper class for a DataOp carrying the op itself and some additional information about it.
@@ -163,6 +137,16 @@ class DataOpRecordColumn(object):
 
 
 class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
+    """
+    An array of input parameters (DataOpRecord objects) that will go in a single call into a graph_fn.
+
+    GraphFns are called only at build-time. During assembly time, empty DataOpRecordColumns are created on both
+    side of the graph_fn (input=DataOpRecordColumnIntoGraphFn and return values=DataOpRecordColumnFromGraphFn).
+
+    Keeps a link to the graph_fn and also specifies options on how to call the graph_fn.
+    The call of the graph_fn will result in another column (return values) of DataOpRecords that this record points
+    to.
+    """
     def __init__(self, op_records, component, graph_fn, out_graph_fn_column, flatten_ops=False,
                  split_ops=False, add_auto_key_as_first_param=False):
         super(DataOpRecordColumnIntoGraphFn, self).__init__(op_records=op_records, component=component)
@@ -172,19 +156,139 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
         # The column after passing this one through the graph_fn.
         self.out_graph_fn_column = out_graph_fn_column
 
-        self.flatten_op = flatten_ops
+        self.flatten_ops = flatten_ops
         self.split_ops = split_ops
         self.add_auto_key_as_first_param = add_auto_key_as_first_param
+
+    def flatten_input_ops(self):
+        """
+        Flattens all DataOps in ops into FlattenedDataOp with auto-key generation.
+        Ops whose Sockets are not in self.flatten_ops (if its a set)
+        will be ignored.
+
+        Returns:
+            Tuple[DataOp]: A new tuple with all ops (or those specified by `flatten_ops` as FlattenedDataOp.
+        """
+        ops = [r.op for r in self.op_records]
+        assert all(ops)
+
+        # The returned sequence of output ops.
+        ret = []
+        for i, op in enumerate(ops):
+            if self.flatten_ops is True or (isinstance(self.flatten_ops, set) and i in self.flatten_ops):
+                ret.append(flatten_op(op))
+            else:
+                ret.append(op)
+
+        # Always return a tuple for indexing into the return values.
+        return tuple(ret)
+
+    def split_flattened_input_ops(self):
+        """
+        Splits any FlattenedDataOp from `self.op_records.op` into its SingleDataOps and collects them to be passed
+        one by one through some graph_fn. If more than one FlattenedDataOp exists in the ops,
+        these must have the exact same keys.
+        If `add_auto_key_as_first_param` is True: Add auto-key as very first parameter in each
+        returned parameter tuple.
+
+        Returns:
+            Union[FlattenedDataOp,Tuple[DataOp]]: The sorted parameter tuples (by flat-key) to use as api_methods in the
+                calls to the graph_fn.
+                If no FlattenedDataOp is in ops, returns ops as-is.
+
+        Raises:
+            YARLError: If there are more than 1 flattened ops in ops and their keys don't match 100%.
+        """
+        ops = [r.op for r in self.op_records]
+        assert all(ops)
+
+        # Collect FlattenedDataOp for checking their keys (must match).
+        flattened = [op.items() for op in ops if len(op) > 1 or "" not in op]
+        # If it's more than 1, make sure they match. If they don't match: raise Error.
+        if len(flattened) > 1:
+            # Loop through the non-first ones and make sure all keys match vs the first one.
+            for other in flattened[1:]:
+                iter_ = iter(other)
+                for key, value in flattened[0]:
+                    k_other, v_other = next(iter_)
+                    if key != k_other:  # or get_shape(v_other) != get_shape(value):
+                        raise YARLError("ERROR: Flattened ops have a key mismatch ({} vs {})!".format(key, k_other))
+
+        # We have one or many (matching) ContainerDataOps: Split the calls.
+        if len(flattened) > 0:
+            # The first op that is a FlattenedDataOp.
+            guide_op = next(op for op in ops if len(op) > 1 or "" not in op)
+            # Re-create our iterators.
+            collected_call_params = FlattenedDataOp()
+            # Do the single split calls to our computation func.
+            for key in guide_op.keys():
+                # Prep input params for a single call.
+                params = [key] if self.add_auto_key_as_first_param is True else []
+                for op in ops:
+                    params.append(op[key] if key in op else op[""])
+                # Now do the single call.
+                collected_call_params[key] = params
+            return collected_call_params
+        # We don't have any container ops: No splitting possible. Return as is.
+        else:
+            return tuple(([""] if self.add_auto_key_as_first_param is True else []) + [op[""] for op in ops])
+
+    @staticmethod
+    def unflatten_output_ops(*ops):
+        """
+        Re-creates the originally nested input structure (as DataOpDict/DataOpTuple) of the given op-record column.
+        Process all FlattenedDataOp with auto-generated keys, and leave the others untouched.
+
+        Args:
+            ops (DataOp): The ops that need to be unflattened (only process the FlattenedDataOp
+                amongst these and ignore all others).
+
+        Returns:
+            Tuple[DataOp]: A tuple containing the ops as they came in, except that all FlattenedDataOp
+                have been un-flattened (re-nested) into their original structures.
+        """
+        # The returned sequence of output ops.
+        ret = []
+
+        for i, op in enumerate(ops):
+            # A FlattenedDataOp: Try to re-nest it and then compare it to input_template_op's structure.
+            if isinstance(op, FlattenedDataOp):
+                ret.append(unflatten_op(op))
+            # All others are left as-is.
+            else:
+                ret.append(op)
+
+        # Always return a tuple for indexing into the return values.
+        return tuple(ret)
 
     def __str__(self):
         return "OpRecCol({} ops)->GraphFn('{}')".format(len(self.op_records), self.graph_fn.__name__)
 
 
 class DataOpRecordColumnFromGraphFn(DataOpRecordColumn):
-    pass
+    """
+    An array of return values from a graph_fn pass through.
+    """
+    def __init__(self, op_records, component, graph_fn_name):
+        """
+        Args:
+            graph_fn_name (str): The name of the graph_fn that returned the ops going into `self.op_records`.
+        """
+        super(DataOpRecordColumnFromGraphFn, self).__init__(op_records, component)
+        self.graph_fn_name = graph_fn_name
+
+    def __str__(self):
+        return "GraphFn('{}')->OpRecCol({} ops)".format(self.graph_fn_name, len(self.op_records))
 
 
 class DataOpRecordColumnIntoAPIMethod(DataOpRecordColumn):
+    """
+    An array of input parameters (DataOpRecord objects) that will go in a single call into an API-method.
+
+    API-methods are called and run through during meta-graph assembly time.
+
+    Stores the api method record and all DataOpRecords used for the call.
+    """
     def __init__(self, op_records, component, api_method_rec):
         super(DataOpRecordColumnIntoAPIMethod, self).__init__(op_records=op_records, component=component)
 
@@ -195,6 +299,9 @@ class DataOpRecordColumnIntoAPIMethod(DataOpRecordColumn):
 
 
 class DataOpRecordColumnFromAPIMethod(DataOpRecordColumn):
+    """
+    An array of return values from an API-method pass through.
+    """
     pass
 
 
