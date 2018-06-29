@@ -193,11 +193,11 @@ class GraphBuilder(Specifiable):
         """
         The actual iterative depth-first search algorithm to build our graph from the already existing
         meta-Graph structure.
-        Starts from a bag of DataOpRecords populated with the initial placeholders (from input
+        Starts from a set of DataOpRecords populated with the initial placeholders (from input
         Spaces). Keeps pushing these ops through the meta-graph until a non-complete graph_fn
-        or a non-complete Component (API-method) is reached. Replaces the ops in the bad with the
-        reached ones and re-iterates like this until all op-records in the entire meta-graph
-        have been filled with actual ops.
+        or a non-complete Component (with at least one non-complete API-method) is reached.
+        Replaces the ops in the set with the newly reached ones and re-iterates like this until all op-records
+        in the entire meta-graph have been filled with actual ops.
 
         Args:
             op_records_to_process (Set[DataOpRecord]): The initial set of DataOpRecords (with populated `op` fields
@@ -222,9 +222,13 @@ class GraphBuilder(Specifiable):
                         if next_op_rec.op != "done":
                             assert next_op_rec.op is None
                             new_op_records_to_process.append(next_op_rec)
+                        # Push op and Space into next op-record.
                         next_op_rec.op = op_rec.op
+                        next_op_rec.space = op_rec.space
 
                         # Did we enter a new Component? If yes, check input-completeness and
+                        # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
+                        # placeholder).
                         if op_rec.column is None or op_rec.column.component is not next_op_rec.column.component:
                             next_component = next_op_rec.column.component
                             # Not input complete yet -> Check now.
@@ -303,65 +307,6 @@ class GraphBuilder(Specifiable):
                 # Check whether we have a matching
                 pass
 
-    def OBSOLETE_push_from_socket(self, socket):
-        # Skip this Socket, if it doesn't have a Space (no incoming connection).
-        # Assert that it's ok for the component to leave this Socket open.
-        if socket.space is None:
-            assert socket.name in socket.component.unconnected_sockets_in_meta_graph
-            return
-
-        for outgoing in socket.outgoing_connections:
-            # Push Socket into Socket.
-            if isinstance(outgoing, Socket):
-                #print("SOCK {}/{} -> {}/{}".format(socket.component.name, socket.name, outgoing.component.name, outgoing.name))
-                self.push_socket_into_socket(socket, outgoing)
-            # Push Socket into GraphFunction.
-            elif isinstance(outgoing, GraphFunction):
-                self.push_from_graph_fn(outgoing)
-            # Error.
-            else:
-                raise YARLError("ERROR: Outgoing connection ({}) must be of type Socket or GraphFunction!".\
-                                format(outgoing))
-
-    def OBSOLETE_push_socket_into_socket(self, socket, next_socket):
-        """
-        Pushes op records from one Socket into a next connected one.
-
-        Args:
-            socket (Socket): The Socket object to push from.
-            next_socket (Socket): The Socket object to push into.
-        """
-        assert socket.space is not None
-        assert next_socket.space is None or socket.space == next_socket.space,\
-            "ERROR: Socket '{}' already has Space '{}', but incoming connection '{}' has Space '{}'! " \
-            "Incoming Spaces must always be the same.".format(next_socket, next_socket.space, socket, socket.space)
-
-        was_input_complete = next_socket.component.input_complete
-
-        self.logger.debug("Socket {}/{} -> Socket {}/{}".format(socket.component.name, socket.name,
-                                                               next_socket.component.name, next_socket.name))
-        next_socket.space = socket.space
-
-        # Push the op-records into the next Socket.
-        for op_record in socket.op_records:  # type: DataOpRecord
-            if op_record.op is not None:
-                next_socket.push_op_from_incoming_socket(op_record.op, in_socket_name=socket.name,
-                                                         in_op_record=op_record)
-
-        # Continue with the build logic.
-        self.after_socket_update(next_socket, was_input_complete)
-
-    def OBSOLETE_after_socket_update(self, socket, was_input_complete):
-        # The Component of the Socket has already been input-complete. Keep pushing the Socket forward.
-        if was_input_complete is True:
-            self.push_from_socket(socket)
-        else:
-            # Check again for input-completeness.
-            space_dict = socket.component.check_input_completeness()
-            # Component has just become input-complete: Build it.
-            if socket.component.input_complete:
-                self.build_component(socket.component, space_dict)
-
     def push_from_graph_fn(self, graph_fn):
         """
         Builds outgoing graph function ops using `socket`'s component's device or the GraphBuilder's default
@@ -383,10 +328,10 @@ class GraphBuilder(Specifiable):
             else:
                 self.device_component_assignments[assigned_device].append(str(graph_fn))
 
-            # Keep moving through this graph_fn's out-Sockets (if input-complete).
-            if graph_fn.input_complete:
-                for slot, out_socket in enumerate(graph_fn.output_sockets):
-                    self.push_from_socket(out_socket)  #, graph_fn, slot)
+            ## Keep moving through this graph_fn's out-Sockets (if input-complete).
+            #if graph_fn.input_complete:
+            #    for slot, out_socket in enumerate(graph_fn.output_sockets):
+            #        self.push_from_socket(out_socket)  #, graph_fn, slot)
 
     def run_through_graph_fn_with_device_and_scope(self, graph_fn, assigned_device):
         """
@@ -524,46 +469,6 @@ class GraphBuilder(Specifiable):
                 op_records.append(op_rec)
 
             graph_fn.in_out_records_map[in_op_record_combination] = tuple(op_records)
-
-    def OBSOLETE_memoize_inputs(self):
-        # Memoize possible input-combinations (from all our in-Sockets)
-        # so we don't have to do this every time we get a call to `self.execute`.
-        in_names = sorted(list(map(lambda s: s.name, self.core_component.input_sockets)))
-        input_combinations = all_combinations(in_names, descending_length=True)
-        # Store each combination and its sub-combinations in self.input_combinations.
-        for input_combination in input_combinations:
-            self.input_combinations[tuple(input_combination)] = \
-                all_combinations(input_combination, descending_length=True)
-
-    def OBSOLETE_register_ops(self):
-        # Now use the ready op/socket registries to determine for which out-Socket we need which api_methods.
-        # Then we will be able to derive the correct op for any given (out-Socket+in-Socket+in-shape)-combination
-        # passed into the call method.
-        for output_socket in self.core_component.output_sockets:  # type: Socket
-            # Create empty out-sock registry entry.
-            self.out_socket_registry[output_socket.name] = set()
-
-            assert len(output_socket.op_records) > 0, "ERROR: There must at least be one op-record for out-Socket " \
-                                                      "'{}'!".format(output_socket.name)
-
-            # Loop through this Socket's set of possible ops.
-            for op_rec in output_socket.op_records:
-                # Get all the (core) in-Socket names (alphabetically sorted) that are required for this op.
-                sockets = tuple(sorted(list(self.trace_back_sockets({op_rec})), key=lambda s: s.name))
-                # If an in-Socket has more than one connected incoming Space:
-                # Get the shape-combinations for these Sockets.
-                # e.g. Sockets=["a", "b"] (and Space1 -> a, Space2 -> a, Space3 -> b)
-                #   shape-combinations=[(Space1, Space3), (Space2, Space3)]
-                shapes = [[i.get_shape(with_batch_rank=True) for i in sock.incoming_connections] for sock in sockets]
-                shape_combinations = itertools.product(*shapes)
-                for shape_combination in shape_combinations:
-                    # Do everything by Socket-name (easier to debug).
-                    in_socket_names = tuple([s.name for s in sockets])
-                    # Update our call registry.
-                    key = (output_socket.name, in_socket_names, shape_combination)
-                    self.call_registry[key] = op_rec.op
-                    # .. and the out-socket registry.
-                    self.out_socket_registry[output_socket.name].update(set(in_socket_names))
 
     def sanity_check_build(self, component=None):
         """

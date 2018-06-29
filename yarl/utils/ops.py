@@ -121,25 +121,15 @@ class DataOpRecord(object):
     """
     A simple wrapper class for a DataOp carrying the op itself and some additional information about it.
     """
-    #_ID = -1
-
     def __init__(self, op=None, column=None):
-        #self.id = self.get_id()
         self.op = op
+        # Link back to the column we belong to.
+        self.column = column
+        # The inferred Space of this op.
+        self.space = None
 
         # Set of (op-col ID, slot) tuples that are connected from this one.
         self.next = set()
-        # Link back to the column we belong to.
-        self.column = column
-        # This op record's Component object.
-        #self.component = None
-
-    #def get_id(self):
-    #    self._ID += 1
-    #    return self._ID
-
-    #def __hash__(self):
-    #    return hash(self.id)
 
 
 class DataOpRecordColumn(object):
@@ -214,7 +204,7 @@ class APIMethodRecord(object):
         self.component = component
         self.must_be_complete = must_be_complete
 
-        self.spaces = list()
+        #self.spaces = None
         self.in_op_columns = list()
         self.out_op_columns = list()
 

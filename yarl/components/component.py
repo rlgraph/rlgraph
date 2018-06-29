@@ -226,6 +226,40 @@ class Component(Specifiable):
             else:
                 return out_graph_fn_column.op_records
 
+    def check_input_completeness(self):
+        """
+        Checks whether this Component is "input-complete" and stores the result in self.input_complete.
+        Input-completeness is reached (only once and then it stays that way) if all in-Sockets to this component
+        (whose name is not in `self.unconnected_sockets_in_meta_graph` have at least one op defined in
+        their `ops` set.
+
+        Returns:
+            Optional[dict]: A space-dict if the Component is input-complete, None otherwise.
+        """
+        assert self.input_complete is False
+        space_dict = dict()
+
+        self.input_complete = True
+        # Loop through all API methods.
+        for method_name, api_method_rec in self.api_methods.items():
+            # This API method doesn't have to be completed, ignore and don't add it to space_dict.
+            if api_method_rec.must_be_complete is False:
+                continue
+
+            # Get the spaces of each op-record in the columns.
+            for in_op_col in api_method_rec.in_op_columns:
+                spaces = [op_rec.space for op_rec in in_op_col.op_records]
+                # All Spaces are defined -> Store list of Spaces (for this column) in return dict.
+                if all(spaces):
+                    space_dict[method_name] = api_method_rec.spaces
+                    break
+                # Some Spaces are None.
+                else:
+                    self.input_complete = False
+                    return None
+
+        return space_dict
+
     def when_input_complete(self, input_spaces, action_space, summary_regexp=None):
         """
         Wrapper that calls both `create_variables` and `assert_input_spaces` in sequence and passes the dict with
@@ -307,7 +341,7 @@ class Component(Specifiable):
             self.create_summary(summary_name, var)
 
     def create_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True,
-                     from_space=None, add_batch_rank=False, flatten=False):
+                        from_space=None, add_batch_rank=False, flatten=False):
         """
         Generates or returns a variable to use in the selected backend.
         The generated variable is automatically registered in this component's (and all parent components')
@@ -688,34 +722,6 @@ class Component(Specifiable):
                 return tf.gather(params=variable, indices=indices)
             else:
                 return variable
-
-    def check_input_completeness(self):
-        """
-        Checks whether this Component is "input-complete" and stores the result in self.input_complete.
-        Input-completeness is reached (only once and then it stays that way) if all in-Sockets to this component
-        (whose name is not in `self.unconnected_sockets_in_meta_graph` have at least one op defined in
-        their `ops` set.
-
-        Returns:
-            Optional[dict]: A space-dict if the Component is input-complete, None otherwise.
-        """
-        assert self.input_complete is False
-        space_dict = dict()
-
-        self.input_complete = True
-        # Loop through all API methods.
-        for method_name, api_method_rec in self.api_methods.items():
-            # This API method doesn't have to be completed, ignore and don't add it to space_dict.
-            if api_method_rec.must_be_complete is False:
-                continue
-
-            if len(api_method_rec.spaces) == 0:
-                self.input_complete = False
-                return None
-            else:
-                space_dict[method_name] = api_method_rec.spaces
-
-        return space_dict
 
     def _graph_fn__variables(self):
         """
