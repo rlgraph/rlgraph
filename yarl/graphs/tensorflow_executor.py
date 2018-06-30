@@ -21,6 +21,7 @@ import os
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
+from yarl.components import MultiGpuSyncOptimizer
 from yarl.graphs.graph_executor import GraphExecutor
 from yarl.backend_system import get_distributed_backend
 import yarl.utils as util
@@ -112,13 +113,13 @@ class TensorFlowExecutor(GraphExecutor):
         # self.logger.info("Updating global distributed backend setting with backend {}".format(distributed_backend_))
         # set_distributed_backend(distributed_backend_)
 
-    def build(self, input_spaces):
+    def build(self, input_spaces, optimizer=None):
         # Prepare for graph assembly.
         self.init_execution()
         self.setup_graph()
 
         # TODO split graph assembly
-        self._build_device_strategy()
+        self._build_device_strategy(optimizer)
 
         # Assemble graph via graph builder.
         self.graph_builder.build(input_spaces, self.available_devices, self.default_device, self.device_strategy)
@@ -448,7 +449,7 @@ class TensorFlowExecutor(GraphExecutor):
         # Note that this can only assign components which have been declared synchronizable.
         self.execute("sync", dict(sync_in=weights))
 
-    def _build_device_strategy(self):
+    def _build_device_strategy(self, optimizer):
         """
         When using multiple GPUs or other special devices, additional graph components
         may be required to split up incoming data, load it to device memories, and aggregate
@@ -460,12 +461,21 @@ class TensorFlowExecutor(GraphExecutor):
         TensorFlow or Ray.
 
         This method expands the meta graph according to the given device strategy if necessary.
+
+        Args:
+            optimizer:
         """
+
         if self.device_strategy == 'multi_gpu_sync':
-            # TODO 1. Create replicas of loss graph
-            # TODO 2. Optimizer in agent must then be multi gpu optimizer which builds ome of the ops
-            #
-            pass
+            # Assert we have more than one gpu.
+            assert self.num_gpus > 1
+            assert isinstance(optimizer, MultiGpuSyncOptimizer)
+
+            # We must be able to copy the core component.
+            # Pass device and replica info.
+            # TODO do we want to copy the core or selected sub components of core/ a subgraph?
+            optimizer.set_replica_graph_handle(self.graph_builder.core_component.copy)
+            optimizer.set_devices(self.gpu_names)
 
     def _sanity_check_devices(self):
         """

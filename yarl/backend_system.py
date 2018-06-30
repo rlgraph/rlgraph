@@ -25,6 +25,7 @@ BACKEND = "tf"
 # Default distributed backend is distributed TensorFlow.
 DISTRIBUTED_BACKEND = "ray"
 
+
 distributed_compatible_backends = dict(
     tf=["distributed_tf", "ray", "horovod"]
 )

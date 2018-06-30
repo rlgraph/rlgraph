@@ -63,7 +63,7 @@ class GraphExecutor(Specifiable):
         self.session_config = self.execution_spec["session_config"]
         self.distributed_spec = self.execution_spec.get("distributed_spec")
 
-    def build(self, input_spaces):
+    def build(self, input_spaces, *args):
         """
         Sets up the computation graph by:
         - Starting the Server, if necessary.
