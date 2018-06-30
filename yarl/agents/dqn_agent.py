@@ -71,7 +71,8 @@ class DQNAgent(Agent):
                                  self.target_policy, self.exploration, self.loss_function, self.optimizer)
         # markup = get_graph_markup(self.graph_builder.core_component)
         # print(markup)
-        self.build_graph()
+        # TODO pass input spaces
+        self.build_graph(None, self.optimizer)
 
     def _assemble_meta_graph(self, core, *params):
         # Define our interface.

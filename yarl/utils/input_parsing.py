@@ -60,6 +60,9 @@ def get_optimizer_from_device_strategy(optimizer_spec, device_strategy='default'
         local_optimizer = Optimizer.from_spec(optimizer_spec)
         # Wrap local optimizer in multi device optimizer.
         return MultiGpuSyncOptimizer(local_optimizer=local_optimizer)
+    else:
+        raise YARLError("Device strategy {} is not allowed. Allowed strategies are 'default', 'custom',"
+                        "and 'multi_gpu_sync'".format(device_strategy))
 
 
 def parse_summary_spec(summary_spec):
@@ -103,6 +106,7 @@ def parse_execution_spec(execution_spec):
     Returns:
         dict: The sanitized execution_spec dict.
     """
+    # TODO these are tensorflow specific
     # If no spec given.
     default_spec = dict(
         mode="single",

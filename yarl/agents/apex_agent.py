@@ -69,7 +69,8 @@ class ApexAgent(Agent):
         self.loss_function = DQNLossFunction(discount=self.discount, double_q=True)
 
         self.assemble_meta_graph()
-        self.build_graph()
+        # TODO pass input space
+        self.build_graph(None, self.optimizer)
 
     def _assemble_meta_graph(self, core, *params):
         # Define our interface.

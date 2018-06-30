@@ -151,11 +151,11 @@ class Agent(Specifiable):
         """
         raise NotImplementedError
 
-    def build_graph(self):
+    def build_graph(self, input_spaces, *args):
         """
         Asks our GraphExecutor to actually build the Graph from the YARL meta-graph.
         """
-        self.graph_executor.build()
+        self.graph_executor.build(input_spaces, args)
 
     def get_action(self, states, deterministic=False):
         """
