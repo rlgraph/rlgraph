@@ -24,7 +24,7 @@ import unittest
 from yarl.components import Component
 from yarl.tests import ComponentTest
 from yarl.utils import root_logger
-from yarl.tests.dummy_components import Dummy1to1, DummyWithSubComponents
+from yarl.tests.dummy_components import Dummy1To1, DummyWithSubComponents
 
 
 class TestConnectionsWithOpGuidance(unittest.TestCase):
@@ -33,13 +33,22 @@ class TestConnectionsWithOpGuidance(unittest.TestCase):
     """
     root_logger.setLevel(level=logging.INFO)
 
-    def test_single_component(self):
+    def test_single_component_with_single_api_method(self):
         """
         'A' is 1to1: send "input" through A, receive output.
         """
-        a = Dummy1to1(scope="A")
+        a = Dummy1To1(scope="A")
         test = ComponentTest(component=a, input_spaces=dict(run=float))
-        test.test(api_method="run", params=np.array(1.1), expected_outputs=0.0)
+        # Expected: in + 1.0
+        test.test(api_method="run", params=np.array(1.1), expected_outputs=2.1)
+
+    #def test_single_component(self):
+    #    """
+    #    'A' is 1to1: send "input" through A, receive output.
+    #    """
+    #    a = Dummy1to1(scope="A")
+    #    test = ComponentTest(component=a, input_spaces=dict(run=float))
+    #    test.test(api_method="run", params=np.array(1.1), expected_outputs=0.0)
 
     def test_component_with_sub_component(self):
         a = DummyWithSubComponents(scope="A")

@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import get_backend
-from yarl.components import Optimizer
+from yarl.components.optimizers.optimizer import Optimizer
 
 
 if get_backend() == "tf":

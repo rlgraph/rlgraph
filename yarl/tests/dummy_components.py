@@ -25,25 +25,41 @@ from yarl.utils.util import force_list
 from yarl.components import Component
 
 
-class Dummy1to1(Component):
+class Dummy1To1(Component):
     """
-    A dummy component with one API method (run) mapping one input to one output.
-
     API:
-        run(input_): Result of input_ + `self.constant_value` - 2x`self.constant_value`
-        ... <- add more API method here
+        run(input_): Result of input_ + `self.constant_value`
     """
     def __init__(self, scope="dummy-1-to-1", constant_value=1.0):
         """
         Args:
             constant_value (float): A constant to add to input in our graph_fn.
         """
-        super(Dummy1to1, self).__init__(scope=scope)
+        super(Dummy1To1, self).__init__(scope=scope)
+        self.constant_value = constant_value
+
+        self.define_api_method("run", self._graph_fn_1to1)
+
+    def _graph_fn_1to1(self, input_):
+        return input_ + self.constant_value
+
+
+class Dummy2GraphFns1To1(Component):
+    """
+    API:
+        run(input_): Result of input_ + `self.constant_value` - 2x`self.constant_value`
+    """
+    def __init__(self, scope="dummy-2graph_fns-1to1", constant_value=1.0):
+        """
+        Args:
+            constant_value (float): A constant to add to input in our graph_fn.
+        """
+        super(Dummy2GraphFns1To1, self).__init__(scope=scope)
         self.constant_value = constant_value
 
     def run(self, input_):
-        result_1to1 = self.call(graph_fn=self._graph_fn_1to1, params=input_)
-        result_1to1_neg = self.call(graph_fn=self._graph_fn_1to1_neg, params=result_1to1)
+        result_1to1 = self.call(self._graph_fn_1to1, input_)
+        result_1to1_neg = self.call(self._graph_fn_1to1_neg, result_1to1)
         return result_1to1_neg
 
     def _graph_fn_1to1(self, input_):

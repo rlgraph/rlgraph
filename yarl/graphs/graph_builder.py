@@ -114,7 +114,9 @@ class GraphBuilder(Specifiable):
         # and directed links for the build time.
         for api_method_name, api_method_rec in self.core_component.api_methods.items():
             # Create an new in column and map it to the resulting out column.
-            in_ops_records = [DataOpRecord()] * len(force_list(input_spaces[api_method_name]))
+            in_ops_records = list()
+            for _ in range(len(force_list(input_spaces[api_method_name]))):
+                in_ops_records.append(DataOpRecord())
             self.core_component.call(api_method_rec.method, *in_ops_records)
             # Register interface.
             self.api[api_method_name] = (in_ops_records, api_method_rec.out_op_columns[0].op_records)
@@ -255,7 +257,8 @@ class GraphBuilder(Specifiable):
                     if op_rec.column.is_complete():
                         # Call the graph_fn with the given column and call-options.
                         self.run_through_graph_fn_with_device_and_scope(op_rec.column)
-                        # Store all resulting op_recs to be processed next.
+                        # Store all resulting op_recs (returned by the graph_fn) to be processed next.
+                        new_op_records_to_process.extend(op_rec.column.out_graph_fn_column.op_records)
                     # If column incomplete, stop here for now.
                     else:
                         new_op_records_to_process.append(op_rec)
@@ -289,7 +292,6 @@ class GraphBuilder(Specifiable):
         Args:
             op_rec_column (DataOpRecordColumnIntoGraphFn): The column of DataOpRecords to be fed through the
                 graph_fn.
-            assigned_device (str): Device identifier.
         """
         # We have to specify the device and the variable scope here as we will be running through a
         # GraphFunction, which may add ops to the graph.
@@ -333,7 +335,8 @@ class GraphBuilder(Specifiable):
             else:
                 self.device_component_assignments[assigned_device].append(str(op_rec_column.graph_fn.__name__))
 
-    def run_through_graph_fn(self, op_rec_column):
+    @staticmethod
+    def run_through_graph_fn(op_rec_column):
         """
         Pushes all ops in the column through the respective graph_fn (graph_fn-spec and call-options are part of
         the column).

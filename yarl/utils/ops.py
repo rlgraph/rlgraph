@@ -94,15 +94,32 @@ class DataOpRecord(object):
     """
     A simple wrapper class for a DataOp carrying the op itself and some additional information about it.
     """
-    def __init__(self, op=None, column=None):
+    _ID = -1
+
+    def __init__(self, op=None, column=None, description=None):
+        self.id = get_id()
         self.op = op
         # Link back to the column we belong to.
         self.column = column
+        # An optional description for this op.
+        self.description = description
         # The inferred Space of this op.
         self.space = None
 
         # Set of (op-col ID, slot) tuples that are connected from this one.
         self.next = set()
+
+    def get_id(self):
+        DataOpRecord._ID += 1
+        return DataOpRecord._ID
+        #id_ = DataOpRecord._ID
+        #return self._LETTERS[id_ // 26] + self._LETTERS[id_ % 26]
+
+    def __str__(self):
+        return "DataOpRec({})".format(self.description)
+
+    def __hash__(self):
+        return hash(self.id)
 
 
 class DataOpRecordColumn(object):
@@ -117,7 +134,9 @@ class DataOpRecordColumn(object):
             for op_rec in self.op_records:
                 op_rec.column = self
         else:
-            self.op_records = [DataOpRecord(op=None, column=self)] * op_records
+            self.op_records = list()
+            for _ in range(op_records):
+                self.op_records.append(DataOpRecord(op=None, column=self))
 
         self.component = component
 
@@ -128,8 +147,8 @@ class DataOpRecordColumn(object):
         return True
 
     def get_id(self):
-        self._ID += 1
-        return self._ID
+        DataOpRecordColumn._ID += 1
+        return DataOpRecordColumn._ID
 
     def __hash__(self):
         return hash(self.id)
@@ -307,7 +326,12 @@ class DataOpRecordColumnFromAPIMethod(DataOpRecordColumn):
     """
     An array of return values from an API-method pass through.
     """
-    pass
+    def __init__(self, op_records, component, api_method_name):
+        super(DataOpRecordColumnFromAPIMethod, self).__init__(op_records, component)
+        self.api_method_name = api_method_name
+
+    def __str__(self):
+        return "APIMethod('{}')->OpRecCol({} ops)".format(self.api_method_name, len(self.op_records))
 
 
 class APIMethodRecord(object):

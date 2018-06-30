@@ -253,12 +253,19 @@ class Component(Specifiable):
         # Link from in_op_recs into the new column.
         for i, op_rec in enumerate(params):
             op_rec.next.add(in_op_column.op_records[i])
-        # Now actually call the API method with that column, create an out column for that record and
-        # return the individual op-records.
-        out = method(*in_op_column.op_records)
-        out_op_column = DataOpRecordColumnFromAPIMethod(op_records=out, component=self)
+        # Now actually call the API method with that column and create a new out-column with num-records == num-return
+        # values.
+        out_op_recs = method(*in_op_column.op_records)
+        out_op_recs = util.force_list(out_op_recs)
+        out_op_column = DataOpRecordColumnFromAPIMethod(op_records=len(out_op_recs), component=self,
+                                                        api_method_name=method.__name__)
+        # Link the returned ops to that new out-column.
+        for i, op_rec in enumerate(out_op_recs):
+            op_rec.next.add(out_op_column.op_records[i])
+        # And append the new out-column to the api-method-rec.
         api_method_rec.out_op_columns.append(out_op_column)
 
+        # Then return the op-records from the new out-column.
         if len(out_op_column.op_records) == 1:
             return out_op_column.op_records[0]
         else:
