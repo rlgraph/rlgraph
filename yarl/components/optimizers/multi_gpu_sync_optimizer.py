@@ -22,7 +22,7 @@ from yarl.components import Optimizer
 
 
 if get_backend() == "tf":
-    import tensorflow
+    import tensorflow as tf
 
 
 class MultiGpuSyncOptimizer(Optimizer):
@@ -107,13 +107,13 @@ class MultiGpuSyncOptimizer(Optimizer):
         The multi-gpu-sync optimizer calculates gradients by averaging them across
         replicas.
         """
-        grads = []
+        all_grads_and_vars = []
         for device in self.gpu_devices:
-            grads.append(self.optimizer._graph_fn_calculate_gradients(
+            all_grads_and_vars.append(self.optimizer._graph_fn_calculate_gradients(
                 variables=self.device_vars[device],
                 loss=self.device_losses[device]
             ))
-        return self._average_gradients(grads)
+        return self._average_gradients(all_grads_and_vars)
 
     def _graph_fn_apply_gradients(self, grads_and_vars):
         """
@@ -121,7 +121,8 @@ class MultiGpuSyncOptimizer(Optimizer):
         """
         pass
 
-    def _average_gradients(self, gpu_gradients):
+    @staticmethod
+    def _average_gradients(gpu_gradients):
         """
         Utility to average gradients across replicas.
 
@@ -133,4 +134,26 @@ class MultiGpuSyncOptimizer(Optimizer):
         Returns:
             list: List of grads_and_vars tuples averaged across gpus.
         """
-        pass
+        gpu_averages = []
+        if get_backend() == "tf":
+            for grads_and_vars in zip(*gpu_gradients):
+                gpu_grads = []
+
+                for grad, var in grads_and_vars:
+                    if grad is not None:
+                        # Add batch dimension.
+                        batch_grad = tf.expand_dims(input=grad, axis=0)
+
+                        # Add along axis for that gpu.
+                        gpu_grads.append(batch_grad)
+
+                if not gpu_grads:
+                    continue
+
+                aggregate_grads = tf.concat(axis=0, values=gpu_grads)
+                mean_grad = tf.reduce_mean(input_tensor=aggregate_grads, axis=0)
+                # Don't need all vars because they are shared.
+                var = grads_and_vars[0][1]
+                gpu_averages.append((mean_grad, var))
+
+        return gpu_averages
