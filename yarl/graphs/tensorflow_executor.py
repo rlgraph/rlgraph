@@ -117,11 +117,11 @@ class TensorFlowExecutor(GraphExecutor):
         self.init_execution()
         self.setup_graph()
 
-        # Assemble graph via graph builder.
-        self.graph_builder.build(input_spaces, self.available_devices, self.default_device)
-
         # TODO split graph assembly
         self._build_device_strategy()
+
+        # Assemble graph via graph builder.
+        self.graph_builder.build(input_spaces, self.available_devices, self.default_device, self.device_strategy)
 
         # Check device assignments for inconsistencies or unused devices.
         self._sanity_check_devices()
@@ -442,12 +442,11 @@ class TensorFlowExecutor(GraphExecutor):
         self.saver.export_meta_graph(filename=filename)
 
     def get_weights(self):
-        # Default out-socket pulls on variables.
-        return self.execute(sockets="_variables")
+        return self.execute("_variables")
 
     def set_weights(self, weights):
         # Note that this can only assign components which have been declared synchronizable.
-        self.execute(sockets="sync", inputs=dict(sync_in=weights))
+        self.execute("sync", dict(sync_in=weights))
 
     def _build_device_strategy(self):
         """
@@ -462,9 +461,11 @@ class TensorFlowExecutor(GraphExecutor):
 
         This method expands the meta graph according to the given device strategy if necessary.
         """
-        # TODO 1. Default device strategy -> do nothing
-        # TODO 2. Custom device strategy -> User does everything
-        # TODO 3. sync-multi-gpu -> expand graph
+        if self.device_strategy == 'multi_gpu_sync':
+            # TODO 1. Create replicas of loss graph
+            # TODO 2. Optimizer in agent must then be multi gpu optimizer which builds ome of the ops
+            #
+            pass
 
     def _sanity_check_devices(self):
         """
