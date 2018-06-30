@@ -24,9 +24,9 @@ if get_backend() == "tf":
     import tensorflow
 
 
-class MultiGpuOptimizer(Component):
+class MultiGpuSyncOptimizer(Component):
     """
-    The Multi-GPU optimizer parallelizes optimization across multipe gpus.
+    The Multi-GPU optimizer parallelizes synchronous optimization across multipe gpus.
     """
     def __init__(self, local_optimizer=None, scope="multi-gpu-optimizer", **kwargs):
         """
@@ -34,11 +34,11 @@ class MultiGpuOptimizer(Component):
             local_optimizer (Optional[dict,LocalOptimizer]): The spec-dict for the LocalOptimizer object used
             to run on each device or a LocalOptimizer object itself.
         """
-        super(MultiGpuOptimizer, self).__init__(scope=scope, **kwargs)
+        super(MultiGpuSyncOptimizer, self).__init__(scope=scope, **kwargs)
         self.optimizer = local_optimizer
 
     def create_variables(self, input_spaces, action_space):
-        super(MultiGpuOptimizer, self).create_variables(input_spaces, action_space)
+        super(MultiGpuSyncOptimizer, self).create_variables(input_spaces, action_space)
 
         # TODO setup variables per device
 

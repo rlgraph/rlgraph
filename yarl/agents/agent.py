@@ -21,7 +21,7 @@ import time
 
 from yarl import Specifiable, get_backend
 from yarl.graphs.graph_executor import GraphExecutor
-from yarl.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
+from yarl.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec, get_optimizer_from_device_strategy
 from yarl.components import  Exploration, PreprocessorStack, NeuralNetwork, Policy, Optimizer
 from yarl.graphs import GraphBuilder
 from yarl.spaces import Space
@@ -99,8 +99,12 @@ class Agent(Specifiable):
         # Global timee step counter.
         self.timesteps = 0
 
-        # Create the Agent's optimizer.
-        self.optimizer = Optimizer.from_spec(optimizer_spec)
+        # Create the Agent's optimizer based on optimizer_spec and execution strategy.
+        self.optimizer = get_optimizer_from_device_strategy(
+            optimizer_spec=optimizer_spec,
+            device_strategy=self.execution_spec.get("device_strategy", 'default')
+        )
+
         # Update-spec dict tells the Agent how to update (e.g. memory batch size).
         self.update_spec = parse_update_spec(update_spec)
 

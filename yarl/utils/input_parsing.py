@@ -20,6 +20,7 @@ from __future__ import print_function
 import os.path
 
 from yarl import YARLError
+from yarl.components import Optimizer, MultiGpuSyncOptimizer
 from yarl.utils.util import default_dict
 
 
@@ -39,7 +40,38 @@ def parse_saver_spec(saver_spec):
     return default_dict(saver_spec, default_spec)
 
 
+def get_optimizer_from_device_strategy(optimizer_spec, device_strategy='default'):
+    """
+    Returns optimizer object based on optimizer_spec and device strategy.
+
+    Depending on the device strategy, the default optimizer object (e.g. an AdamOptimizer)
+    will be wrapped into a specific device optimizer
+
+    Args:
+        optimizer_spec (dict): Optimizer configuration options.
+        device_strategy (str): Device strategy to apply onto the optimizer.
+
+    Returns:
+        Optimizer: Optimizer object.
+    """
+    if device_strategy == 'default' or device_strategy == 'custom':
+        return Optimizer.from_spec(optimizer_spec)
+    elif device_strategy == 'multi_gpu_sync':
+        local_optimizer = Optimizer.from_spec(optimizer_spec)
+        # Wrap local optimizer in multi device optimizer.
+        return MultiGpuSyncOptimizer(local_optimizer=local_optimizer)
+
+
 def parse_summary_spec(summary_spec):
+    """
+    Expands summary spec with default values where necessary.
+
+    Args:
+        summary_spec (dict): Summary options.
+
+    Returns:
+        dict: Summary spec updated with default values.
+    """
     default_spec = dict(
         # The directory in which to store the summary files.
         directory=os.path.expanduser("~/yarl_summaries/"),  # default=home dir
