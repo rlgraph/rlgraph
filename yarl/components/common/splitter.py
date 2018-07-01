@@ -39,7 +39,7 @@ class Splitter(Component):
         self.input_space = input_space
 
         # Define the interface (one input, many outputs named after the auto-keys generated).
-        self.define_inputs("input")
+        #self.define_inputs("input")
         flat_dict = input_space.flatten()
         if output_names is not None:
             assert len(flat_dict) == len(output_names), "ERROR: Number of given out-names ({}) does not " \
@@ -48,9 +48,10 @@ class Splitter(Component):
                 format(len(output_names), len(flat_dict))
         else:
             output_names = [key for key in flat_dict.keys()]
-        self.define_outputs(*output_names)
+        #self.define_outputs(*output_names)
         # Insert our simple splitting graph_fn.
-        self.add_graph_fn("input", output_names, self._graph_fn_split, flatten_ops=True)
+
+        self.add_graph_fn(name="split", func=self._graph_fn_split, flatten_ops=True)
 
     def _graph_fn_split(self, input_):
         """

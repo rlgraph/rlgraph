@@ -55,9 +55,9 @@ class DecayComponent(Component):
         super(DecayComponent, self).__init__(scope=scope, **kwargs)
 
         # Our interface.
-        self.define_inputs("time_step")
-        self.define_outputs("value")
-        self.add_graph_fn("time_step", "value", self._graph_fn_value)
+        #self.define_inputs("time_step")
+        #self.define_outputs("value")
+        self.define_api_method(name="value", func=self._graph_fn_value)
 
     def decay(self, time_steps_in_decay_window):
         """

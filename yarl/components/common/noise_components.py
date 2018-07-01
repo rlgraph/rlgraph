@@ -38,8 +38,8 @@ class NoiseComponent(Component):
         super(NoiseComponent, self).__init__(scope=scope, **kwargs)
 
         # Our interface.
-        self.define_outputs("noise")
-        self.add_graph_fn(None, "noise", self._graph_fn_value)
+        # self.define_outputs("noise")
+        self.define_api_method(name="value", func=self._graph_fn_value)
 
     def _graph_fn_value(self):
         """

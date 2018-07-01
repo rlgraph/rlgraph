@@ -48,13 +48,13 @@ class Synchronizable(Component):
         # Socket for incoming data (the data that this Component will get overwritten with).
         # The "values" in-Socket should be connected from a "_variables" out-Socket of any other Component
         # (the Component from which we sync).
-        self.define_inputs("_values")
+        # self.define_inputs("_values")
         # The sync op to trigger a round of synchronizations from the "values" in-Socket into our
         # parent's variables.
-        self.define_outputs("sync")
+        # self.define_outputs("sync")
 
         # Add the syncing operation.
-        self.add_graph_fn("_values", "sync", self._graph_fn_sync, flatten_ops=False)
+        self.define_api_method(name="sync", func=self._graph_fn_sync, flatten_ops=False)
 
     def _graph_fn_sync(self, values_):
         """

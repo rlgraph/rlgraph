@@ -52,13 +52,12 @@ class FixedLoop(Component):
             raise YARLError("ERROR: GraphFn '{}' not found in Component '{}'!".format(graph_fn_name,
                                                                                       call_component.global_scope))
         # TODO: Do we sum up, append to list, ...?
-        self.define_inputs("inputs")
-        self.define_outputs("fixed_loop_result")
-        self.add_component(call_component)
-        self.add_graph_fn(
-            "inputs",
-            "fixed_loop_result",
-            self._graph_fn_call_loop,
+        #self.define_inputs("inputs")
+        # self.define_outputs("fixed_loop_result")
+        self.add_components(call_component)
+        self.define_api_method(
+            name="call_loop",
+            func=self._graph_fn_call_loop,
             flatten_ops={"inputs"} if flatten_ops else None
         )
 

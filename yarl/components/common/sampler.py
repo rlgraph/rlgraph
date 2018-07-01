@@ -41,11 +41,11 @@ class Sampler(Component):
         self.sampling_strategy = sampling_strategy
 
         # Define our interface.
-        self.define_inputs("sample_size", "api_methods")
-        self.define_outputs("sample")
+        # self.define_inputs("sample_size", "api_methods")
+        # self.define_outputs("sample")
         # Connect the graph_fn, only flatten the incoming sample, not sample_size.
-        self.add_graph_fn(["sample_size", "api_methods"], "sample", self._graph_fn_sample,
-                          flatten_ops={"api_methods"})
+
+        self.define_api_method(name="sample", func=self._graph_fn_sample, flatten_ops={"api_methods"})
 
     def _graph_fn_sample(self, sample_size, inputs):
         """
