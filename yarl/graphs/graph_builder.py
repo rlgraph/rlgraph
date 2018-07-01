@@ -274,14 +274,6 @@ class GraphBuilder(Specifiable):
                     self.MAX_ITERATIVE_LOOPS
                 ))
 
-    @staticmethod
-    def check_op_column_complete(op_column):
-        for op_rec in op_column:
-            if op_rec.op is None:
-                return False
-        else:
-            return True
-
     def run_through_graph_fn_with_device_and_scope(self, op_rec_column):
         """
         Runs through a graph_fn with the given ops and thereby assigns a device (Component's device or GraphBuilder's

@@ -288,3 +288,30 @@ def get_method_type(method):
     else:
         return "unknown"
 
+
+def get_num_return_values(method):
+    """
+    Does a regexp-based source code inspection and tries to figure out the number of values that the method
+    will return (assuming, that the method always returns the same number of values, regardless of its inputs).
+
+    Args:
+        method (callable): The method to get the number of returns  values for.
+
+    Returns:
+        int: The number of return values of `method`.
+    """
+    src = inspect.getsource(method)
+    # Resolve '\' at end of lines.
+    src = re.sub(r'\\\s*\n', "", src)
+
+    mo = re.search(r'\breturn (.+)', src)
+    return_code = mo.group(1)
+    # Resolve tricky things (parentheses, etc..).
+    return_code = re.sub(r'\([^\)]+\)', '', return_code)
+    return_code = re.sub(r'"[^"]+"', '', return_code)
+    # Probably have to add more resolution code here.
+    # ...
+
+    # Count the commas and return.
+    num_return_values = len(return_code.split(","))
+    return num_return_values
