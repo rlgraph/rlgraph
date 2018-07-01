@@ -53,22 +53,24 @@ class Optimizer(Component):
         self.learning_rate = learning_rate
 
         # Define our interface.
-        self.define_inputs("vars", "loss", *inputs)
-        self.define_outputs("calc_grads_and_vars", "step")
-
-        self.add_graph_fn(
-            inputs=["vars", "loss"] + list(inputs),
-            outputs="calc_grads_and_vars",
-            method=self._graph_fn_calculate_gradients
+        # self.define_inputs("vars", "loss", *inputs)
+        # self.define_outputs("calc_grads_and_vars", "step")
+        self.define_api_method(
+            name="calculate_gradients",
+            func=self._graph_fn_calculate_gradients
         )
 
         # Two-step optimizer: User has to feed back in the zipped gradients and variables for application step.
+
+        #  TODO do this via a run function called 'step'?
         if self.two_step is True:
-            self.define_inputs("grads_and_vars")
-            self.add_graph_fn("grads_and_vars", "step", self._graph_fn_apply_gradients)
+            # self.define_inputs("grads_and_vars")
+            # TODO define run function for this?
+            pass
+            # self.define_api_method("grads_and_vars", "step", self._graph_fn_apply_gradients)
         # One-step optimizer: Connect everything automatically.
         else:
-            self.add_graph_fn("calc_grads_and_vars", "step", self._graph_fn_apply_gradients)
+            self.define_api_method(name="step", func=self._graph_fn_apply_gradients)
 
     def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
         """

@@ -54,20 +54,20 @@ class Distribution(Component):
         super(Distribution, self).__init__(scope=scope, **kwargs)
 
         # Define a generic Distribution interface.
-        self.define_inputs("parameters", "values", "other_distribution", "max_likelihood")
-        self.define_outputs("sample_stochastic", "sample_deterministic", "draw", "entropy", "log_prob", "distribution")
+        # self.define_inputs("parameters", "values", "other_distribution", "max_likelihood")
+        # self.define_outputs("sample_stochastic", "sample_deterministic", "draw", "entropy", "log_prob", "distribution")
 
         # "distribution" will be an internal Socket used to connect the GraphFunctions with each other.
-        self.add_graph_fn("parameters", "distribution", self._graph_fn_parameterize)
-        self.add_graph_fn("distribution", "sample_stochastic", self._graph_fn_sample_stochastic)
-        self.add_graph_fn("distribution", "sample_deterministic", self._graph_fn_sample_deterministic)
-        self.add_graph_fn("distribution", "entropy", self._graph_fn_entropy)
-        self.add_graph_fn(["distribution", "values"], "log_prob", self._graph_fn_log_prob)
-        self.add_graph_fn(["distribution", "other_distribution"], "kl_divergence", self._graph_fn_kl_divergence)
-        self.add_graph_fn(["distribution", "max_likelihood"], "draw", self._graph_fn_draw)
+        self.define_api_method(name="parameterize", func=self._graph_fn_parameterize)
+        self.define_api_method(name="sample_stochastic", func=self._graph_fn_sample_stochastic)
+        self.define_api_method(name="sample_deterministic", func=self._graph_fn_sample_deterministic)
+        self.define_api_method(name="entropy", func=self._graph_fn_entropy)
+        self.define_api_method(name="log_prob", func=self._graph_fn_log_prob)
+        self.define_api_method(name="kl_divergence", func=self._graph_fn_kl_divergence)
+        self.define_api_method(name="draw", func=self._graph_fn_draw)
 
         # Make some in-Sockets optional (don't need to be connected; will not sanity check these).
-        self.unconnected_sockets_in_meta_graph.update(["values", "max_likelihood", "other_distribution"])
+        # self.unconnected_sockets_in_meta_graph.update(["values", "max_likelihood", "other_distribution"])
 
     def check_input_spaces(self, input_spaces, action_space):
         in_space = input_spaces["parameters"]
