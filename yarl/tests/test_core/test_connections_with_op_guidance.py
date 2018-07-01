@@ -90,10 +90,10 @@ class TestConnectionsWithOpGuidance(unittest.TestCase):
 
             return past_d
 
-        container.define_api_method("container_run", container_run)
+        container.define_api_method("run", container_run)
 
-        test = ComponentTest(component=container, input_spaces=dict(container_run=(float, float)))
+        test = ComponentTest(component=container, input_spaces=dict(run=(float, float)))
 
         # Push both api_methods through graph to receive correct (single-op) output calculation.
-        test.test(api_method="container_run", params=(np.array(1.1), np.array(0.5)), expected_outputs=5.6)
+        test.test(api_method="run", params=(np.array(1.1), np.array(0.5)), expected_outputs=5.6)
 
