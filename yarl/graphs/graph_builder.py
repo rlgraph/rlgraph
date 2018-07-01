@@ -18,18 +18,15 @@ from __future__ import division
 from __future__ import print_function
 
 from collections import OrderedDict
-import itertools
 import logging
-import numpy as np
-import re
 
 from yarl import YARLError, Specifiable, get_backend
 from yarl.components import Component
 from yarl.spaces import Space
 from yarl.spaces.space_utils import get_space_from_op
 from yarl.utils.input_parsing import parse_summary_spec
-from yarl.utils.util import force_list, force_tuple, get_shape
-from yarl.utils.ops import SingleDataOp, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn
+from yarl.utils.util import force_list, force_tuple
+from yarl.utils.ops import FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn
 from yarl.utils.component_printout import component_print_out
 
 if get_backend() == "tf":
@@ -115,8 +112,8 @@ class GraphBuilder(Specifiable):
         for api_method_name, api_method_rec in self.core_component.api_methods.items():
             # Create an new in column and map it to the resulting out column.
             in_ops_records = list()
-            for _ in range(len(force_list(input_spaces[api_method_name]))):
-                in_ops_records.append(DataOpRecord())
+            for i in range(len(force_list(input_spaces[api_method_name]))):
+                in_ops_records.append(DataOpRecord(description="input-{}-{}".format(api_method_name, i)))
             self.core_component.call(api_method_rec.method, *in_ops_records)
             # Register interface.
             self.api[api_method_name] = (in_ops_records, api_method_rec.out_op_columns[0].op_records)

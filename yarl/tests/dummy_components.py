@@ -44,6 +44,20 @@ class Dummy1To1(Component):
         return input_ + self.constant_value
 
 
+class Dummy2To1(Component):
+    """
+    API:
+        run(input1, input2): Result of input1 + input2.
+    """
+    def __init__(self, scope="dummy-2-to-1"):
+        super(Dummy2To1, self).__init__(scope=scope)
+
+        self.define_api_method("run", self._graph_fn_2to1)
+
+    def _graph_fn_2to1(self, input1, input2):
+        return input1 + input2
+
+
 class Dummy2GraphFns1To1(Component):
     """
     API:

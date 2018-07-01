@@ -97,7 +97,7 @@ class DataOpRecord(object):
     _ID = -1
 
     def __init__(self, op=None, column=None, description=None):
-        self.id = get_id()
+        self.id = self.get_id()
         self.op = op
         # Link back to the column we belong to.
         self.column = column
@@ -135,8 +135,8 @@ class DataOpRecordColumn(object):
                 op_rec.column = self
         else:
             self.op_records = list()
-            for _ in range(op_records):
-                self.op_records.append(DataOpRecord(op=None, column=self))
+            for i in range(op_records):
+                self.op_records.append(DataOpRecord(op=None, column=self, description="op-{}-{}".format(str(self), i)))
 
         self.component = component
 
@@ -146,12 +146,16 @@ class DataOpRecordColumn(object):
                 return False
         return True
 
-    def get_id(self):
+    @staticmethod
+    def get_id():
         DataOpRecordColumn._ID += 1
         return DataOpRecordColumn._ID
 
     def __hash__(self):
         return hash(self.id)
+
+    def __str__(self):
+        raise NotImplementedError
 
 
 class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
@@ -167,9 +171,8 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
     """
     def __init__(self, op_records, component, graph_fn, out_graph_fn_column, flatten_ops=False,
                  split_ops=False, add_auto_key_as_first_param=False):
-        super(DataOpRecordColumnIntoGraphFn, self).__init__(op_records=op_records, component=component)
-
         self.graph_fn = graph_fn
+        super(DataOpRecordColumnIntoGraphFn, self).__init__(op_records=op_records, component=component)
 
         # The column after passing this one through the graph_fn.
         self.out_graph_fn_column = out_graph_fn_column
@@ -190,7 +193,6 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
         Returns:
             Tuple[DataOp]: A new tuple with all ops (or those specified by `flatten_ops` as FlattenedDataOp.
         """
-        #ops = [r.op for r in self.op_records]
         assert all(op is not None for op in ops)  # just make sure
 
         # The returned sequence of output ops.
@@ -298,8 +300,8 @@ class DataOpRecordColumnFromGraphFn(DataOpRecordColumn):
         Args:
             graph_fn_name (str): The name of the graph_fn that returned the ops going into `self.op_records`.
         """
-        super(DataOpRecordColumnFromGraphFn, self).__init__(op_records, component)
         self.graph_fn_name = graph_fn_name
+        super(DataOpRecordColumnFromGraphFn, self).__init__(op_records, component)
 
     def __str__(self):
         return "GraphFn('{}')->OpRecCol({} ops)".format(self.graph_fn_name, len(self.op_records))
@@ -314,9 +316,8 @@ class DataOpRecordColumnIntoAPIMethod(DataOpRecordColumn):
     Stores the api method record and all DataOpRecords used for the call.
     """
     def __init__(self, op_records, component, api_method_rec):
-        super(DataOpRecordColumnIntoAPIMethod, self).__init__(op_records=op_records, component=component)
-
         self.api_method_rec = api_method_rec
+        super(DataOpRecordColumnIntoAPIMethod, self).__init__(op_records=op_records, component=component)
 
     def __str__(self):
         return "OpRecCol({} ops)->APIMethod('{}')".format(len(self.op_records), self.api_method_rec.method.__name__)
@@ -327,8 +328,8 @@ class DataOpRecordColumnFromAPIMethod(DataOpRecordColumn):
     An array of return values from an API-method pass through.
     """
     def __init__(self, op_records, component, api_method_name):
-        super(DataOpRecordColumnFromAPIMethod, self).__init__(op_records, component)
         self.api_method_name = api_method_name
+        super(DataOpRecordColumnFromAPIMethod, self).__init__(op_records, component)
 
     def __str__(self):
         return "APIMethod('{}')->OpRecCol({} ops)".format(self.api_method_name, len(self.op_records))

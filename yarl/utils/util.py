@@ -18,11 +18,12 @@ from __future__ import division
 from __future__ import print_function
 
 from functools import partial
-import numpy as np
-import itertools
-from six.moves import xrange
-
 import logging
+import numpy as np
+import inspect
+import itertools
+import re
+from six.moves import xrange
 import sys
 import tensorflow as tf
 
@@ -261,3 +262,29 @@ def relu(x, alpha=0.0):
         np.ndarray: The leaky ReLU output for x.
     """
     return np.maximum(x, x*alpha, x)
+
+
+def get_method_type(method):
+    """
+    Returns either "graph_fn" OR "api" OR "other" depending on which method (and method
+    name) is passed in.
+
+    Args:
+        method (callable): The actual method to analyze.
+
+    Returns:
+        Union[str,None]: "graph_fn", "api" or "other". None if method is not a callable.
+    """
+    # Not a callable: Return None.
+    if not callable(method):
+        return None
+    # Simply recognize graph_fn by their name.
+    elif method.__name__[:9] == "_graph_fn":
+        return "graph_fn"
+    # Figure out API-methods by their source code: Have calls to `Component.call`.
+    elif method.__name__[0] != "_" and method.__name__ != "define_api_method" and \
+        re.search(r'\.call\(', inspect.getsource(method)):
+        return "api"
+    else:
+        return "unknown"
+
