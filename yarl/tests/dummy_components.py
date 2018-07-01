@@ -38,6 +38,7 @@ class Dummy1To1(Component):
         super(Dummy1To1, self).__init__(scope=scope)
         self.constant_value = constant_value
 
+        # Automatically generate an API-method around our graph_fn.
         self.define_api_method("run", self._graph_fn_1to1)
 
     def _graph_fn_1to1(self, input_):
@@ -52,6 +53,7 @@ class Dummy2To1(Component):
     def __init__(self, scope="dummy-2-to-1"):
         super(Dummy2To1, self).__init__(scope=scope)
 
+        # Automatically generate an API-method around our graph_fn.
         self.define_api_method("run", self._graph_fn_2to1)
 
     def _graph_fn_2to1(self, input1, input2):
@@ -72,6 +74,7 @@ class Dummy2GraphFns1To1(Component):
         self.constant_value = constant_value
 
     def run(self, input_):
+        # Explicit definition of an API-method using both our graph_fn.
         result_1to1 = self.call(self._graph_fn_1to1, input_)
         result_1to1_neg = self.call(self._graph_fn_1to1_neg, result_1to1)
         return result_1to1_neg
@@ -100,12 +103,14 @@ class DummyInputComplete(Component):
         self.constant_value = constant_value
         self.constant_variable = None
 
+        # Automatically generate an API-method around one of our graph_fn.
         self.define_api_method("run_minus", self._graph_fn_2)
 
     def create_variables(self, input_spaces, action_space):
         self.constant_variable = self.create_variable(name="constant-variable", initializer=2.0)
 
     def run_plus(self, input_):
+        # Explicit definition of an API-method using one of our graph_fn.
         result = self.call(self._graph_fn_1, input_)
         return result
 
@@ -136,11 +141,15 @@ class DummyWithSubComponents(Component):
         self.add_components(self.sub_comp)
 
     def run1(self, input_):
+        # Explicit definition of an API-method using one of our graph_fn and one of
+        # our child API-methods.
         result = self.call(self.sub_comp.run_plus, input_)
         result2 = self.call(self._graph_fn_apply, result)
         return result, result2
 
     def run2(self, input_):
+        # Explicit definition of an API-method using one of our graph_fn and both of
+        # our child API-methods.
         result1 = self.call(self.sub_comp.run_plus, input_)
         result2 = self.call(self.sub_comp.run_minus, result1)
         result3 = self.call(self._graph_fn_apply, result2)
