@@ -57,10 +57,7 @@ class ReplayMemory(Memory):
         self.states = None
 
         # Extend our interface ("get_records").
-        self.define_inputs("num_records")
-        self.define_outputs("get_records")
-        self.add_graph_fn(inputs="num_records", outputs="get_records",
-                          method=self._graph_fn_get_records, flatten_ops=False)
+        self.define_api_method(name="get_records", func=self._graph_fn_get_records, flatten_ops=False)
 
     def create_variables(self, input_spaces, action_space):
         super(ReplayMemory, self).create_variables(input_spaces, action_space)

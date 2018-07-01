@@ -48,21 +48,23 @@ class RingBuffer(Memory):
         self.size = None
         self.states = None
 
-        # Extend our interface ("get_records").
-        self.define_inputs("num_records")
-        self.define_outputs("get_records")
-        self.add_graph_fn(inputs="num_records", outputs="get_records",
-                          method=self._graph_fn_get_records, flatten_ops=False)
+        self.define_api_method(
+            name="get_records",
+            func=self._graph_fn_get_records,
+            flatten_ops=False
+        )
 
         self.episode_semantics = episode_semantics
         self.num_episodes = None
         self.episode_indices = None
+
         if self.episode_semantics:
             # Extend our interface ("get_episodes").
-            self.define_inputs("num_episodes")
-            self.define_outputs("get_episodes")
-            self.add_graph_fn(inputs="num_episodes", outputs="get_episodes", method=self._graph_fn_get_episodes,
-                              flatten_ops=False)
+            self.define_api_method(
+                name="get_episodes",
+                func=self._graph_fn_get_episodes,
+                flatten_ops=False
+            )
 
     def create_variables(self, input_spaces, action_space):
         super(RingBuffer, self).create_variables(input_spaces, action_space)

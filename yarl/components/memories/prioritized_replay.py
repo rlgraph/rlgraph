@@ -73,23 +73,21 @@ class PrioritizedReplay(Memory):
         self.alpha = alpha
         self.beta = beta
 
-        self.define_inputs("num_records", "indices", "update")
-        self.define_outputs("get_records", "record_indices", "update_records", "weights")
         # Make the "update" and "indices" in-Sockets not a requirement for input-completeness
         # to avoid circular dependencies.
+
+        #  TODO what are we doing with this?
         self.unconnected_sockets_in_meta_graph.update({"update", "indices"})
 
-        self.add_graph_fn(
-            inputs="num_records",
-            outputs=["get_records", "record_indices", "weights"],
-            method=self._graph_fn_get_records,
+        self.define_api_method(
+            name="get_records",
+            func=self._graph_fn_get_records,
             flatten_ops=False
         )
 
-        self.add_graph_fn(
-            inputs=["indices", "update"],
-            outputs="update_records",
-            method=self._graph_fn_update_records,
+        self.define_api_method(
+            name="update_records",
+            func=self._graph_fn_update_records,
             flatten_ops=False
         )
 

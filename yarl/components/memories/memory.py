@@ -42,12 +42,7 @@ class Memory(Component):
         self.record_registry = None
         self.capacity = capacity
 
-        # Add default Sockets and insert GraphFunction.
-        self.define_inputs("records")
-        self.define_outputs("insert_records")
-
-        self.add_graph_fn(inputs="records", outputs="insert_records", method=self._graph_fn_insert,
-                          flatten_ops=True, split_ops=False)
+        self.define_api_method("insert", func=self._graph_fn_insert, flatten_ops=True, split_ops=False)
 
     def create_variables(self, input_spaces, action_space):
         # Store our record-space for convenience.
