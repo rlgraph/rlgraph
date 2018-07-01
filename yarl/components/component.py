@@ -102,6 +102,9 @@ class Component(Specifiable):
         # and come out of it.
         # keys=API method name; values=APIMethodRecord
         self.api_methods = self.get_api_methods()
+
+        # Indicate if api method was generated or coded.
+        self.generated_from_graph_fn = set()
         # Registry for graph_fn records.
         self.graph_fns = dict()
 
@@ -216,6 +219,7 @@ class Component(Specifiable):
         # Store a  graph_fn record in this component for better in/out-op-record-column reference.
         if method.__name__ not in self.graph_fns:
             self.graph_fns[method.__name__] = GraphFnRecord(graph_fn=method, component=self)
+
         # Create 2 op-record columns, one going into the graph_fn and one getting out of there and link
         # them together via the graph_fn (w/o calling it).
         out_graph_fn_column = DataOpRecordColumnFromGraphFn(1, component=self, graph_fn_name=method.__name__)  # TODO: hardcoded: 1 return value
@@ -224,8 +228,10 @@ class Component(Specifiable):
         )
         self.graph_fns[method.__name__].in_op_columns.append(in_graph_fn_column)
         self.graph_fns[method.__name__].out_op_columns.append(out_graph_fn_column)
+
         # Link from in_op_recs into the new column.
         for i, op_rec in enumerate(params):
+            print('op rec call grpah fn = {}'.format(op_rec))
             op_rec.next.add(in_graph_fn_column.op_records[i])
         if len(out_graph_fn_column.op_records) == 1:
             return out_graph_fn_column.op_records[0]
@@ -254,7 +260,22 @@ class Component(Specifiable):
             op_rec.next.add(in_op_column.op_records[i])
         # Now actually call the API method with that column and create a new out-column with num-records == num-return
         # values.
-        out_op_recs = method(method_owner, *in_op_column.op_records)
+
+        # print('owner = {}'.format(method_owner))
+        # print('inputs = {}'.format(*in_op_column.op_records))
+        # print('name = {}'.format(method.__name__))
+        # print('generated = {}'.format(method_owner.generated_from_graph_fn))
+        # print('graph fns = {}'.format(method_owner.graph_fns))
+        # print('api methods  = {}'.format(method_owner.api_methods))
+
+        # out_op_recs = method(*in_op_column.op_records)
+        # For generated methods, we need to pass the owner.
+        name = method.__name__
+        if name in method_owner.generated_from_graph_fn and name in self.api_methods:
+            out_op_recs = method(method_owner, *in_op_column.op_records)
+        else:
+            out_op_recs = method(*in_op_column.op_records)
+
         out_op_recs = util.force_list(out_op_recs)
         out_op_column = DataOpRecordColumnFromAPIMethod(op_records=len(out_op_recs), component=self,
                                                         api_method_name=method.__name__)
@@ -605,9 +626,11 @@ class Component(Specifiable):
         func_type = util.get_method_type(func)
         # Function is a graph_fn: Build a simple wrapper API-method around it and name it `name`.
         if func_type == "graph_fn":
+
             def api_method(self_, *inputs):
                 # Skip 0th input arg as it is `self`.
                 return self_.call(func, *inputs, **kwargs)
+            self.generated_from_graph_fn.add(name)
         # Function is a (custom) API-method. Register it with this Component.
         else:
             assert func_type == "api", "ERROR: func_type is not 'api', but '{}'!".format(func_type)
