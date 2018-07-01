@@ -49,10 +49,10 @@ class LossFunction(Component):
 
         # Build our interface with a flexible number of in-Sockets.
         self.inputs = inputs
-        self.define_inputs(*self.inputs)
-        self.define_outputs("loss", "loss_per_item")
-        self.add_graph_fn(self.inputs, "loss_per_item", self._graph_fn_loss_per_item)
-        self.add_graph_fn("loss_per_item", "loss", self._graph_fn_loss)
+        # self.define_inputs(*self.inputs)
+        # self.define_outputs("loss", "loss_per_item")
+        self.define_api_method(name="loss_per_item", func=self._graph_fn_loss_per_item)
+        self.define_api_method(name="loss", func=self._graph_fn_loss)
 
     def _graph_fn_loss_per_item(self, *inputs):
         """
