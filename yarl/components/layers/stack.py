@@ -17,11 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from six.moves import xrange as range_
-
 from yarl.components import Component
-from yarl.utils.util import force_list
-from yarl.utils.ops import DataOpRecord
+from yarl.utils.util import force_tuple
 
 
 class Stack(Component):
@@ -68,7 +65,7 @@ class Stack(Component):
             def method(self_, *inputs):
                 result = inputs
                 for sub_component in sub_components:
-                    result = self_.call(getattr(sub_component, api_method_name), *result)
+                    result = self_.call(getattr(sub_component, api_method_name), *force_tuple(result))
                 return result
 
             # Register `method` to this Component using the custom name given in `api_methods`.

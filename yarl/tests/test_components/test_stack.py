@@ -36,3 +36,11 @@ class TestStack(unittest.TestCase):
 
         test.test(api_method="run", params=4.6, expected_outputs=7.6)
 
+    def test_two_sub_components(self):
+        stack = Stack(Dummy1To1(scope="A", constant_value=3.0),
+                      Dummy1To1(scope="B", constant_value=1.0),
+                      api_methods={"run"})
+        test = ComponentTest(component=stack, input_spaces=dict(run=FloatBox()))
+
+        test.test(api_method="run", params=4.6, expected_outputs=np.array(8.6, dtype=np.float32))
+
