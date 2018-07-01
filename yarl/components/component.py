@@ -126,8 +126,7 @@ class Component(Specifiable):
         # look for all our API methods (those that use the `call` method).
         for member in inspect.getmembers(self):
             name, method = (member[0], member[1])
-            if name[0] != "_" and name != "define_api_method" and callable(method) and \
-                    re.search(r'\bself\.call\(', inspect.getsource(method)):
+            if name[0] != "_" and util.get_method_type(method) == "api":
                 ret[name] = APIMethodRecord(method, component=self)
         return ret
 
@@ -180,7 +179,7 @@ class Component(Specifiable):
 
     def call_graph_fn(self, method, method_owner, *params, **kwargs):
         """
-        Excutes a dry run through a graph_fn (without calling it) just generating the empty
+        Executes a dry run through a graph_fn (without calling it) just generating the empty
         op-record-columns around the graph_fn (incoming and outgoing).
 
         Args:
@@ -253,12 +252,19 @@ class Component(Specifiable):
         # Link from in_op_recs into the new column.
         for i, op_rec in enumerate(params):
             op_rec.next.add(in_op_column.op_records[i])
-        # Now actually call the API method with that column, create an out column for that record and
-        # return the individual op-records.
-        out = method(*in_op_column.op_records)
-        out_op_column = DataOpRecordColumnFromAPIMethod(op_records=out, component=self)
+        # Now actually call the API method with that column and create a new out-column with num-records == num-return
+        # values.
+        out_op_recs = method(method_owner, *in_op_column.op_records)
+        out_op_recs = util.force_list(out_op_recs)
+        out_op_column = DataOpRecordColumnFromAPIMethod(op_records=len(out_op_recs), component=self,
+                                                        api_method_name=method.__name__)
+        # Link the returned ops to that new out-column.
+        for i, op_rec in enumerate(out_op_recs):
+            op_rec.next.add(out_op_column.op_records[i])
+        # And append the new out-column to the api-method-rec.
         api_method_rec.out_op_columns.append(out_op_column)
 
+        # Then return the op-records from the new out-column.
         if len(out_op_column.op_records) == 1:
             return out_op_column.op_records[0]
         else:
@@ -580,14 +586,14 @@ class Component(Specifiable):
         # Recurse up the container hierarchy.
         self.parent_component.propagate_summary(key_)
 
-    def define_api_method(self, name, graph_fn, **kwargs):
+    def define_api_method(self, name, func, **kwargs):
         """
         Creates a very basic graph_fn based API method for this Component.
         Alternative way for defining an API method directly in the Component via def.
 
         Args:
             name (str): The name of the API method to create.
-            graph_fn (callable): The graph_fn to wrap.
+            func (callable): The graph_fn to wrap or the custom function to set as API-method.
 
         Keyword Args:
             flatten_ops (bool,Set[int]): See `self.call` for details.
@@ -596,12 +602,21 @@ class Component(Specifiable):
         """
         assert name not in self.api_methods and getattr(self, name, None) is None
 
-        def api_method(*inputs):
-            return self.call(graph_fn, *inputs, **kwargs)
+        func_type = util.get_method_type(func)
+        # Function is a graph_fn: Build a simple wrapper API-method around it and name it `name`.
+        if func_type == "graph_fn":
+            def api_method(self_, *inputs):
+                # Skip 0th input arg as it is `self`.
+                return self_.call(func, *inputs, **kwargs)
+        # Function is a (custom) API-method. Register it with this Component.
+        else:
+            assert func_type == "api", "ERROR: func_type is not 'api', but '{}'!".format(func_type)
+            api_method = func
 
+        setattr(self, name, api_method.__get__(self, self.__class__))
         setattr(api_method, "__self__", self)
         setattr(api_method, "__name__", name)
-        setattr(self, name, api_method)
+        #setattr(self, name, api_method)
         self.api_methods[name] = APIMethodRecord(api_method, component=self)
 
     def add_components(self, *components):
