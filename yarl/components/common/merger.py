@@ -45,7 +45,7 @@ class Merger(Component):
         self.input_names = list(output_space.flatten().keys())
         # self.define_inputs(*self.input_names)
         # Insert our merging GraphFunction.
-        self.define_api_method(name="merge", func=self._graph_fn_merge, flatten_ops=False)
+        self.define_api_method(name="merge", func=self._graph_fn_merge)
 
     def _graph_fn_merge(self, *inputs):
         """

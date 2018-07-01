@@ -26,16 +26,19 @@ from yarl.utils.ops import DataOpRecord
 
 class Stack(Component):
     """
-    A component container stack that incorporates one or more sub-components which are all automatically connected
-    to each other (in the sequence they are given in the c'tor) and then exposed as this component's
-    interface as follows: The input(s) of the very first sub-component and the output(s) of the last sub
-    component.
-    All sub-components need to match in the number of input and output Sockets. E.g. the third sub-component's
-    number of outputs has to be the same as the forth sub-component's number of api_methods.
+    A component container stack that incorporates one or more sub-components some of whose API-methods
+    (default: only `apply`) are automatically connected with each other (in the sequence the sub-Components are given
+    in the c'tor), resulting in an API of the Stack.
+    All sub-components' API-methods need to match in the number of input and output values. E.g. the third
+    sub-component's api-metehod's number of return values has to match the forth sub-component's api-method's number of
+    input parameters.
 
     API:
-        call(input[, input2, ...]?): Sends one (or more, depending on the Stack structure) DataOpRecord(s) through
-            the stack and returns one (or more, depending on the Stack structure) DataOpRecords.
+        apply(input[, input2, ...]?): Sends one (or more, depending on the 1st sub-Component's `apply` method)
+            DataOpRecord(s) through the stack and returns one (or more, depending on the last sub-Component's `apply`
+            method) DataOpRecords.
+        Optional:
+            Other API-methods that all sub-Component have in common.
     """
     def __init__(self, *sub_components, **kwargs):
         """
@@ -43,52 +46,33 @@ class Stack(Component):
             sub_components (Component): The sub-components to add to the Stack and connect to each other.
 
         Keyword Args:
-            expose_ins (bool): Whether to expose the first sub-component's api_methods (default: True).
-            expose_outs (bool): Whether to expose the last sub-component's outputs (default: True).
-            sub_component_inputs (Optional[List[str]]): List of in-Socket names of a sub-Component that should be
-                connected to the corresponding out-Sockets (`sub_component_outputs`) of the previous sub-Component.
-            sub_component_outputs (Optional[List[str]]): List of out-Socket names of a sub-Component that should be
-                connected to the corresponding in-Sockets (`sub_component_inputs`) of the next sub-Component.
+            api_methods (Optional[Set[str]]): A set of names of API-methods to connect through the stack.
+                Defaults to {"apply"}. All sub-Components must implement all API-methods in this set.
+                Connecting works by first calling the first sub-Component's API-method, then - with the
+                result - calling the second sub-Component's API-method, etc..
+                This is done for all API-methods in the given set.
 
         Raises:
             YARLError: If sub-components' number of api_methods/outputs do not match.
         """
-        expose_ins = kwargs.pop("expose_ins", True)
-        expose_outs = kwargs.pop("expose_outs", True)
-        sub_component_inputs = force_list(kwargs.pop("sub_component_inputs", None))
-        sub_component_outputs = force_list(kwargs.pop("sub_component_outputs", None))
+        api_methods = kwargs.pop("api_methods", {"apply"})
 
         super(Stack, self).__init__(*sub_components, **kwargs)
 
         # sub_components for iteration purposes.
         sub_components = list(self.sub_components.values())
 
-        if len(self.sub_components) > 0:
-            # Connect the first component's input(s) to our in-Sockets (same name) and the last Component's output(s)
-            # to our output Socket(s).
-            if expose_ins is True:
-                for in_sock in sub_components[0].input_sockets:
-                    self.define_inputs(in_sock.name)
-                    self.connect(in_sock.name, in_sock)
-            if expose_outs is True:
-                for out_sock in sub_components[-1].output_sockets:
-                    if out_sock.name != "_variables":
-                        self.define_outputs(out_sock.name)
-                        self.connect(out_sock, out_sock.name)
+        # For each api-method in the given set, create our own API-method connecting
+        # all sub-Component's API-method "through".
+        for api_method_name in api_methods:
+            def method(self_, *inputs):
+                result = inputs
+                for sub_component in sub_components:
+                    result = self_.call(getattr(sub_component, api_method_name), *result)
+                return result
 
-        # Now connect all sub-components with each other.
-        # By specific in/out-Socket names.
-        if len(sub_component_inputs) > 0:
-            assert len(sub_component_inputs) == len(sub_component_outputs),\
-                "ERROR: `sub_component_inputs` () and `sub_component_outputs` () must have the same length!".\
-                format(sub_component_inputs, sub_component_outputs)
-            for i in range_(len(sub_components) - 1):
-                for out_sock, in_sock in zip(sub_component_outputs, sub_component_inputs):
-                    self.connect((sub_components[i], out_sock), (sub_components[i + 1], in_sock))
-        # Or just all out- with in-Sockets.
-        elif len(sub_components) > 0:
-            for i in range_(len(sub_components) - 1):
-                self.connect(sub_components[i], sub_components[i+1])
+            # Register `method` to this Component using the custom name given in `api_methods`.
+            self.define_api_method(api_method_name, method)
 
     @classmethod
     def from_spec(cls, spec=None, **kwargs):

@@ -55,10 +55,10 @@ class Component(Specifiable):
     and supports adding its graph_fns to the overall computation graph.
     """
 
-    def __init__(self, *components_to_add, **kwargs):
+    def __init__(self, *sub_components, **kwargs):
         """
         Args:
-            components_to_add (Component): Specification dicts for sub-Components to be added to this one.
+            sub_components (Component): Specification dicts for sub-Components to be added to this one.
 
         Keyword Args:
             name (str): The name of this Component. Names of sub-components within a containing component
@@ -71,12 +71,8 @@ class Component(Specifiable):
                 True in non-distributed mode.
             is_core (bool): Whether this Component is the Model's core Component.
 
-            sub_components (Component): An alternative way to pass in a list of Components to be added as
-                sub-components to this one.
-            inputs (List[str]): A list of in-Sockets to be defined for this Component.
-            outputs (List[str]): A list of out-Sockets to be defined for this Component.
-            connections (list): A list of connection specifications to be made between our Sockets and/or the different
-                sub-Components.
+            #sub_components (Component): An alternative way to pass in a list of Components to be added as
+            #    sub-components to this one.
         """
         # Scope if used to create scope hierarchies inside the Graph.
         self.logger = logging.getLogger(__name__)
@@ -127,6 +123,9 @@ class Component(Specifiable):
         # The regexp that a summary's full-scope name has to match in order for it to be generated and registered.
         # This will be set by the GraphBuilder at build time.
         self.summary_regexp = None
+
+        # Now add all sub-Components.
+        self.add_components(*sub_components)
 
     def get_api_methods(self):
         ret = dict()
@@ -634,11 +633,11 @@ class Component(Specifiable):
         assert name not in self.api_methods and getattr(self, name, None) is None
 
         func_type = util.get_method_type(func)
+
         # Function is a graph_fn: Build a simple wrapper API-method around it and name it `name`.
         if func_type == "graph_fn":
 
             def api_method(self_, *inputs):
-                # Skip 0th input arg as it is `self`.
                 return self_.call(func, *inputs, **kwargs)
             self.generated_from_graph_fn.add('{}-{}'.format(self.scope, name))
         # Function is a (custom) API-method. Register it with this Component.

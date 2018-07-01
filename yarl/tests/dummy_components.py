@@ -60,6 +60,22 @@ class Dummy2To1(Component):
         return input1 + input2
 
 
+class Dummy1To2(Component):
+    """
+    API:
+        run(input1): (input + `self.constant_value`, input * `self.constant_value`).
+    """
+    def __init__(self, scope="dummy-1-to-2", constant_value=1.0):
+        super(Dummy1To2, self).__init__(scope=scope)
+        self.constant_value = constant_value
+
+        # Automatically generate an API-method around our graph_fn.
+        self.define_api_method("run", self._graph_fn_1to2)
+
+    def _graph_fn_1to2(self, input_):
+        return input_ + self.constant_value, input_ * self.constant_value
+
+
 class Dummy2GraphFns1To1(Component):
     """
     API:
