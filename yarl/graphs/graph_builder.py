@@ -109,6 +109,7 @@ class GraphBuilder(Specifiable):
     def build_meta_graph(self, input_spaces):
         # Call all API methods of the core and thereby, create empty in-op columns that serve as placeholders
         # and directed links for the build time.
+        print(self.core_component.api_methods)
         for api_method_name, api_method_rec in self.core_component.api_methods.items():
             # Create an new in column and map it to the resulting out column.
             in_ops_records = list()

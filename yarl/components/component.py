@@ -105,6 +105,7 @@ class Component(Specifiable):
 
         # Indicate if api method was generated or coded.
         self.generated_from_graph_fn = set()
+        self.defined_externally = set()
         # Registry for graph_fn records.
         self.graph_fns = dict()
 
@@ -261,24 +262,32 @@ class Component(Specifiable):
         # Now actually call the API method with that column and create a new out-column with num-records == num-return
         # values.
 
-        # print('owner = {}'.format(method_owner))
-        # print('inputs = {}'.format(*in_op_column.op_records))
-        # print('name = {}'.format(method.__name__))
-        # print('generated = {}'.format(method_owner.generated_from_graph_fn))
-        # print('graph fns = {}'.format(method_owner.graph_fns))
-        # print('api methods  = {}'.format(method_owner.api_methods))
+        print('owner = {}'.format(method_owner))
+        print('inputs = {}'.format(*in_op_column.op_records))
+        print('name = {}'.format(method.__name__))
+        print('generated = {}'.format(method_owner.generated_from_graph_fn))
+        print('graph fns = {}'.format(method_owner.graph_fns))
+        print('api methods  = {}'.format(method_owner.api_methods))
+        print('external methods  = {}'.format(method_owner.defined_externally))
 
         # out_op_recs = method(*in_op_column.op_records)
         # For generated methods, we need to pass the owner.
         name = method.__name__
-        if name in method_owner.generated_from_graph_fn and name in self.api_methods:
+        if (name in method_owner.generated_from_graph_fn or name in method_owner.defined_externally) \
+                and name in self.api_methods:
+            print('call with self')
             out_op_recs = method(method_owner, *in_op_column.op_records)
         else:
+            print('call without self')
             out_op_recs = method(*in_op_column.op_records)
 
         out_op_recs = util.force_list(out_op_recs)
-        out_op_column = DataOpRecordColumnFromAPIMethod(op_records=len(out_op_recs), component=self,
-                                                        api_method_name=method.__name__)
+        out_op_column = DataOpRecordColumnFromAPIMethod(
+            op_records=len(out_op_recs),
+            component=self,
+            api_method_name=method.__name__
+        )
+
         # Link the returned ops to that new out-column.
         for i, op_rec in enumerate(out_op_recs):
             op_rec.next.add(out_op_column.op_records[i])
@@ -634,6 +643,7 @@ class Component(Specifiable):
         # Function is a (custom) API-method. Register it with this Component.
         else:
             assert func_type == "api", "ERROR: func_type is not 'api', but '{}'!".format(func_type)
+            self.defined_externally.add(name)
             api_method = func
 
         setattr(self, name, api_method.__get__(self, self.__class__))

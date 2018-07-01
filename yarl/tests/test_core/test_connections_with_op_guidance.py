@@ -69,7 +69,7 @@ class TestConnectionsWithOpGuidance(unittest.TestCase):
         container.add_components(a, b, c, d)
 
         # Define container's API:
-        def run(self_, input1, input2):
+        def container_run(self_, input1, input2):
             """
             Describes the diamond setup in1->A->B; in2->A->C; C,B->D->output
             """
@@ -78,12 +78,13 @@ class TestConnectionsWithOpGuidance(unittest.TestCase):
             past_b = self_.call(self_.sub_components["B"].run, in1_past_a)
             past_c = self_.call(self_.sub_components["C"].run, in2_past_a)
             past_d = self_.call(self_.sub_components["D"].run, past_b, past_c)
+
             return past_d
 
-        container.define_api_method("run", run)
+        container.define_api_method("container_run", container_run)
 
-        test = ComponentTest(component=container, input_spaces=dict(run=(float, float)))
+        test = ComponentTest(component=container, input_spaces=dict(container_run=(float, float)))
 
         # Push both api_methods through graph to receive correct (single-op) output calculation.
-        test.test(api_method="run", params=(np.array(1.1), np.array(0.5)), expected_outputs=(0.0, 0.0))
+        test.test(api_method="container_run", params=(np.array(1.1), np.array(0.5)), expected_outputs=(0.0, 0.0))
 
