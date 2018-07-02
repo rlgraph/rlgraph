@@ -44,6 +44,8 @@ class Layer(Component):
         # By default, switch on splitting for all Layers.
         super(Layer, self).__init__(scope=kwargs.pop("scope", "layer"), **kwargs)
 
+        self.define_api_method("apply", self._graph_fn_apply, flatten_ops=True, split_ops=True)
+
         ## No sub-components, just create empty in-Sockets.
         #if len(sub_components) == 0:
         #    if self.num_graph_fn_inputs > 1:

@@ -60,7 +60,7 @@ class TestPreprocessors(unittest.TestCase):
         ))
 
         test = ComponentTest(component=GrayScale(weights=(0.5, 0.5), keep_rank=False),
-                             input_spaces=dict(input=space))
+                             input_spaces=dict(preprocess=space))
 
         # Run the test.
         input_ = dict(

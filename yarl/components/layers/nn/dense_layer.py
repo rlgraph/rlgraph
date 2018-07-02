@@ -31,24 +31,19 @@ class DenseLayer(NNLayer):
     """
     A dense (or "fully connected") NN-layer.
     """
-    def __init__(self, units, *sub_components, **kwargs):
+    def __init__(self, units, weights_spec=None, biases_spec=None, **kwargs):
         """
         Args:
             units (int): The number of nodes in this layer.
-
-        Keyword Args:
-            activation (Optional[callable,str]): The activation function to use. Default: None (linear).
             weights_spec (any): A specifier for a weights initializer.
                 If None, use the default initializer.
             biases_spec (any): A specifier for a biases initializer.
                 If False, use no biases. If None, use the default initializer (0.0).
         """
-        # Remove kwargs before calling super().
-        self.weights_spec = kwargs.pop("weights_spec", None)
-        self.biases_spec = kwargs.pop("biases_spec", None)
+        super(DenseLayer, self).__init__(scope=kwargs.pop("scope", "dense-layer"), **kwargs)
 
-        super(DenseLayer, self).__init__(*sub_components, scope=kwargs.pop("scope", "dense-layer"), **kwargs)
-
+        self.weights_spec = weights_spec
+        self.biases_spec = biases_spec
         # At build time.
         self.weights_init = None
         self.biases_init = None
@@ -57,7 +52,7 @@ class DenseLayer(NNLayer):
         self.units = units
 
     def create_variables(self, input_spaces, action_space):
-        in_space = input_spaces["input"]
+        in_space = input_spaces["apply"][0]
 
         # Create weights.
         weights_shape = (in_space.shape[0], self.units)  # [0] b/c Space.shape never includes batch-rank

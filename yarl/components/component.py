@@ -122,7 +122,7 @@ class Component(Specifiable):
         self.summaries = dict()
         # The regexp that a summary's full-scope name has to match in order for it to be generated and registered.
         # This will be set by the GraphBuilder at build time.
-        self.summary_regexp = None
+        self.summary_regexp = r''
 
         # Now add all sub-Components.
         self.add_components(*sub_components)
@@ -594,7 +594,7 @@ class Component(Specifiable):
         # Get global name.
         global_name = ((self.global_scope + "/") if self.global_scope else "") + name
         # Skip non matching summaries.
-        if not re.search(self.summary_regexp, global_name):
+        if self.summary_regexp is not None and not re.search(self.summary_regexp, global_name):
             return
 
         summary = None

@@ -36,12 +36,12 @@ class TestNNLayer(unittest.TestCase):
         # The Component to test.
         # - fixed 1.0 weights, no biases
         component_to_test = DenseLayer(units=2, weights_spec=1.0, biases_spec=False)
-        test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
+        test = ComponentTest(component=component_to_test, input_spaces=dict(apply=space))
 
         # Batch of size=1 (can increase this to any larger number).
         input_ = np.array([[0.5, 2.0]])
         expected = np.array([[2.5, 2.5]])
-        test.test(out_socket_names="output", inputs=input_, expected_outputs=expected)
+        test.test(api_method="apply", params=input_, expected_outputs=expected)
 
     def test_dense_layer_with_leaky_relu_activation(self):
         input_space = FloatBox(shape=(3,), add_batch_rank=True)
