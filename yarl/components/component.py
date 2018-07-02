@@ -70,9 +70,7 @@ class Component(Specifiable):
                 shared global model or local to the worker. Defaults to False and will be ignored if set to
                 True in non-distributed mode.
             is_core (bool): Whether this Component is the Model's core Component.
-
-            #sub_components (Component): An alternative way to pass in a list of Components to be added as
-            #    sub-components to this one.
+            ignore_api (Optional[Set[str]]): Set of API-method names that should NOT be build for this Component.
         """
         # Scope if used to create scope hierarchies inside the Graph.
         # self.logger = logging.getLogger(__name__)
@@ -88,6 +86,10 @@ class Component(Specifiable):
         self.device = kwargs.pop("device", None)
         self.global_component = kwargs.pop("global_component", False)
         self.is_core = kwargs.pop("is_core", False)
+        self.graph_fn_outputs = kwargs.pop("graph_fn_outputs", dict())
+
+        ignore_api = kwargs.pop("ignore_api", set())
+
         assert not kwargs, "ERROR: kwargs ({}) still contains items!".format(kwargs)
 
         # Dict of sub-components that live inside this one (key=sub-component's scope).
@@ -100,7 +102,7 @@ class Component(Specifiable):
         # Dicts holding information about which op-record-tuples go via which API methods into this Component
         # and come out of it.
         # keys=API method name; values=APIMethodRecord
-        self.api_methods = self.get_api_methods()
+        self.api_methods = self.get_api_methods(ignore_api)
 
         # Indicate if api method was generated or coded.
         self.generated_from_graph_fn = set()
@@ -127,12 +129,22 @@ class Component(Specifiable):
         # Now add all sub-Components.
         self.add_components(*sub_components)
 
-    def get_api_methods(self):
+    def get_api_methods(self, ignore_set):
+        """
+        Detects all methods of the Component that should be registered as API-methods for
+        this Component.
+
+        Args:
+            ignore_set (Set[str]): Set of API-method names that should NOT be build.
+
+        Returns:
+            Dict[str,APIMethodRecord]: Dict of kay=API-method name (str); values=APIMethodRecord.
+        """
         ret = dict()
         # look for all our API methods (those that use the `call` method).
         for member in inspect.getmembers(self):
             name, method = (member[0], member[1])
-            if name[0] != "_" and util.get_method_type(method) == "api":
+            if name[0] != "_" and name not in ignore_set and util.get_method_type(method) == "api":
                 ret[name] = APIMethodRecord(method, component=self)
         return ret
 
@@ -170,7 +182,7 @@ class Component(Specifiable):
                 (default: False).
 
         Returns:
-            The
+            Tuple[DataOpRecord]: The returned tuple of DataOpRecords coming from the called API-method or graph_fn.
         """
         # Owner of method:
         method_owner = method.__self__
@@ -225,7 +237,10 @@ class Component(Specifiable):
 
         # Create 2 op-record columns, one going into the graph_fn and one getting out of there and link
         # them together via the graph_fn (w/o calling it).
-        num_graph_fn_return_values = util.get_num_return_values(method)
+        if method.__name__ in self.graph_fn_outputs:
+            num_graph_fn_return_values = self.graph_fn_outputs[method.__name__]
+        else:
+            num_graph_fn_return_values = util.get_num_return_values(method)
         self.logger.debug("Graph_fn has {} return values (inferred).".format(method.__name__,
                                                                              num_graph_fn_return_values))
         out_graph_fn_column = DataOpRecordColumnFromGraphFn(
