@@ -39,6 +39,11 @@ class TestReplayMemory(unittest.TestCase):
     memory_variables = ["size", "index"]
     capacity = 10
 
+    input_spaces = dict(
+        insert=record_space,
+        get_records=int
+    )
+
     def test_insert(self):
         """
         Simply tests insert op without checking internal logic.
@@ -48,15 +53,15 @@ class TestReplayMemory(unittest.TestCase):
             next_states=True
         )
         test = ComponentTest(component=memory, input_spaces=dict(
-            records=self.record_space,
-            num_records=int
+            insert=self.record_space,
+            get_records=int
         ))
 
         observation = self.record_space.sample(size=1)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
 
         observation = self.record_space.sample(size=100)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
 
     def test_capacity(self):
         """
@@ -66,10 +71,7 @@ class TestReplayMemory(unittest.TestCase):
             capacity=self.capacity,
             next_states=True
         )
-        test = ComponentTest(component=memory, input_spaces=dict(
-            records=self.record_space,
-            num_records=int
-        ))
+        test = ComponentTest(component=memory, input_spaces=self.input_spaces)
         # Internal state variables.
         memory_variables = memory.get_variables(self.memory_variables, global_scope=False)
         buffer_size = memory_variables['size']
@@ -82,7 +84,7 @@ class TestReplayMemory(unittest.TestCase):
 
         # Insert one more element than capacity
         observation = self.record_space.sample(size=self.capacity + 1)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
 
         size_value, index_value = test.get_variable_values(buffer_size, buffer_index)
         # Size should be equivalent to capacity when full.
@@ -99,18 +101,15 @@ class TestReplayMemory(unittest.TestCase):
             capacity=self.capacity,
             next_states=True
         )
-        test = ComponentTest(component=memory, input_spaces=dict(
-            records=self.record_space,
-            num_records=int
-        ))
+        test = ComponentTest(component=memory, input_spaces=self.input_spaces)
 
         # Insert 2 Elements.
         observation = non_terminal_records(self.record_space, 2)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
 
         # Assert we can now fetch 2 elements.
         num_records = 2
-        batch = test.test(out_socket_names="get_records", inputs=num_records, expected_outputs=None)
+        batch = test.test(api_method="get_records", params=num_records, expected_outputs=None)
         print('Result batch = {}'.format(batch))
         self.assertEqual(2, len(batch['terminals']))
         # Assert next states key is there
@@ -118,16 +117,16 @@ class TestReplayMemory(unittest.TestCase):
 
         # Test duplicate sampling.
         num_records = 5
-        batch = test.test(out_socket_names="get_records", inputs=num_records, expected_outputs=None)
+        batch = test.test(api_method="get_records", params=num_records, expected_outputs=None)
         self.assertEqual(5, len(batch['terminals']))
 
         # Now insert over capacity.
         observation = non_terminal_records(self.record_space, self.capacity)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
 
         # Assert we can fetch exactly capacity elements.
         num_records = self.capacity
-        batch = test.test(out_socket_names="get_records", inputs=num_records, expected_outputs=None)
+        batch = test.test(api_method="get_records", params=num_records, expected_outputs=None)
         self.assertEqual(self.capacity, len(batch['terminals']))
 
     def test_with_terminals_no_next_states(self):
@@ -139,18 +138,15 @@ class TestReplayMemory(unittest.TestCase):
             capacity=self.capacity,
             next_states=False
         )
-        test = ComponentTest(component=memory, input_spaces=dict(
-            records=self.record_space,
-            num_records=int
-        ))
+        test = ComponentTest(component=memory, input_spaces=self.input_spaces)
 
         # Insert 2 terminal Elements.
         observation = terminal_records(self.record_space, 2)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
 
         # Assert we can now fetch 2 elements.
         num_records = 2
-        batch = test.test(out_socket_names="get_records", inputs=num_records, expected_outputs=None)
+        batch = test.test(api_method="get_records", params=num_records, expected_outputs=None)
 
         # Sampled 2 elements
         self.assertEqual(num_records, len(batch['terminals']))
@@ -168,17 +164,14 @@ class TestReplayMemory(unittest.TestCase):
             capacity=self.capacity,
             next_states=False
         )
-        test = ComponentTest(component=memory, input_spaces=dict(
-            records=self.record_space,
-            num_records=int
-        ))
+        test = ComponentTest(component=memory, input_spaces=self.input_spaces)
 
         # Insert 2 Elements.
         observation = non_terminal_records(self.record_space, 2)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
 
         # Assert we can now fetch 2 elements.
         num_records = 2
-        batch = test.test(out_socket_names="get_records", inputs=num_records, expected_outputs=None)
+        batch = test.test(api_method="get_records", params=num_records, expected_outputs=None)
         self.assertTrue('next_states' not in batch)
 
