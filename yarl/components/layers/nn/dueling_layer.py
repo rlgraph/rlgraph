@@ -35,33 +35,17 @@ class DuelingLayer(NNLayer):
     [1] Dueling Network Architectures for Deep Reinforcement Learning, Wang et al. - 2016
 
     API:
-    ins:
-        input (SingleDataOp): The flattened input to the dueling layer. Its number of nodes corresponds to:
-            Flattened action-space + 1 (state-value).
-    outs:
-        state_value (SingleDataOp): The single state-value (not dependent on actions).
-        advantage_values (SingleDataOp): The already reshaped advantage values per action.
-        q_values (SingleDataOp): The already reshaped state-action (q) values per action.
+        apply(input_) -> state_value, advantage_values, q_values
     """
     def __init__(self, scope="dueling-layer", **kwargs):
-        # We have 3 out-Sockets for our apply graph_fn.
-        super(DuelingLayer, self).__init__(scope=scope, num_graph_fn_outputs=3, **kwargs)
-
-        # Define our interface.
-        # Rename output sockets into proper names.
-        self.rename_socket("output0", "state_value")
-        self.rename_socket("output1", "advantage_values")
-        self.rename_socket("output2", "q_values")
-        # Add a mirrored "output" (q_values) for clarity.
-        self.define_outputs("output")
-        self.connect("q_values", "output")
+        super(DuelingLayer, self).__init__(scope=scope, **kwargs)
 
         self.num_advantage_values = None
         self.target_space = None
 
     def check_input_spaces(self, input_spaces, action_space):
         super(DuelingLayer, self).check_input_spaces(input_spaces, action_space)
-        in_space = input_spaces["input"]
+        in_space = input_spaces["apply"][0]
         # Last rank is the [value + advantage-values] rank, store the number of advantage values here.
         self.num_advantage_values = in_space.get_shape(with_batch_rank=True)[-1] - 1
 
@@ -70,11 +54,15 @@ class DuelingLayer(NNLayer):
     def _graph_fn_apply(self, flat_input):
         """
         Args:
-            flat_input (SingleDataOp): The flattened api_methods to this layer. These must include the single node for the
-                state-value.
+            flat_input (SingleDataOp): The flattened api_methods to this layer. These must include the single node
+                for the state-value.
 
         Returns:
-            SingleDataOp: The calculated, reshaped Q values (for each composite action) based on: Q = V + [A - mean(A)]
+            Tuple[SingleDataOp]: The calculated, reshaped Q values (for each composite action) based on: Q = V + [A - mean(A)]
+                - state_value (SingleDataOp): The single state-value (not dependent on actions).
+                - advantage_values (SingleDataOp): The already reshaped advantage values per action.
+                - q_values (SingleDataOp): The already reshaped state-action (q) values per action.
+
         """
         # Use the very first node as value function output.
         # Use all following nodes as advantage function output.

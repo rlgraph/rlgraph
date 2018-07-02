@@ -100,7 +100,7 @@ class TestNNLayer(unittest.TestCase):
         action_space = IntBox(3, shape=(4, 2))
 
         dueling_layer = DuelingLayer()
-        test = ComponentTest(component=dueling_layer, input_spaces=dict(input=input_space), action_space=action_space)
+        test = ComponentTest(component=dueling_layer, input_spaces=dict(apply=input_space), action_space=action_space)
 
         # Batch of 1 sample.
         inputs = np.array(
@@ -113,14 +113,11 @@ class TestNNLayer(unittest.TestCase):
         """
         expected_state_value = np.array([2.12345])  # batch-size=1
         expected_advantage_values = np.reshape(inputs[:,1:], newshape=(1, 4, 2, 3))
-        test.test(out_socket_names="state_value", inputs=inputs,
-                  expected_outputs=expected_state_value, decimals=5)
-        test.test(out_socket_names="advantage_values", inputs=inputs,
-                  expected_outputs=expected_advantage_values, decimals=5)
-
         expected_q_values = np.array([[[[ expected_state_value[0] ]]]]) + expected_advantage_values - \
                             np.mean(expected_advantage_values, axis=-1, keepdims=True)
-        # q_values should be the same as output (mirrored out-Sockets).
-        test.test(out_socket_names="q_values", inputs=inputs, expected_outputs=expected_q_values, decimals=5)
-        test.test(out_socket_names="output", inputs=inputs, expected_outputs=expected_q_values, decimals=5)
+        test.test(api_method="apply", params=inputs,
+                  expected_outputs=[expected_state_value,
+                                    expected_advantage_values,
+                                    expected_q_values],
+                  decimals=5)
 
