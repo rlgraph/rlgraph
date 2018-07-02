@@ -37,23 +37,18 @@ class ConcatLayer(NNLayer):
             axis (int): The axis along which to concatenate. Use negative numbers to count from end.
                 All api_methods to this layer must have the same shape, except for the `axis` rank.
                 Default: -1.
-            num_graph_fn_inputs (int): The number of api_methods to concatenate (this is how many in-Sockets
-                will be created).
         """
-        # Set up the super class as one that takes `num_graph_fn_inputs` api_methods in its computation and
-        # produces 1 output.
-        super(ConcatLayer, self).__init__(scope=scope, num_graph_fn_inputs=num_graph_fn_inputs,
-                                          num_graph_fn_outputs=1, **kwargs)
+        super(ConcatLayer, self).__init__(scope=kwargs.pop("scope", "concat-layer"), **kwargs)
         self.axis = axis
 
     def check_input_spaces(self, input_spaces, action_space):
         super(ConcatLayer, self).check_input_spaces(input_spaces, action_space)
-        in1_space = input_spaces["input1"]
+        in_space_0 = input_spaces["apply"][0]
         # Make sure all api_methods have the same shape except for the last rank.
-        for key, in_space in input_spaces.items():
-            assert in1_space.shape[:-1] == in_space.shape[:-1], \
-                "ERROR: Input spaces to ConcatLayer must have same shape except for last rank. {}'s shape is {}, but " \
-                "'input1's shape is {}.".format(key, in_space.shape, in1_space.shape)
+        for i, in_space in enumerate(input_spaces["apply"]):
+            assert in_space_0.shape[:-1] == in_space.shape[:-1], \
+                "ERROR: Input spaces to ConcatLayer must have same shape except for last rank. {}st input's shape is {}, but " \
+                "1st input's shape is {}.".format(i, in_space.shape, in_space_0.shape)
 
     def create_variables(self, input_spaces, action_space):
         super(ConcatLayer, self).create_variables(input_spaces, action_space)

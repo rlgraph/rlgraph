@@ -30,7 +30,8 @@ class Conv2DLayer(NNLayer):
     """
     A Conv2D NN-layer.
     """
-    def __init__(self, filters, kernel_size, strides, *sub_components, **kwargs):
+    def __init__(self, filters, kernel_size, strides, padding="valid", data_format="channels_first",
+                 kernel_spec=None, biases_spec=None, **kwargs):
         """
         Args:
             filters (int): The number of filters to produce in the channel-rank.
@@ -38,9 +39,6 @@ class Conv2DLayer(NNLayer):
                 sliding window.
             strides (Union[int,Tuple[int]]): Kernel stride size along height and width axis (or one value
                 for both directions).
-
-        Keyword Args:
-            activation (Optional[callable,str]): The activation function to use. Default: None (linear).
             padding (str): One of 'valid' or 'same'. Default: 'valid'.
             data_format (str): One of 'channels_last' (default) or 'channels_first'. Specifies which rank (first or
                 last) is the color-channel. If the input Space is with batch, the batch always has the first rank.
@@ -48,19 +46,18 @@ class Conv2DLayer(NNLayer):
                 Default: None.
             bias_spec (any): A specifier for the biases-weights initializer. Use None for the default initializer.
                 If False, uses no biases. Default: False.
+
             # TODO: regularization specs
         """
-        # Remove kwargs before calling super().
-        self.padding = kwargs.pop("padding", "valid")
-        self.data_format = kwargs.pop("data_format", "channels_last")
-        self.kernel_spec = kwargs.pop("kernel_spec", None)
-        self.biases_spec = kwargs.pop("biases_spec", None)
-
-        super(Conv2DLayer, self).__init__(*sub_components, scope=kwargs.pop("scope", "conv-2d"), **kwargs)
+        super(Conv2DLayer, self).__init__(scope=kwargs.pop("scope", "conv-2d"), **kwargs)
 
         self.filters = filters
         self.kernel_size = kernel_size if isinstance(kernel_size, (tuple, list)) else (kernel_size, kernel_size)
         self.strides = strides if isinstance(strides, (tuple, list)) else (strides, strides)
+        self.padding = padding
+        self.data_format = data_format
+        self.kernel_spec = kernel_spec
+        self.biases_spec = biases_spec
 
         # At model-build time.
         self.kernel_init = None
@@ -68,7 +65,7 @@ class Conv2DLayer(NNLayer):
         self.biases_init = None
 
     def create_variables(self, input_spaces, action_space):
-        in_space = input_spaces["input"]
+        in_space = input_spaces["apply"][0]
 
         # Create kernel and biases initializers.
         self.kernel_init = Initializer.from_spec(shape=self.kernel_size, specification=self.kernel_spec)

@@ -107,6 +107,12 @@ class GraphBuilder(Specifiable):
         self.build_graph(op_records_to_process)
 
     def build_meta_graph(self, input_spaces):
+        # Sanity check input_spaces dict.
+        for api_method_name in input_spaces.keys():
+            if api_method_name not in self.core_component.api_methods:
+                raise YARLError("ERROR: `input_spaces` contains API-method ('{}') that's not defined in "
+                                "core-component '{}'!".format(api_method_name, self.core_component.name))
+
         # Call all API methods of the core and thereby, create empty in-op columns that serve as placeholders
         # and directed links for the build time.
         self.logger.debug(self.core_component.api_methods)
