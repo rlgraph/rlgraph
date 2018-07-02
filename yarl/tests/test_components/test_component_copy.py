@@ -35,10 +35,16 @@ class TestComponentCopy(unittest.TestCase):
         # Flatten a simple 2x2 FloatBox to (4,).
         space = FloatBox(shape=(2, 2), add_batch_rank=False)
 
-        flatten_orig = Flatten()
-        flatten_copy = flatten_orig.copy(scope="flatten-copy")
-        component_to_test = Component(flatten_orig, flatten_copy)
-        test = ComponentTest(component=component_to_test, input_spaces=dict(input1=space, input2=space))
+        flatten_orig = Flatten(scope="A")
+        flatten_copy = flatten_orig.copy(scope="B")
+        container = Component(flatten_orig, flatten_copy)
+        def flatten1(self_, input_):
+            return self_.call(self_.sub_components["A"].apply, input_)
+        def flatten2(self_, input_):
+            return self_.call(self_.sub_components["B"].apply, input_)
+        container.define_api_method("flatten1", flatten1)
+        container.define_api_method("flatten2", flatten2)
+        test = ComponentTest(component=container, input_spaces=dict(flatten1=space, flatten2=space))
 
         input_ = dict(
             input1=np.array([[0.5, 2.0], [1.0, 2.0]]),
@@ -48,10 +54,10 @@ class TestComponentCopy(unittest.TestCase):
             output1=np.array([0.5, 2.0, 1.0, 2.0]),
             output2=np.array([1.0, 2.0, 3.0, 4.0])
         )
-        for i in range_(2):
+        for i in range_(1, 3):
             test.test(
-                api_method="apply",
-                params=input_,
-                expected_outputs=expected["output"+str(i+1)]
+                api_method="flatten"+str(i),
+                params=input_["input"+str(i)],
+                expected_outputs=expected["output"+str(i)]
             )
 

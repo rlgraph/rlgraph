@@ -41,7 +41,8 @@ class Flatten(PreprocessLayer):
         Args:
             flatten_categories (bool): Whether to flatten also IntBox categories. Default: True.
         """
-        super(Flatten, self).__init__(scope=scope, add_auto_key_as_first_param=True, **kwargs)
+        super(Flatten, self).__init__(scope=scope, flatten_ops=True, split_ops=True,
+                                      add_auto_key_as_first_param=True, **kwargs)
 
         self.has_batch = None
 
@@ -53,7 +54,7 @@ class Flatten(PreprocessLayer):
         super(Flatten, self).check_input_spaces(input_spaces, action_space)
 
         # Check whether our input space has-batch or not and store this information here.
-        in_space = input_spaces["input"]  # type: Space
+        in_space = input_spaces["apply"][0]  # type: Space
         self.has_batch = in_space.has_batch_rank
         # Check whether we have to flatten the incoming categories of an IntBox into a FloatBox with additional
         # rank (categories rank). Store the dimension of this additional rank in the `self.num_categories` dict.

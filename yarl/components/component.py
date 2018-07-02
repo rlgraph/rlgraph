@@ -669,7 +669,8 @@ class Component(Specifiable):
         # Function is a graph_fn: Build a simple wrapper API-method around it and name it `name`.
         if func_type == "graph_fn":
             def api_method(self_, *inputs):
-                return self_.call(func, *inputs, **kwargs)
+                func_ = getattr(self_, func.__name__)
+                return self_.call(func_, *inputs, **kwargs)
 
             self.generated_from_graph_fn.add('{}-{}'.format(self.scope, name))
 
@@ -788,12 +789,15 @@ class Component(Specifiable):
         new_component = copy.deepcopy(self)
         new_component.name = name
         new_component.scope = scope
-        # Change global_scope for copy and all its sub-components.
+        # Change global_scope for the copy and all its sub-components.
         new_component.global_scope = scope
         new_component.propagate_scope(sub_component=None)
         new_component.device = device
         new_component.global_component = global_component
         new_component.parent_component = None  # erase the parent pointer
+        # Change __self__ of all API-methods.
+        for api_method_rec in new_component.api_methods.values():
+            setattr(api_method_rec.method, "__self__", new_component)
 
         return new_component
 
