@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 import unittest
 
-from yarl.components import Component, CONNECT_ALL, Synchronizable
+from yarl.components import Component, Synchronizable
 from yarl.spaces import FloatBox
 from yarl.tests import ComponentTest
 
@@ -38,8 +38,9 @@ class MyCompWithVars(Component):
         self.initializer2 = initializer2
         self.dummy_var_1 = None
         self.dummy_var_2 = None
+
         if synchronizable is True:
-            self.add_component(Synchronizable(), connections=CONNECT_ALL)
+            self.add_components(Synchronizable())
 
     def create_variables(self, input_spaces, action_space):
         # create some dummy var to sync from/to.
@@ -51,7 +52,7 @@ class MyCompWithVars(Component):
 
 class TestSynchronizableComponent(unittest.TestCase):
 
-    def test_values_out_socket(self):
+    def test_values_api_method(self):
         # Proof that all Components can push out their variable values.
         component_to_test = MyCompWithVars(synchronizable=False)
         test = ComponentTest(component=component_to_test)
@@ -60,7 +61,11 @@ class TestSynchronizableComponent(unittest.TestCase):
         expected1 = np.zeros(shape=component_to_test.space.shape)
         expected2 = np.ones(shape=component_to_test.space.shape)
         expected = dict(variable_to_sync1=expected1, variable_to_sync2=expected2)
-        test.test(out_socket_names="_variables", inputs=None, expected_outputs=expected)
+        test.test(
+            api_method="sync",
+            params=None,
+            expected_outputs=expected
+        )
 
     def test_sync_socket(self):
         # Two Components, one with Synchronizable dropped in:
