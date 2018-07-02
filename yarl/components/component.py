@@ -366,6 +366,14 @@ class Component(Specifiable):
         # Add all created variables up the parent/container hierarchy.
         self.propagate_variables()
 
+        # Collect no-input graph_fn and make sure that are called right after Variable creation.
+        no_input_in_columns = list()
+        for graph_fn in self.graph_fns.values():  # type: GraphFnRecord
+            in_col = graph_fn.in_op_columns[0]
+            if len(in_col.op_records) == 0:
+                no_input_in_columns.extend(graph_fn.in_op_columns)
+        return no_input_in_columns
+
     def check_input_spaces(self, input_spaces, action_space):
         """
         Should check on the nature of all in-Sockets Spaces of this Component. This method is called automatically
@@ -635,16 +643,21 @@ class Component(Specifiable):
             split_ops (bool,Set[int]): See `self.call` for details.
             add_auto_key_as_first_param (bool): See `self.call` for details.
         """
-        assert name not in self.api_methods and getattr(self, name, None) is None
+        #if name in self.api_methods:
+        #    raise YARLError("API-method with name '{}' already defined!".format(name))
+        #elif getattr(self, name, None) is not None:
+        #    raise YARLError("Component '{}' already has property called '{}'. Cannot define an API-method with "
+        #                    "the same name!".format(self.name, name))
 
         func_type = util.get_method_type(func)
 
         # Function is a graph_fn: Build a simple wrapper API-method around it and name it `name`.
         if func_type == "graph_fn":
-
             def api_method(self_, *inputs):
                 return self_.call(func, *inputs, **kwargs)
+
             self.generated_from_graph_fn.add('{}-{}'.format(self.scope, name))
+
         # Function is a (custom) API-method. Register it with this Component.
         else:
             assert func_type == "api", "ERROR: func_type is not 'api', but '{}'!".format(func_type)
@@ -654,7 +667,7 @@ class Component(Specifiable):
         setattr(self, name, api_method.__get__(self, self.__class__))
         setattr(api_method, "__self__", self)
         setattr(api_method, "__name__", name)
-        #setattr(self, name, api_method)
+
         self.api_methods[name] = APIMethodRecord(api_method, component=self)
 
     def add_components(self, *components):
@@ -665,6 +678,9 @@ class Component(Specifiable):
             components (List[Component]): The list of Component objects to be added into this one.
         """
         for component in components:
+            # Try to create Component from spec.
+            if not isinstance(component, Component):
+                component = Component.from_spec(component)
             # Make sure no two components with the same name are added to this one (own scope doesn't matter).
             if component.name in self.sub_components:
                 raise YARLError("ERROR: Sub-Component with name '{}' already exists in this one!".

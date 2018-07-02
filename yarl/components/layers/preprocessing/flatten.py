@@ -41,8 +41,7 @@ class Flatten(PreprocessLayer):
         Args:
             flatten_categories (bool): Whether to flatten also IntBox categories. Default: True.
         """
-        super(Flatten, self).__init__(scope=scope, **kwargs)
-        self.change_graph_fn_options("apply", add_auto_key_as_first_param=True)
+        super(Flatten, self).__init__(scope=scope, add_auto_key_as_first_param=True, **kwargs)
 
         self.has_batch = None
 
@@ -51,7 +50,7 @@ class Flatten(PreprocessLayer):
         self.num_categories = dict()
 
     def check_input_spaces(self, input_spaces, action_space):
-        super(Flatten, self).create_variables(input_spaces, action_space)
+        super(Flatten, self).check_input_spaces(input_spaces, action_space)
 
         # Check whether our input space has-batch or not and store this information here.
         in_space = input_spaces["input"]  # type: Space

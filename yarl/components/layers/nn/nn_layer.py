@@ -25,14 +25,14 @@ class NNLayer(Layer):
     """
     A generic NN-layer object.
     """
-    def __init__(self, *sub_components, **kwargs):
+    def __init__(self, **kwargs):
         # Most NN layers have an activation function (some with parameters e.g. leaky ReLU).
         self.activation = kwargs.pop("activation", None)
         self.activation_params = kwargs.pop("activation_params", [])
 
-        super(NNLayer, self).__init__(*sub_components, scope=kwargs.pop("scope", "nn-layer"), **kwargs)
+        super(NNLayer, self).__init__(scope=kwargs.pop("scope", "nn-layer"), **kwargs)
 
-        # The wrapped layer object.
+        # The wrapped backend-layer object.
         self.layer = None
 
     def check_input_spaces(self, input_spaces, action_space):
@@ -40,9 +40,7 @@ class NNLayer(Layer):
         Do some sanity checking on the incoming Space:
         Must not be Container (for now) and must have a batch rank.
         """
-        # Loop through all our in-Sockets and sanity check each one of them for:
-        for in_sock in self.input_sockets:
-            in_space = input_spaces[in_sock.name]
+        for in_space in input_spaces.values():
             # - NNLayers always need FloatBoxes as input (later, add Container Spaces containing only FloatBoxes).
             # - Must have batch rank.
             sanity_check_space(in_space, allowed_types=[FloatBox], must_have_batch_rank=True)

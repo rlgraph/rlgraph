@@ -32,7 +32,6 @@ class PPOLossFunction(LossFunction):
 
     https://arxiv.org/abs/1707.06347
     """
-
     def __init__(self, clip_ratio=0.2, scope="ppo-loss-function", **kwargs):
         """
         Args:
@@ -41,15 +40,13 @@ class PPOLossFunction(LossFunction):
         """
         self.clip_ratio = clip_ratio
 
-        # Pass our in-Socket names to parent constructor.
-        input_sockets = ["actions", "rewards", "terminals"]
-        super(PPOLossFunction, self).__init__(
-            *input_sockets, scope=scope, **kwargs
-        )
+        ## Pass our in-Socket names to parent constructor.
+        #input_sockets = ["actions", "rewards", "terminals"]
+        super(PPOLossFunction, self).__init__(scope=scope, **kwargs)
+
         self.action_space = None
         # How many ranks do we have to reduce to get down to the final loss per batch item?
         self.ranks_to_reduce = 0
-
         self.distribution = None
 
     def check_input_spaces(self, input_spaces, action_space):

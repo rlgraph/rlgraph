@@ -24,18 +24,26 @@ from yarl.components.layers import Layer
 
 class PreprocessLayer(Layer):
     """
-    A Layer that can serve as a preprocessing layer and also can act on complex container input
-    spaces (Dict or Tuple).
-    Do not override the `apply` graph_fn method. Instead, override the `preprocess` method, which
-    gets called automatically by `apply` after taking care of container api_methods.
-    It is not required to implement the `reset` logic (or store any state information at all).
+    A Layer that - additionally to `apply` - implements the `reset` API-method.
+    `apply` is usually used for preprocessing inputs. `reset` is used to reset some state information of this
+    preprocessor (e.g reset/reinitialize a variable).
+
+    API:
+        apply(input_): Preprocesses a single input_ value and returns the preprocessed data.
+        reset(): Optional; Does some reset operations e.g. in case this PreprocessLayer contains variables and state.
     """
     def __init__(self, scope="pre-process", **kwargs):
+        flatten_ops = kwargs.pop("flatten_ops", False)
+        split_ops = kwargs.pop("split_ops", False)
+        add_auto_key_as_first_param = kwargs.pop("add_auto_key_as_first_param", False)
+
         super(PreprocessLayer, self).__init__(scope=scope, **kwargs)
 
-        # Define the reset operation (no input sockets necessary).
-        self.define_outputs("reset")
-        self.add_graph_fn(None, "reset", self._graph_fn_reset)
+        self.define_api_method("reset", self._graph_fn_reset)
+        self.define_api_method(
+            "apply", self._graph_fn_apply, flatten_ops=flatten_ops,
+            split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param
+        )
 
     def _graph_fn_reset(self):
         """

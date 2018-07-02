@@ -31,8 +31,11 @@ class DQNLossFunction(LossFunction):
     The classic 2015 DQN Loss Function:
     L = Expectation-over-uniform-batch(r + gamma x max_a'Qt(s',a') - Qn(s,a))^2
     Where Qn is the "normal" Q-network and Qt is the "target" net (which is a little behind Qn for stability purposes).
-    """
 
+    API:
+        loss_per_item(q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None): The DQN loss per batch
+            item.
+    """
     def __init__(self, double_q=False, scope="dqn-loss-function", **kwargs):
         """
         Args:
@@ -40,15 +43,14 @@ class DQNLossFunction(LossFunction):
         """
         self.double_q = double_q
 
-        # Pass our in-Socket names to parent c'tor.
-        input_sockets = ["q_values", "actions", "rewards", "terminals", "qt_values_s_"]
-        # For double-Q, we need an additional input for the q-net's s'-q-values (not the target's ones!).
-        if self.double_q:
-            input_sockets.append("q_values_s_")
+        ## Pass our in-Socket names to parent c'tor.
+        #input_sockets = ["q_values", "actions", "rewards", "terminals", "qt_values_s_"]
+        ## For double-Q, we need an additional input for the q-net's s'-q-values (not the target's ones!).
+        #if self.double_q:
+        #    input_sockets.append("q_values_s_")
 
-        super(DQNLossFunction, self).__init__(
-            *input_sockets, scope=scope, **kwargs
-        )
+        super(DQNLossFunction, self).__init__(scope=scope, **kwargs)
+
         self.action_space = None
         self.ranks_to_reduce = 0  # How many ranks do we have to reduce to get down to the final loss per batch item?
 

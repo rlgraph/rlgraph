@@ -21,8 +21,8 @@ from math import log
 
 from yarl import get_backend, SMALL_NUMBER
 from yarl.components import Component
-from yarl.components.layers import DenseLayer, DuelingLayer
-from yarl.spaces import Space, IntBox, FloatBox, Tuple, ContainerSpace, sanity_check_space
+from yarl.components.layers.nn import DenseLayer, DuelingLayer
+from yarl.spaces import Space, IntBox, FloatBox, ContainerSpace, sanity_check_space
 
 if get_backend() == "tf":
     import tensorflow as tf

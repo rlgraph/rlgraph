@@ -109,12 +109,13 @@ class GraphBuilder(Specifiable):
     def build_meta_graph(self, input_spaces):
         # Call all API methods of the core and thereby, create empty in-op columns that serve as placeholders
         # and directed links for the build time.
-        print(self.core_component.api_methods)
+        self.logger.debug(self.core_component.api_methods)
         for api_method_name, api_method_rec in self.core_component.api_methods.items():
             # Create an new in column and map it to the resulting out column.
             in_ops_records = list()
-            for i in range(len(force_list(input_spaces[api_method_name]))):
-                in_ops_records.append(DataOpRecord(description="input-{}-{}".format(api_method_name, i)))
+            if api_method_name in input_spaces:
+                for i in range(len(force_list(input_spaces[api_method_name]))):
+                    in_ops_records.append(DataOpRecord(description="input-{}-{}".format(api_method_name, i)))
             self.core_component.call(api_method_rec.method, *in_ops_records)
             # Register interface.
             self.api[api_method_name] = (in_ops_records, api_method_rec.out_op_columns[0].op_records)
@@ -179,7 +180,7 @@ class GraphBuilder(Specifiable):
         op_records_to_process = set()
 
         for api_method_name, (in_op_records, _) in self.api.items():
-            spaces = force_list(input_spaces[api_method_name])
+            spaces = force_list(input_spaces[api_method_name]) if api_method_name in input_spaces else list()
             assert len(spaces) == len(in_op_records)
 
             # Create the placeholder and store it in the given DataOpRecords.
@@ -245,7 +246,13 @@ class GraphBuilder(Specifiable):
                                 if spaces_dict is not None:
                                     self.logger.debug("Component {} is input-complete; spaces_dict={}".
                                                       format(next_component.name, spaces_dict))
-                                    next_component.when_input_complete(spaces_dict, self.action_space)
+                                    no_input_graph_fn_columns = next_component.when_input_complete(spaces_dict,
+                                                                                                   self.action_space)
+                                    # Call all no-input graph_fns.
+                                    for no_in_col in no_input_graph_fn_columns:
+                                        self.run_through_graph_fn_with_device_and_scope(no_in_col)
+                                        # Keep working with the generated output ops.
+                                        new_op_records_to_process.extend(no_in_col.out_graph_fn_column.op_records)
 
                 # No next records.
                 else:

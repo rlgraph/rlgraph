@@ -21,7 +21,7 @@ from yarl import get_backend
 from yarl.components.layers.preprocessing import PreprocessLayer
 from yarl.utils.util import default_dict
 
-from .stack import Stack
+from yarl.components.layers.stack import Stack
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -34,11 +34,8 @@ class PreprocessorStack(Stack):
     from out-Socket(s) to in-Socket(s) all the way through.
 
     API:
-    ins:
-        input: The input going into the first PreprocessLayer of this Stack.
-    outs:
-        output: The output of the last PreprocessLayer of this Stack.
-        reset: An op to trigger all PreprocessorLayers of this Stack to be reset.
+        preprocess(input_): Outputs the preprocessed input_ after sending it through all sub-Components of this Stack.
+        reset(): An op to trigger all PreprocessorLayers of this Stack to be reset.
     """
     def __init__(self, *preprocessors, **kwargs):
         """
@@ -46,23 +43,27 @@ class PreprocessorStack(Stack):
             preprocessors (PreprocessorLayer): The PreprocessorLayers to add to the Stack and connect to each other.
 
         Raises:
-            YARLError: If sub-components' number of api_methods/outputs do not match.
+            YARLError: If a sub-component is not a PreprocessLayer object.
         """
-        default_dict(kwargs, dict(scope=kwargs.pop("scope", "preprocessor-stack"),
-                                  sub_component_inputs="input", sub_component_outputs="output"))
+        # Link sub-Components' `apply` methods together to yield PreprocessorStack's `preprocess` method.
+        # NOTE: Do not include `reset` here as it is defined explicitly below.
+        kwargs["api_methods"] = {("preprocess", "apply")}
+        default_dict(kwargs, dict(scope=kwargs.pop("scope", "preprocessor-stack")))
         super(PreprocessorStack, self).__init__(*preprocessors, **kwargs)
 
-        # Now that the sub-components are constructed, make sure they are all ProprocessorLayer objects.
+        # Now that the sub-components are constructed, make sure they are all PreprocessorLayer objects.
         for key, preprocessor in self.sub_components.items():
             assert isinstance(preprocessor, PreprocessLayer), \
                 "ERROR: sub-Component '{}' in PreprocessorStack '{}' is not a PreprocessorLayer!".\
                 format(preprocessor.name, self.name)
 
-        # Connect each pre-processor's "reset" out-Socket to our graph_fn.
+    def reset(self):
+        # Connect each pre-processor's "reset" output op via our graph_fn into one op.
         resets = list()
         for preprocessor in self.sub_components.values():  # type: PreprocessLayer
-            resets.append(preprocessor["reset"])
-        self.add_graph_fn(resets, "reset", self._graph_fn_reset)
+            resets.append(self.call(preprocessor.reset))
+        reset_op = self.call(self._graph_fn_reset, *resets)
+        return reset_op
 
     def _graph_fn_reset(self, *preprocessor_resets):
         if get_backend() == "tf":

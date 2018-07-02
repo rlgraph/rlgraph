@@ -38,7 +38,7 @@ class Normalize(PreprocessLayer):
         self.axes = None
 
     def check_input_spaces(self, input_spaces, action_space):
-        super(Normalize, self).create_variables(input_spaces, action_space)
+        super(Normalize, self).check_input_spaces(input_spaces, action_space)
 
         in_space = input_spaces["input"]  # type: Space
         # A list of all axes over which to normalize (exclude batch rank).

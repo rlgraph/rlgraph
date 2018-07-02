@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components import Stack
+from yarl.components.layers.stack import Stack
 
 
 class NeuralNetwork(Stack):

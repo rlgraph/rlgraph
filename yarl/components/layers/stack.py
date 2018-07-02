@@ -45,12 +45,14 @@ class Stack(Component):
         Keyword Args:
             api_methods (Optional[Set[str]]): A set of names of API-methods to connect through the stack.
                 Defaults to {"apply"}. All sub-Components must implement all API-methods in this set.
-                Connecting works by first calling the first sub-Component's API-method, then - with the
+                Alternatively, a tuple can be used  (instead of a string), in which case the first tuple-item
+                is used as the Stack's API-method name and the second item is the sub-Components' API-method name.
+                E.g. api_methods={("stack_run", "run")}. This will create "stack_run" for the Stack, which will call
+                one by one the "run" methods of the sub-Components.
+
+                Connecting always works by first calling the first sub-Component's API-method, then - with the
                 result - calling the second sub-Component's API-method, etc..
                 This is done for all API-methods in the given set.
-
-        Raises:
-            YARLError: If sub-components' number of api_methods/outputs do not match.
         """
         api_methods = kwargs.pop("api_methods", {"apply"})
 
@@ -62,14 +64,19 @@ class Stack(Component):
         # For each api-method in the given set, create our own API-method connecting
         # all sub-Component's API-method "through".
         for api_method_name in api_methods:
+            if isinstance(api_method_name, tuple):
+                stack_api_method_name, components_api_method_name = api_method_name[0], api_method_name[1]
+            else:
+                stack_api_method_name, components_api_method_name = api_method_name, api_method_name
+
             def method(self_, *inputs):
                 result = inputs
                 for sub_component in sub_components:
-                    result = self_.call(getattr(sub_component, api_method_name), *force_tuple(result))
+                    result = self_.call(getattr(sub_component, components_api_method_name), *force_tuple(result))
                 return result
 
             # Register `method` to this Component using the custom name given in `api_methods`.
-            self.define_api_method(api_method_name, method)
+            self.define_api_method(stack_api_method_name, method)
 
     @classmethod
     def from_spec(cls, spec=None, **kwargs):
