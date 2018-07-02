@@ -48,8 +48,6 @@ class RingBuffer(Memory):
         self.size = None
         self.states = None
 
-        self.define_api_method(name="get_records", func=self._graph_fn_get_records)
-
         self.episode_semantics = episode_semantics
         self.num_episodes = None
         self.episode_indices = None

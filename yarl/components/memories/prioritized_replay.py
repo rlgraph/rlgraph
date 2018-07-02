@@ -74,12 +74,6 @@ class PrioritizedReplay(Memory):
         self.beta = beta
 
         self.define_api_method(
-            name="get_records",
-            func=self._graph_fn_get_records,
-            flatten_ops=False
-        )
-
-        self.define_api_method(
             name="update_records",
             func=self._graph_fn_update_records,
             flatten_ops=False
