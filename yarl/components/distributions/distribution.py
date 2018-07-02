@@ -31,6 +31,8 @@ class Distribution(Component):
     from an external source (e.g. a NN).
 
     API:
+        get_distribution(parameters): The backend-specific distribution object.
+
     ins:
         parameters (numeric): The parameters of the distribution (e.g. mean and variance for a Gaussian).
             The Space of parameters must have a batch-rank.
@@ -53,29 +55,42 @@ class Distribution(Component):
     def __init__(self, scope="distribution", **kwargs):
         super(Distribution, self).__init__(scope=scope, **kwargs)
 
-        # Define a generic Distribution interface.
-        # self.define_inputs("parameters", "values", "other_distribution", "max_likelihood")
-        # self.define_outputs("sample_stochastic", "sample_deterministic", "draw", "entropy", "log_prob", "distribution")
+        # Define our API-method to get a distribution object:
+        self.define_api_method(name="get_distribution", func=self._graph_fn_get_distribution)
 
-        # "distribution" will be an internal Socket used to connect the GraphFunctions with each other.
-        self.define_api_method(name="parameterize", func=self._graph_fn_parameterize)
-        self.define_api_method(name="sample_stochastic", func=self._graph_fn_sample_stochastic)
-        self.define_api_method(name="sample_deterministic", func=self._graph_fn_sample_deterministic)
-        self.define_api_method(name="entropy", func=self._graph_fn_entropy)
-        self.define_api_method(name="log_prob", func=self._graph_fn_log_prob)
-        self.define_api_method(name="kl_divergence", func=self._graph_fn_kl_divergence)
-        self.define_api_method(name="draw", func=self._graph_fn_draw)
+    # Now use that API-method to get the distribution object to implement all other API-methods.
+    def sample_stochastic(self, parameters):
+        distribution = self.call(self._graph_fn_get_distribution, parameters)
+        return self.call(self._graph_fn_sample_stochastic, distribution)
 
-        # Make some in-Sockets optional (don't need to be connected; will not sanity check these).
-        # self.unconnected_sockets_in_meta_graph.update(["values", "max_likelihood", "other_distribution"])
+    def sample_deterministic(self, parameters):
+        distribution = self.call(self._graph_fn_get_distribution, parameters)
+        return self.call(self._graph_fn_sample_deterministic, distribution)
+
+    def draw(self, parameters, max_likelihood):
+        distribution = self.call(self._graph_fn_get_distribution, parameters)
+        return self.call(self._graph_fn_draw, distribution, max_likelihood)
+
+    def entropy(self, parameters):
+        distribution = self.call(self._graph_fn_get_distribution, parameters)
+        return self.call(self._graph_fn_entropy, distribution)
+
+    def log_prob(self, parameters, values):
+        distribution = self.call(self._graph_fn_get_distribution, parameters)
+        return self.call(self._graph_fn_log_prob, distribution, values)
+
+    def kl_divergence(self, parameters, other_parameters):
+        distribution = self.call(self._graph_fn_get_distribution, parameters)
+        other_distribution = self.call(self._graph_fn_get_distribution, other_parameters)
+        return self.call(self._graph_fn_kl_divergence, distribution, other_distribution)
 
     def check_input_spaces(self, input_spaces, action_space):
-        in_space = input_spaces["parameters"]
+        parameter_space = input_spaces["get_distribution"][0]
         # Must not be ContainerSpace (not supported yet for Distributions, doesn't seem to make sense).
-        assert not isinstance(in_space, ContainerSpace), "ERROR: Cannot handle container input Spaces " \
-                                                         "in distribution '{}' (atm; may soon do)!".format(self.name)
+        assert not isinstance(parameter_space, ContainerSpace), "ERROR: Cannot handle container parameter Spaces " \
+                                                                "in distribution '{}' (atm; may soon do)!".format(self.name)
 
-    def _graph_fn_parameterize(self, *parameters):
+    def _graph_fn_get_distribution(self, *parameters):
         """
         Parameterizes this distribution (normally from an NN-output vector). Returns
         the backend-distribution object (a DataOp).
@@ -125,8 +140,7 @@ class Distribution(Component):
         """
         raise NotImplementedError
 
-    @staticmethod
-    def _graph_fn_sample_stochastic(distribution):
+    def _graph_fn_sample_stochastic(self, distribution):
         """
         Returns an actual sample for a given distribution.
 
@@ -139,8 +153,7 @@ class Distribution(Component):
         """
         return distribution.sample()
 
-    @staticmethod
-    def _graph_fn_log_prob(distribution, values):
+    def _graph_fn_log_prob(self, distribution, values):
         """
         Probability density/mass function.
 
@@ -155,8 +168,7 @@ class Distribution(Component):
         if get_backend() == "tf":
             return distribution.log_prob(value=values)
 
-    @staticmethod
-    def _graph_fn_entropy(distribution):
+    def _graph_fn_entropy(self, distribution):
         """
         Returns the DataOp holding the entropy value of the distribution.
 
@@ -169,8 +181,7 @@ class Distribution(Component):
         """
         return distribution.entropy()
 
-    @staticmethod
-    def _graph_fn_kl_divergence(distribution_a, distribution_b):
+    def _graph_fn_kl_divergence(self, distribution_a, distribution_b):
         """
         Kullback-Leibler divergence between two distribution objects.
 

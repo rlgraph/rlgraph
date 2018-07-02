@@ -32,7 +32,7 @@ class Bernoulli(Distribution):
     def __init__(self, scope="bernoulli", **kwargs):
         super(Bernoulli, self).__init__(scope=scope, **kwargs)
 
-    def _graph_fn_parameterize(self, prob):
+    def _graph_fn_get_distribution(self, prob):
         """
         Args:
             prob (DataOp): The p value (probability that distribution returns True).

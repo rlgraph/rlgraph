@@ -34,24 +34,10 @@ class Splitter(Component):
         """
         assert isinstance(input_space, ContainerSpace), \
             "ERROR: `input_space` must be a ContainerSpace (Dict or Tuple)!"
-        super(Splitter, self).__init__(scope=scope, **kwargs)
+        num_outputs = len(input_space.flatten())
+        super(Splitter, self).__init__(scope=scope, graph_fn_outputs=dict(_graph_fn_split=num_outputs), **kwargs)
 
-        self.input_space = input_space
-
-        # Define the interface (one input, many outputs named after the auto-keys generated).
-        #self.define_inputs("input")
-        flat_dict = input_space.flatten()
-        if output_names is not None:
-            assert len(flat_dict) == len(output_names), "ERROR: Number of given out-names ({}) does not " \
-                                                        "match number of elements in input " \
-                                                        "ContainerSpace ({})!". \
-                format(len(output_names), len(flat_dict))
-        else:
-            output_names = [key for key in flat_dict.keys()]
-        #self.define_outputs(*output_names)
-        # Insert our simple splitting graph_fn.
-
-        self.add_graph_fn(name="split", func=self._graph_fn_split, flatten_ops=True)
+        self.define_api_method(name="split", func=self._graph_fn_split, flatten_ops=True)
 
     def _graph_fn_split(self, input_):
         """

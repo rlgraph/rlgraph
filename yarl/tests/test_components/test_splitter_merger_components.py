@@ -22,7 +22,7 @@ import unittest
 
 from yarl.components.common import Splitter, Merger
 from yarl.spaces import *
-from yarl.spaces.space_utils import flatten_op
+from yarl.utils.ops import flatten_op
 from yarl.tests import ComponentTest
 
 
@@ -43,20 +43,20 @@ class TestSplitterMergerComponents(unittest.TestCase):
             add_batch_rank=True
         )
         component_to_test = Splitter(input_space=space)
-        test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
+        test = ComponentTest(component=component_to_test, input_spaces=dict(split=space))
 
         # Get a batch of samples.
         input_ = space.sample(size=3)
-
-        # Also check the types each time of a different sample from the batch (pick one from: 0 to 2).
-        out = test.test(out_socket_names="/a/ab", inputs=input_, expected_outputs=np.array(input_["a"]["ab"]))
-        self.assertTrue(isinstance(out[0], np.float32))
-        out = test.test(out_socket_names="/g/_T0_", inputs=input_, expected_outputs=np.array(input_["g"][0]))
-        self.assertTrue(isinstance(out[1], np.bool_))
-        out = test.test(out_socket_names="/d", inputs=input_, expected_outputs=np.array(input_["d"]))
-        self.assertTrue(isinstance(out[2], np.int32))
-        out = test.test(out_socket_names="/f", inputs=input_, expected_outputs=np.array(input_["f"]))
-        self.assertTrue(isinstance(out[0], np.ndarray))
+        expected_output = [
+            input_["a"]["aa"], input_["a"]["ab"],
+            input_["b"]["ba"],
+            input_["c"],
+            input_["d"],
+            input_["e"],
+            input_["f"],
+            input_["g"][0], input_["g"][1]
+        ]
+        test.test(api_method="split", params=input_, expected_outputs=expected_output)
 
     def test_splitter_component_with_custom_names(self):
         space = Dict(
@@ -78,13 +78,13 @@ class TestSplitterMergerComponents(unittest.TestCase):
         input_ = space.sample()
 
         # Also check the types each time.
-        out = test.test(out_socket_names="atup0bool", inputs=input_, expected_outputs=np.array(input_["a"][0]))
+        out = test.test(api_method="atup0bool", params=input_, expected_outputs=np.array(input_["a"][0]))
         self.assertTrue(isinstance(out.item(), bool))
-        out = test.test(out_socket_names="fcont", inputs=input_, expected_outputs=np.array(input_["f"]))
+        out = test.test(api_method="fcont", params=input_, expected_outputs=np.array(input_["f"]))
         self.assertTrue(isinstance(out, np.ndarray))
-        out = test.test(out_socket_names="eeafloat", inputs=input_, expected_outputs=np.array(input_["e"]["ea"]))
+        out = test.test(api_method="eeafloat", params=input_, expected_outputs=np.array(input_["e"]["ea"]))
         self.assertTrue(isinstance(out.item(), float))
-        out = test.test(out_socket_names="cbool", inputs=input_, expected_outputs=np.array(input_["c"]))
+        out = test.test(api_method="cbool", params=input_, expected_outputs=np.array(input_["c"]))
         self.assertTrue(isinstance(out.item(), bool))
 
     def test_merger_component(self):

@@ -40,7 +40,7 @@ class Normal(Distribution):
         assert isinstance(in_space, Tuple) and len(in_space) == 2,\
             "ERROR: {} (Distribution) ({}) needs an incoming Tuple with len=2!".format(type(self).__name__,
                                                                                        self.name)
-    def _graph_fn_parameterize(self, loc_and_scale):
+    def _graph_fn_get_distribution(self, loc_and_scale):
         if get_backend() == "tf":
             return tf.distributions.Normal(loc=loc_and_scale[0], scale=loc_and_scale[1])
 

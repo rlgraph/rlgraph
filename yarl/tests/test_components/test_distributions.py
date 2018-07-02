@@ -33,35 +33,36 @@ class TestDistributions(unittest.TestCase):
         param_space = FloatBox(shape=(5,), add_batch_rank=True)
 
         # The Component to test.
-        bernoulli = Bernoulli()  # add the "draw" Socket
-        test = ComponentTest(component=bernoulli, input_spaces=dict(
-            parameters=param_space,
-            max_likelihood=BoolBox(),
-            values=FloatBox(),
-            other_distribution=0
-        ))
+        bernoulli = Bernoulli(ignore_api={"entropy", "log_prob", "kl_divergence"})
+        input_spaces = dict(
+            get_distribution=param_space,
+            sample_stochastic=param_space,
+            sample_deterministic=param_space,
+            draw=[param_space, bool],
+        )
+        test = ComponentTest(component=bernoulli, input_spaces=input_spaces)
 
         # Batch of size=1 and deterministic.
-        input_ = {
-            "parameters": np.array([[0.5, 0.99, 0.0, 0.2, 0.3]]),
-            "max_likelihood": True
-        }
+        input_ = [
+            np.array([[0.5, 0.99, 0.0, 0.2, 0.3]]),
+            True
+        ]
         expected = np.array([[True, True, False, False, False]])
-        test.test(out_socket_names="draw", inputs=input_, expected_outputs=expected)
+        test.test(api_method="draw", params=input_, expected_outputs=expected)
         # Try the same on the sample_deterministic out-Socket without the max_likelihood input..
-        test.test(out_socket_names="sample_deterministic", inputs=input_["parameters"], expected_outputs=expected)
+        test.test(api_method="sample_deterministic", params=input_[0], expected_outputs=expected)
 
         # Batch of size=2 and non-deterministic -> expect always the same result when we seed tf (done automatically
         # by the ComponentTest object).
-        input_ = {
-            "parameters": np.array([[0.1, 0.3, 0.6, 0.71, 0.001], [0.9, 0.998, 0.9999, 0.0001, 0.345678]]),
-            "max_likelihood": False
-        }
-        expected = np.array([[False, False, True, False, False], [True, True, True, False, False]])
-        test.test(out_socket_names="draw", inputs=input_, expected_outputs=expected)
+        input_ = [
+            np.array([[0.1, 0.3, 0.6, 0.71, 0.001], [0.9, 0.998, 0.9999, 0.0001, 0.345678]]),
+            False
+        ]
+        #expected = np.array([[False, False, True, False, False], [True, True, True, False, False]])
+        #test.test(api_method="draw", params=input_, expected_outputs=expected)
         # Try the same on the sample_stochastic out-Socket without the max_likelihood input..
         expected = np.array([[False, False, True, True, False], [True, True, True, False, False]])
-        test.test(out_socket_names="sample_stochastic", inputs=input_["parameters"], expected_outputs=expected)
+        test.test(api_method="sample_stochastic", params=input_[0], expected_outputs=expected)
 
     def test_categorical(self):
         # Create 5 categorical distributions of 3 categories each.

@@ -283,11 +283,14 @@ def get_num_return_values(method):
     mo = re.search(r'.*\breturn (.+)', src, flags=re.DOTALL)
     if mo:
         return_code = mo.group(1)
+        # TODO: raise error if "tuple()" -> means we don't know how many return value we will have
+        # TODO: in this case, the Component needs to specify how many output records it produces.
         # Resolve tricky things (parentheses, etc..).
-        return_code = re.sub(r'\([^\)]+\)', '', return_code)
-        return_code = re.sub(r'"[^"]+"', '', return_code)
-        # Probably have to add more resolution code here.
-        # ...
+        while re.search(r'[\(\)"]', return_code):
+            return_code = re.sub(r'\([^\(\)]*\)', '', return_code)
+            return_code = re.sub(r'"[^"]*"', '', return_code)
+            # Probably have to add more resolution code here.
+            # ...
 
         # Count the commas and return.
         num_return_values = len(return_code.split(","))
