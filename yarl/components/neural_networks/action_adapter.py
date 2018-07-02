@@ -87,12 +87,13 @@ class ActionAdapter(Component):
         self.dueling_layer = None
 
         # Define our interface.
-        self.define_inputs("nn_output")
-        self.define_outputs("action_layer_output", "parameters", "logits")
-        if self.add_dueling_layer is True:
-            self.define_outputs("state_value", "advantage_values", "q_values")
-        else:
-            self.define_outputs("action_layer_output_reshaped")
+        # TODO anythin todo for dueling layer?
+        # self.define_inputs("nn_output")
+        # self.define_outputs("action_layer_output", "parameters", "logits")
+        # if self.add_dueling_layer is True:
+        #     self.define_outputs("state_value", "advantage_values", "q_values")
+        # else:
+        #     self.define_outputs("action_layer_output_reshaped")
 
     def check_input_spaces(self, input_spaces, action_space):
         # Check the input Space.
@@ -124,32 +125,30 @@ class ActionAdapter(Component):
             scope="action-layer"
         )
         # And connect it to the incoming "nn_output".
-        self.add_component(self.action_layer)
-        self.connect("nn_output", (self.action_layer, "input"))
+        self.add_components(self.action_layer)
+        # self.connect("nn_output", (self.action_layer, "input"))
 
         # Expose the action_layer's output via "action_layer_output".
-        self.connect((self.action_layer, "output"), "action_layer_output")
+        # self.connect((self.action_layer, "output"), "action_layer_output")
         #self.action_layer["output"] > self["action_layer_output"]
 
         # Add an optional dueling layer.
+        self.define_api_method(name="generate_parameters", func=self._graph_fn_generate_parameters)
+
+        # TODO anything to do here for connecting these?
         if self.add_dueling_layer:
             self.dueling_layer = DuelingLayer()
-            self.add_component(self.dueling_layer)
-            self.connect("action_layer_output", (self.dueling_layer, "input"))
-            self.connect((self.dueling_layer, "state_value"), "state_value")
-            self.connect((self.dueling_layer, "advantage_values"), "advantage_values")
-            self.connect((self.dueling_layer, "q_values"), "q_values")
+            self.add_components(self.dueling_layer)
+            # self.connect("action_layer_output", (self.dueling_layer, "input"))
+            # self.connect((self.dueling_layer, "state_value"), "state_value")
+            # self.connect((self.dueling_layer, "advantage_values"), "advantage_values")
+            # self.connect((self.dueling_layer, "q_values"), "q_values")
             # Create parameters and logits from the q_values of the dueling layer.
-            self.add_graph_fn([(self.dueling_layer, "q_values")], ["logits", "parameters"],
-                              self._graph_fn_generate_parameters)
         # Without dueling layer.
         else:
             # Connect the output of the action layer to our reshape graph_fn.
-            self.add_graph_fn("action_layer_output", "action_layer_output_reshaped",
-                              self._graph_fn_reshape)
-            # Then to our generate_parameters graph_fn.
-            self.add_graph_fn("action_layer_output_reshaped", ["logits", "parameters"],
-                              self._graph_fn_generate_parameters)
+            self.define_api_method(name="reshape", func=self._graph_fn_reshape)
+
 
     def _graph_fn_reshape(self, action_layer_output):
         """

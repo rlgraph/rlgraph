@@ -74,23 +74,22 @@ class Policy(Component):
 
         # Define our interface (some of the input/output Sockets will be defined depending on the NeuralNetwork's
         # own interface, e.g. "sync_in" may be missing if the NN is not writable):
-        self.define_outputs("parameters", "logits", "sample_stochastic", "sample_deterministic", "entropy")
+        # self.define_outputs("parameters", "logits", "sample_stochastic", "sample_deterministic", "entropy")
 
         # Add NN, connect it through and then rename its "output" into Policy's "nn_output".
-        self.add_component(self.neural_network, connections=CONNECT_ALL)
-        self.rename_socket("input", "nn_input")
-        self.rename_socket("output", "nn_output")
+        self.add_components(self.neural_network, self.action_adapter)
+        # self.rename_socket("input", "nn_input")
+        # self.rename_socket("output", "nn_output")
 
         # Add the Adapter, connect the network's "output" into it and the "logits" Socket.
-        self.add_component(self.action_adapter, connections=CONNECT_OUTS)
-        self.connect((self.neural_network, "output"), (self.action_adapter, "nn_output"))
-        #self.connect((self.action_adapter, "action_layer_output"), "action_layer_output")
-        #self.connect((self.action_adapter, "parameters"), "parameters")
-        #self.connect((self.action_adapter, "logits"), "logits")
+        # self.connect((self.neural_network, "output"), (self.action_adapter, "nn_output"))
+        # self.connect((self.action_adapter, "action_layer_output"), "action_layer_output")
+        # self.connect((self.action_adapter, "parameters"), "parameters")
+        # self.connect((self.action_adapter, "logits"), "logits")
 
         # Add Synchronizable API to ours.
         if self.writable:
-            self.add_component(Synchronizable(), connections=CONNECT_ALL)
+            self.add_components(Synchronizable())
 
     def check_input_spaces(self, input_spaces, action_space):
         # The Distribution to sample (or pick) actions from.
@@ -105,6 +104,6 @@ class Policy(Component):
                             format(type(action_space).__name__, self.name))
 
         # This defines out-Sockets "sample_stochastic/sample_deterministic/entropy".
-        self.add_component(self.distribution, connections=CONNECT_OUTS)
+        self.add_components(self.distribution)
         # Plug-in Adapter Component into Distribution.
-        self.connect((self.action_adapter, "parameters"), (self.distribution, "parameters"))
+        # self.connect((self.action_adapter, "parameters"), (self.distribution, "parameters"))
