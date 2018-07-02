@@ -75,7 +75,7 @@ class Component(Specifiable):
             #    sub-components to this one.
         """
         # Scope if used to create scope hierarchies inside the Graph.
-        self.logger = logging.getLogger(__name__)
+        # self.logger = logging.getLogger(__name__)
         self.scope = kwargs.pop("scope", "")
 
         assert re.match(r'^[\w\-]*$', self.scope), \

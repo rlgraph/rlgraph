@@ -23,7 +23,7 @@ import json
 import os
 import re
 import yaml
-
+import logging
 from yarl.utils.yarl_error import YARLError
 from yarl.utils.util import default_dict
 
@@ -38,6 +38,8 @@ class Specifiable(object):
     # An optional default constructor to use without any arguments in case `spec` is None
     # and args/kwargs are both empty. This may be a functools.partial object.
     __default_constructor__ = None
+
+    logger = logging.getLogger(__name__)
 
     @classmethod
     def from_spec(cls, spec=None, **kwargs):
