@@ -192,30 +192,6 @@ def default_dict(original, defaults):
     return original
 
 
-def all_combinations(input_list, descending_length=False):
-    """
-    Returns a list containing tuples of all possible combinations of all possible length of the elements
-    in the input_list (without repeating elements inside each tuple and without resorting the input_list).
-    The returned list is, however, sorted by the length of the different combination-tuples
-    (in descending (longest first) or ascending (shortest first) order).
-    Examples:
-         input_list=[1, 2, 3] returns: [(1,), (2,), (3,), (1, 2), (1, 3), (2, 3), (1, 2, 3)]
-
-         NOTE: We do not re-sort input_list (5 still before 1):
-         input_list=[5, 1]    returns: [(5,), (1,), (5, 1)]
-
-    Args:
-        input_list (list): The list to get all combinations for.
-        descending_length (bool): Whether to sort the tuples longest first (default: shortest first).
-
-    Returns:
-        The list of tuples of possible combinations.
-    """
-    return sorted(list(itertools.chain.from_iterable(
-        itertools.combinations(input_list, i+1) for i in xrange(len(input_list)))),
-        key=len, reverse=descending_length)
-
-
 def clamp(x, min_, max_):
     """
     Clamps x between min_ and max_.
@@ -304,7 +280,7 @@ def get_num_return_values(method):
     # Resolve '\' at end of lines.
     src = re.sub(r'\\\s*\n', "", src)
 
-    mo = re.search(r'\breturn (.+)', src)
+    mo = re.search(r'.*\breturn (.+)', src, flags=re.DOTALL)
     if mo:
         return_code = mo.group(1)
         # Resolve tricky things (parentheses, etc..).

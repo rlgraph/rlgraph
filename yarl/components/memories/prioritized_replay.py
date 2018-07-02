@@ -73,12 +73,6 @@ class PrioritizedReplay(Memory):
         self.alpha = alpha
         self.beta = beta
 
-        # Make the "update" and "indices" in-Sockets not a requirement for input-completeness
-        # to avoid circular dependencies.
-
-        #  TODO what are we doing with this?
-        self.unconnected_sockets_in_meta_graph.update({"update", "indices"})
-
         self.define_api_method(
             name="get_records",
             func=self._graph_fn_get_records,
@@ -264,6 +258,7 @@ class PrioritizedReplay(Memory):
             max_priority_ = tf.maximum(x=max_priority_, y=priority)
 
             with tf.control_dependencies(control_inputs=[tf.group(sum_insert, min_insert)]):
+                # TODO: This confuses the auto-return value detector.
                 return i + 1, max_priority_
 
         def cond(i, max_priority_):
