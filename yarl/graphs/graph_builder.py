@@ -106,12 +106,18 @@ class GraphBuilder(Specifiable):
 
         self.build_graph(op_records_to_process)
 
-    def build_meta_graph(self, input_spaces):
+    def build_meta_graph(self, input_spaces=None):
+        """
+        Builds the meta graph by building op records for all api methods.
+        Args:
+            input_spaces (Optional[Space]): Input spaces for api methods.
+        """
         # Sanity check input_spaces dict.
-        for api_method_name in input_spaces.keys():
-            if api_method_name not in self.core_component.api_methods:
-                raise YARLError("ERROR: `input_spaces` contains API-method ('{}') that's not defined in "
-                                "core-component '{}'!".format(api_method_name, self.core_component.name))
+        if input_spaces is not None:
+            for api_method_name in input_spaces.keys():
+                if api_method_name not in self.core_component.api_methods:
+                    raise YARLError("ERROR: `input_spaces` contains API-method ('{}') that's not defined in "
+                                    "core-component '{}'!".format(api_method_name, self.core_component.name))
 
         # Call all API methods of the core and thereby, create empty in-op columns that serve as placeholders
         # and directed links for the build time.
@@ -119,7 +125,7 @@ class GraphBuilder(Specifiable):
         for api_method_name, api_method_rec in self.core_component.api_methods.items():
             # Create an new in column and map it to the resulting out column.
             in_ops_records = list()
-            if api_method_name in input_spaces:
+            if input_spaces is not None and api_method_name in input_spaces:
                 for i in range(len(force_list(input_spaces[api_method_name]))):
                     in_ops_records.append(DataOpRecord(description="input-{}-{}".format(api_method_name, i)))
             self.core_component.call(api_method_rec.method, *in_ops_records)
