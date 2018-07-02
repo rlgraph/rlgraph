@@ -62,11 +62,11 @@ class Sequence(PreprocessLayer):
         self.first_rank_is_batch = in_space.has_batch_rank
 
         # Cut the "batch rank" (always 1 anyway) and replace it with the "sequence-rank".
-        self.buffer = self.create_variable(name="buffer", trainable=False,
+        self.buffer = self.get_variable(name="buffer", trainable=False,
                                         from_space=in_space, add_batch_rank=self.sequence_length,
                                         flatten=True)
         # Our index. Points to the slot where we insert next (-1 after reset).
-        self.index = self.create_variable(name="index", dtype="int", initializer=-1, trainable=False)
+        self.index = self.get_variable(name="index", dtype="int", initializer=-1, trainable=False)
 
     def _graph_fn_reset(self):
         return tf.variables_initializer([self.index])

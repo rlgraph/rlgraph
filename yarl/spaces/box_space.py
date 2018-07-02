@@ -22,7 +22,8 @@ import numpy as np
 import re
 
 from yarl import get_backend, YARLError
-from yarl.utils import dtype, Initializer
+from yarl.utils.util import dtype
+from yarl.utils.initializer import Initializer
 from yarl.spaces.space import Space
 
 

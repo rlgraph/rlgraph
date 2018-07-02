@@ -19,9 +19,9 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-from yarl.spaces.space_utils import FlattenedDataOp
 from yarl.components.memories.memory import Memory
 from yarl.utils.util import get_batch_size
+from yarl.utils.ops import FlattenedDataOp
 
 
 class RingBuffer(Memory):
@@ -48,11 +48,7 @@ class RingBuffer(Memory):
         self.size = None
         self.states = None
 
-        self.define_api_method(
-            name="get_records",
-            func=self._graph_fn_get_records,
-            flatten_ops=False
-        )
+        self.define_api_method(name="get_records", func=self._graph_fn_get_records)
 
         self.episode_semantics = episode_semantics
         self.num_episodes = None
@@ -60,11 +56,7 @@ class RingBuffer(Memory):
 
         if self.episode_semantics:
             # Extend our interface ("get_episodes").
-            self.define_api_method(
-                name="get_episodes",
-                func=self._graph_fn_get_episodes,
-                flatten_ops=False
-            )
+            self.define_api_method(name="get_episodes", func=self._graph_fn_get_episodes)
 
     def create_variables(self, input_spaces, action_space):
         super(RingBuffer, self).create_variables(input_spaces, action_space)

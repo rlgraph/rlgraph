@@ -427,7 +427,7 @@ class Component(Specifiable):
             summary_name = re.sub(r':\d+$', "", summary_name)
             self.create_summary(summary_name, var)
 
-    def create_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True,
+    def get_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True,
                         from_space=None, add_batch_rank=False, flatten=False):
         """
         Generates or returns a variable to use in the selected backend.

@@ -42,11 +42,11 @@ class Memory(Component):
         self.record_registry = None
         self.capacity = capacity
 
-        self.define_api_method("insert", func=self._graph_fn_insert, flatten_ops=True, split_ops=False)
+        self.define_api_method("insert", func=self._graph_fn_insert, flatten_ops=True)
 
     def create_variables(self, input_spaces, action_space):
         # Store our record-space for convenience.
-        self.record_space = input_spaces["records"]
+        self.record_space = input_spaces["insert"][0]
 
         # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
         self.record_registry = self.get_variable(

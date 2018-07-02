@@ -46,7 +46,7 @@ class TestExplorations(unittest.TestCase):
         expected = np.array([True, True, True, True, True, True, True, True, True, True, True, True, True, True, True,
                              True, True, False, True, True, False, False, False, False, False, True, False])
         for i, e in zip(input_, expected):
-            test.test(out_socket_names="do_explore", inputs=i, expected_outputs=e)
+            test.test(api_method="do_explore", params=i, expected_outputs=e)
 
     def test_exploration_with_discrete_action_space(self):
         # 2x2 action-pick, each composite action with 5 categories.

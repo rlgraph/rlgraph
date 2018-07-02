@@ -123,7 +123,7 @@ class DummyInputComplete(Component):
         self.define_api_method("run_minus", self._graph_fn_2)
 
     def create_variables(self, input_spaces, action_space):
-        self.constant_variable = self.create_variable(name="constant-variable", initializer=2.0)
+        self.constant_variable = self.get_variable(name="constant-variable", initializer=2.0)
 
     def run_plus(self, input_):
         # Explicit definition of an API-method using one of our graph_fn.

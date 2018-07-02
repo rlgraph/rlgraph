@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import unittest
 import numpy as np
-from six.moves import xrange
+from six.moves import xrange as range_
 
 from yarl.components.memories.ring_buffer import RingBuffer
 from yarl.spaces import Dict, BoolBox
@@ -54,26 +54,26 @@ class TestRingBufferMemory(unittest.TestCase):
         semantics disabled.
         """
         ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=False)
-        test = ComponentTest(component=ring_buffer, input_spaces=dict(
-            records=self.record_space,
-            num_records=int
-        ))
+        test = ComponentTest(
+            component=ring_buffer,
+            input_spaces=dict(insert=self.record_space, get_records=int)
+        )
 
         observation = self.record_space.sample(size=1)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
 
         observation = self.record_space.sample(size=100)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
 
     def test_capacity_no_episodes(self):
         """
         Tests if insert correctly manages capacity, no episode indices updated..
         """
         ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=False)
-        test = ComponentTest(component=ring_buffer, input_spaces=dict(
-            records=self.record_space,
-            num_records=int
-        ))
+        test = ComponentTest(
+            component=ring_buffer,
+            input_spaces=dict(insert=self.record_space, get_records=int)
+        )
         # Internal state variables.
         memory_variables = ring_buffer.get_variables(self.memory_variables, global_scope=False)
         buffer_size = memory_variables['size']
@@ -86,7 +86,7 @@ class TestRingBufferMemory(unittest.TestCase):
 
         # Insert one more element than capacity
         observation = self.record_space.sample(size=self.capacity + 1)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
 
         size_value, index_value = test.get_variable_values(buffer_size, buffer_index)
         # Size should be equivalent to capacity when full.
@@ -103,11 +103,10 @@ class TestRingBufferMemory(unittest.TestCase):
         Note that this does not test episode semantics itself, which are tested below.
         """
         ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=True)
-        test = ComponentTest(component=ring_buffer, input_spaces=dict(
-            records=self.record_space,
-            num_records=int,
-            num_episodes=int
-        ))
+        test = ComponentTest(
+            component=ring_buffer,
+            input_spaces=dict(insert=self.record_space, get_records=int, get_episodes=int)
+        )
         # Internal memory variables.
         ring_buffer_variables = ring_buffer.get_variables(self.ring_buffer_variables, global_scope=False)
         buffer_size = ring_buffer_variables["size"]
@@ -130,7 +129,7 @@ class TestRingBufferMemory(unittest.TestCase):
         # these are terminal or not. This tests if episode index updating
         # causes problems if none of the inserted elements are terminal.
         observation = non_terminal_records(self.record_space, self.capacity + 1)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
         size_value, index_value, num_episodes_value, episode_index_values = test.get_variable_values(
             buffer_size, buffer_index, num_episodes, episode_indices
         )
@@ -149,11 +148,10 @@ class TestRingBufferMemory(unittest.TestCase):
         terminals.
         """
         ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=True)
-        test = ComponentTest(component=ring_buffer, input_spaces=dict(
-            records=self.record_space,
-            num_records=int,
-            num_episodes=int
-        ))
+        test = ComponentTest(
+            component=ring_buffer,
+            input_spaces=dict(insert=self.record_space, get_records=int, get_episodes=int)
+        )
         # Internal memory variables.
         ring_buffer_variables = ring_buffer.get_variables(self.ring_buffer_variables, global_scope=False)
         buffer_size = ring_buffer_variables["size"]
@@ -163,7 +161,7 @@ class TestRingBufferMemory(unittest.TestCase):
 
         # First, we insert a single terminal record.
         observation = terminal_records(self.record_space, 1)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
         size_value, index_value, num_episodes_value, episode_index_values = test.get_variable_values(
             buffer_size, buffer_index, num_episodes, episode_indices
         )
@@ -175,9 +173,9 @@ class TestRingBufferMemory(unittest.TestCase):
 
         # Next, we insert 1 non-terminal, then 1 terminal element.
         observation = non_terminal_records(self.record_space, 1)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
         observation = terminal_records(self.record_space, 1)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
 
         # Now, we expect to have 2 episodes with episode indices at 0 and 2.
         size_value, index_value, num_episodes_value, episode_index_values = test.get_variable_values(
@@ -193,21 +191,20 @@ class TestRingBufferMemory(unittest.TestCase):
         semantics are enabled?
         """
         ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=True)
-        test = ComponentTest(component=ring_buffer, input_spaces=dict(
-            records=self.record_space,
-            num_records=int,
-            num_episodes=int
-        ))
+        test = ComponentTest(
+            component=ring_buffer,
+            input_spaces=dict(insert=self.record_space, get_records=int, get_episodes=int)
+        )
         ring_buffer_variables = ring_buffer.get_variables(self.ring_buffer_variables, global_scope=False)
         num_episodes = ring_buffer_variables["num-episodes"]
         episode_indices = ring_buffer_variables["episode-indices"]
 
         observation = terminal_records(self.record_space, self.capacity)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
         num_episodes_value, episode_index_values = test.get_variable_values(num_episodes, episode_indices)
         self.assertEqual(num_episodes_value, self.capacity)
         # Every episode index should correspond to its position
-        for i in xrange(self.capacity):
+        for i in range_(self.capacity):
             self.assertEqual(episode_index_values[i], i)
 
     def test_episode_fetching(self):
@@ -215,34 +212,33 @@ class TestRingBufferMemory(unittest.TestCase):
         Test if we can accurately fetch most recent episodes.
         """
         ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=True)
-        test = ComponentTest(component=ring_buffer, input_spaces=dict(
-            records=self.record_space,
-            num_records=int,
-            num_episodes=int
-        ))
+        test = ComponentTest(
+            component=ring_buffer,
+            input_spaces=dict(insert=self.record_space, get_records=int, get_episodes=int)
+        )
         # Insert 2 non-terminals, 1 terminal
         observation = non_terminal_records(self.record_space, 2)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
         observation = terminal_records(self.record_space, 1)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
 
         # We should now be able to retrieve one episode of length 3.
-        episode = test.test(out_socket_names="get_episodes", inputs=1, expected_outputs=None)
+        episode = test.test(api_method="get_episodes", params=1, expected_outputs=None)
         self.assertTrue(len(episode['reward']) == 2)
 
         # We should not be able to retrieve two episodes, and still return just one.
-        episode = test.test(out_socket_names="get_episodes", inputs=2, expected_outputs=None)
+        episode = test.test(api_method="get_episodes", params=2, expected_outputs=None)
         self.assertTrue(len(episode['reward']) == 2)
 
         # Insert 7 non-terminals, 1 terminal -> last terminal is now at buffer index 0 as
         # we inserted 3 + 8 = 11 elements in total.
         observation = non_terminal_records(self.record_space, 7)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
         observation = terminal_records(self.record_space, 1)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
 
         # Check if we can fetch 2 episodes:
-        episodes = test.test(out_socket_names="get_episodes", inputs=2, expected_outputs=None)
+        episodes = test.test(api_method="get_episodes", params=2, expected_outputs=None)
 
         # We now expect to have retrieved:
         # - 10 time steps
@@ -257,26 +253,25 @@ class TestRingBufferMemory(unittest.TestCase):
         Tests if we can fetch latest steps.
         """
         ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=True)
-        test = ComponentTest(component=ring_buffer, input_spaces=dict(
-            records=self.record_space,
-            num_records=int,
-            num_episodes=int
-        ))
+        test = ComponentTest(
+            component=ring_buffer,
+            input_spaces=dict(insert=self.record_space, get_records=int, get_episodes=int)
+        )
 
         # Insert 5 random elements.
         observation = non_terminal_records(self.record_space, 5)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
 
         # First, test if the basic computation works.
-        batch = test.test(out_socket_names="get_records", inputs=5, expected_outputs=None)
+        batch = test.test(api_method="get_records", params=5, expected_outputs=None)
         self.assertEqual(len(batch['terminals']), 5)
 
         # Next, insert capacity more elements:
         observation = non_terminal_records(self.record_space, self.capacity)
-        test.test(out_socket_names="insert_records", inputs=observation, expected_outputs=None)
+        test.test(api_method="insert", params=observation, expected_outputs=None)
 
         # If we now fetch capacity elements, we expect to see exactly the last 10.
-        batch = test.test(out_socket_names="get_records", inputs=self.capacity, expected_outputs=None)
+        batch = test.test(api_method="get_records", params=self.capacity, expected_outputs=None)
 
         # Assert every inserted element is contained, even if not in same order:
         retrieved_action = batch['actions']['action1']

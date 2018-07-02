@@ -17,10 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from six.moves import xrange
+from six.moves import xrange as range_
 import unittest
 
 from yarl.spaces import *
+from yarl.utils.ops import FLAT_TUPLE_CLOSE, FLAT_TUPLE_OPEN
 
 
 class TestSpaces(unittest.TestCase):
@@ -42,7 +43,7 @@ class TestSpaces(unittest.TestCase):
                             sample = space.sample()
                             self.assertTrue(space.contains(sample))
                         else:
-                            for batch_size in xrange(1, 4):
+                            for batch_size in range_(1, 4):
                                 samples = space.sample(size=batch_size)
                                 for s in samples:
                                     self.assertTrue(space.contains(s))
@@ -52,7 +53,7 @@ class TestSpaces(unittest.TestCase):
                         sample = space.sample()
                         self.assertTrue(space.contains(sample))
                     else:
-                        for batch_size in xrange(1, 4):
+                        for batch_size in range_(1, 4):
                             samples = space.sample(size=batch_size)
                             for s in samples:
                                 self.assertTrue(space.contains(s))
@@ -73,7 +74,7 @@ class TestSpaces(unittest.TestCase):
         )
 
         samples = space.sample(size=100, horizontal=True)
-        for i in xrange(len(samples)):
+        for i in range_(len(samples)):
             self.assertTrue(space.contains(samples[i]))
 
     def test_container_space_flattening_with_mapping(self):

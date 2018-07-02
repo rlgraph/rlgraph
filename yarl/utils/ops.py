@@ -19,8 +19,14 @@ from __future__ import print_function
 
 from collections import OrderedDict
 import numpy as np
+import re
 
 from yarl.utils.yarl_error import YARLError
+
+# Defines how to generate auto-keys for flattened Tuple-Space items.
+# _T\d+_
+FLAT_TUPLE_OPEN = "_T"
+FLAT_TUPLE_CLOSE = "_"
 
 
 class DataOp(object):
@@ -456,4 +462,26 @@ def unflatten_op(op):
 
     # Deep conversion from list to tuple.
     return deep_tuple(base_structure)
+
+
+def deep_tuple(x):
+    """
+    Converts an input list of list (of list, etc..) into the respective nested DataOpTuple.
+
+    Args:
+        x (list): The input list to be converted into a tuple.
+
+    Returns:
+        tuple: The corresponding tuple to x.
+    """
+    # A list -> convert to DataOpTuple.
+    if isinstance(x, list):
+        return DataOpTuple(list(map(deep_tuple, x)))
+    # A dict -> leave type as is and keep converting recursively.
+    elif isinstance(x, dict):
+        # type(x) b/c x could be DataOpDict as well.
+        return type(x)(dict(map(lambda i: (i[0], deep_tuple(i[1])), x.items())))
+    # A primitive -> keep as is.
+    else:
+        return x
 

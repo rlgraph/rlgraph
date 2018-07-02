@@ -22,14 +22,8 @@ import numpy as np
 import re
 
 from yarl import YARLError
-from yarl.utils.ops import DataOpDict, DataOpTuple
+from yarl.utils.ops import DataOpDict, DataOpTuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE
 from yarl.spaces.space import Space
-
-
-# Defines how to generate auto-keys for flattened Tuple-Space items.
-# _T\d+_
-FLAT_TUPLE_OPEN = "_T"
-FLAT_TUPLE_CLOSE = "_"
 
 
 class ContainerSpace(Space):

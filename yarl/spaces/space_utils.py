@@ -17,12 +17,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import re
 import numpy as np
 
-from yarl.utils.util import YARLError, dtype, get_shape, force_list
-from yarl.utils.ops import SingleDataOp, ContainerDataOp, DataOpDict, DataOpTuple, FlattenedDataOp, DataOpRecord
-from yarl.spaces import *
+from yarl.utils.util import YARLError, dtype, get_shape
+from yarl.utils.ops import SingleDataOp, DataOpTuple
+from yarl.spaces.bool_box import BoolBox
+from yarl.spaces.int_box import IntBox
+from yarl.spaces.float_box import FloatBox
+from yarl.spaces.containers import Dict, Tuple
 
 
 def get_space_from_op(op):
@@ -87,28 +89,6 @@ def get_space_from_op(op):
                 return BoolBox(add_batch_rank=add_batch_rank)
 
     raise YARLError("ERROR: Cannot derive Space from op '{}' (unknown type?)!".format(op))
-
-
-def deep_tuple(x):
-    """
-    Converts an input list of list (of list, etc..) into the respective nested DataOpTuple.
-
-    Args:
-        x (list): The input list to be converted into a tuple.
-
-    Returns:
-        tuple: The corresponding tuple to x.
-    """
-    # A list -> convert to DataOpTuple.
-    if isinstance(x, list):
-        return DataOpTuple(list(map(deep_tuple, x)))
-    # A dict -> leave type as is and keep converting recursively.
-    elif isinstance(x, dict):
-        # type(x) b/c x could be DataOpDict as well.
-        return type(x)(dict(map(lambda i: (i[0], deep_tuple(i[1])), x.items())))
-    # A primitive -> keep as is.
-    else:
-        return x
 
 
 def sanity_check_space(
