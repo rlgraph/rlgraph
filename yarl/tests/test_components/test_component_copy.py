@@ -33,18 +33,11 @@ class TestComponentCopy(unittest.TestCase):
     """
     def test_copying_a_component(self):
         # Flatten a simple 2x2 FloatBox to (4,).
-        space = FloatBox(shape=(2,2), add_batch_rank=False)
+        space = FloatBox(shape=(2, 2), add_batch_rank=False)
 
         flatten_orig = Flatten()
         flatten_copy = flatten_orig.copy(scope="flatten-copy")
-        component_to_test = Component(flatten_orig, flatten_copy,
-                                      inputs=["input1", "input2"], outputs=["output1", "output2"],
-                                      connections=[
-                                          ["input1", ["flatten", "input"]],
-                                          ["input2", ["flatten-copy", "input"]],
-                                          [["flatten", "output"], "output1"],
-                                          [["flatten-copy", "output"], "output2"]
-                                      ])
+        component_to_test = Component(flatten_orig, flatten_copy)
         test = ComponentTest(component=component_to_test, input_spaces=dict(input1=space, input2=space))
 
         input_ = dict(
@@ -56,5 +49,9 @@ class TestComponentCopy(unittest.TestCase):
             output2=np.array([1.0, 2.0, 3.0, 4.0])
         )
         for i in range_(2):
-            test.test(out_socket_names="output"+str(i+1), inputs=input_, expected_outputs=expected["output"+str(i+1)])
+            test.test(
+                api_method="apply",
+                params=input_,
+                expected_outputs=expected["output"+str(i+1)]
+            )
 
