@@ -40,7 +40,7 @@ class MyCompWithVars(Component):
         self.dummy_var_2 = None
 
         if synchronizable is True:
-            self.add_components(Synchronizable(scope="sync"), expose_apis="sync")
+            self.add_components(Synchronizable(), expose_apis="sync")
 
     def create_variables(self, input_spaces, action_space):
         # create some dummy var to sync from/to.
@@ -103,55 +103,59 @@ class TestSynchronizableComponent(unittest.TestCase):
             "sync-to/"+VARIABLE_NAMES[1]: np.ones(shape=sync_from.space.shape)
         })
 
-    # def test_sync_socket_between_2_identical_comps_that_have_vars_only_in_their_sub_comps(self):
-    #     """
-    #     Similar to the Policy scenario, where the Policy Component owns a NeuralNetwork (which has vars)
-    #     and has to be synced with other Policies.
-    #     """
-    #     # Create 2x: A custom Component (with vars) that holds another Component (with vars).
-    #     # Then sync between them.
-    #     comp1 = MyCompWithVars(scope="comp1")
-    #     comp1.add_component(MyCompWithVars(scope="sub-comp1-with-vars"), connections=CONNECT_ALL)
-    #     comp2_writable = MyCompWithVars(initializer1=3.0, initializer2=4.2, scope="comp2")
-    #     comp2_writable.add_components(MyCompWithVars(initializer1=5.0, initializer2=6.2, scope="sub-comp2-with-vars"),
-    #                                   Synchronizable(),
-    #                                   connections=CONNECT_ALL)
-    #     container = Component(comp1, comp2_writable, scope="container")
-    #     container.define_outputs("do_the_sync")
-    #     container.connect((comp1, "_variables"), (comp2_writable, "_values"))
-    #     container.connect((comp2_writable, "sync"), (container, "do_the_sync"))
-    #     test = ComponentTest(component=container)
-    #
-    #     # Before the sync.
-    #     test.variable_test(comp2_writable.get_variables([
-    #         "container/comp2/variable_to_sync1",
-    #         "container/comp2/variable_to_sync2",
-    #         "container/comp2/sub-comp2-with-vars/variable_to_sync1",
-    #         "container/comp2/sub-comp2-with-vars/variable_to_sync2"
-    #         ]), {
-    #         "container/comp2/variable_to_sync1": np.full(shape=comp1.space.shape, fill_value=3.0, dtype=np.float32),
-    #         "container/comp2/variable_to_sync2": np.full(shape=comp1.space.shape, fill_value=4.2, dtype=np.float32),
-    #         "container/comp2/sub-comp2-with-vars/variable_to_sync1": np.full(shape=comp1.space.shape, fill_value=5.0,
-    #                                                                          dtype=np.float32),
-    #         "container/comp2/sub-comp2-with-vars/variable_to_sync2": np.full(shape=comp1.space.shape, fill_value=6.2,
-    #                                                                          dtype=np.float32)
-    #     })
-    #
-    #     # Now sync and re-check.
-    #     test.test(out_socket_names="do_the_sync", inputs=None, expected_outputs=None)
-    #
-    #     # After the sync.
-    #     test.variable_test(comp2_writable.get_variables([
-    #         "container/comp2/variable_to_sync1",
-    #         "container/comp2/variable_to_sync2",
-    #         "container/comp2/sub-comp2-with-vars/variable_to_sync1",
-    #         "container/comp2/sub-comp2-with-vars/variable_to_sync2"
-    #         ]), {
-    #         "container/comp2/variable_to_sync1": np.zeros(shape=comp1.space.shape, dtype=np.float32),
-    #         "container/comp2/variable_to_sync2": np.ones(shape=comp1.space.shape, dtype=np.float32),
-    #         "container/comp2/sub-comp2-with-vars/variable_to_sync1": np.zeros(shape=comp1.space.shape, dtype=np.float32),
-    #         "container/comp2/sub-comp2-with-vars/variable_to_sync2": np.ones(shape=comp1.space.shape, dtype=np.float32)
-    #     })
+    def test_sync_socket_between_2_identical_comps_that_have_vars_only_in_their_sub_comps(self):
+        """
+        Similar to the Policy scenario, where the Policy Component owns a NeuralNetwork (which has vars)
+        and has to be synced with other Policies.
+        """
+        # Create 2x: A custom Component (with vars) that holds another Component (with vars).
+        # Then sync between them.
+        comp1 = MyCompWithVars(scope="A")
+        comp1.add_components(MyCompWithVars(scope="sub-of-A-with-vars"))
+
+        comp2_writable = MyCompWithVars(scope="B", initializer1=3.0, initializer2=4.2, synchronizable=True)
+        comp2_writable.add_components(MyCompWithVars(scope="sub-of-B-with-vars", initializer1=5.0, initializer2=6.2))
+
+        container = Component(comp1, comp2_writable, scope="container")
+
+        def execute_sync(self_):
+            values_ = self_.call(comp1._variables)
+            return self_.call(comp2_writable.sync, values_)
+
+        container.define_api_method("execute_sync", execute_sync)
+
+        test = ComponentTest(component=container)
+
+        # Before the sync.
+        test.variable_test(comp2_writable.get_variables([
+            "container/B/variable_to_sync1",
+            "container/B/variable_to_sync2",
+            "container/B/sub-of-B-with-vars/variable_to_sync1",
+            "container/B/sub-of-B-with-vars/variable_to_sync2"
+        ]), {
+            "container/B/variable_to_sync1": np.full(shape=comp1.space.shape, fill_value=3.0, dtype=np.float32),
+            "container/B/variable_to_sync2": np.full(shape=comp1.space.shape, fill_value=4.2, dtype=np.float32),
+            "container/B/sub-of-B-with-vars/variable_to_sync1": np.full(shape=comp1.space.shape, fill_value=5.0,
+                                                                        dtype=np.float32),
+            "container/B/sub-of-B-with-vars/variable_to_sync2": np.full(shape=comp1.space.shape, fill_value=6.2,
+                                                                        dtype=np.float32)
+        })
+
+        # Now sync and re-check.
+        test.test(api_method="execute_sync", params=None, expected_outputs=None)
+
+        # After the sync.
+        test.variable_test(comp2_writable.get_variables([
+            "container/B/variable_to_sync1",
+            "container/B/variable_to_sync2",
+            "container/B/sub-of-B-with-vars/variable_to_sync1",
+            "container/B/sub-of-B-with-vars/variable_to_sync2"
+        ]), {
+            "container/B/variable_to_sync1": np.zeros(shape=comp1.space.shape, dtype=np.float32),
+            "container/B/variable_to_sync2": np.ones(shape=comp1.space.shape, dtype=np.float32),
+            "container/B/sub-of-B-with-vars/variable_to_sync1": np.zeros(shape=comp1.space.shape, dtype=np.float32),
+            "container/B/sub-of-B-with-vars/variable_to_sync2": np.ones(shape=comp1.space.shape, dtype=np.float32)
+        })
 
 
 

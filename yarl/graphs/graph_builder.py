@@ -26,7 +26,7 @@ from yarl.spaces import Space
 from yarl.spaces.space_utils import get_space_from_op
 from yarl.utils.input_parsing import parse_summary_spec
 from yarl.utils.util import force_list, force_tuple
-from yarl.utils.ops import FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn
+from yarl.utils.ops import FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn
 from yarl.utils.component_printout import component_print_out
 
 if get_backend() == "tf":
@@ -258,9 +258,10 @@ class GraphBuilder(Specifiable):
                         if op_rec.column is None or op_rec.column.component is not next_op_rec.column.component:
                             self.build_component_when_input_complete(next_op_rec.column.component, new_op_records_to_process)
 
-                # No next records.
-                else:
-                    # Must be a graph_fn column.
+                # No next records: Ignore columns coming from a _variables graph_fn and not going anywhere.
+                elif not isinstance(op_rec.column, DataOpRecordColumnFromGraphFn) or \
+                        op_rec.column.graph_fn_name != "_graph_fn__variables":
+                    # Must be a into graph_fn column.
                     assert isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn)
                     # If column complete, call the graph_fn.
                     if op_rec.column.is_complete():
@@ -285,9 +286,10 @@ class GraphBuilder(Specifiable):
                     self.MAX_ITERATIVE_LOOPS
                 ))
 
-    def get_all_components(self, component=None, list_=None):
+    def get_all_components(self, component=None, list_=None, level_=0):
         """
-        Returns all Components of the core-Component.
+        Returns all Components of the core-Component sorted by their nesting-level (... grand-children before children
+        before parents).
 
         Args:
             component (Optional[Component]): The Component to look through. None for the core-Component.
@@ -297,12 +299,21 @@ class GraphBuilder(Specifiable):
             List[Component]: A list with all the components in `component`.
         """
         component = component or self.core_component
+        return_ = False
         if list_ is None:
-            list_ = list()
-        list_.append(component)
+            list_ = dict()
+            return_ = True
+        if level_ not in list_:
+            list_[level_] = list()
+        list_[level_].append(component)
+        level_ += 1
         for sub_component in component.sub_components.values():
-            list_.extend(self.get_all_components(sub_component))
-        return list_
+            self.get_all_components(sub_component, list_, level_)
+        if return_:
+            ret = list()
+            for l in sorted(list_.keys(), reverse=True):
+                ret.extend(list_[l])
+            return ret
 
     def build_component_when_input_complete(self, component, op_records_to_process):
         # Not input complete yet -> Check now.
@@ -319,6 +330,15 @@ class GraphBuilder(Specifiable):
                     self.run_through_graph_fn_with_device_and_scope(no_in_col)
                     # Keep working with the generated output ops.
                     op_records_to_process.update(no_in_col.out_graph_fn_column.op_records)
+
+        # Check variable-completeness and run the _variable graph_fn if the component just became "variable-complete".
+        if component.input_complete is True and component.variable_complete is False and \
+                component.check_variable_completeness():
+            component.call(component._graph_fn__variables)
+            graph_fn_rec = component.graph_fns["_graph_fn__variables"]
+            self.run_through_graph_fn_with_device_and_scope(graph_fn_rec.in_op_columns[0])
+            # Keep working with the generated output ops.
+            op_records_to_process.update(graph_fn_rec.out_op_columns[0].op_records)
 
     def run_through_graph_fn_with_device_and_scope(self, op_rec_column):
         """

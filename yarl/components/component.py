@@ -113,6 +113,8 @@ class Component(Specifiable):
         # Whether we know already all our in-Sockets' Spaces.
         # Only then can we create our variables. Model will do this.
         self.input_complete = False
+        # Whether all our sub-Components are input-complete. Only after that point, we can run our _variables graph_fn.
+        self.variable_complete = False
 
         # All Variables that are held by this component (and its sub-components) by name.
         # key=full-scope variable name (scope=component/sub-component scope)
@@ -147,8 +149,8 @@ class Component(Specifiable):
         # look for all our API methods (those that use the `call` method).
         for member in inspect.getmembers(self):
             name, method = (member[0], member[1])
-            if name != "define_api_method" and name[0] != "_" and name not in ignore_set and \
-                    util.get_method_type(method) == "api":
+            if name != "define_api_method" and name != "add_components" and name[0] != "_" and \
+                    name not in ignore_set and util.get_method_type(method) == "api":
                 ret[name] = APIMethodRecord(method, component=self)
         return ret
 
@@ -358,6 +360,25 @@ class Component(Specifiable):
 
         return space_dict
 
+    def check_variable_completeness(self):
+        """
+        Checks, whether this Component is input-complete AND all our sub-Components are input-complete.
+        At that point, all variables are defined and we can run the `_variables` graph_fn.
+
+        Returns:
+            bool: Whether this Component is "variables-complete".
+        """
+        # We are already variable-complete -> shortcut return here.
+        if self.variable_complete:
+            return True
+        # We are not input-complete yet (our own variables have not been created) -> return False.
+        elif self.input_complete is False:
+            return False
+
+        # Simply check all sub-Components for input-completeness.
+        self.variable_complete = all(sc.input_complete for sc in self.sub_components.values())
+        return self.variable_complete
+
     def when_input_complete(self, input_spaces, action_space, summary_regexp=None):
         """
         Wrapper that calls both `create_variables` and `assert_input_spaces` in sequence and passes the dict with
@@ -385,12 +406,14 @@ class Component(Specifiable):
         # Add all created variables up the parent/container hierarchy.
         self.propagate_variables()
 
-        # Collect no-input graph_fn and make sure that are called right after Variable creation.
+        # Collect no-input graph_fn (except `_variables`) and make sure that are called right after Variable creation.
         no_input_in_columns = list()
-        for graph_fn in self.graph_fns.values():  # type: GraphFnRecord
-            in_col = graph_fn.in_op_columns[0]
+        for graph_fn_rec in self.graph_fns.values():  # type: GraphFnRecord
+            if graph_fn_rec.graph_fn.__name__ == "_graph_fn__variables":
+                continue
+            in_col = graph_fn_rec.in_op_columns[0]
             if len(in_col.op_records) == 0:
-                no_input_in_columns.extend(graph_fn.in_op_columns)
+                no_input_in_columns.extend(graph_fn_rec.in_op_columns)
         return no_input_in_columns
 
     def check_input_spaces(self, input_spaces, action_space):
