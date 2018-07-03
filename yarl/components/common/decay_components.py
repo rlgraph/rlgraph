@@ -52,9 +52,9 @@ class DecayComponent(Component):
         self.start_timestep = start_timestep
         self.num_timesteps = num_timesteps
 
-        self.define_api_method(name="value", func=self._graph_fn_value)
+        self.define_api_method(name="decayed_value", func=self._graph_fn_decayed_value)
 
-    def _graph_fn_value(self, time_step):
+    def _graph_fn_decayed_value(self, time_step):
         """
         Args:
             time_step (DataOp): The int-type DataOp that holds the current global time_step.

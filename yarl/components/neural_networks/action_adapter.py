@@ -41,27 +41,24 @@ class ActionAdapter(Component):
     - Translating the reshaped outputs into probabilities and logits.
 
     API:
-    ins:
-        nn_output (SingleDataOp): The raw, flattened neural network output to be processed by this ActionAdapter.
-    outs:
-        action_layer_output (SingleDataOp): The `nn_output` sent through `self.action_layer`.
+        get_action_layer_output(nn_output) (SingleDataOp): The raw, non-reshaped output of the action-layer
+            (DenseLayer) after passing through the raw nn_output (from the previous Component).
+        get_logits_and_parameters (Tuple[SingleDataOp x 2]): The final results of translating nn_output into logits and
+            Distribution-readable parameters (e.g. probabilities).
+
         Optional:
             If add_dueling_layer=True:
-                state_value (SingleDataOp): The state value diverged from the first output node of the previous layer.
-                advantage_values (SingleDataOp): The advantage values (already reshaped) for the different actions.
-                q_values (SingleDataOp): The Q-values (already reshaped) for the different state-action pairs.
-                    Calculated according to the dueling layer logic.
+                get_dueling_output(action_layer_output) (Tuple[SingleDataOp x 3]): The state-value, advantage-values
+                    (reshaped) and q-values (reshaped) after passing action_layer_output through the dueling layer.
             else:
-                action_layer_output_reshaped (SingleDataOp): The action layer output, reshaped according to the action
-                    space.
-        parameters (SingleDataOp): The final results of translating nn_output into Distribution-readable
-            parameters (e.g. probabilities).
-        logits (SingleDataOp): Usually just `log(parameters)`.
+                get_action_layer_output_reshaped(nn_output) (SingleDataOp): The (according to our action Space)
+                    reshaped action-layer output after passing nn_output through it (and reshaping).
     """
-    def __init__(self, weights_spec=None, biases_spec=None, activation=None, add_dueling_layer=False,
+    def __init__(self, action_space, weights_spec=None, biases_spec=None, activation=None, add_dueling_layer=False,
                  scope="action-adapter", **kwargs):
         """
         Args:
+            action_space (Space): The action Space within which this Component will create actions.
             weights_spec (Optional[]): An optional YARL Initializer spec that will be used to initialize the weights
                 of `self.action layer`. Default: None (use default initializer).
             biases_spec (any): An optional YARL Initializer spec that will be used to initialize the biases
@@ -74,10 +71,10 @@ class ActionAdapter(Component):
         """
         super(ActionAdapter, self).__init__(scope=scope, **kwargs)
 
+        self.target_space = action_space.with_batch_rank()
         self.weights_spec = weights_spec
         self.biases_spec = biases_spec
         self.activation = activation
-        self.target_space = None
 
         # Our (dense) action layer representing the flattened action space.
         self.action_layer = None
@@ -86,32 +83,7 @@ class ActionAdapter(Component):
         self.add_dueling_layer = add_dueling_layer
         self.dueling_layer = None
 
-        # Define our interface.
-        # TODO anythin todo for dueling layer?
-        # self.define_inputs("nn_output")
-        # self.define_outputs("action_layer_output", "parameters", "logits")
-        # if self.add_dueling_layer is True:
-        #     self.define_outputs("state_value", "advantage_values", "q_values")
-        # else:
-        #     self.define_outputs("action_layer_output_reshaped")
-
-    def check_input_spaces(self, input_spaces, action_space):
-        # Check the input Space.
-        in_space = input_spaces["nn_output"]  # type: Space
-        sanity_check_space(in_space, non_allowed_types=[ContainerSpace])
-
-        # Check the target (action) Space.
-        self.target_space = action_space.with_batch_rank()
-
-        if isinstance(self.target_space, IntBox):
-            sanity_check_space(self.target_space, must_have_batch_rank=True, allowed_types=[IntBox],
-                               must_have_categories=True)
-        else:
-            # Fixme: Are there other restraints on continuous action spaces? E.g. no dueling layers?
-            sanity_check_space(self.target_space, must_have_batch_rank=True, allowed_types=[FloatBox])
-
-    def create_variables(self, input_spaces, action_space):
-        # Create the action layer.
+        # Create the action layer (DenseLayer object) depending on our action Space.
         if isinstance(self.target_space, IntBox):
             units = self.target_space.flat_dim_with_categories
         else:
@@ -126,29 +98,52 @@ class ActionAdapter(Component):
         )
         # And connect it to the incoming "nn_output".
         self.add_components(self.action_layer)
-        # self.connect("nn_output", (self.action_layer, "input"))
 
-        # Expose the action_layer's output via "action_layer_output".
-        # self.connect((self.action_layer, "output"), "action_layer_output")
-        #self.action_layer["output"] > self["action_layer_output"]
-
-        # Add an optional dueling layer.
-        self.define_api_method(name="generate_parameters", func=self._graph_fn_generate_parameters)
-
-        # TODO anything to do here for connecting these?
+        # With dueling layer: Provide dueling_output with state/advantage/q-values.
         if self.add_dueling_layer:
             self.dueling_layer = DuelingLayer()
             self.add_components(self.dueling_layer)
-            # self.connect("action_layer_output", (self.dueling_layer, "input"))
-            # self.connect((self.dueling_layer, "state_value"), "state_value")
-            # self.connect((self.dueling_layer, "advantage_values"), "advantage_values")
-            # self.connect((self.dueling_layer, "q_values"), "q_values")
-            # Create parameters and logits from the q_values of the dueling layer.
-        # Without dueling layer.
-        else:
-            # Connect the output of the action layer to our reshape graph_fn.
-            self.define_api_method(name="reshape", func=self._graph_fn_reshape)
 
+            def get_dueling_output(self_, action_layer_output):
+                state_value, advantage_values, q_values = self_.call(self_.dueling_layer.apply, action_layer_output)
+                return state_value, advantage_values, q_values
+
+            self.define_api_method("get_dueling_output", get_dueling_output)
+
+            def get_logits_and_parameters(self_, nn_output):
+                _, _, q_values = self_.call(self_.get_dueling_output, nn_output)
+                return self_.call(self_._graph_fn_get_logits_and_parameters, q_values)
+
+            self.define_api_method("get_logits_and_parameters", get_logits_and_parameters)
+
+        # Without dueling layer: Provide raw, reshaped action-layer output.
+        else:
+            def get_action_layer_output_reshaped(self_, nn_output):
+                action_layer_output = self_.call(self_.action_layer.apply, nn_output)
+                return self_.call(self._graph_fn_reshape, action_layer_output)
+
+            self.define_api_method("get_action_layer_output_reshaped", get_action_layer_output_reshaped)
+
+            def get_logits_and_parameters(self_, nn_output):
+                action_layer_output_reshaped = self_.call(self_.get_action_layer_output_reshaped, nn_output)
+                return self_.call(self_._graph_fn_get_logits_and_parameters, action_layer_output_reshaped)
+
+            self.define_api_method("get_logits_and_parameters", get_logits_and_parameters)
+
+    def check_input_spaces(self, input_spaces, action_space):
+        # Check the input Space.
+        last_nn_layer_space = input_spaces["get_action_layer_output"][0]  # type: Space
+        sanity_check_space(last_nn_layer_space, non_allowed_types=[ContainerSpace])
+
+        if isinstance(self.target_space, IntBox):
+            sanity_check_space(self.target_space, must_have_batch_rank=True, allowed_types=[IntBox],
+                               must_have_categories=True)
+        else:
+            # Fixme: Are there other restraints on continuous action spaces? E.g. no dueling layers?
+            sanity_check_space(self.target_space, must_have_batch_rank=True, allowed_types=[FloatBox])
+
+    def get_action_layer_output(self, nn_output):
+        return self.call(self.action_layer.apply, nn_output)
 
     def _graph_fn_reshape(self, action_layer_output):
         """
@@ -173,7 +168,7 @@ class ActionAdapter(Component):
             action_layer_output_reshaped = tf.reshape(tensor=action_layer_output, shape=shape)
             return action_layer_output_reshaped
 
-    def _graph_fn_generate_parameters(self, action_layer_output_reshaped):
+    def _graph_fn_get_logits_and_parameters(self, action_layer_output_reshaped):
         """
         Creates properties/parameters and logits from some reshaped output.
 
@@ -183,9 +178,9 @@ class ActionAdapter(Component):
 
         Returns:
             tuple:
-                "parameters" (SingleDataOp): The parameters, ready to be passed to a Distribution object's in-Socket
-                    "parameters" (usually some probabilities or loc/scale pairs).
                 "logits" (SingleDataOp): The log(parameters) values.
+                "parameters" (SingleDataOp): The parameters, ready to be passed to a Distribution object's
+                    get_distribution API-method (usually some probabilities or loc/scale pairs).
         """
         if get_backend() == "tf":
             if isinstance(self.target_space, IntBox):
@@ -213,5 +208,4 @@ class ActionAdapter(Component):
             else:
                 raise NotImplementedError
 
-            # Convert logits into probabilities and clamp them at SMALL_NUMBER.
             return logits, parameters

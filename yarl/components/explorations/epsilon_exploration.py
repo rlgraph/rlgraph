@@ -56,13 +56,18 @@ class EpsilonExploration(Component):
         self.bernoulli_component = Bernoulli()
 
         # Add the decay component and make time_step our (only) input.
-        self.add_component(self.decay_component)
-        self.add_component(self.bernoulli_component)
+        self.add_components(self.decay_component, self.bernoulli_component)
 
-        # Define our interface:
-        self.define_inputs("time_step")
-        self.define_outputs("do_explore")
-        self.connect("time_step", (self.decay_component, "time_step"))
-        self.connect((self.decay_component, "value"), (self.bernoulli_component, "parameters"))
-        self.connect((self.bernoulli_component, "sample_stochastic"), "do_explore")
+    def do_explore(self, time_step):
+        """
+        API-method taking a timestep and returning a bool on whether to explore or not.
+
+        Args:
+            time_step (SingleDataOp): The current global time step.
+
+        Returns:
+            bool: Whether to explore or not.
+        """
+        decayed_value = self.call(self.decay_component.decayed_value, time_step)
+        return self.call(self.bernoulli_component.sample_stochastic, decayed_value)
 

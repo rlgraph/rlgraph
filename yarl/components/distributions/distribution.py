@@ -85,10 +85,13 @@ class Distribution(Component):
         return self.call(self._graph_fn_kl_divergence, distribution, other_distribution)
 
     def check_input_spaces(self, input_spaces, action_space):
-        parameter_space = input_spaces["get_distribution"][0]
-        # Must not be ContainerSpace (not supported yet for Distributions, doesn't seem to make sense).
-        assert not isinstance(parameter_space, ContainerSpace), "ERROR: Cannot handle container parameter Spaces " \
-                                                                "in distribution '{}' (atm; may soon do)!".format(self.name)
+        # The first arg of all API-methods is always the distribution parameters. Check them for ContainerSpaces.
+        for key in input_spaces.keys():
+            parameter_space = input_spaces[key][0]
+            # Must not be ContainerSpace (not supported yet for Distributions, doesn't seem to make sense).
+            assert not isinstance(parameter_space, ContainerSpace),\
+                "ERROR: Cannot handle container parameter Spaces in distribution '{}' " \
+                "(atm; may soon do)!".format(self.name)
 
     def _graph_fn_get_distribution(self, *parameters):
         """

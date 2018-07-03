@@ -38,7 +38,7 @@ class TestExplorations(unittest.TestCase):
         # The Component(s) to test.
         decay_component = LinearDecay(from_=1.0, to_=0.0, start_timestep=0, num_timesteps=1000)
         epsilon_component = EpsilonExploration(decay=decay_component)
-        test = ComponentTest(component=epsilon_component, input_spaces=dict(time_step=time_step_space))
+        test = ComponentTest(component=epsilon_component, input_spaces=dict(do_explore=time_step_space))
 
         # Values to pass as single items.
         input_ = np.array([0, 1, 2, 25, 50, 100, 110, 112, 120, 130, 150, 180, 190, 195, 200, 201, 210, 250, 386,
@@ -65,12 +65,15 @@ class TestExplorations(unittest.TestCase):
             )
         ))
         # The Component to test.
-        component_to_test = Component(scope="categorical-plus-exploration")
-        component_to_test.define_inputs("nn_output", "time_step")
-        component_to_test.define_outputs("action")
-        component_to_test.add_components(action_adapter, distribution, exploration)
+        component_to_test = Component(action_adapter, distribution, exploration, scope="categorical-plus-exploration")
+
+        def action(self_, nn_output, time_step):
+            parameters = self_.call(action_adapter.)
+
+        component_to_test.define_api_method("action", action)
+
         component_to_test.connect("nn_output", [action_adapter, "nn_output"])
-        component_to_test.connect([action_adapter, "parameters"], [distribution, "parameters"])
+        component_to_test.connect([action_adapter, "generate_parameters"], [distribution, "parameters"])
         component_to_test.connect([distribution, "sample_deterministic"], [exploration, "sample_deterministic"])
         component_to_test.connect([distribution, "sample_stochastic"], [exploration, "sample_stochastic"])
         component_to_test.connect("time_step", [exploration, "time_step"])
@@ -92,7 +95,7 @@ class TestExplorations(unittest.TestCase):
                                           ]),
                       time_step=10000)
         expected = np.array([[[3, 1], [3, 2]], [[1, 1], [3, 2]]])
-        test.test(out_socket_names="action", inputs=inputs, expected_outputs=expected)
+        test.test(api_method="action", params=inputs, expected_outputs=expected)
 
     def test_exploration_with_continuous_action_space(self):
         # 2x2 action-pick, each composite action with 5 categories.
@@ -121,7 +124,7 @@ class TestExplorations(unittest.TestCase):
         component_to_test.add_components(action_adapter, distribution, exploration)
 
         component_to_test.connect("nn_output", [action_adapter, "nn_output"])
-        component_to_test.connect([action_adapter, "parameters"], [distribution, "parameters"])
+        component_to_test.connect([action_adapter, "generate_parameters"], [distribution, "parameters"])
         component_to_test.connect([distribution, "sample_deterministic"], [exploration, "sample_deterministic"])
         component_to_test.connect([distribution, "sample_stochastic"], [exploration, "sample_stochastic"])
         # component_to_test.connect("time_step", [exploration, "time_step"])  # Currently no noise component uses this

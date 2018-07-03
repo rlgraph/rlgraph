@@ -35,9 +35,13 @@ class TestActionAdapters(unittest.TestCase):
         # Action Space.
         action_space = IntBox(2, shape=(3, 2))
 
-        action_adapter = ActionAdapter(weights_spec=1.0, biases_spec=False, activation="relu")
-        test = ComponentTest(component=action_adapter, input_spaces=dict(nn_output=last_nn_layer_space),
-                             action_space=action_space)
+        action_adapter = ActionAdapter(action_space=action_space, weights_spec=1.0, biases_spec=False,
+                                       activation="relu")
+        test = ComponentTest(component=action_adapter, input_spaces=dict(
+            get_action_layer_output=last_nn_layer_space,
+            get_action_layer_output_reshaped=last_nn_layer_space,
+            get_logits_and_parameters=last_nn_layer_space
+        ), action_space=action_space)
 
         # Batch of 2 samples.
         inputs = np.array([
@@ -48,23 +52,19 @@ class TestActionAdapters(unittest.TestCase):
             [14.4] * 12,
             [0.0] * 12,
         ], dtype=np.float32)
-        test.test(out_socket_names="action_layer_output", inputs=inputs, expected_outputs=expected_action_layer_output)
+        test.test(api_method="get_action_layer_output", params=inputs, expected_outputs=expected_action_layer_output)
 
         expected_action_layer_output_reshaped = np.reshape(expected_action_layer_output, newshape=(2, 3, 2, 2))
-        test.test(out_socket_names="action_layer_output_reshaped",
-                  inputs=inputs, expected_outputs=expected_action_layer_output_reshaped)
+        test.test(api_method="get_action_layer_output_reshaped",
+                  params=inputs, expected_outputs=expected_action_layer_output_reshaped)
 
         expected_parameters = np.array([
             [[[0.5] * 2] * 2] * 3,
             [[[0.5] * 2] * 2] * 3,
-        ], dtype=np.float32)
-        test.test(out_socket_names="parameters", inputs=inputs, expected_outputs=expected_parameters)
-
-        expected_logits = np.array([
-            [[[-0.6931472] * 2] * 2] * 3,
-            [[[-0.6931472] * 2] * 2] * 3,
-        ], dtype=np.float32)
-        test.test(out_socket_names="logits", inputs=inputs, expected_outputs=expected_logits)
+            ], dtype=np.float32)
+        expected_logits_and_parameters = [np.log(expected_parameters), expected_parameters]
+        test.test(api_method="get_logits_and_parameters", params=inputs,
+                  expected_outputs=expected_logits_and_parameters)
 
     def test_action_adapter_with_dueling_layer(self):
         # Last NN layer.
@@ -82,13 +82,13 @@ class TestActionAdapters(unittest.TestCase):
         # 8: advantage values for the flattened action space.
         # 2.0 (weights) * SUM(api_methods) + 0.5 (bias) = 4.7 for first sample, 18.7 for second sample in batch.
         expected_action_layer_output = np.array([[4.7] * (1+8), [18.7] * (1+8)], dtype=np.float32)
-        test.test(out_socket_names="action_layer_output", inputs=inputs, expected_outputs=expected_action_layer_output)
+        test.test(api_method="action_layer_output", params=inputs, expected_outputs=expected_action_layer_output)
 
         state_values = np.array([4.7, 18.7], dtype=np.float32)
-        test.test(out_socket_names="state_value", inputs=inputs, expected_outputs=state_values)
+        test.test(api_method="state_value", params=inputs, expected_outputs=state_values)
 
         expected_advantage_values = np.array([[[4.7]*4]*2, [[18.7]*4]*2], dtype=np.float32)
-        test.test(out_socket_names="advantage_values", inputs=inputs, expected_outputs=expected_advantage_values)
+        test.test(api_method="advantage_values", params=inputs, expected_outputs=expected_advantage_values)
 
         expected_q_values = np.array([[[4.7]*4]*2, [[18.7]*4]*2], dtype=np.float32)
-        test.test(out_socket_names="q_values", inputs=inputs, expected_outputs=expected_q_values)
+        test.test(api_method="q_values", params=inputs, expected_outputs=expected_q_values)
