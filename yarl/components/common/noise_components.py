@@ -39,9 +39,9 @@ class NoiseComponent(Component):
 
         # Our interface.
         # self.define_outputs("noise")
-        self.define_api_method(name="value", func=self._graph_fn_value)
+        self.define_api_method(name="get_noise", func=self._graph_fn_get_noise)
 
-    def _graph_fn_value(self):
+    def _graph_fn_get_noise(self):
         """
         The function that returns the DataOp to actually compute the noise.
 
@@ -60,7 +60,7 @@ class ConstantNoise(NoiseComponent):
 
         self.value = value
 
-    def _graph_fn_value(self):
+    def _graph_fn_get_noise(self):
         if get_backend() == "tf":
             return tf.constant(self.value)
 
@@ -80,7 +80,7 @@ class GaussianNoise(NoiseComponent):
     def create_variables(self, input_spaces, action_space):
         self.action_space = action_space
 
-    def _graph_fn_value(self):
+    def _graph_fn_get_noise(self):
         if get_backend() == "tf":
             return tf.random_normal(
                 shape=(1,) + self.action_space.shape,
@@ -120,7 +120,7 @@ class OrnsteinUhlenbeckNoise(NoiseComponent):
             initializer=self.mu
         )
 
-    def _graph_fn_value(self):
+    def _graph_fn_get_noise(self):
         drift = self.theta * (self.mu - self.ou_state)
         diffusion = self.sigma * tf.random_normal(shape=self.action_space.shape, dtype=self.action_space.dtype)
 

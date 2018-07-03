@@ -59,7 +59,7 @@ class DQNAgent(Agent):
         )
         # Copy our Policy (target-net), make target-net synchronizable.
         self.target_policy = self.policy.copy(scope="target-policy")
-        self.target_policy.add_component(Synchronizable(), connections=CONNECT_ALL)
+        self.target_policy.add_components(Synchronizable())
 
         self.merger = Merger(output_space=self.record_space)
         splitter_input_space = copy.deepcopy(self.record_space)
@@ -91,7 +91,7 @@ class DQNAgent(Agent):
         # Add the Q-net, copy it (target-net) and add the target-net.
         self.target_policy = self.policy.copy(scope="target-policy")
         # Make target_policy writable
-        self.target_policy.add_component(Synchronizable(), connections=CONNECT_ALL)
+        self.target_policy.add_components(Synchronizable())
         core.add_components(self.policy, self.target_policy)
         # Add an Exploration for the q-net (target-net doesn't need one).
         core.add_components(self.exploration)

@@ -38,26 +38,24 @@ class TestNoiseComponents(unittest.TestCase):
         real_noise = 200.0
 
         noise_component = ConstantNoise(value=real_noise)
-        test = ComponentTest(component=noise_component, input_spaces=dict(action=self.action_input_space),
-                             action_space=self.action_input_space)
+        test = ComponentTest(component=noise_component, action_space=self.action_input_space)
 
         for i in range_(1000):
-            test.test(out_socket_names="noise", expected_outputs=real_noise)
+            test.test(api_method="get_noise", expected_outputs=real_noise)
 
     def test_gaussian_noise(self):
         real_mean = 10.0
         real_sd = 2.0
 
         noise_component = GaussianNoise(mean=real_mean, sd=real_sd)
-        test = ComponentTest(component=noise_component, input_spaces=dict(action=self.action_input_space),
-                             action_space=self.action_input_space)
+        test = ComponentTest(component=noise_component, input_spaces=None, action_space=self.action_input_space)
 
         # Collect outputs in `collected` list to compare moments.
         collected = list()
         collect_outs = lambda component_test, outs: collected.append(outs)
 
         for i in range_(1000):
-            test.test(out_socket_names="noise", fn_test=collect_outs)
+            test.test(api_method="get_noise", fn_test=collect_outs)
 
         test_mean = np.mean(collected)
         test_sd = np.std(collected)
@@ -78,15 +76,14 @@ class TestNoiseComponents(unittest.TestCase):
         noise_component = OrnsteinUhlenbeckNoise(
             theta=ou_theta, mu=ou_mu, sigma=ou_sigma
         )
-        test = ComponentTest(component=noise_component, input_spaces=dict(action=self.action_input_space),
-                             action_space=self.action_input_space)
+        test = ComponentTest(component=noise_component, action_space=self.action_input_space)
 
         # Collect outputs in `collected` list to compare moments.
         collected = list()
         collect_outs = lambda component_test, outs: collected.append(outs)
 
         for _ in range_(1000):
-            test.test(out_socket_names="noise", fn_test=collect_outs)
+            test.test(api_method="get_noise", fn_test=collect_outs)
 
         test_mean = np.mean(collected)
         test_sd = np.std(collected)
