@@ -40,7 +40,7 @@ class MyCompWithVars(Component):
         self.dummy_var_2 = None
 
         if synchronizable is True:
-            self.add_components(Synchronizable(scope="sync"))
+            self.add_components(Synchronizable(scope="sync"), expose_apis="sync")
 
     def create_variables(self, input_spaces, action_space):
         # create some dummy var to sync from/to.
@@ -62,55 +62,46 @@ class TestSynchronizableComponent(unittest.TestCase):
         expected2 = np.ones(shape=component_to_test.space.shape)
         expected = dict(variable_to_sync1=expected1, variable_to_sync2=expected2)
 
-        # Custom api method
-        def sync(self_):
-            return self_.call(self_.sub_components["sync"].sync)
-
-        # Subcomponent api methods are not propagated.
-        component_to_test.define_api_method("sync", sync)
-
         test.test(
-            api_method="sync",
+            api_method="_variables",
             params=None,
             expected_outputs=expected
         )
 
-    # TODO
-    # Do we want to test api calls between synced components?
+    def test_sync_functionality(self):
+        # Two Components, one with Synchronizable dropped in:
+        # A: Can only push out values.
+        # B: To be synced by A's values.
+        sync_from = MyCompWithVars(scope="sync-from")
+        sync_to = MyCompWithVars(initializer1=8.0, initializer2=7.0, scope="sync-to", synchronizable=True)
 
-    # def test_sync_socket(self):
-    #     # Two Components, one with Synchronizable dropped in:
-    #     # A: Can only push out values.
-    #     # B: To be synced by A's values.
-    #     sync_from = MyCompWithVars(scope="sync-from")
-    #     sync_to = MyCompWithVars(initializer1=8.0, initializer2=7.0, scope="sync-to")
-    #     # Add the Synchronizable to sync_to.
-    #     sync_to.add_component(Synchronizable(), connections=CONNECT_ALL)
-    #     # Create a dummy test component that contains our two Synchronizables.
-    #     component_to_test = Component(name="dummy-comp")
-    #     component_to_test.define_outputs("do_the_sync")
-    #     component_to_test.add_components(sync_from, sync_to)
-    #     # connect everything correctly
-    #     component_to_test.connect((sync_from, "_variables"), (sync_to, "_values"))
-    #     component_to_test.connect((sync_to, "sync"), "do_the_sync")
-    #     test = ComponentTest(component=component_to_test)
-    #
-    #     # Test syncing the variable from->to and check them before and after the sync.
-    #
-    #     # Before the sync.
-    #     test.variable_test(sync_to.get_variables(VARIABLE_NAMES), {
-    #         "sync-to/"+VARIABLE_NAMES[0]: np.full(shape=sync_from.space.shape, fill_value=8.0),
-    #         "sync-to/"+VARIABLE_NAMES[1]: np.full(shape=sync_from.space.shape, fill_value=7.0)
-    #     })
-    #
-    #     # Now sync and re-check.
-    #     test.test(out_socket_names="do_the_sync", inputs=None, expected_outputs=None)
-    #
-    #     # After the sync.
-    #     test.variable_test(sync_to.get_variables(VARIABLE_NAMES), {
-    #         "sync-to/"+VARIABLE_NAMES[0]: np.zeros(shape=sync_from.space.shape),
-    #         "sync-to/"+VARIABLE_NAMES[1]: np.ones(shape=sync_from.space.shape)
-    #     })
+        # Create a dummy test component that contains our two Synchronizables.
+        container = Component(name="container")
+        container.add_components(sync_from, sync_to)
+
+        def execute_sync(self_):
+            values_ = self_.call(sync_from._variables)
+            return self_.call(sync_to.sync, values_)
+
+        container.define_api_method("execute_sync", execute_sync)
+
+        test = ComponentTest(component=container)
+
+        # Test syncing the variable from->to and check them before and after the sync.
+        # Before the sync.
+        test.variable_test(sync_to.get_variables(VARIABLE_NAMES), {
+            "sync-to/"+VARIABLE_NAMES[0]: np.full(shape=sync_from.space.shape, fill_value=8.0),
+            "sync-to/"+VARIABLE_NAMES[1]: np.full(shape=sync_from.space.shape, fill_value=7.0)
+        })
+
+        # Now sync and re-check.
+        test.test(api_method="execute_sync", params=None, expected_outputs=None)
+
+        # After the sync.
+        test.variable_test(sync_to.get_variables(VARIABLE_NAMES), {
+            "sync-to/"+VARIABLE_NAMES[0]: np.zeros(shape=sync_from.space.shape),
+            "sync-to/"+VARIABLE_NAMES[1]: np.ones(shape=sync_from.space.shape)
+        })
 
     # def test_sync_socket_between_2_identical_comps_that_have_vars_only_in_their_sub_comps(self):
     #     """

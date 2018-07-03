@@ -129,6 +129,9 @@ class Component(Specifiable):
         # Now add all sub-Components.
         self.add_components(*sub_components)
 
+        # Define the "_variables" API-method that each Component automatically has.
+        self.define_api_method("_variables", self._graph_fn__variables)
+
     def get_api_methods(self, ignore_set):
         """
         Detects all methods of the Component that should be registered as API-methods for
@@ -144,7 +147,8 @@ class Component(Specifiable):
         # look for all our API methods (those that use the `call` method).
         for member in inspect.getmembers(self):
             name, method = (member[0], member[1])
-            if name[0] != "_" and name not in ignore_set and util.get_method_type(method) == "api":
+            if name != "define_api_method" and name[0] != "_" and name not in ignore_set and \
+                    util.get_method_type(method) == "api":
                 ret[name] = APIMethodRecord(method, component=self)
         return ret
 
@@ -686,13 +690,22 @@ class Component(Specifiable):
 
         self.api_methods[name] = APIMethodRecord(api_method, component=self)
 
-    def add_components(self, *components):
+    def add_components(self, *components, **kwargs):
         """
         Adds sub-components to this one.
 
         Args:
             components (List[Component]): The list of Component objects to be added into this one.
+
+        Keyword Args:
+            expose_apis (Optional[Set[str]]): An optional set of strings with API-methods of the child component
+                that should be exposed as the parent's API via a simple wrapper API-method for the parent (that
+                calls the child's API-method).
         """
+        expose_apis = kwargs.pop("expose_apis", set())
+        if isinstance(expose_apis, str):
+            expose_apis = {expose_apis}
+
         for component in components:
             # Try to create Component from spec.
             if not isinstance(component, Component):
@@ -710,6 +723,15 @@ class Component(Specifiable):
 
             # Fix the sub-component's (and sub-sub-component's etc..) scope(s).
             self.propagate_scope(component)
+
+            # Should we expose some API-methods of the child?
+            for api_method_name, api_method_rec in component.api_methods.items():
+                if api_method_name in expose_apis:
+                    def exposed_api_method_wrapper(self_, *inputs):
+                        return self_.call(api_method_rec.method, *inputs)
+                    self.define_api_method(api_method_name, exposed_api_method_wrapper)
+                    # Add the sub-component's API-registered methods to ours.
+                    self.defined_externally.add(component.scope + "-" + api_method_name)
 
     def propagate_scope(self, sub_component):
         """
@@ -854,11 +876,11 @@ class Component(Specifiable):
 
     def _graph_fn__variables(self):
         """
-        Outputs all of this Component's variables in a DataOpDict (out-Socket "_variables").
+        Outputs all of this Component's variables in a DataOpDict (API-method "_variables").
 
         This can be used e.g. to sync this Component's variables into another Component, which owns
         a Synchronizable() as a sub-component. The returns values of this graph_fn are then sent into
-        the other Component's "_values" in-Socket for syncing.
+        the other Component's API-method `sync` (parameter: "values") for syncing.
 
         Returns:
             DataOpDict: Dict with keys=variable names and values=variable (SingleDataOp).

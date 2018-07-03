@@ -192,7 +192,8 @@ class GraphBuilder(Specifiable):
         op_records_to_process = set()
 
         for api_method_name, (in_op_records, _) in self.api.items():
-            spaces = force_list(input_spaces[api_method_name]) if api_method_name in input_spaces else list()
+            spaces = force_list(input_spaces[api_method_name]) if input_spaces is not None and \
+                                                                  api_method_name in input_spaces else list()
             assert len(spaces) == len(in_op_records)
 
             # Create the placeholder and store it in the given DataOpRecords.
@@ -227,11 +228,16 @@ class GraphBuilder(Specifiable):
             for out_op_rec in out_op_records:
                 out_op_rec.op = "done"
 
+        # Collect all components and do those first that are already input-complete.
+        components = self.get_all_components()
+        for component in components:
+            self.build_component_when_input_complete(component, op_records_to_process)
+
         # Re-iterate until our bag of op-recs to process is empty.
         loop_counter = 0
         while len(op_records_to_process) > 0:
             op_records_list = list(op_records_to_process)
-            new_op_records_to_process = list()
+            new_op_records_to_process = set()
             for op_rec in op_records_list:  # type: DataOpRecord
                 # There are next records:
                 if len(op_rec.next) > 0:
@@ -241,7 +247,7 @@ class GraphBuilder(Specifiable):
                         # Otherwise, replace "done" with actual op.
                         if next_op_rec.op != "done":
                             assert next_op_rec.op is None
-                            new_op_records_to_process.append(next_op_rec)
+                            new_op_records_to_process.add(next_op_rec)
                         # Push op and Space into next op-record.
                         next_op_rec.op = op_rec.op
                         next_op_rec.space = op_rec.space
@@ -250,21 +256,7 @@ class GraphBuilder(Specifiable):
                         # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
                         # placeholder).
                         if op_rec.column is None or op_rec.column.component is not next_op_rec.column.component:
-                            next_component = next_op_rec.column.component
-                            # Not input complete yet -> Check now.
-                            if next_component.input_complete is False:
-                                spaces_dict = next_component.check_input_completeness()
-                                # call `when_input_complete` once on that Component.
-                                if spaces_dict is not None:
-                                    self.logger.debug("Component {} is input-complete; spaces_dict={}".
-                                                      format(next_component.name, spaces_dict))
-                                    no_input_graph_fn_columns = next_component.when_input_complete(spaces_dict,
-                                                                                                   self.action_space)
-                                    # Call all no-input graph_fns.
-                                    for no_in_col in no_input_graph_fn_columns:
-                                        self.run_through_graph_fn_with_device_and_scope(no_in_col)
-                                        # Keep working with the generated output ops.
-                                        new_op_records_to_process.extend(no_in_col.out_graph_fn_column.op_records)
+                            self.build_component_when_input_complete(next_op_rec.column.component, new_op_records_to_process)
 
                 # No next records.
                 else:
@@ -275,10 +267,10 @@ class GraphBuilder(Specifiable):
                         # Call the graph_fn with the given column and call-options.
                         self.run_through_graph_fn_with_device_and_scope(op_rec.column)
                         # Store all resulting op_recs (returned by the graph_fn) to be processed next.
-                        new_op_records_to_process.extend(op_rec.column.out_graph_fn_column.op_records)
+                        new_op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
                     # If column incomplete, stop here for now.
                     else:
-                        new_op_records_to_process.append(op_rec)
+                        new_op_records_to_process.add(op_rec)
 
             # Replace all old records with new ones.
             for op_rec in op_records_list:
@@ -292,6 +284,41 @@ class GraphBuilder(Specifiable):
                 raise YARLError("Sanity checking graph-build procedure: Reached max iteration steps: {}!".format(
                     self.MAX_ITERATIVE_LOOPS
                 ))
+
+    def get_all_components(self, component=None, list_=None):
+        """
+        Returns all Components of the core-Component.
+
+        Args:
+            component (Optional[Component]): The Component to look through. None for the core-Component.
+            list_ (Optional[List[Component]])): A list of already collected components to append to.
+
+        Returns:
+            List[Component]: A list with all the components in `component`.
+        """
+        component = component or self.core_component
+        if list_ is None:
+            list_ = list()
+        list_.append(component)
+        for sub_component in component.sub_components.values():
+            list_.extend(self.get_all_components(sub_component))
+        return list_
+
+    def build_component_when_input_complete(self, component, op_records_to_process):
+        # Not input complete yet -> Check now.
+        if component.input_complete is False:
+            spaces_dict = component.check_input_completeness()
+            # call `when_input_complete` once on that Component.
+            if spaces_dict is not None:
+                self.logger.debug("Component {} is input-complete; spaces_dict={}".
+                                  format(component.name, spaces_dict))
+                no_input_graph_fn_columns = component.when_input_complete(spaces_dict,
+                                                                          self.action_space)
+                # Call all no-input graph_fns of the new Component.
+                for no_in_col in no_input_graph_fn_columns:
+                    self.run_through_graph_fn_with_device_and_scope(no_in_col)
+                    # Keep working with the generated output ops.
+                    op_records_to_process.update(no_in_col.out_graph_fn_column.op_records)
 
     def run_through_graph_fn_with_device_and_scope(self, op_rec_column):
         """
@@ -471,12 +498,12 @@ class GraphBuilder(Specifiable):
         Creates a fetch-dict and a feed-dict for a graph session call.
 
         Args:
-            api_method (str):
-            *params (any):
+            api_method (str): The name of the API-method (of the core_component) to execute.
+            *params (any): The parameters to pass into the API-method.
 
         Returns:
             tuple: fetch-dict, feed-dict with relevant args.
-9       """
+        """
         fetch_list = [op_rec.op for op_rec in self.api[api_method][1]]
         feed_dict = dict()
         for i, param in enumerate(params):

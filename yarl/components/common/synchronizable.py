@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import YARLError, get_backend
-from yarl.utils.ops import DataOpDict, SingleDataOp
+from yarl.utils.ops import DataOpDict
 from yarl.utils.util import get_shape
 from yarl.components import Component
 
@@ -43,18 +43,8 @@ class Synchronizable(Component):
 
         super(Synchronizable, self).__init__(*args, scope=kwargs.pop("scope", "synchronizable"), **kwargs)
 
-        # Define our interface.
-
-        # Socket for incoming data (the data that this Component will get overwritten with).
-        # The "values" in-Socket should be connected from a "_variables" out-Socket of any other Component
-        # (the Component from which we sync).
-        # self.define_inputs("_values")
-        # The sync op to trigger a round of synchronizations from the "values" in-Socket into our
-        # parent's variables.
-        # self.define_outputs("sync")
-
         # Add the syncing operation.
-        self.define_api_method(name="sync", func=self._graph_fn_sync, flatten_ops=False)
+        self.define_api_method(name="sync", func=self._graph_fn_sync)
 
     def _graph_fn_sync(self, values_):
         """
