@@ -43,12 +43,6 @@ class DQNLossFunction(LossFunction):
         """
         self.double_q = double_q
 
-        ## Pass our in-Socket names to parent c'tor.
-        #input_sockets = ["q_values", "actions", "rewards", "terminals", "qt_values_s_"]
-        ## For double-Q, we need an additional input for the q-net's s'-q-values (not the target's ones!).
-        #if self.double_q:
-        #    input_sockets.append("q_values_s_")
-
         super(DQNLossFunction, self).__init__(scope=scope, **kwargs)
 
         self.action_space = None
@@ -65,7 +59,7 @@ class DQNLossFunction(LossFunction):
         )
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 
-    def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None):
+    def _graph_fn_per_item_loss(self, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None):
         """
         Args:
             q_values_s (SingleDataOp): The batch of Q-values representing the expected accumulated discounted returns

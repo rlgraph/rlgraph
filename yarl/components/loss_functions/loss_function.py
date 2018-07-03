@@ -38,37 +38,36 @@ class LossFunction(Component):
     def __init__(self, discount=0.98, **kwargs):
         """
         Args:
-            #*inputs (str): The names of our in-Sockets.
-            #Keyword Args:
             discount (float): The discount factor (gamma).
         """
         super(LossFunction, self).__init__(scope=kwargs.pop("scope", "loss-function"), **kwargs)
 
         self.discount = discount
 
-        # Build our interface with a flexible number of in-Sockets.
-        #self.inputs = inputs
+        # Define our API.
+        self.define_api_method(name="per_item_loss", func=self._graph_fn_per_item_loss)
+        self.define_api_method(name="average_loss", func=self._graph_fn_average_loss)
 
-        self.define_api_method(name="loss_per_item", func=self._graph_fn_loss_per_item)
-
-    def loss(self, loss_per_item):
+    def loss(self, *inputs):
         """
-        Connects the loss_per_item and the total loss (over the entire batch).
+        API-method that calculates the total loss (average over per-batch-item loss) from the original input to
+        per-item-loss.
 
         Args:
-            loss_per_item ():
+            *inputs (DataOpTuple): The various data that this function needs to calculate the loss.
 
         Returns:
-
+            SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
-        return self.call(self._graph_fn_loss, loss_per_item)
+        per_item_loss = self.call(self._graph_fn_per_item_loss, *inputs)
+        return self.call(self._graph_fn_average_loss, per_item_loss)
 
-    def _graph_fn_loss_per_item(self, *inputs):
+    def _graph_fn_per_item_loss(self, *inputs):
         """
         Returns the single loss values (one for each item in a batch).
 
         Args:
-            *inputs (DataOpTuple): The various api_methods that this function needs to calculate the loss.
+            *inputs (DataOpTuple): The various data that this function needs to calculate the loss.
 
         Returns:
             SingleDataOp: The tensor specifying the loss per item. The batch dimension of this tensor corresponds
@@ -76,7 +75,7 @@ class LossFunction(Component):
         """
         raise NotImplementedError
 
-    def _graph_fn_loss(self, loss_per_item):
+    def _graph_fn_average_loss(self, loss_per_item):
         """
         The actual loss function that an optimizer will try to minimize. This is usually the average over a batch.
 

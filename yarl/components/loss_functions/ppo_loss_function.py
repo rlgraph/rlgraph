@@ -63,7 +63,7 @@ class PPOLossFunction(LossFunction):
         # TODO: Make this flexible with different distributions.
         self.distribution = Categorical()
 
-    def _graph_fn_loss_per_item(self, distribution, actions, rewards, terminals, prev_log_likelihood):
+    def _graph_fn_per_item_loss(self, distribution, actions, rewards, terminals, prev_log_likelihood):
         """
         Args:
             distribution (Distribution): Distribution object which must provide a log likelihood function.

@@ -28,6 +28,10 @@ import numpy as np
 
 class TestDQNLossFunctions(unittest.TestCase):
 
+    reward_space = FloatBox(add_batch_rank=True)
+    terminal_space = BoolBox(add_batch_rank=True)
+    loss_per_item_space = FloatBox(add_batch_rank=True)
+
     def test_dqn_loss_function_on_int_action_space(self):
         # Create a shape=() 2-action discrete-space.
         # Thus, each action pick consists of one single binary action (0 or 1).
@@ -37,23 +41,22 @@ class TestDQNLossFunctions(unittest.TestCase):
 
         test = ComponentTest(
             component=dqn_loss_function,
-            input_spaces=dict(q_values=q_values_space,
-                              actions=action_space,
-                              rewards=FloatBox(add_batch_rank=True),
-                              terminals=BoolBox(add_batch_rank=True),
-                              qt_values_s_=q_values_space
-                              ),
+            input_spaces=dict(
+                per_item_loss=[q_values_space, action_space, self.reward_space, self.terminal_space, q_values_space],
+                average_loss=self.loss_per_item_space,
+                loss=[q_values_space, action_space, self.reward_space, self.terminal_space, q_values_space]
+            ),
             action_space=action_space
         )
 
         # Batch of size=2.
-        input_ = dict(
-            q_values=np.array([[10.0, -10.0], [-0.101, -90.6]]),
-            actions=np.array([0, 1]),
-            rewards=np.array([9.4, -1.23]),
-            terminals=np.array([False, False]),
-            qt_values_s_=np.array([[12.0, -8.0], [22.3, 10.5]]),
-        )
+        input_ = [
+            np.array([[10.0, -10.0], [-0.101, -90.6]]),
+            np.array([0, 1]),
+            np.array([9.4, -1.23]),
+            np.array([False, False]),
+            np.array([[12.0, -8.0], [22.3, 10.5]])
+        ]
         """
         Calculation:
         batch of 2, gamma=1.0
@@ -67,10 +70,11 @@ class TestDQNLossFunctions(unittest.TestCase):
 
         # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
         expected_loss_per_item = np.array([129.95999, 12470.188], dtype=np.float32)
-        test.test(out_socket_names="loss_per_item", inputs=input_, expected_outputs=expected_loss_per_item)
+        test.test(api_method="per_item_loss", params=input_, expected_outputs=expected_loss_per_item)
         # Expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
-        test.test(out_socket_names="loss", inputs=input_, expected_outputs=expected_loss)
+        test.test(api_method="loss", params=input_, expected_outputs=expected_loss)
+        test.test(api_method="average_loss", params=expected_loss_per_item, expected_outputs=expected_loss)
 
     def test_double_dqn_loss_function_on_int_action_space(self):
         # Create a shape=() 3-action discrete-space.
@@ -81,24 +85,25 @@ class TestDQNLossFunctions(unittest.TestCase):
 
         test = ComponentTest(
             component=dqn_loss_function,
-            input_spaces=dict(q_values=q_values_space, actions=action_space,
-                              rewards=FloatBox(add_batch_rank=True),
-                              terminals=BoolBox(add_batch_rank=True),
-                              qt_values_s_=q_values_space,
-                              q_values_s_=q_values_space,  # The Q-values for s' from the policy (not the target-policy)
-                              ),
+            input_spaces=dict(
+                per_item_loss=[q_values_space, action_space, self.reward_space, self.terminal_space,
+                               q_values_space, q_values_space],
+                average_loss=self.loss_per_item_space,
+                loss=[q_values_space, action_space, self.reward_space, self.terminal_space,
+                      q_values_space, q_values_space]
+            ),
             action_space=action_space
         )
 
         # Batch of size=2.
-        input_ = dict(
-            q_values=np.array([[10.0, -10.0, 12.4], [-0.101, -4.6, -9.3]]),
-            actions=np.array([2, 1]),
-            rewards=np.array([10.3, -4.25]),
-            terminals=np.array([False, True]),
-            qt_values_s_=np.array([[-12.3, 1.2, 1.4], [12.2, -11.5, 9.2]]),
-            q_values_s_=np.array([[-10.3, 1.5, 1.4], [8.2, -10.9, 9.3]]),
-        )
+        input_ = [
+            np.array([[10.0, -10.0, 12.4], [-0.101, -4.6, -9.3]]),
+            np.array([2, 1]),
+            np.array([10.3, -4.25]),
+            np.array([False, True]),
+            np.array([[-12.3, 1.2, 1.4], [12.2, -11.5, 9.2]]),
+            np.array([[-10.3, 1.5, 1.4], [8.2, -10.9, 9.3]])
+        ]
         """
         Calculation:
         batch of 2, gamma=0.9
@@ -114,10 +119,11 @@ class TestDQNLossFunctions(unittest.TestCase):
 
         # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
         expected_loss_per_item = np.array([1.040399, 0.1224999], dtype=np.float32)
-        test.test(out_socket_names="loss_per_item", inputs=input_, expected_outputs=expected_loss_per_item)
+        test.test(api_method="per_item_loss", params=input_, expected_outputs=expected_loss_per_item)
         # Expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
-        test.test(out_socket_names="loss", inputs=input_, expected_outputs=expected_loss)
+        test.test(api_method="loss", params=input_, expected_outputs=expected_loss)
+        test.test(api_method="average_loss", params=expected_loss_per_item, expected_outputs=expected_loss)
 
     def test_dqn_loss_function_in_multi_action_space(self):
         # Create a shape=(3,) 4-action discrete-space.
@@ -128,25 +134,24 @@ class TestDQNLossFunctions(unittest.TestCase):
 
         test = ComponentTest(
             component=dqn_loss_function,
-            input_spaces=dict(q_values=q_values_space,
-                              actions=action_space,
-                              rewards=FloatBox(add_batch_rank=True),
-                              terminals=BoolBox(add_batch_rank=True),
-                              qt_values_s_=q_values_space
-                              ),
+            input_spaces=dict(
+                per_item_loss=[q_values_space, action_space, self.reward_space, self.terminal_space, q_values_space],
+                average_loss=self.loss_per_item_space,
+                loss=[q_values_space, action_space, self.reward_space, self.terminal_space, q_values_space]
+            ),
             action_space=action_space
         )
 
         # Batch of size=2.
-        input_ = dict(
-            q_values=np.array([[[10.0, -10.0, 9.8, 2.0], [20.2, -0.6, 0.001, 98.1], [10.0, -10.0, 9.8, 2.0]],
+        input_ = [
+            np.array([[[10.0, -10.0, 9.8, 2.0], [20.2, -0.6, 0.001, 98.1], [10.0, -10.0, 9.8, 2.0]],
                                [[4.1, -11.1, 7.5, 2.1], [21.3, 9.5, -0.101, -90.6], [21.3, 9.5, -0.101, -90.6]]]),
-            actions=np.array([[0, 3, 2], [1, 2, 0]]),
-            rewards=np.array([9.4, -1.23]),
-            terminals=np.array([False, True]),
-            qt_values_s_=np.array([[[12.0, -8.0, 7.8, 4.0], [16.2, -2.6, -6.001, 90.1], [12.0, -8.0, 7.8, 4.0]],
-                                   [[5.1, -12.1, 8.5, 3.1], [22.3, 10.5, 1.098, -89.2], [22.3, 10.5, 1.098, -89.2]]]),
-        )
+            np.array([[0, 3, 2], [1, 2, 0]]),
+            np.array([9.4, -1.23]),
+            np.array([False, True]),
+            np.array([[[12.0, -8.0, 7.8, 4.0], [16.2, -2.6, -6.001, 90.1], [12.0, -8.0, 7.8, 4.0]],
+                                   [[5.1, -12.1, 8.5, 3.1], [22.3, 10.5, 1.098, -89.2], [22.3, 10.5, 1.098, -89.2]]])
+        ]
 
         """
         Calculation:
@@ -166,10 +171,11 @@ class TestDQNLossFunctions(unittest.TestCase):
 
         # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
         expected_loss_per_item = np.array([0.27737945, 21.126272], dtype=np.float32)
-        print(test.test(out_socket_names="loss_per_item", inputs=input_, expected_outputs=None))
+        print(test.test(api_method="per_item_loss", params=input_, expected_outputs=None))
         # Just expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
-        test.test(out_socket_names="loss", inputs=input_, expected_outputs=expected_loss)
+        test.test(api_method="loss", params=input_, expected_outputs=expected_loss)
+        test.test(api_method="average_loss", params=expected_loss_per_item, expected_outputs=expected_loss)
 
     def test_double_dqn_loss_function_on_multi_int_action_space(self):
         # Create a shape=(2,2) 3-action discrete-space.
@@ -180,18 +186,19 @@ class TestDQNLossFunctions(unittest.TestCase):
 
         test = ComponentTest(
             component=dqn_loss_function,
-            input_spaces=dict(q_values=q_values_space, actions=action_space,
-                              rewards=FloatBox(add_batch_rank=True),
-                              terminals=BoolBox(add_batch_rank=True),
-                              qt_values_s_=q_values_space,
-                              q_values_s_=q_values_space,  # The Q-values for s' from the policy (not the target-policy)
-                              ),
+            input_spaces=dict(
+                per_item_loss=[q_values_space, action_space, self.reward_space, self.terminal_space,
+                               q_values_space, q_values_space],
+                average_loss=self.loss_per_item_space,
+                loss=[q_values_space, action_space, self.reward_space, self.terminal_space,
+                      q_values_space, q_values_space]
+            ),
             action_space=action_space
         )
 
         # Batch of size=4.
-        input_ = dict(
-            q_values=np.array(
+        input_ = [
+            np.array(
                 [
                     [[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], [[7.0, 8.0, 9.0], [10., 11., 12.]]],
                     [[[2.0, 3.0, 4.0], [5.0, 6.0, 7.0]], [[8.0, 9.0, 10.], [11., 12., 13.]]],
@@ -199,7 +206,7 @@ class TestDQNLossFunctions(unittest.TestCase):
                     [[[4.0, 5.0, 6.0], [7.0, 8.0, 9.0]], [[10., 11., 12.], [13., 14., 15.]]],
                 ]
             ),
-            actions=np.array(
+            np.array(
                 [
                     [[0, 1], [2, 0]],
                     [[1, 2], [0, 1]],
@@ -207,9 +214,9 @@ class TestDQNLossFunctions(unittest.TestCase):
                     [[0, 1], [1, 1]]
                 ]
             ),
-            rewards=np.array([-1.0, -2.0, -3.0, -4.0]),
-            terminals=np.array([False, False, True, False]),
-            qt_values_s_=np.array(
+            np.array([-1.0, -2.0, -3.0, -4.0]),
+            np.array([False, False, True, False]),
+            np.array(
                 [
                     [[[1.5, 2.5, 3.5], [4.5, 5.5, 6.5]], [[7.5, 8.5, 9.5], [10.5, 11.5, 12.5]]],
                     [[[2.5, 3.5, 4.5], [5.5, 6.5, 7.5]], [[8.5, 9.5, 10.5], [11.5, 12.5, 13.5]]],
@@ -217,7 +224,7 @@ class TestDQNLossFunctions(unittest.TestCase):
                     [[[4.5, 5.5, 6.5], [7.5, 8.5, 9.5]], [[10.5, 11.5, 12.5], [13.5, 14.5, 15.5]]],
                 ]
             ),
-            q_values_s_=np.array(
+            np.array(
                 [
                     [[[1.6, 2.6, 3.6], [4.6, 5.6, 6.6]], [[7.6, 8.6, 9.6], [10.6, 11.6, 12.6]]],
                     [[[2.6, 3.6, 4.6], [5.6, 6.6, 7.6]], [[8.6, 9.6, 10.6], [11.6, 12.6, 13.6]]],
@@ -225,7 +232,7 @@ class TestDQNLossFunctions(unittest.TestCase):
                     [[[4.6, 5.6, 6.6], [7.6, 8.6, 9.6]], [[10.6, 11.6, 12.6], [13.6, 14.6, 15.6]]],
                 ]
             )
-        )
+        ]
         """
         Calculation:
         batch of 4, gamma=1.0
@@ -245,7 +252,8 @@ class TestDQNLossFunctions(unittest.TestCase):
 
         # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
         expected_loss_per_item = np.array([0.5625, 0.25, 138.0625, 5.0625], dtype=np.float32)
-        test.test(out_socket_names="loss_per_item", inputs=input_, expected_outputs=expected_loss_per_item)
+        test.test(api_method="per_item_loss", params=input_, expected_outputs=expected_loss_per_item)
         # Expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
-        test.test(out_socket_names="loss", inputs=input_, expected_outputs=expected_loss)
+        test.test(api_method="loss", params=input_, expected_outputs=expected_loss)
+        test.test(api_method="average_loss", params=expected_loss_per_item, expected_outputs=expected_loss)
