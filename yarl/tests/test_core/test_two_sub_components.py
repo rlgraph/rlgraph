@@ -21,10 +21,9 @@ import logging
 import numpy as np
 import unittest
 
-from yarl.components import Component, CONNECT_INS, CONNECT_OUTS, CONNECT_ALL
 from yarl.tests import ComponentTest
 from yarl.utils import root_logger
-from yarl.tests.dummy_components import Dummy1to1, Dummy2to1, Dummy1to2
+from yarl.tests.dummy_components import *
 
 
 class TestTwoSubComponents(unittest.TestCase):
@@ -33,39 +32,39 @@ class TestTwoSubComponents(unittest.TestCase):
     """
     root_logger.setLevel(level=logging.INFO)
 
+    # TODO do we want this test class or are they covered by 'test_connections_with_op_guidance.py'?
+
     def test_connecting_two_1to1_components(self):
         """
         Adds two components with 1-to-1 graph_fns to the core, connects them and passes a value through it.
         """
         core = Component(scope="container")
-        sub_comp1 = Dummy1to1(scope="comp1")
-        sub_comp2 = Dummy1to1(scope="comp2")
-        core.add_component(sub_comp1, connections=CONNECT_INS)
-        core.add_component(sub_comp2, connections=CONNECT_OUTS)
-        core.connect(sub_comp1, sub_comp2)
+        sub_comp1 = Dummy1To1(scope="comp1")
+        sub_comp2 = Dummy1To1(scope="comp2")
+        core.add_components(sub_comp1)
+        core.add_components(sub_comp2)
 
-        test = ComponentTest(component=core, input_spaces=dict(input=float))
+        test = ComponentTest(component=core)
 
         # Expected output: input + 1.0 + 1.0
-        test.test(out_socket_names="output", inputs=1.1, expected_outputs=3.1)
-        test.test(out_socket_names="output", inputs=-5.1, expected_outputs=-3.1)
+        test.test(api_method="run", params=1.1, expected_outputs=3.1)
+        test.test(api_method="run", params=-5.1, expected_outputs=-3.1)
 
     def test_connecting_1to2_to_2to1(self):
         """
         Adds two components with 1-to-2 and 2-to-1 graph_fns to the core, connects them and passes a value through it.
         """
         core = Component(scope="container")
-        sub_comp1 = Dummy1to2(scope="comp1")  # outs=in,in+1
-        sub_comp2 = Dummy2to1(scope="comp2")  # out =in1+in2
-        core.add_component(sub_comp1, connections=CONNECT_INS)
-        core.add_component(sub_comp2, connections=CONNECT_OUTS)
-        core.connect(sub_comp1, sub_comp2)
+        sub_comp1 = Dummy2To1(scope="comp1")  # outs=in,in+1
+        sub_comp2 = Dummy2To1(scope="comp2")  # out =in1+in2
+        core.add_components(sub_comp1)
+        core.add_components(sub_comp2)
 
         test = ComponentTest(component=core, input_spaces=dict(input=float))
 
         # Expected output: input + (input + 1.0)
-        test.test(out_socket_names="output", inputs=100.9, expected_outputs=np.float32(202.8))
-        test.test(out_socket_names="output", inputs=-5.1, expected_outputs=np.float32(-9.2))
+        test.test(api_method="run", params=100.9, expected_outputs=np.float32(202.8))
+        test.test(api_method="run", params=-5.1, expected_outputs=np.float32(-9.2))
 
     def test_1to1_to_2to1_component_with_constant_input_value(self):
         """
@@ -73,36 +72,13 @@ class TestTwoSubComponents(unittest.TestCase):
         with a constant value (so that this constant value is not at the border of the core component).
         """
         core = Component(scope="container")
-        sub_comp1 = Dummy1to1(scope="A")
-        sub_comp2 = Dummy2to1(scope="B")
-        core.add_component(sub_comp1, connections=CONNECT_INS)
-        core.add_component(sub_comp2, connections=CONNECT_OUTS)
-        core.connect(1.1, (sub_comp2, "input1"))
-        core.connect((sub_comp1, "output"), (sub_comp2, "input2"))
+        sub_comp1 = Dummy1To1(scope="A")
+        sub_comp2 = Dummy2To1(scope="B")
+        core.add_components(sub_comp1)
+        core.add_components(sub_comp2)
 
         test = ComponentTest(component=core, input_spaces=dict(input=float))
 
         # Expected output: (input + 1.0) + 1.1
-        test.test(out_socket_names="output", inputs=78.4, expected_outputs=80.5)
-        test.test(out_socket_names="output", inputs=-5.2, expected_outputs=-3.1)
-
-    def test_in_to_1to1_to_out_sock_then_to_other_1to1_then_to_other_out_sock(self):
-        """
-        Adds two components (A and B, both 1-to-1) to the core. (A) connected from "input" to "output", but (B)
-        connected from(!) "output" to "output_b". Connections schemas like this occur e.g. in our one-step optimizers.
-        """
-        core = Component(scope="container")
-        core.define_outputs("output_b")
-
-        a = Dummy1to1(scope="A")
-        b = Dummy1to1(scope="B", constant_value=1.5)
-        core.add_component(a, connections=CONNECT_ALL)  # creates "input" and "output" sockets.
-        core.add_component(b)
-        core.connect("output", (b, "input"))
-        core.connect((b, "output"), "output_b")
-
-        test = ComponentTest(component=core, input_spaces=dict(input=float))
-
-        # Expected output: (in + 1.0) + 1.5
-        test.test(out_socket_names="output", inputs=100.4, expected_outputs=np.array(101.4, dtype=np.float32))
-        test.test(out_socket_names="output_b", inputs=-56.2, expected_outputs=np.array(-53.7, dtype=np.float32))
+        test.test(api_method="run", params=78.4, expected_outputs=80.5)
+        test.test(api_method="run", params=-5.2, expected_outputs=-3.1)
