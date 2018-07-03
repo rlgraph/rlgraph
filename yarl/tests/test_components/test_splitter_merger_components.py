@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import unittest
 
 from yarl.components.common import Splitter, Merger
@@ -58,7 +57,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
         ]
         test.test(api_method="split", params=input_, expected_outputs=expected_output)
 
-    def test_splitter_component_with_custom_names(self):
+    def test_splitter_with_different_input_space(self):
         space = Dict(
             a=Tuple(bool, FloatBox(shape=())),
             b=FloatBox(shape=()),
@@ -69,23 +68,23 @@ class TestSplitterMergerComponents(unittest.TestCase):
             add_batch_rank=False
         )
         # Using custom output names.
-        component_to_test = Splitter(input_space=space, output_names=["atup0bool", "atup1cont", "bcont",
-                                                                      "cbool", "dintbox", "eeafloat",
-                                                                      "fcont"])
-        test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
+        component_to_test = Splitter(
+            input_space=space
+        )
+        test = ComponentTest(component=component_to_test, input_spaces=dict(split=space))
 
         # Single sample (no batch rank).
         input_ = space.sample()
+        expected_outputs = [
+            input_["a"][0], input_["a"][1],
+            input_["b"],
+            input_["c"],
+            input_["d"],
+            input_["e"]["ea"],
+            input_["f"],
+        ]
 
-        # Also check the types each time.
-        out = test.test(api_method="atup0bool", params=input_, expected_outputs=np.array(input_["a"][0]))
-        self.assertTrue(isinstance(out.item(), bool))
-        out = test.test(api_method="fcont", params=input_, expected_outputs=np.array(input_["f"]))
-        self.assertTrue(isinstance(out, np.ndarray))
-        out = test.test(api_method="eeafloat", params=input_, expected_outputs=np.array(input_["e"]["ea"]))
-        self.assertTrue(isinstance(out.item(), float))
-        out = test.test(api_method="cbool", params=input_, expected_outputs=np.array(input_["c"]))
-        self.assertTrue(isinstance(out.item(), bool))
+        test.test(api_method="split", params=input_, expected_outputs=expected_outputs)
 
     def test_merger_component(self):
         space = Tuple(
@@ -98,36 +97,12 @@ class TestSplitterMergerComponents(unittest.TestCase):
             Dict(d=bool, e=FloatBox(shape=())),
             add_batch_rank=False
         )
-        component_to_test = Merger(output_space=space)
+        merger = Merger(output_space=space)
         flattened_space = space.flatten()
-        test = ComponentTest(component=component_to_test, input_spaces=flattened_space)
+        test = ComponentTest(component=merger, input_spaces=dict(merge=list(flattened_space.values())))
 
         # Get a single sample.
         sample = space.sample()
         flattened_input = flatten_op(sample)
 
-        test.test(out_socket_names="output", inputs=flattened_input, expected_outputs=sample)
-
-    """
-    FINISH THIS WHEN WE NEED IT. Doesn't seem to be clear on how to unflatten from custom names.
-    def test_merger_component_with_custom_names(self):
-        space = Tuple(
-            Dict(a=bool, b=FloatBox(shape=(1,))),
-            dict(c=bool, d=float),
-            IntBox(low=0, high=255),
-            dict(e=bool, f=bool),
-            IntBox(6),
-            add_batch_rank=True
-        )
-        component_to_test = Merger(output_space=space, input_names=["tup0a", "tup0b", "tup1c", "tup1d",
-                                                                             "tup2", "tup3e", "tup3f", "tup4"])
-        flattened_space = space.flatten()
-        test = ComponentTest(component=component_to_test, input_spaces=flattened_space)
-
-        # Get a batch of samples.
-        sample = space.sample(size=2)
-        flattened_input = flatten_op(sample)
-        # Change the names from auto-generated to our manual ones.
-
-        test.test(out_socket_names="output", api_methods=flattened_input, expected_outputs=sample)
-    """
+        test.test(api_method="merge", params=list(flattened_input.values()), expected_outputs=sample)

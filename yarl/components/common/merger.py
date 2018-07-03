@@ -41,10 +41,7 @@ class Merger(Component):
             "ERROR: `output_space` of Merger Component must be a ContainerSpace (but is {})!".format(output_space)
 
         # Define the interface (one input, many outputs named after the auto-keys generated).
-        # self.define_outputs("output")
         self.input_names = list(output_space.flatten().keys())
-        # self.define_inputs(*self.input_names)
-        # Insert our merging GraphFunction.
         self.define_api_method(name="merge", func=self._graph_fn_merge)
 
     def _graph_fn_merge(self, *inputs):
