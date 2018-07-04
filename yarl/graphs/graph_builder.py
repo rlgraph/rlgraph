@@ -335,6 +335,8 @@ class GraphBuilder(Specifiable):
         # "variable-complete".
         if component.input_complete is True and component.variable_complete is False and \
                 component.check_variable_completeness():
+            if not "_graph_fn__variables" in component.graph_fns:
+                component.call(component._graph_fn__variables)
             graph_fn_rec = component.graph_fns["_graph_fn__variables"]
             assert len(graph_fn_rec.in_op_columns) == 1
             self.run_through_graph_fn_with_device_and_scope(graph_fn_rec.in_op_columns[0])
