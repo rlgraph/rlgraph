@@ -38,7 +38,7 @@ class TestNeuralNetworks(unittest.TestCase):
         neural_net = NeuralNetwork.from_file("configs/test_simple_nn.json")  # type: NeuralNetwork
 
         # Do not seed, we calculate expectations manually.
-        test = ComponentTest(component=neural_net, input_spaces=dict(input=space), seed=None)
+        test = ComponentTest(component=neural_net, input_spaces=dict(apply=space), seed=None)
 
         # Batch of size=3.
         input_ = np.array([[0.1, 0.2, 0.3], [1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])
@@ -47,7 +47,7 @@ class TestNeuralNetworks(unittest.TestCase):
         w1_value = test.get_variable_values(var_dict["hidden-layer/dense/kernel"])
         b1_value = test.get_variable_values(var_dict["hidden-layer/dense/bias"])
         expected = np.matmul(input_, w1_value) + b1_value
-        test.test(out_socket_names="output", inputs=input_, expected_outputs=expected, decimals=5)
+        test.test(api_method="apply", params=input_, expected_outputs=expected, decimals=5)
 
     def test_complex_nn_assembly_from_file(self):
         pass
