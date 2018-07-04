@@ -90,18 +90,6 @@ class MultiGpuSyncOptimizer(Optimizer):
         # TODO generate ops to load to device memory
         pass
 
-    def _graph_fn_init_ops(self, *inputs):
-        """
-
-        Args:
-            *inputs:
-
-        Returns:
-
-        """
-        # TODO init loss ops
-        pass
-
     def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
         """
         The multi-gpu-sync optimizer calculates gradients by averaging them across
