@@ -41,11 +41,14 @@ class NNLayer(Layer):
         Must not be Container (for now) and must have a batch rank.
         """
         for api_method_name, in_spaces in input_spaces.items():
-            assert api_method_name == "apply", "ERROR: API for NN-Layer must be `apply`! No other API-methods allowed."
-            for in_space in in_spaces:
-                # - NNLayers always need FloatBoxes as input (later, add Container Spaces containing only FloatBoxes).
-                # - Must have batch rank.
-                sanity_check_space(in_space, allowed_types=[FloatBox], must_have_batch_rank=True)
+            assert api_method_name == "apply" or api_method_name == "_variables", \
+                "ERROR: API for NN-Layer must be `apply|_variables`! No other API-methods allowed."
+            if api_method_name == "apply":
+                for in_space in in_spaces:
+                    # - NNLayers always need FloatBoxes as input (later, add Container Spaces containing only
+                    # FloatBoxes).
+                    # - Must have batch rank.
+                    sanity_check_space(in_space, allowed_types=[FloatBox], must_have_batch_rank=True)
 
     def _graph_fn_apply(self, *inputs):
         """
