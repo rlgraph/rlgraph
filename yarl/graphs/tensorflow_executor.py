@@ -39,7 +39,12 @@ class TensorFlowExecutor(GraphExecutor):
     -'multi_gpu_sync': Parallelizes updates across multiple GPUs by averaging gradients.
     """
 
+    # Valid device strategies.
     LOCAL_DEVICE_STRATEGIES = ['default', 'custom', 'multi_gpu_sync']
+
+    # Agent api methods which are part of device strategies, i.e. which may need
+    # additional ops to be executed to transfer data to device memories.
+    DEVICE_API_METHODS = ['update']
 
     def __init__(self, **kwargs):
         super(TensorFlowExecutor, self).__init__(**kwargs)
@@ -83,7 +88,18 @@ class TensorFlowExecutor(GraphExecutor):
             self.profiling_frequency = self.execution_spec["profiler_frequency"]
 
         self.device_strategy = self.execution_spec.get('device_strategy', 'default')
+        self.init_device_strategy()
 
+        # # Initialize distributed backend.
+        # distributed_backend_ = self.execution_spec.get("distributed_backend", "distributed_tf")
+        #
+        # self.logger.info("Updating global distributed backend setting with backend {}".format(distributed_backend_))
+        # set_distributed_backend(distributed_backend_)
+
+    def init_device_strategy(self):
+        """
+        Initializes default device and loads available devices.
+        """
         if self.device_strategy == 'default':
             # Default device is user provided device or first CPU.
             default_device = self.execution_spec.get("default_device", None)
@@ -107,12 +123,6 @@ class TensorFlowExecutor(GraphExecutor):
             self.logger.info("Initializing graph executor with custom device strategy, "
                              "no work to be done.")
 
-        # # Initialize distributed backend.
-        # distributed_backend_ = self.execution_spec.get("distributed_backend", "distributed_tf")
-        #
-        # self.logger.info("Updating global distributed backend setting with backend {}".format(distributed_backend_))
-        # set_distributed_backend(distributed_backend_)
-
     def build(self, input_spaces, optimizer=None):
         # Prepare for graph assembly.
         self.init_execution()
@@ -131,7 +141,12 @@ class TensorFlowExecutor(GraphExecutor):
         self.finish_graph_setup()
 
     def execute(self, api_method, *params):
+        # Fetch inputs for api method.
         fetch_list, feed_dict = self.graph_builder.get_execution_inputs(api_method, *params)
+
+        # Expand inputs and fetch list with extra device memory init ops
+        if api_method in self.DEVICE_API_METHODS:
+            fetch_list, feed_dict = self.update_device_inputs_if_necessary(fetch_list, feed_dict)
         ret = self.monitored_session.run(fetch_list, feed_dict=feed_dict,
                                          options=self.session_options, run_metadata=self.run_metadata)
 
@@ -141,6 +156,21 @@ class TensorFlowExecutor(GraphExecutor):
             return ret[0]
         else:
             return ret
+
+    def update_device_inputs_if_necessary(self, fetch_list, feed_dict):
+        """
+        Adds device memory allocation operations to
+        Args:
+            fetch_list:
+            feed_dict:
+
+        Returns:
+
+        """
+        if self.device_strategy == 'multi_gpu_sync':
+            pass
+        else:
+            return fetch_list, feed_dict
 
     def update_profiler_if_necessary(self):
         """
