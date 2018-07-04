@@ -86,7 +86,7 @@ class Component(Specifiable):
         self.device = kwargs.pop("device", None)
         self.global_component = kwargs.pop("global_component", False)
         self.is_core = kwargs.pop("is_core", False)
-        self.graph_fn_outputs = kwargs.pop("graph_fn_outputs", dict())
+        self.graph_fn_num_outputs = kwargs.pop("graph_fn_num_outputs", dict())
 
         ignore_api = kwargs.pop("ignore_api", set())
 
@@ -243,8 +243,8 @@ class Component(Specifiable):
 
         # Create 2 op-record columns, one going into the graph_fn and one getting out of there and link
         # them together via the graph_fn (w/o calling it).
-        if method.__name__ in self.graph_fn_outputs:
-            num_graph_fn_return_values = self.graph_fn_outputs[method.__name__]
+        if method.__name__ in self.graph_fn_num_outputs:
+            num_graph_fn_return_values = self.graph_fn_num_outputs[method.__name__]
         else:
             num_graph_fn_return_values = util.get_num_return_values(method)
         self.logger.debug("Graph_fn has {} return values (inferred).".format(method.__name__,

@@ -35,13 +35,11 @@ class Exploration(Component):
     the Policy's distribution - either by sampling or by deterministically choosing the max-likelihood value.
 
     API:
-    ins:
-        time_step (int): The current global time step (used to determine the extend of the exploration).
-        sample_deterministic (any): The Policy's deterministic (max-likelihood) sampling output.
-        sample_stochastic (any): The Policy's stochastic sampling output.
-    outs:
-        do_explore (bool): Whether we chose to explore (act randomly) or not (act according to `non_explore_behavior`).
-        action (any): A single action choice according to our exploration settings and Policy's distribution.
+        get_action(sample_deterministic, sample_stochastic[, time_step]): Returns an action:
+            - epsilon-based exploration: Action depends on time-step (e.g. epsilon-decay).
+            - noise-based exploration: Noise is added to the sampled action.
+            - No exploration: Action depends on ctor parameter `non_explore_behavior`. Either always deterministic
+                or stochastic choice.
         # TODO: actions (any): A batch of actions taken from a batch of NN-outputs without any exploration.
     """
     def __init__(self, non_explore_behavior="max-likelihood", epsilon_spec=None, noise_spec=None,
@@ -61,10 +59,6 @@ class Exploration(Component):
         self.action_space = None
         self.non_explore_behavior = non_explore_behavior
 
-        # Define our interface.
-        self.define_inputs("sample_deterministic", "sample_stochastic", "time_step")
-        self.define_outputs("action", "do_explore", "noise")
-
         self.epsilon_exploration = None
         self.noise_component = None
 
@@ -75,35 +69,32 @@ class Exploration(Component):
         # Add epsilon component
         if epsilon_spec:
             self.epsilon_exploration = EpsilonExploration.from_spec(epsilon_spec)
-            self.add_component(self.epsilon_exploration)
-            self.connect("time_step", (self.epsilon_exploration, "time_step"))
-            self.connect((self.epsilon_exploration, "do_explore"), "do_explore")
+            self.add_components(self.epsilon_exploration)
 
-            # Add our own graph_fn and connect its output to the "action" Socket.
-            self.add_graph_fn(inputs=[(self.epsilon_exploration, "do_explore"),
-                                      "sample_deterministic", "sample_stochastic"],
-                              outputs="action",
-                              method=self._graph_fn_pick)
+            # Define our interface.
+            def get_action(self_, sample_deterministic, sample_stochastic, time_step):
+                do_explore = self_.call(self_.epsilon_exploration.do_explore, time_step)
+                return self_.call(self._graph_fn_pick, do_explore, sample_deterministic, sample_stochastic)
 
         # Add noise component
         elif noise_spec:
-            # Currently no noise component uses the time_step variable
-            self.unconnected_sockets_in_meta_graph.add("time_step")
-
             self.noise_component = NoiseComponent.from_spec(noise_spec)
-            self.add_component(self.noise_component)
-            self.connect((self.noise_component, "noise"), "noise")
-            self.add_graph_fn(inputs=[(self.noise_component, "noise"),
-                                      "sample_deterministic", "sample_stochastic"],
-                              outputs="action",
-                              method=self._graph_fn_add_noise)
+            self.add_components(self.noise_component)
+
+            def get_action(self_, sample_deterministic, sample_stochastic, time_step=0):
+                noise = self_.call(self_.noise_component.noise)
+                return self_.call(self_.graph_fn_add_noise, noise, sample_deterministic, sample_stochastic)
 
         # Don't explore at all
         else:
             if self.non_explore_behavior == "max-likelihood":
-                self.connect("sample_deterministic", "action")
+                def get_action(self_, sample_deterministic, sample_stochastic, time_step=0):
+                    return sample_deterministic
             else:
-                self.connect("sample_stochastic", "action")
+                def get_action(self_, sample_deterministic, sample_stochastic, time_step=0):
+                    return sample_stochastic
+
+        self.define_api_method("get_action", get_action)
 
     def check_input_spaces(self, input_spaces, action_space):
         self.action_space = action_space.with_batch_rank()
@@ -127,13 +118,13 @@ class Exploration(Component):
     def _graph_fn_pick(self, do_explore, sample_deterministic, sample_stochastic):
         """
         Exploration for discrete action spaces.
-        Either pick random daction (if `do_explore` is True), or return non-explorative action.
+        Either pick a random action (if `do_explore` is True), or return non-explorative action.
 
         Args:
             do_explore (DataOp): The bool coming from the epsilon-exploration component specifying
                 whether to use exploration or not.
-            sample_deterministic (DataOp): The output from our distribution's "sample_deterministic" Socket.
-            sample_stochastic (DataOp): The output from our distribution's "sample_stochastic" Socket.
+            sample_deterministic (DataOp): The output from a distribution's "sample_deterministic" API-method.
+            sample_stochastic (DataOp): The output from a distribution's "sample_stochastic" API-method.
 
         Returns:
             DataOp: The DataOp representing the action. This will match the shape of self.action_space.
@@ -154,8 +145,8 @@ class Exploration(Component):
 
         Args:
             noise (DataOp): The noise coming from the noise component.
-            sample_deterministic (DataOp): The output from our distribution's "sample_deterministic" Socket.
-            sample_stochastic (DataOp): The output from our distribution's "sample_stochastic" Socket.
+            sample_deterministic (DataOp): The output from a distribution's "sample_deterministic" API-method.
+            sample_stochastic (DataOp): The output from a distribution's "sample_stochastic" API-method.
 
         Returns:
             DataOp: The DataOp representing the action. This will match the shape of self.action_space.

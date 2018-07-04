@@ -259,12 +259,10 @@ class GraphBuilder(Specifiable):
                         if op_rec.column is None or op_rec.column.component is not next_op_rec.column.component:
                             self.build_component_when_input_complete(next_op_rec.column.component, new_op_records_to_process)
 
-                # No next records: Ignore columns coming from a _variables graph_fn and not going anywhere.
-                elif not isinstance(op_rec.column, DataOpRecordColumnFromGraphFn) or \
-                        op_rec.column.graph_fn_name != "_graph_fn__variables":
-                    # Must be a into graph_fn column.
-                    assert isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn)
-                    # If column complete and has not been sent through the graph_fn -> Call the graph_fn.
+                # No next records:
+                # - Op belongs to a column going into a graph_fn.
+                elif isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn):
+                    # If column complete AND has not been sent through the graph_fn yet -> Call the graph_fn.
                     if op_rec.column.is_complete() and op_rec.column.already_sent is False:
                         # Call the graph_fn with the given column and call-options.
                         self.run_through_graph_fn_with_device_and_scope(op_rec.column)
@@ -272,6 +270,14 @@ class GraphBuilder(Specifiable):
                         new_op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
                         # Tag column as already sent through graph_fn.
                         op_rec.column.already_sent = True
+                # - Op belongs to a column coming from a graph_fn or an API-method, but the op is no longer used.
+                # -> Ignore Op.
+
+                ## No next records: Ignore columns coming from a _variables graph_fn and not going anywhere.
+                #elif not isinstance(op_rec.column, DataOpRecordColumnFromGraphFn) or \
+                #        op_rec.column.graph_fn_name != "_graph_fn__variables":
+                #    # Must be a into graph_fn column.
+                #    assert isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn)
 
             # Replace all old records with new ones.
             for op_rec in op_records_list:

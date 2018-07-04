@@ -45,8 +45,8 @@ class TestFixedLoopComponent(unittest.TestCase):
         ))
 
         sample = test.test(
-            out_socket_names="fixed_loop_result",
-            inputs=0,
+            api_method="fixed_loop_result",
+            params=0,
             expected_outputs=None
         )
 

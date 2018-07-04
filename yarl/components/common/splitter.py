@@ -35,7 +35,7 @@ class Splitter(Component):
         assert isinstance(input_space, ContainerSpace), \
             "ERROR: `input_space` must be a ContainerSpace (Dict or Tuple)!"
         num_outputs = len(input_space.flatten())
-        super(Splitter, self).__init__(scope=scope, graph_fn_outputs=dict(_graph_fn_split=num_outputs), **kwargs)
+        super(Splitter, self).__init__(scope=scope, graph_fn_num_outputs=dict(_graph_fn_split=num_outputs), **kwargs)
 
         self.define_api_method(name="split", func=self._graph_fn_split, flatten_ops=True)
 
