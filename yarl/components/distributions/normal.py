@@ -36,10 +36,11 @@ class Normal(Distribution):
 
     def check_input_spaces(self, input_spaces, action_space):
         # Must be a Tuple of len 2 (loc and scale).
-        in_space = input_spaces["parameters"]
-        assert isinstance(in_space, Tuple) and len(in_space) == 2,\
-            "ERROR: {} (Distribution) ({}) needs an incoming Tuple with len=2!".format(type(self).__name__,
-                                                                                       self.name)
+        parameter_space = input_spaces["get_distribution"][0]
+        assert isinstance(parameter_space, Tuple) and len(parameter_space) == 2,\
+            "ERROR: API-method `get_distribution` of '{}' (type '') needs parameter arg to be a Tuple with " \
+            "len=2!".format(self.name, type(self).__name__)
+
     def _graph_fn_get_distribution(self, loc_and_scale):
         if get_backend() == "tf":
             return tf.distributions.Normal(loc=loc_and_scale[0], scale=loc_and_scale[1])

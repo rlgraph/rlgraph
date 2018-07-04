@@ -26,7 +26,8 @@ from yarl.spaces import Space
 from yarl.spaces.space_utils import get_space_from_op
 from yarl.utils.input_parsing import parse_summary_spec
 from yarl.utils.util import force_list, force_tuple
-from yarl.utils.ops import FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn
+from yarl.utils.ops import DataOpTuple, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn,\
+    DataOpRecordColumnFromGraphFn
 from yarl.utils.component_printout import component_print_out
 
 if get_backend() == "tf":
@@ -530,7 +531,11 @@ class GraphBuilder(Specifiable):
         feed_dict = dict()
         for i, param in enumerate(params):
             placeholder = self.api[api_method][0][i].op
-            feed_dict[placeholder] = param
+            if isinstance(placeholder, DataOpTuple):
+                for ph, p in zip(placeholder, param):
+                    feed_dict[ph] = p
+            else:
+                feed_dict[placeholder] = param
 
         return fetch_list, feed_dict
 
