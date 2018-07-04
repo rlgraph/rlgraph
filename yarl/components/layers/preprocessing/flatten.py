@@ -41,8 +41,7 @@ class Flatten(PreprocessLayer):
         Args:
             flatten_categories (bool): Whether to flatten also IntBox categories. Default: True.
         """
-        super(Flatten, self).__init__(scope=scope, flatten_ops=True, split_ops=True,
-                                      add_auto_key_as_first_param=True, **kwargs)
+        super(Flatten, self).__init__(scope=scope, add_auto_key_as_first_param=True, **kwargs)
 
         self.has_batch = None
 

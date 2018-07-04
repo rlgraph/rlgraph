@@ -51,7 +51,7 @@ class TestPreprocessors(unittest.TestCase):
         test.test(api_method="reset")
         test.test(api_method="preprocess", params=input_, expected_outputs=expected)
 
-    def test_split_graph_on_grayscale(self):
+    def test_split_inputs_on_grayscale(self):
         # last rank is always the color rank (its dim must match len(grayscale-weights))
         space = Dict.from_spec(dict(
             a=Tuple(FloatBox(shape=(1, 1, 2)), FloatBox(shape=(1, 2, 2))),
@@ -60,7 +60,7 @@ class TestPreprocessors(unittest.TestCase):
         ))
 
         test = ComponentTest(component=GrayScale(weights=(0.5, 0.5), keep_rank=False),
-                             input_spaces=dict(preprocess=space))
+                             input_spaces=dict(apply=space))
 
         # Run the test.
         input_ = dict(
@@ -82,7 +82,7 @@ class TestPreprocessors(unittest.TestCase):
             c=0.7
         )
         test.test(api_method="reset")
-        test.test(api_method="preprocess", params=input_, expected_outputs=expected)
+        test.test(api_method="apply", params=input_, expected_outputs=expected)
 
     def test_split_graph_on_flatten(self):
         space = Dict.from_spec(
@@ -95,7 +95,7 @@ class TestPreprocessors(unittest.TestCase):
             add_batch_rank=True
         )
 
-        test = ComponentTest(component=Flatten(), input_spaces=dict(input=space))
+        test = ComponentTest(component=Flatten(), input_spaces=dict(apply=space))
 
         input_ = dict(
             a=(
@@ -118,7 +118,7 @@ class TestPreprocessors(unittest.TestCase):
             d=np.array([[0.0, 0.0, 1.0], [1.0, 0.0, 0.0]])  # category (one-hot) flatten
         )
         test.test(api_method="reset")
-        test.test(api_method="preprocess", params=input_, expected_outputs=expected)
+        test.test(api_method="apply", params=input_, expected_outputs=expected)
 
     def test_two_preprocessors_in_a_preprocessor_stack(self):
         space = Dict(
@@ -130,7 +130,7 @@ class TestPreprocessors(unittest.TestCase):
         # Construct the Component to test (PreprocessorStack).
         scale = Scale(scaling_factor=2)
         gray = GrayScale(weights=(0.5, 0.5), keep_rank=False)
-        test = ComponentTest(component=PreprocessorStack(scale, gray), input_spaces=dict(input=space))
+        test = ComponentTest(component=PreprocessorStack(scale, gray), input_spaces=dict(preprocess=space))
 
         input_ = dict(
             a=np.array([[3.0, 5.0]]),
@@ -152,7 +152,7 @@ class TestPreprocessors(unittest.TestCase):
     def test_sequence_preprocessor(self):
         space = FloatBox(shape=(1,), add_batch_rank=True)
         component_to_test = Sequence(seq_length=3, add_rank=True)
-        test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
+        test = ComponentTest(component=component_to_test, input_spaces=dict(apply=space))
 
         vars = component_to_test.get_variables("index", "buffer", global_scope=False)
         index, buffer = vars["index"], vars["buffer"]
@@ -161,23 +161,23 @@ class TestPreprocessors(unittest.TestCase):
             test.test(api_method="reset")
             index_value, buffer_value = test.get_variable_values(index, buffer)
             self.assertEqual(index_value, -1)
-            test.test(api_method="preprocess", params=np.array([[0.1]]),
+            test.test(api_method="apply", params=np.array([[0.1]]),
                       expected_outputs=np.array([[[0.1, 0.1, 0.1]]]))
             index_value, buffer_value = test.get_variable_values(index, buffer)
             self.assertEqual(index_value, 0)
-            test.test(api_method="preprocess", params=np.array([[0.2]]),
+            test.test(api_method="apply", params=np.array([[0.2]]),
                       expected_outputs=np.array([[[0.1, 0.1, 0.2]]]))
             index_value, buffer_value = test.get_variable_values(index, buffer)
             self.assertEqual(index_value, 1)
-            test.test(api_method="preprocess", params=np.array([[0.3]]),
+            test.test(api_method="apply", params=np.array([[0.3]]),
                       expected_outputs=np.array([[[0.1, 0.2, 0.3]]]))
             index_value, buffer_value = test.get_variable_values(index, buffer)
             self.assertEqual(index_value, 2)
-            test.test(api_method="preprocess", params=np.array([[0.4]]),
+            test.test(api_method="apply", params=np.array([[0.4]]),
                       expected_outputs=np.array([[[0.2, 0.3, 0.4]]]))
             index_value, buffer_value = test.get_variable_values(index, buffer)
             self.assertEqual(index_value, 0)
-            test.test(api_method="preprocess", params=np.array([[0.5]]),
+            test.test(api_method="apply", params=np.array([[0.5]]),
                       expected_outputs=np.array([[[0.3, 0.4, 0.5]]]))
             index_value, buffer_value = test.get_variable_values(index, buffer)
             self.assertEqual(index_value, 1)
@@ -187,19 +187,19 @@ class TestPreprocessors(unittest.TestCase):
         space = Tuple(FloatBox(shape=(1,)), FloatBox(shape=(2, 2)), add_batch_rank=False)
 
         component_to_test = Sequence(seq_length=4, add_rank=False)
-        test = ComponentTest(component=component_to_test, input_spaces=dict(input=space))
+        test = ComponentTest(component=component_to_test, input_spaces=dict(apply=space))
 
         for i in range_(3):
             test.test(api_method="reset")
-            test.test(api_method="preprocess", params=(np.array([0.5]), np.array([[0.6, 0.7], [0.8, 0.9]])),
+            test.test(api_method="apply", params=np.array([np.array([0.5]), np.array([[0.6, 0.7], [0.8, 0.9]])]),
                       expected_outputs=(np.array([0.5, 0.5, 0.5, 0.5]), np.array([[0.6, 0.7] * 4,
                                                                                   [0.8, 0.9] * 4])))
-            test.test(api_method="preprocess", params=(np.array([0.6]), np.array([[1.1, 1.1], [1.1, 1.1]])),
+            test.test(api_method="apply", params=np.array([np.array([0.6]), np.array([[1.1, 1.1], [1.1, 1.1]])]),
                       expected_outputs=(np.array([0.5, 0.5, 0.5, 0.6]), np.array([[0.6, 0.7, 0.6, 0.7,
                                                                                    0.6, 0.7, 1.1, 1.1],
                                                                                   [0.8, 0.9, 0.8, 0.9,
                                                                                    0.8, 0.9, 1.1, 1.1]])))
-            test.test(api_method="preprocess", params=(np.array([0.7]), np.array([[2.0, 2.1], [2.2, 2.3]])),
+            test.test(api_method="apply", params=np.array([np.array([0.7]), np.array([[2.0, 2.1], [2.2, 2.3]])]),
                       expected_outputs=(np.array([0.5, 0.5, 0.6, 0.7]), np.array([[0.6, 0.7, 0.6, 0.7,
                                                                                    1.1, 1.1, 2.0, 2.1],
                                                                                   [0.8, 0.9, 0.8, 0.9,

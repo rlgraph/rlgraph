@@ -33,8 +33,8 @@ class PreprocessLayer(Layer):
         reset(): Optional; Does some reset operations e.g. in case this PreprocessLayer contains variables and state.
     """
     def __init__(self, scope="pre-process", **kwargs):
-        flatten_ops = kwargs.pop("flatten_ops", False)
-        split_ops = kwargs.pop("split_ops", False)
+        flatten_ops = kwargs.pop("flatten_ops", True)
+        split_ops = kwargs.pop("split_ops", True)
         add_auto_key_as_first_param = kwargs.pop("add_auto_key_as_first_param", False)
 
         super(PreprocessLayer, self).__init__(scope=scope, **kwargs)

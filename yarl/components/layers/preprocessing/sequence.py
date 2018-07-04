@@ -45,7 +45,7 @@ class Sequence(PreprocessLayer):
         """
         # Switch off split (it's switched on for all LayerComponents by default).
         # -> accept any Space -> flatten to OrderedDict -> input & return OrderedDict -> re-nest.
-        super(Sequence, self).__init__(scope=scope, flatten_ops=True, **kwargs)
+        super(Sequence, self).__init__(scope=scope, split_ops=False, **kwargs)
 
         self.sequence_length = seq_length
         self.add_rank = add_rank
@@ -58,7 +58,7 @@ class Sequence(PreprocessLayer):
         self.index = None
 
     def create_variables(self, input_spaces, action_space):
-        in_space = input_spaces["input"]
+        in_space = input_spaces["apply"][0]
         self.first_rank_is_batch = in_space.has_batch_rank
 
         # Cut the "batch rank" (always 1 anyway) and replace it with the "sequence-rank".
