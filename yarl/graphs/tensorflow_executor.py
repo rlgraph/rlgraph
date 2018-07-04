@@ -59,18 +59,24 @@ class TensorFlowExecutor(GraphExecutor):
         # tf.Scaffold.
         self.scaffold = None
 
-        # The Server (for distributed mode).
-        self.server = None  # The tf.Server object (if any).
+        # # The tf.Server object (if any).
+        self.server = None
 
         # Summary settings.
         self.summary_writer = None
         # self.summary_configuration_op = None
+
         # The merged summary op to be used by the session to write the summaries.
         self.summary_op = None
 
         # The session for the computation graph.
         self.session = None
         self.monitored_session = None
+
+        # The optimizer is a somewhat privileged graph component because it must manage
+        # devices depending on the device strategy and we hence keep an instance here to be able
+        # to request special device init ops.
+        self.optimizer = None
 
         self.graph_default_context = None
         self.local_device_protos = device_lib.list_local_devices()
@@ -146,7 +152,7 @@ class TensorFlowExecutor(GraphExecutor):
 
         # Expand inputs and fetch list with extra device memory init ops
         if api_method in self.DEVICE_API_METHODS:
-            fetch_list, feed_dict = self.update_device_inputs_if_necessary(fetch_list, feed_dict)
+            fetch_list, feed_dict = self.update_device_inputs_if_necessary(fetch_list, feed_dict, *params)
         ret = self.monitored_session.run(fetch_list, feed_dict=feed_dict,
                                          options=self.session_options, run_metadata=self.run_metadata)
 
@@ -157,18 +163,25 @@ class TensorFlowExecutor(GraphExecutor):
         else:
             return ret
 
-    def update_device_inputs_if_necessary(self, fetch_list, feed_dict):
+    def update_device_inputs_if_necessary(self, fetch_list, feed_dict, *params):
         """
-        Adds device memory allocation operations to
+        Adds device memory allocation operations to inputs where necessary.
+
         Args:
-            fetch_list:
-            feed_dict:
+            fetch_list (list): Fetch list for api method.
+            feed_dict (dict): Input dict for api method.
+            *params (any): Values to be passed into the API-method.
 
         Returns:
-
+            tuple: Fetch list and input dict with additional device ops depending on device strategy.
         """
         if self.device_strategy == 'multi_gpu_sync':
-            pass
+            # Request additional ops from optimizer which implements them.
+            device_fetches, device_dict = self.optimizer.get_device_ops(*params)
+            fetch_list.extend(device_fetches)
+            feed_dict.update(device_dict)
+
+            return fetch_list, feed_dict
         else:
             return fetch_list, feed_dict
 
@@ -443,7 +456,8 @@ class TensorFlowExecutor(GraphExecutor):
             self.profiler = tf.profiler.Profiler(graph=self.session.graph)
 
     def load_model(self, path=None):
-        pass
+        self.logger.info("Attempting to restore model from path: {}.".format(path))
+        self.saver.restore(self.session, path)
 
     def store_model(self, path=None, add_timestep=True):
         if self.summary_writer is not None:
@@ -500,6 +514,9 @@ class TensorFlowExecutor(GraphExecutor):
             # Assert we have more than one gpu.
             assert self.num_gpus > 1
             assert isinstance(optimizer, MultiGpuSyncOptimizer)
+
+            # Save optimizer which will return the necessary ops.
+            self.optimizer = optimizer
 
             # We must be able to copy the core component.
             # Pass device and replica info.
