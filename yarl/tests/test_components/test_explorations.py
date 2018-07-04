@@ -53,7 +53,7 @@ class TestExplorations(unittest.TestCase):
         action_space = IntBox(5, shape=(2, 2), add_batch_rank=True)
         # Our distribution to go into the Exploration object.
         distribution = Categorical()
-        action_adapter = ActionAdapter()
+        action_adapter = ActionAdapter(action_space=action_space)
         nn_output_space = FloatBox(shape=(13,), add_batch_rank=True)  # 13: Any flat nn-output should be ok.
         exploration = Exploration.from_spec(dict(
             epsilon_spec=dict(
@@ -67,33 +67,33 @@ class TestExplorations(unittest.TestCase):
         # The Component to test.
         component_to_test = Component(action_adapter, distribution, exploration, scope="categorical-plus-exploration")
 
-        def action(self_, nn_output, time_step):
-            parameters = self_.call(action_adapter.)
+        def get_action(self_, nn_output, time_step):
+            _, parameters = self_.call(action_adapter.get_logits_and_parameters, nn_output)
+            distr_obj = self_.call(distribution.get_distribution, parameters)
+            sample_stochastic = self_.call(distribution.sample_stochastic, distr_obj)
+            sample_deterministic = self_.call(distribution.sample_deterministic, distr_obj)
+            action = self_.call(exploration.get_action, time_step, sample_stochastic, sample_deterministic)
+            return action
 
-        component_to_test.define_api_method("action", action)
-
-        component_to_test.connect("nn_output", [action_adapter, "nn_output"])
-        component_to_test.connect([action_adapter, "generate_parameters"], [distribution, "parameters"])
-        component_to_test.connect([distribution, "sample_deterministic"], [exploration, "sample_deterministic"])
-        component_to_test.connect([distribution, "sample_stochastic"], [exploration, "sample_stochastic"])
-        component_to_test.connect("time_step", [exploration, "time_step"])
-        component_to_test.connect([exploration, "action"], "action")
+        component_to_test.define_api_method("get_action", get_action)
 
         test = ComponentTest(component=component_to_test,
-                             input_spaces=dict(nn_output=nn_output_space, time_step=int),
+                             input_spaces=dict(get_action=[nn_output_space, int]),
                              action_space=action_space)
 
         # fake output from last NN layer (shape=(13,))
-        inputs = dict(nn_output=np.array([[100.0, 50.0, 25.0, 12.5, 6.25,
-                                           200.0, 100.0, 50.0, 25.0, 12.5,
-                                           1.0, 1.0, 25.0
-                                           ],
-                                          [123.4, 34.7, 98.2, 1.2, 120.0,
-                                           200.0, 200.0, 0.00009, 10.0, 300.0,
-                                           0.567, 0.678, 0.789
-                                           ]
-                                          ]),
-                      time_step=10000)
+        inputs = [
+            10000,
+            np.array([[100.0, 50.0, 25.0, 12.5, 6.25,
+                       200.0, 100.0, 50.0, 25.0, 12.5,
+                       1.0, 1.0, 25.0
+                       ],
+                      [123.4, 34.7, 98.2, 1.2, 120.0,
+                       200.0, 200.0, 0.00009, 10.0, 300.0,
+                       0.567, 0.678, 0.789
+                       ]
+                      ])
+        ]
         expected = np.array([[[3, 1], [3, 2]], [[1, 1], [3, 2]]])
         test.test(api_method="action", params=inputs, expected_outputs=expected)
 

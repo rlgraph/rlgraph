@@ -291,7 +291,7 @@ class Component(Specifiable):
 
         # Now actually call the API method with that column and
         # create a new out-column with num-records == num-return values.
-        scoped_name = "{}-{}".format(method_owner.scope, method.__name__)
+        #scoped_name = "{}-{}".format(method_owner.scope, method.__name__)
         name = method.__name__
 
         self.logger.debug("Calling api method {} with owner {}:".format(name, method_owner))

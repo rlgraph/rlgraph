@@ -127,7 +127,7 @@ class GraphBuilder(Specifiable):
             in_ops_records = list()
             if input_spaces is not None and api_method_name in input_spaces:
                 for i in range(len(force_list(input_spaces[api_method_name]))):
-                    in_ops_records.append(DataOpRecord(description="input-{}-{}".format(api_method_name, i)))
+                    in_ops_records.append(DataOpRecord(position=i))
             self.core_component.call(api_method_rec.method, *in_ops_records)
             # Register interface.
             self.api[api_method_name] = (in_ops_records, api_method_rec.out_op_columns[0].op_records)
@@ -263,15 +263,14 @@ class GraphBuilder(Specifiable):
                         op_rec.column.graph_fn_name != "_graph_fn__variables":
                     # Must be a into graph_fn column.
                     assert isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn)
-                    # If column complete, call the graph_fn.
-                    if op_rec.column.is_complete():
+                    # If column complete and has not been sent through the graph_fn -> Call the graph_fn.
+                    if op_rec.column.is_complete() and op_rec.column.already_sent is False:
                         # Call the graph_fn with the given column and call-options.
                         self.run_through_graph_fn_with_device_and_scope(op_rec.column)
                         # Store all resulting op_recs (returned by the graph_fn) to be processed next.
                         new_op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
-                    # If column incomplete, stop here for now.
-                    else:
-                        new_op_records_to_process.add(op_rec)
+                        # Tag column as already sent through graph_fn.
+                        op_rec.column.already_sent = True
 
             # Replace all old records with new ones.
             for op_rec in op_records_list:
@@ -331,11 +330,12 @@ class GraphBuilder(Specifiable):
                     # Keep working with the generated output ops.
                     op_records_to_process.update(no_in_col.out_graph_fn_column.op_records)
 
-        # Check variable-completeness and run the _variable graph_fn if the component just became "variable-complete".
+        # Check variable-completeness and actually call the _variable graph_fn if the component just became
+        # "variable-complete".
         if component.input_complete is True and component.variable_complete is False and \
                 component.check_variable_completeness():
-            component.call(component._graph_fn__variables)
             graph_fn_rec = component.graph_fns["_graph_fn__variables"]
+            assert len(graph_fn_rec.in_op_columns) == 1
             self.run_through_graph_fn_with_device_and_scope(graph_fn_rec.in_op_columns[0])
             # Keep working with the generated output ops.
             op_records_to_process.update(graph_fn_rec.out_op_columns[0].op_records)
@@ -469,6 +469,8 @@ class GraphBuilder(Specifiable):
             #        "ERROR: Newly calculated output op of graph_fn '{}' has different Space than the Socket that " \
             #        "this op will go into ({} vs {})!".format(graph_fn.name, space, socket.space)
             #else:
+            # Make sure the receiving op-record is still empty.
+            assert out_graph_fn_column.op_records[i].op is None
             out_graph_fn_column.op_records[i].op = op
             out_graph_fn_column.op_records[i].space = space
 

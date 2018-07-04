@@ -58,10 +58,8 @@ class TestDistributions(unittest.TestCase):
             np.array([[0.1, 0.3, 0.6, 0.71, 0.001], [0.9, 0.998, 0.9999, 0.0001, 0.345678]]),
             False
         ]
-        #expected = np.array([[False, False, True, False, False], [True, True, True, False, False]])
-        #test.test(api_method="draw", params=input_, expected_outputs=expected)
         # Try the same on the sample_stochastic out-Socket without the max_likelihood input..
-        expected = np.array([[False, False, True, True, False], [True, True, True, False, False]])
+        expected = np.array([[False, False, True, False, False], [True, True, True, False, False]])
         test.test(api_method="sample_stochastic", params=input_[0], expected_outputs=expected)
 
     def test_categorical(self):
