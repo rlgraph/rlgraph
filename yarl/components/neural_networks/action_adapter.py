@@ -43,12 +43,12 @@ class ActionAdapter(Component):
     API:
         get_action_layer_output(nn_output) (SingleDataOp): The raw, non-reshaped output of the action-layer
             (DenseLayer) after passing through the raw nn_output (from the previous Component).
-        get_logits_and_parameters (Tuple[SingleDataOp x 2]): The final results of translating nn_output into logits and
-            Distribution-readable parameters (e.g. probabilities).
+        get_logits_and_parameters(nn_output) (Tuple[SingleDataOp x 2]): The final results of translating nn_output
+            into logits and Distribution-readable parameters (e.g. probabilities).
 
         Optional:
             If add_dueling_layer=True:
-                get_dueling_output(action_layer_output) (Tuple[SingleDataOp x 3]): The state-value, advantage-values
+                get_dueling_output(nn_output) (Tuple[SingleDataOp x 3]): The state-value, advantage-values
                     (reshaped) and q-values (reshaped) after passing action_layer_output through the dueling layer.
             else:
                 get_action_layer_output_reshaped(nn_output) (SingleDataOp): The (according to our action Space)
@@ -104,7 +104,8 @@ class ActionAdapter(Component):
             self.dueling_layer = DuelingLayer()
             self.add_components(self.dueling_layer)
 
-            def get_dueling_output(self_, action_layer_output):
+            def get_dueling_output(self_, nn_output):
+                action_layer_output = self_.call(self_.action_layer.apply, nn_output)
                 state_value, advantage_values, q_values = self_.call(self_.dueling_layer.apply, action_layer_output)
                 return state_value, advantage_values, q_values
 
