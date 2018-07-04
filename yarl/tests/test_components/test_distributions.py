@@ -59,7 +59,7 @@ class TestDistributions(unittest.TestCase):
             False
         ]
         # Try the same on the sample_stochastic out-Socket without the max_likelihood input..
-        expected = np.array([[False, False, True, False, False], [True, True, True, False, False]])
+        expected = np.array([[False, True, False, True, False], [True, True, True, False, True]])
         test.test(api_method="sample_stochastic", params=input_[0], expected_outputs=expected)
 
     def test_categorical(self):
@@ -110,7 +110,7 @@ class TestDistributions(unittest.TestCase):
         ]
         expected = np.array([[2, 0, 2, 0, 0], [0, 2, 1, 0, 2]])
         test.test(api_method="draw", params=input_, expected_outputs=expected)
-        expected = np.array([[0, 0, 1, 1, 1], [2, 2, 0, 0, 0]])
+        expected = np.array([[1, 0, 1, 1, 2], [0, 2, 1, 0, 2]])
         test.test(api_method="sample_stochastic", params=input_[0], expected_outputs=expected)
 
     def test_categorical_on_different_space(self):
@@ -193,5 +193,5 @@ class TestDistributions(unittest.TestCase):
         ]
         expected = np.array([[2.1588295, 1.0059931, 44.69817, 150.37675, 30.661076]], dtype=np.float32)
         test.test(api_method="draw", params=input_, expected_outputs=expected)
-        expected = np.array([[3.1035013, 0.9969247, 45.175655, 150.46294, 57.188843]], dtype=np.float32)
+        expected = np.array([[-0.6715696, 0.9988091, 44.73782, 150.38652, 14.133482]], dtype=np.float32)
         test.test(api_method="sample_stochastic", params=input_[0], expected_outputs=expected)

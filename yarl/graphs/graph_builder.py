@@ -237,13 +237,13 @@ class GraphBuilder(Specifiable):
         # Re-iterate until our bag of op-recs to process is empty.
         loop_counter = 0
         while len(op_records_to_process) > 0:
-            op_records_list = list(op_records_to_process)
+            op_records_list = sorted(op_records_to_process, key=lambda rec: rec.id)
             new_op_records_to_process = set()
             for op_rec in op_records_list:  # type: DataOpRecord
                 # There are next records:
                 if len(op_rec.next) > 0:
                     # Push the op-record forward one step.
-                    for next_op_rec in op_rec.next:  # type: DataOpRecord
+                    for next_op_rec in sorted(op_rec.next, key=lambda rec: rec.id):  # type: DataOpRecord
                         # If not last op in this API-method ("done") -> continue.
                         # Otherwise, replace "done" with actual op.
                         if next_op_rec.op != "done":
@@ -272,12 +272,6 @@ class GraphBuilder(Specifiable):
                         op_rec.column.already_sent = True
                 # - Op belongs to a column coming from a graph_fn or an API-method, but the op is no longer used.
                 # -> Ignore Op.
-
-                ## No next records: Ignore columns coming from a _variables graph_fn and not going anywhere.
-                #elif not isinstance(op_rec.column, DataOpRecordColumnFromGraphFn) or \
-                #        op_rec.column.graph_fn_name != "_graph_fn__variables":
-                #    # Must be a into graph_fn column.
-                #    assert isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn)
 
             # Replace all old records with new ones.
             for op_rec in op_records_list:
@@ -318,7 +312,7 @@ class GraphBuilder(Specifiable):
         if return_:
             ret = list()
             for l in sorted(list_.keys(), reverse=True):
-                ret.extend(list_[l])
+                ret.extend(sorted(list_[l], key=lambda c: c.scope))
             return ret
 
     def build_component_when_input_complete(self, component, op_records_to_process):

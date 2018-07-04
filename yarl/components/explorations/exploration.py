@@ -82,8 +82,8 @@ class Exploration(Component):
             self.add_components(self.noise_component)
 
             def get_action(self_, sample_deterministic, sample_stochastic, time_step=0):
-                noise = self_.call(self_.noise_component.noise)
-                return self_.call(self_.graph_fn_add_noise, noise, sample_deterministic, sample_stochastic)
+                noise = self_.call(self_.noise_component.get_noise)
+                return self_.call(self_._graph_fn_add_noise, noise, sample_deterministic, sample_stochastic)
 
         # Don't explore at all
         else:
@@ -157,24 +157,3 @@ class Exploration(Component):
                 return sample_deterministic + noise
             else:
                 return sample_stochastic + noise
-
-
-"""        
-        ActionHeadComponent
-    __init__(action-space, epsilon-comp=epsilon-component if None, no epsilon;
-        alternatively: noise-component to be added to continuous action output?
-        epsilon-strategy=[greedy|sample|random])
-    in: network-output (q-values or probs), time-step
-    out: "act"
-    _graph_act: use sub-exploration-component with connected  time-step to calculate epsilon:
-        if explore: pick random action from some distribution (needs to be specified in c'tor?).
-        else: pick greedy action (or some other strategy) according to network-output.
-
-
-Possibilities:
-    - discrete output (q-values (Q-Learning) or (softmaxed) discrete-action probs (PG))
-        makes sense to use epsilon-style exploration (if epsilon: random, else greedy or prob-based-sample).
-    - continuous output (params for a distribution to pick actions from)
-        makes sense to use noise-style exploration (add some noise to the output and sample from that: always sample, there is no random or maybe uniform sampling, but that's probably stupid)
-        - what about epsilon for continuous actions? if epsilon: uniform sample? else: normal sample according to the nn-generated distribution.
-"""

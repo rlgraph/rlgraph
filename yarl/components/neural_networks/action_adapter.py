@@ -71,7 +71,7 @@ class ActionAdapter(Component):
         """
         super(ActionAdapter, self).__init__(scope=scope, **kwargs)
 
-        self.target_space = action_space.with_batch_rank()
+        self.action_space = action_space.with_batch_rank()
         self.weights_spec = weights_spec
         self.biases_spec = biases_spec
         self.activation = activation
@@ -84,10 +84,10 @@ class ActionAdapter(Component):
         self.dueling_layer = None
 
         # Create the action layer (DenseLayer object) depending on our action Space.
-        if isinstance(self.target_space, IntBox):
-            units = self.target_space.flat_dim_with_categories
+        if isinstance(self.action_space, IntBox):
+            units = self.action_space.flat_dim_with_categories
         else:
-            units = 2 * self.target_space.flat_dim  # Those two dimensions are the mean and log sd
+            units = 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
 
         self.action_layer = DenseLayer(
             units=units + (1 if self.add_dueling_layer is True else 0),
@@ -133,15 +133,15 @@ class ActionAdapter(Component):
 
     def check_input_spaces(self, input_spaces, action_space):
         # Check the input Space.
-        last_nn_layer_space = input_spaces["get_action_layer_output"][0]  # type: Space
+        last_nn_layer_space = input_spaces["get_action_layer_output_reshaped"][0]  # type: Space
         sanity_check_space(last_nn_layer_space, non_allowed_types=[ContainerSpace])
 
-        if isinstance(self.target_space, IntBox):
-            sanity_check_space(self.target_space, must_have_batch_rank=True, allowed_types=[IntBox],
+        if isinstance(self.action_space, IntBox):
+            sanity_check_space(self.action_space, must_have_batch_rank=True, allowed_types=[IntBox],
                                must_have_categories=True)
         else:
             # Fixme: Are there other restraints on continuous action spaces? E.g. no dueling layers?
-            sanity_check_space(self.target_space, must_have_batch_rank=True, allowed_types=[FloatBox])
+            sanity_check_space(self.action_space, must_have_batch_rank=True, allowed_types=[FloatBox])
 
     def get_action_layer_output(self, nn_output):
         return self.call(self.action_layer.apply, nn_output)
@@ -158,10 +158,10 @@ class ActionAdapter(Component):
             SingleDataOp: The reshaped action_layer_output.
         """
         # Reshape action_output to action shape.
-        if isinstance(self.target_space, IntBox):
-            shape = list(self.target_space.get_shape(with_batch_rank=-1, with_category_rank=True))
-        elif isinstance(self.target_space, FloatBox):
-            shape = [-1, 2] + list(self.target_space.get_shape(with_batch_rank=False))  # Manually add moments rank
+        if isinstance(self.action_space, IntBox):
+            shape = list(self.action_space.get_shape(with_batch_rank=-1, with_category_rank=True))
+        elif isinstance(self.action_space, FloatBox):
+            shape = [-1, 2] + list(self.action_space.get_shape(with_batch_rank=False))  # Manually add moments rank
         else:
             raise NotImplementedError
 
@@ -184,13 +184,13 @@ class ActionAdapter(Component):
                     get_distribution API-method (usually some probabilities or loc/scale pairs).
         """
         if get_backend() == "tf":
-            if isinstance(self.target_space, IntBox):
+            if isinstance(self.action_space, IntBox):
                 # Discrete actions.
                 parameters = tf.maximum(x=tf.nn.softmax(logits=action_layer_output_reshaped, axis=-1), y=SMALL_NUMBER)
 
                 # Log probs.
                 logits = tf.log(x=parameters)
-            elif isinstance(self.target_space, FloatBox):
+            elif isinstance(self.action_space, FloatBox):
                 # Continuous actions.
                 mean, log_sd = tf.split(value=action_layer_output_reshaped, num_or_size_splits=2, axis=1)
 
