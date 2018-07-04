@@ -133,7 +133,7 @@ class ActionAdapter(Component):
 
     def check_input_spaces(self, input_spaces, action_space):
         # Check the input Space.
-        last_nn_layer_space = input_spaces["get_action_layer_output_reshaped"][0]  # type: Space
+        last_nn_layer_space = input_spaces["get_logits_and_parameters"][0]  # type: Space
         sanity_check_space(last_nn_layer_space, non_allowed_types=[ContainerSpace])
 
         if isinstance(self.action_space, IntBox):
