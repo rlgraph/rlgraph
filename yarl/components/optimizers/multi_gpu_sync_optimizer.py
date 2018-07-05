@@ -75,9 +75,12 @@ class MultiGpuSyncOptimizer(Optimizer):
 
         # Create device copies and variables
         for device in self.gpu_devices:
-            with tf.device(self.scope):
-                # TODO split inputs
-                pass
+            with tf.device(device):
+                with tf.name_scope(self.scope):
+                    # TODO split inputs
+                    # TODO Create variables
+                    # TODO Get gradients for subgraphs
+                    pass
 
     def _graph_fn_load_to_device(self, *inputs):
         """

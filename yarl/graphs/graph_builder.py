@@ -91,10 +91,6 @@ class GraphBuilder(Specifiable):
             default_device (Optional[str]): Default device identifier.
             device_strategy (Optional[str]): Device strategy.
         """
-        # Build the meta-graph (generating empty op-record columns around API methods
-        # and graph_fns).
-        self.build_meta_graph(input_spaces)
-
         # self.sanity_check_meta_graph()
 
         # Set devices usable for this graph.

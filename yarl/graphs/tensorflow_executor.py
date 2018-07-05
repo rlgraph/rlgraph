@@ -134,10 +134,14 @@ class TensorFlowExecutor(GraphExecutor):
         self.init_execution()
         self.setup_graph()
 
-        # TODO split graph assembly
+        # Build the meta-graph (generating empty op-record columns around API methods
+        # and graph_fns).
+        self.graph_builder.build_meta_graph(input_spaces)
+
+        # TODO expand meta graph
         self._build_device_strategy(optimizer)
 
-        # Assemble graph via graph builder.
+        # Build actual TensorFlow graph from meta graph.
         self.graph_builder.build(input_spaces, self.available_devices, self.default_device, self.device_strategy)
 
         # Check device assignments for inconsistencies or unused devices.
