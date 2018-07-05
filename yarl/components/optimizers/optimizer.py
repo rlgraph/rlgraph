@@ -72,14 +72,12 @@ class Optimizer(Component):
         else:
             self.define_api_method(name="step", func=self._graph_fn_apply_gradients)
 
-    def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
+    def _graph_fn_calculate_gradients(self, *inputs):
         """
         Calculates the gradients for the given variables and the loss function (and maybe other child-class
             specific input parameters).
 
         Args:
-            variables (DataOpTuple): A list of variables to calculate gradients for.
-            loss (SingeDataOp): The total loss over a batch to be minimized.
             inputs (SingleDataOp): Custom SingleDataOp parameters, dependent on the optimizer type.
 
         Returns:

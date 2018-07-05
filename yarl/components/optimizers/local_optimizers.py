@@ -39,6 +39,11 @@ class LocalOptimizer(Optimizer):
         self.optimizer = None
 
     def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
+        """
+        Args:
+            variables (DataOpTuple): A list of variables to calculate gradients for.
+            loss (SingeDataOp): The total loss over a batch to be minimized.
+        """
         if get_backend() == "tf":
             grads_and_vars = DataOpTuple(self.optimizer.compute_gradients(
                 loss=loss,
@@ -91,6 +96,7 @@ class AdamOptimizer(LocalOptimizer):
 class NadamOptimizer(LocalOptimizer):
     """
     Nesterov-adaptive momentum optimizer which applies Nesterov's accelerated gradient to Adam:
+
     http://cs229.stanford.edu/proj2015/054_report.pdf
     """
     def __init__(self, learning_rate, **kwargs):
@@ -111,6 +117,7 @@ class AdagradOptimizer(LocalOptimizer):
     """
     Adaptive gradient optimizer which sets small learning rates for frequently appearing features
     and large learning rates for rare features:
+
     http://www.jmlr.org/papers/volume12/duchi11a/duchi11a.pdf
     """
     def __init__(self, learning_rate, **kwargs):
@@ -130,6 +137,7 @@ class AdagradOptimizer(LocalOptimizer):
 class AdadeltaOptimizer(LocalOptimizer):
     """
     Adadelta optimizer which adapts learning rate over time:
+
     https://arxiv.org/abs/1212.5701
     """
     def __init__(self, learning_rate, **kwargs):
@@ -143,8 +151,8 @@ class AdadeltaOptimizer(LocalOptimizer):
 
 class SGDOptimizer(LocalOptimizer):
     """
-    Stochastic gradient descent optimizer from tf.keras including support for momentum, learning-rate-decay and
-    Nesterov momentum.
+    Stochastic gradient descent optimizer from tf.keras including support for momentum,
+    learning-rate-decay and Nesterov momentum.
     """
     def __init__(self, learning_rate, **kwargs):
         super(SGDOptimizer, self).__init__(
@@ -160,6 +168,7 @@ class SGDOptimizer(LocalOptimizer):
 class RMSPropOptimizer(LocalOptimizer):
     """
     RMSPRop Optimizer as discussed by Hinton:
+
     https://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf
     """
     def __init__(self, learning_rate, **kwargs):

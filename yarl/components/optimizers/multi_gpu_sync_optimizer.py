@@ -40,7 +40,7 @@ class MultiGpuSyncOptimizer(Optimizer):
         self.optimizer = local_optimizer
 
         # Function handle used to create replicas.
-        self.replica_graph_handle = None
+        self.replicaGraphs = None
 
         # Device names.
         self.gpu_devices = None
@@ -51,14 +51,14 @@ class MultiGpuSyncOptimizer(Optimizer):
         self.device_vars = None
         self.device_losses = None
 
-    def set_replica_graph_handle(self, build_loss_graph):
+    def set_replicas(self, replicas):
         """
-        Provides the optimizer with a function generate replicas of the loss graph.
+        Provides the optimizer with a list of subgraphs to use for splitting batches over gpus.
 
         Args:
-            build_loss_graph (Callable): Function returning the loss graph when called.
+            replicas (list): List of subgraphs.
         """
-        self.replica_graph_handle = build_loss_graph
+        pass
 
     def set_devices(self, gpu_devices):
         """
@@ -102,14 +102,8 @@ class MultiGpuSyncOptimizer(Optimizer):
         for i, param in enumerate(params):
             # TODO -> where do we register this api?
             pass
-            # placeholder = self.api[api_method][0][i].op
-            # if isinstance(placeholder, DataOpTuple):
-            #     for ph, p in zip(placeholder, param):
-            #         feed_dict[ph] = p
-            # else:
-            #     feed_dict[placeholder] = param
 
-    def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
+    def _graph_fn_calculate_gradients(self, *inputs):
         """
         The multi-gpu-sync optimizer calculates gradients by averaging them across
         replicas.

@@ -522,10 +522,15 @@ class TensorFlowExecutor(GraphExecutor):
             # Save optimizer which will return the necessary ops.
             self.optimizer = optimizer
 
-            # We must be able to copy the core component.
-            # Pass device and replica info.
-            # TODO do we want to copy the core or selected sub components of core/ a subgraph?
-            optimizer.set_replica_graph_handle(self.graph_builder.core_component.copy)
+            # TODO expand metagraph
+            subgraphs = []
+            for device in range(self.num_gpus):
+                subgraphs.append(self.graph_builder.copy_subgraph())
+
+            optimizer.set_replicas(subgraphs)
+
+            # Pass device and replicas
+            optimizer.set_replicas(subgraphs)
             optimizer.set_devices(self.gpu_names)
 
     def _sanity_check_devices(self):
