@@ -30,7 +30,7 @@ class Conv2DLayer(NNLayer):
     """
     A Conv2D NN-layer.
     """
-    def __init__(self, filters, kernel_size, strides, padding="valid", data_format="channels_first",
+    def __init__(self, filters, kernel_size, strides, padding="valid", data_format="channels_last",
                  kernel_spec=None, biases_spec=None, **kwargs):
         """
         Args:

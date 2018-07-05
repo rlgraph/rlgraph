@@ -28,10 +28,16 @@ class Layer(Component):
         apply(*inputs): Applies the layer's logic to the inputs and returns one or more result values.
     """
     def __init__(self, **kwargs):
-        # By default, switch on splitting for all Layers.
+        flatten_ops = kwargs.pop("flatten_ops", False)
+        split_ops = kwargs.pop("split_ops", False)
+        add_auto_key_as_first_param = kwargs.pop("add_auto_key_as_first_param", False)
+
         super(Layer, self).__init__(scope=kwargs.pop("scope", "layer"), **kwargs)
 
-        self.define_api_method("apply", self._graph_fn_apply, flatten_ops=True, split_ops=True)
+        self.define_api_method(
+            "apply", self._graph_fn_apply, flatten_ops=flatten_ops,
+            split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param
+        )
 
     def _graph_fn_apply(self, *inputs):
         """
@@ -43,5 +49,5 @@ class Layer(Component):
         Returns:
             The output(s) of this layer.
         """
-        return inputs  # optional
+        raise NotImplementedError
 

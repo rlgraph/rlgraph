@@ -30,10 +30,10 @@ class NNLayer(Layer):
         self.activation = kwargs.pop("activation", None)
         self.activation_params = kwargs.pop("activation_params", [])
 
-        super(NNLayer, self).__init__(scope=kwargs.pop("scope", "nn-layer"), **kwargs)
-
         # The wrapped backend-layer object.
         self.layer = None
+
+        super(NNLayer, self).__init__(scope=kwargs.pop("scope", "nn-layer"), **kwargs)
 
     def check_input_spaces(self, input_spaces, action_space):
         """

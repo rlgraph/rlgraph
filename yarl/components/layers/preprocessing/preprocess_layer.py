@@ -20,6 +20,7 @@ from __future__ import division
 import tensorflow as tf
 
 from yarl.components.layers import Layer
+from yarl.utils.util import default_dict
 
 
 class PreprocessLayer(Layer):
@@ -33,17 +34,10 @@ class PreprocessLayer(Layer):
         reset(): Optional; Does some reset operations e.g. in case this PreprocessLayer contains variables and state.
     """
     def __init__(self, scope="pre-process", **kwargs):
-        flatten_ops = kwargs.pop("flatten_ops", True)
-        split_ops = kwargs.pop("split_ops", True)
-        add_auto_key_as_first_param = kwargs.pop("add_auto_key_as_first_param", False)
-
+        default_dict(kwargs, dict(flatten_ops=True, split_ops=True))
         super(PreprocessLayer, self).__init__(scope=scope, **kwargs)
 
         self.define_api_method("reset", self._graph_fn_reset)
-        self.define_api_method(
-            "apply", self._graph_fn_apply, flatten_ops=flatten_ops,
-            split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param
-        )
 
     def _graph_fn_reset(self):
         """
@@ -54,14 +48,4 @@ class PreprocessLayer(Layer):
             to do the processing and this information has to be reset after the episode terminates.
         """
         return tf.no_op(name="reset-op")  # Not mandatory.
-
-    def _graph_fn_apply(self, *inputs):
-        """
-        Args:
-            inputs (any): The input to be "pre-processed".
-
-        Returns:
-            The op that pre-processes the input.
-        """
-        raise NotImplementedError
 
