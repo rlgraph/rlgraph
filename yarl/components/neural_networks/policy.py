@@ -33,12 +33,9 @@ class Policy(Component):
     NN-output but also query actions (stochastically or deterministically) from the distribution.
 
     API:
-    ins:
-        nn_input (SingleDataOp): The input to the neural network.
-    outs:
-        nn_output (SingleDataOp): The raw output of the neural network (before it's cleaned-up and passed through
+        get_nn_output(nn_input): The raw output of the neural network (before it's cleaned-up and passed through
             our ActionAdapter).
-        action_layer_output (SingleDataOp): The flat output of the action layer of the ActionAdapter.
+        get_action_layer_output(nn_input) (SingleDataOp): The flat output of the action layer of the ActionAdapter.
         Optional:
             If action_adapter has a DuelingLayer:
                 state_value (SingleDataOp): The state value diverged from the first output node of the previous layer.
@@ -48,18 +45,18 @@ class Policy(Component):
             else:
                 action_layer_output_reshaped (SingleDataOp): The action layer output, reshaped according to the action
                     space.
-        parameters (SingleDataOp): The softmaxed action_layer_outputs (probability parameters) going into the
-            Distribution Component.
-        logits (SingleDataOp): The logs of the parameter (probability) values.
+        get_logits_and_parameters: See ActionAdapter Component.
         sample_stochastic: See Distribution component.
         sample_deterministic: See Distribution component.
         entropy: See Distribution component.
     """
-    def __init__(self, neural_network, writable=False, action_adapter_spec=None, scope="policy", **kwargs):
+    def __init__(self, neural_network, action_space=None,
+                 writable=False, action_adapter_spec=None, scope="policy", **kwargs):
         """
         Args:
             neural_network (Union[NeuralNetwork,dict]): The NeuralNetwork Component or a specification dict to build
                 one.
+            action_space (Space): The action Space within which this Component will create actions.
             writable (bool): Whether this Policy can be synced to by another (equally structured) Policy.
                 Default: False.
             action_adapter_spec (Optional[dict]): A spec-dict to create an ActionAdapter. USe None for the default
@@ -69,41 +66,56 @@ class Policy(Component):
 
         self.neural_network = NeuralNetwork.from_spec(neural_network)
         self.writable = writable
-        self.action_adapter = ActionAdapter.from_spec(action_adapter_spec)
-        self.distribution = None  # to be determined once we know the action Space
+        if action_space is None:
+            self.action_adapter = ActionAdapter.from_spec(action_adapter_spec)
+            action_space = self.action_adapter.action_space
+        else:
+            self.action_adapter = ActionAdapter.from_spec(action_adapter_spec, action_space=action_space)
+        self.action_space = action_space
 
-        # Define our interface (some of the input/output Sockets will be defined depending on the NeuralNetwork's
-        # own interface, e.g. "sync_in" may be missing if the NN is not writable):
-        # self.define_outputs("parameters", "logits", "sample_stochastic", "sample_deterministic", "entropy")
-
-        # Add NN, connect it through and then rename its "output" into Policy's "nn_output".
-        self.add_components(self.neural_network, self.action_adapter)
-        # self.rename_socket("input", "nn_input")
-        # self.rename_socket("output", "nn_output")
-
-        # Add the Adapter, connect the network's "output" into it and the "logits" Socket.
-        # self.connect((self.neural_network, "output"), (self.action_adapter, "nn_output"))
-        # self.connect((self.action_adapter, "action_layer_output"), "action_layer_output")
-        # self.connect((self.action_adapter, "parameters"), "parameters")
-        # self.connect((self.action_adapter, "logits"), "logits")
-
-        # Add Synchronizable API to ours.
-        if self.writable:
-            self.add_components(Synchronizable())
-
-    def check_input_spaces(self, input_spaces, action_space):
-        # The Distribution to sample (or pick) actions from.
-        # Discrete action space -> Categorical distribution (each action needs a logit from network).
+        # Figure out our Distribution.
         if isinstance(action_space, IntBox):
             self.distribution = Categorical()
         # Continuous action space -> Normal distribution (each action needs mean and variance from network).
         elif isinstance(action_space, FloatBox):
             self.distribution = Normal()
         else:
-            raise YARLError("ERROR: Space of out-Socket `action` is of type {} and not allowed in {} Component!".
+            raise YARLError("ERROR: `action_space` is of type {} and not allowed in {} Component!".
                             format(type(action_space).__name__, self.name))
 
-        # This defines out-Sockets "sample_stochastic/sample_deterministic/entropy".
-        self.add_components(self.distribution)
-        # Plug-in Adapter Component into Distribution.
-        # self.connect((self.action_adapter, "parameters"), (self.distribution, "parameters"))
+        self.add_components(self.neural_network, self.action_adapter, self.distribution)
+
+        # Add Synchronizable API to ours.
+        if self.writable:
+            self.add_components(Synchronizable(), expose_apis="sync")
+
+    # Define our interface.
+    def get_nn_output(self, nn_input):
+        nn_output = self.call(self.neural_network.apply, nn_input)
+        return nn_output
+
+    def get_action_layer_output(self, nn_input):
+        nn_output = self.call(self.get_nn_output, nn_input)
+        action_layer_output = self.call(self.action_adapter.get_action_layer_output, nn_output)
+        return action_layer_output
+
+    def get_logits_and_parameters(self, nn_input):
+        nn_output = self.call(self.get_nn_output, nn_input)
+        logits, parameters = self.call(self.action_adapter.get_logits_and_parameters, nn_output)
+        return logits, parameters
+
+    def get_entropy(self, nn_input):
+        nn_output = self.call(self.get_nn_output, nn_input)
+        _, parameters = self.call(self.action_adapter.get_logits_and_parameters, nn_output)
+        entropy = self.call(self.distribution.entropy, parameters)
+        return entropy
+
+    def sample_stochastic(self, nn_input):
+        _, parameters = self.call(self.get_logits_and_parameters, nn_input)
+        sample = self.call(self.distribution.sample_stochastic, parameters)
+        return sample
+
+    def sample_deterministic(self, nn_input):
+        _, parameters = self.call(self.get_logits_and_parameters, nn_input)
+        sample = self.call(self.distribution.sample_deterministic, parameters)
+        return sample
