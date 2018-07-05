@@ -99,3 +99,16 @@ class Optimizer(Component):
             DataOp: The op to trigger the gradient-application step.
         """
         raise NotImplementedError
+
+    def get_device_ops(self, *params):
+        """
+        Utility method to fetch any optimizer specific ops, e.g. to split the optimization across
+        devices.
+
+        Args:
+            *params (any): Values to generate inputs.
+
+        Returns:
+            Tuple: Fetch list and feed dict for device ops.
+        """
+        pass

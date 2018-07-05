@@ -74,8 +74,10 @@ class MultiGpuSyncOptimizer(Optimizer):
         super(MultiGpuSyncOptimizer, self).create_variables(input_spaces, action_space)
 
         # Create device copies and variables
-        # TODO setup variables per device
-        # TODO assert correct scope and device assignment
+        for device in self.gpu_devices:
+            with tf.device(self.scope):
+                # TODO split inputs
+                pass
 
     def _graph_fn_load_to_device(self, *inputs):
         """
@@ -89,6 +91,20 @@ class MultiGpuSyncOptimizer(Optimizer):
         """
         # TODO generate ops to load to device memory
         pass
+
+    def get_device_ops(self, *params):
+        # TODO provide init ops.
+        fetch_list = []
+        feed_dict = dict()
+        for i, param in enumerate(params):
+            # TODO -> where do we register this api?
+            pass
+            # placeholder = self.api[api_method][0][i].op
+            # if isinstance(placeholder, DataOpTuple):
+            #     for ph, p in zip(placeholder, param):
+            #         feed_dict[ph] = p
+            # else:
+            #     feed_dict[placeholder] = param
 
     def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
         """
@@ -143,5 +159,4 @@ class MultiGpuSyncOptimizer(Optimizer):
                 # Don't need all vars because they are shared.
                 var = grads_and_vars[0][1]
                 gpu_averages.append((mean_grad, var))
-
         return gpu_averages
