@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from collections import OrderedDict
 import logging
+import time
 
 from yarl import YARLError, Specifiable, get_backend
 from yarl.components import Component
@@ -26,8 +27,7 @@ from yarl.spaces import Space
 from yarl.spaces.space_utils import get_space_from_op
 from yarl.utils.input_parsing import parse_summary_spec
 from yarl.utils.util import force_list, force_tuple
-from yarl.utils.ops import DataOpTuple, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn,\
-    DataOpRecordColumnFromGraphFn
+from yarl.utils.ops import DataOpTuple, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn
 from yarl.utils.component_printout import component_print_out
 
 if get_backend() == "tf":
@@ -40,9 +40,6 @@ class GraphBuilder(Specifiable):
     components, sockets and connections and creating the underlying computation
     graph.
     """
-    # Break iterative DFS graph building if caught in a loop.
-    MAX_ITERATIVE_LOOPS = 100
-
     def __init__(self, name="model", action_space=None, summary_spec=None):
         """
         Args:
@@ -109,6 +106,9 @@ class GraphBuilder(Specifiable):
         Args:
             input_spaces (Optional[Space]): Input spaces for api methods.
         """
+        # Time the meta-graph build:
+        time_start = time.monotonic()
+
         # Sanity check input_spaces dict.
         if input_spaces is not None:
             for api_method_name in input_spaces.keys():
@@ -125,9 +125,12 @@ class GraphBuilder(Specifiable):
             if input_spaces is not None and api_method_name in input_spaces:
                 for i in range(len(force_list(input_spaces[api_method_name]))):
                     in_ops_records.append(DataOpRecord(position=i))
-            self.core_component.call(api_method_rec.method, *in_ops_records)
+            self.core_component.call(api_method_rec.method, *in_ops_records, ok_to_call_own_api=True)
             # Register interface.
             self.api[api_method_name] = (in_ops_records, api_method_rec.out_op_columns[0].op_records)
+
+        time_build = time.monotonic() - time_start
+        self.logger.info("Meta-graph build completed in {}sec.".format(time_build))
 
     def sanity_check_meta_graph(self, component=None):
         """
@@ -220,6 +223,9 @@ class GraphBuilder(Specifiable):
             op_records_to_process (Set[DataOpRecord]): The initial set of DataOpRecords (with populated `op` fields
                 to start the build with).
         """
+        # Time the build procedure.
+        time_start = time.monotonic()
+
         # Tag very last out-op-records with op="last", so we know in the build process that we are done.
         for _, out_op_records in self.api.values():
             for out_op_rec in out_op_records:
@@ -230,10 +236,11 @@ class GraphBuilder(Specifiable):
         for component in components:
             self.build_component_when_input_complete(component, op_records_to_process)
 
+        op_records_list = sorted(op_records_to_process, key=lambda rec: rec.id)
+
         # Re-iterate until our bag of op-recs to process is empty.
         loop_counter = 0
-        while len(op_records_to_process) > 0:
-            op_records_list = sorted(op_records_to_process, key=lambda rec: rec.id)
+        while len(op_records_list) > 0:
             new_op_records_to_process = set()
             for op_rec in op_records_list:  # type: DataOpRecord
                 # There are next records:
@@ -260,27 +267,38 @@ class GraphBuilder(Specifiable):
                 elif isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn):
                     # If column complete AND has not been sent through the graph_fn yet -> Call the graph_fn.
                     if op_rec.column.is_complete() and op_rec.column.already_sent is False:
+                        # If we reach a graph_fn, the Component must be input-complete (otherwise we would have been
+                        # caught at the API level).
+                        assert op_rec.column.component.input_complete
+                        ## Only call the graph_fn if the Component is already input-complete.
+                        ##if op_rec.column.component.input_complete:
                         # Call the graph_fn with the given column and call-options.
                         self.run_through_graph_fn_with_device_and_scope(op_rec.column)
                         # Store all resulting op_recs (returned by the graph_fn) to be processed next.
                         new_op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
                         # Tag column as already sent through graph_fn.
                         op_rec.column.already_sent = True
+                        ## Component not input-complete. Keep coming back with this op.
+                        #else:
+                        #    self.build_component_when_input_complete(op_rec.column.component, new_op_records_to_process)
+                        #    new_op_records_to_process.add(op_rec)
+                    # - Op column is not complete yet: Discard this one (as others will keep coming in anyway).
+                    # - Op column has already been sent (sibling ops may have arrive in same iteration).
                 # - Op belongs to a column coming from a graph_fn or an API-method, but the op is no longer used.
                 # -> Ignore Op.
 
-            # Replace all old records with new ones.
-            for op_rec in op_records_list:
-                op_records_to_process.remove(op_rec)
-            for op_rec in new_op_records_to_process:
-                op_records_to_process.add(op_rec)
+            # Sanity check, whether we are stuck.
+            new_op_records_list = sorted(new_op_records_to_process, key=lambda rec: rec.id)
+            if op_records_list == new_op_records_list:
+                raise YARLError("Build procedure is stuck in endless iterations. Most likely, you are having a "
+                                "circularly dependent Component in your meta-graph. The current op-records to process "
+                                "are: {}".format(new_op_records_list))
 
-            # Sanity check iterative loops.
+            op_records_list = new_op_records_list
             loop_counter += 1
-            if loop_counter >= self.MAX_ITERATIVE_LOOPS:
-                raise YARLError("Sanity checking graph-build procedure: Reached max iteration steps: {}!".format(
-                    self.MAX_ITERATIVE_LOOPS
-                ))
+
+        time_build = time.monotonic() - time_start
+        self.logger.info("Computation-Graph build completed in {}sec ({} iterations).".format(time_build, loop_counter))
 
     def get_all_components(self, component=None, list_=None, level_=0):
         """
@@ -525,6 +543,8 @@ class GraphBuilder(Specifiable):
         Returns:
             tuple: fetch-dict, feed-dict with relevant args.
         """
+        if api_method not in self.api:
+            raise YARLError("No API-method with name '{}' found!".format(api_method))
         fetch_list = [op_rec.op for op_rec in self.api[api_method][1]]
         feed_dict = dict()
         for i, param in enumerate(params):

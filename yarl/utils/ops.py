@@ -348,10 +348,19 @@ class DataOpRecordColumnFromAPIMethod(DataOpRecordColumn):
 
 
 class APIMethodRecord(object):
-    def __init__(self, method, component, must_be_complete=True):
+    def __init__(self, method, component, must_be_complete=True, callable_anytime=False):
+        """
+        Args:
+            method (callable): The actual API-method (callable).
+            component (Component): The Component this API-method belongs to.
+            must_be_complete (bool): Whether the Component can only be input-complete if at least one
+                input op-record column is complete.
+            callable_anytime (bool): Whether this API-method can be called even before the Component is input-complete.
+        """
         self.method = method
         self.component = component
         self.must_be_complete = must_be_complete
+        self.callable_anytime = callable_anytime
 
         #self.spaces = None
         self.in_op_columns = list()
