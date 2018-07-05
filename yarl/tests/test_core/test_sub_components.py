@@ -32,7 +32,14 @@ class TestTwoSubComponents(unittest.TestCase):
     """
     root_logger.setLevel(level=logging.INFO)
 
-    # TODO do we want this test class or are they covered by 'test_connections_with_op_guidance.py'?
+    def test_component_with_sub_component(self):
+        a = DummyWithSubComponents(scope="A")
+        #test = ComponentTest(component=a, input_spaces=dict(run1=float, run2=float))
+        test = ComponentTest(component=a, input_spaces=dict(run2=float))
+
+        # Expected: (1): in + 2.0  (2): [result of (1)] + 1.0
+        #test.test(api_method="run1", params=1.1, expected_outputs=[3.1, 4.1])
+        test.test(api_method="run2", params=1.1, expected_outputs=3.1)
 
     def test_connecting_two_1to1_components(self):
         """
@@ -82,3 +89,52 @@ class TestTwoSubComponents(unittest.TestCase):
         # Expected output: (input + 1.0) + 1.1
         test.test(api_method="run", params=78.4, expected_outputs=80.5)
         test.test(api_method="run", params=-5.2, expected_outputs=-3.1)
+
+    def test_diamond_4x_sub_component_setup(self):
+        """
+        Adds 4 sub-components (A, B, C, D) with 1-to-1 graph_fns to the core.
+        in1 -> A (like preprocessor in DQN)
+        in2 -> A
+        A -> B (like policy in DQN)
+        A -> C (like target policy in DQN)
+        B -> Din1 (like loss func in DQN: q_vals_s)
+        C -> Din2 (q_vals_sp)
+        """
+        container = Component(scope="container")
+        a = Dummy1To1(scope="A")
+        b = Dummy1To1(scope="B")
+        c = Dummy1To1(scope="C")
+        d = Dummy2To1(scope="D")
+
+        # Throw in the sub-components.
+        container.add_components(a, b, c, d)
+
+        # Define container's API:
+        def container_run(self_, input1, input2):
+            """
+            Describes the diamond setup in1->A->B; in2->A->C; C,B->D->output
+            """
+            # Adds constant value 1.0  to 1.1 -> 2.1
+            in1_past_a = self_.call(self_.sub_components["A"].run, input1)
+
+            # 0.5 + 1.0 = 1.5
+            in2_past_a = self_.call(self_.sub_components["A"].run, input2)
+
+            # 2.1 + 1.0 = 3.1
+            past_b = self_.call(self_.sub_components["B"].run, in1_past_a)
+
+            # 1.5 + 1.0 = 2.5
+            past_c = self_.call(self_.sub_components["C"].run, in2_past_a)
+
+            # 3.1 + 2.5 = 5.6
+            past_d = self_.call(self_.sub_components["D"].run, past_b, past_c)
+
+            return past_d
+
+        container.define_api_method("run", container_run)
+
+        test = ComponentTest(component=container, input_spaces=dict(run=(float, float)))
+
+        # Push both api_methods through graph to receive correct (single-op) output calculation.
+        test.test(api_method="run", params=(np.array(1.1), np.array(0.5)), expected_outputs=5.6)
+

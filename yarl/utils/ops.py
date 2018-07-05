@@ -115,7 +115,8 @@ class DataOpRecord(object):
         # Set of (op-col ID, slot) tuples that are connected from this one.
         self.next = set()
 
-    def get_id(self):
+    @staticmethod
+    def get_id():
         DataOpRecord._ID += 1
         return DataOpRecord._ID
 
@@ -237,7 +238,6 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
         Raises:
             YARLError: If there are more than 1 flattened ops in ops and their keys don't match 100%.
         """
-        #ops = [r.op for r in self.op_records]
         assert all(op is not None for op in ops)  # just make sure
 
         # Collect FlattenedDataOp for checking their keys (must match).

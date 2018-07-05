@@ -76,6 +76,27 @@ class Dummy1To2(Component):
         return input_ + self.constant_value, input_ * self.constant_value
 
 
+class Dummy0to1(Component):
+    """
+    A dummy component with one graph_fn without api_methods and one output.
+
+    API:
+        run() -> fixed value stored in a variable
+    """
+    def __init__(self, scope="dummy-0-to-1", var_value=1.0):
+        super(Dummy0to1, self).__init__(scope=scope)
+        self.var_value = var_value
+        self.var = None
+
+        self.define_api_method("run", self._graph_fn_0to1)
+
+    def create_variables(self, input_spaces, action_space):
+        self.var = self.get_variable(initializer=self.var_value)
+
+    def _graph_fn_0to1(self):
+        return self.var
+
+
 class Dummy2GraphFns1To1(Component):
     """
     API:
@@ -156,12 +177,12 @@ class DummyWithSubComponents(Component):
         self.sub_comp = DummyInputComplete()
         self.add_components(self.sub_comp)
 
-    def run1(self, input_):
-        # Explicit definition of an API-method using one of our graph_fn and one of
-        # our child API-methods.
-        result = self.call(self.sub_comp.run_plus, input_)
-        result2 = self.call(self._graph_fn_apply, result)
-        return result, result2
+    #def run1(self, input_):
+    #    # Explicit definition of an API-method using one of our graph_fn and one of
+    #    # our child API-methods.
+    #    result = self.call(self.sub_comp.run_plus, input_)
+    #    result2 = self.call(self._graph_fn_apply, result)
+    #    return result, result2
 
     def run2(self, input_):
         # Explicit definition of an API-method using one of our graph_fn and both of
