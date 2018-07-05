@@ -236,7 +236,10 @@ class Component(Specifiable):
         """
         # Make sure the graph_fn belongs to this Component (not allowed to call graph_fn of other component
         # directly).
-        assert method_owner is self
+        if method_owner is not self:
+            raise YARLError("Graph_fn '{}' may only be sent to `call` by its owner ({})! However, '{}' is "
+                            "calling it.".format(method.__name__, method_owner.scope, self.scope))
+
         # Store a  graph_fn record in this component for better in/out-op-record-column reference.
         if method.__name__ not in self.graph_fns:
             self.graph_fns[method.__name__] = GraphFnRecord(graph_fn=method, component=self)
@@ -252,6 +255,25 @@ class Component(Specifiable):
         out_graph_fn_column = DataOpRecordColumnFromGraphFn(
             num_graph_fn_return_values, component=self, graph_fn_name=method.__name__
         )
+        # Sanity check number of input values against len(params).
+        actual_params = list(inspect.signature(method).parameters.values())
+        if kwargs.get("add_auto_key_as_first_param") is True:
+            actual_params = actual_params[1:]
+        if len(params) != len(actual_params):
+            # Check whether the last arg is var_positional (e.g. *inputs; in that case it's ok if the number of params
+            # is larger than that of the actual graph_fn params).
+            if actual_params[-1].kind == inspect.Parameter.VAR_POSITIONAL and \
+                    len(params) > len(actual_params):
+                pass
+            # Some actual params have default values: Number of given params must be at least as large as the number
+            # of non-default actual params.
+            elif len(params) >= sum([p.default is inspect.Parameter.empty for p in actual_params]):
+                pass
+            else:
+                raise YARLError("ERROR: Graph_fn '{}/{}' has {} input-parameters, but {} ({}) were being provided in "
+                                "the `Component.call` method!".
+                                format(self.name, method.__name__, len(inspect.signature(method).parameters),
+                                       len(params), params))
         in_graph_fn_column = DataOpRecordColumnIntoGraphFn(
             len(params), component=self, graph_fn=method, out_graph_fn_column=out_graph_fn_column, **kwargs
         )
@@ -331,9 +353,8 @@ class Component(Specifiable):
     def check_input_completeness(self):
         """
         Checks whether this Component is "input-complete" and stores the result in self.input_complete.
-        Input-completeness is reached (only once and then it stays that way) if all in-Sockets to this component
-        (whose name is not in `self.unconnected_sockets_in_meta_graph` have at least one op defined in
-        their `ops` set.
+        Input-completeness is reached (only once and then it stays that way) if all API-methods of this component
+        (whose `must_be_complete` field is not set to False) have at least one op-rec-column completed.
 
         Returns:
             Optional[dict]: A space-dict if the Component is input-complete, None otherwise.
@@ -349,14 +370,16 @@ class Component(Specifiable):
                 continue
 
             # Get the spaces of each op-record in the columns.
+            # If one of the columns is complete, Component is complete.
             for in_op_col in api_method_rec.in_op_columns:
                 spaces = [op_rec.space for op_rec in in_op_col.op_records]
                 # All Spaces are defined -> Store list of Spaces (for this column) in return dict.
-                if all(spaces):
+                if all(s is not None for s in spaces):
                     space_dict[method_name] = spaces
                     break
-                # Some Spaces are None.
-                else:
+            # None of the columns is complete. Return as "incomplete".
+            else:
+                if len(api_method_rec.in_op_columns) > 0:
                     self.input_complete = False
                     return None
 
@@ -687,17 +710,18 @@ class Component(Specifiable):
             split_ops (bool,Set[int]): See `self.call` for details.
             add_auto_key_as_first_param (bool): See `self.call` for details.
         """
-        #if name in self.api_methods:
-        #    raise YARLError("API-method with name '{}' already defined!".format(name))
-        #elif getattr(self, name, None) is not None:
-        #    raise YARLError("Component '{}' already has property called '{}'. Cannot define an API-method with "
-        #                    "the same name!".format(self.name, name))
+        if name in self.api_methods:
+            raise YARLError("API-method with name '{}' already defined!".format(name))
+        elif getattr(self, name, None) is not None:
+            raise YARLError("Component '{}' already has property called '{}'. Cannot define an API-method with "
+                            "the same name!".format(self.name, name))
 
         func_type = util.get_method_type(func)
 
         # Function is a graph_fn: Build a simple wrapper API-method around it and name it `name`.
         if func_type == "graph_fn":
             kwargs = kwargs
+
             def api_method(self_, *inputs):
                 func_ = getattr(self_, func.__name__)
                 return self_.call(func_, *inputs, **kwargs)
