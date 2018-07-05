@@ -36,7 +36,7 @@ class TestFixedLoopComponent(unittest.TestCase):
         loop = FixedLoop(
             num_iterations=10,
             call_component=call_component,
-            graph_fn_name="value"
+            graph_fn_name="decayed_value"
         )
         loop.connect((loop, "api_methods"), (call_component, "time_step"))
         test = ComponentTest(component=loop, input_spaces=dict(

@@ -65,25 +65,23 @@ class TestPolicies(unittest.TestCase):
                   decimals=5)
 
         # Parameter (probabilities). Softmaxed action_layer_outputs.
-        expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
-        #test.test(api_method="parameters", params=states, expected_outputs=expected_probabilities_output,
-        #          decimals=5)
         # Logits: log of the parameters.
+        expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
         test.test(api_method="get_logits_and_parameters", params=states, expected_outputs=[
             np.log(expected_probabilities_output),
             expected_probabilities_output
         ], decimals=5)
 
         # Stochastic sample.
-        expected_actions = np.array([2, 4])
+        expected_actions = np.array([0, 3])
         test.test(api_method="sample_stochastic", params=states, expected_outputs=expected_actions)
 
         # Deterministic sample.
-        expected_actions = np.array([4, 4])
+        expected_actions = np.array([0, 0])
         test.test(api_method="sample_deterministic", params=states, expected_outputs=expected_actions)
 
         # Distribution's entropy.
-        expected_h = np.array([1.604283, 0.0088937])
+        expected_h = np.array([1.4887688, 1.4581219])
         test.test(api_method="get_entropy", params=states, expected_outputs=expected_h)
 
     def test_policy_for_discrete_action_space_with_dueling_layer(self):
@@ -98,7 +96,19 @@ class TestPolicies(unittest.TestCase):
             neural_network="configs/test_lrelu_nn.json",
             action_adapter_spec=dict(add_dueling_layer=True, action_space=action_space)
         )
-        test = ComponentTest(component=policy, input_spaces=dict(nn_input=state_space), action_space=action_space)
+        test = ComponentTest(
+            component=policy,
+            input_spaces=dict(
+                get_nn_output=state_space,
+                get_action_layer_output=state_space,
+                get_entropy=state_space,
+                get_dueling_output=state_space,
+                get_logits_and_parameters=state_space,
+                sample_deterministic=state_space,
+                sample_stochastic=state_space
+            ),
+            action_space=action_space
+        )
         policy_params = test.graph_executor.read_variable_values(policy.variables)
 
         # Some NN api_methods (3 input nodes, batch size=3).
@@ -138,7 +148,7 @@ class TestPolicies(unittest.TestCase):
                   ])
 
         # Stochastic sample.
-        expected_actions = np.array([0, 1, 0])
+        expected_actions = np.array([0, 1, 1])
         test.test(api_method="sample_stochastic", params=states, expected_outputs=expected_actions)
 
         # Deterministic sample.
@@ -146,5 +156,5 @@ class TestPolicies(unittest.TestCase):
         test.test(api_method="sample_deterministic", params=states, expected_outputs=expected_actions)
 
         # Distribution's entropy.
-        expected_h = np.array([0.6931471, 0.693072 , 0.6931453])
+        expected_h = np.array([0.6931462, 0.6925241, 0.6931312])
         test.test(api_method="get_entropy", params=states, expected_outputs=expected_h)

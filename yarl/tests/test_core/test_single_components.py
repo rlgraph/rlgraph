@@ -46,7 +46,7 @@ class TestSingleComponents(unittest.TestCase):
         Adds a single component with 1-to-1 graph_fn to the core and passes a value through it.
         """
         component = Dummy1To1(scope="dummy")
-        test = ComponentTest(component=component)
+        test = ComponentTest(component=component, input_spaces=dict(run=float))
 
         # Expected output: input + 1.0
         test.test(api_method="run", params=1.0, expected_outputs=2.0)
@@ -57,12 +57,11 @@ class TestSingleComponents(unittest.TestCase):
         Adds a single component with 2-to-1 graph_fn to the core and passes 2 values through it.
         """
         component = Dummy2To1(scope="dummy")
-        test = ComponentTest(component=component, input_spaces=dict(input1=float, input2=float))
+        test = ComponentTest(component=component, input_spaces=dict(run=[float, float]))
 
         # Expected output: input1 + input2
-        test.test(api_method="output", params=dict(input1=1.0, input2=2.9), expected_outputs=3.9)
-        test.test(api_method="output", params=dict(input1=4.9, input2=-0.1),
-                  expected_outputs=np.array(4.8, dtype=np.float32))
+        test.test(api_method="run", params=[1.0, 2.9], expected_outputs=3.9)
+        test.test(api_method="run", params=[4.9, -0.1], expected_outputs=np.array(4.8, dtype=np.float32))
 
     def test_1to2_component(self):
         """
@@ -85,15 +84,15 @@ class TestSingleComponents(unittest.TestCase):
         # Expected outputs: `var_value` passed into ctor.
         test.test(api_method="run", params=None, expected_outputs=5.0)
 
-    def test_2to1_component_with_constant_input_value(self):
-        """
-        Adds a single component with 1-to-1 graph_fn to the core and blocks the input with a constant value.
-        """
-        component = Dummy2To1(scope="dummy")
-        test = ComponentTest(component=component, input_spaces=dict(input1=5.5, input2=float))
+    #def test_2to1_component_with_constant_input_value(self):
+    #    """
+    #    Adds a single component with 1-to-1 graph_fn to the core and blocks the input with a constant value.
+    #    """
+    #    component = Dummy2To1(scope="dummy")
+    #    test = ComponentTest(component=component, input_spaces=dict(input1=5.5, input2=float))
 
-        # Expected output: (const 5.5) + in2
-        test.test(api_method="output", params=dict(input2=4.5), expected_outputs=10.0)
+    #    # Expected output: (const 5.5) + in2
+    #    test.test(api_method="output", params=4.5, expected_outputs=10.0)
 
     # def test_2to1_component_with_1_constant_input(self):
     #    """

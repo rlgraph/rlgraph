@@ -73,6 +73,14 @@ class Policy(Component):
             self.action_adapter = ActionAdapter.from_spec(action_adapter_spec, action_space=action_space)
         self.action_space = action_space
 
+        # Add API-method to get dueling output (if we use a dueling layer).
+        if self.action_adapter.add_dueling_layer:
+            def get_dueling_output(self_, nn_input):
+                nn_output = self_.call(self_.neural_network.apply, nn_input)
+                return self_.call(self_.action_adapter.get_dueling_output, nn_output)
+
+            self.define_api_method("get_dueling_output", get_dueling_output)
+
         # Figure out our Distribution.
         if isinstance(action_space, IntBox):
             self.distribution = Categorical()
@@ -83,6 +91,7 @@ class Policy(Component):
             raise YARLError("ERROR: `action_space` is of type {} and not allowed in {} Component!".
                             format(type(action_space).__name__, self.name))
 
+        #self.add_components(, expose_apis=dict(apply="get_nn_output"))
         self.add_components(self.neural_network, self.action_adapter, self.distribution)
 
         # Add Synchronizable API to ours.
@@ -95,27 +104,30 @@ class Policy(Component):
         return nn_output
 
     def get_action_layer_output(self, nn_input):
-        nn_output = self.call(self.get_nn_output, nn_input)
+        nn_output = self.call(self.neural_network.apply, nn_input)
         action_layer_output = self.call(self.action_adapter.get_action_layer_output, nn_output)
         return action_layer_output
 
     def get_logits_and_parameters(self, nn_input):
-        nn_output = self.call(self.get_nn_output, nn_input)
+        nn_output = self.call(self.neural_network.apply, nn_input)
         logits, parameters = self.call(self.action_adapter.get_logits_and_parameters, nn_output)
         return logits, parameters
 
     def get_entropy(self, nn_input):
-        nn_output = self.call(self.get_nn_output, nn_input)
+        nn_output = self.call(self.neural_network.apply, nn_input)
         _, parameters = self.call(self.action_adapter.get_logits_and_parameters, nn_output)
         entropy = self.call(self.distribution.entropy, parameters)
         return entropy
 
     def sample_stochastic(self, nn_input):
-        _, parameters = self.call(self.get_logits_and_parameters, nn_input)
+        nn_output = self.call(self.neural_network.apply, nn_input)
+        _, parameters = self.call(self.action_adapter.get_logits_and_parameters, nn_output)
         sample = self.call(self.distribution.sample_stochastic, parameters)
         return sample
 
     def sample_deterministic(self, nn_input):
-        _, parameters = self.call(self.get_logits_and_parameters, nn_input)
+        nn_output = self.call(self.neural_network.apply, nn_input)
+        _, parameters = self.call(self.action_adapter.get_logits_and_parameters, nn_output)
         sample = self.call(self.distribution.sample_deterministic, parameters)
         return sample
+

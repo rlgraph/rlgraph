@@ -265,6 +265,20 @@ def get_method_type(method):
         return "unknown"
 
 
+def does_method_call_graph_fns(method):
+    """
+    Inspects the source code of a method and returns whether this method calls graph_fns inside its code.
+
+    Args:
+        method (callable): The method to inspect.
+
+    Returns:
+        bool: Whether at least one graph_fn is called somewhere in the source code.
+    """
+    mo = re.search(r'\.call\([^,\)]+\._graph_fn_', inspect.getsource(method))
+    return mo is not None
+
+
 def get_num_return_values(method):
     """
     Does a regexp-based source code inspection and tries to figure out the number of values that the method
@@ -279,6 +293,9 @@ def get_num_return_values(method):
     src = inspect.getsource(method)
     # Resolve '\' at end of lines.
     src = re.sub(r'\\\s*\n', "", src)
+    # Remove simple comment lines.
+    src = re.sub(r'^\s*#.+\n', "", src)
+    # TODO: Remove multi-line comments.
 
     mo = re.search(r'.*\breturn (.+)', src, flags=re.DOTALL)
     if mo:

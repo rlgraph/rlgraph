@@ -112,7 +112,7 @@ class ActionAdapter(Component):
             self.define_api_method("get_dueling_output", get_dueling_output)
 
             def get_logits_and_parameters(self_, nn_output):
-                _, _, q_values = self_.call(self_.get_dueling_output, nn_output)
+                _, _, q_values = self_.call(self_.get_dueling_output, nn_output, ok_to_call_own_api=True)
                 return self_.call(self_._graph_fn_get_logits_and_parameters, q_values)
 
             self.define_api_method("get_logits_and_parameters", get_logits_and_parameters)
@@ -126,16 +126,18 @@ class ActionAdapter(Component):
             self.define_api_method("get_action_layer_output_reshaped", get_action_layer_output_reshaped)
 
             def get_logits_and_parameters(self_, nn_output):
-                action_layer_output_reshaped = self_.call(self_.get_action_layer_output_reshaped, nn_output)
+                action_layer_output_reshaped = self_.call(self_.get_action_layer_output_reshaped, nn_output, ok_to_call_own_api=True)
                 return self_.call(self_._graph_fn_get_logits_and_parameters, action_layer_output_reshaped)
 
             self.define_api_method("get_logits_and_parameters", get_logits_and_parameters)
 
     def check_input_spaces(self, input_spaces, action_space):
         # Check the input Space.
-        last_nn_layer_space = input_spaces["get_logits_and_parameters"][0]  # type: Space
-        sanity_check_space(last_nn_layer_space, non_allowed_types=[ContainerSpace])
+        if "get_logits_and_parameters" in input_spaces:
+            last_nn_layer_space = input_spaces["get_logits_and_parameters"][0]  # type: Space
+            sanity_check_space(last_nn_layer_space, non_allowed_types=[ContainerSpace])
 
+        # Check the action Space.
         if isinstance(self.action_space, IntBox):
             sanity_check_space(self.action_space, must_have_batch_rank=True, allowed_types=[IntBox],
                                must_have_categories=True)
