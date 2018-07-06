@@ -121,7 +121,7 @@ class ActionAdapter(Component):
         else:
             def get_action_layer_output_reshaped(self_, nn_output):
                 action_layer_output = self_.call(self_.action_layer.apply, nn_output)
-                return self_.call(self._graph_fn_reshape, action_layer_output)
+                return self_.call(self_._graph_fn_reshape, action_layer_output)
 
             self.define_api_method("get_action_layer_output_reshaped", get_action_layer_output_reshaped)
 
