@@ -75,7 +75,8 @@ class DQNAgent(Agent):
 
         # The behavioral policy of the algorithm. Also the one that gets updated.
         self.policy = Policy(
-            neural_network=self.neural_network, action_adapter_spec=dict(add_dueling_layer=self.dueling_q)
+            neural_network=self.neural_network,
+            action_adapter_spec=dict(action_space=self.action_space, add_dueling_layer=self.dueling_q)
         )
         # Copy our Policy (target-net), make target-net synchronizable.
         self.target_policy = self.policy.copy(scope="target-policy")
@@ -84,90 +85,95 @@ class DQNAgent(Agent):
         self.loss_function = DQNLossFunction(discount=self.discount, double_q=self.double_q)
 
         # Add all our sub-components to the core.
-        self.core_component.add_components(self.preprocessor, self.memory, self.merger, self.splitter, self.policy,
-                                           self.target_policy, self.exploration, self.loss_function, self.optimizer)
+        sub_components = [self.preprocessor, self.memory, self.merger, self.splitter, self.policy,
+                          self.target_policy, self.exploration, self.loss_function, self.optimizer]
+        self.core_component.add_components(*sub_components)
+
+        # Define the Agent's (core Component's) API.
+        self.define_api_methods(*sub_components)
 
         # markup = get_graph_markup(self.graph_builder.core_component)
         # print(markup)
         self.build_graph(self.input_spaces, self.optimizer)
 
-    def _assemble_meta_graph(self, *params):
+    def define_api_methods(self, preprocessor, memory, merger, splitter, policy, target_policy, exploration,
+                           loss_function, optimizer):
         # State from environment to action pathway.
         def get_action(self_, states, time_step):
-            preprocessed_states = self_.call(self_.preprocessor_stack.preprocess, states)
-            sample_deterministic = self_.call(self_.policy.sample_deterministic, preprocessed_states)
-            sample_stochastic = self_.call(self_.policy.sample_stochastic, preprocessed_states)
-            return self_.call(self_.exploration.get_action(time_step, sample_deterministic, sample_stochastic))
+            preprocessed_states = self_.call(preprocessor.preprocess, states)
+            sample_deterministic = self_.call(policy.sample_deterministic, preprocessed_states)
+            sample_stochastic = self_.call(policy.sample_stochastic, preprocessed_states)
+            return self_.call(exploration.get_action, time_step, sample_deterministic, sample_stochastic)
 
         self.core_component.define_api_method("get_action", get_action)
 
         # Insert into memory pathway.
         def insert_records(self_, states, actions, rewards, terminals):
-            preprocessed = self_.call(self_.preprocessor.preprocess, states)
-            records = self_.call(self_.merger.merge, preprocessed, actions, rewards, terminals)
-            return self_.call(self_.memory.insert_records, records)
+            preprocessed = self_.call(preprocessor.preprocess, states)
+            records = self_.call(merger.merge, preprocessed, actions, rewards, terminals)
+            return self_.call(memory.insert_records, records)
 
         self.core_component.define_api_method("insert_records", insert_records)
 
         # Syncing target-net.
         def synch_target_qnet(self_):
-            policy_vars = self_.call(self_.policy._variables)
-            return self_.call(self_.target_policy.sync, policy_vars)
+            policy_vars = self_.call(policy._variables)
+            return self_.call(target_policy.sync, policy_vars)
 
-        self.core_component.define_outputs("sync_target_qnet", synch_target_qnet)
+        self.core_component.define_api_method("sync_target_qnet", synch_target_qnet)
 
         # Learn from memory.
         def update_from_memory(self_):
-            records = self_.call(self_.memory.get_records, self.update_spec["batch_size"])
-            states, actions, rewards, terminals, next_states = self_.call(self_.splitter.split, records)
+            records = self_.call(memory.get_records, self.update_spec["batch_size"])
+            states, actions, rewards, terminals, next_states = self_.call(splitter.split, records)
             # Get the different Q-values.
             if self_.dueling_q:
-                _, _, q_values_s = self_.call(self_.policy.get_dueling_output, states)
-                _, _, qt_values_sp = self_.call(self_.target_policy.get_dueling_output, next_states)
+                _, _, q_values_s = self_.call(policy.get_dueling_output, states)
+                _, _, qt_values_sp = self_.call(target_policy.get_dueling_output, next_states)
             else:
-                q_values_s = self_.call(self_.policy.get_action_layer_output_reshaped, states)
-                qt_values_sp = self_.call(self_.target_policy.get_action_layer_output_reshaped, next_states)
+                q_values_s = self_.call(policy.get_action_layer_output_reshaped, states)
+                qt_values_sp = self_.call(target_policy.get_action_layer_output_reshaped, next_states)
 
             if self_.double_q:
                 if self_.dueling_q:
-                    _, _, q_values_sp = self_.call(self_.policy.get_dueling_output, next_states)
+                    _, _, q_values_sp = self_.call(policy.get_dueling_output, next_states)
                 else:
-                    q_values_sp = self_.call(self_.policy.get_action_layer_output_reshaped, next_states)
-                loss = self_.call(self_.loss_function.loss, q_values_s, actions, rewards,
+                    q_values_sp = self_.call(policy.get_action_layer_output_reshaped, next_states)
+                loss = self_.call(loss_function.loss, q_values_s, actions, rewards,
                                   terminals, qt_values_sp, q_values_sp)
             else:
-                loss = self_.call(self_.loss_function.loss, q_values_s, actions, rewards,
+                loss = self_.call(loss_function.loss, q_values_s, actions, rewards,
                                   terminals, qt_values_sp)
 
-            policy_vars = self_.call(self_.policy._variables)
-            return self_.call(self_.optimizer.step(policy_vars, loss))
+            policy_vars = self_.call(policy._variables)
+            return self_.call(optimizer.step(policy_vars, loss))
 
         self.core_component.define_api_method("update_from_memory", update_from_memory)
 
         # Learn from an external batch.
         def update_from_external_batch(self_, states, actions, rewards, terminals, next_states):
-            preprocessed_s = self_.call(self_.preprocessor.preprocess, states)
-            preprocessed_sp = self_.call(self_.preprocessor.preprocess, next_states)
+            preprocessed_s = self_.call(preprocessor.preprocess, states)
+            preprocessed_sp = self_.call(preprocessor.preprocess, next_states)
 
             # Get the different Q-values.
             if self_.dueling_q:
-                _, _, q_values_s = self_.call(self_.policy.get_dueling_output, preprocessed_s)
-                _, _, qt_values_sp = self_.call(self_.target_policy.get_dueling_output, preprocessed_sp)
+                _, _, q_values_s = self_.call(policy.get_dueling_output, preprocessed_s)
+                _, _, qt_values_sp = self_.call(target_policy.get_dueling_output, preprocessed_sp)
             else:
-                q_values_s = self_.call(self_.policy.get_action_layer_output_reshaped, preprocessed_s)
-                qt_values_sp = self_.call(self_.target_policy.get_action_layer_output_reshaped, preprocessed_sp)
+                q_values_s = self_.call(policy.get_action_layer_output_reshaped, preprocessed_s)
+                qt_values_sp = self_.call(target_policy.get_action_layer_output_reshaped, preprocessed_sp)
 
             if self_.double_q:
                 if self_.dueling_q:
-                    _, _, q_values_sp = self_.call(self_.policy.get_dueling_output, preprocessed_sp)
+                    _, _, q_values_sp = self_.call(policy.get_dueling_output, preprocessed_sp)
                 else:
-                    q_values_sp = self_.call(self_.policy.get_action_layer_output_reshaped, preprocessed_sp)
-                loss_per_item = self_.call(self_.loss_function.loss, q_values_s, actions, rewards, terminals,
+                    q_values_sp = self_.call(policy.get_action_layer_output_reshaped, preprocessed_sp)
+                loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
                                            qt_values_sp, q_values_sp)
             else:
-                loss_per_item = self_.call(self_.loss_function.loss, q_values_s, actions, rewards, terminals,
+                loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
                                            qt_values_sp)
-            return self_.call(self_.optimizer.step(loss_per_item))
+            return self_.call(optimizer.step(loss_per_item))
 
         self.core_component.define_api_method("update_from_external_batch", update_from_external_batch)
 
@@ -177,7 +183,7 @@ class DQNAgent(Agent):
         # Increase timesteps by the batch size (number of states in batch).
         self.timesteps += len(batched_states)
         actions = self.graph_executor.execute(
-            api_methods=dict(get_actions=[batched_states, self.timesteps])
+            api_methods=dict(get_action=[batched_states, self.timesteps])
         )
         #print("states={} action={} q_values={} do_explore={}".format(states, actions, q_values, do_explore))
         if remove_batch_rank:
