@@ -37,7 +37,7 @@ class Optimizer(Component):
             Optimizer for actually applying the gradients to the variables (via in-Socket `grads_and_vars`).
         step (DataOp): Triggers applying the gradients coming in from `grads_and_vars` to the variables.
     """
-    def __init__(self, learning_rate=None, *inputs, **kwargs):
+    def __init__(self, learning_rate=None, two_step=False, **kwargs):
         """
         Args:
             learning_rate (Optional[float]): The learning rate to use.
@@ -46,11 +46,10 @@ class Optimizer(Component):
             two_step (bool): Whether to separate the optimization step into calculating the gradients and applying them
                 to the variables. Default: False.
         """
-        self.two_step = kwargs.pop("two_step", False)
-
         super(Optimizer, self).__init__(scope=kwargs.pop("scope", "optimizer"), **kwargs)
 
         self.learning_rate = learning_rate
+        self.two_step = two_step
 
         # Define our interface.
         # self.define_inputs("vars", "loss", *inputs)
@@ -61,16 +60,20 @@ class Optimizer(Component):
         )
 
         # Two-step optimizer: User has to feed back in the zipped gradients and variables for application step.
-
-        #  TODO do this via a run function called 'step'?
+        # TODO do this via a run function called 'step'?
         if self.two_step is True:
-            # self.define_inputs("grads_and_vars")
-            # TODO define run function for this?
             pass
-            # self.define_api_method("grads_and_vars", "step", self._graph_fn_apply_gradients)
+            #def step(self_, *inputs):
+            #    grads_and_vars = self_.call(self_._graph_fn_calculate_gradients, *inputs)
+            #    return self_.call(self_._graph_fn_apply_gradients, grads_and_vars)
+
         # One-step optimizer: Connect everything automatically.
         else:
-            self.define_api_method(name="step", func=self._graph_fn_apply_gradients)
+            def step(self_, *inputs):
+                grads_and_vars = self_.call(self_._graph_fn_calculate_gradients, *inputs)
+                return self_.call(self_._graph_fn_apply_gradients, grads_and_vars)
+
+        self.define_api_method("step", step)
 
     def _graph_fn_calculate_gradients(self, *inputs):
         """

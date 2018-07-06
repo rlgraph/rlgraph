@@ -34,10 +34,13 @@ class MultiGpuSyncOptimizer(Optimizer):
         """
         Args:
             local_optimizer (Optional[dict,LocalOptimizer]): The spec-dict for the LocalOptimizer object used
-            to run on each device or a LocalOptimizer object itself.
+                to run on each device or a LocalOptimizer object itself.
         """
         super(MultiGpuSyncOptimizer, self).__init__(scope=scope, **kwargs)
-        self.optimizer = local_optimizer
+
+        # Add local Optimizer object.
+        self.local_optimizer = local_optimizer
+        self.add_components(self.local_optimizer)
 
         # Function handle used to create replicas.
         self.replicaGraphs = None
@@ -103,14 +106,14 @@ class MultiGpuSyncOptimizer(Optimizer):
             # TODO -> where do we register this api?
             pass
 
-    def _graph_fn_calculate_gradients(self, *inputs):
+    def _graph_fn_calculate_gradients(self):
         """
         The multi-gpu-sync optimizer calculates gradients by averaging them across
         replicas.
         """
         all_grads_and_vars = []
         for device in self.gpu_devices:
-            all_grads_and_vars.append(self.optimizer._graph_fn_calculate_gradients(
+            all_grads_and_vars.append(self.local_optimizer._graph_fn_calculate_gradients(
                 variables=self.device_vars[device],
                 loss=self.device_losses[device]
             ))

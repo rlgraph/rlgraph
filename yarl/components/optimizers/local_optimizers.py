@@ -36,9 +36,10 @@ class LocalOptimizer(Optimizer):
             scope=kwargs.pop("scope", "local-optimizer"),
             **kwargs
         )
+        # The wrapped, backend-specific optimizer object.
         self.optimizer = None
 
-    def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
+    def _graph_fn_calculate_gradients(self, variables, loss):
         """
         Args:
             variables (DataOpTuple): A list of variables to calculate gradients for.
@@ -167,7 +168,7 @@ class SGDOptimizer(LocalOptimizer):
 
 class RMSPropOptimizer(LocalOptimizer):
     """
-    RMSPRop Optimizer as discussed by Hinton:
+    RMSProp Optimizer as discussed by Hinton:
 
     https://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf
     """
