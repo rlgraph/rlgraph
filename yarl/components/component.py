@@ -19,9 +19,9 @@ from __future__ import print_function
 
 from collections import OrderedDict
 
-import logging
 import copy
 import inspect
+import numpy as np
 import re
 
 from yarl import YARLError, get_backend, Specifiable
@@ -90,12 +90,12 @@ class Component(Specifiable):
 
         assert not kwargs, "ERROR: kwargs ({}) still contains items!".format(kwargs)
 
-        # Dict of sub-components that live inside this one (key=sub-component's scope).
-        self.sub_components = OrderedDict()
-
         # Keep track of whether this Component has already been added to another Component and throw error
         # if this is done twice. Each Component can only be added once to a parent Component.
         self.parent_component = None  # type: Component
+
+        # Dict of sub-components that live inside this one (key=sub-component's scope).
+        self.sub_components = OrderedDict()
 
         # Dicts holding information about which op-record-tuples go via which API methods into this Component
         # and come out of it.
@@ -105,7 +105,7 @@ class Component(Specifiable):
         # Indicate if api method was generated or coded.
         self.generated_from_graph_fn = set()
         self.defined_externally = set()
-        # Registry for graph_fn records.
+        # Registry for graph_fn records (only populated at build time when the graph_fns are actually called).
         self.graph_fns = dict()
 
         # Whether we know already all our in-Sockets' Spaces.
@@ -303,7 +303,8 @@ class Component(Specifiable):
         Args:
             method (callable): The method (graph_fn or API method) to call.
             method_owner (Component): Component this method belongs to.
-            *params (DataOpRecord): The DataOpRecords to be used  for calling the method.
+            *params (Union[DataOpRecord,np.array,numeric]): The DataOpRecords (or constant values) to be used for
+                calling the method.
 
         Returns:
             DataOpRecord: Output op of calling this api method.
@@ -317,7 +318,12 @@ class Component(Specifiable):
 
         # Link from in_op_recs into the new column.
         for i, op_rec in enumerate(params):
-            op_rec.next.add(in_op_column.op_records[i])
+            # Fixed value (instead of op-record): Store the fixed value directly in the op.
+            if not isinstance(op_rec, DataOpRecord):
+                in_op_column.op_records[i].op = np.array(op_rec)
+                in_op_column.op_records[i].constant_value = True
+            else:
+                op_rec.next.add(in_op_column.op_records[i])
 
         # Now actually call the API method with that column and
         # create a new out-column with num-records == num-return values.
@@ -432,9 +438,14 @@ class Component(Specifiable):
         for graph_fn_rec in self.graph_fns.values():  # type: GraphFnRecord
             if graph_fn_rec.graph_fn.__name__ == "_graph_fn__variables":
                 continue
-            in_col = graph_fn_rec.in_op_columns[0]
-            if len(in_col.op_records) == 0:
-                no_input_in_columns.extend(graph_fn_rec.in_op_columns)
+            # Loop through all in columns and store those that don't need any ops from previous records,
+            # meaning the column length is either 0 or it is full of constant-value (numpy array) ops.
+            for in_op_column in graph_fn_rec.in_op_columns:
+                if in_op_column.already_sent is False and (len(in_op_column.op_records) == 0 or all(
+                        op_rec.constant_value is True for op_rec in in_op_column.op_records)
+                ):
+                    no_input_in_columns.extend(graph_fn_rec.in_op_columns)
+
         return no_input_in_columns
 
     def check_input_spaces(self, input_spaces, action_space):

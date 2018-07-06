@@ -42,16 +42,18 @@ class SingleDataOp(DataOp):
     A placeholder class for a simple (non-container) Tensor going into a GraphFunction or coming out of a GraphFunction,
     or a tf.no_op-like item.
     """
-    def __init__(self, constant_value=None):
-        """
-        Args:
-            constant_value (any): A constant value this SingleDataOp holds instead of an actual op.
-                This value is always converted into a numpy array (even if it's a scalar python primitive).
-        """
-        # Numpy'ize scalar values (tf doesn't sometimes like python primitives).
-        if isinstance(constant_value, (float, int, bool)):
-            constant_value = np.array(constant_value)
-        self.constant_value = constant_value
+    pass
+
+    #def __init__(self, constant_value=None):
+    #    """
+    #    Args:
+    #        constant_value (any): A constant value this SingleDataOp holds instead of an actual op.
+    #            This value is always converted into a numpy array (even if it's a scalar python primitive).
+    #    """
+    #    # Numpy'ize scalar values (tf doesn't sometimes like python primitives).
+    #    if isinstance(constant_value, (float, int, bool)):
+    #        constant_value = np.array(constant_value)
+    #    self.constant_value = constant_value
 
 
 class ContainerDataOp(DataOp):
@@ -105,6 +107,8 @@ class DataOpRecord(object):
     def __init__(self, op=None, column=None, position=None):
         self.id = self.get_id()
         self.op = op
+        # Whether this record holds an actual (e.g. tf) op or just a constant (numpy) value.
+        self.constant_value = False
         # Link back to the column we belong to.
         self.column = column
         # An optional position (index) for this op inside `column`.

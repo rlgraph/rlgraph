@@ -126,7 +126,7 @@ class GraphBuilder(Specifiable):
                 for i in range(len(force_list(input_spaces[api_method_name]))):
                     in_ops_records.append(DataOpRecord(position=i))
             self.core_component.call(api_method_rec.method, *in_ops_records, ok_to_call_own_api=True)
-            # Register interface.
+            # Register core's interface.
             self.api[api_method_name] = (in_ops_records, api_method_rec.out_op_columns[0].op_records)
 
         time_build = time.monotonic() - time_start
