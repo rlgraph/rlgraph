@@ -138,7 +138,6 @@ class TensorFlowExecutor(GraphExecutor):
         # and graph_fns).
         self.graph_builder.build_meta_graph(input_spaces)
 
-        # TODO expand meta graph
         self._build_device_strategy(optimizer)
 
         # Build actual TensorFlow graph from meta graph.
@@ -495,11 +494,11 @@ class TensorFlowExecutor(GraphExecutor):
         self.saver.export_meta_graph(filename=filename)
 
     def get_weights(self):
-        return self.execute("_variables")
+        return self.execute(dict(_variables=[]))
 
     def set_weights(self, weights):
         # Note that this can only assign components which have been declared synchronizable.
-        self.execute("sync", dict(sync_in=weights))
+        self.execute(dict(sync=weights))
 
     def _build_device_strategy(self, optimizer):
         """
@@ -526,10 +525,14 @@ class TensorFlowExecutor(GraphExecutor):
             # Save optimizer which will return the necessary ops.
             self.optimizer = optimizer
 
-            # TODO expand metagraph
             subgraphs = []
-            for device in range(self.num_gpus):
-                subgraphs.append(self.graph_builder.copy_subgraph())
+
+            # Identify the subgraph relevant for device managagement.
+            sub_graph = self.graph_builder.get_subgraph(self.DEVICE_API_METHODS)
+            subgraphs.append(sub_graph)
+
+            for device in range(self.num_gpus - 1):
+                subgraphs.append(sub_graph.copy())
 
             optimizer.set_replicas(subgraphs)
 
@@ -555,6 +558,4 @@ class TensorFlowExecutor(GraphExecutor):
                 ))
 
         # TODO check assignments for multi gpu strategy when implemented.
-
-
 

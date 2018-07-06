@@ -226,7 +226,7 @@ class GraphBuilder(Specifiable):
         # Time the build procedure.
         time_start = time.monotonic()
 
-        # Tag very last out-op-records with op="last", so we know in the build process that we are done.
+        # Tag very last out-op-records with op="done", so we know in the build process that we are done.
         for _, out_op_records in self.api.values():
             for out_op_rec in out_op_records:
                 out_op_rec.op = "done"
@@ -290,7 +290,7 @@ class GraphBuilder(Specifiable):
             # Sanity check, whether we are stuck.
             new_op_records_list = sorted(new_op_records_to_process, key=lambda rec: rec.id)
             if op_records_list == new_op_records_list:
-                raise YARLError("Build procedure is stuck in endless iterations. Most likely, you are having a "
+                raise YARLError("Build procedure is deadlocked. Most likely, you are having a "
                                 "circularly dependent Component in your meta-graph. The current op-records to process "
                                 "are: {}".format(new_op_records_list))
 
@@ -298,7 +298,7 @@ class GraphBuilder(Specifiable):
             loop_counter += 1
 
         time_build = time.monotonic() - time_start
-        self.logger.info("Computation-Graph build completed in {}sec ({} iterations).".format(time_build, loop_counter))
+        self.logger.info("Computation-Graph build completed in {} s ({} iterations).".format(time_build, loop_counter))
 
     def get_all_components(self, component=None, list_=None, level_=0):
         """
@@ -385,7 +385,8 @@ class GraphBuilder(Specifiable):
                                        ('/' if op_rec_column.component.global_scope else "")):
                         self.logger.debug(
                             "Assigning device '{}' to graph_fn '{}' (scope '{}').".
-                                format(assigned_device, op_rec_column.graph_fn.__name__, op_rec_column.component.global_scope)
+                            format(assigned_device, op_rec_column.graph_fn.__name__,
+                                   op_rec_column.component.global_scope)
                         )
                         self.run_through_graph_fn(op_rec_column)
             else:
@@ -407,6 +408,28 @@ class GraphBuilder(Specifiable):
                 self.device_component_assignments[assigned_device] = [str(op_rec_column.graph_fn.__name__)]
             else:
                 self.device_component_assignments[assigned_device].append(str(op_rec_column.graph_fn.__name__))
+
+    def get_subgraph(self, api_methods):
+        """
+        Computes and returns the sub-graph necessary to compute provided API methods.
+
+        Args:
+            api_methods (list): Api methods considered for the subgraph.
+
+        Returns:
+            Component: Container component holding the subgraph.
+        """
+        subgraph_container = Component(scope="sub_graph")
+        is_in_subgraph = set()
+
+        components = self.get_all_components()
+
+        # For every api method, trace forward from inputs until all relevant components identified.
+        for api_method in api_methods:
+            api_method_rec = self.core_component.api_methods[api_method]
+            # TODO which object to use?
+
+        return subgraph_container
 
     @staticmethod
     def run_through_graph_fn(op_rec_column):
