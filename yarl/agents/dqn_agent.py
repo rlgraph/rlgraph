@@ -126,27 +126,19 @@ class DQNAgent(Agent):
         def update_from_memory(self_):
             records = self_.call(memory.get_records, self.update_spec["batch_size"])
             states, actions, rewards, terminals, next_states = self_.call(splitter.split, records)
-            # Get the different Q-values.
-            if self_.dueling_q:
-                _, _, q_values_s = self_.call(policy.get_dueling_output, states)
-                _, _, qt_values_sp = self_.call(target_policy.get_dueling_output, next_states)
-            else:
-                q_values_s = self_.call(policy.get_action_layer_output_reshaped, states)
-                qt_values_sp = self_.call(target_policy.get_action_layer_output_reshaped, next_states)
 
-            if self_.double_q:
-                if self_.dueling_q:
-                    _, _, q_values_sp = self_.call(policy.get_dueling_output, next_states)
-                else:
-                    q_values_sp = self_.call(policy.get_action_layer_output_reshaped, next_states)
-                loss = self_.call(loss_function.loss, q_values_s, actions, rewards,
-                                  terminals, qt_values_sp, q_values_sp)
-            else:
-                loss = self_.call(loss_function.loss, q_values_s, actions, rewards,
-                                  terminals, qt_values_sp)
+            # Get the different Q-values.
+            q_values_s = self_.call(policy.get_q_values, states)
+            qt_values_sp = self_.call(target_policy.get_q_values, next_states)
+            q_values_sp = None
+            if self.double_q:
+                q_values_sp = self_.call(policy.get_q_values, next_states)
+
+            loss = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
+                              qt_values_sp, q_values_sp)
 
             policy_vars = self_.call(policy._variables)
-            return self_.call(optimizer.step(policy_vars, loss))
+            return self_.call(optimizer.step, policy_vars, loss)
 
         self.core_component.define_api_method("update_from_memory", update_from_memory)
 
@@ -156,24 +148,17 @@ class DQNAgent(Agent):
             preprocessed_sp = self_.call(preprocessor.preprocess, next_states)
 
             # Get the different Q-values.
-            if self_.dueling_q:
-                _, _, q_values_s = self_.call(policy.get_dueling_output, preprocessed_s)
-                _, _, qt_values_sp = self_.call(target_policy.get_dueling_output, preprocessed_sp)
-            else:
-                q_values_s = self_.call(policy.get_action_layer_output_reshaped, preprocessed_s)
-                qt_values_sp = self_.call(target_policy.get_action_layer_output_reshaped, preprocessed_sp)
+            q_values_s = self_.call(policy.get_q_values, preprocessed_s)
+            qt_values_sp = self_.call(target_policy.get_q_values, preprocessed_sp)
+            q_values_sp = None
+            if self.double_q:
+                q_values_sp = self_.call(policy.get_q_values, preprocessed_sp)
 
-            if self_.double_q:
-                if self_.dueling_q:
-                    _, _, q_values_sp = self_.call(policy.get_dueling_output, preprocessed_sp)
-                else:
-                    q_values_sp = self_.call(policy.get_action_layer_output_reshaped, preprocessed_sp)
-                loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-                                           qt_values_sp, q_values_sp)
-            else:
-                loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-                                           qt_values_sp)
-            return self_.call(optimizer.step(loss_per_item))
+            loss = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
+                              qt_values_sp, q_values_sp)
+
+            policy_vars = self_.call(policy._variables)
+            return self_.call(optimizer.step, policy_vars, loss)
 
         self.core_component.define_api_method("update_from_external_batch", update_from_external_batch)
 
