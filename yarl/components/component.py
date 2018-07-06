@@ -69,7 +69,7 @@ class Component(Specifiable):
             global_component (bool): In distributed mode, this flag indicates if the component is part of the
                 shared global model or local to the worker. Defaults to False and will be ignored if set to
                 True in non-distributed mode.
-            ignore_api (Optional[Set[str]]): Set of API-method names that should NOT be build for this Component.
+            switched_off_apis (Optional[Set[str]]): Set of API-method names that should NOT be build for this Component.
         """
         # Scope if used to create scope hierarchies inside the Graph.
         # self.logger = logging.getLogger(__name__)
@@ -86,7 +86,7 @@ class Component(Specifiable):
         self.global_component = kwargs.pop("global_component", False)
         self.graph_fn_num_outputs = kwargs.pop("graph_fn_num_outputs", dict())
 
-        ignore_api = kwargs.pop("ignore_api", set())
+        self.switched_off_apis = kwargs.pop("switched_off_apis", set())
 
         assert not kwargs, "ERROR: kwargs ({}) still contains items!".format(kwargs)
 
@@ -100,7 +100,7 @@ class Component(Specifiable):
         # Dicts holding information about which op-record-tuples go via which API methods into this Component
         # and come out of it.
         # keys=API method name; values=APIMethodRecord
-        self.api_methods = self.get_api_methods(ignore_api)
+        self.api_methods = self.get_api_methods()
 
         # Indicate if api method was generated or coded.
         self.generated_from_graph_fn = set()
@@ -132,13 +132,10 @@ class Component(Specifiable):
         # Define the "_variables" API-method that each Component automatically has.
         self.define_api_method("_variables", self._graph_fn__variables)
 
-    def get_api_methods(self, ignore_set):
+    def get_api_methods(self):
         """
         Detects all methods of the Component that should be registered as API-methods for
         this Component.
-
-        Args:
-            ignore_set (Set[str]): Set of API-method names that should NOT be build.
 
         Returns:
             Dict[str,APIMethodRecord]: Dict of kay=API-method name (str); values=APIMethodRecord.
@@ -148,7 +145,7 @@ class Component(Specifiable):
         for member in inspect.getmembers(self):
             name, method = (member[0], member[1])
             if name != "define_api_method" and name != "add_components" and name[0] != "_" and \
-                    name not in ignore_set and util.get_method_type(method) == "api":
+                    name not in self.switched_off_apis and util.get_method_type(method) == "api":
                 callable_anytime = util.does_method_call_graph_fns(method)
                 ret[name] = APIMethodRecord(method, component=self, callable_anytime=callable_anytime)
         return ret
@@ -717,11 +714,16 @@ class Component(Specifiable):
             split_ops (bool,Set[int]): See `self.call` for details.
             add_auto_key_as_first_param (bool): See `self.call` for details.
         """
+        # There already is an API-method with that name.
         if name in self.api_methods:
             raise YARLError("API-method with name '{}' already defined!".format(name))
+        # There already is another object property with that name (avoid accidental overriding).
         elif getattr(self, name, None) is not None:
             raise YARLError("Component '{}' already has property called '{}'. Cannot define an API-method with "
                             "the same name!".format(self.name, name))
+        # Do not build this API as per ctor instructions.
+        elif name in self.switched_off_apis:
+            return
 
         func_type = util.get_method_type(func)
 

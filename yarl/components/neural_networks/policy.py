@@ -75,6 +75,12 @@ class Policy(Component):
 
         # Add API-method to get dueling output (if we use a dueling layer).
         if self.action_adapter.add_dueling_layer:
+            def get_dueling_output(self_, nn_input):
+                nn_output = self_.call(self_.neural_network.apply, nn_input)
+                return self_.call(self_.action_adapter.get_dueling_output, nn_output)
+
+            self.define_api_method("get_dueling_output", get_dueling_output)
+
             def get_q_values(self_, nn_input):
                 nn_output = self_.call(self_.neural_network.apply, nn_input)
                 _, _, q = self_.call(self_.action_adapter.get_dueling_output, nn_output)
