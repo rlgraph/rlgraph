@@ -177,19 +177,16 @@ class DummyWithSubComponents(Component):
         self.sub_comp = DummyInputComplete()
         self.add_components(self.sub_comp)
 
-    #def run1(self, input_):
-    #    # Explicit definition of an API-method using one of our graph_fn and one of
-    #    # our child API-methods.
-    #    result = self.call(self.sub_comp.run_plus, input_)
-    #    result2 = self.call(self._graph_fn_apply, result)
-    #    return result, result2
+    def run1(self, input_):
+        # Explicit definition of an API-method using one of our graph_fn and one of
+        # our child API-methods.
+        result = self.call(self.sub_comp.run_plus, input_)
+        result2 = self.call(self._graph_fn_apply, result)
+        return result, result2
 
     def run2(self, input_):
-        # Explicit definition of an API-method using one of our graph_fn and both of
-        # our child API-methods.
-        result1 = self.call(self.sub_comp.run_plus, input_)
-        result2 = self.call(self.sub_comp.run_minus, result1)
-        result3 = self.call(self._graph_fn_apply, result2)
+        result1 = self.call(self.sub_comp.run_minus, input_)
+        result3 = self.call(self._graph_fn_apply, result1)
         return result3
 
     def _graph_fn_apply(self, input_):
