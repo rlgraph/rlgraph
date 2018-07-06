@@ -40,7 +40,7 @@ class GraphBuilder(Specifiable):
     components, sockets and connections and creating the underlying computation
     graph.
     """
-    def __init__(self, name="model", action_space=None, summary_spec=None):
+    def __init__(self, name="model", action_space=None, summary_spec=None, core_component=None):
         """
         Args:
             name (str): The name of this GraphBuilder and of the meta-graph's core component.
@@ -65,7 +65,7 @@ class GraphBuilder(Specifiable):
         self.build_steps = 0
 
         # Create an empty core Component into which everything will be assembled by an Algo.
-        self.core_component = None  # Component(name=self.name, is_core=True)
+        self.core_component = core_component
 
         # Maps API method names to in- (placeholders) and out op columns (ops to pull).
         self.api = dict()
@@ -565,20 +565,3 @@ class GraphBuilder(Specifiable):
 
         return fetch_dict, feed_dict
 
-    def set_core_component(self, core_component):
-        """
-        Sets the core Component that will contain all others.
-
-        Args:
-            core_component (Component): The component to set as core.
-
-        Returns:
-            Component: The new core Component.
-        """
-        # Unset current core.
-        if self.core_component is not None:
-            self.core_component.is_core = False
-        # Set new core and return it.
-        core_component.is_core = True
-        self.core_component = core_component
-        return self.core_component

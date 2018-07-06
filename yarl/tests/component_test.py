@@ -45,10 +45,7 @@ class ComponentTest(object):
             root_logger.setLevel(logging_level)
 
         # Create a GraphBuilder.
-        self.graph_builder = GraphBuilder(action_space=action_space)
-
-        # Add the component to test and expose all its Sockets to the core component of our Model.
-        self.graph_builder.set_core_component(component)
+        self.graph_builder = GraphBuilder(action_space=action_space, core_component=component)
 
         # Build the model.
         self.graph_executor = GraphExecutor.from_spec(

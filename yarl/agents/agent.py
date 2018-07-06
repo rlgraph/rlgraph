@@ -22,7 +22,7 @@ import time
 from yarl import Specifiable, get_backend
 from yarl.graphs.graph_executor import GraphExecutor
 from yarl.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec, get_optimizer_from_device_strategy
-from yarl.components import  Exploration, PreprocessorStack, NeuralNetwork, Policy, Optimizer
+from yarl.components import Component, Exploration, PreprocessorStack, NeuralNetwork
 from yarl.graphs import GraphBuilder
 from yarl.spaces import Space
 
@@ -67,13 +67,15 @@ class Agent(Specifiable):
             name (str): Some name for this Agent object.
         """
         self.name = name
-
         self.logger = logging.getLogger(__name__)
 
         self.state_space = Space.from_spec(state_space).with_batch_rank(False)
         self.logger.info("Parsed state space definition: {}".format(self.state_space))
         self.action_space = Space.from_spec(action_space).with_batch_rank(False)
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
+
+        # The agent's core Component.
+        self.core_component = Component(name=self.name)
 
         self.neural_network = None
         self.policy = None
@@ -109,7 +111,8 @@ class Agent(Specifiable):
         self.update_spec = parse_update_spec(update_spec)
 
         # Create our GraphBuilder and -Executor.
-        self.graph_builder = GraphBuilder(action_space=self.action_space, summary_spec=summary_spec)
+        self.graph_builder = GraphBuilder(action_space=self.action_space, summary_spec=summary_spec,
+                                          core_component=self.core_component)
         self.graph_executor = GraphExecutor.from_spec(
             get_backend(),
             graph_builder=self.graph_builder,

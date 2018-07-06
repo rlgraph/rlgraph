@@ -21,7 +21,7 @@ import copy
 import numpy as np
 
 from yarl.agents import Agent
-from yarl.components import CONNECT_ALL, Synchronizable, Merger, Splitter,\
+from yarl.components import Synchronizable, Merger, Splitter,\
     Memory, PPOLossFunction, Policy
 from yarl.spaces import Dict, IntBox, FloatBox, BoolBox
 

@@ -49,8 +49,7 @@ class Space(Specifiable):
 
     def with_batch_rank(self, add_batch_rank=True):
         """
-        Returns a deepcopy of this Space, but with `has_batch_rank` set to True. This is useful for using
-        an Env's (state|action)-Space for constructing Agent objects.
+        Returns a deepcopy of this Space, but with `has_batch_rank` set to the provided value.
 
         Returns:
             Space: The deepcopy of this Space, but with `has_batch_rank` set to True.

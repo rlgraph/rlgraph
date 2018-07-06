@@ -69,7 +69,6 @@ class Component(Specifiable):
             global_component (bool): In distributed mode, this flag indicates if the component is part of the
                 shared global model or local to the worker. Defaults to False and will be ignored if set to
                 True in non-distributed mode.
-            is_core (bool): Whether this Component is the Model's core Component.
             ignore_api (Optional[Set[str]]): Set of API-method names that should NOT be build for this Component.
         """
         # Scope if used to create scope hierarchies inside the Graph.
@@ -85,7 +84,6 @@ class Component(Specifiable):
         self.name = kwargs.pop("name", self.scope)  # if no name given, use scope
         self.device = kwargs.pop("device", None)
         self.global_component = kwargs.pop("global_component", False)
-        self.is_core = kwargs.pop("is_core", False)
         self.graph_fn_num_outputs = kwargs.pop("graph_fn_num_outputs", dict())
 
         ignore_api = kwargs.pop("ignore_api", set())

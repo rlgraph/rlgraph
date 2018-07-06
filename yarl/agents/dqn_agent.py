@@ -34,7 +34,7 @@ class DQNAgent(Agent):
     [3] Dueling Network Architectures for Deep Reinforcement Learning, Wang et al. - 2016
     """
 
-    def __init__(self, discount=0.98, memory_spec=None, double_q=True, dueling_q=True, **kwargs):
+    def __init__(self, discount=0.98, double_q=True, dueling_q=True, memory_spec=None, **kwargs):
         """
         Args:
             discount (float): The discount factor (gamma).
@@ -45,54 +45,53 @@ class DQNAgent(Agent):
         super(DQNAgent, self).__init__(**kwargs)
 
         self.discount = discount
-        self.memory = Memory.from_spec(memory_spec)
-        self.record_space = Dict(states=self.state_space, actions=self.action_space, rewards=float,
-                                 terminals=BoolBox(), add_batch_rank=False)
         self.double_q = double_q
         self.dueling_q = dueling_q
 
-        # The target policy (is synced from the q-net policy every n steps).
-        self.target_policy = None
-
-        self.policy = Policy(
-            neural_network=self.neural_network, action_adapter_spec=dict(add_dueling_layer=self.dueling_q)
-        )
-        # Copy our Policy (target-net), make target-net synchronizable.
-        self.target_policy = self.policy.copy(scope="target-policy")
-        self.target_policy.add_components(Synchronizable())
-
-        self.merger = Merger(output_space=self.record_space)
-        splitter_input_space = copy.deepcopy(self.record_space)
-        splitter_input_space["next_states"] = self.state_space
-        self.splitter = Splitter(input_space=splitter_input_space)
-        self.loss_function = DQNLossFunction(discount=self.discount, double_q=self.double_q)
-
-        # Define our Spaces.
+        # Define the input Space to our API-methods (all batched).
         state_space = self.state_space.with_batch_rank()
         action_space = self.action_space.with_batch_rank()
         reward_space = FloatBox(add_batch_rank=True)
         terminal_space = BoolBox(add_batch_rank=True)
-
-        # Define our api_methods.
         self.input_spaces = dict(
             get_action=[int, state_space],
             insert_records=[state_space, action_space, reward_space, terminal_space],
             update_from_external_batch=[state_space, state_space, action_space, reward_space, terminal_space]
         )
+        # A single record Space (no batch rank).
+        self.record_space = Dict(states=self.state_space,
+                                 actions=self.action_space,
+                                 rewards=reward_space,
+                                 terminals=terminal_space, add_batch_rank=False)
 
-        self.assemble_meta_graph()
+        # The replay memory.
+        self.memory = Memory.from_spec(memory_spec)
+        # Merger for inserting records into the memory.
+        self.merger = Merger(output_space=self.record_space)
+        # Splitter for retrieving records from memory.
+        splitter_input_space = copy.deepcopy(self.record_space)
+        splitter_input_space["next_states"] = self.state_space
+        self.splitter = Splitter(input_space=splitter_input_space)
+
+        # The behavioral policy of the algorithm. Also the one that gets updated.
+        self.policy = Policy(
+            neural_network=self.neural_network, action_adapter_spec=dict(add_dueling_layer=self.dueling_q)
+        )
+        # Copy our Policy (target-net), make target-net synchronizable.
+        self.target_policy = self.policy.copy(scope="target-policy")
+        self.target_policy.add_components(Synchronizable(), expose_apis="sync")
+
+        self.loss_function = DQNLossFunction(discount=self.discount, double_q=self.double_q)
+
+        # Add all our sub-components to the core.
+        self.core_component.add_components(self.preprocessor, self.memory, self.merger, self.splitter, self.policy,
+                                           self.target_policy, self.exploration, self.loss_function, self.optimizer)
+
         # markup = get_graph_markup(self.graph_builder.core_component)
         # print(markup)
         self.build_graph(self.input_spaces, self.optimizer)
 
-    def _assemble_meta_graph(self, core, *params):
-
-        # Add all our sub-components to the core.
-        core.add_components(self.preprocessor, self.memory, self.merger, self.splitter, self.policy,
-                            self.target_policy, self.exploration, self.loss_function, self.optimizer)
-
-        # Define the Agent's API methods.
-
+    def _assemble_meta_graph(self, *params):
         # State from environment to action pathway.
         def get_action(self_, states, time_step):
             preprocessed_states = self_.call(self_.preprocessor_stack.preprocess, states)
@@ -100,7 +99,7 @@ class DQNAgent(Agent):
             sample_stochastic = self_.call(self_.policy.sample_stochastic, preprocessed_states)
             return self_.call(self_.exploration.get_action(time_step, sample_deterministic, sample_stochastic))
 
-        core.define_api_method("get_action", get_action)
+        self.core_component.define_api_method("get_action", get_action)
 
         # Insert into memory pathway.
         def insert_records(self_, states, actions, rewards, terminals):
@@ -108,14 +107,14 @@ class DQNAgent(Agent):
             records = self_.call(self_.merger.merge, preprocessed, actions, rewards, terminals)
             return self_.call(self_.memory.insert_records, records)
 
-        core.define_api_method("insert_records", insert_records)
+        self.core_component.define_api_method("insert_records", insert_records)
 
         # Syncing target-net.
         def synch_target_qnet(self_):
             policy_vars = self_.call(self_.policy._variables)
             return self_.call(self_.target_policy.sync, policy_vars)
 
-        core.define_outputs("sync_target_qnet", synch_target_qnet)
+        self.core_component.define_outputs("sync_target_qnet", synch_target_qnet)
 
         # Learn from memory.
         def update_from_memory(self_):
@@ -143,7 +142,7 @@ class DQNAgent(Agent):
             policy_vars = self_.call(self_.policy._variables)
             return self_.call(self_.optimizer.step(policy_vars, loss))
 
-        core.define_api_method("update_from_memory", update_from_memory)
+        self.core_component.define_api_method("update_from_memory", update_from_memory)
 
         # Learn from an external batch.
         def update_from_external_batch(self_, states, actions, rewards, terminals, next_states):
@@ -170,7 +169,7 @@ class DQNAgent(Agent):
                                            qt_values_sp)
             return self_.call(self_.optimizer.step(loss_per_item))
 
-        core.define_api_method("update_from_external_batch", update_from_external_batch)
+        self.core_component.define_api_method("update_from_external_batch", update_from_external_batch)
 
     def get_action(self, states, deterministic=False):
         batched_states = self.state_space.batched(states)
@@ -206,5 +205,5 @@ class DQNAgent(Agent):
         return loss
 
     def __repr__(self):
-        return "DQNAgent(doubleQ={})".format(self.double_q)
+        return "DQNAgent(doubleQ={} duelingQ={})".format(self.double_q, self.dueling_q)
 
