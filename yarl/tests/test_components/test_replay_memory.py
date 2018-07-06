@@ -40,7 +40,7 @@ class TestReplayMemory(unittest.TestCase):
     capacity = 10
 
     input_spaces = dict(
-        insert=record_space,
+        insert_records=record_space,
         get_records=int
     )
 
@@ -52,16 +52,13 @@ class TestReplayMemory(unittest.TestCase):
             capacity=self.capacity,
             next_states=True
         )
-        test = ComponentTest(component=memory, input_spaces=dict(
-            insert=self.record_space,
-            get_records=int
-        ))
+        test = ComponentTest(component=memory, input_spaces=self.input_spaces)
 
         observation = self.record_space.sample(size=1)
-        test.test(api_methods=dict(insert=observation), expected_outputs=None)
+        test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
 
         observation = self.record_space.sample(size=100)
-        test.test(api_methods=dict(insert=observation), expected_outputs=None)
+        test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
 
     def test_capacity(self):
         """
@@ -84,7 +81,7 @@ class TestReplayMemory(unittest.TestCase):
 
         # Insert one more element than capacity
         observation = self.record_space.sample(size=self.capacity + 1)
-        test.test(api_methods=dict(insert=observation), expected_outputs=None)
+        test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
 
         size_value, index_value = test.get_variable_values(buffer_size, buffer_index)
         # Size should be equivalent to capacity when full.
@@ -105,7 +102,7 @@ class TestReplayMemory(unittest.TestCase):
 
         # Insert 2 Elements.
         observation = non_terminal_records(self.record_space, 2)
-        test.test(api_methods=dict(insert=observation), expected_outputs=None)
+        test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
 
         # Assert we can now fetch 2 elements.
         num_records = 2
@@ -122,7 +119,7 @@ class TestReplayMemory(unittest.TestCase):
 
         # Now insert over capacity.
         observation = non_terminal_records(self.record_space, self.capacity)
-        test.test(api_methods=dict(insert=observation), expected_outputs=None)
+        test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
 
         # Assert we can fetch exactly capacity elements.
         num_records = self.capacity
@@ -142,7 +139,7 @@ class TestReplayMemory(unittest.TestCase):
 
         # Insert 2 terminal Elements.
         observation = terminal_records(self.record_space, 2)
-        test.test(api_methods=dict(insert=observation), expected_outputs=None)
+        test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
 
         # Assert we can now fetch 2 elements.
         num_records = 2
@@ -168,7 +165,7 @@ class TestReplayMemory(unittest.TestCase):
 
         # Insert 2 Elements.
         observation = non_terminal_records(self.record_space, 2)
-        test.test(api_methods=dict(insert=observation), expected_outputs=None)
+        test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
 
         # Assert we can now fetch 2 elements.
         num_records = 2

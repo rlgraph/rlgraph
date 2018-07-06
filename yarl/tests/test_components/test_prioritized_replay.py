@@ -47,7 +47,7 @@ class TestPrioritizedReplay(unittest.TestCase):
 
     input_spaces = dict(
         # insert: records
-        insert=record_space,
+        insert_records=record_space,
         # get_records: num_records
         get_records=int,
         # update_records: indices, update
@@ -67,7 +67,7 @@ class TestPrioritizedReplay(unittest.TestCase):
         test = ComponentTest(component=memory, input_spaces=self.input_spaces)
 
         observation = self.record_space.sample(size=1)
-        test.test(api_methods=dict(insert=observation), expected_outputs=None)
+        test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
 
     def test_capacity(self):
         """
@@ -96,7 +96,7 @@ class TestPrioritizedReplay(unittest.TestCase):
 
         # Insert one more element than capacity
         observation = self.record_space.sample(size=self.capacity + 1)
-        test.test(api_methods=dict(insert=observation), expected_outputs=None)
+        test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
 
         size_value, index_value = test.get_variable_values(buffer_size, buffer_index)
         # Size should be equivalent to capacity when full.
@@ -119,7 +119,7 @@ class TestPrioritizedReplay(unittest.TestCase):
 
         # Insert 2 Elements.
         observation = non_terminal_records(self.record_space, 2)
-        test.test(api_methods=dict(insert=observation), expected_outputs=None)
+        test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
 
         # Assert we can now fetch 2 elements.
         num_records = 2
@@ -138,7 +138,7 @@ class TestPrioritizedReplay(unittest.TestCase):
 
         # Now insert over capacity, note all elements here are non-terminal.
         observation = non_terminal_records(self.record_space, self.capacity)
-        test.test(api_methods=dict(insert=observation), expected_outputs=None)
+        test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
 
         # Assert we can fetch exactly capacity elements.
         num_records = self.capacity
@@ -159,7 +159,7 @@ class TestPrioritizedReplay(unittest.TestCase):
 
         # Insert 2 Elements.
         observation = non_terminal_records(self.record_space, 2)
-        test.test(api_methods=dict(insert=observation), expected_outputs=None)
+        test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
 
         # Assert we can now fetch 2 elements.
         num_records = 2
@@ -178,7 +178,7 @@ class TestPrioritizedReplay(unittest.TestCase):
 
         # Insert a few Elements.
         observation = non_terminal_records(self.record_space, 5)
-        test.test(api_methods=dict(insert=observation), expected_outputs=None)
+        test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
 
         # Fetch elements and their indices.
         num_records = 5
@@ -216,7 +216,7 @@ class TestPrioritizedReplay(unittest.TestCase):
         self.assertEqual(len(min_segment_values), 2 * priority_capacity)
         # Insert 1 Element.
         observation = non_terminal_records(self.record_space, 1)
-        test.test(api_methods=dict(insert=observation), expected_outputs=None)
+        test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
 
         # Fetch segment tree.
         sum_segment_values, min_segment_values = test.get_variable_values(sum_segment_tree, min_segment_tree)
@@ -234,7 +234,7 @@ class TestPrioritizedReplay(unittest.TestCase):
 
         # Insert another Element.
         observation = non_terminal_records(self.record_space, 1)
-        test.test(api_methods=dict(insert=observation), expected_outputs=None)
+        test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
 
         # Fetch segment tree.
         sum_segment_values, min_segment_values = test.get_variable_values(sum_segment_tree, min_segment_tree)

@@ -30,16 +30,9 @@ class RingBuffer(Memory):
     or episodes. Fetches most recently added memories.
 
     API:
-    ins:
-        records (any): The records to insert via a call to out-Socket "insert_records".
-        num_records (int): The number of records to pull via out-Socket "get_records".
         Optional:
-            num_episodes (int): The number of episodes to pull via out-Socket "get_episodes".
-    outs:
-        insert (no_op): Triggers an insertion of in-Socket "records" into the memory.
-        get_records (any): Pulls "num_records" (in-Socket) single records from the memory and returns them.
-        Optional:
-            get_episodes (any): Pulls "num_episodes" (in-Socket) entire episodes from the memory and returns them.
+        If `self.episode_semantics` is True:
+            get_episodes(num_episodes) -> Returns `num_episodes` episodes from the memory.
     """
     def __init__(self, capacity=1000, episode_semantics=False, scope="ring-buffer", **kwargs):
         super(RingBuffer, self).__init__(capacity, scope=scope, **kwargs)
@@ -79,7 +72,7 @@ class RingBuffer(Memory):
                 trainable=False
             )
 
-    def _graph_fn_insert(self, records):
+    def _graph_fn_insert_records(self, records):
         num_records = get_batch_size(records["/terminals"])
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity

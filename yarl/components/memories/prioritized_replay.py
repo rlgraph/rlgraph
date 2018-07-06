@@ -32,13 +32,7 @@ class PrioritizedReplay(Memory):
     Implements pure TensorFlow prioritized replay.
 
     API:
-    ins:
-        records (any): The records to insert via a call to out-Socket "insert_records".
-        num_records (int): The number of records to pull via out-Socket "get_records".
-        indices (int): The number of records to pull via out-Socket "get_records".
-    outs:
-        insert_records (no_op): Triggers an insertion of in-Socket "records" into the memory.
-        get_records (any): Pulls "num_records" (in-Socket) single records from the memory and returns them.
+        update_records(indices, update) -> Updates the given indices with the given priority scores.
     """
     def __init__(self, capacity=1000, next_states=True, alpha=1.0, beta=0.0, scope="prioritized-replay", **kwargs):
         """
@@ -125,7 +119,7 @@ class PrioritizedReplay(Memory):
             # as this would cause extra memory overhead.
             self.flat_state_keys = list(self.record_space["states"].flatten().keys())
 
-    def _graph_fn_insert(self, records):
+    def _graph_fn_insert_records(self, records):
         num_records = get_batch_size(records["/terminals"])
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity

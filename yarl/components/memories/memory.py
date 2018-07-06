@@ -25,10 +25,8 @@ class Memory(Component):
     Abstract memory component.
 
     API:
-    ins:
-        records (any): The records to insert via a call to out-Socket "insert_records".
-    outs:
-        insert_records (no_op): Triggers an insertion of in-Socket "records" into the memory.
+        insert_records(records) -> Triggers an insertion of records into the memory.
+        get_records(num_records) -> Returns `num_records` records from the memory.
     """
     def __init__(self, capacity=1000, scope="memory", **kwargs):
         """
@@ -43,12 +41,12 @@ class Memory(Component):
         self.capacity = capacity
 
         # All memories must provide these.
-        self.define_api_method("insert", func=self._graph_fn_insert, flatten_ops=True)
+        self.define_api_method("insert_records", func=self._graph_fn_insert_records, flatten_ops=True)
         self.define_api_method(name="get_records", func=self._graph_fn_get_records, flatten_ops=False)
 
     def create_variables(self, input_spaces, action_space):
         # Store our record-space for convenience.
-        self.record_space = input_spaces["insert"][0]
+        self.record_space = input_spaces["insert_records"][0]
 
         # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
         self.record_registry = self.get_variable(
@@ -58,7 +56,7 @@ class Memory(Component):
             add_batch_rank=self.capacity
         )
 
-    def _graph_fn_insert(self, records):
+    def _graph_fn_insert_records(self, records):
         """
         Inserts one or more complex records.
 

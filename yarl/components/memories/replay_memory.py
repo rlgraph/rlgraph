@@ -75,7 +75,7 @@ class ReplayMemory(Memory):
             # as this would cause extra memory overhead.
             self.states = ["/states{}".format(flat_key) for flat_key in self.record_space["states"].flatten().keys()]
 
-    def _graph_fn_insert(self, records):
+    def _graph_fn_insert_records(self, records):
         num_records = get_batch_size(records["/terminals"])
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
