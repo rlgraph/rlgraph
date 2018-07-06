@@ -81,7 +81,7 @@ class Agent(Specifiable):
         if network_spec is not None:
             self.neural_network = NeuralNetwork.from_spec(network_spec)
 
-        self.preprocessor_stack = PreprocessorStack.from_spec(preprocessing_spec)
+        self.preprocessor = PreprocessorStack.from_spec(preprocessing_spec)
         self.exploration = Exploration.from_spec(exploration_spec)
         self.execution_spec = parse_execution_spec(execution_spec)
 
