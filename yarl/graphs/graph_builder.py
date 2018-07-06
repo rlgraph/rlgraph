@@ -125,9 +125,15 @@ class GraphBuilder(Specifiable):
             if input_spaces is not None and api_method_name in input_spaces:
                 for i in range(len(force_list(input_spaces[api_method_name]))):
                     in_ops_records.append(DataOpRecord(position=i))
+            # Do the actual core API-method call (thereby assembling the meta-graph).
             self.core_component.call(api_method_rec.method, *in_ops_records, ok_to_call_own_api=True)
+
             # Register core's interface.
             self.api[api_method_name] = (in_ops_records, api_method_rec.out_op_columns[0].op_records)
+
+            # Tag very last out-op-records with op="done", so we know in the build process that we are done.
+            for op_rec in api_method_rec.out_op_columns[0].op_records:
+                op_rec.is_terminal_op = True
 
         time_build = time.monotonic() - time_start
         self.logger.info("Meta-graph build completed in {} s.".format(time_build))
@@ -226,14 +232,11 @@ class GraphBuilder(Specifiable):
         # Time the build procedure.
         time_start = time.monotonic()
 
-        # Tag very last out-op-records with op="done", so we know in the build process that we are done.
-        for _, out_op_records in self.api.values():
-            for out_op_rec in out_op_records:
-                out_op_rec.op = "done"
-
-        # Collect all components and do those first that are already input-complete.
+        # Collect all components and add those op-recs to the set that are constant.
         components = self.get_all_components()
         for component in components:
+            op_records_to_process.update(component.constant_op_records)
+            # Check whether the Component is input-complete (and build already if it is).
             self.build_component_when_input_complete(component, op_records_to_process)
 
         op_records_list = sorted(op_records_to_process, key=lambda rec: rec.id)
@@ -247,9 +250,8 @@ class GraphBuilder(Specifiable):
                 if len(op_rec.next) > 0:
                     # Push the op-record forward one step.
                     for next_op_rec in sorted(op_rec.next, key=lambda rec: rec.id):  # type: DataOpRecord
-                        # If not last op in this API-method ("done") -> continue.
-                        # Otherwise, replace "done" with actual op.
-                        if next_op_rec.op != "done":
+                        # If not last op in this API-method -> continue.
+                        if next_op_rec.is_terminal_op is False:
                             assert next_op_rec.op is None
                             new_op_records_to_process.add(next_op_rec)
                         # Push op and Space into next op-record.
@@ -260,7 +262,8 @@ class GraphBuilder(Specifiable):
                         # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
                         # placeholder).
                         if op_rec.column is None or op_rec.column.component is not next_op_rec.column.component:
-                            self.build_component_when_input_complete(next_op_rec.column.component, new_op_records_to_process)
+                            self.build_component_when_input_complete(next_op_rec.column.component,
+                                                                     new_op_records_to_process)
 
                 # No next records:
                 # - Op belongs to a column going into a graph_fn.
@@ -342,21 +345,26 @@ class GraphBuilder(Specifiable):
                 #                                                          self.action_space)
                 # Call all no-input graph_fns of the new Component.
                 for no_in_col in component.no_input_graph_fn_columns:
-                    self.run_through_graph_fn_with_device_and_scope(no_in_col)
-                    # Keep working with the generated output ops.
-                    op_records_to_process.update(no_in_col.out_graph_fn_column.op_records)
+                    # Do not call _variables (only later, when Component is also variable-complete).
+                    if no_in_col.graph_fn.__name__ != "_graph_fn__variables":
+                        self.run_through_graph_fn_with_device_and_scope(no_in_col)
+                        # Keep working with the generated output ops.
+                        op_records_to_process.update(no_in_col.out_graph_fn_column.op_records)
 
         # Check variable-completeness and actually call the _variable graph_fn if the component just became
         # "variable-complete".
         if component.input_complete is True and component.variable_complete is False and \
                 component.check_variable_completeness():
-            if not "_graph_fn__variables" in component.graph_fns:
-                component.call(component._graph_fn__variables)
-            graph_fn_rec = component.graph_fns["_graph_fn__variables"]
-            assert len(graph_fn_rec.in_op_columns) == 1
-            self.run_through_graph_fn_with_device_and_scope(graph_fn_rec.in_op_columns[0])
-            # Keep working with the generated output ops.
-            op_records_to_process.update(graph_fn_rec.out_op_columns[0].op_records)
+            #assert "_graph_fn__variables" in component.graph_fns
+            #if "_graph_fn__variables" not in component.graph_fns:
+            #    component.call(component._graph_fn__variables)
+            # The graph_fn _variables has some in-op-columns that need to be run through the function.
+            if "_graph_fn__variables" in component.graph_fns:
+                graph_fn_rec = component.graph_fns["_graph_fn__variables"]
+                assert len(graph_fn_rec.in_op_columns) == 1  # TODO: Not sure why there should always only be one?
+                self.run_through_graph_fn_with_device_and_scope(graph_fn_rec.in_op_columns[0])
+                # Keep working with the generated output ops.
+                op_records_to_process.update(graph_fn_rec.out_op_columns[0].op_records)
 
     def run_through_graph_fn_with_device_and_scope(self, op_rec_column):
         """
@@ -430,10 +438,11 @@ class GraphBuilder(Specifiable):
         for api_method in api_methods:
             # Start with the input set for this method.
             api_input_records = self.core_component[api_method].in_op_columns[0].op_records
-            out_columns = self.core_component[api_method].out_op_columns
-            for column in out_columns:
-                for out_op_rec in column.out_op_records:
-                    out_op_rec.op = "done"
+            # OBSOLETE: use "is_terminal_op is True" (in DataOpRecord).
+            # out_columns = self.core_component[api_method].out_op_columns
+            # for column in out_columns:
+            #    for out_op_rec in column.out_op_records:
+            #        out_op_rec.op = "done"
             op_records_list = sorted(api_input_records, key=lambda rec: rec.id)
 
             # Re-iterate until our bag of op-recs to process is empty.

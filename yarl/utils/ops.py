@@ -107,8 +107,8 @@ class DataOpRecord(object):
     def __init__(self, op=None, column=None, position=None):
         self.id = self.get_id()
         self.op = op
-        # Whether this record holds an actual (e.g. tf) op or just a constant (numpy) value.
-        self.constant_value = False
+        # Whether the op in this record is one of the last in the graph (a core API-method returned op).
+        self.is_terminal_op = False
         # Link back to the column we belong to.
         self.column = column
         # An optional position (index) for this op inside `column`.
@@ -185,17 +185,19 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
     The call of the graph_fn will result in another column (return values) of DataOpRecords that this record points
     to.
     """
-    def __init__(self, op_records, component, graph_fn, out_graph_fn_column, flatten_ops=False,
+    def __init__(self, op_records, component, graph_fn, flatten_ops=False,
                  split_ops=False, add_auto_key_as_first_param=False):
-        self.graph_fn = graph_fn
         super(DataOpRecordColumnIntoGraphFn, self).__init__(op_records=op_records, component=component)
 
-        # The column after passing this one through the graph_fn.
-        self.out_graph_fn_column = out_graph_fn_column
+        # The graph_fn that our ops come from.
+        self.graph_fn = graph_fn
 
         self.flatten_ops = flatten_ops
         self.split_ops = split_ops
         self.add_auto_key_as_first_param = add_auto_key_as_first_param
+
+        # The column after passing this one through the graph_fn.
+        self.out_graph_fn_column = None
 
         # Whether this column has already been sent through the graph_fn.
         self.already_sent = False
@@ -313,13 +315,16 @@ class DataOpRecordColumnFromGraphFn(DataOpRecordColumn):
     """
     An array of return values from a graph_fn pass through.
     """
-    def __init__(self, op_records, component, graph_fn_name):
+    def __init__(self, op_records, component, graph_fn_name, in_graph_fn_column):
         """
         Args:
             graph_fn_name (str): The name of the graph_fn that returned the ops going into `self.op_records`.
         """
-        self.graph_fn_name = graph_fn_name
         super(DataOpRecordColumnFromGraphFn, self).__init__(op_records, component)
+        # The graph_fn that our ops come from.
+        self.graph_fn_name = graph_fn_name
+        # The column after passing this one through the graph_fn.
+        self.in_graph_fn_column = in_graph_fn_column
 
     def __str__(self):
         return "GraphFn('{}')->OpRecCol(ops: {})".format(self.graph_fn_name, self.op_id_list)

@@ -29,7 +29,7 @@ from yarl.utils.ops import SingleDataOp, DataOpDict, DataOpRecord, APIMethodReco
     DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn, DataOpRecordColumnIntoAPIMethod, \
     DataOpRecordColumnFromAPIMethod, GraphFnRecord
 from yarl.utils import util
-from yarl.spaces import Space
+from yarl.spaces.space import Space
 
 
 if get_backend() == "tf":
@@ -110,6 +110,9 @@ class Component(Specifiable):
         # Set of op-rec-columns going into a graph_fn of this Component and not having 0 op-records.
         # Helps during the build procedure to call these right away after the Component is input-complete.
         self.no_input_graph_fn_columns = set()
+        # Set of op-records that are constant and thus can be processed right away at the beginning of the build
+        # procedure.
+        self.constant_op_records = set()
 
         # Whether we know already all our in-Sockets' Spaces.
         # Only then can we create our variables. Model will do this.
@@ -217,7 +220,7 @@ class Component(Specifiable):
         Args:
             method (callable): The method (graph_fn or API method) to call.
             method_owner (Component): Component this method belongs to.
-            *params (DataOpRecord): The DataOpRecords to be used for calling the method.:
+            *params (Union[DataOpRecord,np.array,numeric]): The DataOpRecords to be used for calling the method.:
 
         Keyword Args:
             flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
@@ -248,22 +251,7 @@ class Component(Specifiable):
             raise YARLError("Graph_fn '{}' may only be sent to `call` by its owner ({})! However, '{}' is "
                             "calling it.".format(method.__name__, method_owner.scope, self.scope))
 
-        # Store a  graph_fn record in this component for better in/out-op-record-column reference.
-        if method.__name__ not in self.graph_fns:
-            self.graph_fns[method.__name__] = GraphFnRecord(graph_fn=method, component=self)
-
-        # Create 2 op-record columns, one going into the graph_fn and one getting out of there and link
-        # them together via the graph_fn (w/o calling it).
-        if method.__name__ in self.graph_fn_num_outputs:
-            num_graph_fn_return_values = self.graph_fn_num_outputs[method.__name__]
-        else:
-            num_graph_fn_return_values = util.get_num_return_values(method)
-        self.logger.debug("Graph_fn has {} return values (inferred).".format(method.__name__,
-                                                                             num_graph_fn_return_values))
-        out_graph_fn_column = DataOpRecordColumnFromGraphFn(
-            num_graph_fn_return_values, component=self, graph_fn_name=method.__name__
-        )
-        # Sanity check number of input values against len(params).
+        # Sanity check number of actual graph_fn input values against len(params).
         actual_params = list(inspect.signature(method).parameters.values())
         if kwargs.get("add_auto_key_as_first_param") is True:
             actual_params = actual_params[1:]
@@ -282,19 +270,44 @@ class Component(Specifiable):
                                 "the `Component.call` method!".
                                 format(self.name, method.__name__, len(inspect.signature(method).parameters),
                                        len(params), params))
-        in_graph_fn_column = DataOpRecordColumnIntoGraphFn(
-            len(params), component=self, graph_fn=method, out_graph_fn_column=out_graph_fn_column, **kwargs
-        )
+
+        # Store a  graph_fn record in this component for better in/out-op-record-column reference.
+        if method.__name__ not in self.graph_fns:
+            self.graph_fns[method.__name__] = GraphFnRecord(graph_fn=method, component=self)
+
+        # Create 2 op-record columns, one going into the graph_fn and one getting out of there and link
+        # them together via the graph_fn (w/o calling it).
+        if method.__name__ in self.graph_fn_num_outputs:
+            num_graph_fn_return_values = self.graph_fn_num_outputs[method.__name__]
+        else:
+            num_graph_fn_return_values = util.get_num_return_values(method)
+        self.logger.debug("Graph_fn has {} return values (inferred).".format(method.__name__,
+                                                                             num_graph_fn_return_values))
+
+        # Generate the two op-rec-columns (in-going and out-coming) and link them together.
+        in_graph_fn_column = DataOpRecordColumnIntoGraphFn(len(params), component=self, graph_fn=method, **kwargs)
         # If in-column is empty, add it to the "empty in-column" set.
         if len(in_graph_fn_column.op_records) == 0:
             self.no_input_graph_fn_columns.add(in_graph_fn_column)
         self.graph_fns[method.__name__].in_op_columns.append(in_graph_fn_column)
+
+        out_graph_fn_column = DataOpRecordColumnFromGraphFn(
+            num_graph_fn_return_values, component=self, graph_fn_name=method.__name__,
+            in_graph_fn_column=in_graph_fn_column
+        )
+        in_graph_fn_column.out_graph_fn_column = out_graph_fn_column
         self.graph_fns[method.__name__].out_op_columns.append(out_graph_fn_column)
 
         # Link from in_op_recs into the new column (and back).
         for i, op_rec in enumerate(params):
-            op_rec.next.add(in_graph_fn_column.op_records[i])
-            in_graph_fn_column.op_records[i].previous = op_rec
+            if not isinstance(op_rec, DataOpRecord):
+                in_graph_fn_column.op_records[i].op = np.array(op_rec)
+                in_graph_fn_column.op_records[i].space = 0
+                self.constant_op_records.add(in_graph_fn_column.op_records[i])
+            else:
+                op_rec.next.add(in_graph_fn_column.op_records[i])
+                in_graph_fn_column.op_records[i].previous = op_rec
+
         if len(out_graph_fn_column.op_records) == 1:
             return out_graph_fn_column.op_records[0]
         else:
@@ -325,7 +338,8 @@ class Component(Specifiable):
             # Fixed value (instead of op-record): Store the fixed value directly in the op.
             if not isinstance(op_rec, DataOpRecord):
                 in_op_column.op_records[i].op = np.array(op_rec)
-                in_op_column.op_records[i].constant_value = True
+                in_op_column.op_records[i].space = 0
+                self.constant_op_records.add(in_op_column.op_records[i])
             else:
                 op_rec.next.add(in_op_column.op_records[i])
                 in_op_column.op_records[i].previous = op_rec
