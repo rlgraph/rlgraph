@@ -33,7 +33,7 @@ class TestDistributions(unittest.TestCase):
         param_space = FloatBox(shape=(5,), add_batch_rank=True)
 
         # The Component to test.
-        bernoulli = Bernoulli(ignore_api={"entropy", "log_prob", "kl_divergence"})
+        bernoulli = Bernoulli(switched_off_apis={"entropy", "log_prob", "kl_divergence"})
         input_spaces = dict(
             get_distribution=param_space,
             sample_stochastic=param_space,
@@ -67,7 +67,7 @@ class TestDistributions(unittest.TestCase):
         param_space = FloatBox(shape=(5, 3), add_batch_rank=True)
 
         # The Component to test.
-        categorical = Categorical(ignore_api={"entropy", "log_prob", "kl_divergence"})
+        categorical = Categorical(switched_off_apis={"entropy", "log_prob", "kl_divergence"})
         input_spaces = dict(
             get_distribution=param_space,
             sample_stochastic=param_space,
@@ -124,7 +124,7 @@ class TestDistributions(unittest.TestCase):
         )
 
         # The Component to test.
-        categorical = Categorical(ignore_api={"entropy", "log_prob", "kl_divergence"})
+        categorical = Categorical(switched_off_apis={"entropy", "log_prob", "kl_divergence"})
         test = ComponentTest(component=categorical, input_spaces=input_spaces)
 
         # Batch of size=1 and deterministic.
@@ -166,7 +166,7 @@ class TestDistributions(unittest.TestCase):
         )
 
         # The Component to test.
-        normal = Normal(ignore_api={"entropy", "log_prob", "kl_divergence"})
+        normal = Normal(switched_off_apis={"entropy", "log_prob", "kl_divergence"})
         test = ComponentTest(component=normal, input_spaces=input_spaces)
 
         # Batch of size=2 and deterministic.

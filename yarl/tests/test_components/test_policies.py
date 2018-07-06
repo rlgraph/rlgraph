@@ -82,7 +82,7 @@ class TestPolicies(unittest.TestCase):
         test.test(api_methods=dict(sample_deterministic=states), expected_outputs=expected_actions)
 
         # Distribution's entropy.
-        expected_h = np.array([1.4887688, 1.4581219])
+        expected_h = np.array([1.4974977, 0.9677231])
         test.test(api_methods=dict(get_entropy=states), expected_outputs=expected_h)
 
     def test_policy_for_discrete_action_space_with_dueling_layer(self):
@@ -95,7 +95,8 @@ class TestPolicies(unittest.TestCase):
         # Policy with additional dueling layer.
         policy = Policy(
             neural_network="configs/test_lrelu_nn.json",
-            action_adapter_spec=dict(add_dueling_layer=True, action_space=action_space)
+            action_adapter_spec=dict(add_dueling_layer=True, action_space=action_space),
+            switched_off_apis={"get_q_values"}
         )
         test = ComponentTest(
             component=policy,
@@ -105,7 +106,7 @@ class TestPolicies(unittest.TestCase):
                 get_entropy=state_space,
                 get_dueling_output=state_space,
                 get_logits_and_parameters=state_space,
-                get_q_values=state_space,
+                #get_q_values=state_space,
                 sample_deterministic=state_space,
                 sample_stochastic=state_space
             ),

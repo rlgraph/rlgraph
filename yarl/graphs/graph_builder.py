@@ -438,18 +438,12 @@ class GraphBuilder(Specifiable):
                 for op_rec in op_records_list:  # type: DataOpRecord
                     # There are next records:
                     if len(op_rec.next) > 0:
-
                         # Push the op-record forward one step.
                         for next_op_rec in sorted(op_rec.next, key=lambda rec: rec.id):  # type: DataOpRecord
                             # If not last op in this API-method ("done") -> continue.
                             # Otherwise, replace "done" with actual op.
                             if next_op_rec.op != "done":
                                 assert next_op_rec.op is None
-
-                            # Push op and Space into next op-record.
-                            # TODO we dont want to modify these when just searching?
-                            next_op_rec.op = op_rec.op
-                            next_op_rec.space = op_rec.space
 
                             # Did we enter a new Component? If yes, add current component.
                             # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
@@ -462,14 +456,7 @@ class GraphBuilder(Specifiable):
                     # No next records:
                     # - Op belongs to a column going into a graph_fn.
                     elif isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn):
-                        # If column complete AND has not been sent through the graph_fn yet -> Call the graph_fn.
-                        if op_rec.column.is_complete() and op_rec.column.already_sent is False:
-
-                            # Store all resulting op_recs (returned by the graph_fn) to be processed next.
-                            # TODO are we allowed to modify?
-                            new_op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
-                            # Tag column as already sent through graph_fn.
-                            op_rec.column.already_sent = True
+                        new_op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
 
                 # No sanity checks because meta graph was already built successfully.
                 new_op_records_list = sorted(new_op_records_to_process, key=lambda rec: rec.id)
