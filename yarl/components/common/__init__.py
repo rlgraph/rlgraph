@@ -31,6 +31,7 @@ DecayComponent.__lookup_classes__ = dict(
     exponentialdecay=ExponentialDecay,
     polynomialdecay=PolynomialDecay
 )
+DecayComponent.__default_constructor__ = LinearDecay
 
 NoiseComponent.__lookup_classes__ = dict(
     constantnoise=ConstantNoise,
@@ -38,6 +39,7 @@ NoiseComponent.__lookup_classes__ = dict(
     ornsteinuhlenbeck=OrnsteinUhlenbeckNoise,
     ornsteinuhlenbecknoise=OrnsteinUhlenbeckNoise
 )
+NoiseComponent.__default_constructor__ = GaussianNoise
 
 
 __all__ = ["Splitter", "Merger",
