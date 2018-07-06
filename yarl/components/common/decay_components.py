@@ -34,7 +34,7 @@ class DecayComponent(Component):
     API:
         value([current-time-step]): The current decayed value based on the time step and c'tor settings.
     """
-    def __init__(self, from_=1.0, to_=0.0, start_timestep=0, num_timesteps=10000,
+    def __init__(self, from_=None, to_=None, start_timestep=0, num_timesteps=10000,
                  scope="decay", **kwargs):
         """
         Args:
@@ -43,12 +43,18 @@ class DecayComponent(Component):
             start_timestep (int): The timestep at which to start the decay process.
             num_timesteps (int): The number of time steps over which to decay. Outputs will be stationary before and
                 after this decaying period.
+
+        Keyword Args:
+            from (float): See `from_`. For additional support to specify without the underscore.
+            to (float): See `to_`. For additional support to specify without the underscore.
         """
-        # We only have time-step as input: Do not flatten.
+        kwargs_from = kwargs.pop("from", None)
+        kwargs_to = kwargs.pop("to", None)
+
         super(DecayComponent, self).__init__(scope=scope, **kwargs)
 
-        self.from_ = from_
-        self.to_ = to_
+        self.from_ = kwargs_from if kwargs_from is not None else from_ if from_ is not None else 1.0
+        self.to_ = kwargs_to if kwargs_to is not None else to_ if to_ is not None else 0.0
         self.start_timestep = start_timestep
         self.num_timesteps = num_timesteps
 
