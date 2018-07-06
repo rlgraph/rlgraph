@@ -56,7 +56,7 @@ class DQNAgent(Agent):
         self.input_spaces = dict(
             get_action=[int, state_space],
             insert_records=[state_space, action_space, reward_space, terminal_space],
-            update_from_external_batch=[state_space, state_space, action_space, reward_space, terminal_space]
+            update_from_external_batch=[state_space, action_space, reward_space, terminal_space, state_space]
         )
         # A single record Space (no batch rank).
         self.record_space = Dict(states=self.state_space,
