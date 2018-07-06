@@ -75,11 +75,16 @@ class Policy(Component):
 
         # Add API-method to get dueling output (if we use a dueling layer).
         if self.action_adapter.add_dueling_layer:
-            def get_dueling_output(self_, nn_input):
+            def get_q_values(self_, nn_input):
                 nn_output = self_.call(self_.neural_network.apply, nn_input)
-                return self_.call(self_.action_adapter.get_dueling_output, nn_output)
+                _, _, q = self_.call(self_.action_adapter.get_dueling_output, nn_output)
+                return q
+        else:
+            def get_q_values(self_, nn_input):
+                nn_output = self_.call(self_.neural_network.apply, nn_input)
+                return self_.call(self_.action_adapter.get_action_layer_output_reshaped, nn_output)
 
-            self.define_api_method("get_dueling_output", get_dueling_output)
+        self.define_api_method("get_q_values", get_q_values)
 
         # Figure out our Distribution.
         if isinstance(action_space, IntBox):
@@ -91,7 +96,6 @@ class Policy(Component):
             raise YARLError("ERROR: `action_space` is of type {} and not allowed in {} Component!".
                             format(type(action_space).__name__, self.name))
 
-        #self.add_components(, expose_apis=dict(apply="get_nn_output"))
         self.add_components(self.neural_network, self.action_adapter, self.distribution)
 
         # Add Synchronizable API to ours.
