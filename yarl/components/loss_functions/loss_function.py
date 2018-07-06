@@ -29,11 +29,9 @@ class LossFunction(Component):
     A loss function component offers a simple interface into some error/loss calculation function.
 
     API:
-    ins:
-        various api_methods (depending on specific loss function type (the Agent))
-    outs:
-        loss (SingleDataOp): The average loss value (over all single items in a batch).
-        loss_per_item (SingleDataOp): The loss value vector holding single loss values (one per item in a batch).
+        loss_per_item(*inputs) -> The loss value vector holding single loss values (one per item in a batch).
+        loss_average(loss_per_item) -> The average value of the input `loss_per_item.
+        loss(*inputs) -> The average loss value (over all single items in a batch).
     """
     def __init__(self, discount=0.98, **kwargs):
         """
@@ -45,8 +43,8 @@ class LossFunction(Component):
         self.discount = discount
 
         # Define our API.
-        self.define_api_method(name="per_item_loss", func=self._graph_fn_per_item_loss)
-        self.define_api_method(name="average_loss", func=self._graph_fn_average_loss)
+        self.define_api_method(name="loss_per_item", func=self._graph_fn_loss_per_item)
+        self.define_api_method(name="loss_average", func=self._graph_fn_loss_average)
 
     def loss(self, *inputs):
         """
@@ -59,10 +57,10 @@ class LossFunction(Component):
         Returns:
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
-        per_item_loss = self.call(self._graph_fn_per_item_loss, *inputs)
-        return self.call(self._graph_fn_average_loss, per_item_loss)
+        loss_per_item = self.call(self._graph_fn_loss_per_item, *inputs)
+        return self.call(self._graph_fn_loss_average, loss_per_item)
 
-    def _graph_fn_per_item_loss(self, *inputs):
+    def _graph_fn_loss_per_item(self, *inputs):
         """
         Returns the single loss values (one for each item in a batch).
 
@@ -75,7 +73,7 @@ class LossFunction(Component):
         """
         raise NotImplementedError
 
-    def _graph_fn_average_loss(self, loss_per_item):
+    def _graph_fn_loss_average(self, loss_per_item):
         """
         The actual loss function that an optimizer will try to minimize. This is usually the average over a batch.
 

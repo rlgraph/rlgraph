@@ -59,7 +59,7 @@ class DQNLossFunction(LossFunction):
         )
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 
-    def _graph_fn_per_item_loss(self, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None):
+    def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None):
         """
         Args:
             q_values_s (SingleDataOp): The batch of Q-values representing the expected accumulated discounted returns
