@@ -105,4 +105,4 @@ class TestSplitterMergerComponents(unittest.TestCase):
         sample = space.sample()
         flattened_input = flatten_op(sample)
 
-        test.test(api_method="merge", params=list(flattened_input.values()), expected_outputs=sample)
+        test.test(api_methods=dict(merge=list(flattened_input.values())), expected_outputs=sample)

@@ -43,6 +43,7 @@ class TestPolicies(unittest.TestCase):
                 get_action_layer_output=state_space,
                 get_entropy=state_space,
                 get_logits_and_parameters=state_space,
+                get_q_values=state_space,
                 sample_deterministic=state_space,
                 sample_stochastic=state_space
             ),
@@ -69,7 +70,7 @@ class TestPolicies(unittest.TestCase):
         expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
         test.test(api_methods=dict(get_logits_and_parameters=states), expected_outputs=[
             np.log(expected_probabilities_output),
-            expected_probabilities_output
+            np.array(expected_probabilities_output, dtype=np.float32)
         ], decimals=5)
 
         # Stochastic sample.
@@ -104,6 +105,7 @@ class TestPolicies(unittest.TestCase):
                 get_entropy=state_space,
                 get_dueling_output=state_space,
                 get_logits_and_parameters=state_space,
+                get_q_values=state_space,
                 sample_deterministic=state_space,
                 sample_stochastic=state_space
             ),

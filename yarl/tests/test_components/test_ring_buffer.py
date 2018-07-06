@@ -53,6 +53,10 @@ class TestRingBufferMemory(unittest.TestCase):
         get_records=int,
         get_episodes=int
     )
+    input_spaces_no_episodes = dict(
+        insert_records=record_space,
+        get_records=int,
+    )
 
     def test_insert_no_episodes(self):
         """
@@ -60,7 +64,7 @@ class TestRingBufferMemory(unittest.TestCase):
         semantics disabled.
         """
         ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=False)
-        test = ComponentTest(component=ring_buffer, input_spaces=self.input_spaces)
+        test = ComponentTest(component=ring_buffer, input_spaces=self.input_spaces_no_episodes)
 
         observation = self.record_space.sample(size=1)
         test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
@@ -73,7 +77,7 @@ class TestRingBufferMemory(unittest.TestCase):
         Tests if insert correctly manages capacity, no episode indices updated..
         """
         ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=False)
-        test = ComponentTest(component=ring_buffer, input_spaces=self.input_spaces)
+        test = ComponentTest(component=ring_buffer, input_spaces=self.input_spaces_no_episodes)
         # Internal state variables.
         memory_variables = ring_buffer.get_variables(self.memory_variables, global_scope=False)
         buffer_size = memory_variables['size']

@@ -71,8 +71,8 @@ class TestSingleComponents(unittest.TestCase):
         test = ComponentTest(component=component, input_spaces=dict(run=float))
 
         # Expected outputs: (input, input+1.0)
-        test.test(api_method="run", params=1.0, expected_outputs=[2.3, 1.3])
-        test.test(api_method="run", params=4.5, expected_outputs=[5.8, 5.85])
+        test.test(api_methods="run", params=1.0, expected_outputs=[2.3, 1.3])
+        test.test(api_methods="run", params=4.5, expected_outputs=[5.8, 5.85])
 
     def test_0to1_component(self):
         """

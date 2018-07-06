@@ -37,7 +37,7 @@ class TestExplorations(unittest.TestCase):
 
         # The Component(s) to test.
         decay_component = LinearDecay(from_=1.0, to_=0.0, start_timestep=0, num_timesteps=1000)
-        epsilon_component = EpsilonExploration(decay=decay_component)
+        epsilon_component = EpsilonExploration(decay_spec=decay_component)
         test = ComponentTest(component=epsilon_component, input_spaces=dict(do_explore=time_step_space))
 
         # Values to pass as single items.
@@ -57,11 +57,13 @@ class TestExplorations(unittest.TestCase):
         nn_output_space = FloatBox(shape=(13,), add_batch_rank=True)  # 13: Any flat nn-output should be ok.
         exploration = Exploration.from_spec(dict(
             epsilon_spec=dict(
-                decay='linear_decay',
-                from_=1.0,
-                to_=0.1,
-                start_timestep=0,
-                num_timesteps=10000
+                decay_spec=dict(
+                    type="linear_decay",
+                    from_=1.0,
+                    to_=0.1,
+                    start_timestep=0,
+                    num_timesteps=10000
+                )
             )
         ))
         # The Component to test.
