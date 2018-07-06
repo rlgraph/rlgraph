@@ -118,6 +118,8 @@ class DataOpRecord(object):
 
         # Set of (op-col ID, slot) tuples that are connected from this one.
         self.next = set()
+        # The previous op that lead to this one.
+        self.previous = None
 
     @staticmethod
     def get_id():

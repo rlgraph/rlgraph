@@ -337,10 +337,11 @@ class GraphBuilder(Specifiable):
             if spaces_dict is not None:
                 self.logger.debug("Component {} is input-complete; spaces_dict={}".
                                   format(component.name, spaces_dict))
-                no_input_graph_fn_columns = component.when_input_complete(spaces_dict,
-                                                                          self.action_space)
+                component.when_input_complete(spaces_dict, self.action_space)
+                #no_input_graph_fn_columns = component.when_input_complete(spaces_dict,
+                #                                                          self.action_space)
                 # Call all no-input graph_fns of the new Component.
-                for no_in_col in no_input_graph_fn_columns:
+                for no_in_col in component.no_input_graph_fn_columns:
                     self.run_through_graph_fn_with_device_and_scope(no_in_col)
                     # Keep working with the generated output ops.
                     op_records_to_process.update(no_in_col.out_graph_fn_column.op_records)

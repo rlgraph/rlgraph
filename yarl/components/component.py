@@ -107,6 +107,9 @@ class Component(Specifiable):
         self.defined_externally = set()
         # Registry for graph_fn records (only populated at build time when the graph_fns are actually called).
         self.graph_fns = dict()
+        # Set of op-rec-columns going into a graph_fn of this Component and not having 0 op-records.
+        # Helps during the build procedure to call these right away after the Component is input-complete.
+        self.no_input_graph_fn_columns = set()
 
         # Whether we know already all our in-Sockets' Spaces.
         # Only then can we create our variables. Model will do this.
@@ -282,12 +285,16 @@ class Component(Specifiable):
         in_graph_fn_column = DataOpRecordColumnIntoGraphFn(
             len(params), component=self, graph_fn=method, out_graph_fn_column=out_graph_fn_column, **kwargs
         )
+        # If in-column is empty, add it to the "empty in-column" set.
+        if len(in_graph_fn_column.op_records) == 0:
+            self.no_input_graph_fn_columns.add(in_graph_fn_column)
         self.graph_fns[method.__name__].in_op_columns.append(in_graph_fn_column)
         self.graph_fns[method.__name__].out_op_columns.append(out_graph_fn_column)
 
-        # Link from in_op_recs into the new column.
+        # Link from in_op_recs into the new column (and back).
         for i, op_rec in enumerate(params):
             op_rec.next.add(in_graph_fn_column.op_records[i])
+            in_graph_fn_column.op_records[i].previous = op_rec
         if len(out_graph_fn_column.op_records) == 1:
             return out_graph_fn_column.op_records[0]
         else:
@@ -321,6 +328,7 @@ class Component(Specifiable):
                 in_op_column.op_records[i].constant_value = True
             else:
                 op_rec.next.add(in_op_column.op_records[i])
+                in_op_column.op_records[i].previous = op_rec
 
         # Now actually call the API method with that column and
         # create a new out-column with num-records == num-return values.
@@ -340,6 +348,7 @@ class Component(Specifiable):
         # Link the returned ops to that new out-column.
         for i, op_rec in enumerate(out_op_recs):
             op_rec.next.add(out_op_column.op_records[i])
+            out_op_column.op_records[i].previous = op_rec
         # And append the new out-column to the api-method-rec.
         api_method_rec.out_op_columns.append(out_op_column)
 
@@ -431,19 +440,19 @@ class Component(Specifiable):
         self.propagate_variables()
 
         # Collect no-input graph_fn (except `_variables`) and make sure that are called right after Variable creation.
-        no_input_in_columns = list()
-        for graph_fn_rec in self.graph_fns.values():  # type: GraphFnRecord
-            if graph_fn_rec.graph_fn.__name__ == "_graph_fn__variables":
-                continue
-            # Loop through all in columns and store those that don't need any ops from previous records,
-            # meaning the column length is either 0 or it is full of constant-value (numpy array) ops.
-            for in_op_column in graph_fn_rec.in_op_columns:
-                if in_op_column.already_sent is False and (len(in_op_column.op_records) == 0 or all(
-                        op_rec.constant_value is True for op_rec in in_op_column.op_records)
-                ):
-                    no_input_in_columns.extend(graph_fn_rec.in_op_columns)
-
-        return no_input_in_columns
+        #no_input_in_columns = list()
+        #for graph_fn_rec in self.graph_fns.values():  # type: GraphFnRecord
+        #    if graph_fn_rec.graph_fn.__name__ == "_graph_fn__variables":
+        #        continue
+        #    # Loop through all in columns and store those that don't need any ops from previous records,
+        #    # meaning the column length is either 0 or it is full of constant-value (numpy array) ops.
+        #    for in_op_column in graph_fn_rec.in_op_columns:
+        #        if in_op_column.already_sent is False and (len(in_op_column.op_records) == 0 or all(
+        #                op_rec.constant_value is True for op_rec in in_op_column.op_records)
+        #        ):
+        #            no_input_in_columns.extend(graph_fn_rec.in_op_columns)
+        #
+        #return no_input_in_columns
 
     def check_input_spaces(self, input_spaces, action_space):
         """
