@@ -43,7 +43,7 @@ class MultiGpuSyncOptimizer(Optimizer):
         self.add_components(self.local_optimizer)
 
         # Function handle used to create replicas.
-        self.replicaGraphs = None
+        self.replica_graphs = None
 
         # Device names.
         self.gpu_devices = None
@@ -61,7 +61,11 @@ class MultiGpuSyncOptimizer(Optimizer):
         Args:
             replicas (list): List of subgraphs.
         """
-        pass
+        self.replica_graphs = replicas
+
+        for graph in replicas:
+            # Store replica vars and gradients.
+            self.device_vars.append(graph.variables.values())
 
     def set_devices(self, gpu_devices):
         """
@@ -115,6 +119,7 @@ class MultiGpuSyncOptimizer(Optimizer):
         for device in self.gpu_devices:
             all_grads_and_vars.append(self.local_optimizer._graph_fn_calculate_gradients(
                 variables=self.device_vars[device],
+                # TODO where to get these?
                 loss=self.device_losses[device]
             ))
         return self._average_gradients(all_grads_and_vars)

@@ -429,6 +429,10 @@ class GraphBuilder(Specifiable):
         for api_method in api_methods:
             # Start with the input set for this method.
             api_input_records = self.core_component[api_method].in_op_columns[0].op_records
+            out_columns = self.core_component[api_method].out_op_columns
+            for column in out_columns:
+                for out_op_rec in column.out_op_records:
+                    out_op_rec.op = "done"
             op_records_list = sorted(api_input_records, key=lambda rec: rec.id)
 
             # Re-iterate until our bag of op-recs to process is empty.
