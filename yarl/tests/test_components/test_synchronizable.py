@@ -95,7 +95,7 @@ class TestSynchronizableComponent(unittest.TestCase):
         })
 
         # Now sync and re-check.
-        test.test(api_method="execute_sync", params=None, expected_outputs=None)
+        test.test(api_methods=dict(execute_sync=None), expected_outputs=None)
 
         # After the sync.
         test.variable_test(sync_to.get_variables(VARIABLE_NAMES), {
@@ -142,7 +142,7 @@ class TestSynchronizableComponent(unittest.TestCase):
         })
 
         # Now sync and re-check.
-        test.test(api_method="execute_sync", params=None, expected_outputs=None)
+        test.test(api_methods=dict(execute_sync=None), expected_outputs=None)
 
         # After the sync.
         test.variable_test(comp2_writable.get_variables([

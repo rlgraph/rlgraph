@@ -48,8 +48,8 @@ class TestPreprocessors(unittest.TestCase):
         # Run the test.
         input_ = np.array([3.0, 5.0])
         expected = np.array(2.0)
-        test.test(api_method="reset")
-        test.test(api_method="preprocess", params=input_, expected_outputs=expected)
+        test.test(api_methods="reset")
+        test.test(api_methods=dict(preprocess=input_), expected_outputs=expected)
 
     def test_split_inputs_on_grayscale(self):
         # last rank is always the color rank (its dim must match len(grayscale-weights))
@@ -81,8 +81,8 @@ class TestPreprocessors(unittest.TestCase):
             b=np.array([[[3.0, 3.0], [3.0, 3.0]], [[3.0, 3.0], [3.0, 3.0]]]),
             c=0.7
         )
-        test.test(api_method="reset")
-        test.test(api_method="apply", params=input_, expected_outputs=expected)
+        test.test(api_methods="reset")
+        test.test(api_methods=dict(apply=input_), expected_outputs=expected)
 
     def test_split_graph_on_flatten(self):
         space = Dict.from_spec(
@@ -117,8 +117,8 @@ class TestPreprocessors(unittest.TestCase):
             c=np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
             d=np.array([[0.0, 0.0, 1.0], [1.0, 0.0, 0.0]])  # category (one-hot) flatten
         )
-        test.test(api_method="reset")
-        test.test(api_method="apply", params=input_, expected_outputs=expected)
+        test.test(api_methods="reset")
+        test.test(api_methods=dict(apply=input_), expected_outputs=expected)
 
     def test_two_preprocessors_in_a_preprocessor_stack(self):
         space = Dict(
@@ -146,8 +146,8 @@ class TestPreprocessors(unittest.TestCase):
                                        [3.0, 3.0, 3.0],
                                        [3.0, 3.0, 3.0]])))
         )
-        test.test(api_method="reset")
-        test.test(api_method="preprocess", params=input_, expected_outputs=expected)
+        test.test(api_methods="reset")
+        test.test(api_methods=dict(preprocess=input_), expected_outputs=expected)
 
     def test_sequence_preprocessor(self):
         space = FloatBox(shape=(1,), add_batch_rank=True)

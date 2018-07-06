@@ -47,7 +47,7 @@ class TestNeuralNetworks(unittest.TestCase):
         w1_value = test.get_variable_values(var_dict["hidden-layer/dense/kernel"])
         b1_value = test.get_variable_values(var_dict["hidden-layer/dense/bias"])
         expected = np.matmul(input_, w1_value) + b1_value
-        test.test(api_method="apply", params=input_, expected_outputs=expected, decimals=5)
+        test.test(api_methods=dict(apply=input_), expected_outputs=expected, decimals=5)
 
     def test_complex_nn_assembly_from_file(self):
         pass

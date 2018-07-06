@@ -46,7 +46,7 @@ class TestExplorations(unittest.TestCase):
         expected = np.array([True, True, True, True, True, True, True, True, True, True, True, True, True, True, True,
                              True, True, False, True, True, False, False, False, False, False, True, False])
         for i, e in zip(input_, expected):
-            test.test(api_method="do_explore", params=i, expected_outputs=e)
+            test.test(api_methods=dict(do_explore=i), expected_outputs=e)
 
     def test_exploration_with_discrete_action_space(self):
         # 2x2 action-pick, each composite action with 5 categories.
@@ -94,7 +94,7 @@ class TestExplorations(unittest.TestCase):
             10000
         ]
         expected = np.array([[[3, 1], [3, 2]], [[1, 1], [3, 2]]])
-        test.test(api_method="get_action", params=inputs, expected_outputs=expected)
+        test.test(api_methods=dict(get_action=inputs), expected_outputs=expected)
 
     def test_exploration_with_continuous_action_space(self):
         # 2x2 action-pick, each composite action with 5 categories.
@@ -152,4 +152,4 @@ class TestExplorations(unittest.TestCase):
                                 [[13.850703,   8.199795 ], [10.101453,   7.3126173]],
                                 [[13.342209,   9.123161 ], [10.7713, 2.8964272]]
         ])
-        print(test.test(api_method="get_action", params=input_, expected_outputs=None))
+        print(test.test(api_methods=dict(get_action=input_), expected_outputs=None))

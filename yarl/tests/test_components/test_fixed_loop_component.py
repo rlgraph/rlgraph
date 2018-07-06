@@ -45,8 +45,7 @@ class TestFixedLoopComponent(unittest.TestCase):
         ))
 
         sample = test.test(
-            api_method="fixed_loop_result",
-            params=0,
+            api_methods=dict(fixed_loop_result=0),
             expected_outputs=None
         )
 

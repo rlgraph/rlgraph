@@ -52,18 +52,18 @@ class TestActionAdapters(unittest.TestCase):
             [14.4] * 12,
             [0.0] * 12,
         ], dtype=np.float32)
-        test.test(api_method="get_action_layer_output", params=inputs, expected_outputs=expected_action_layer_output)
+        test.test(api_methods=dict(get_action_layer_output=inputs), expected_outputs=expected_action_layer_output)
 
         expected_action_layer_output_reshaped = np.reshape(expected_action_layer_output, newshape=(2, 3, 2, 2))
-        test.test(api_method="get_action_layer_output_reshaped",
-                  params=inputs, expected_outputs=expected_action_layer_output_reshaped)
+        test.test(api_methods=dict(get_action_layer_output_reshaped=inputs),
+                  expected_outputs=expected_action_layer_output_reshaped)
 
         expected_parameters = np.array([
             [[[0.5] * 2] * 2] * 3,
             [[[0.5] * 2] * 2] * 3,
             ], dtype=np.float32)
         expected_logits_and_parameters = [np.log(expected_parameters), expected_parameters]
-        test.test(api_method="get_logits_and_parameters", params=inputs,
+        test.test(api_methods=dict(get_logits_and_parameters=inputs),
                   expected_outputs=expected_logits_and_parameters)
 
     def test_action_adapter_with_dueling_layer(self):
@@ -86,12 +86,12 @@ class TestActionAdapters(unittest.TestCase):
         # 8: advantage values for the flattened action space.
         # 2.0 (weights) * SUM(api_methods) + 0.5 (bias) = 4.7 for first sample, 18.7 for second sample in batch.
         expected_action_layer_output = np.array([[4.7] * (1+8), [18.7] * (1+8)], dtype=np.float32)
-        test.test(api_method="get_action_layer_output", params=inputs, expected_outputs=expected_action_layer_output)
+        test.test(api_methods=dict(get_action_layer_output=inputs), expected_outputs=expected_action_layer_output)
 
         expected_state_advantage_q_values = [
             np.array([4.7, 18.7], dtype=np.float32),
             np.array([[[4.7] * 4] * 2, [[18.7] * 4] * 2], dtype=np.float32),
             np.array([[[4.7] * 4] * 2, [[18.7] * 4] * 2], dtype=np.float32)
         ]
-        test.test(api_method="get_dueling_output", params=inputs, expected_outputs=expected_state_advantage_q_values)
+        test.test(api_methods=dict(get_dueling_output=inputs), expected_outputs=expected_state_advantage_q_values)
 

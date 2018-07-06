@@ -56,8 +56,7 @@ class TestComponentCopy(unittest.TestCase):
         )
         for i in range_(1, 3):
             test.test(
-                api_method="flatten"+str(i),
-                params=input_["input"+str(i)],
+                api_methods={"flatten"+str(i): input_["input"+str(i)]},
                 expected_outputs=expected["output"+str(i)]
             )
 
