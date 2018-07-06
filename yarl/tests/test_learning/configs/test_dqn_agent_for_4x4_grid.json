@@ -28,11 +28,13 @@
   {
     "non_explore_behavior": "max-likelihood",
     "epsilon_spec": {
-      "decay": "linear_decay",
-      "from": 1.0,
-      "to": 0.2,
-      "start_timestep": 0,
-      "num_timesteps": 4000
+      "decay_spec": {
+        "type": "linear_decay",
+        "from": 1.0,
+        "to": 0.2,
+        "start_timestep": 0,
+        "num_timesteps": 4000
+      }
     }
   },
 

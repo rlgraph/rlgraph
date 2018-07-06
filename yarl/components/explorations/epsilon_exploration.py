@@ -37,21 +37,19 @@ class EpsilonExploration(Component):
         do_explore (bool): The decision whether to explore (do_explore=True; pick uniformly randomly) or
             whether to use a sample (or max-likelihood value) from a distribution (do_explore=False).
     """
-    def __init__(self, scope="epsilon-exploration", **kwargs):
+    def __init__(self, decay_spec=None, scope="epsilon-exploration", **kwargs):
         """
         Keyword Args:
-            decay (Optional[str,DecayComponent]): The spec-dict for the DecayComponent to use or a DecayComponent
+            decay_spec (Optional[dict,DecayComponent]): The spec-dict for the DecayComponent to use or a DecayComponent
                 object directly.
 
         Keyword Args:
             Used as decay_spec (only if `decay_spec` not given) to construct the DecayComponent.
         """
-        decay = kwargs.pop("decay", "linear_decay")
-        # Do not pass **kwargs up t parent as it's used for as spec for DecayComponent.
-        super(EpsilonExploration, self).__init__(scope=scope)
+        super(EpsilonExploration, self).__init__(scope=scope, **kwargs)
 
         # Our (epsilon) Decay-Component.
-        self.decay_component = DecayComponent.from_spec(decay, **kwargs)
+        self.decay_component = DecayComponent.from_spec(decay_spec)
         # Our Bernoulli distribution to figure out whether we should explore or not.
         self.bernoulli_component = Bernoulli()
 
