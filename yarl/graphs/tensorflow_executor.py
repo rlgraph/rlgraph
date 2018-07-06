@@ -33,10 +33,10 @@ class TensorFlowExecutor(GraphExecutor):
 
     The following execution strategies are available:
 
-    - default': Assign to CPU or provided default device if no assignment given,
+    - 'default': Assign to CPU or provided default device if no assignment given,
         otherwise consider user device assignments.
-    -'custom': Completely user defined device strategy, graph executor just executes calls
-    -'multi_gpu_sync': Parallelizes updates across multiple GPUs by averaging gradients.
+    - 'custom': Completely user defined device strategy, graph executor just executes calls
+    - 'multi_gpu_sync': Parallelizes updates across multiple GPUs by averaging gradients.
     """
 
     # Valid device strategies.
@@ -150,22 +150,26 @@ class TensorFlowExecutor(GraphExecutor):
         # Set up any remaining session or monitoring configurations.
         self.finish_graph_setup()
 
-    def execute(self, api_method, *params):
+    def execute(self, api_methods):
+        if isinstance(api_methods, str):
+            api_methods = {api_methods: []}
+
         # Fetch inputs for api method.
-        fetch_list, feed_dict = self.graph_builder.get_execution_inputs(api_method, *params)
+        fetch_dict, feed_dict = self.graph_builder.get_execution_inputs(api_methods)
 
         # Expand inputs and fetch list with extra device memory init ops
-        if api_method in self.DEVICE_API_METHODS:
-            fetch_list, feed_dict = self.update_device_inputs_if_necessary(fetch_list, feed_dict, *params)
-        ret = self.monitored_session.run(fetch_list, feed_dict=feed_dict,
+        for api_method, params in api_methods.items():
+            if api_method in self.DEVICE_API_METHODS:
+                fetch_dict, feed_dict = self.update_device_inputs_if_necessary(fetch_dict, feed_dict, *params)
+        ret = self.monitored_session.run(fetch_dict, feed_dict=feed_dict,
                                          options=self.session_options, run_metadata=self.run_metadata)
 
         if self.profiling_enabled:
             self.update_profiler_if_necessary()
-        if len(fetch_list) == 1:
-            return ret[0]
-        else:
-            return ret
+
+        # Return single values instead of lists of 1 item.
+        ret = {k: (v[0] if len(ret[k]) == 1 else v) for k, v in ret.items()}
+        return ret
 
     def update_device_inputs_if_necessary(self, fetch_list, feed_dict, *params):
         """
@@ -546,7 +550,7 @@ class TensorFlowExecutor(GraphExecutor):
         ))
         for device in self.available_devices:
             if device not in used_devices:
-                self.logger.warn("Warning: Device {} is usable but has not been assigned.".format(
+                self.logger.warning("Warning: Device {} is usable but has not been assigned.".format(
                     device
                 ))
 

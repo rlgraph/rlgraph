@@ -532,30 +532,38 @@ class GraphBuilder(Specifiable):
             # Recursively call this method on all the sub-component's sub-components.
             self.sanity_check_build(sub_component)
 
-    def get_execution_inputs(self, api_method, *params):
+    def get_execution_inputs(self, api_methods):
         """
         Creates a fetch-dict and a feed-dict for a graph session call.
 
         Args:
-            api_method (str): The name of the API-method (of the core_component) to execute.
-            *params (any): The parameters to pass into the API-method.
+            api_methods (dict): A dictionary with keys=names of API-methods to call and values=The list of
+                parameters (actual numpy values) to be passed into the API-method.
 
         Returns:
-            tuple: fetch-dict, feed-dict with relevant args.
+            Tuple[list,dict]: Fetch-list, feed-dict with relevant args.
         """
-        if api_method not in self.api:
-            raise YARLError("No API-method with name '{}' found!".format(api_method))
-        fetch_list = [op_rec.op for op_rec in self.api[api_method][1]]
+        fetch_dict = dict()
         feed_dict = dict()
-        for i, param in enumerate(params):
-            placeholder = self.api[api_method][0][i].op
-            if isinstance(placeholder, DataOpTuple):
-                for ph, p in zip(placeholder, param):
-                    feed_dict[ph] = p
-            else:
-                feed_dict[placeholder] = param
 
-        return fetch_list, feed_dict
+        for api_method, params in api_methods.items():
+            if api_method not in self.api:
+                raise YARLError("No API-method with name '{}' found!".format(api_method))
+
+            fetch_dict[api_method] = [op_rec.op for op_rec in self.api[api_method][1]]
+
+            for i, param in enumerate(force_list(params)):
+                if len(self.api[api_method][0]) <= i:
+                    raise YARLError("API-method with name '{}' only has {} input parameters! You passed in "
+                                    "{}.".format(api_method, len(self.api[api_method][0]), len(params)))
+                placeholder = self.api[api_method][0][i].op  # 0=input op-recs; i=ith input op-rec
+                if isinstance(placeholder, DataOpTuple):
+                    for ph, p in zip(placeholder, param):
+                        feed_dict[ph] = p
+                else:
+                    feed_dict[placeholder] = param
+
+        return fetch_dict, feed_dict
 
     def set_core_component(self, core_component):
         """

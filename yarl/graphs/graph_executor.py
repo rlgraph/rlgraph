@@ -77,16 +77,18 @@ class GraphExecutor(Specifiable):
         """
         raise NotImplementedError
 
-    def execute(self, api_method, *params):
+    def execute(self, api_methods):
         """
         Fetches one or more Socket outputs from the graph (given some api_methods) and returns their outputs.
 
         Args:
-            api_method (str): The name of the APi-method to call on our core Component.
-            *params (any): Values to be passed into the API-method.
+            api_methods (Union[dict,str]): A dictionary with keys=names of API-methods to call and values=The list of
+                parameters (actual numpy values) to be passed into the API-method.
+                Alternatively, a str (method name), assuming no input parameters.
 
         Returns:
-            Tuple (or single item) containing the return values of the API-method call.
+            any: The tuple of return values (or a single value) if only one API-method is called.
+                The dictionary of result tuples (or single values) if more than one API-method is called.
         """
         raise NotImplementedError
 
