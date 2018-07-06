@@ -143,7 +143,7 @@ class TestExplorations(unittest.TestCase):
         collect_outs = lambda component_test, outs: collected.append(outs)
 
         for i in range_(1000):
-            test.test(api_method="get_noise", fn_test=collect_outs)
+            test.test(api_methods=dict(get_noise=None), fn_test=collect_outs)
 
         self.assertAlmostEqual(10.0, np.mean(collected), places=1)
         self.assertAlmostEqual(2.0, np.std(collected), places=1)
