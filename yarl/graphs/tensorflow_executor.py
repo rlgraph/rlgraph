@@ -526,14 +526,16 @@ class TensorFlowExecutor(GraphExecutor):
             self.optimizer = optimizer
 
             subgraphs = []
+            core = self.graph_builder.core_component()
 
-            # Identify the subgraph relevant for device managagement.
-            sub_graph = self.graph_builder.get_subgraph(self.DEVICE_API_METHODS)
+            # Identify the subgraph relevant for device management.
+            sub_graph = self.graph_builder.get_subgraph("update_from_external_batch")
             subgraphs.append(sub_graph)
-
             for device in range(self.num_gpus - 1):
                 subgraphs.append(sub_graph.copy())
 
+            # Add to core.
+            core.add_components(subgraphs)
             optimizer.set_replicas(subgraphs)
 
             # Pass device and replicas

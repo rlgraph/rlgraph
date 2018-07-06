@@ -130,7 +130,7 @@ class GraphBuilder(Specifiable):
             self.api[api_method_name] = (in_ops_records, api_method_rec.out_op_columns[0].op_records)
 
         time_build = time.monotonic() - time_start
-        self.logger.info("Meta-graph build completed in {}sec.".format(time_build))
+        self.logger.info("Meta-graph build completed in {} s.".format(time_build))
 
     def sanity_check_meta_graph(self, component=None):
         """
@@ -414,21 +414,67 @@ class GraphBuilder(Specifiable):
         Computes and returns the sub-graph necessary to compute provided API methods.
 
         Args:
-            api_methods (list): Api methods considered for the subgraph.
+            api_methods Union[list,str]: Api method(s) considered for the subgraph.
 
         Returns:
             Component: Container component holding the subgraph.
         """
-        subgraph_container = Component(scope="sub_graph")
-        is_in_subgraph = set()
+        if isinstance(api_methods, str):
+            api_methods = [api_methods]
 
-        components = self.get_all_components()
+        subgraph_container = Component(scope="sub_graph")
+        subgraph_components = set()
 
         # For every api method, trace forward from inputs until all relevant components identified.
         for api_method in api_methods:
-            api_method_rec = self.core_component.api_methods[api_method]
-            # TODO which object to use?
+            # Start with the input set for this method.
+            api_input_records = self.core_component[api_method].in_op_columns[0].op_records
+            op_records_list = sorted(api_input_records, key=lambda rec: rec.id)
 
+            # Re-iterate until our bag of op-recs to process is empty.
+            loop_counter = 0
+            while len(op_records_list) > 0:
+                new_op_records_to_process = set()
+                for op_rec in op_records_list:  # type: DataOpRecord
+                    # There are next records:
+                    if len(op_rec.next) > 0:
+
+                        # Push the op-record forward one step.
+                        for next_op_rec in sorted(op_rec.next, key=lambda rec: rec.id):  # type: DataOpRecord
+                            # If not last op in this API-method ("done") -> continue.
+                            # Otherwise, replace "done" with actual op.
+                            if next_op_rec.op != "done":
+                                assert next_op_rec.op is None
+
+                            # Push op and Space into next op-record.
+                            # TODO we dont want to modify these when just searching?
+                            next_op_rec.op = op_rec.op
+                            next_op_rec.space = op_rec.space
+
+                            # Did we enter a new Component? If yes, add current component.
+                            # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
+                            # placeholder).
+                            if op_rec.column is None or op_rec.column.component is not next_op_rec.column.component:
+                                # Add this component to the sub-graph.
+                                if op_rec.column.component not in subgraph_components:
+                                    subgraph_container.add_components(op_rec.column.component)
+
+                    # No next records:
+                    # - Op belongs to a column going into a graph_fn.
+                    elif isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn):
+                        # If column complete AND has not been sent through the graph_fn yet -> Call the graph_fn.
+                        if op_rec.column.is_complete() and op_rec.column.already_sent is False:
+
+                            # Store all resulting op_recs (returned by the graph_fn) to be processed next.
+                            # TODO are we allowed to modify?
+                            new_op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
+                            # Tag column as already sent through graph_fn.
+                            op_rec.column.already_sent = True
+
+                # No sanity checks because meta graph was already built successfully.
+                new_op_records_list = sorted(new_op_records_to_process, key=lambda rec: rec.id)
+                op_records_list = new_op_records_list
+                loop_counter += 1
         return subgraph_container
 
     @staticmethod
