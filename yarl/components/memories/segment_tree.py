@@ -80,7 +80,13 @@ class SegmentTree(object):
             return loop_update_index >= 1
 
         with tf.control_dependencies(control_inputs=[assignment]):
-            return tf.while_loop(cond=cond, body=insert_body, loop_vars=[loop_update_index])
+            return tf.while_loop(
+                cond=cond,
+                body=insert_body,
+                loop_vars=[loop_update_index],
+                parallel_iterations=1,
+                back_prop=False
+            )
 
     def get(self, index):
         """

@@ -164,7 +164,16 @@ class PrioritizedReplay(Memory):
             return i < num_records
 
         with tf.control_dependencies(control_inputs=index_updates):
-            index = tf.while_loop(cond=cond, body=insert_body, loop_vars=[0])
+            index = tf.while_loop(
+                cond=cond,
+                body=insert_body,
+                loop_vars=[0],
+                # TODO do these help performance?
+                parallel_iterations=1,
+                back_prop=False,
+                maximum_iterations=num_records
+            )
+
 
         # Nothing to return.
         with tf.control_dependencies(control_inputs=[index]):
