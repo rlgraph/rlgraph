@@ -58,7 +58,7 @@ class TestMemoryPerformance(unittest.TestCase):
         )
         test = ComponentTest(component=memory, input_spaces=input_spaces)
 
-        records = [record_space.sample() for _ in range(self.inserts)]
+        records = [record_space.sample(size=1) for _ in range(self.inserts)]
         start = time.monotonic()
         for record in records:
             test.test(api_methods=dict(insert_records=record), expected_outputs=None)
