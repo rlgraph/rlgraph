@@ -184,7 +184,8 @@ class TensorFlowExecutor(GraphExecutor):
         """
         if self.device_strategy == 'multi_gpu_sync':
             # Request additional ops from optimizer which implements them.
-            device_fetches, device_dict = self.optimizer.get_device_ops(*params)
+            # TODO need inputs here?
+            device_fetches, device_dict = self.optimizer.graph_builder.get_execution_inputs({"update_devices": []})
             fetch_list.extend(device_fetches)
             feed_dict.update(device_dict)
 
@@ -539,8 +540,16 @@ class TensorFlowExecutor(GraphExecutor):
             optimizer.set_replicas(subgraphs)
 
             # Pass device and replicas
-            optimizer.set_replicas(subgraphs)
             optimizer.set_devices(self.gpu_names)
+
+            # TODO create splitter
+            splitter = None
+
+            # TODO implement splitting logic
+            def update_devices():
+                pass
+
+            core.define_api_method("update_devices", update_devices)
 
     def _sanity_check_devices(self):
         """
