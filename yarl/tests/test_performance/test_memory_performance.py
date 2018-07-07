@@ -23,7 +23,7 @@ import time
 
 from yarl.components import ReplayMemory, PrioritizedReplay
 from yarl.envs import OpenAIGymEnv
-from yarl.spaces import Dict, BoolBox
+from yarl.spaces import Dict, BoolBox, FloatBox, IntBox
 from yarl.tests import ComponentTest
 
 
@@ -50,7 +50,6 @@ class TestMemoryPerformance(unittest.TestCase):
         """
         Tests individual and chunked insert performance into replay memory.
         """
-
         record_space = Dict(
             states=self.env.state_space,
             actions=self.env.action_space,
@@ -104,13 +103,10 @@ class TestMemoryPerformance(unittest.TestCase):
             self.samples, self.sample_batch_size, tp, end
         ))
 
-
-
     def test_prioritized_replay_insert(self):
         """
-        Tests individual and chunked insert performance into replay memory.
+        Tests individual and chunked insert performance into prioritized replay memory.
         """
-
         record_space = Dict(
             states=self.env.state_space,
             actions=self.env.action_space,
@@ -120,7 +116,8 @@ class TestMemoryPerformance(unittest.TestCase):
         )
         input_spaces = dict(
             insert_records=record_space,
-            get_records=int
+            get_records=int,
+            update_records=[IntBox(shape=(), add_batch_rank=True), FloatBox(shape=(), add_batch_rank=True)]
         )
 
         memory = PrioritizedReplay(
