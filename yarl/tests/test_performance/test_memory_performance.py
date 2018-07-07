@@ -29,7 +29,9 @@ from yarl.tests import ComponentTest
 
 class TestMemoryPerformance(unittest.TestCase):
 
-    env = OpenAIGymEnv(gym_env='Pong-v0')
+    # Note: Using Atari states here has to be done with care because without preprocessing, these will require
+    # large amount sof memory.
+    env = OpenAIGymEnv(gym_env='CartPole-v0')
 
     capacity = 100000
     inserts = 1000
