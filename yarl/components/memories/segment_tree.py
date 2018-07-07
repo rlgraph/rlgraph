@@ -26,10 +26,11 @@ class SegmentTree(object):
 
     TODO check how to manage as component.
     """
+
     def __init__(
-        self,
-        storage_variable,
-        capacity=1048
+            self,
+            storage_variable,
+            capacity=1048
     ):
         """
         Helper to represent a segment tree in pure TensorFlow.
@@ -41,8 +42,6 @@ class SegmentTree(object):
         self.values = storage_variable
         self.capacity = capacity
 
-    # TODO note we do not want to override _setitem_ because of TF
-    # variable/tensor semantics -> variables cannot be assigned without tf.assign
     def insert(self, index, element, insert_op=tf.add):
         """
         Inserts an element into the segment tree by determining
@@ -55,38 +54,122 @@ class SegmentTree(object):
         """
         # index = tf.Print(index, [index], summarize=100, message='index before add = ')
         index += self.capacity
+        index = tf.Print(index, [index, self.values], summarize=1000, message='start index, values=')
         # index = tf.Print(index, [index], summarize=100, message='index after add = ')
 
-        assignment = tf.assign(ref=self.values[index], value=element)
+        # Use a TensorArray to collect updates to the segment tree, then perform them all at once.
+        index_updates = tf.TensorArray(
+            dtype=tf.int32,
+            infer_shape=False,
+            size=1,
+            dynamic_size=True,
+            clear_after_read=False
+        )
+        element_updates = tf.TensorArray(
+            dtype=tf.float32,
+            infer_shape=False,
+            size=1,
+            dynamic_size=True,
+            clear_after_read=False
+        )
 
-        # TODO replace with component assign utility.
+        index_updates = index_updates.write(index=0, value=index)
+        element_updates = element_updates.write(index=0, value=element)
+
         # Search and update values while index >=1
         loop_update_index = tf.div(x=index, y=2)
 
-        def insert_body(loop_update_index):
-            # loop_update_index = tf.Print(loop_update_index,
-            #                              [loop_update_index],
-            #                              summarize=100, message='index in loop = ')
-            update_val = insert_op(
-                x=self.values[2 * loop_update_index],
-                y=self.values[2 * loop_update_index + 1]
+        def insert_body(loop_update_index, index_updates, element_updates, call_index):
+            # This is the index we just updated.
+            prev_index = index_updates.read(call_index - 1)
+
+            update_val = tf.where(
+                condition=tf.greater(x=prev_index % 2, y=0),
+                # Previous index was odd because of loop init -> 2 * index + 1 is in element_updates,
+                # 2 * index is in variable values
+                y=insert_op(x=self.values[2 * loop_update_index],
+                            y=element_updates.read(call_index - 1)),
+
+                # Previous index was even -> 2 * index is in element updates, 2 * index + 1 in variable values.
+                x=insert_op(x=element_updates.read(call_index - 1),
+                              y=self.values[2 * loop_update_index + 1])
             )
-            assignment = tf.assign(ref=self.values[loop_update_index], value=update_val)
 
-            with tf.control_dependencies(control_inputs=[assignment]):
-                return tf.div(x=loop_update_index, y=2)
+            call_index = tf.Print(call_index, [loop_update_index, call_index, update_val], summarize=100,
+                                  message='loop index,'
+                                          'call index,'
+                                          'update val = ')
+            index_updates = index_updates.write(call_index, loop_update_index)
+            element_updates = element_updates.write(call_index, update_val)
 
-        def cond(loop_update_index):
+            return tf.div(x=loop_update_index, y=2), index_updates, element_updates, call_index + 1
+
+        def cond(loop_update_index, index_updates, element_updates, call_index):
             return loop_update_index >= 1
 
+        # Return the TensorArrays containing the updates.
+        loop_update_index, index_updates, element_updates, _ = tf.while_loop(
+            cond=cond,
+            body=insert_body,
+            loop_vars=[loop_update_index, index_updates, element_updates, 1],
+            parallel_iterations=1,
+            back_prop=False
+        )
+        indices = index_updates.stack()
+        # indices = tf.Print(indices, [loop_update_index, indices], summarize=1000, message="segment tree insert indices = ")
+        updates = element_updates.stack()
+        # updates = tf.Print(updates, [updates], summarize=1000, message="segment tree insert updates = ")
+
+        assignment = tf.scatter_update(ref=self.values, indices=indices, updates=updates)
+
         with tf.control_dependencies(control_inputs=[assignment]):
-            return tf.while_loop(
-                cond=cond,
-                body=insert_body,
-                loop_vars=[loop_update_index],
-                parallel_iterations=1,
-                back_prop=False
-            )
+            return tf.no_op()
+
+    # def insert(self, index, element, insert_op=tf.add):
+    #     """
+    #     Inserts an element into the segment tree by determining
+    #     its position in the tree.
+    #
+    #     Args:
+    #         index (int): Insertion index.
+    #         element (any): Element to insert.
+    #         insert_op (Union(tf.add, tf.minimum, tf, maximum)): Insert operation on the tree.
+    #     """
+    #     # index = tf.Print(index, [index], summarize=100, message='index before add = ')
+    #     index += self.capacity
+    #     # index = tf.Print(index, [index], summarize=100, message='index after add = ')
+    #
+    #     assignment = tf.assign(ref=self.values[index], value=element)
+    #
+    #     # TODO replace with component assign utility.
+    #     # Search and update values while index >=1
+    #     loop_update_index = tf.div(x=index, y=2)
+    #
+    #     def insert_body(loop_update_index):
+    #
+    #         update_val = insert_op(
+    #             x=self.values[2 * loop_update_index],
+    #             y=self.values[2 * loop_update_index + 1]
+    #         )
+    #         loop_update_index = tf.Print(loop_update_index,
+    #                                      [loop_update_index,update_val],
+    #                                      summarize=100, message='index, update val= ')
+    #         assignment = tf.assign(ref=self.values[loop_update_index], value=update_val)
+    #
+    #         with tf.control_dependencies(control_inputs=[assignment]):
+    #             return tf.div(x=loop_update_index, y=2)
+    #
+    #     def cond(loop_update_index):
+    #         return loop_update_index >= 1
+    #
+    #     with tf.control_dependencies(control_inputs=[assignment]):
+    #         return tf.while_loop(
+    #             cond=cond,
+    #             body=insert_body,
+    #             loop_vars=[loop_update_index],
+    #             parallel_iterations=1,
+    #             back_prop=False
+    #         )
 
     def get(self, index):
         """

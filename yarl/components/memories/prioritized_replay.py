@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import re
 import tensorflow as tf
 import numpy as np
 
@@ -144,7 +143,8 @@ class PrioritizedReplay(Memory):
 
         weight = tf.pow(x=self.max_priority, y=self.alpha)
 
-        # Note: Cannot concurrently modify, so need iterative insert
+        # Note: Cannot concurrently modify, so need iterative insert.
+        # TODO separate loops?
         def insert_body(i):
             sum_insert = self.sum_segment_tree.insert(
                 index=update_indices[i],
@@ -209,6 +209,8 @@ class PrioritizedReplay(Memory):
             elems=sample_indices,
             dtype=tf.float32
         )
+        sample_indices = tf.Print(sample_indices, [sample_indices, self.sum_segment_tree.values], summarize=1000,
+                                  message='sample indices, segment tree values = ')
         return self.read_records(indices=sample_indices), sample_indices, corrected_weights
 
     def read_records(self, indices):
