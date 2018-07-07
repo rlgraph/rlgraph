@@ -142,9 +142,10 @@ class PrioritizedReplay(Memory):
             update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
             index_updates.append(self.assign_variable(self.size, value=update_size))
 
+        weight = tf.pow(x=self.max_priority, y=self.alpha)
+
         # Note: Cannot concurrently modify, so need iterative insert
         def insert_body(i):
-            weight = tf.pow(x=self.max_priority, y=self.alpha)
             sum_insert = self.sum_segment_tree.insert(
                 index=update_indices[i],
                 element=weight,
