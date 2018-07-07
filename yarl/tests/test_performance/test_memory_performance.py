@@ -75,7 +75,7 @@ class TestMemoryPerformance(unittest.TestCase):
         start = time.monotonic()
         for chunk in record_chunks:
             test.test(api_methods=dict(insert_records=chunk), expected_outputs=None)
-        end = time.time() - start
+        end = time.monotonic() - start
 
         tp = len(record_chunks) / end
         print('Inserted {} record chunks of size {}, throughput: {} ops/s, total time: {} s'.format(
