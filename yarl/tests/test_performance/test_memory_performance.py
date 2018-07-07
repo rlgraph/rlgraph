@@ -78,7 +78,7 @@ class TestMemoryPerformance(unittest.TestCase):
         tp = len(records) / end
         print('#### Testing Replay memory ####')
         print('Testing insert performance:')
-        print('Inserted {} separate records, throughput: {} ops/s, total time: {} s'.format(
+        print('Inserted {} separate records, throughput: {} records/s, total time: {} s'.format(
             len(records), tp, end
         ))
 
@@ -88,8 +88,8 @@ class TestMemoryPerformance(unittest.TestCase):
             test.test(api_methods=dict(insert_records=chunk), expected_outputs=None)
         end = time.monotonic() - start
 
-        tp = len(record_chunks) / end
-        print('Inserted {} record chunks of size {}, throughput: {} ops/s, total time: {} s'.format(
+        tp = len(record_chunks) * self.chunk_size / end
+        print('Inserted {} record chunks of size {}, throughput: {} records/s, total time: {} s'.format(
             len(record_chunks), self.chunk_size, tp, end
         ))
 
@@ -140,7 +140,7 @@ class TestMemoryPerformance(unittest.TestCase):
         tp = len(records) / end
         print('#### Testing Prioritized Replay memory ####')
         print('Testing insert performance:')
-        print('Inserted {} separate records, throughput: {} ops/s, total time: {} s'.format(
+        print('Inserted {} separate records, throughput: {} records/s, total time: {} s'.format(
             len(records), tp, end
         ))
 
@@ -151,7 +151,7 @@ class TestMemoryPerformance(unittest.TestCase):
         end = time.monotonic() - start
 
         tp = len(record_chunks) * self.chunk_size / end
-        print('Inserted {} record chunks of size {}, throughput: {} ops/s, total time: {} s'.format(
+        print('Inserted {} record chunks of size {}, throughput: {} records/s, total time: {} s'.format(
             len(record_chunks), self.chunk_size, tp, end
         ))
 
