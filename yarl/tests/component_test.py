@@ -28,7 +28,15 @@ class ComponentTest(object):
     """
     A simple (and limited) Graph-wrapper to test a single component in an easy, straightforward way.
     """
-    def __init__(self, component, input_spaces=None, action_space=None, seed=10, logging_level=None):
+    def __init__(
+        self,
+        component,
+        input_spaces=None,
+        action_space=None,
+        seed=10,
+        logging_level=None,
+        enable_profiler=False
+    ):
         """
         Args:
             component (Component): The Component to be tested (may contain sub-components).
@@ -39,6 +47,7 @@ class ComponentTest(object):
             seed (Optional[int]): The seed to use for random-seeding the Model object.
                 If None, do not seed the Graph (things may behave non-deterministically).
             logging_level (Optional[int]): When provided, sets YARL's root_logger's logging level to this value.
+            enable_profiler (Optional(bool)): When enabled, activates backend profiling.
         """
         self.seed = seed
         if logging_level is not None:
@@ -51,7 +60,10 @@ class ComponentTest(object):
         self.graph_executor = GraphExecutor.from_spec(
             get_backend(),
             graph_builder=self.graph_builder,
-            execution_spec=dict(seed=self.seed)
+            execution_spec=dict(
+                seed=self.seed,
+                enable_profiler=enable_profiler
+            )
         )
         self.graph_executor.build(input_spaces)
 

@@ -174,7 +174,6 @@ class PrioritizedReplay(Memory):
                 maximum_iterations=num_records
             )
 
-
         # Nothing to return.
         with tf.control_dependencies(control_inputs=[index]):
             return tf.no_op()

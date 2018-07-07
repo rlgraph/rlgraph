@@ -35,7 +35,8 @@ class TestMemoryPerformance(unittest.TestCase):
 
     # Inserts.
     capacity = 100000
-    inserts = 1000
+    inserts = 100
+    enable_profiler = True
     chunk_size = 64
 
     # Samples.
@@ -66,7 +67,7 @@ class TestMemoryPerformance(unittest.TestCase):
             capacity=self.capacity,
             next_states=True
         )
-        test = ComponentTest(component=memory, input_spaces=input_spaces)
+        test = ComponentTest(component=memory, input_spaces=input_spaces, enable_profiler=self.enable_profiler)
 
         records = [record_space.sample(size=1) for _ in range(self.inserts)]
         start = time.monotonic()
@@ -126,7 +127,7 @@ class TestMemoryPerformance(unittest.TestCase):
             alpha=self.alpha,
             beta=self.beta
         )
-        test = ComponentTest(component=memory, input_spaces=input_spaces)
+        test = ComponentTest(component=memory, input_spaces=input_spaces, enable_profiler=self.enable_profiler)
 
         records = [record_space.sample(size=1) for _ in range(self.inserts)]
         start = time.monotonic()
