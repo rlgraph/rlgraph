@@ -112,7 +112,9 @@ class SingleThreadedWorker(Worker):
             if self.render:
                 self.environment.render()
             while True:
-                action = self.agent.get_action(states=state, deterministic=deterministic)
+                action = self.agent.get_action(
+                    states=state, deterministic=deterministic, return_preprocessed_states=False
+                )
 
                 # Accumulate the reward over n env-steps (equals one action pick). n=self.repeat_actions
                 reward = 0

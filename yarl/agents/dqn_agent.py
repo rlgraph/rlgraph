@@ -17,12 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import copy
 import numpy as np
 
 from yarl.agents import Agent
-from yarl.components import Synchronizable, Merger, Splitter, Memory, DQNLossFunction, Policy
+from yarl.components import Synchronizable, Memory, DQNLossFunction, Policy, Merger, Splitter
 from yarl.spaces import Dict, FloatBox, BoolBox
+from yarl.utils.util import strip_list
 from yarl.utils.visualization_util import get_graph_markup
 
 
@@ -34,13 +34,17 @@ class DQNAgent(Agent):
     [3] Dueling Network Architectures for Deep Reinforcement Learning, Wang et al. - 2016
     """
 
-    def __init__(self, discount=0.98, double_q=True, dueling_q=True, memory_spec=None, **kwargs):
+    def __init__(self, discount=0.98, double_q=True, dueling_q=True, memory_spec=None,
+                 return_preprocessed_states=False, **kwargs):
         """
         Args:
             discount (float): The discount factor (gamma).
-            memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
             double_q (bool): Whether to use the double DQN loss function (see [2]).
             dueling_q (bool): Whether to use a dueling layer in the ActionAdapter  (see [3]).
+            memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
+            return_preprocessed_states (bool): Whether to return (and expect in external-batches) always the already
+                preprocessed states (rather than the original states from the env).
+                Exception: When calling `Agent.get_action()`, we always expect the original states from the env.
         """
         super(DQNAgent, self).__init__(**kwargs)
 
@@ -54,24 +58,16 @@ class DQNAgent(Agent):
         reward_space = FloatBox(add_batch_rank=True)
         terminal_space = BoolBox(add_batch_rank=True)
         self.input_spaces = dict(
-            get_action=[int, state_space],
+            get_preprocessed_state_and_action=[state_space, int],
             insert_records=[state_space, action_space, reward_space, terminal_space],
             update_from_external_batch=[state_space, action_space, reward_space, terminal_space, state_space]
         )
-        # A single record Space (no batch rank).
-        self.record_space = Dict(states=self.state_space,
-                                 actions=self.action_space,
-                                 rewards=reward_space,
-                                 terminals=terminal_space, add_batch_rank=False)
-
+        # The merger to merge inputs into one record Dict going into the memory.
+        self.merger = Merger("states", "actions", "rewards", "terminals")
         # The replay memory.
         self.memory = Memory.from_spec(memory_spec)
-        # Merger for inserting records into the memory.
-        self.merger = Merger(output_space=self.record_space)
-        # Splitter for retrieving records from memory.
-        splitter_input_space = copy.deepcopy(self.record_space)
-        splitter_input_space["next_states"] = self.state_space
-        self.splitter = Splitter(input_space=splitter_input_space)
+        # The splitter for splitting up the records coming from the memory.
+        self.splitter = Splitter("states", "actions", "rewards", "terminals", "next_states")
 
         # The behavioral policy of the algorithm. Also the one that gets updated.
         self.policy = Policy(
@@ -85,7 +81,7 @@ class DQNAgent(Agent):
         self.loss_function = DQNLossFunction(discount=self.discount, double_q=self.double_q)
 
         # Add all our sub-components to the core.
-        sub_components = [self.preprocessor, self.memory, self.merger, self.splitter, self.policy,
+        sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
                           self.target_policy, self.exploration, self.loss_function, self.optimizer]
         self.core_component.add_components(*sub_components)
 
@@ -96,21 +92,22 @@ class DQNAgent(Agent):
         # print(markup)
         self.build_graph(self.input_spaces, self.optimizer)
 
-    def define_api_methods(self, preprocessor, memory, merger, splitter, policy, target_policy, exploration,
+    def define_api_methods(self, preprocessor, merger, memory, splitter, policy, target_policy, exploration,
                            loss_function, optimizer):
         # State from environment to action pathway.
-        def get_action(self_, states, time_step):
+        def get_preprocessed_state_and_action(self_, states, time_step):
             preprocessed_states = self_.call(preprocessor.preprocess, states)
             sample_deterministic = self_.call(policy.sample_deterministic, preprocessed_states)
             sample_stochastic = self_.call(policy.sample_stochastic, preprocessed_states)
-            return self_.call(exploration.get_action, time_step, sample_deterministic, sample_stochastic)
+            actions = self_.call(exploration.get_action, sample_deterministic, sample_stochastic, time_step)
+            return preprocessed_states, actions
 
-        self.core_component.define_api_method("get_action", get_action)
+        self.core_component.define_api_method("get_preprocessed_state_and_action", get_preprocessed_state_and_action)
 
         # Insert into memory pathway.
         def insert_records(self_, states, actions, rewards, terminals):
-            preprocessed = self_.call(preprocessor.preprocess, states)
-            records = self_.call(merger.merge, preprocessed, actions, rewards, terminals)
+            preprocessed_states = self_.call(preprocessor.preprocess, states)
+            records = self_.call(merger.merge, preprocessed_states, actions, rewards, terminals)
             return self_.call(memory.insert_records, records)
 
         self.core_component.define_api_method("insert_records", insert_records)
@@ -125,6 +122,7 @@ class DQNAgent(Agent):
         # Learn from memory.
         def update_from_memory(self_):
             records = self_.call(memory.get_records, self.update_spec["batch_size"])
+
             states, actions, rewards, terminals, next_states = self_.call(splitter.split, records)
 
             # Get the different Q-values.
@@ -162,18 +160,23 @@ class DQNAgent(Agent):
 
         self.core_component.define_api_method("update_from_external_batch", update_from_external_batch)
 
-    def get_action(self, states, deterministic=False):
+    def get_action(self, states, deterministic=False, return_preprocessed_states=False):
         batched_states = self.state_space.batched(states)
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
         # Increase timesteps by the batch size (number of states in batch).
         self.timesteps += len(batched_states)
-        actions = self.graph_executor.execute(
-            api_methods=dict(get_action=[batched_states, self.timesteps])
+        preprocessed_states, actions = self.graph_executor.execute(
+            api_methods=dict(get_preprocessed_state_and_action=[batched_states, self.timesteps])
         )
-        #print("states={} action={} q_values={} do_explore={}".format(states, actions, q_values, do_explore))
-        if remove_batch_rank:
-            return actions[0]
-        return actions
+        if return_preprocessed_states:
+            if remove_batch_rank:
+                return strip_list(actions), strip_list(preprocessed_states)
+            else:
+                return actions, preprocessed_states
+        elif remove_batch_rank:
+            return strip_list(actions)
+        else:
+            return actions
 
     def _observe_graph(self, states, actions, internals, rewards, terminals):
         self.graph_executor.execute(api_methods=dict(insert_records=[states, actions, rewards, terminals]))

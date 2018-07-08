@@ -159,18 +159,22 @@ class Agent(Specifiable):
         """
         self.graph_executor.build(input_spaces, args)
 
-    def get_action(self, states, deterministic=False):
+    def get_action(self, states, deterministic=False, return_preprocessed_states=False):
         """
         Returns action(s) for the passed state(s). If `states` is a single state, returns a single action, otherwise,
         returns a batch of actions, where batch-size = number of states passed in.
+        Optionally, also returns the preprocessed states.
 
         Args:
             states (Union[dict,np.ndarray]): State dict/tuple or numpy array.
             deterministic (bool): If True, no exploration or sampling may be applied
                 when retrieving an action.
+            return_preprocessed_states (bool): Whether to return the preprocessed states as a second
+                return value.
 
         Returns:
             any: Action(s) as dict/tuple/np.ndarray (depending on `self.action_space`).
+                Optional: The preprocessed states as a 2nd return value.
         """
         raise NotImplementedError
 

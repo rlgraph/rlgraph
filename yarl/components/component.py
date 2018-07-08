@@ -69,6 +69,9 @@ class Component(Specifiable):
             global_component (bool): In distributed mode, this flag indicates if the component is part of the
                 shared global model or local to the worker. Defaults to False and will be ignored if set to
                 True in non-distributed mode.
+            graph_fn_num_outputs (dict): A dict specifying which graph_fns have how many return values.
+                This can be useful if graph_fns don't clearly have a fixed number of return values and the auto-inferral
+                utility function cannot determine the actual number of returned values.
             switched_off_apis (Optional[Set[str]]): Set of API-method names that should NOT be build for this Component.
         """
         # Scope if used to create scope hierarchies inside the Graph.
@@ -152,7 +155,7 @@ class Component(Specifiable):
             name, method = (member[0], member[1])
             if name != "define_api_method" and name != "add_components" and name[0] != "_" and \
                     name not in self.switched_off_apis and util.get_method_type(method) == "api":
-                callable_anytime = util.does_method_call_graph_fns(method)
+                callable_anytime = False  # not util.does_method_call_graph_fns(method)
                 ret[name] = APIMethodRecord(method, component=self, callable_anytime=callable_anytime)
         return ret
 
@@ -328,13 +331,25 @@ class Component(Specifiable):
         """
         api_method_rec = method_owner.api_methods[method.__name__]
 
-        # Create op-record column to call API method with.
-        in_op_column = DataOpRecordColumnIntoAPIMethod(op_records=len(params), component=self,
+        params_no_none = list()
+        for p in params[::-1]:
+            # Only allow Nones at end of params (positional default args).
+            if p is None:
+                assert len(params_no_none) == 0,\
+                    "ERROR: params ({}) to API-method '{}' have Nones amongst them (ok, if at the end of the params " \
+                    "list, but not in the middle).".format(params, method.__name__)
+            else:
+                params_no_none.insert(0, p)
+
+        # Create op-record column to call API method with. Ignore None input params. These should not be sent
+        # to the API-method.
+        in_op_column = DataOpRecordColumnIntoAPIMethod(op_records=len(params_no_none),
+                                                       component=self,
                                                        api_method_rec=api_method_rec)
         api_method_rec.in_op_columns.append(in_op_column)
 
         # Link from in_op_recs into the new column.
-        for i, op_rec in enumerate(params):
+        for i, op_rec in enumerate(params_no_none):
             # Fixed value (instead of op-record): Store the fixed value directly in the op.
             if not isinstance(op_rec, DataOpRecord):
                 in_op_column.op_records[i].op = np.array(op_rec)
@@ -723,14 +738,15 @@ class Component(Specifiable):
         # Recurse up the container hierarchy.
         self.parent_component.propagate_summary(key_)
 
-    def define_api_method(self, name, func, **kwargs):
+    def define_api_method(self, name, func=None, **kwargs):
         """
         Creates a very basic graph_fn based API method for this Component.
         Alternative way for defining an API method directly in the Component via def.
 
         Args:
-            name (str): The name of the API method to create.
-            func (callable): The graph_fn to wrap or the custom function to set as API-method.
+            name (Union[str,callable]): The name of the API method to create or one of the Component's method to
+                create the API-method from.
+            func (Optional[callable]): The graph_fn to wrap or the custom function to set as API-method.
 
         Keyword Args:
             flatten_ops (bool,Set[int]): See `self.call` for details.
@@ -742,7 +758,7 @@ class Component(Specifiable):
             raise YARLError("API-method with name '{}' already defined!".format(name))
         # There already is another object property with that name (avoid accidental overriding).
         elif getattr(self, name, None) is not None:
-            raise YARLError("Component '{}' already has property called '{}'. Cannot define an API-method with "
+            raise YARLError("Component '{}' already has a property called '{}'. Cannot define an API-method with "
                             "the same name!".format(self.name, name))
         # Do not build this API as per ctor instructions.
         elif name in self.switched_off_apis:

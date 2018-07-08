@@ -270,21 +270,16 @@ class GraphBuilder(Specifiable):
                 elif isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn):
                     # If column complete AND has not been sent through the graph_fn yet -> Call the graph_fn.
                     if op_rec.column.is_complete() and op_rec.column.already_sent is False:
-                        # If we reach a graph_fn, the Component must be input-complete (otherwise we would have been
-                        # caught at the API level).
-                        assert op_rec.column.component.input_complete
-                        ## Only call the graph_fn if the Component is already input-complete.
-                        ##if op_rec.column.component.input_complete:
-                        # Call the graph_fn with the given column and call-options.
-                        self.run_through_graph_fn_with_device_and_scope(op_rec.column)
-                        # Store all resulting op_recs (returned by the graph_fn) to be processed next.
-                        new_op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
-                        # Tag column as already sent through graph_fn.
-                        op_rec.column.already_sent = True
-                        ## Component not input-complete. Keep coming back with this op.
-                        #else:
-                        #    self.build_component_when_input_complete(op_rec.column.component, new_op_records_to_process)
-                        #    new_op_records_to_process.add(op_rec)
+                        # Only call the graph_fn if the Component is already input-complete.
+                        if op_rec.column.component.input_complete:
+                            # Call the graph_fn with the given column and call-options.
+                            self.run_through_graph_fn_with_device_and_scope(op_rec.column)
+                            # Store all resulting op_recs (returned by the graph_fn) to be processed next.
+                            new_op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
+                        # Component not input-complete. Keep coming back with this op.
+                        else:
+                            self.build_component_when_input_complete(op_rec.column.component, new_op_records_to_process)
+                            new_op_records_to_process.add(op_rec)
                     # - Op column is not complete yet: Discard this one (as others will keep coming in anyway).
                     # - Op column has already been sent (sibling ops may have arrive in same iteration).
                 # - Op belongs to a column coming from a graph_fn or an API-method, but the op is no longer used.
@@ -341,8 +336,6 @@ class GraphBuilder(Specifiable):
                 self.logger.debug("Component {} is input-complete; spaces_dict={}".
                                   format(component.name, spaces_dict))
                 component.when_input_complete(spaces_dict, self.action_space)
-                #no_input_graph_fn_columns = component.when_input_complete(spaces_dict,
-                #                                                          self.action_space)
                 # Call all no-input graph_fns of the new Component.
                 for no_in_col in component.no_input_graph_fn_columns:
                     # Do not call _variables (only later, when Component is also variable-complete).
@@ -355,13 +348,10 @@ class GraphBuilder(Specifiable):
         # "variable-complete".
         if component.input_complete is True and component.variable_complete is False and \
                 component.check_variable_completeness():
-            #assert "_graph_fn__variables" in component.graph_fns
-            #if "_graph_fn__variables" not in component.graph_fns:
-            #    component.call(component._graph_fn__variables)
             # The graph_fn _variables has some in-op-columns that need to be run through the function.
             if "_graph_fn__variables" in component.graph_fns:
                 graph_fn_rec = component.graph_fns["_graph_fn__variables"]
-                assert len(graph_fn_rec.in_op_columns) == 1  # TODO: Not sure why there should always only be one?
+                #assert len(graph_fn_rec.in_op_columns) == 1  # TODO: Not sure why there should always only be one?
                 self.run_through_graph_fn_with_device_and_scope(graph_fn_rec.in_op_columns[0])
                 # Keep working with the generated output ops.
                 op_records_to_process.update(graph_fn_rec.out_op_columns[0].op_records)
@@ -410,6 +400,9 @@ class GraphBuilder(Specifiable):
                                    op_rec_column.component.global_scope)
                     )
                     self.run_through_graph_fn(op_rec_column)
+
+        # Tag column as already sent through graph_fn.
+        op_rec_column.already_sent = True
 
         # Store assigned names for debugging.
         if assigned_device is not None:

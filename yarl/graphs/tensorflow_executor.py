@@ -168,7 +168,8 @@ class TensorFlowExecutor(GraphExecutor):
 
         # Return single values instead of lists of 1 item.
         ret = {k: (v[0] if len(ret[k]) == 1 else v) for k, v in ret.items()}
-        return ret
+        # If only one API-method was called, strip that as well and return only the output of that API-method.
+        return ret if len(ret) > 1 else list(ret.values())[0]
 
     def update_device_inputs_if_necessary(self, fetch_list, feed_dict, *params):
         """

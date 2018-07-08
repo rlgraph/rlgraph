@@ -134,7 +134,7 @@ def get_shape(op, flat=False, no_batch=False):
     if flat is False:
         return shape
     else:
-        return np.prod(shape)
+        return int(np.prod(shape))
 
 
 def get_batch_size(tensor):
@@ -171,6 +171,21 @@ def force_list(elements, to_tuple=False):
 
 
 force_tuple = partial(force_list, to_tuple=True)
+
+
+def strip_list(elements):
+    """
+    If `elements` is a list (or tuple) of length 1, returns that single item, otherwise
+    leaves `elements` untouched.
+
+    Args:
+        elements (Optional[any]): The input single item, list, or tuple to be converted into a
+            single item (if length is 1).
+
+    Returns:
+        any: A single element (the only one in input) or the original input list.
+    """
+    return elements[0] if isinstance(elements, (np.ndarray, tuple, list)) and len(elements) == 1 else elements
 
 
 def default_dict(original, defaults):

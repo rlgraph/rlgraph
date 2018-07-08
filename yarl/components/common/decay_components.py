@@ -21,6 +21,8 @@ from functools import partial
 
 from yarl import get_backend
 from yarl.utils import util
+from yarl.spaces.space_utils import sanity_check_space
+from yarl.spaces.int_box import IntBox
 from yarl.components import Component
 
 if get_backend() == "tf":
@@ -60,6 +62,11 @@ class DecayComponent(Component):
 
         self.define_api_method(name="decayed_value", func=self._graph_fn_decayed_value)
 
+    def check_input_spaces(self, input_spaces, action_space):
+        time_step_space = input_spaces["decayed_value"][0]  # type: Space
+        sanity_check_space(time_step_space, allowed_types=[IntBox], must_have_batch_rank=False,
+                           must_have_categories=False, rank=0)
+
     def _graph_fn_decayed_value(self, time_step):
         """
         Args:
@@ -73,12 +80,17 @@ class DecayComponent(Component):
                 pred=(time_step <= self.start_timestep),
                 # We are still in pre-decay time.
                 true_fn=lambda: self.from_,
-                false_fn=lambda: tf.cond(pred=(time_step >= self.start_timestep + self.num_timesteps),
-                                         # We are in post-decay time.
-                                         true_fn=lambda: self.to_,
-                                         # We are inside the decay time window.
-                                         false_fn=lambda: self._graph_fn_decay(tf.cast(x=time_step - self.start_timestep,
-                                                                                       dtype=util.dtype("float"))))
+                false_fn=lambda: tf.cond(
+                    pred=(time_step >= self.start_timestep + self.num_timesteps),
+                    # We are in post-decay time.
+                    true_fn=lambda: self.to_,
+                    # We are inside the decay time window.
+                    false_fn=lambda: self._graph_fn_decay(
+                        tf.cast(x=time_step - self.start_timestep, dtype=util.dtype("float"))
+                    ),
+                    name="cond-past-end-time"
+                ),
+                name="cond-before-start-time"
             )
 
     def _graph_fn_decay(self, time_steps_in_decay_window):
