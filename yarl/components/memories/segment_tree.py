@@ -22,9 +22,8 @@ import tensorflow as tf
 
 class SegmentTree(object):
     """
-    Segment tree for prioritized replay.
+    TensorFlow Segment tree for prioritized replay.
 
-    TODO check how to manage as component.
     """
 
     def __init__(
@@ -53,7 +52,6 @@ class SegmentTree(object):
             insert_op (Union(tf.add, tf.minimum, tf, maximum)): Insert operation on the tree.
         """
         index += self.capacity
-        # index = tf.Print(index, [index, self.values], summarize=1000, message='start index, values=')
 
         # Use a TensorArray to collect updates to the segment tree, then perform them all at once.
         index_updates = tf.TensorArray(
@@ -92,17 +90,6 @@ class SegmentTree(object):
                 y=insert_op(x=prev_val,
                             y=self.values[2 * loop_update_index + 1])
             )
-            # update_val = tf.Print(update_val,
-            #                       [prev_index,
-            #                        tf.greater(x=prev_index % 2, y=0),
-            #                        loop_update_index,
-            #                        update_val,
-            #                        prev_val, self.values[2 * loop_update_index],
-            #                        self.values[2 * loop_update_index + 1]
-            #                        ],
-            #                       summarize=1000, message='\n prev index -> index  -> update val|prev_val| values[2*index] |'
-            #                                               'values[2*index+1] ='
-            #                       )
             index_updates = index_updates.write(call_index, loop_update_index)
             element_updates = element_updates.write(call_index, update_val)
 
@@ -143,7 +130,6 @@ class SegmentTree(object):
     #
     #     assignment = tf.assign(ref=self.values[index], value=element)
     #
-    #     # TODO replace with component assign utility.
     #     # Search and update values while index >=1
     #     loop_update_index = tf.div(x=index, y=2)
     #
