@@ -130,21 +130,21 @@ class TestPrioritizedReplay(unittest.TestCase):
         # Assert next states key is there
         self.assertTrue('next_states' in records)
 
-        # # We allow repeat indices in sampling.
-        # num_records = 5
-        # batch = test.test(api_methods=dict(get_records=num_records), expected_outputs=None)
-        # records = batch[0]
-        # self.assertEqual(5, len(records['terminals']))
-        #
-        # # Now insert over capacity, note all elements here are non-terminal.
-        # observation = non_terminal_records(self.record_space, self.capacity)
-        # test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
-        #
-        # # Assert we can fetch exactly capacity elements.
-        # num_records = self.capacity
-        # batch = test.test(api_methods=dict(get_records=num_records), expected_outputs=None)
-        # records = batch[0]
-        # self.assertEqual(self.capacity, len(records['terminals']))
+        # We allow repeat indices in sampling.
+        num_records = 5
+        batch = test.test(api_methods=dict(get_records=num_records), expected_outputs=None)
+        records = batch[0]
+        self.assertEqual(5, len(records['terminals']))
+
+        # Now insert over capacity, note all elements here are non-terminal.
+        observation = non_terminal_records(self.record_space, self.capacity)
+        test.test(api_methods=dict(insert_records=observation), expected_outputs=None)
+
+        # Assert we can fetch exactly capacity elements.
+        num_records = self.capacity
+        batch = test.test(api_methods=dict(get_records=num_records), expected_outputs=None)
+        records = batch[0]
+        self.assertEqual(self.capacity, len(records['terminals']))
 
     def test_without_next_state(self):
         """

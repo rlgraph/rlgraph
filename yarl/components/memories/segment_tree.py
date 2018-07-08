@@ -52,10 +52,8 @@ class SegmentTree(object):
             element (any): Element to insert.
             insert_op (Union(tf.add, tf.minimum, tf, maximum)): Insert operation on the tree.
         """
-        # index = tf.Print(index, [index], summarize=100, message='index before add = ')
         index += self.capacity
-        index = tf.Print(index, [index, self.values], summarize=1000, message='start index, values=')
-        # index = tf.Print(index, [index], summarize=100, message='index after add = ')
+        # index = tf.Print(index, [index, self.values], summarize=1000, message='start index, values=')
 
         # Use a TensorArray to collect updates to the segment tree, then perform them all at once.
         index_updates = tf.TensorArray(
@@ -82,23 +80,29 @@ class SegmentTree(object):
         def insert_body(loop_update_index, index_updates, element_updates, call_index):
             # This is the index we just updated.
             prev_index = index_updates.read(call_index - 1)
-
+            prev_val = element_updates.read(call_index - 1)
             update_val = tf.where(
                 condition=tf.greater(x=prev_index % 2, y=0),
                 # Previous index was odd because of loop init -> 2 * index + 1 is in element_updates,
                 # 2 * index is in variable values
-                y=insert_op(x=self.values[2 * loop_update_index],
-                            y=element_updates.read(call_index - 1)),
+                x=insert_op(x=self.values[2 * loop_update_index],
+                            y=prev_val),
 
                 # Previous index was even -> 2 * index is in element updates, 2 * index + 1 in variable values.
-                x=insert_op(x=element_updates.read(call_index - 1),
-                              y=self.values[2 * loop_update_index + 1])
+                y=insert_op(x=prev_val,
+                            y=self.values[2 * loop_update_index + 1])
             )
-
-            call_index = tf.Print(call_index, [loop_update_index, call_index, update_val], summarize=100,
-                                  message='loop index,'
-                                          'call index,'
-                                          'update val = ')
+            # update_val = tf.Print(update_val,
+            #                       [prev_index,
+            #                        tf.greater(x=prev_index % 2, y=0),
+            #                        loop_update_index,
+            #                        update_val,
+            #                        prev_val, self.values[2 * loop_update_index],
+            #                        self.values[2 * loop_update_index + 1]
+            #                        ],
+            #                       summarize=1000, message='\n prev index -> index  -> update val|prev_val| values[2*index] |'
+            #                                               'values[2*index+1] ='
+            #                       )
             index_updates = index_updates.write(call_index, loop_update_index)
             element_updates = element_updates.write(call_index, update_val)
 
@@ -116,9 +120,7 @@ class SegmentTree(object):
             back_prop=False
         )
         indices = index_updates.stack()
-        # indices = tf.Print(indices, [loop_update_index, indices], summarize=1000, message="segment tree insert indices = ")
         updates = element_updates.stack()
-        # updates = tf.Print(updates, [updates], summarize=1000, message="segment tree insert updates = ")
 
         assignment = tf.scatter_update(ref=self.values, indices=indices, updates=updates)
 
