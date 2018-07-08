@@ -47,9 +47,9 @@ class TestMemoryPerformance(unittest.TestCase):
     beta = 1.0
     max_priority = 1.0
 
-    def test_replay_insert(self):
+    def test_replay(self):
         """
-        Tests individual and chunked insert performance into replay memory.
+        Tests individual and chunked insert and sampling performance of replay memory.
         """
         record_space = Dict(
             states=self.env.state_space,
@@ -104,9 +104,9 @@ class TestMemoryPerformance(unittest.TestCase):
             self.samples, self.sample_batch_size, tp, end
         ))
 
-    def test_prioritized_replay_insert(self):
+    def test_prioritized_replay(self):
         """
-        Tests individual and chunked insert performance into prioritized replay memory.
+        Tests individual and chunked insert and sampling performance of prioritized replay memory.
         """
         record_space = Dict(
             states=self.env.state_space,

@@ -143,39 +143,31 @@ class PrioritizedReplay(Memory):
 
         weight = tf.pow(x=self.max_priority, y=self.alpha)
 
-        # Note: Cannot concurrently modify, so need iterative insert.
-        # TODO separate loops?
+        # Insert new priorities into segment tree.
         def insert_body(i):
-            sum_insert = self.sum_segment_tree.insert(
-                index=update_indices[i],
-                element=weight,
-                insert_op=tf.add
-            )
-
-            min_insert = self.min_segment_tree.insert(
-                index=update_indices[i],
-                element=weight,
-                insert_op=tf.minimum
-            )
-            with tf.control_dependencies(control_inputs=[tf.group(sum_insert, min_insert)]):
+            sum_insert = self.sum_segment_tree.insert(update_indices[i], weight, tf.add)
+            with tf.control_dependencies(control_inputs=[sum_insert]):
                 return i + 1
 
         def cond(i):
             return i < num_records
 
         with tf.control_dependencies(control_inputs=index_updates):
-            index = tf.while_loop(
-                cond=cond,
-                body=insert_body,
-                loop_vars=[0],
-                # TODO do these help performance?
-                parallel_iterations=1,
-                back_prop=False,
-                maximum_iterations=num_records
-            )
+            sum_insert = tf.while_loop(cond=cond, body=insert_body, loop_vars=[0])
+
+        def insert_body(i):
+            min_insert = self.min_segment_tree.insert(update_indices[i], weight, tf.minimum)
+            with tf.control_dependencies(control_inputs=[min_insert]):
+                return i + 1
+
+        def cond(i):
+            return i < num_records
+
+        with tf.control_dependencies(control_inputs=[sum_insert]):
+            min_insert = tf.while_loop(cond=cond, body=insert_body, loop_vars=[0])
 
         # Nothing to return.
-        with tf.control_dependencies(control_inputs=[index]):
+        with tf.control_dependencies(control_inputs=[min_insert]):
             return tf.no_op()
 
     def _graph_fn_get_records(self, num_records):
