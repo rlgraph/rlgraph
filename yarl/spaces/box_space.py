@@ -132,8 +132,11 @@ class BoxSpace(Space):
             if is_input_feed:
                 return tf.placeholder(dtype=dtype(self.dtype), shape=shape, name=name)
             else:
-                # TODO: what about initializer spec?
-                yarl_initializer = Initializer.from_spec(shape=shape, specification=kwargs.pop("initializer", None))
+                init_spec = kwargs.pop("initializer", None)
+                # Bools should be initializable via 0 or not 0.
+                if self.dtype == "bool" and isinstance(init_spec, (int, float)):
+                    init_spec = (init_spec != 0)
+                yarl_initializer = Initializer.from_spec(shape=shape, specification=init_spec)
                 return tf.get_variable(name, shape=shape, dtype=dtype(self.dtype),
                                        initializer=yarl_initializer.initializer,
                                        **kwargs)

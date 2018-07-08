@@ -53,7 +53,8 @@ class Memory(Component):
             name="memory", trainable=False,
             from_space=self.record_space,
             flatten=True,
-            add_batch_rank=self.capacity
+            add_batch_rank=self.capacity,
+            initializer=0
         )
 
     def _graph_fn_insert_records(self, records):

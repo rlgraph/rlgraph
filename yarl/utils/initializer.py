@@ -46,7 +46,7 @@ class Initializer(Specifiable):
         # Fixed values spec -> Use them, just do sanity checking.
         else:
             # Constant value across the variable.
-            if isinstance(specification, float):
+            if isinstance(specification, (float, int)):
                 pass
             # A 1D initializer (e.g. for biases).
             elif isinstance(specification, list):
