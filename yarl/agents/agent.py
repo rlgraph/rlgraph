@@ -91,8 +91,8 @@ class Agent(Specifiable):
         self.states_buffer = None
         self.actions_buffer = None
         self.internals_buffer = None
-        self.reward_buffer = None
-        self.terminal_buffer = None
+        self.rewards_buffer = None
+        self.terminals_buffer = None
 
         self.observe_spec = parse_observe_spec(observe_spec)
         if self.observe_spec["buffer_enabled"]:
@@ -126,22 +126,8 @@ class Agent(Specifiable):
         self.states_buffer = list()
         self.actions_buffer = list()
         self.internals_buffer = list()
-        self.reward_buffer = list()
-        self.terminal_buffer = list()
-
-    #def define_api_methods(self, *params):
-    #    """
-    #    Wrapper for the actual `_assemble_meta_graph()` method. Times the meta-graph assembly and logs it.
-
-    #    Args:
-    #        params (any): List of parameters to pass on to the Agent's `_assemble_meta_graph` method (after
-    #            the core Component).
-    #    """
-    #    start_time = time.monotonic()
-    #    self.logger.info("Start assembly of YARL meta-graph for Agent '{}' ...".format(self.name))
-    #    self._assemble_meta_graph(self.graph_builder.core_component, *params)
-    #    assembly_time = time.monotonic() - start_time
-    #    self.logger.info("YARL meta-graph assembly for Agent '{}' took {} s.".format(self.name, assembly_time))
+        self.rewards_buffer = list()
+        self.terminals_buffer = list()
 
     def define_api_methods(self, *params):
         """
@@ -212,17 +198,17 @@ class Agent(Specifiable):
             self.states_buffer.extend(states)
             self.actions_buffer.extend(actions)
             self.internals_buffer.extend(internals)
-            self.reward_buffer.extend(rewards)
-            self.terminal_buffer.extend(terminals)
+            self.rewards_buffer.extend(rewards)
+            self.terminals_buffer.extend(terminals)
 
             # Inserts per episode or when full.
-            if len(self.reward_buffer) >= self.observe_spec["buffer_size"] or terminals:
+            if len(self.rewards_buffer) >= self.observe_spec["buffer_size"] or terminals:
                 self._observe_graph(
                     states=np.asarray(self.states_buffer),
                     actions=np.asarray(self.actions_buffer),
                     internals=np.asarray(self.internals_buffer),
-                    rewards=np.asarray(self.reward_buffer),
-                    terminals=self.terminal_buffer
+                    rewards=np.asarray(self.rewards_buffer),
+                    terminals=self.terminals_buffer
                 )
                 self.reset_buffers()
         else:
