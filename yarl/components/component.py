@@ -468,21 +468,6 @@ class Component(Specifiable):
         # Add all created variables up the parent/container hierarchy.
         self.propagate_variables()
 
-        # Collect no-input graph_fn (except `_variables`) and make sure that are called right after Variable creation.
-        #no_input_in_columns = list()
-        #for graph_fn_rec in self.graph_fns.values():  # type: GraphFnRecord
-        #    if graph_fn_rec.graph_fn.__name__ == "_graph_fn__variables":
-        #        continue
-        #    # Loop through all in columns and store those that don't need any ops from previous records,
-        #    # meaning the column length is either 0 or it is full of constant-value (numpy array) ops.
-        #    for in_op_column in graph_fn_rec.in_op_columns:
-        #        if in_op_column.already_sent is False and (len(in_op_column.op_records) == 0 or all(
-        #                op_rec.constant_value is True for op_rec in in_op_column.op_records)
-        #        ):
-        #            no_input_in_columns.extend(graph_fn_rec.in_op_columns)
-        #
-        #return no_input_in_columns
-
     def check_input_spaces(self, input_spaces, action_space):
         """
         Should check on the nature of all in-Sockets Spaces of this Component. This method is called automatically
@@ -537,7 +522,7 @@ class Component(Specifiable):
             self.create_summary(summary_name, var)
 
     def get_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True,
-                        from_space=None, add_batch_rank=False, flatten=False):
+                     from_space=None, add_batch_rank=False, flatten=False):
         """
         Generates or returns a variable to use in the selected backend.
         The generated variable is automatically registered in this component's (and all parent components')
@@ -577,7 +562,7 @@ class Component(Specifiable):
             # Variables should be returned in a flattened OrderedDict.
             if flatten:
                 var = from_space.flatten(mapping=lambda k, primitive: primitive.get_tensor_variable(
-                    name=name + k, add_batch_rank=add_batch_rank, trainable=trainable))
+                    name=name + k, add_batch_rank=add_batch_rank, trainable=trainable, initializer=initializer))
             # Normal, nested Variables from a Space (container or primitive).
             else:
                 var = from_space.get_tensor_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable,
@@ -606,6 +591,7 @@ class Component(Specifiable):
         # Registers the new variable with this Component.
         key = ((self.global_scope + "/") if self.global_scope else "") + name
         # Container-var: Save individual Variables.
+        # TODO: What about a var from Tuple space?
         if isinstance(var, OrderedDict):
             for sub_key, v in var.items():
                 self.variables[key + sub_key] = v
@@ -778,7 +764,9 @@ class Component(Specifiable):
 
         # Function is a (custom) API-method. Register it with this Component.
         else:
-            assert func_type == "api", "ERROR: func_type is not 'api', but '{}'!".format(func_type)
+            # TODO: What if API-method doesn't include any calls but just a single return statement? This assert would fail.
+            # assert func_type == "api", "ERROR: Inferred func_type of func '{}' is not 'api', but '{}'!".\
+            #    format(func, func_type)
             self.defined_externally.add('{}-{}'.format(self.scope, name))
             api_method = func
 

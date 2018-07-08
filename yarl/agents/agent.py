@@ -17,11 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import time
-
 from yarl import Specifiable, get_backend
 from yarl.graphs.graph_executor import GraphExecutor
-from yarl.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec, get_optimizer_from_device_strategy
+from yarl.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec,\
+    get_optimizer_from_device_strategy
 from yarl.components import Component, Exploration, PreprocessorStack, NeuralNetwork
 from yarl.graphs import GraphBuilder
 from yarl.spaces import Space

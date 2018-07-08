@@ -21,7 +21,6 @@ import unittest
 
 from yarl.components.common import Splitter, Merger
 from yarl.spaces import *
-from yarl.utils.ops import flatten_op
 from yarl.tests import ComponentTest
 
 

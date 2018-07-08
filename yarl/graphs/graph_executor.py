@@ -96,6 +96,7 @@ class GraphExecutor(Specifiable):
         """
         Read variable values from a graph, e.g. by calling the underlying graph
         or just returning the variable in imperative modes.
+
         Args:
             variables (list): Variable objects to retrieve from the graph.
 
