@@ -41,19 +41,20 @@ class TestSplitterMergerComponents(unittest.TestCase):
             g=Tuple(bool, FloatBox(shape=())),
             add_batch_rank=True
         )
-        component_to_test = Splitter(input_space=space)
-        test = ComponentTest(component=component_to_test, input_spaces=dict(split=space))
+        # Define the output-order.
+        splitter = Splitter("g", "a", "b", "c", "d", "e", "f")
+        test = ComponentTest(component=splitter, input_spaces=dict(split=space))
 
         # Get a batch of samples.
         input_ = space.sample(size=3)
         expected_output = [
-            input_["a"]["aa"], input_["a"]["ab"],
-            input_["b"]["ba"],
+            input_["g"],
+            input_["a"],
+            input_["b"],
             input_["c"],
             input_["d"],
             input_["e"],
-            input_["f"],
-            input_["g"][0], input_["g"][1]
+            input_["f"]
         ]
         test.test(api_methods=dict(split=input_), expected_outputs=expected_output)
 
@@ -67,21 +68,19 @@ class TestSplitterMergerComponents(unittest.TestCase):
             f=FloatBox(shape=(3, 2)),
             add_batch_rank=False
         )
-        # Using custom output names.
-        component_to_test = Splitter(
-            input_space=space
-        )
-        test = ComponentTest(component=component_to_test, input_spaces=dict(split=space))
+        # Define the output-order.
+        splitter = Splitter("b", "c", "d", "a", "f", "e")
+        test = ComponentTest(component=splitter, input_spaces=dict(split=space))
 
         # Single sample (no batch rank).
         input_ = space.sample()
         expected_outputs = [
-            input_["a"][0], input_["a"][1],
             input_["b"],
             input_["c"],
             input_["d"],
-            input_["e"]["ea"],
+            input_["a"],
             input_["f"],
+            input_["e"]
         ]
 
         test.test(api_methods=dict(split=input_), expected_outputs=expected_outputs)
@@ -97,12 +96,17 @@ class TestSplitterMergerComponents(unittest.TestCase):
             Dict(d=bool, e=FloatBox(shape=())),
             add_batch_rank=False
         )
-        merger = Merger(output_space=space)
-        flattened_space = space.flatten()
-        test = ComponentTest(component=merger, input_spaces=dict(merge=list(flattened_space.values())))
+        merger = Merger("1", "2", "3", "test", "5", "6", "7")
+        test = ComponentTest(component=merger, input_spaces=dict(merge=list(space)))
 
         # Get a single sample.
         sample = space.sample()
-        flattened_input = flatten_op(sample)
+        expected_outputs = dict({"1": sample[0],
+                                 "2": sample[1],
+                                 "3": sample[2],
+                                 "test": sample[3],
+                                 "5": sample[4],
+                                 "6": sample[5],
+                                 "7": sample[6]})
 
-        test.test(api_methods=dict(merge=list(flattened_input.values())), expected_outputs=sample)
+        test.test(api_methods=dict(merge=list(sample)), expected_outputs=expected_outputs)

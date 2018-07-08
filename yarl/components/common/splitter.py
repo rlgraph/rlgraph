@@ -17,41 +17,56 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from yarl import YARLError
 from yarl.components import Component
-from yarl.spaces import ContainerSpace
+from yarl.spaces import Dict
 
 
 class Splitter(Component):
     """
     Splits an incoming container Space into all its single primitive Spaces.
     """
-    def __init__(self, input_space, scope="splitter", output_names=None, **kwargs):
+    def __init__(self, *output_order, **kwargs):
         """
         Args:
-            input_space (Space): The input Space to split into its single components. Must be a ContainerSpace.
-            output_names (List[str]): An optional list of out-Socket names to be used instead of
-                the auto-generated keys coming from the flattening operation.
+            *output_order (str): List of 0th level keys by which the return values of `split` must be sorted.
+            Example: output_order=["B", "C", "A"]
+            -> split(Dict(B=1, A=2, C=10))
+            -> return: list(1, 10, 2), where 1, 10, and 2 are ops
         """
-        assert isinstance(input_space, ContainerSpace), \
-            "ERROR: `input_space` must be a ContainerSpace (Dict or Tuple)!"
-        num_outputs = len(input_space.flatten())
-        super(Splitter, self).__init__(scope=scope, graph_fn_num_outputs=dict(_graph_fn_split=num_outputs), **kwargs)
+        self.output_order = output_order
 
-        self.define_api_method(name="split", func=self._graph_fn_split, flatten_ops=True)
+        super(Splitter, self).__init__(
+            scope=kwargs.pop("scope", "splitter"),
+            graph_fn_num_outputs=dict(_graph_fn_split=len(output_order)),
+            **kwargs
+        )
+
+        self.define_api_method(name="split", func=self._graph_fn_split)
+
+    def check_input_spaces(self, input_spaces, action_space):
+        in_space = input_spaces["split"][0]
+        # Make sure input is a Dict (unsorted).
+        assert isinstance(in_space, Dict), "ERROR: Input Space for Splitter ({}) must be Dict (but is {})!".\
+            format(self.global_scope, in_space)
+        # Keys of in_space must all be part of `self.output_order`.
+        for i, name in enumerate(self.output_order):
+            if name not in in_space:
+                raise YARLError("Item {} in `output_order` of Splitter '{}' is not part of the input Space ({})!".
+                                format(i, self.global_scope, in_space))
 
     def _graph_fn_split(self, input_):
         """
-        Splits our api_methods into all its primitive Spaces in the "right" order. Returns n single ops.
+        Splits the input_ at flat-key level `self.level` into the Spaces at that level.
 
         Args:
-            input_ (OrderedDict): The flattened api_methods (each value is one primitive op).
+            input_ (DataOpDict): The input Dict to be split by its primary keys.
 
         Returns:
-            tuple: The (ordered) tuple of the primitive Spaces.
+            tuple: The tuple of the primary Spaces (may still be Containers) sorted by `self.output_order`.
         """
-        ret = list()
-        for op in input_.values():
-            ret.append(op)
+        ret = [None] * len(self.output_order)
+        for key, value in input_.items():
+            ret[self.output_order.index(key)] = value
 
         return tuple(ret)
-

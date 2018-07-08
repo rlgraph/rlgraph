@@ -165,7 +165,7 @@ class TestPreprocessors(unittest.TestCase):
                       expected_outputs=np.array([[[0.1, 0.1, 0.1]]]))
             index_value, buffer_value = test.get_variable_values(index, buffer)
             self.assertEqual(index_value, 0)
-            test.test(api_methods=dict(apply==np.array([[0.2]])),
+            test.test(api_methods=dict(apply=np.array([[0.2]])),
                       expected_outputs=np.array([[[0.1, 0.1, 0.2]]]))
             index_value, buffer_value = test.get_variable_values(index, buffer)
             self.assertEqual(index_value, 1)
@@ -191,7 +191,7 @@ class TestPreprocessors(unittest.TestCase):
 
         for i in range_(3):
             test.test(api_methods="reset")
-            test.test(api_methods=dict(apply=np.array([np.array([0.5]), np.array([[0.6, 0.7], [0.8, 0.9]])]),
+            test.test(api_methods=dict(apply=np.array([np.array([0.5]), np.array([[0.6, 0.7], [0.8, 0.9]])])),
                       expected_outputs=(np.array([0.5, 0.5, 0.5, 0.5]), np.array([[0.6, 0.7] * 4,
                                                                                   [0.8, 0.9] * 4])))
             test.test(api_methods=dict(apply=np.array([np.array([0.6]), np.array([[1.1, 1.1], [1.1, 1.1]])])),
