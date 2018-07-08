@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from six.moves import queue
-import numpy as np
 from yarl import get_distributed_backend
 from yarl.agents import Agent
 from yarl.execution.ray import RayWorker
@@ -26,7 +25,7 @@ from yarl.execution.ray.ray_executor import RayExecutor
 import random
 from threading import Thread
 
-from yarl.execution.ray.ray_util import create_colocated_agents, RayTaskPool
+from yarl.execution.ray.ray_util import create_colocated_ray_actors, RayTaskPool
 
 if get_distributed_backend() == "ray":
     import ray
@@ -102,8 +101,8 @@ class ApexExecutor(RayExecutor):
         self.num_local_workers = self.cluster_spec['num_local_workers']
         self.num_remote_workers = self.cluster_spec['num_remote_workers']
 
-        self.logger.info("Initializing {} local replay agents.".format(self.num_local_workers))
-        self.ray_local_replay_agents = create_colocated_agents(
+        self.logger.info("Initializing {} local replay memories.".format(self.num_local_workers))
+        self.ray_local_replay_memories = create_colocated_ray_actors(
             agent_config=self.agent_config,
             num_agents=self.num_local_workers
         )
@@ -118,10 +117,10 @@ class ApexExecutor(RayExecutor):
 
     def init_tasks(self):
         # Prioritized replay sampling tasks via RayAgents.
-        for ray_agent in self.ray_local_replay_agents:
+        for ray_memory in self.ray_local_replay_memories:
             for _ in range(self.replay_sampling_task_depth):
                 # This initializes remote tasks to sample from the prioritized replay memories of each worker.
-                self.prioritized_replay_tasks.add_task(ray_agent, ray_agent.get_batch.remote())
+                self.prioritized_replay_tasks.add_task(ray_memory, ray_memory.get_batch.remote())
 
         # Env interaction tasks via RayWorkers which each
         # have a local agent.
@@ -145,11 +144,11 @@ class ApexExecutor(RayExecutor):
         # 1. Fetch results from RayWorkers.
         for ray_worker, env_sample in self.env_sample_tasks.get_completed():
             # Randomly add env sample to a local replay actor.
-            random_actor = random.choice(self.ray_local_replay_agents)
+            random_memory = random.choice(self.ray_local_replay_memories)
 
             sample_data = env_sample.get_batch()
             env_steps += self.worker_sample_size
-            random_actor.observe.remote(
+            random_memory.observe.remote(
                 states=sample_data['states'],
                 actions=sample_data['actions'],
                 internals=None,
@@ -173,9 +172,9 @@ class ApexExecutor(RayExecutor):
             ))
 
         # 2. Fetch completed replay priority sampling task, move to worker, reschedule.
-        for ray_agent, replay_remote_task in self.prioritized_replay_tasks.get_completed():
+        for ray_memory, replay_remote_task in self.prioritized_replay_tasks.get_completed():
             # Immediately schedule new batch sampling tasks on these workers.
-            self.prioritized_replay_tasks.add_task(ray_agent, ray_agent.get_batch.remote())
+            self.prioritized_replay_tasks.add_task(ray_memory, ray_memory.get_batch.remote())
 
             # Retrieve results via id.
             result = ray.get(object_ids=replay_remote_task)
@@ -185,16 +184,16 @@ class ApexExecutor(RayExecutor):
             # Pass to the agent doing the actual updates.
             # The ray worker is passed along because we need to update its priorities later in the subsequent
             # task (see loop below).
-            self.sample_input_queue.put((ray_agent, sampled_batch, sample_indices))
+            self.sample_input_queue.put((ray_memory, sampled_batch, sample_indices))
 
         # 3. Update priorities on priority sampling workers using loss values produced by update worker.
         while not self.update_output_queue.empty():
-            ray_agent, indices, loss = self.update_output_queue.get()
+            ray_memory, indices, loss = self.update_output_queue.get()
 
             # TODO this is not very clean:
             # The point of this is that the ray agent itself should be generic
             # and does not need an api method to update priorities.
-            ray_agent.agent.update_priorities.remote(indices, loss)
+            ray_memory.agent.update_priorities.remote(indices, loss)
         return env_steps
 
 
@@ -230,11 +229,11 @@ class UpdateWorker(Thread):
     def run(self):
         while True:
             # Fetch input for update:
-            # Replay agent used
-            agent, sample_batch, indices = self.input_queue.get()
+            # Replay memory used
+            memory_actor, sample_batch, indices = self.input_queue.get()
 
             if sample_batch is not None:
                 loss = self.agent.update(batch=sample_batch)
                 # Just pass back indices for updating.
-                self.output_queue.put((agent, indices, loss))
+                self.output_queue.put((memory_actor, indices, loss))
                 self.update_done = True

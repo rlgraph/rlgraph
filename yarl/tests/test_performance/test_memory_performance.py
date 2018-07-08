@@ -166,8 +166,10 @@ class TestMemoryPerformance(unittest.TestCase):
             self.samples, self.sample_batch_size, tp, end
         ))
 
-    def test_ray_prioritized_replay(self):
-        # Test ray replay performance.
+    def test_ray_in_memory_prioritized_replay(self):
+        """
+        Tests Ray's memory performance.
+        """
         memory = PrioritizedReplayBuffer(
             size=self.capacity,
             alpha=1.0,
@@ -200,3 +202,5 @@ class TestMemoryPerformance(unittest.TestCase):
         print('Inserted {} separate records, throughput: {} records/s, total time: {} s'.format(
             len(records), tp, end
         ))
+
+        # Todo add our own in-memory implementation.

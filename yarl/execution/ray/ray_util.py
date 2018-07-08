@@ -68,7 +68,7 @@ class RayTaskPool(object):
                 yield (self.ray_tasks.pop(obj_id), obj_id)
 
 
-def create_colocated_agents(agent_config, num_agents, max_attempts=10):
+def create_colocated_ray_actors(agent_config, num_agents, max_attempts=10):
     """
     Creates a specified number of co-located RayAgent workers.
 
