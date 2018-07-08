@@ -58,9 +58,6 @@ class Stack(Component):
 
         super(Stack, self).__init__(*sub_components, **kwargs)
 
-        # sub_components for iteration purposes.
-        sub_components = list(self.sub_components.values())
-
         # For each api-method in the given set, create our own API-method connecting
         # all sub-Component's API-method "through".
         for api_method_name in api_methods:
@@ -71,7 +68,7 @@ class Stack(Component):
 
             def method(self_, *inputs):
                 result = inputs
-                for sub_component in sub_components:
+                for sub_component in self_.sub_components.values():
                     result = self_.call(getattr(sub_component, components_api_method_name), *force_tuple(result))
                 return result
 
