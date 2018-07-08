@@ -21,6 +21,8 @@ import unittest
 
 import time
 
+from ray.rllib.optimizers.replay_buffer import PrioritizedReplayBuffer
+
 from yarl.components import ReplayMemory, PrioritizedReplay
 from yarl.envs import OpenAIGymEnv
 from yarl.spaces import Dict, BoolBox, FloatBox, IntBox
@@ -35,7 +37,7 @@ class TestMemoryPerformance(unittest.TestCase):
 
     # Inserts.
     capacity = 100000
-    inserts = 100
+    inserts = 1000
     enable_profiler = True
     chunk_size = 64
 
@@ -162,4 +164,39 @@ class TestMemoryPerformance(unittest.TestCase):
 
         print('Sampled {} batches of size {}, throughput: {} sample-ops/s, total time: {} s'.format(
             self.samples, self.sample_batch_size, tp, end
+        ))
+
+    def test_ray_prioritized_replay(self):
+        # Test ray replay performance.
+        memory = PrioritizedReplayBuffer(
+            size=self.capacity,
+            alpha=1.0,
+            clip_rewards=True
+        )
+        # Testing insert performance
+        record_space = Dict(
+            states=self.env.state_space,
+            actions=self.env.action_space,
+            reward=float,
+            terminals=BoolBox(),
+            add_batch_rank=True
+        )
+        records = [record_space.sample(size=1) for _ in range(self.inserts)]
+
+        start = time.monotonic()
+        for record in records:
+            memory.add(
+                obs_t=record['states'],
+                action=record['actions'],
+                reward=record['reward'],
+                obs_tp1=record['states'],
+                done=record['terminals'],
+                weight=None
+            )
+        end = time.monotonic() - start
+        tp = len(records) / end
+        print('#### Testing Ray Prioritized Replay memory ####')
+        print('Testing insert performance:')
+        print('Inserted {} separate records, throughput: {} records/s, total time: {} s'.format(
+            len(records), tp, end
         ))
