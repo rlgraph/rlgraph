@@ -20,7 +20,6 @@ from __future__ import print_function
 import requests
 
 from yarl import YARLError
-from yarl.components import Socket, GraphFunction
 from yarl.spaces import Space
 
 
