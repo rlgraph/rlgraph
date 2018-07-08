@@ -77,16 +77,54 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         worker = SingleThreadedWorker(environment=env, agent=agent)
 
         test = AgentTest(worker=worker)
+        # 1st step.
+        # action: up
         test.test(steps=1, checks=[
-            (env.state, 0),  # Environment's new state.
-            (agent.states_buffer, [0]),  # Agent's buffer.
-            (agent.actions_buffer, [0]),
-            (agent.rewards_buffer, [-1.0]),
-            (agent.terminals_buffer, [False]),
+            (env, "state", 0),  # Environment's new state.
+            (agent, "states_buffer", [0]),  # Agent's buffer.
+            (agent, "actions_buffer", [0]),
+            (agent, "rewards_buffer", [-1.0]),
+            (agent, "terminals_buffer", [False]),
             (agent.memory, "index", 0),  # Memory contents.
             (agent.memory, "size", 0),
             (agent.memory, "memory/states", np.array([[0] * 4] * agent.memory.capacity)),
             (agent.memory, "memory/actions", np.array([0] * agent.memory.capacity)),
             (agent.memory, "memory/rewards", np.array([0] * agent.memory.capacity)),
+            (agent.memory, "memory/terminals", np.array([False] * agent.memory.capacity)),
+        ])
+
+        # 2nd step -> expect insert into memory (and python buffer should be empty again).
+        # action: down
+        # Also check the policy and target policy values (Should be equal at this point).
+        test.test(steps=1, checks=[
+            (env, "state", 1),  # Environment's new state.
+            (agent, "states_buffer", []),  # Agent's buffer.
+            (agent, "actions_buffer", []),
+            (agent, "rewards_buffer", []),
+            (agent, "terminals_buffer", []),
+            (agent.memory, "index", 2),  # Memory contents.
+            (agent.memory, "size", 2),
+            (agent.memory, "memory/states", np.array([[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]] +
+                                                     [[0.0, 0.0, 0.0, 0.0]] * (agent.memory.capacity - 2))),
+            (agent.memory, "memory/actions", np.array([0, 2] + [0] * (agent.memory.capacity - 2))),
+            (agent.memory, "memory/rewards", np.array([-1.0, -1.0] + [0.0] * (agent.memory.capacity - 2))),
+            (agent.memory, "memory/terminals", np.array([False] * agent.memory.capacity)),
+        ])
+
+        # 3rd and 4th step -> expect another insert into memory (and python buffer should be empty again).
+        # actions: down, left
+        # Expect an update to the policy variables (leave target as is (no synch yet)).
+        test.test(steps=2, checks=[
+            (env, "state", 1),  # Environment's new state.
+            (agent, "states_buffer", []),  # Agent's buffer.
+            (agent, "actions_buffer", []),
+            (agent, "rewards_buffer", []),
+            (agent, "terminals_buffer", []),
+            (agent.memory, "index", 2),  # Memory contents.
+            (agent.memory, "size", 2),
+            (agent.memory, "memory/states", np.array([[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]] +
+                                                     [[0.0, 0.0, 0.0, 0.0]] * (agent.memory.capacity - 2))),
+            (agent.memory, "memory/actions", np.array([0, 2] + [0] * (agent.memory.capacity - 2))),
+            (agent.memory, "memory/rewards", np.array([-1.0, -1.0] + [0.0] * (agent.memory.capacity - 2))),
             (agent.memory, "memory/terminals", np.array([False] * agent.memory.capacity)),
         ])

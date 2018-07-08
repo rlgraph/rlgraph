@@ -71,11 +71,10 @@ class AgentTest(object):
 
         # Perform some checks.
         for i, check in enumerate(checks):
-            assert isinstance(check, (tuple, list))
+            assert isinstance(check, (tuple, list)) and len(check) == 3 and isinstance(check[1], str)
 
             # Variable check.
-            if len(check) == 3:
-                assert isinstance(check[0], Component) and isinstance(check[1], str)
+            if isinstance(check[0], Component):
                 component = check[0]
                 var_key = component.global_scope+"/"+check[1]
                 variables_dict = component.variables
@@ -90,8 +89,12 @@ class AgentTest(object):
                     raise
             # Simple value check.
             else:
+                obj = check[0]
+                property = check[1]
+                is_value = getattr(obj, property, None)
+                desired_value = check[2]
                 try:
-                    recursive_assert_almost_equal(check[0], check[1], decimals=decimals)
+                    recursive_assert_almost_equal(is_value, desired_value, decimals=decimals)
                 except AssertionError:
                     self.agent.logger.error("Mismatch in check #{}:".format(i+1))
                     raise
