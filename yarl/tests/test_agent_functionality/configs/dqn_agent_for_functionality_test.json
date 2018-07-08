@@ -4,7 +4,7 @@
   "memory_spec":
   {
     "type": "replay",
-    "capacity": 2
+    "capacity": 6
   },
 
   "preprocessing_spec":
@@ -20,6 +20,8 @@
       "type": "dense",
       "units": 2,
       "activation": "linear",
+      "weights_spec": 1.0,
+      "biases_spec": false,
       "scope": "hidden"
     }
   ],
@@ -31,25 +33,25 @@
       "decay_spec": {
         "type": "linear_decay",
         "from": 1.0,
-        "to": 0.1,
+        "to": 0.0,
         "start_timestep": 0,
-        "num_timesteps": 5
+        "num_timesteps": 10
       }
     }
   },
 
   "optimizer_spec": {
-    "learning_rate": 0.05
+    "learning_rate": 1.0
   },
 
   "update_spec": {
-    "update_interval": 2,
+    "update_interval": 4,
     "batch_size": 2,
-    "sync_interval": 4
+    "sync_interval": 8
   },
 
   "observe_spec": {
-    "buffer_size": 1
+    "buffer_size": 2
   },
 
   "execution_spec": {

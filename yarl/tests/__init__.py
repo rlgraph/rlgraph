@@ -17,7 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .component_test import ComponentTest
+from yarl.tests.agent_test import AgentTest
+from yarl.tests.component_test import ComponentTest
 from .test_util import recursive_assert_almost_equal
 from .dummy_components import *
 

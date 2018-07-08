@@ -18,13 +18,15 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
+import numpy as np
 import unittest
 
 from yarl.agents import DQNAgent
 import yarl.spaces as spaces
-from yarl.envs import GridWorld, RandomEnv, OpenAIGymEnv
+from yarl.envs import GridWorld, RandomEnv
 from yarl.execution.single_threaded_worker import SingleThreadedWorker
 from yarl.utils import root_logger
+from yarl.tests.agent_test import AgentTest
 
 
 class TestDQNAgentFunctionality(unittest.TestCase):
@@ -64,7 +66,7 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         Creates a DQNAgent and runs it for a few steps in a GridWorld to vigorously test
         all steps of the learning process.
         """
-        env = GridWorld(save_mode=True)  # no holes, just fire
+        env = GridWorld(world="2x2", save_mode=True)  # no holes, just fire
         agent = DQNAgent.from_spec(  # type: DQNAgent
             "configs/dqn_agent_for_functionality_test.json",
             double_q=True,
@@ -72,11 +74,19 @@ class TestDQNAgentFunctionality(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space
         )
-        #replay_memory = agent.memory
-
         worker = SingleThreadedWorker(environment=env, agent=agent)
-        worker.execute_timesteps(1, deterministic=True)
 
-        memory_content = agent.memory.variables
-
-
+        test = AgentTest(worker=worker)
+        test.test(steps=1, checks=[
+            (env.state, 0),  # Environment's new state.
+            (agent.states_buffer, [0]),  # Agent's buffer.
+            (agent.actions_buffer, [0]),
+            (agent.rewards_buffer, [-1.0]),
+            (agent.terminals_buffer, [False]),
+            (agent.memory, "index", 0),  # Memory contents.
+            (agent.memory, "size", 0),
+            (agent.memory, "memory/states", np.array([[0] * 4] * agent.memory.capacity)),
+            (agent.memory, "memory/actions", np.array([0] * agent.memory.capacity)),
+            (agent.memory, "memory/rewards", np.array([0] * agent.memory.capacity)),
+            (agent.memory, "memory/terminals", np.array([False] * agent.memory.capacity)),
+        ])
