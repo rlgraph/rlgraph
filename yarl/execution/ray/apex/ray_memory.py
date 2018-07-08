@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl.backend_system import get_distributed_backend
+from yarl.components.memories.mem_prioritized_replay import MemPrioritizedReplay
 
 if get_distributed_backend() == "ray":
     import ray
@@ -29,8 +30,7 @@ class RayMemory(object):
     An in-memory prioritized replay worker used to aaccelerate memory interaction in Ape-X.
     """
     def __init__(self, memory_spec):
-        # TODO create in memory memory
-        self.memory = None
+        self.memory = MemPrioritizedReplay.from_spec(memory_spec)
 
     def get_batch(self):
         """
@@ -40,14 +40,14 @@ class RayMemory(object):
             dict, ndarray: Sample batch and indices sampled.
 
         """
-        pass
+        return self.memory.get_batch()
 
     def observe(self, states, actions, internals, rewards, terminals):
         """
         Observes experience(s), see agent observe api for more.
 
         """
-        pass
+        self.memory.observe(states, actions, internals, rewards, terminals)
 
     def update_priorities(self, indices, loss):
         """
@@ -58,4 +58,4 @@ class RayMemory(object):
             indices (ndarray): Indices to update in replay memory.
             loss (ndarray):  Loss values for indices.
         """
-        pass
+        self.memory.update_priorities(indices, loss)
