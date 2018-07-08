@@ -75,23 +75,27 @@ class TestDQNAgentFunctionality(unittest.TestCase):
             action_space=env.action_space
         )
         worker = SingleThreadedWorker(environment=env, agent=agent)
-
         test = AgentTest(worker=worker)
+
         # 1st step.
-        # action: up
-        test.test(steps=1, checks=[
-            (env, "state", 0),  # Environment's new state.
-            (agent, "states_buffer", [0]),  # Agent's buffer.
-            (agent, "actions_buffer", [0]),
-            (agent, "rewards_buffer", [-1.0]),
-            (agent, "terminals_buffer", [False]),
-            (agent.memory, "index", 0),  # Memory contents.
-            (agent.memory, "size", 0),
-            (agent.memory, "memory/states", np.array([[0] * 4] * agent.memory.capacity)),
-            (agent.memory, "memory/actions", np.array([0] * agent.memory.capacity)),
-            (agent.memory, "memory/rewards", np.array([0] * agent.memory.capacity)),
-            (agent.memory, "memory/terminals", np.array([False] * agent.memory.capacity)),
-        ])
+        test.step(1)  # action: up
+        # Environment's new state.
+        test.check_env("state", expected=0)
+        # Agent's buffer.
+        test.check_agent("states_buffer", expected=[0])
+        test.check_agent("actions_buffer", expected=[0])
+        test.check_agent("rewards_buffer", expected=[-1.0])
+        test.check_agent("terminals_buffer", expected=[False])
+        # Memory contents.
+        test.check_var("replay-memory/index", expected=0)
+        test.check_var("replay-memory/size", expected=0)
+        test.check_var("replay-memory/memory/states", expected=np.array([[0] * 4] * agent.memory.capacity))
+        test.check_var("replay-memory/memory/actions", expected=np.array([[0] * 4] * agent.memory.capacity))
+        test.check_var("replay-memory/memory/rewards", expected=np.array([[0] * 4] * agent.memory.capacity))
+        test.check_var("replay-memory/memory/terminals", expected=np.array([[False] * 4] * agent.memory.capacity))
+        # Check policy and target-policy weights (should be the same).
+        test.check_var("policy/neural-network/hidden/dense/kernel", expected=np.array([1.0] * 4))
+        test.check_var("target-policy/neural-network/hidden/dense/kernel", expected=np.array([1.0] * 4))
 
         # 2nd step -> expect insert into memory (and python buffer should be empty again).
         # action: down
@@ -109,6 +113,7 @@ class TestDQNAgentFunctionality(unittest.TestCase):
             (agent.memory, "memory/actions", np.array([0, 2] + [0] * (agent.memory.capacity - 2))),
             (agent.memory, "memory/rewards", np.array([-1.0, -1.0] + [0.0] * (agent.memory.capacity - 2))),
             (agent.memory, "memory/terminals", np.array([False] * agent.memory.capacity)),
+            #(agent.policy, )
         ])
 
         # 3rd and 4th step -> expect another insert into memory (and python buffer should be empty again).
