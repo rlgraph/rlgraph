@@ -68,12 +68,13 @@ class RayTaskPool(object):
                 yield (self.ray_tasks.pop(obj_id), obj_id)
 
 
-def create_colocated_ray_actors(agent_config, num_agents, max_attempts=10):
+def create_colocated_ray_actors(cls, config, num_agents, max_attempts=10):
     """
     Creates a specified number of co-located RayAgent workers.
 
     Args:
-        agent_config (dict): Agent spec for worker agents.
+        cls (class): Actor to create
+        config (dict): Config for actor.
         num_agents (int): Number of worker agents to create.
         max_attempts Optional[int]: Max number of attempts to create colocated agents, will raise
             an error if creation was not successful within this number.
@@ -88,7 +89,7 @@ def create_colocated_ray_actors(agent_config, num_agents, max_attempts=10):
     attempt = 1
 
     while len(agents) < num_agents and attempt <= max_attempts:
-        ray_agents = [RayAgent.remote(agent_config) for _ in range(attempt * num_agents)]
+        ray_agents = [cls.remote(config) for _ in range(attempt * num_agents)]
         local_agents, _ = split_local_non_local_agents(ray_agents)
         agents.extend(local_agents)
 
