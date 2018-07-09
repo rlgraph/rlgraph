@@ -185,10 +185,13 @@ class DQNAgent(Agent):
 
     def update(self, batch=None):
         # Should we sync the target net? (timesteps-1 b/c it has been increased already in get_action)
+        sync_dict = dict()
         if (self.timesteps - 1) % self.update_spec["sync_interval"] == 0:
-            self.graph_executor.execute(api_methods=dict(sync_target_qnet=None))
+            sync_dict["sync_target_qnet"] = None
+
         if batch is None:
-            _, loss = self.graph_executor.execute(api_methods=dict(update_from_memory=None, ))
+            ret = self.graph_executor.execute(api_methods=dict(update_from_memory=None).update(sync_dict))
+            return ret["update_from_memory"][1] if isinstance(ret, dict) else ret[1]  # [1]=the loss (0=update no-op)
         else:
             batch_input = dict(
                 external_batch_states=batch["states"],
@@ -197,8 +200,9 @@ class DQNAgent(Agent):
                 external_batch_terminals=batch["terminals"],
                 external_batch_next_states=batch["next_states"]
             )
-            _, loss = self.graph_executor.execute(api_methods=dict(update_from_external_batch=batch_input))
-        return loss
+            ret = self.graph_executor.execute(api_methods=dict(update_from_external_batch=batch_input))
+            # [1]=the loss (0=update noop)
+            return ret["update_from_external_batch"][1] if isinstance(ret, dict) else ret[1]
 
     def __repr__(self):
         return "DQNAgent(doubleQ={} duelingQ={})".format(self.double_q, self.dueling_q)
