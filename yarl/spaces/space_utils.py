@@ -171,11 +171,10 @@ def sanity_check_space(
     if num_categories is not None:
         if not isinstance(space, IntBox):
             raise YARLError("ERROR: Space ({}) is not an IntBox. Only IntBox Spaces can have categories!".format(space))
-        elif space.num_categories is None or space.num_categories == 0:
-            if isinstance(num_categories, int):
-                if space.num_categories != num_categories:
-                    raise YARLError("ERROR: Space ({}) has `num_categories` {}, but must have {}!".
-                                    format(space, space.num_categories, num_categories))
-            elif not ((num_categories[0] or 0) <= space.num_categories <= (num_categories[1] or float("inf"))):
-                raise YARLError("ERROR: Space ({}) has `num_categories` {}, but this value must be between {} and "
-                                "{}!".format(space, space.num_categories, num_categories[0], num_categories[1]))
+        elif isinstance(num_categories, int):
+            if space.num_categories != num_categories:
+                raise YARLError("ERROR: Space ({}) has `num_categories` {}, but must have {}!".
+                                format(space, space.num_categories, num_categories))
+        elif not ((num_categories[0] or 0) <= space.num_categories <= (num_categories[1] or float("inf"))):
+            raise YARLError("ERROR: Space ({}) has `num_categories` {}, but this value must be between {} and "
+                            "{}!".format(space, space.num_categories, num_categories[0], num_categories[1]))

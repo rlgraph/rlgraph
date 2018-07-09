@@ -261,8 +261,7 @@ class Component(Specifiable):
         if len(params) != len(actual_params):
             # Check whether the last arg is var_positional (e.g. *inputs; in that case it's ok if the number of params
             # is larger than that of the actual graph_fn params).
-            if actual_params[-1].kind == inspect.Parameter.VAR_POSITIONAL and \
-                    len(params) > len(actual_params):
+            if len(params) > len(actual_params) > 0 and actual_params[-1].kind == inspect.Parameter.VAR_POSITIONAL:
                 pass
             # Some actual params have default values: Number of given params must be at least as large as the number
             # of non-default actual params.
