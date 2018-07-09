@@ -19,13 +19,12 @@ from __future__ import print_function
 
 import numpy as np
 import operator
-from six.moves import xrange
+from six.moves import xrange as range_
 
 from yarl import Specifiable
 from yarl.components.memories.mem_segment_tree import MemSegmentTree
 from yarl.spaces.space_utils import get_list_registry
-from yarl.utils.ops import FlattenedDataOp
-from yarl.utils.util import get_batch_size
+from yarl.utils.ops import flatten_op
 
 
 class MemPrioritizedReplay(Specifiable):
@@ -62,12 +61,13 @@ class MemPrioritizedReplay(Specifiable):
             self.priority_capacity *= 2
 
         # Create segment trees, initialize with neutral elements.
-        sum_values = [0.0 for _ in xrange(2 * self.priority_capacity)]
+        sum_values = [0.0 for _ in range_(2 * self.priority_capacity)]
         self.sum_segment_tree = MemSegmentTree(sum_values, self.priority_capacity, operator.add)
-        min_values = [float('inf') for _ in xrange(2 * self.priority_capacity)]
+        min_values = [float('inf') for _ in range_(2 * self.priority_capacity)]
         self.min_segment_tree = MemSegmentTree(min_values, self.priority_capacity, min)
 
     def insert_records(self, records):
+        records = flatten_op(records)
         num_records = len(records["/terminals"])
         update_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
 
@@ -89,7 +89,7 @@ class MemPrioritizedReplay(Specifiable):
         self.size = min(self.size + num_records, self.capacity)
 
         # Insert into segment trees.
-        for i in xrange(num_records):
+        for i in range_(num_records):
             self.sum_segment_tree.insert(update_indices[i], self.default_new_weight)
             self.min_segment_tree.insert(update_indices[i], self.default_new_weight)
 

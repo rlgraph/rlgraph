@@ -21,7 +21,7 @@ import numpy as np
 
 from yarl.spaces import BoxSpace
 from yarl.utils.util import YARLError, dtype, get_shape
-from yarl.utils.ops import SingleDataOp, DataOpTuple
+from yarl.utils.ops import SingleDataOp
 from yarl.spaces.bool_box import BoolBox
 from yarl.spaces.int_box import IntBox
 from yarl.spaces.float_box import FloatBox

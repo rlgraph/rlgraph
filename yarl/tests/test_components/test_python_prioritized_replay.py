@@ -48,9 +48,9 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
 
     input_spaces = dict(
         # insert: records
-        insert_records=record_space,
+        insert_records=[record_space],
         # get_records: num_records
-        get_records=int,
+        get_records=[int],
         # update_records: indices, update
         update_records=[IntBox(shape=(), add_batch_rank=True), FloatBox(shape=(), add_batch_rank=True)]
     )
