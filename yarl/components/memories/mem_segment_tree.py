@@ -119,13 +119,13 @@ class MemSegmentTree(object):
         Returns:
             Number: Result of reduce operation
         """
-        # Init result with neutral element of reduce op.
-        # Note that all of these are commutative reduce ops.
         if limit is None:
             limit = self.capacity - 1
         if limit < 0:
             limit += self.capacity
-        # pass
+
+        # Init result with neutral element of reduce op.
+        # Note that all of these are commutative reduce ops.
         if reduce_op == operator.add:
             result = 0.0
         elif reduce_op == min:

@@ -51,7 +51,6 @@ class MemPrioritizedReplay(Specifiable):
     # TODO this needs manual calling atm
     def create_variables(self, input_spaces, action_space):
         # Store our record-space for convenience.
-        print('input spaces : {}'.format(input_spaces))
         self.record_space = input_spaces["insert_records"][0]
 
         # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
@@ -69,11 +68,13 @@ class MemPrioritizedReplay(Specifiable):
 
     def insert_records(self, records):
         records = flatten_op(records)
+        print('records = {}'.format(records))
         num_records = len(records["/terminals"])
         update_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
 
         # Update record registry.
         if num_records == 1:
+            # TODO no indices exist so we have to append or presize
             insert_index = (self.index + num_records) % self.capacity
             for key in self.record_registry:
                 self.record_registry[key][insert_index] = records[key]
