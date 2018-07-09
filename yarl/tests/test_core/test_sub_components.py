@@ -37,9 +37,9 @@ class TestTwoSubComponents(unittest.TestCase):
         test = ComponentTest(component=a, input_spaces=dict(run1=float, run2=float))
 
         # Expected: (1): in + 2.0  (2): [result of (1)] + 1.0
-        test.test(api_methods=dict(run1=1.1), expected_outputs=[3.1, 4.1], decimals=4)
+        test.test(("run1", 1.1), expected_outputs=[3.1, 4.1], decimals=4)
         # Expected: in - 2.0 + 1.0
-        test.test(api_methods=dict(run2=1.1), expected_outputs=0.1, decimals=4)
+        test.test(("run2", 1.1), expected_outputs=0.1, decimals=4)
 
     def test_connecting_two_1to1_components(self):
         """
@@ -59,8 +59,8 @@ class TestTwoSubComponents(unittest.TestCase):
         test = ComponentTest(component=core, input_spaces=dict(run=float))
 
         # Expected output: input + 1.0 + 1.0
-        test.test(api_methods=dict(run=1.1), expected_outputs=3.1)
-        test.test(api_methods=dict(run=-5.1), expected_outputs=-3.1)
+        test.test(("run", 1.1), expected_outputs=3.1)
+        test.test(("run", -5.1), expected_outputs=-3.1)
 
     def test_connecting_1to2_to_2to1(self):
         """
@@ -80,8 +80,8 @@ class TestTwoSubComponents(unittest.TestCase):
         test = ComponentTest(component=core, input_spaces=dict(run=float))
 
         # Expected output: input + (input + 1.0)
-        test.test(api_methods=dict(run=100.9), expected_outputs=np.float32(202.8))
-        test.test(api_methods=dict(run=-5.1), expected_outputs=np.float32(-9.2))
+        test.test(("run", 100.9), expected_outputs=np.float32(202.8))
+        test.test(("run", -5.1), expected_outputs=np.float32(-9.2))
 
     def test_1to1_to_2to1_component_with_constant_input_value(self):
         """
@@ -102,8 +102,8 @@ class TestTwoSubComponents(unittest.TestCase):
         test = ComponentTest(component=core, input_spaces=dict(run=float))
 
         # Expected output: (input + 1.0) + 1.1
-        print(test.test(api_methods=dict(run=78.4), expected_outputs=None))
-        print(test.test(api_methods=dict(run=-5.2), expected_outputs=None))
+        test.test(("run", 78.4), expected_outputs=80.5)
+        test.test(("run", -5.2), expected_outputs=-3.1)
 
     def test_diamond_4x_sub_component_setup(self):
         """
@@ -146,5 +146,5 @@ class TestTwoSubComponents(unittest.TestCase):
         test = ComponentTest(component=container, input_spaces=dict(run=(float, float)))
 
         # Push both api_methods through graph to receive correct (single-op) output calculation.
-        test.test(api_methods=dict(run=[1.1, 0.5]), expected_outputs=5.6)
+        test.test(("run", [1.1, 0.5]), expected_outputs=5.6)
 

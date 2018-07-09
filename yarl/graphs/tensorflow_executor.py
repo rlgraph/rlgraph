@@ -149,15 +149,17 @@ class TensorFlowExecutor(GraphExecutor):
         # Set up any remaining session or monitoring configurations.
         self.finish_graph_setup()
 
-    def execute(self, api_methods):
-        if isinstance(api_methods, str):
-            api_methods = {api_methods: []}
-
-        # Fetch inputs for api method.
-        fetch_dict, feed_dict = self.graph_builder.get_execution_inputs(api_methods)
+    def execute(self, *api_methods):
+        # Fetch inputs for the different API-methods.
+        fetch_dict, feed_dict = self.graph_builder.get_execution_inputs(*api_methods)
 
         # Expand inputs and fetch list with extra device memory init ops
-        for api_method, params in api_methods.items():
+        for api_method in api_methods:
+            if isinstance(api_method, (list, tuple)):
+                api_method = api_method[0]
+                params = util.force_list(api_method[1])
+            else:
+                params = list()
             if api_method in self.DEVICE_API_METHODS:
                 fetch_dict, feed_dict = self.update_device_inputs_if_necessary(fetch_dict, feed_dict, *params)
         ret = self.monitored_session.run(fetch_dict, feed_dict=feed_dict,
@@ -496,11 +498,11 @@ class TensorFlowExecutor(GraphExecutor):
         self.saver.export_meta_graph(filename=filename)
 
     def get_weights(self):
-        return self.execute(dict(_variables=[]))
+        return self.execute("_variables")
 
     def set_weights(self, weights):
         # Note that this can only assign components which have been declared synchronizable.
-        self.execute(dict(sync=weights))
+        self.execute(("sync", weights))
 
     def _build_device_strategy(self, optimizer):
         """

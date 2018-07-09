@@ -55,7 +55,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
             input_["e"],
             input_["f"]
         ]
-        test.test(api_methods=dict(split=input_), expected_outputs=expected_output)
+        test.test(("split", input_), expected_outputs=expected_output)
 
     def test_splitter_with_different_input_space(self):
         space = Dict(
@@ -82,7 +82,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
             input_["e"]
         ]
 
-        test.test(api_methods=dict(split=input_), expected_outputs=expected_outputs)
+        test.test(("split", input_), expected_outputs=expected_outputs)
 
     def test_merger_component(self):
         space = Tuple(
@@ -108,4 +108,4 @@ class TestSplitterMergerComponents(unittest.TestCase):
                                  "6": sample[5],
                                  "7": sample[6]})
 
-        test.test(api_methods=dict(merge=list(sample)), expected_outputs=expected_outputs)
+        test.test(("merge", list(sample)), expected_outputs=expected_outputs)

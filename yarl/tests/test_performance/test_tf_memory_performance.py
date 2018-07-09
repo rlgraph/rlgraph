@@ -75,7 +75,7 @@ class TestTfMemoryPerformance(unittest.TestCase):
         records = [record_space.sample(size=1) for _ in range(self.inserts)]
         start = time.monotonic()
         for record in records:
-            test.test(api_methods=dict(insert_records=record), expected_outputs=None)
+            test.test(("insert_records", record), expected_outputs=None)
         end = time.monotonic() - start
 
         tp = len(records) / end
@@ -88,7 +88,7 @@ class TestTfMemoryPerformance(unittest.TestCase):
         record_chunks = [record_space.sample(size=self.chunk_size) for _ in range(self.inserts)]
         start = time.monotonic()
         for chunk in record_chunks:
-            test.test(api_methods=dict(insert_records=chunk), expected_outputs=None)
+            test.test(("insert_records", chunk), expected_outputs=None)
         end = time.monotonic() - start
 
         tp = len(record_chunks) * self.chunk_size / end
@@ -99,7 +99,7 @@ class TestTfMemoryPerformance(unittest.TestCase):
         print('Testing sample performance:')
         start = time.monotonic()
         for _ in range(self.samples):
-            test.test(api_methods=dict(get_records=self.sample_batch_size), expected_outputs=None)
+            test.test(("get_records", self.sample_batch_size), expected_outputs=None)
         end = time.monotonic() - start
         tp = self.samples / end
 
@@ -135,7 +135,7 @@ class TestTfMemoryPerformance(unittest.TestCase):
         records = [record_space.sample(size=1) for _ in range(self.inserts)]
         start = time.monotonic()
         for record in records:
-            test.test(api_methods=dict(insert_records=record), expected_outputs=None)
+            test.test(("insert_records", record), expected_outputs=None)
         end = time.monotonic() - start
 
         tp = len(records) / end
@@ -148,7 +148,7 @@ class TestTfMemoryPerformance(unittest.TestCase):
         record_chunks = [record_space.sample(size=self.chunk_size) for _ in range(self.inserts)]
         start = time.monotonic()
         for chunk in record_chunks:
-            test.test(api_methods=dict(insert_records=chunk), expected_outputs=None)
+            test.test(("insert_records", chunk), expected_outputs=None)
         end = time.monotonic() - start
 
         tp = len(record_chunks) * self.chunk_size / end

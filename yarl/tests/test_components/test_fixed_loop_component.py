@@ -44,9 +44,6 @@ class TestFixedLoopComponent(unittest.TestCase):
             inputs=time_step_space
         ))
 
-        sample = test.test(
-            api_methods=dict(fixed_loop_result=0),
-            expected_outputs=None
-        )
+        sample = test.test(("fixed_loop_result", 0), expected_outputs=None)
 
         print(sample)

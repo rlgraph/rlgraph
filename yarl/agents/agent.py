@@ -269,7 +269,7 @@ class Agent(Specifiable):
         Returns:
             any: Result of the op call.
         """
-        return self.graph_executor.execute(api_methods={op: inputs})
+        return self.graph_executor.execute((op, inputs))
 
     def export_graph(self, filename=None):
         """

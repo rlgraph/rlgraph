@@ -40,7 +40,7 @@ class TestNNLayer(unittest.TestCase):
         # Batch of size=1 (can increase this to any larger number).
         input_ = np.array([[0.5, 2.0]])
         expected = np.array([[2.5, 2.5]])
-        test.test(api_methods=dict(apply=input_), expected_outputs=expected)
+        test.test(("apply", input_), expected_outputs=expected)
 
     def test_dense_layer_with_leaky_relu_activation(self):
         input_space = FloatBox(shape=(3,), add_batch_rank=True)
@@ -52,7 +52,7 @@ class TestNNLayer(unittest.TestCase):
         input_ = np.array([[0.5, 2.0, 1.5], [-1.0, -2.0, -1.5]])
         expected = np.array([[8.5, 8.5, 8.5, 8.5], [-8.5*0.2, -8.5*0.2, -8.5*0.2, -8.5*0.2]],
                             dtype=np.float32)  # 0.2=leaky-relu
-        test.test(api_methods=dict(apply=input_), expected_outputs=expected)
+        test.test(("apply", input_), expected_outputs=expected)
 
     def test_conv2d_layer(self):
         # Space must contain batch dimension (otherwise, NNlayer will complain).
@@ -70,7 +70,7 @@ class TestNNLayer(unittest.TestCase):
         expected = np.array([[[[39.0, 39.0, 39.0, 39.0]]],  # output 1 (1x1x4)
                              [[[3.9, 3.9, 3.9, 3.9]]],  # output 2 (1x1x4)
                              ])
-        test.test(api_methods=dict(apply=input_), expected_outputs=expected)
+        test.test(("apply", input_), expected_outputs=expected)
 
     def test_concat_layer(self):
         # Spaces must contain batch dimension (otherwise, NNlayer will complain).
@@ -91,7 +91,7 @@ class TestNNLayer(unittest.TestCase):
                        [4.0, 5.0, 6.0, 2.0, 3.2, 4.2]],
                       [[1.1, 2.1, 3.1, 3.0, 1.3, 2.3],
                        [4.1, 5.1, 6.1, 4.0, 3.3, 4.3]]], dtype=np.float32)
-        test.test(api_methods=dict(apply=inputs), expected_outputs=expected)
+        test.test(("apply", inputs), expected_outputs=expected)
 
     def test_dueling_layer(self):
         # Action Space is: IntBox(3, shape=(4,2)) ->
@@ -115,7 +115,7 @@ class TestNNLayer(unittest.TestCase):
         expected_advantage_values = np.reshape(inputs[:,1:], newshape=(1, 4, 2, 3))
         expected_q_values = np.array([[[[ expected_state_value[0] ]]]]) + expected_advantage_values - \
                             np.mean(expected_advantage_values, axis=-1, keepdims=True)
-        test.test(api_methods=dict(apply=inputs),
+        test.test(("apply", inputs),
                   expected_outputs=[expected_state_value,
                                     expected_advantage_values,
                                     expected_q_values],

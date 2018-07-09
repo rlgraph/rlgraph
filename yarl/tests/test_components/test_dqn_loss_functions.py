@@ -70,11 +70,11 @@ class TestDQNLossFunctions(unittest.TestCase):
 
         # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
         expected_loss_per_item = np.array([129.95999, 12470.188], dtype=np.float32)
-        test.test(api_methods=dict(loss_per_item=input_), expected_outputs=expected_loss_per_item)
+        test.test(("loss_per_item", input_), expected_outputs=expected_loss_per_item)
         # Expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
-        test.test(api_methods=dict(loss=input_), expected_outputs=expected_loss)
-        test.test(api_methods=dict(loss_average=expected_loss_per_item), expected_outputs=expected_loss)
+        test.test(("loss", input_), expected_outputs=expected_loss)
+        test.test(("loss_average", expected_loss_per_item), expected_outputs=expected_loss)
 
     def test_double_dqn_loss_function_on_int_action_space(self):
         # Create a shape=() 3-action discrete-space.
@@ -119,11 +119,11 @@ class TestDQNLossFunctions(unittest.TestCase):
 
         # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
         expected_loss_per_item = np.array([1.040399, 0.1224999], dtype=np.float32)
-        test.test(api_methods=dict(loss_per_item=input_), expected_outputs=expected_loss_per_item)
+        test.test(("loss_per_item", input_), expected_outputs=expected_loss_per_item)
         # Expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
-        test.test(api_methods=dict(loss=input_), expected_outputs=expected_loss)
-        test.test(api_methods=dict(loss_average=expected_loss_per_item), expected_outputs=expected_loss)
+        test.test(("loss", input_), expected_outputs=expected_loss)
+        test.test(("loss_average", expected_loss_per_item), expected_outputs=expected_loss)
 
     def test_dqn_loss_function_in_multi_action_space(self):
         # Create a shape=(3,) 4-action discrete-space.
@@ -171,11 +171,11 @@ class TestDQNLossFunctions(unittest.TestCase):
 
         # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
         expected_loss_per_item = np.array([0.27737945, 21.126272], dtype=np.float32)
-        print(test.test(api_methods=dict(loss_per_item=input_), expected_outputs=None))
+        print(test.test(("loss_per_item", input_), expected_outputs=None))
         # Just expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
-        test.test(api_methods=dict(loss=input_), expected_outputs=expected_loss)
-        test.test(api_methods=dict(loss_average=expected_loss_per_item), expected_outputs=expected_loss)
+        test.test(("loss", input_), expected_outputs=expected_loss)
+        test.test(("loss_average", expected_loss_per_item), expected_outputs=expected_loss)
 
     def test_double_dqn_loss_function_on_multi_int_action_space(self):
         # Create a shape=(2,2) 3-action discrete-space.
@@ -252,8 +252,8 @@ class TestDQNLossFunctions(unittest.TestCase):
 
         # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
         expected_loss_per_item = np.array([0.5625, 0.25, 138.0625, 5.0625], dtype=np.float32)
-        test.test(api_methods=dict(loss_per_item=input_), expected_outputs=expected_loss_per_item)
+        test.test(("loss_per_item", input_), expected_outputs=expected_loss_per_item)
         # Expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
-        test.test(api_methods=dict(loss=input_), expected_outputs=expected_loss)
-        test.test(api_methods=dict(loss_average=expected_loss_per_item), expected_outputs=expected_loss)
+        test.test(("loss", input_), expected_outputs=expected_loss)
+        test.test(("loss_average", expected_loss_per_item), expected_outputs=expected_loss)

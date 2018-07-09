@@ -62,7 +62,7 @@ class TestSynchronizableComponent(unittest.TestCase):
         expected2 = np.ones(shape=component_to_test.space.shape)
         expected = dict(variable_to_sync1=expected1, variable_to_sync2=expected2)
 
-        test.test(api_methods="_variables", expected_outputs=expected)
+        test.test("_variables", expected_outputs=expected)
 
     def test_sync_functionality(self):
         # Two Components, one with Synchronizable dropped in:
@@ -91,7 +91,7 @@ class TestSynchronizableComponent(unittest.TestCase):
         })
 
         # Now sync and re-check.
-        test.test(api_methods=dict(execute_sync=None), expected_outputs=None)
+        test.test("execute_sync", expected_outputs=None)
 
         # After the sync.
         test.variable_test(sync_to.get_variables(VARIABLE_NAMES), {
@@ -138,7 +138,7 @@ class TestSynchronizableComponent(unittest.TestCase):
         })
 
         # Now sync and re-check.
-        test.test(api_methods=dict(execute_sync=None), expected_outputs=None)
+        test.test(("execute_sync", None), expected_outputs=None)
 
         # After the sync.
         test.variable_test(comp2_writable.get_variables([

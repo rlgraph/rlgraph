@@ -55,8 +55,5 @@ class TestComponentCopy(unittest.TestCase):
             output2=np.array([1.0, 2.0, 3.0, 4.0])
         )
         for i in range_(1, 3):
-            test.test(
-                api_methods={"flatten"+str(i): input_["input"+str(i)]},
-                expected_outputs=expected["output"+str(i)]
-            )
+            test.test(("flatten"+str(i), input_["input"+str(i)]), expected_outputs=expected["output"+str(i)])
 

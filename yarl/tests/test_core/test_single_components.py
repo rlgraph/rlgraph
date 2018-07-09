@@ -39,7 +39,7 @@ class TestSingleComponents(unittest.TestCase):
         a = Dummy1To1(scope="A")
         test = ComponentTest(component=a, input_spaces=dict(run=float))
         # Expected: in + 1.0
-        test.test(api_methods=dict(run=1.1), expected_outputs=2.1)
+        test.test(("run", 1.1), expected_outputs=2.1)
 
     def test_1to1_component(self):
         """
@@ -49,8 +49,8 @@ class TestSingleComponents(unittest.TestCase):
         test = ComponentTest(component=component, input_spaces=dict(run=float))
 
         # Expected output: input + 1.0
-        test.test(api_methods=dict(run=1.0), expected_outputs=2.0)
-        test.test(api_methods=dict(run=-5.0), expected_outputs=-4.0)
+        test.test(("run", 1.0), expected_outputs=2.0)
+        test.test(("run", -5.0), expected_outputs=-4.0)
 
     def test_2to1_component(self):
         """
@@ -60,8 +60,8 @@ class TestSingleComponents(unittest.TestCase):
         test = ComponentTest(component=component, input_spaces=dict(run=[float, float]))
 
         # Expected output: input1 + input2
-        test.test(api_methods=dict(run=[1.0, 2.9]), expected_outputs=3.9)
-        test.test(api_methods=dict(run=[4.9, -0.1]), expected_outputs=np.array(4.8, dtype=np.float32))
+        test.test(("run", [1.0, 2.9]), expected_outputs=3.9)
+        test.test(("run", [4.9, -0.1]), expected_outputs=np.array(4.8, dtype=np.float32))
 
     def test_1to2_component(self):
         """
@@ -71,8 +71,8 @@ class TestSingleComponents(unittest.TestCase):
         test = ComponentTest(component=component, input_spaces=dict(run=float))
 
         # Expected outputs: (input, input+1.0)
-        test.test(api_methods=dict(run=1.0), expected_outputs=[2.3, 1.3])
-        test.test(api_methods=dict(run=4.6), expected_outputs=[5.9, 5.98], decimals=3)
+        test.test(("run", 1.0), expected_outputs=[2.3, 1.3])
+        test.test(("run", 4.6), expected_outputs=[5.9, 5.98], decimals=3)
 
     def test_0to1_component(self):
         """
@@ -82,7 +82,7 @@ class TestSingleComponents(unittest.TestCase):
         test = ComponentTest(component=component, input_spaces=None)
 
         # Expected outputs: `var_value` passed into ctor.
-        test.test(api_methods=dict(run=None), expected_outputs=5.0)
+        test.test(("run", None), expected_outputs=5.0)
 
     def test_2to1_component_with_int_input_space(self):
         """
@@ -92,7 +92,7 @@ class TestSingleComponents(unittest.TestCase):
         test = ComponentTest(component=component, input_spaces=dict(run=[int, int]))
 
         # Expected output: in1 + in2
-        test.test(api_methods=dict(run=[5, 4]), expected_outputs=9)
+        test.test(("run", [5, 4]), expected_outputs=9)
 
     def test_2to1_component_with_1_constant_input(self):
         """
@@ -103,4 +103,4 @@ class TestSingleComponents(unittest.TestCase):
         test = ComponentTest(component=component, input_spaces=dict(run=[int, int]))
 
         # Expected output: in1 + (const 1.0)
-        test.test(api_methods=dict(run=[4, 5]), expected_outputs=9)
+        test.test(("run", [4, 5]), expected_outputs=9)

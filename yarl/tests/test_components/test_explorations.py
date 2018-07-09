@@ -44,7 +44,7 @@ class TestExplorations(unittest.TestCase):
         expected = np.array([True, True, True, True, True, True, True, True, True, True, True, True, True, True, True,
                              True, True, False, True, True, False, False, False, False, False, True, False])
         for i, e in zip(input_, expected):
-            test.test(api_methods=dict(do_explore=i), expected_outputs=e)
+            test.test(("do_explore", i), expected_outputs=e)
 
     def test_exploration_with_discrete_action_space(self):
         # 2x2 action-pick, each composite action with 5 categories.
@@ -94,7 +94,7 @@ class TestExplorations(unittest.TestCase):
             10000
         ]
         expected = np.array([[[3, 1], [3, 2]], [[1, 1], [3, 2]]])
-        test.test(api_methods=dict(get_action=inputs), expected_outputs=expected)
+        test.test(("get_action", inputs), expected_outputs=expected)
 
     def test_exploration_with_continuous_action_space(self):
         # 2x2 action-pick, each composite action with 5 categories.
@@ -141,7 +141,7 @@ class TestExplorations(unittest.TestCase):
         collect_outs = lambda component_test, outs: collected.append(outs)
 
         for i in range_(1000):
-            test.test(api_methods=dict(get_noise=None), fn_test=collect_outs)
+            test.test(("get_noise", None), fn_test=collect_outs)
 
         self.assertAlmostEqual(10.0, np.mean(collected), places=1)
         self.assertAlmostEqual(2.0, np.std(collected), places=1)
@@ -162,4 +162,4 @@ class TestExplorations(unittest.TestCase):
                 [12.320091, 8.6772785]
             ]
         ], dtype=np.float32)
-        test.test(api_methods=dict(get_action=input_), expected_outputs=expected)
+        test.test(("get_action", input_), expected_outputs=expected)

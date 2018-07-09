@@ -48,9 +48,9 @@ class TestDistributions(unittest.TestCase):
             True
         ]
         expected = np.array([[True, True, False, False, False]])
-        test.test(api_methods=dict(draw=input_), expected_outputs=expected)
+        test.test(("draw", input_), expected_outputs=expected)
         # Try the same on the sample_deterministic out-Socket without the max_likelihood input..
-        test.test(api_methods=dict(sample_deterministic=input_[0]), expected_outputs=expected)
+        test.test(("sample_deterministic", input_[0]), expected_outputs=expected)
 
         # Batch of size=2 and non-deterministic -> expect always the same result when we seed tf (done automatically
         # by the ComponentTest object).
@@ -60,7 +60,7 @@ class TestDistributions(unittest.TestCase):
         ]
         # Try the same on the sample_stochastic out-Socket without the max_likelihood input..
         expected = np.array([[False, True, False, True, False], [True, True, True, False, True]])
-        test.test(api_methods=dict(sample_stochastic=input_[0]), expected_outputs=expected)
+        test.test(("sample_stochastic", input_[0]), expected_outputs=expected)
 
     def test_categorical(self):
         # Create 5 categorical distributions of 3 categories each.
@@ -87,8 +87,8 @@ class TestDistributions(unittest.TestCase):
             True
         ]
         expected = np.array([[0, 0, 1, 2, 2]])
-        test.test(api_methods=dict(draw=input_), expected_outputs=expected)
-        test.test(api_methods=dict(sample_deterministic=input_[0]), expected_outputs=expected)
+        test.test(("draw", input_), expected_outputs=expected)
+        test.test(("sample_deterministic", input_[0]), expected_outputs=expected)
 
         # Batch of size=2 and non-deterministic -> expect always the same result when we seed tf (done automatically
         # by the ComponentTest object).
@@ -109,9 +109,9 @@ class TestDistributions(unittest.TestCase):
             False
         ]
         expected = np.array([[2, 0, 2, 0, 0], [0, 2, 1, 0, 2]])
-        test.test(api_methods=dict(draw=input_), expected_outputs=expected)
+        test.test(("draw", input_), expected_outputs=expected)
         expected = np.array([[1, 0, 1, 1, 2], [0, 2, 1, 0, 2]])
-        test.test(api_methods=dict(sample_stochastic=input_[0]), expected_outputs=expected)
+        test.test(("sample_stochastic", input_[0]), expected_outputs=expected)
 
     def test_categorical_on_different_space(self):
         # Create 5 categorical distributions of 2 categories each.
@@ -135,7 +135,7 @@ class TestDistributions(unittest.TestCase):
                             [0.3, 0.6]
                             ]])
         expected = np.array([[0, 0, 1, 1, 1]])
-        test.test(api_methods=dict(sample_deterministic=input_), expected_outputs=expected)
+        test.test(("sample_deterministic", input_), expected_outputs=expected)
 
         # Batch of size=2 and non-deterministic -> expect always the same result when we seed tf (done automatically
         # by the ComponentTest object).
@@ -153,7 +153,7 @@ class TestDistributions(unittest.TestCase):
                             ]
                            ])
         expected = np.array([[1, 0, 0, 1, 1], [0, 1, 1, 0, 1]])
-        test.test(api_methods=dict(sample_stochastic=input_), expected_outputs=expected)
+        test.test(("sample_stochastic", input_), expected_outputs=expected)
 
     def test_normal(self):
         # Create 5 normal distributions (2 parameters (mean and stddev) each).
@@ -179,8 +179,8 @@ class TestDistributions(unittest.TestCase):
         ]
         expected = np.array([[1.0, 0.000099999997, 2.25632, 100.0, 30.0],
                              [1000.65, 999.00012, 23.200001, 45.5, 1.2334346]], dtype=np.float32)
-        test.test(api_methods=dict(draw=input_), expected_outputs=expected)
-        test.test(api_methods=dict(sample_deterministic=input_[0]), expected_outputs=expected)
+        test.test(("draw", input_), expected_outputs=expected)
+        test.test(("sample_deterministic", input_[0]), expected_outputs=expected)
 
         # Batch of size=1 and non-deterministic -> expect always the same result when we seed tf (done automatically
         # by the ComponentTest object).
@@ -192,6 +192,6 @@ class TestDistributions(unittest.TestCase):
             False
         ]
         expected = np.array([[2.1588295, 1.0059931, 44.69817, 150.37675, 30.661076]], dtype=np.float32)
-        test.test(api_methods=dict(draw=input_), expected_outputs=expected)
+        test.test(("draw", input_), expected_outputs=expected)
         expected = np.array([[-0.6715696, 0.9988091, 44.73782, 150.38652, 14.133482]], dtype=np.float32)
-        test.test(api_methods=dict(sample_stochastic=input_[0]), expected_outputs=expected)
+        test.test(("sample_stochastic", input_[0]), expected_outputs=expected)

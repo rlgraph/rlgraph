@@ -42,7 +42,7 @@ class TestDecayComponents(unittest.TestCase):
         expected = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.9, 0.88, 0.8, 0.7, 0.5, 0.2, 0.1, 0.05, 0.0, 0.0, 0.0,
                              0.0, 0.0])
         for i, e in zip(input_, expected):
-            test.test(api_methods=dict(decayed_value=i), expected_outputs=e)
+            test.test(("decayed_value", i), expected_outputs=e)
 
     def test_exponential_decay(self):
         decay_component = ExponentialDecay(from_=1.0, to_=0.0, start_timestep=0, num_timesteps=100, half_life=50)
@@ -53,5 +53,5 @@ class TestDecayComponents(unittest.TestCase):
         expected = np.array([1.0, 0.9862327, 0.97265494, 0.70710677, 0.5,
                              0.35355338, 0.329877, 0.2871746, 0.25348988, 0.0])
         for i, e in zip(input_, expected):
-            test.test(api_methods=dict(decayed_value=i), expected_outputs=e)
+            test.test(("decayed_value", i), expected_outputs=e)
 

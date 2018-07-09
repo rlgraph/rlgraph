@@ -55,7 +55,7 @@ class TestGraphFns(unittest.TestCase):
         # Result of sending 'b' keys through graph_fn: (in1[b]+1.0=[[1, 4]], in1[b]+in2[b]=[[5.5, 8.5]])
         out1_fsu = dict(a=1.234, b=np.array([[1.0, 4.0]]))
         out2_fsu = dict(a=np.array(5.234, dtype=np.float32), b=np.array([[5.5, 8.5]]))
-        test.test(api_methods=dict(run=[in1_fsu, in2_fsu]), expected_outputs=[out1_fsu, out2_fsu])
+        test.test(("run", [in1_fsu, in2_fsu]), expected_outputs=[out1_fsu, out2_fsu])
 
     def test_1_containers_1_float_flattening_splitting(self):
         """
@@ -75,7 +75,7 @@ class TestGraphFns(unittest.TestCase):
         # Result of sending 'b' keys through graph_fn: (in1[b]+1.0=[[1, 4]], in1[b]+in2=[[2.0, 5.0]])
         out1_fsu = dict(a=1.234, b=np.array([[1.0, 4.0]]))
         out2_fsu = dict(a=np.array([[2.234]], dtype=np.float32), b=np.array([[2.0, 5.0]]))
-        test.test(api_methods=dict(run=[in1_fsu, in2_fsu]), expected_outputs=[out1_fsu, out2_fsu])
+        test.test(("run", [in1_fsu, in2_fsu]), expected_outputs=[out1_fsu, out2_fsu])
 
     def test_2_containers_no_options(self):
         """
@@ -94,7 +94,7 @@ class TestGraphFns(unittest.TestCase):
         # Expect reversal (see graph_fn)
         out1 = in2
         out2 = in1
-        test.test(api_methods=dict(run=[in1, in2]), expected_outputs=[out1, out2])
+        test.test(("run", [in1, in2]), expected_outputs=[out1, out2])
 
     def test_1_container_1_float_only_flatten(self):
         """
@@ -116,4 +116,4 @@ class TestGraphFns(unittest.TestCase):
         out1 = dict(a=in1["a"] + in2, b=in1["b"] + in2, c=tuple([in1["c"][0] + in2]))
         out2 = dict(a=in1["a"] - in2, b=in1["b"] - in2, c=tuple([in1["c"][0] - in2]))
         out3 = in2
-        test.test(api_methods=dict(run=[in1, in2]), expected_outputs=[out1, out2, out3], decimals=5)
+        test.test(("run", [in1, in2]), expected_outputs=[out1, out2, out3], decimals=5)
