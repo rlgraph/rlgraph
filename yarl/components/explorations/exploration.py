@@ -21,6 +21,7 @@ from yarl import get_backend, YARLError
 from yarl.utils.util import dtype
 from yarl.components import Component
 from yarl.spaces import IntBox, FloatBox
+from yarl.spaces.space_utils import sanity_check_space
 from yarl.components.explorations.epsilon_exploration import EpsilonExploration
 from yarl.components.common import NoiseComponent
 
@@ -72,26 +73,28 @@ class Exploration(Component):
             self.add_components(self.epsilon_exploration)
 
             # Define our interface.
-            def get_action(self_, sample_deterministic, sample_stochastic, time_step):
-                do_explore = self_.call(self_.epsilon_exploration.do_explore, time_step)
-                return self_.call(self._graph_fn_pick, do_explore, sample_deterministic, sample_stochastic)
+            def get_action(self_, sample_deterministic, sample_stochastic, time_step, use_exploration=True):
+                epsilon_decision = self_.call(self_.epsilon_exploration.do_explore, time_step)
+                return self_.call(self_._graph_fn_pick, use_exploration, epsilon_decision,
+                                  sample_deterministic, sample_stochastic)
 
         # Add noise component
         elif noise_spec:
             self.noise_component = NoiseComponent.from_spec(noise_spec)
             self.add_components(self.noise_component)
 
-            def get_action(self_, sample_deterministic, sample_stochastic, time_step=0):
+            def get_action(self_, sample_deterministic, sample_stochastic, time_step=0, use_exploration=True):
                 noise = self_.call(self_.noise_component.get_noise)
-                return self_.call(self_._graph_fn_add_noise, noise, sample_deterministic, sample_stochastic)
+                return self_.call(self_._graph_fn_add_noise, use_exploration, noise,
+                                  sample_deterministic, sample_stochastic)
 
         # Don't explore at all
         else:
             if self.non_explore_behavior == "max-likelihood":
-                def get_action(self_, sample_deterministic, sample_stochastic, time_step=0):
+                def get_action(self_, sample_deterministic, sample_stochastic, time_step=0, use_exploration=False):
                     return sample_deterministic
             else:
-                def get_action(self_, sample_deterministic, sample_stochastic, time_step=0):
+                def get_action(self_, sample_deterministic, sample_stochastic, time_step=0, use_exploration=False):
                     return sample_stochastic
 
         self.define_api_method("get_action", get_action)
@@ -105,23 +108,20 @@ class Exploration(Component):
             raise YARLError("Cannot use both epsilon exploration and a noise component at the same time.")
 
         if self.epsilon_exploration:
-            # Currently only IntBox is allowed for discrete action spaces
-            assert isinstance(self.action_space, IntBox), "Only IntBox Spaces are currently supported " \
-                                                          "for exploration components."
-            assert self.action_space.num_categories is not None and self.action_space.num_categories > 0, \
-                "ERROR: `action_space` must have `num_categories` defined and > 0!"
-
+            sanity_check_space(self.action_space, allowed_types=[IntBox], must_have_categories=True,
+                               num_categories=(1, None))
         elif self.noise_component:
-            assert isinstance(self.action_space, FloatBox), "Only FloatBox spaces are currently supported " \
-                                                            "for noise components."
+            sanity_check_space(self.action_space, allowed_types=[FloatBox])
 
-    def _graph_fn_pick(self, do_explore, sample_deterministic, sample_stochastic):
+    def _graph_fn_pick(self, use_exploration, epsilon_decision, sample_deterministic, sample_stochastic):
         """
         Exploration for discrete action spaces.
-        Either pick a random action (if `do_explore` is True), or return non-explorative action.
+        Either pick a random action (if `use_exploration` and `epsilon_decision` is True),
+            or return non-explorative action.
 
         Args:
-            do_explore (DataOp): The bool coming from the epsilon-exploration component specifying
+            use_exploration (DataOp): The master switch determining, whether to use exploration or not.
+            epsilon_decision (DataOp): The bool coming from the epsilon-exploration component specifying
                 whether to use exploration or not.
             sample_deterministic (DataOp): The output from a distribution's "sample_deterministic" API-method.
             sample_stochastic (DataOp): The output from a distribution's "sample_stochastic" API-method.
@@ -130,20 +130,23 @@ class Exploration(Component):
             DataOp: The DataOp representing the action. This will match the shape of self.action_space.
         """
         if get_backend() == "tf":
-            return tf.cond(do_explore,
-                           # (1,) = Adding artificial batch rank.
-                           true_fn=lambda: tf.random_uniform(shape=(1,) + self.action_space.shape,
-                                                             maxval=self.action_space.num_categories,
-                                                             dtype=dtype("int")),
-                           false_fn=lambda: sample_deterministic if self.non_explore_behavior == "max-likelihood"
-                           else sample_stochastic)
+            return tf.cond(
+                tf.logical_and(use_exploration, epsilon_decision),
+                # (1,) = Adding artificial batch rank.
+                true_fn=lambda: tf.random_uniform(shape=(1,) + self.action_space.shape,
+                                                  maxval=self.action_space.num_categories,
+                                                  dtype=dtype("int")),
+                false_fn=lambda: sample_deterministic if self.non_explore_behavior == "max-likelihood"
+                else sample_stochastic
+            )
 
-    def _graph_fn_add_noise(self, noise, sample_deterministic, sample_stochastic):
+    def _graph_fn_add_noise(self, use_exploration, noise, sample_deterministic, sample_stochastic):
         """
         Noise for continuous action spaces.
         Return the action with added noise.
 
         Args:
+            use_exploration (DataOp): The master switch determining, whether to add noise or not.
             noise (DataOp): The noise coming from the noise component.
             sample_deterministic (DataOp): The output from a distribution's "sample_deterministic" API-method.
             sample_stochastic (DataOp): The output from a distribution's "sample_stochastic" API-method.
@@ -153,7 +156,7 @@ class Exploration(Component):
 
         """
         if get_backend() == "tf":
-            if self.non_explore_behavior == 'max-likelihood':
-                return sample_deterministic + noise
-            else:
-                return sample_stochastic + noise
+            sampler = sample_deterministic if self.non_explore_behavior == 'max-likelihood' else sample_stochastic
+            return tf.cond(
+                use_exploration, true_fn=lambda: sampler + noise, false_fn=lambda: sampler
+            )

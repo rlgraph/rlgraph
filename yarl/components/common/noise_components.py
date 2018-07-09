@@ -38,7 +38,6 @@ class NoiseComponent(Component):
         super(NoiseComponent, self).__init__(scope=scope, **kwargs)
 
         # Our interface.
-        # self.define_outputs("noise")
         self.define_api_method(name="get_noise", func=self._graph_fn_get_noise)
 
     def _graph_fn_get_noise(self):
@@ -48,7 +47,7 @@ class NoiseComponent(Component):
         Returns:
             DataOp: The noise value.
         """
-        return tf.constant(0.0)
+        raise NotImplementedError
 
 
 class ConstantNoise(NoiseComponent):
@@ -77,7 +76,7 @@ class GaussianNoise(NoiseComponent):
 
         self.action_space = None
 
-    def create_variables(self, input_spaces, action_space):
+    def check_input_spaces(self, input_spaces, action_space):
         self.action_space = action_space
 
     def _graph_fn_get_noise(self):

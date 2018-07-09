@@ -41,7 +41,7 @@ class TestNoiseComponents(unittest.TestCase):
         test = ComponentTest(component=noise_component, action_space=self.action_input_space)
 
         for i in range_(1000):
-            test.test(api_methods=dict(get_noise=[]), expected_outputs=real_noise)
+            test.test(api_methods=dict(get_noise=None), expected_outputs=real_noise)
 
     def test_gaussian_noise(self):
         real_mean = 10.0
@@ -55,7 +55,7 @@ class TestNoiseComponents(unittest.TestCase):
         collect_outs = lambda component_test, outs: collected.append(outs)
 
         for i in range_(1000):
-            test.test(api_methods=dict(get_noise=[]), fn_test=collect_outs)
+            test.test(api_methods=dict(get_noise=None), fn_test=collect_outs)
 
         test_mean = np.mean(collected)
         test_sd = np.std(collected)
@@ -83,7 +83,7 @@ class TestNoiseComponents(unittest.TestCase):
         collect_outs = lambda component_test, outs: collected.append(outs)
 
         for _ in range_(1000):
-            test.test(api_methods=dict(get_noise=[]), fn_test=collect_outs)
+            test.test(api_methods=dict(get_noise=None), fn_test=collect_outs)
 
         test_mean = np.mean(collected)
         test_sd = np.std(collected)
