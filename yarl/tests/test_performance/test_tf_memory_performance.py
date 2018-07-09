@@ -21,15 +21,16 @@ import unittest
 
 import time
 
-from ray.rllib.optimizers.replay_buffer import PrioritizedReplayBuffer
-
 from yarl.components import ReplayMemory, PrioritizedReplay
 from yarl.envs import OpenAIGymEnv
 from yarl.spaces import Dict, BoolBox, FloatBox, IntBox
 from yarl.tests import ComponentTest
 
 
-class TestMemoryPerformance(unittest.TestCase):
+class TestTfMemoryPerformance(unittest.TestCase):
+    """
+    Tests performance of pure TensorFlow memories.
+    """
 
     # Note: Using Atari states here has to be done with care because without preprocessing, these will require
     # large amount sof memory.
@@ -165,42 +166,3 @@ class TestMemoryPerformance(unittest.TestCase):
         print('Sampled {} batches of size {}, throughput: {} sample-ops/s, total time: {} s'.format(
             self.samples, self.sample_batch_size, tp, end
         ))
-
-    def test_ray_in_memory_prioritized_replay(self):
-        """
-        Tests Ray's memory performance.
-        """
-        memory = PrioritizedReplayBuffer(
-            size=self.capacity,
-            alpha=1.0,
-            clip_rewards=True
-        )
-        # Testing insert performance
-        record_space = Dict(
-            states=self.env.state_space,
-            actions=self.env.action_space,
-            reward=float,
-            terminals=BoolBox(),
-            add_batch_rank=True
-        )
-        records = [record_space.sample(size=1) for _ in range(self.inserts)]
-
-        start = time.monotonic()
-        for record in records:
-            memory.add(
-                obs_t=record['states'],
-                action=record['actions'],
-                reward=record['reward'],
-                obs_tp1=record['states'],
-                done=record['terminals'],
-                weight=None
-            )
-        end = time.monotonic() - start
-        tp = len(records) / end
-        print('#### Testing Ray Prioritized Replay memory ####')
-        print('Testing insert performance:')
-        print('Inserted {} separate records, throughput: {} records/s, total time: {} s'.format(
-            len(records), tp, end
-        ))
-
-        # Todo add our own in-memory implementation.

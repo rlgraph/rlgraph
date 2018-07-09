@@ -72,14 +72,17 @@ class MemPrioritizedReplay(Specifiable):
         update_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
 
         # Update record registry.
-        # record_updates = list()
-        # for key in self.record_registry:
-        #     record_updates.append(self.scatter_update_variable(
-        #         variable=self.record_registry[key],
-        #         indices=update_indices,
-        #         updates=records[key]
-        #     ))
-        #
+        if num_records == 1:
+            insert_index = (self.index + num_records) % self.capacity
+            for key in self.record_registry:
+                self.record_registry[key][insert_index] = records[key]
+        else:
+            insert_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
+            record_index = 0
+            for insert_index in insert_indices:
+                for key in self.record_registry:
+                    self.record_registry[key][insert_index] = records[key][record_index]
+                record_index += 1
 
         # Update indices
         self.index = (self.index + num_records) % self.capacity
@@ -92,6 +95,39 @@ class MemPrioritizedReplay(Specifiable):
 
     def get_records(self, num_records):
         pass
+
+        # current_size = self.read_variable(self.size)
+        # stored_elements_prob_sum = self.sum_segment_tree.reduce(start=0, limit=current_size - 1)
+        #
+        # # Sample the entire batch.
+        # sample = stored_elements_prob_sum * tf.random_uniform(shape=(num_records,))
+        #
+        # # Sample by looking up prefix sum.
+        # sample_indices = tf.map_fn(fn=self.sum_segment_tree.index_of_prefixsum, elems=sample, dtype=tf.int32)
+        # # sample_indices = self.sum_segment_tree.index_of_prefixsum(sample)
+        #
+        # # Importance correction.
+        # total_prob = self.sum_segment_tree.reduce(start=0, limit=self.priority_capacity - 1)
+        # min_prob = self.min_segment_tree.get_min_value() / total_prob
+        # max_weight = tf.pow(x=min_prob * tf.cast(current_size, tf.float32), y=-self.beta)
+        #
+        # def importance_sampling_fn(sample_index):
+        #     sample_prob = self.sum_segment_tree.get(sample_index) / stored_elements_prob_sum
+        #     weight = tf.pow(x=sample_prob * tf.cast(current_size, tf.float32), y=-self.beta)
+        #
+        #     return weight / max_weight
+        #
+        # # sample_indices = tf.Print(sample_indices, [sample_indices], summarize=1000,
+        # #                          message='sample indices in retrieve = ')
+        #
+        # corrected_weights = tf.map_fn(
+        #     fn=importance_sampling_fn,
+        #     elems=sample_indices,
+        #     dtype=tf.float32
+        # )
+        # sample_indices = tf.Print(sample_indices, [sample_indices, self.sum_segment_tree.values], summarize=1000,
+        #                           message='sample indices, segment tree values = ')
+        # return self.read_records(indices=sample_indices), sample_indices, corrected_weights
 
     def update_records(self, indices, update):
         pass
