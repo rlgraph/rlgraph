@@ -30,7 +30,7 @@ from yarl.spaces import Dict, BoolBox, FloatBox, IntBox
 from yarl.tests import ComponentTest
 
 
-class TestMemoryPerformance(unittest.TestCase):
+class TestPythonMemoryPerformance(unittest.TestCase):
 
     # Note: Using Atari states here has to be done with care because without preprocessing, these will require
     # large amount sof memory.

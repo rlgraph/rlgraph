@@ -23,7 +23,6 @@ from six.moves import xrange
 
 from yarl import Specifiable
 from yarl.components.memories.mem_segment_tree import MemSegmentTree
-from yarl.components.memories.segment_tree import SegmentTree
 from yarl.spaces.space_utils import get_list_registry
 from yarl.utils.ops import FlattenedDataOp
 from yarl.utils.util import get_batch_size
@@ -50,6 +49,7 @@ class MemPrioritizedReplay(Specifiable):
 
         self.default_new_weight = np.power(self.max_priority, self.alpha)
 
+    # TODO this needs manual calling atm
     def create_variables(self, input_spaces, action_space):
         # Store our record-space for convenience.
         self.record_space = input_spaces["insert_records"][0]
