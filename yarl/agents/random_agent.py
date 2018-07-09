@@ -24,15 +24,18 @@ class RandomAgent(Agent):
     """
     An Agent that picks random actions from the action Space.
     """
-
     def _observe_graph(self, states, actions, internals, rewards, terminals):
         pass
 
     def __init__(self, state_space, action_space):
         super(RandomAgent, self).__init__(state_space, action_space)
 
-    def get_action(self, states, deterministic=False):
-        return self.action_space.sample()
+    def get_action(self, states, use_exploration=False, return_preprocessed_states=False):
+        a = self.action_space.sample()
+        if return_preprocessed_states is True:
+            return a, states
+        else:
+            return a
 
     def update(self, batch=None):
         pass
