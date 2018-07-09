@@ -264,8 +264,9 @@ class Component(Specifiable):
             if len(params) > len(actual_params) > 0 and actual_params[-1].kind == inspect.Parameter.VAR_POSITIONAL:
                 pass
             # Some actual params have default values: Number of given params must be at least as large as the number
-            # of non-default actual params.
-            elif len(params) >= sum([p.default is inspect.Parameter.empty for p in actual_params]):
+            # of non-default actual params but maximally as large as the number of actual_parameters.
+            elif len(actual_params) >= len(params) >= sum(
+                    [p.default is inspect.Parameter.empty for p in actual_params]):
                 pass
             else:
                 raise YARLError("ERROR: Graph_fn '{}/{}' has {} input-parameters, but {} ({}) were being provided in "
