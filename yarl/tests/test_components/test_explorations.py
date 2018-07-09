@@ -17,16 +17,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import unittest
-
+import numpy as np
 from six.moves import xrange as range_
+import unittest
 
 from yarl.components import Component, ActionAdapter, Exploration, EpsilonExploration, LinearDecay
 from yarl.components.distributions import Categorical, Normal
 from yarl.spaces import *
 from yarl.tests import ComponentTest
-
-import numpy as np
 
 
 class TestExplorations(unittest.TestCase):
@@ -148,10 +146,20 @@ class TestExplorations(unittest.TestCase):
         self.assertAlmostEqual(10.0, np.mean(collected), places=1)
         self.assertAlmostEqual(2.0, np.std(collected), places=1)
 
+        np.random.seed(10)
         input_ = nn_output_space.sample(size=3)
         expected = np.array([
-                                [[14.631488,   7.5456867], [10.875274,   8.625053 ]],
-                                [[13.850703,   8.199795 ], [10.101453,   7.3126173]],
-                                [[13.342209,   9.123161 ], [10.7713, 2.8964272]]
-        ])
-        print(test.test(api_methods=dict(get_action=input_), expected_outputs=None))
+            [
+                [11.459449, 10.592813],
+                [12.36386, 9.682993]
+            ],
+            [
+                [11.506951, 10.004416],
+                [12.577463, 13.608555]
+            ],
+            [
+                [13.279169, 10.09919],
+                [12.320091, 8.6772785]
+            ]
+        ], dtype=np.float32)
+        test.test(api_methods=dict(get_action=input_), expected_outputs=expected)
