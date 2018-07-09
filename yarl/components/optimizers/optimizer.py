@@ -49,31 +49,9 @@ class Optimizer(Component):
         super(Optimizer, self).__init__(scope=kwargs.pop("scope", "optimizer"), **kwargs)
 
         self.learning_rate = learning_rate
-        self.two_step = two_step
 
         # Define our interface.
-        # self.define_inputs("vars", "loss", *inputs)
-        # self.define_outputs("calc_grads_and_vars", "step")
-        self.define_api_method(
-            name="calculate_gradients",
-            func=self._graph_fn_calculate_gradients
-        )
-
-        # Two-step optimizer: User has to feed back in the zipped gradients and variables for application step.
-        # TODO do this via a run function called 'step'?
-        if self.two_step is True:
-            pass
-            #def step(self_, *inputs):
-            #    grads_and_vars = self_.call(self_._graph_fn_calculate_gradients, *inputs)
-            #    return self_.call(self_._graph_fn_apply_gradients, grads_and_vars)
-
-        # One-step optimizer: Connect everything automatically.
-        else:
-            def step(self_, *inputs):
-                grads_and_vars = self_.call(self_._graph_fn_calculate_gradients, *inputs)
-                return self_.call(self_._graph_fn_apply_gradients, grads_and_vars)
-
-        self.define_api_method("step", step)
+        self.define_api_method(name="calculate_gradients", func=self._graph_fn_calculate_gradients)
 
     def _graph_fn_calculate_gradients(self, *inputs):
         """
@@ -84,7 +62,7 @@ class Optimizer(Component):
             inputs (SingleDataOp): Custom SingleDataOp parameters, dependent on the optimizer type.
 
         Returns:
-            DataOpTuple: The gradients per variable (same order as in input parameter `variables`).
+            DataOpTuple: The list of gradients and variables to be optimized.
         """
         raise NotImplementedError
 

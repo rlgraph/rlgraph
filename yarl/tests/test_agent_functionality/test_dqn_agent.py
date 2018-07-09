@@ -50,7 +50,7 @@ class TestDQNAgentFunctionality(unittest.TestCase):
 
         worker = SingleThreadedWorker(environment=env, agent=agent)
         timesteps = 100
-        results = worker.execute_timesteps(timesteps, deterministic=True)
+        results = worker.execute_timesteps(timesteps, use_exploration=False)
 
         print(results)
 
@@ -77,59 +77,65 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         worker = SingleThreadedWorker(environment=env, agent=agent)
         test = AgentTest(worker=worker)
 
-        # 1st step.
-        test.step(1)  # action: up
+        # 1st step -> Expect insert into python-buffer.
+        # action: left
+        test.step(1, reset=True)
         # Environment's new state.
-        test.check_env("state", expected=0)
+        test.check_env("state", 0)
         # Agent's buffer.
-        test.check_agent("states_buffer", expected=[0])
-        test.check_agent("actions_buffer", expected=[0])
-        test.check_agent("rewards_buffer", expected=[-1.0])
-        test.check_agent("terminals_buffer", expected=[False])
+        test.check_agent("states_buffer", [0])
+        test.check_agent("actions_buffer", [3])
+        test.check_agent("rewards_buffer", [-1.0])
+        test.check_agent("terminals_buffer", [False])
         # Memory contents.
-        test.check_var("replay-memory/index", expected=0)
-        test.check_var("replay-memory/size", expected=0)
-        test.check_var("replay-memory/memory/states", expected=np.array([[0] * 4] * agent.memory.capacity))
-        test.check_var("replay-memory/memory/actions", expected=np.array([[0] * 4] * agent.memory.capacity))
-        test.check_var("replay-memory/memory/rewards", expected=np.array([[0] * 4] * agent.memory.capacity))
-        test.check_var("replay-memory/memory/terminals", expected=np.array([[False] * 4] * agent.memory.capacity))
+        test.check_var("replay-memory/index", 0)
+        test.check_var("replay-memory/size", 0)
+        test.check_var("replay-memory/memory/states", np.array([[0] * 4] * agent.memory.capacity))
+        test.check_var("replay-memory/memory/actions", np.array([0] * agent.memory.capacity))
+        test.check_var("replay-memory/memory/rewards", np.array([0] * agent.memory.capacity))
+        test.check_var("replay-memory/memory/terminals", np.array([False] * agent.memory.capacity))
         # Check policy and target-policy weights (should be the same).
-        test.check_var("policy/neural-network/hidden/dense/kernel", expected=np.array([1.0] * 4))
-        test.check_var("target-policy/neural-network/hidden/dense/kernel", expected=np.array([1.0] * 4))
+        test.check_var("policy/neural-network/hidden/dense/kernel", np.array([[1.0] * 2] * 4))
+        test.check_var("target-policy/neural-network/hidden/dense/kernel", np.array([[1.0] * 2] * 4))
 
         # 2nd step -> expect insert into memory (and python buffer should be empty again).
-        # action: down
+        # action: left
         # Also check the policy and target policy values (Should be equal at this point).
-        test.test(steps=1, checks=[
-            (env, "state", 1),  # Environment's new state.
-            (agent, "states_buffer", []),  # Agent's buffer.
-            (agent, "actions_buffer", []),
-            (agent, "rewards_buffer", []),
-            (agent, "terminals_buffer", []),
-            (agent.memory, "index", 2),  # Memory contents.
-            (agent.memory, "size", 2),
-            (agent.memory, "memory/states", np.array([[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]] +
-                                                     [[0.0, 0.0, 0.0, 0.0]] * (agent.memory.capacity - 2))),
-            (agent.memory, "memory/actions", np.array([0, 2] + [0] * (agent.memory.capacity - 2))),
-            (agent.memory, "memory/rewards", np.array([-1.0, -1.0] + [0.0] * (agent.memory.capacity - 2))),
-            (agent.memory, "memory/terminals", np.array([False] * agent.memory.capacity)),
-            #(agent.policy, )
-        ])
+        test.step(1)
+        test.check_env("state", 0)
+        test.check_agent("states_buffer", [])
+        test.check_agent("actions_buffer", [])
+        test.check_agent("rewards_buffer", [])
+        test.check_agent("terminals_buffer", [])
+        test.check_var("replay-memory/index", 2)
+        test.check_var("replay-memory/size", 2)
+        test.check_var("replay-memory/memory/states", np.array([[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]] +
+                                                               [[0.0, 0.0, 0.0, 0.0]] * (agent.memory.capacity - 2)))
+        test.check_var("replay-memory/memory/actions", np.array([3, 3] + [0] * (agent.memory.capacity - 2)))
+        test.check_var("replay-memory/memory/rewards", np.array([-1.0, -1.0] + [0.0] * (agent.memory.capacity - 2)))
+        test.check_var("replay-memory/memory/terminals", np.array([False] * agent.memory.capacity))
+        # Check policy and target-policy weights (should be the same).
+        test.check_var("policy/neural-network/hidden/dense/kernel", np.array([[1.0] * 2] * 4))
+        test.check_var("target-policy/neural-network/hidden/dense/kernel", np.array([[1.0] * 2] * 4))
 
         # 3rd and 4th step -> expect another insert into memory (and python buffer should be empty again).
         # actions: down, left
         # Expect an update to the policy variables (leave target as is (no synch yet)).
-        test.test(steps=2, checks=[
-            (env, "state", 1),  # Environment's new state.
-            (agent, "states_buffer", []),  # Agent's buffer.
-            (agent, "actions_buffer", []),
-            (agent, "rewards_buffer", []),
-            (agent, "terminals_buffer", []),
-            (agent.memory, "index", 2),  # Memory contents.
-            (agent.memory, "size", 2),
-            (agent.memory, "memory/states", np.array([[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]] +
-                                                     [[0.0, 0.0, 0.0, 0.0]] * (agent.memory.capacity - 2))),
-            (agent.memory, "memory/actions", np.array([0, 2] + [0] * (agent.memory.capacity - 2))),
-            (agent.memory, "memory/rewards", np.array([-1.0, -1.0] + [0.0] * (agent.memory.capacity - 2))),
-            (agent.memory, "memory/terminals", np.array([False] * agent.memory.capacity)),
-        ])
+        test.step(2)
+        # TODO: continue here
+        test.check_env("state", 1)
+        test.check_agent("states_buffer", [])
+        test.check_agent("actions_buffer", [])
+        test.check_agent("rewards_buffer", [])
+        test.check_agent("terminals_buffer", [])
+        test.check_var("replay-memory/index", 4)
+        test.check_var("replay-memory/size", 4)
+        test.check_var("replay-memory/memory/states", np.array([[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0],
+                                                                [1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]] +
+                                                               [[0.0, 0.0, 0.0, 0.0]] * (agent.memory.capacity - 4)))
+        test.check_var("replay-memory/memory/actions", np.array([0, 2, 0, 1] + [0] * (agent.memory.capacity - 4)))
+        test.check_var("replay-memory/memory/rewards", np.array([-1.0, -1.0, -1.0, -1.0] + [0.0] * (agent.memory.capacity - 4)))
+        test.check_var("replay-memory/memory/terminals", np.array([False] * agent.memory.capacity))
+        # Check policy and target-policy weights (policy should be updated).
+        test.check_var("policy/neural-network/hidden/dense/kernel", np.array([1.0] * 4))
+        test.check_var("target-policy/neural-network/hidden/dense/kernel", np.array([1.0] * 4))

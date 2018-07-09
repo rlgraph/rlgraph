@@ -351,10 +351,12 @@ class GraphBuilder(Specifiable):
             # The graph_fn _variables has some in-op-columns that need to be run through the function.
             if "_graph_fn__variables" in component.graph_fns:
                 graph_fn_rec = component.graph_fns["_graph_fn__variables"]
-                #assert len(graph_fn_rec.in_op_columns) == 1  # TODO: Not sure why there should always only be one?
-                self.run_through_graph_fn_with_device_and_scope(graph_fn_rec.in_op_columns[0])
-                # Keep working with the generated output ops.
-                op_records_to_process.update(graph_fn_rec.out_op_columns[0].op_records)
+                # TODO: Think about only running through no-input-graph-fn once no matter how many in-op-columns it has.
+                # TODO: Then link the first in-op-column (empty) to all out-op-columns.
+                for i, in_op_col in enumerate(graph_fn_rec.in_op_columns):
+                    self.run_through_graph_fn_with_device_and_scope(in_op_col)
+                    # Keep working with the generated output ops.
+                    op_records_to_process.update(graph_fn_rec.out_op_columns[i].op_records)
 
     def run_through_graph_fn_with_device_and_scope(self, op_rec_column):
         """

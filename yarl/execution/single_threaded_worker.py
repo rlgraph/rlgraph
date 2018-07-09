@@ -21,6 +21,7 @@ import numpy as np
 from six.moves import xrange as range_
 import time
 
+from yarl import YARLError
 from yarl.utils.util import default_dict
 from yarl.execution.worker import Worker
 
@@ -32,24 +33,45 @@ class SingleThreadedWorker(Worker):
 
         super(SingleThreadedWorker, self).__init__(**kwargs)
 
-        self.logger.info("Initialized single-threaded executor with\n environment id {} and agent {}".format(
+        self.logger.info("Initialized single-threaded executor with Environment '{}' and Agent '{}'".format(
             self.environment, self.agent
         ))
 
-    def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, deterministic=False):
+        self.env_frames = 0
+        self.episode_rewards = list()
+        self.episode_durations = list()
+        self.episode_steps = list()
+        # Accumulated return over the running episode.
+        self.episode_return = 0
+        # The number of steps taken in the running episode.
+        self.episode_timesteps = 0
+        # Whether the running episode has terminated.
+        self.episode_terminal = False
+        # Wall time of the last start of the running episode.
+        self.episode_start = None
+        # The current state of the running episode.
+        self.episode_state = None
+
+    def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
+                          repeat_actions=None, reset=True):
         return self._execute(
             num_timesteps=num_timesteps,
             max_timesteps_per_episode=max_timesteps_per_episode,
-            deterministic=deterministic,
-            update_spec=update_spec
+            use_exploration=use_exploration,
+            update_spec=update_spec,
+            repeat_actions=repeat_actions,
+            reset=reset
         )
 
-    def execute_episodes(self, num_episodes, max_timesteps_per_episode=0, update_spec=None, deterministic=False):
+    def execute_episodes(self, num_episodes, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
+                         repeat_actions=None, reset=True):
         return self._execute(
             num_episodes=num_episodes,
             max_timesteps_per_episode = max_timesteps_per_episode,
-            deterministic=deterministic,
-            update_spec=update_spec
+            use_exploration=use_exploration,
+            update_spec=update_spec,
+            repeat_actions=repeat_actions,
+            reset=reset
         )
 
     def _execute(
@@ -57,8 +79,10 @@ class SingleThreadedWorker(Worker):
         num_timesteps=None,
         num_episodes=None,
         max_timesteps_per_episode=None,
-        deterministic=False,
-        update_spec=None
+        use_exploration=True,
+        update_spec=None,
+        repeat_actions=None,
+        reset=True
     ):
         """
         Actual implementation underlying `execute_timesteps` and `execute_episodes`.
@@ -68,18 +92,23 @@ class SingleThreadedWorker(Worker):
                 `num_episodes` must be provided.
             num_episodes (Optional[int]): The maximum number of episodes to run. At least one of `num_timesteps` or
                 `num_episodes` must be provided.
-            deterministic (bool): Whether to execute actions deterministically or not.
-                Default: False.
+            use_exploration (Optional[bool]): Indicates whether to utilize exploration (epsilon or noise based)
+                when picking actions. Default: True.
             max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
                 Use None or 0 for no limit. Default: None.
             update_spec (Optional[dict]): Update parameters. If None, the worker only performs rollouts.
                 Matches the structure of an Agent's update_spec dict and will be "defaulted" by that dict.
                 See `input_parsing/parse_update_spec.py` for more details.
+            repeat_actions (int): How often actions are repeated after retrieving them from the agent.
+                Use None for the Worker's default value.
+            reset (bool): Whether to reset the environment and all the Worker's internal counters.
+                Default: True.
+
         Returns:
             dict: Execution statistics.
         """
-        assert num_timesteps is not None or num_episodes is not None, "ERROR: One of `num_timesteps` or `num_episodes` " \
-                                                                      "must be provided!"
+        assert num_timesteps is not None or num_episodes is not None,\
+            "ERROR: One of `num_timesteps` or `num_episodes` must be provided!"
         # Are we updating or just acting/observing?
         update_spec = default_dict(update_spec, self.agent.update_spec)
         self.set_update_schedule(update_spec)
@@ -87,69 +116,75 @@ class SingleThreadedWorker(Worker):
         num_timesteps = num_timesteps or 0
         num_episodes = num_episodes or 0
         max_timesteps_per_episode = max_timesteps_per_episode or 0
+        repeat_actions = repeat_actions or self.repeat_actions
 
         # Stats.
         timesteps_executed = 0
         episodes_executed = 0
-        env_frames = 0
-        episode_rewards = list()
-        episode_durations = list()
-        episode_steps = list()
+
+        if reset is True:
+            self.env_frames = 0
+            self.episode_rewards = list()
+            self.episode_durations = list()
+            self.episode_steps = list()
+
         start = time.monotonic()
 
         # Only run everything for at most num_timesteps (if defined).
         while not (0 < num_timesteps <= timesteps_executed):
-            # The reward accumulated over one episode.
-            episode_reward = 0
-            # The number of steps taken in the episode.
-            episode_timestep = 0
-            # Whether the episode has terminated.
-            terminal = False
+            # If we are in a second or later loop OR reset is True -> Reset the Env.
+            if timesteps_executed != 0 or reset is True:
+                self.episode_return = 0
+                self.episode_timesteps = 0
+                self.episode_terminal = False
+                self.episode_start = time.monotonic()
+                self.episode_state = self.environment.reset()
+            elif self.episode_state is None:
+                raise YARLError("Runner must be reset at the very beginning. Environment is in invalid state.")
 
-            # Start a new episode.
-            episode_start = time.monotonic()  # wall time
-            state = self.environment.reset()
             if self.render:
                 self.environment.render()
+
             while True:
                 action = self.agent.get_action(
-                    states=state, deterministic=deterministic, return_preprocessed_states=False
+                    states=self.episode_state, use_exploration=use_exploration, return_preprocessed_states=False
                 )
 
                 # Accumulate the reward over n env-steps (equals one action pick). n=self.repeat_actions
                 reward = 0
                 next_state = None
-                for _ in range_(self.repeat_actions):
-                    next_state, step_reward, terminal, info = self.environment.step(actions=action)
+                for _ in range_(repeat_actions):
+                    next_state, step_reward, self.episode_terminal, info = self.environment.step(actions=action)
                     if self.render:
                         self.environment.render()
-                    env_frames += 1
+                    self.env_frames += 1
                     reward += step_reward
-                    if terminal:
+                    if self.episode_terminal:
                         break
 
-                self.agent.observe(states=state, actions=action, internals=[], rewards=reward, terminals=terminal)
+                self.agent.observe(states=self.episode_state, actions=action, internals=[], rewards=reward,
+                                   terminals=self.episode_terminal)
 
-                loss = self.update_if_necessary(timesteps_executed)
+                loss = self.update_if_necessary()
                 if loss is not None:
                     self.logger.info("LOSS: {}".format(loss))
 
-                episode_reward += reward
+                self.episode_return += reward
                 timesteps_executed += 1
-                episode_timestep += 1
+                self.episode_timesteps += 1
                 # Is the episode finished or do we have to terminate it prematurely because of other restrictions?
-                if terminal or (0 < num_timesteps <= timesteps_executed) or \
-                        (0 < max_timesteps_per_episode <= episode_timestep):
+                if self.episode_terminal or (0 < num_timesteps <= timesteps_executed) or \
+                        (0 < max_timesteps_per_episode <= self.episode_timesteps):
                     break
 
-                state = next_state
+                self.episode_state = next_state
 
             episodes_executed += 1
-            episode_rewards.append(episode_reward)
-            episode_durations.append(time.monotonic() - episode_start)
-            episode_steps.append(episode_timestep)
+            self.episode_rewards.append(self.episode_return)
+            self.episode_durations.append(time.monotonic() - self.episode_start)
+            self.episode_steps.append(self.episode_timesteps)
             self.logger.info("Finished episode: reward={}, actions={}, duration={}s.".format(
-                episode_reward, episode_timestep, episode_durations[-1]))
+                self.episode_return, self.episode_timesteps, self.episode_durations[-1]))
 
             if 0 < num_episodes <= episodes_executed:
                 break
@@ -162,14 +197,14 @@ class SingleThreadedWorker(Worker):
             timesteps_executed=timesteps_executed,
             ops_per_second=(timesteps_executed / total_time),
             # Env frames including action repeats.
-            env_frames=env_frames,
-            env_frames_per_second=(env_frames / total_time),
+            env_frames=self.env_frames,
+            env_frames_per_second=(self.env_frames / total_time),
             episodes_executed=episodes_executed,
             episodes_per_minute=(episodes_executed/(total_time / 60)),
-            mean_episode_runtime=np.mean(episode_durations),
-            mean_episode_reward=np.mean(episode_rewards),
-            max_episode_reward=np.max(episode_rewards),
-            final_episode_reward=episode_rewards[-1]
+            mean_episode_runtime=np.mean(self.episode_durations),
+            mean_episode_reward=np.mean(self.episode_rewards),
+            max_episode_reward=np.max(self.episode_rewards),
+            final_episode_reward=self.episode_rewards[-1]
         )
 
         # Total time of run.

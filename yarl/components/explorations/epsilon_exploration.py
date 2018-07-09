@@ -17,9 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from yarl import get_backend
 from yarl.components import Component, DecayComponent, PolynomialDecay, Bernoulli
-from yarl.components.common import PolynomialDecay
 from yarl.components.distributions import Bernoulli
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class EpsilonExploration(Component):
@@ -68,4 +71,5 @@ class EpsilonExploration(Component):
         """
         decayed_value = self.call(self.decay_component.decayed_value, time_step)
         return self.call(self.bernoulli_component.sample_stochastic, decayed_value)
+
 
