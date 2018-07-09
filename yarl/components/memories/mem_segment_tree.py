@@ -18,30 +18,37 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
+import operator
 
 
 class MemSegmentTree(object):
     """
     In-memory Segment tree for prioritized replay.
 
+    Note: The pure TensorFlow segment tree is much slower because variable updating is expensive,
+    and in scenarios like Ape-X, memory and update are separated processes, so there is little to be gained
+    from inserting into the graph.
     """
 
     def __init__(
             self,
-            storage_variable,
-            capacity=1048
+            values,
+            capacity,
+            operator=operator.add
     ):
         """
         Helper to represent a segment tree.
 
         Args:
-            storage_variable: Memory content.
-            capacity (int): Capacity of the segment tree.
+            values (list): Storage for the segment tree.
+            capacity (int): Capacity of segment tree.
+            operator (callable): Reduce operation of the segment tree.
         """
-        self.values = storage_variable
+        self.values = values
         self.capacity = capacity
+        self.operator = operator
 
-    def insert(self, index, element, insert_op=tf.add):
+    def insert(self, index, element):
         """
         Inserts an element into the segment tree by determining
         its position in the tree.
@@ -49,11 +56,19 @@ class MemSegmentTree(object):
         Args:
             index (int): Insertion index.
             element (any): Element to insert.
-            insert_op (Union(tf.add, tf.minimum, tf, maximum)): Insert operation on the tree.
         """
         index += self.capacity
-        # index = tf.Print(index, [index, self.values], summarize=1000, message='start index, values=')
-        pass
+        self.values[index] = element
+
+        # Bit shift should be slightly faster here than division.
+        index = index >> 1
+        while index >= 1:
+            self.values[index] = self.operator(
+                # No shift because small multiplications are optimized.
+                self.values[2 * index],
+                self.values[2 * index + 1]
+            )
+            index = index >> 1
 
     def get(self, index):
         """

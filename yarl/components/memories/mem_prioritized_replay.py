@@ -48,9 +48,6 @@ class MemPrioritizedReplay(Specifiable):
         self.beta = beta
         self.next_states = next_states
 
-        self.sum_segment_tree = MemSegmentTree(None)
-        self.min_segment_tree = MemSegmentTree(None)
-
         self.default_new_weight = np.power(self.max_priority, self.alpha)
 
     def create_variables(self, input_spaces, action_space):
@@ -59,6 +56,16 @@ class MemPrioritizedReplay(Specifiable):
 
         # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
         self.record_registry = get_list_registry(self.record_space)
+
+        self.priority_capacity = 1
+        while self.priority_capacity < self.capacity:
+            self.priority_capacity *= 2
+
+        # Create segment trees, initialize with neutral elements.
+        sum_values = [0.0 for _ in xrange(2 * self.priority_capacity)]
+        self.sum_segment_tree = MemSegmentTree(sum_values, self.priority_capacity, operator.add)
+        min_values = [float('inf') for _ in xrange(2 * self.priority_capacity)]
+        self.min_segment_tree = MemSegmentTree(min_values, self.priority_capacity, min)
 
     def insert_records(self, records):
         num_records = len(records["/terminals"])
@@ -80,8 +87,8 @@ class MemPrioritizedReplay(Specifiable):
 
         # Insert into segment trees.
         for i in xrange(num_records):
-            self.sum_segment_tree.insert(update_indices[i], self.default_new_weight, operator.add)
-            self.min_segment_tree.insert(update_indices[i], self.default_new_weight, min)
+            self.sum_segment_tree.insert(update_indices[i], self.default_new_weight)
+            self.min_segment_tree.insert(update_indices[i], self.default_new_weight)
 
     def get_records(self, num_records):
         pass
