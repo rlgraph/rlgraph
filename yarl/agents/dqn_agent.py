@@ -58,7 +58,7 @@ class DQNAgent(Agent):
         reward_space = FloatBox(add_batch_rank=True)
         terminal_space = BoolBox(add_batch_rank=True)
         self.input_spaces = dict(
-            get_preprocessed_state_and_action=[state_space, int],
+            get_preprocessed_state_and_action=[state_space, int, bool],
             insert_records=[state_space, action_space, reward_space, terminal_space],
             update_from_external_batch=[state_space, action_space, reward_space, terminal_space, state_space]
         )
@@ -94,12 +94,14 @@ class DQNAgent(Agent):
 
     def define_api_methods(self, preprocessor, merger, memory, splitter, policy, target_policy, exploration,
                            loss_function, optimizer):
+
         # State from environment to action pathway.
-        def get_preprocessed_state_and_action(self_, states, time_step):
+        def get_preprocessed_state_and_action(self_, states, time_step, use_exploration=True):
             preprocessed_states = self_.call(preprocessor.preprocess, states)
             sample_deterministic = self_.call(policy.sample_deterministic, preprocessed_states)
             sample_stochastic = self_.call(policy.sample_stochastic, preprocessed_states)
-            actions = self_.call(exploration.get_action, sample_deterministic, sample_stochastic, time_step)
+            actions = self_.call(exploration.get_action, sample_deterministic, sample_stochastic,
+                                 time_step, use_exploration)
             return preprocessed_states, actions
 
         self.core_component.define_api_method("get_preprocessed_state_and_action", get_preprocessed_state_and_action)
@@ -136,7 +138,7 @@ class DQNAgent(Agent):
                               qt_values_sp, q_values_sp)
 
             policy_vars = self_.call(policy._variables)
-            return self_.call(optimizer.step, policy_vars, loss)
+            return self_.call(optimizer.step, policy_vars, loss), loss  # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
 
         self.core_component.define_api_method("update_from_memory", update_from_memory)
 
@@ -156,17 +158,17 @@ class DQNAgent(Agent):
                               qt_values_sp, q_values_sp)
 
             policy_vars = self_.call(policy._variables)
-            return self_.call(optimizer.step, policy_vars, loss)
+            return self_.call(optimizer.step, policy_vars, loss), loss  # TODO:For multi-GPU, the final-loss will probably have to come from the optimizer.
 
         self.core_component.define_api_method("update_from_external_batch", update_from_external_batch)
 
-    def get_action(self, states, deterministic=False, return_preprocessed_states=False):
+    def get_action(self, states, use_exploration=True, return_preprocessed_states=False):
         batched_states = self.state_space.batched(states)
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
         # Increase timesteps by the batch size (number of states in batch).
         self.timesteps += len(batched_states)
         preprocessed_states, actions = self.graph_executor.execute(
-            api_methods=dict(get_preprocessed_state_and_action=[batched_states, self.timesteps])
+            api_methods=dict(get_preprocessed_state_and_action=[batched_states, self.timesteps, use_exploration])
         )
         if return_preprocessed_states:
             if remove_batch_rank:
@@ -184,9 +186,9 @@ class DQNAgent(Agent):
     def update(self, batch=None):
         # Should we sync the target net? (timesteps-1 b/c it has been increased already in get_action)
         if (self.timesteps - 1) % self.update_spec["sync_interval"] == 0:
-            self.graph_executor.execute("sync_target_qnet")
+            self.graph_executor.execute(api_methods=dict(sync_target_qnet=None))
         if batch is None:
-            _, loss = self.graph_executor.execute("update_from_memory")
+            _, loss = self.graph_executor.execute(api_methods=dict(update_from_memory=None, ))
         else:
             batch_input = dict(
                 external_batch_states=batch["states"],

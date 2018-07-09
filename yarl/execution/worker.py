@@ -27,14 +27,13 @@ class Worker(Specifiable):
     """
     Generic worker to locally interact with simulator environments.
     """
-
     def __init__(self, environment, agent, repeat_actions=1):
         """
-        Initializes a a worker.
         Args:
             environment (env): Environment to execute.
             agent (Agent): Agent to execute environment on.
             repeat_actions (int): How often actions are repeated after retrieving them from the agent.
+                This setting can be overwritten in the single calls to the different `execute_..` methods.
         """
         self.logger = logging.getLogger(__name__)
         self.environment = environment
@@ -48,7 +47,8 @@ class Worker(Specifiable):
         self.update_steps = None
         self.sync_interval = None
 
-    def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, deterministic=False):
+    def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
+                          repeat_actions=1, reset=True):
         """
         Executes environment for a fixed number of timesteps.
 
@@ -60,13 +60,20 @@ class Worker(Specifiable):
                 Expects keys 'update_interval' to indicate how frequent update is called, 'num_updates'
                 to indicate how many updates to perform every update interval, and 'steps_before_update' to indicate
                 how many steps to perform before beginning to update.
-            deterministic (Optional[bool]): Indicates deterministic execution.
+            use_exploration (Optional[bool]): Indicates whether to utilize exploration (epsilon or noise based)
+                when picking actions.
+            repeat_actions (int): How often actions are repeated after retrieving them from the agent.
+                Use None for the Worker's default value.
+            reset (bool): Whether to reset the environment and all the Worker's internal counters.
+                Default: True.
+
         Returns:
             dict: Execution statistics.
         """
         pass
 
-    def execute_and_get_timesteps(self, num_timesteps, max_timesteps_per_episode=0, deterministic=False):
+    def execute_and_get_timesteps(self, num_timesteps, max_timesteps_per_episode=0, use_exploration=True,
+                                  repeat_actions=None, reset=True):
         """
         Executes timesteps and returns experiences. Intended for distributed data collection
         without performing updates.
@@ -75,13 +82,20 @@ class Worker(Specifiable):
             num_timesteps (int): Number of time steps to execute.
             max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
                 Use None or 0 for no limit. Default: None.
-            deterministic (Optional[bool]): Indicates deterministic execution.
+            use_exploration (Optional[bool]): Indicates whether to utilize exploration (epsilon or noise based)
+                when picking actions.
+            repeat_actions (int): How often actions are repeated after retrieving them from the agent.
+                Use None for the Worker's default value.
+            reset (bool): Whether to reset the environment and all the Worker's internal counters.
+                Default: True.
+
         Returns:
             EnvSample: EnvSample object holding the collected experiences.
         """
         pass
 
-    def execute_episodes(self, num_episodes, max_timesteps_per_episode=0, update_spec=None, deterministic=False):
+    def execute_episodes(self, num_episodes, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
+                         repeat_actions=None, reset=True):
         """
         Executes environment for a fixed number of episodes.
 
@@ -93,13 +107,20 @@ class Worker(Specifiable):
                 Expects keys 'update_interval' to indicate how frequent update is called, 'num_updates'
                 to indicate how many updates to perform every update interval, and 'steps_before_update' to indicate
                 how many steps to perform before beginning to update.
-            deterministic (Optional[bool]): Indicates deterministic execution.
+            use_exploration (Optional[bool]): Indicates whether to utilize exploration (epsilon or noise based)
+                when picking actions.
+            repeat_actions (int): How often actions are repeated after retrieving them from the agent.
+                Use None for the Worker's default value.
+            reset (bool): Whether to reset the environment and all the Worker's internal counters.
+                Default: True.
+
         Returns:
             dict: Execution statistics.
         """
         pass
 
-    def execute_and_get_episodes(self, num_episodes, max_timesteps_per_episode=0, deterministic=False):
+    def execute_and_get_episodes(self, num_episodes, max_timesteps_per_episode=0, use_exploration=False,
+                                 repeat_actions=None, reset=True):
         """
         Executes episodes and returns experiences as separate episode sequences.
         Intended for distributed data collection without performing updates.
@@ -108,34 +129,36 @@ class Worker(Specifiable):
             num_episodes (int): Number of episodes to execute.
             max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
                 Use None or 0 for no limit. Default: None.
-            deterministic (Optional[bool]): Indicates deterministic execution.
+            use_exploration (Optional[bool]): Indicates whether to utilize exploration (epsilon or noise based)
+                when picking actions.
+            repeat_actions (int): How often actions are repeated after retrieving them from the agent.
+            reset (bool): Whether to reset the environment and all the Worker's internal counters.
+                Default: True.
+
         Returns:
             EnvSample: EnvSample object holding the collected episodes.
         """
         pass
 
-    def update_if_necessary(self, timesteps_executed):
+    def update_if_necessary(self):
         """
         Calls update on the agent according to the update schedule set for this worker.
 
-        Args:
-            timesteps_executed (int): Timesteps executed thus far.
+        #Args:
+        #    timesteps_executed (int): Timesteps executed thus far.
 
         Returns:
             float: The summed up loss (over all self.update_steps).
         """
         if self.updating:
             # Are we allowed to update?
-            if timesteps_executed > self.steps_before_update and \
+            if self.agent.timesteps > self.steps_before_update and \
                     (self.agent.observe_spec["buffer_enabled"] is False or  # no update before some data in buffer
-                     timesteps_executed >= self.agent.observe_spec["buffer_size"]) and \
-                    timesteps_executed % self.update_interval == 0:  # update frequency check
+                     self.agent.timesteps >= self.agent.observe_spec["buffer_size"]) and \
+                    self.agent.timesteps % self.update_interval == 0:  # update frequency check
                 loss = 0
                 for _ in range_(self.update_steps):
-                    #l, s_, a_, r_, t_ = self.agent.update()
                     loss += self.agent.update()
-                    #self.logger.info("FROM MEM: s={} a={} r={} t={}".format(s_, a_, r_, t_))
-                    #loss += l
                 return loss
 
         return None
@@ -157,3 +180,4 @@ class Worker(Specifiable):
             self.update_interval = update_schedule['update_interval']
             self.update_steps = update_schedule['update_steps']
             self.sync_interval= update_schedule['sync_interval']
+
