@@ -17,10 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.component import Component
 from yarl.utils import root_logger
-from yarl.agents.agent import Agent
-from yarl.envs.environment import Environment
 from yarl.tests.test_util import recursive_assert_almost_equal
 from yarl.execution.worker import Worker
 
@@ -48,53 +45,64 @@ class AgentTest(object):
         # Use the Agent's GraphBuilder.
         self.graph_executor = self.agent.graph_executor
 
-    def test(self, steps=1, checks=None, deterministic=True, decimals=7):
+    def step(self, num_timesteps=1, use_exploration=False, repeat_actions=None, reset=False):
         """
-        Performs n steps in the environment, then checks some variables or other values for (almost) equality.
+        Performs n steps in the environment, picking up from where the Agent/Environment was before (no reset).
 
         Args:
-            steps (int): How many time steps to perform using the Worker.
-            checks (Optional[List[Tuple]]): An optional list of checks to perform. Each item in the list is a tuple:
-                Either:
-                (some-value, desired-value): Checks whether som-value is almost equal (`decimals`) to desired-value.
-                (variables-dict, desired-values): Checks whether an entire variables dict is almost (`decimals`) equal
-                    to the given dict of values.
-                (variables-dict, key, desired-value): Checks whether a variable (defined by key) in the given
-                    variables dict is almost (`decimals`) equal to the desired-value.
-            deterministic
-            decimals (Optional[int]): The number of digits after the floating point up to which to compare actual
-                outputs and expected values.
-            #fn_test (Optional[callable]): Test function to call with (self, outs) as parameters.
+            num_timesteps (int): How many time steps to perform using the Worker.
+            use_exploration (Optional[bool]): Indicates whether to utilize exploration (epsilon or noise based)
+                when picking actions. Default: False (b/c we are testing).
+            repeat_actions (Union[int,None]): Number of repeated (same) actions in one "step".
+            reset (bool): Whether to reset the previous run(s) and start from scratch.
+                Default: False. Picks up from a previous `step` (even if in the middle of an episode).
+
+        Returns:
+            dict: The stats dict returned by the worker after num_timesteps have been taken.
         """
-        # Perform n steps.
-        self.worker.execute_timesteps(num_timesteps=steps, deterministic=deterministic)
+        # Perform n steps and return stats.
+        return self.worker.execute_timesteps(num_timesteps=num_timesteps, use_exploration=use_exploration,
+                                             repeat_actions=repeat_actions, reset=reset)
 
-        # Perform some checks.
-        for i, check in enumerate(checks):
-            assert isinstance(check, (tuple, list)) and len(check) == 3 and isinstance(check[1], str)
+    def check_env(self, prop, expected_value, decimals=7):
+        """
+        Checks a property of our environment for (almost) equality.
 
-            # Variable check.
-            if isinstance(check[0], Component):
-                component = check[0]
-                var_key = component.global_scope+"/"+check[1]
-                variables_dict = component.variables
-                assert var_key in variables_dict, "ERROR: Variable '{}' not found in Component '{}'!".\
-                    format(var_key, component.global_scope)
-                var = variables_dict[var_key]
-                value = self.graph_executor.read_variable_values(var)
-                try:
-                    recursive_assert_almost_equal(value, check[2], decimals=decimals)
-                except AssertionError:
-                    self.agent.logger.error("Mismatch in check #{} (Variable {}).".format(i+1, check[1]))
-                    raise
-            # Simple value check.
-            else:
-                obj = check[0]
-                property = check[1]
-                is_value = getattr(obj, property, None)
-                desired_value = check[2]
-                try:
-                    recursive_assert_almost_equal(is_value, desired_value, decimals=decimals)
-                except AssertionError:
-                    self.agent.logger.error("Mismatch in check #{}:".format(i+1))
-                    raise
+        Args:
+            prop (str): The name of the Environment's property to check.
+            expected_value (any): The expected value of the given property.
+            decimals (Optional[int]): The number of digits after the floating point up to which to compare actual
+                and expected values.
+        """
+        is_value = getattr(self.env, prop, None)
+        recursive_assert_almost_equal(is_value, expected_value, decimals=decimals)
+
+    def check_agent(self, prop, expected_value, decimals=7):
+        """
+        Checks a property of our Agent for (almost) equality.
+
+        Args:
+            prop (str): The name of the Agent's property to check.
+            expected_value (any): The expected value of the given property.
+            decimals (Optional[int]): The number of digits after the floating point up to which to compare actual
+                and expected values.
+        """
+        is_value = getattr(self.agent, prop, None)
+        recursive_assert_almost_equal(is_value, expected_value, decimals=decimals)
+
+    def check_var(self, variable, expected_value, decimals=7):
+        """
+        Checks a property of our environment for (almost) equality.
+
+        Args:
+            variable (str): The global scope (within Agent's core-component) of the variable to check.
+            expected_value (any): The expected value of the given variable.
+            decimals (Optional[int]): The number of digits after the floating point up to which to compare actual
+                and expected values.
+        """
+        variables_dict = self.agent.core_component.variables
+        assert variable in variables_dict, "ERROR: Variable '{}' not found in Agent '{}'!".\
+            format(variable, self.agent.name)
+        var = variables_dict[variable]
+        value = self.graph_executor.read_variable_values(var)
+        recursive_assert_almost_equal(value, expected_value, decimals=decimals)
