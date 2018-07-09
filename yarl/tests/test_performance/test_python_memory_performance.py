@@ -120,7 +120,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         """
         import numpy as np
 
-        tasks = [np.random.randint(0, 1000000) for _ in range(100000000)]
+        tasks = [np.random.randint(0, 1000000) for _ in range(10000000)]
         sum = 0
         start = time.monotonic()
         for task in tasks:

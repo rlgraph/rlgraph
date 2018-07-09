@@ -17,8 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
 import operator
+
+from yarl import YARLError
 
 
 class MemSegmentTree(object):
@@ -63,10 +64,11 @@ class MemSegmentTree(object):
         # Bit shift should be slightly faster here than division.
         index = index >> 1
         while index >= 1:
+            # No shift because small multiplications are optimized.
+            update_index = 2 * index
             self.values[index] = self.operator(
-                # No shift because small multiplications are optimized.
-                self.values[2 * index],
-                self.values[2 * index + 1]
+                self.values[update_index],
+                self.values[update_index + 1]
             )
             index = index >> 1
 
@@ -93,32 +95,70 @@ class MemSegmentTree(object):
         Returns:
             int: Index/indices satisfying prefix sum condition.
         """
-        pass
+        assert 0 <= prefix_sum <= self.get_sum() + 1e-5
+        index = 1
 
-    def reduce(self, start, limit, reduce_op=tf.add):
+        while index < self.capacity:
+            update_index = 2 * index
+            if self.values[update_index] > prefix_sum:
+                index = update_index
+            else:
+                prefix_sum -= update_index
+                index = update_index + 1
+        return index
+
+    def reduce(self, start, limit, reduce_op=operator.add):
         """
         Applies an operation to specified segment.
 
         Args:
             start (int): Start index to apply reduction to.
             limit (end): End index to apply reduction to.
-            reduce_op (Union(tf.add, tf.minimum, tf.maximum)): Reduce op to apply.
+            reduce_op (Union(operator.add, min, max)): Reduce op to apply.
 
         Returns:
             Number: Result of reduce operation
         """
         # Init result with neutral element of reduce op.
         # Note that all of these are commutative reduce ops.
-        pass
+        if limit is None:
+            limit = self.capacity - 1
+        if limit < 0:
+            limit += self.capacity
+        # pass
+        if reduce_op == operator.add:
+            result = 0.0
+        elif reduce_op == min:
+            result = float('inf')
+        elif reduce_op == max:
+            result = float('-inf')
+        else:
+            raise YARLError("Unsupported reduce OP. Support ops are [add, min, max].")
 
-    def get_min_value(self):
+        start += self.capacity
+        limit += self.capacity
+
+        while start < limit:
+            if start & 1:
+                result = reduce_op(result, self.values[start])
+                start += 1
+            if limit & 1:
+                limit -= 1
+                result = reduce_op(result, self.values[limit])
+
+            start = start >> 1
+            limit = limit >> 1
+
+        return result
+
+    def get_min_value(self, start=0, stop=None):
         """
         Returns min value of storage variable.
         """
-        pass
+        return self.reduce(start, stop, reduce_op=min)
 
-    def get_sum(self):
+    def get_sum(self, start=0, stop=None):
         """
-        Returns min value of storage variable.
+        Returns sum value of storage variable.
         """
-        pass
+        return self.reduce(start, stop, reduce_op=operator.add)

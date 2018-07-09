@@ -51,11 +51,12 @@ class MemPrioritizedReplay(Specifiable):
     # TODO this needs manual calling atm
     def create_variables(self, input_spaces, action_space):
         # Store our record-space for convenience.
+        print('input spaces : {}'.format(input_spaces))
         self.record_space = input_spaces["insert_records"][0]
 
         # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
         self.record_registry = get_list_registry(self.record_space)
-
+        print(self.record_registry)
         self.priority_capacity = 1
         while self.priority_capacity < self.capacity:
             self.priority_capacity *= 2
