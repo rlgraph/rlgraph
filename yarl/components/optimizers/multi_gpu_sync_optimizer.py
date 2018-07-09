@@ -27,9 +27,8 @@ if get_backend() == "tf":
 
 class MultiGpuSyncOptimizer(Optimizer):
     """
-    The Multi-GPU optimizer parallelizes synchronous optimization across multipe gpus.
+    The Multi-GPU optimizer parallelizes synchronous optimization across multiple GPUs.
     """
-
     def __init__(self, local_optimizer=None, scope="multi-gpu-sync-optimizer", **kwargs):
         """
         Args:
@@ -48,15 +47,21 @@ class MultiGpuSyncOptimizer(Optimizer):
         # Device names.
         self.gpu_devices = None
 
-        # Graph replicas holding the subgraph copies.
+        # Graph replicas holding the sub-graph copies.
         self.device_graphs = None
         self.device_gradients = None
         self.device_vars = None
         self.device_losses = None
 
+        def step(self_):
+            grads_and_vars = self_.call(self_._graph_fn_calculate_gradients)
+            return self_.call(self_._graph_fn_apply_gradients, grads_and_vars)
+
+        self.define_api_method("step", step)
+
     def set_replicas(self, replicas):
         """
-        Provides the optimizer with a list of subgraphs to use for splitting batches over gpus.
+        Provides the optimizer with a list of sub-graphs to use for splitting batches over GPUs.
 
         Args:
             replicas (list): List of subgraphs.
@@ -86,7 +91,7 @@ class MultiGpuSyncOptimizer(Optimizer):
                 with tf.name_scope(self.scope):
                     # TODO split inputs
                     # TODO Create variables
-                    # TODO Get gradients for subgraphs
+                    # TODO Get gradients for sub-graphs
                     pass
 
     def _graph_fn_load_to_device(self, *inputs):
@@ -133,7 +138,7 @@ class MultiGpuSyncOptimizer(Optimizer):
             gpu_gradients (list): List grads_and_vars lists.
 
         Returns:
-            list: List of grads_and_vars tuples averaged across gpus.
+            list: List of grads_and_vars tuples averaged across GPUs.
         """
         gpu_averages = []
         if get_backend() == "tf":

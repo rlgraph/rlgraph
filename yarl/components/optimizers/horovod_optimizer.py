@@ -52,6 +52,12 @@ class HorovodOptimizer(Optimizer):
         wrapped_local_optimizer = Optimizer.from_spec(local_optimizer)
         self.local_optimizer = hvd.DistributedOptimizer(wrapped_local_optimizer)
 
+        def step(self_, variables, loss, *inputs):
+            grads_and_vars = self_.call(self_._graph_fn_calculate_gradients, variables, loss, *inputs)
+            return self_.call(self_._graph_fn_apply_gradients, grads_and_vars)
+
+        self.define_api_method("step", step)
+
     def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
         return self.local_optimizer._graph_fn_calculate_gradients(variables, loss, *inputs)
 
