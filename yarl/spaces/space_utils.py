@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import numpy as np
 
+from yarl.spaces import BoxSpace
 from yarl.utils.util import YARLError, dtype, get_shape
 from yarl.utils.ops import SingleDataOp, DataOpTuple
 from yarl.spaces.bool_box import BoolBox
@@ -26,6 +27,24 @@ from yarl.spaces.int_box import IntBox
 from yarl.spaces.float_box import FloatBox
 from yarl.spaces.containers import Dict, Tuple
 
+
+def get_list_registry(space, flatten=True):
+    """
+    Creates a list storage for a space by providing an ordered dict mapping space names
+    to empty lists.
+
+    Args:
+        space: Space to create registry from.
+        flatten (bool): Whether to produce a FlattenedDataOp with auto-keys.
+
+    Returns:
+        dict: Container dict mapping spaces to empty lists.
+    """
+    if flatten:
+        var = space.flatten(mapping=lambda k, primitive: [])
+    else:
+        var = []
+    return var
 
 def get_space_from_op(op):
     """
