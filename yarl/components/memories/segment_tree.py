@@ -23,9 +23,7 @@ import tensorflow as tf
 class SegmentTree(object):
     """
     TensorFlow Segment tree for prioritized replay.
-
     """
-
     def __init__(
             self,
             storage_variable,

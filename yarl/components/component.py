@@ -73,6 +73,8 @@ class Component(Specifiable):
                 This can be useful if graph_fns don't clearly have a fixed number of return values and the auto-inferral
                 utility function cannot determine the actual number of returned values.
             switched_off_apis (Optional[Set[str]]): Set of API-method names that should NOT be build for this Component.
+            backend (str): The custom backend that this Component obliges to. None to use the YARL global backend.
+                Default: None.
         """
         # Scope if used to create scope hierarchies inside the Graph.
         # self.logger = logging.getLogger(__name__)
@@ -88,8 +90,8 @@ class Component(Specifiable):
         self.device = kwargs.pop("device", None)
         self.global_component = kwargs.pop("global_component", False)
         self.graph_fn_num_outputs = kwargs.pop("graph_fn_num_outputs", dict())
-
         self.switched_off_apis = kwargs.pop("switched_off_apis", set())
+        self.backend = kwargs.pop("backend", None)
 
         assert not kwargs, "ERROR: kwargs ({}) still contains items!".format(kwargs)
 
@@ -104,10 +106,6 @@ class Component(Specifiable):
         # and come out of it.
         # keys=API method name; values=APIMethodRecord
         self.api_methods = self.get_api_methods()
-
-        # Indicate if api method was generated or coded.
-        self.generated_from_graph_fn = set()
-        self.defined_externally = set()
         # Registry for graph_fn records (only populated at build time when the graph_fns are actually called).
         self.graph_fns = dict()
         # Set of op-rec-columns going into a graph_fn of this Component and not having 0 op-records.
@@ -116,7 +114,6 @@ class Component(Specifiable):
         # Set of op-records that are constant and thus can be processed right away at the beginning of the build
         # procedure.
         self.constant_op_records = set()
-
         # Whether we know already all our in-Sockets' Spaces.
         # Only then can we create our variables. Model will do this.
         self.input_complete = False
@@ -363,9 +360,9 @@ class Component(Specifiable):
         # create a new out-column with num-records == num-return values.
         name = method.__name__
         self.logger.debug("Calling api method {} with owner {}:".format(name, method_owner))
-        self.logger.debug("API methods generated from graph_fns: {}, external methods: {}, api methods: {}".format(
-            self.generated_from_graph_fn, self.defined_externally, self.api_methods
-        ))
+        #self.logger.debug("API methods generated from graph_fns: {}, external methods: {}, api methods: {}".format(
+        #    self.generated_from_graph_fn, self.defined_externally, self.api_methods
+        #))
         out_op_recs = method(*in_op_column.op_records)
         out_op_recs = util.force_list(out_op_recs)
         out_op_column = DataOpRecordColumnFromAPIMethod(
@@ -760,14 +757,14 @@ class Component(Specifiable):
                 func_ = getattr(self_, func.__name__)
                 return self_.call(func_, *inputs, **kwargs)
 
-            self.generated_from_graph_fn.add('{}-{}'.format(self.scope, name))
+            #self.generated_from_graph_fn.add('{}-{}'.format(self.scope, name))
 
         # Function is a (custom) API-method. Register it with this Component.
         else:
             # TODO: What if API-method doesn't include any calls but just a single return statement? This assert would fail.
             # assert func_type == "api", "ERROR: Inferred func_type of func '{}' is not 'api', but '{}'!".\
             #    format(func, func_type)
-            self.defined_externally.add('{}-{}'.format(self.scope, name))
+            #self.defined_externally.add('{}-{}'.format(self.scope, name))
             api_method = func
 
         setattr(self, name, api_method.__get__(self, self.__class__))
@@ -817,7 +814,7 @@ class Component(Specifiable):
                         return self_.call(api_method_rec.method, *inputs)
                     self.define_api_method(api_method_name, exposed_api_method_wrapper)
                     # Add the sub-component's API-registered methods to ours.
-                    self.defined_externally.add(component.scope + "-" + api_method_name)
+                    #self.defined_externally.add(component.scope + "-" + api_method_name)
 
     def propagate_scope(self, sub_component):
         """

@@ -21,15 +21,16 @@ from yarl.utils.ops import DataOp, SingleDataOp, DataOpDict, DataOpTuple, Contai
 from yarl.utils.specifiable import Specifiable
 from yarl.utils.initializer import Initializer
 from yarl.utils.util import dtype, get_shape, get_rank, force_tuple, force_list, LARGE_INTEGER, SMALL_NUMBER, \
-    tf_logger, print_logging_handler, root_logger, logging_formatter, softmax, relu
+    tf_logger, print_logging_handler, root_logger, logging_formatter
+from yarl.utils.numpy import softmax, relu, one_hot
 from yarl.utils.yarl_error import YARLError
 
 
 __all__ = [
-     "YARLError",
-     "Initializer", "Specifiable",
+    "YARLError",
+    "Initializer", "Specifiable",
     "dtype", "get_shape", "get_rank", "force_tuple", "force_list",
-    "logging_formatter", "root_logger", "tf_logger", "print_logging_handler", "softmax", "relu",
+    "logging_formatter", "root_logger", "tf_logger", "print_logging_handler", "softmax", "relu", "one_hot",
     "DataOp", "SingleDataOp", "DataOpDict", "DataOpTuple", "ContainerDataOp", "FlattenedDataOp",
     "LARGE_INTEGER", "SMALL_NUMBER"
 ]
