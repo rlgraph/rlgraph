@@ -55,7 +55,8 @@ class MemPrioritizedReplay(Specifiable):
 
         # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
         self.record_registry = get_list_registry(self.record_space, self.capacity, initializer=0.0)
-        print(self.record_registry)
+        self.fixed_key = list(self.record_registry.keys())[0]
+        print(self.fixed_key)
         self.priority_capacity = 1
         while self.priority_capacity < self.capacity:
             self.priority_capacity *= 2
@@ -67,9 +68,7 @@ class MemPrioritizedReplay(Specifiable):
         self.min_segment_tree = MemSegmentTree(min_values, self.priority_capacity, min)
 
     def insert_records(self, records):
-        records = flatten_op(records)
-        print('records = {}'.format(records))
-        num_records = len(records["/terminals"])
+        num_records = len(records[self.fixed_key])
         update_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
 
         # Update record registry.
@@ -132,4 +131,44 @@ class MemPrioritizedReplay(Specifiable):
         # return self.read_records(indices=sample_indices), sample_indices, corrected_weights
 
     def update_records(self, indices, update):
-        pass
+        num_records= len(indices)
+        for index, loss in zip(indices, update):
+            priority = np.power(loss, self.alpha)
+            self.sum_segment_tree.insert(index, priority)
+            pass
+        # num_records = get_batch_size(indices)
+        # max_priority = 0.0
+        #
+        # # Update has to be sequential.
+        # def insert_body(i, max_priority_):
+        #     priority = tf.pow(x=update[i], y=self.alpha)
+        #
+        #     sum_insert = self.sum_segment_tree.insert(
+        #         index=indices[i],
+        #         element=priority,
+        #         insert_op=tf.add
+        #     )
+        #     min_insert = self.min_segment_tree.insert(
+        #         index=indices[i],
+        #         element=priority,
+        #         insert_op=tf.minimum
+        #     )
+        #     # Keep track of current max priority element.
+        #     max_priority_ = tf.maximum(x=max_priority_, y=priority)
+        #
+        #     with tf.control_dependencies(control_inputs=[tf.group(sum_insert, min_insert)]):
+        #         # TODO: This confuses the auto-return value detector.
+        #         return i + 1, max_priority_
+        #
+        # def cond(i, max_priority_):
+        #     return i < num_records - 1
+        #
+        # _, max_priority = tf.while_loop(
+        #     cond=cond,
+        #     body=insert_body,
+        #     loop_vars=(0, max_priority)
+        # )
+        #
+        # assignment = self.assign_variable(ref=self.max_priority, value=max_priority)
+        # with tf.control_dependencies(control_inputs=[assignment]):
+        #     return tf.no_op()
