@@ -96,7 +96,6 @@ class TestPythonMemoryPerformance(unittest.TestCase):
 
         # Test chunked inserts -> done via external for loop in Ray.
         records = [record_space.sample(size=self.chunksize) for _ in range(self.inserts)]
-
         start = time.monotonic()
         for chunk in records:
             for i in xrange(self.chunksize):
@@ -158,31 +157,31 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             len(records), tp, end
         ))
 
-    def test_python_ops(self):
-        """
-        Test performance of some python ops to optimize memory.
-        """
-        import numpy as np
-
-        tasks = np.random.randint(0, 1000000, size=10000000)
-        sum = 0
-        start = time.monotonic()
-        for task in tasks:
-            if (task % 2) == 1:
-                sum += task
-        end = time.monotonic() - start
-        tp = len(tasks) / end
-        print('Modulo performance: throughput: {} ops/s, total time: {} s'.format(tp, end))
-        print(sum)
-
-        sum = 0
-        start = time.monotonic()
-        for task in tasks:
-            if task & 1:
-                sum += task
-        end = time.monotonic() - start
-        tp = len(tasks) / end
-        print('Bit & performance: throughput: {} ops/s, total time: {} s'.format(tp, end))
-        print(sum)
-
-
+    # def test_python_ops(self):
+    #     """
+    #     Test performance of some python ops to optimize memory.
+    #     """
+    #     import numpy as np
+    #
+    #     tasks = np.random.randint(0, 1000000, size=10000000)
+    #     sum = 0
+    #     start = time.monotonic()
+    #     for task in tasks:
+    #         if (task % 2) == 1:
+    #             sum += task
+    #     end = time.monotonic() - start
+    #     tp = len(tasks) / end
+    #     print('Modulo performance: throughput: {} ops/s, total time: {} s'.format(tp, end))
+    #     print(sum)
+    #
+    #     sum = 0
+    #     start = time.monotonic()
+    #     for task in tasks:
+    #         if task & 1:
+    #             sum += task
+    #     end = time.monotonic() - start
+    #     tp = len(tasks) / end
+    #     print('Bit & performance: throughput: {} ops/s, total time: {} s'.format(tp, end))
+    #     print(sum)
+    #
+    #
