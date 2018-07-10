@@ -114,7 +114,7 @@ class GridWorld(Environment):
 
         world = np.array(list(map(list, world)))
         # Apply safety switch.
-        world[world == 'H'] = ("H" if not save_mode else "W")
+        world[world == 'H'] = ("H" if not save_mode else "F")
 
         # `world` is a list of lists that needs to be indexed using y/x pairs (first row, then column).
         self.world = world
