@@ -72,7 +72,11 @@ class DQNAgent(Agent):
         self.splitter = Splitter("states", "actions", "rewards", "terminals", "next_states")
 
         # The behavioral policy of the algorithm. Also the one that gets updated.
-        self.action_adapter_spec.update(action_space=self.action_space, add_dueling_layer=self.dueling_q)
+        action_adapter_dict = dict(action_space=self.action_space, add_dueling_layer=self.dueling_q)
+        if self.action_adapter_spec is None:
+            self.action_adapter_spec = action_adapter_dict
+        else:
+            self.action_adapter_spec.update(action_adapter_dict)
         self.policy = Policy(
             neural_network=self.neural_network,
             action_adapter_spec=self.action_adapter_spec

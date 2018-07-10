@@ -48,7 +48,7 @@
   },
 
   "optimizer_spec": {
-    "learning_rate": 1.0
+    "learning_rate": 0.5
   },
 
   "update_spec": {
