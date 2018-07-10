@@ -283,10 +283,10 @@ class SegmentTree(object):
         """
         Returns min value of storage variable.
         """
-        return tf.reduce_min(input_tensor=self.values, axis=0)
+        return  self.reduce(0, self.capacity - 1, reduce_op=tf.minimum)
 
     def get_sum(self):
         """
-        Returns min value of storage variable.
+        Returns sum value of storage variable.
         """
-        return tf.reduce_min(input_tensor=self.values, axis=0)
+        return self.reduce(0, self.capacity - 1, reduce_op=tf.add)

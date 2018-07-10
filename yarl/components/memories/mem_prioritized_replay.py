@@ -54,7 +54,7 @@ class MemPrioritizedReplay(Specifiable):
         self.record_space = input_spaces["insert_records"][0]
 
         # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
-        self.record_registry = get_list_registry(self.record_space)
+        self.record_registry = get_list_registry(self.record_space, self.capacity, initializer=0.0)
         print(self.record_registry)
         self.priority_capacity = 1
         while self.priority_capacity < self.capacity:

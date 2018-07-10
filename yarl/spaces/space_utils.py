@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from six.moves import xrange
 import numpy as np
 
 from yarl.spaces import BoxSpace
@@ -28,22 +29,30 @@ from yarl.spaces.float_box import FloatBox
 from yarl.spaces.containers import Dict, Tuple
 
 
-def get_list_registry(space, flatten=True):
+def get_list_registry(space, capacity=None, initializer=0, flatten=True):
     """
     Creates a list storage for a space by providing an ordered dict mapping space names
     to empty lists.
 
     Args:
         space: Space to create registry from.
+        capacity (Optional[int]): Optional capacity to initalize list.
+        initializer (Optional(any)): Optional initializer for list if capacity is not None.
         flatten (bool): Whether to produce a FlattenedDataOp with auto-keys.
 
     Returns:
         dict: Container dict mapping spaces to empty lists.
     """
     if flatten:
-        var = space.flatten(mapping=lambda k, primitive: [])
+        if capacity is not None:
+            var = space.flatten(mapping=lambda k, primitive: [initializer for _ in xrange(capacity)])
+        else:
+            var = space.flatten(mapping=lambda k, primitive: [])
     else:
-        var = []
+        if capacity is not None:
+            var = [initializer for _ in xrange(capacity)]
+        else:
+            var = []
     return var
 
 def get_space_from_op(op):
