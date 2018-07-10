@@ -97,7 +97,7 @@ def get_rank(tensor):
     if get_backend() == "tf":
         return tensor.get_shape().ndims
     elif get_backend() == "python":
-        return tensor.ndims
+        return tensor.ndim
 
 
 def get_shape(op, flat=False, no_batch=False):

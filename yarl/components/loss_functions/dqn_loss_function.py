@@ -79,7 +79,34 @@ class DQNLossFunction(LossFunction):
         Returns:
             SingleDataOp: The loss values vector (one single value for each batch item).
         """
-        if get_backend() == "tf":
+        if self.backend == "python" or get_backend() == "python":
+            from yarl.utils.numpy import one_hot
+
+            if self.double_q:
+                a_primes = np.argmax(q_values_sp, axis=-1)
+                one_hot = one_hot(a_primes, depth=self.action_space.num_categories)
+                qt_sp_ap_values = np.sum(qt_values_sp * one_hot, axis=-1)
+            else:
+                qt_sp_ap_values = np.max(qt_values_sp, axis=-1)
+
+            for _ in range(qt_sp_ap_values.ndim - 1):
+                rewards = np.expand_dims(rewards, axis=1)
+
+            qt_sp_ap_values = np.where(condition=terminals,
+                                       x=np.zeros_like(qt_sp_ap_values),
+                                       y=qt_sp_ap_values)
+
+            one_hot = one_hot(actions, depth=self.action_space.num_categories)
+            q_s_a_values = np.sum(q_values_s * one_hot, axis=-1)
+
+            td_delta = (rewards + self.discount * qt_sp_ap_values) - q_s_a_values
+
+            if td_delta.ndim > 1:
+                td_delta = np.mean(td_delta, axis=list(range(1, self.ranks_to_reduce + 1)))
+
+            return np.power(td_delta, 2)
+
+        elif get_backend() == "tf":
             if self.double_q:
                 # For double-Q, we no longer use the max(a')Qt(s'a') value.
                 # Instead, the a' used to get the Qt(s'a') is given by argmax(a') Q(s',a') <- Q=q-net, not target net!
@@ -115,30 +142,3 @@ class DQNLossFunction(LossFunction):
                 td_delta = tf.reduce_mean(input_tensor=td_delta, axis=list(range(1, self.ranks_to_reduce + 1)))
 
             return tf.pow(x=td_delta, y=2)
-
-        elif get_backend() == "python":
-            from yarl.utils.numpy import one_hot
-
-            if self.double_q:
-                a_primes = np.argmax(q_values_sp, axis=-1)
-                one_hot = one_hot(a_primes, depth=self.action_space.num_categories)
-                qt_sp_ap_values = np.sum(qt_values_sp * one_hot, axis=-1)
-            else:
-                qt_sp_ap_values = np.max(qt_values_sp, axis=-1)
-
-            for _ in range(get_rank(qt_sp_ap_values) - 1):
-                rewards = np.expand_dims(rewards, axis=1)
-
-            qt_sp_ap_values = np.where(condition=terminals,
-                                       x=np.zeros_like(qt_sp_ap_values),
-                                       y=qt_sp_ap_values)
-
-            one_hot = one_hot(actions, depth=self.action_space.num_categories)
-            q_s_a_values = np.sum(q_values_s * one_hot, axis=-1)
-
-            td_delta = (rewards + self.discount * qt_sp_ap_values) - q_s_a_values
-
-            if get_rank(td_delta) > 1:
-                td_delta = np.mean(td_delta, axis=list(range(1, self.ranks_to_reduce + 1)))
-
-            return np.power(td_delta, 2)
