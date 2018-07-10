@@ -131,7 +131,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             terminals=BoolBox(),
             add_batch_rank=True
         )
-        memory.create_variables(dict(insert_records=record_space), None)
+        memory.create_variables(dict(insert_records=[record_space]), None)
 
         records = [record_space.sample(size=1) for _ in range(self.inserts)]
 
@@ -151,7 +151,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             capacity=self.capacity,
             alpha=1.0
         )
-        memory.create_variables(dict(insert_records=record_space), None)
+        memory.create_variables(dict(insert_records=[record_space]), None)
 
         chunks = int(self.inserts / self.chunksize)
         records = [record_space.sample(size=self.chunksize) for _ in range(chunks)]
