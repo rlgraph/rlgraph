@@ -172,12 +172,12 @@ class SingleThreadedWorker(Worker):
                 self.episode_return += reward
                 timesteps_executed += 1
                 self.episode_timesteps += 1
+                self.episode_state = next_state
+
                 # Is the episode finished or do we have to terminate it prematurely because of other restrictions?
                 if self.episode_terminal or (0 < num_timesteps <= timesteps_executed) or \
                         (0 < max_timesteps_per_episode <= self.episode_timesteps):
                     break
-
-                self.episode_state = next_state
 
             episodes_executed += 1
             self.episode_rewards.append(self.episode_return)
