@@ -122,11 +122,11 @@ class DQNAgent(Agent):
         self.core_component.define_api_method("insert_records", insert_records)
 
         # Syncing target-net.
-        def synch_target_qnet(self_):
+        def sync_target_qnet(self_):
             policy_vars = self_.call(policy._variables)
             return self_.call(target_policy.sync, policy_vars)
 
-        self.core_component.define_api_method("sync_target_qnet", synch_target_qnet)
+        self.core_component.define_api_method("sync_target_qnet", sync_target_qnet)
 
         # Learn from memory.
         def update_from_memory(self_):
@@ -194,7 +194,7 @@ class DQNAgent(Agent):
     def update(self, batch=None):
         # Should we sync the target net? (timesteps-1 b/c it has been increased already in get_action)
         sync_call = None
-        if (self.timesteps - 1) % self.update_spec["sync_interval"] == 0:
+        if self.timesteps % self.update_spec["sync_interval"] == 0:
             sync_call = "sync_target_qnet"
 
         if batch is None:
