@@ -21,7 +21,8 @@ import unittest
 
 import time
 
-#from ray.rllib.optimizers.replay_buffer import PrioritizedReplayBuffer
+from six.moves import xrange
+from ray.rllib.optimizers.replay_buffer import PrioritizedReplayBuffer
 
 from yarl.components.memories.mem_prioritized_replay import MemPrioritizedReplay
 from yarl.envs import OpenAIGymEnv
@@ -37,6 +38,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
 
     # Inserts.
     capacity = 100000
+    chunksize = 64
     inserts = 1000000
 
     # Samples.
@@ -64,6 +66,8 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             terminals=BoolBox(),
             add_batch_rank=True
         )
+
+        # Test individual inserts.
         records = [record_space.sample(size=1) for _ in range(self.inserts)]
 
         start = time.monotonic()
@@ -81,6 +85,33 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         print('#### Testing Ray Prioritized Replay memory ####')
         print('Testing insert performance:')
         print('Inserted {} separate records, throughput: {} records/s, total time: {} s'.format(
+            len(records), tp, end
+        ))
+
+        memory = PrioritizedReplayBuffer(
+            size=self.capacity,
+            alpha=1.0,
+            clip_rewards=True
+        )
+
+        # Test chunked inserts -> done via external for loop in Ray.
+        records = [record_space.sample(size=self.chunksize) for _ in range(self.inserts)]
+
+        start = time.monotonic()
+        for chunk in records:
+            for i in xrange(self.chunksize):
+                memory.add(
+                    obs_t=chunk['states'][i],
+                    action=record['actions'][i],
+                    reward=record['reward'][i],
+                    obs_tp1=record['states'][i],
+                    done=record['terminals'][i],
+                    weight=None
+                )
+        end = time.monotonic() - start
+        tp = len(records) * self.chunksize / end
+        print('Testing chunked insert performance:')
+        print('Inserted {} chunks, throughput: {} records/s, total time: {} s'.format(
             len(records), tp, end
         ))
 
@@ -111,6 +142,19 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         print('#### Testing YARL python prioritized replay ####')
         print('Testing insert performance:')
         print('Inserted {} separate records, throughput: {} records/s, total time: {} s'.format(
+            len(records), tp, end
+        ))
+
+        records = [record_space.sample(size=self.chunksize) for _ in range(self.inserts)]
+        start = time.monotonic()
+        for record in records:
+            # Each record now is a chunk.
+            memory.insert_records(record)
+
+        end = time.monotonic() - start
+        tp = len(records) * self.chunksize / end
+        print('Testing chunked insert performance:')
+        print('Inserted {} chunks, throughput: {} records/s, total time: {} s'.format(
             len(records), tp, end
         ))
 
