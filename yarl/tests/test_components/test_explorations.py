@@ -141,7 +141,7 @@ class TestExplorations(unittest.TestCase):
         collect_outs = lambda component_test, outs: collected.append(outs)
 
         for i in range_(1000):
-            test.test(("get_noise", None), fn_test=collect_outs)
+            test.test("get_noise", fn_test=collect_outs)
 
         self.assertAlmostEqual(10.0, np.mean(collected), places=1)
         self.assertAlmostEqual(2.0, np.std(collected), places=1)
@@ -150,16 +150,16 @@ class TestExplorations(unittest.TestCase):
         input_ = nn_output_space.sample(size=3)
         expected = np.array([
             [
-                [11.459449, 10.592813],
-                [12.36386, 9.682993]
+                [11.449928, 10.330302],
+                [12.449075, 10.092317]
             ],
             [
-                [11.506951, 10.004416],
-                [12.577463, 13.608555]
+                [11.005375, 10.045654],
+                [12.391037, 10.220245]
             ],
             [
-                [13.279169, 10.09919],
-                [12.320091, 8.6772785]
+                [11.0556135, 11.439471],
+                [12.206563, 8.926022]
             ]
         ], dtype=np.float32)
         test.test(("get_action", input_), expected_outputs=expected)
