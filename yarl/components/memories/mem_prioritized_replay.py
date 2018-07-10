@@ -67,6 +67,12 @@ class MemPrioritizedReplay(Specifiable):
         min_values = [float('inf') for _ in range_(2 * self.priority_capacity)]
         self.min_segment_tree = MemSegmentTree(min_values, self.priority_capacity, min)
 
+        if self.next_states:
+            assert 'states' in self.record_space
+            # Next states are not represented as explicit keys in the registry
+            # as this would cause extra memory overhead.
+            self.flat_state_keys = list(self.record_space["states"].flatten().keys())
+
     def insert_records(self, records):
         num_records = len(records[self.fixed_key])
         update_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
@@ -94,81 +100,50 @@ class MemPrioritizedReplay(Specifiable):
             self.sum_segment_tree.insert(update_indices[i], self.default_new_weight)
             self.min_segment_tree.insert(update_indices[i], self.default_new_weight)
 
-    def get_records(self, num_records):
-        pass
+    def read_records(self, indices):
+        """
+        Obtains record values for the provided indices.
 
-        # current_size = self.read_variable(self.size)
-        # stored_elements_prob_sum = self.sum_segment_tree.reduce(start=0, limit=current_size - 1)
-        #
-        # # Sample the entire batch.
-        # sample = stored_elements_prob_sum * tf.random_uniform(shape=(num_records,))
-        #
-        # # Sample by looking up prefix sum.
-        # sample_indices = tf.map_fn(fn=self.sum_segment_tree.index_of_prefixsum, elems=sample, dtype=tf.int32)
-        # # sample_indices = self.sum_segment_tree.index_of_prefixsum(sample)
-        #
-        # # Importance correction.
-        # total_prob = self.sum_segment_tree.reduce(start=0, limit=self.priority_capacity - 1)
-        # min_prob = self.min_segment_tree.get_min_value() / total_prob
-        # max_weight = tf.pow(x=min_prob * tf.cast(current_size, tf.float32), y=-self.beta)
-        #
-        # def importance_sampling_fn(sample_index):
-        #     sample_prob = self.sum_segment_tree.get(sample_index) / stored_elements_prob_sum
-        #     weight = tf.pow(x=sample_prob * tf.cast(current_size, tf.float32), y=-self.beta)
-        #
-        #     return weight / max_weight
-        #
-        # # sample_indices = tf.Print(sample_indices, [sample_indices], summarize=1000,
-        # #                          message='sample indices in retrieve = ')
-        #
-        # corrected_weights = tf.map_fn(
-        #     fn=importance_sampling_fn,
-        #     elems=sample_indices,
-        #     dtype=tf.float32
-        # )
-        # sample_indices = tf.Print(sample_indices, [sample_indices, self.sum_segment_tree.values], summarize=1000,
-        #                           message='sample indices, segment tree values = ')
-        # return self.read_records(indices=sample_indices), sample_indices, corrected_weights
+        Args:
+            indices ndarray: Indices to read. Assumed to be not contiguous.
+
+        Returns:
+             dict: Record value dict.
+        """
+        records = dict()
+        for name, variable in self.record_registry.items():
+                records[name] = [variable[index] for index in indices]
+        if self.next_states:
+            next_indices = (indices + 1) % self.capacity
+
+            # Next states are read via index shift from state variables.
+            for flat_state_key in self.flat_state_keys:
+                next_states = [self.record_registry["/states"+flat_state_key][index] for index in next_indices]
+                records["/next_states"+flat_state_key] = next_states
+        return records
+
+    def get_records(self, num_records):
+        indices = []
+        prob_sum = self.sum_segment_tree.get_sum(0, self.size - 1)
+        samples = np.random.random(size=(num_records,)) * prob_sum
+        for sample in samples:
+            indices.append(self.sum_segment_tree.index_of_prefixsum(prefix_sum=sample))
+
+        sum_prob = self.sum_segment_tree.reduce(start=0, limit=self.priority_capacity - 1)
+        min_prob = self.min_segment_tree.get_min_value() / sum_prob
+        max_weight = (min_prob * self.size) ** (-self.beta)
+        weights = []
+        for index in indices:
+            sample_prob = self.sum_segment_tree.get(index) / sum_prob
+            weight = (sample_prob * self.size) ** (-self.beta)
+            weights.append(weight)
+
+        return self.read_records(indices=indices), indices, weights
 
     def update_records(self, indices, update):
-        num_records= len(indices)
         for index, loss in zip(indices, update):
             priority = np.power(loss, self.alpha)
             self.sum_segment_tree.insert(index, priority)
-            pass
-        # num_records = get_batch_size(indices)
-        # max_priority = 0.0
-        #
-        # # Update has to be sequential.
-        # def insert_body(i, max_priority_):
-        #     priority = tf.pow(x=update[i], y=self.alpha)
-        #
-        #     sum_insert = self.sum_segment_tree.insert(
-        #         index=indices[i],
-        #         element=priority,
-        #         insert_op=tf.add
-        #     )
-        #     min_insert = self.min_segment_tree.insert(
-        #         index=indices[i],
-        #         element=priority,
-        #         insert_op=tf.minimum
-        #     )
-        #     # Keep track of current max priority element.
-        #     max_priority_ = tf.maximum(x=max_priority_, y=priority)
-        #
-        #     with tf.control_dependencies(control_inputs=[tf.group(sum_insert, min_insert)]):
-        #         # TODO: This confuses the auto-return value detector.
-        #         return i + 1, max_priority_
-        #
-        # def cond(i, max_priority_):
-        #     return i < num_records - 1
-        #
-        # _, max_priority = tf.while_loop(
-        #     cond=cond,
-        #     body=insert_body,
-        #     loop_vars=(0, max_priority)
-        # )
-        #
-        # assignment = self.assign_variable(ref=self.max_priority, value=max_priority)
-        # with tf.control_dependencies(control_inputs=[assignment]):
-        #     return tf.no_op()
+            self.min_segment_tree.insert(index, priority)
+            self.max_priority = max(self.max_priority, priority)
+
