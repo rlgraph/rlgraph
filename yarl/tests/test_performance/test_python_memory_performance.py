@@ -95,16 +95,17 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         )
 
         # Test chunked inserts -> done via external for loop in Ray.
-        records = [record_space.sample(size=self.chunksize) for _ in range(self.inserts)]
+        chunks = int(self.inserts / self.chunksize)
+        records = [record_space.sample(size=self.chunksize) for _ in range(chunks)]
         start = time.monotonic()
         for chunk in records:
             for i in xrange(self.chunksize):
                 memory.add(
                     obs_t=chunk['states'][i],
-                    action=record['actions'][i],
-                    reward=record['reward'][i],
-                    obs_tp1=record['states'][i],
-                    done=record['terminals'][i],
+                    action=chunk['actions'][i],
+                    reward=chunk['reward'][i],
+                    obs_tp1=chunk['states'][i],
+                    done=chunk['terminals'][i],
                     weight=None
                 )
         end = time.monotonic() - start
@@ -144,7 +145,12 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             len(records), tp, end
         ))
 
-        records = [record_space.sample(size=self.chunksize) for _ in range(self.inserts)]
+        memory = MemPrioritizedReplay(
+            capacity=self.capacity,
+            alpha=1.0
+        )
+        chunks = int(self.inserts / self.chunksize)
+        records = [record_space.sample(size=self.chunksize) for _ in range(chunks)]
         start = time.monotonic()
         for record in records:
             # Each record now is a chunk.
