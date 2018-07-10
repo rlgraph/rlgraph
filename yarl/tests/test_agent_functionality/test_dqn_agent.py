@@ -23,6 +23,7 @@ import unittest
 
 from yarl.agents import DQNAgent
 import yarl.spaces as spaces
+from yarl.components.loss_functions.dqn_loss_function import DQNLossFunction
 from yarl.envs import GridWorld, RandomEnv
 from yarl.execution.single_threaded_worker import SingleThreadedWorker
 from yarl.utils import root_logger
@@ -73,10 +74,22 @@ class TestDQNAgentFunctionality(unittest.TestCase):
             dueling_q=True,
             state_space=env.state_space,
             action_space=env.action_space,
-            store_last_memory_batch=True
+            store_last_memory_batch=True,
+            discount=0.95
         )
         worker = SingleThreadedWorker(environment=env, agent=agent)
         test = AgentTest(worker=worker)
+
+        # Helper python DQNLossFunc object.
+        loss_func = DQNLossFunction(backend="python", double_q=True, discount=agent.discount)
+        loss_func.when_input_complete(input_spaces=dict(loss_per_item=[spaces.FloatBox(shape=(4,), add_batch_rank=True),
+                                                                       spaces.IntBox(4, add_batch_rank=True),
+                                                                       spaces.FloatBox(add_batch_rank=True),
+                                                                       spaces.BoolBox(add_batch_rank=True),
+                                                                       spaces.FloatBox(shape=(4,), add_batch_rank=True),
+                                                                       spaces.FloatBox(shape=(4,), add_batch_rank=True)
+                                                                       ]),
+                                      action_space=env.action_space)
 
         # 1st step -> Expect insert into python-buffer.
         # action: up (0)
@@ -150,16 +163,50 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         )
         test.check_agent("last_memory_batch", expected_batch)
         matrix1_qnet = np.array([[0.9] * 2] * 4)
-        matrix2_qnet = np.array([[0.8] * 2] * 4)
+        matrix2_qnet = np.array([[0.8] * 5] * 2)
         matrix1_target_net = np.array([[0.9] * 2] * 4)
-        matrix2_target_net = np.array([[0.8] * 2] * 4)
-        # Check policy and target-policy weights (policy should be updated now).
-        test.check_var("policy/neural-network/hidden/dense/kernel", matrix1_qnet)
-        test.check_var("target-policy/neural-network/hidden/dense/kernel", matrix1_target_net)
-        test.check_var("policy/action-adapter/action-layer/dense/kernel", matrix2_qnet)
-        test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_target_net)
+        matrix2_target_net = np.array([[0.8] * 5] * 2)
+
         # Calculate gradient per weight based on the above batch.
-        #for
+        q_s = self._helper_get_q_values(expected_batch["states"], matrix1_qnet, matrix2_qnet)
+        q_sp = self._helper_get_q_values(expected_batch["next_states"], matrix1_qnet, matrix2_qnet)
+        qt_sp = self._helper_get_q_values(expected_batch["next_states"], matrix1_target_net, matrix2_target_net)
+
+        # The loss without weight changes.
+        loss = np.mean(loss_func._graph_fn_loss_per_item(
+            q_s, expected_batch["actions"], expected_batch["rewards"], expected_batch["terminals"], qt_sp, q_sp
+        ))
+
+        # Calculate the dLoss/dw for all individual weights (w) and apply [- LR * dLoss/dw] to each weight.
+        # Then check again against the actual, now optimized weights.
+        mat_updated = list()
+        for i, mat in enumerate([matrix1_qnet, matrix2_qnet]):
+            mat_updated.append(mat.copy())
+            for index in np.ndindex(mat.shape):
+                mat_w_plus_d = mat.copy()
+                mat_w_plus_d[index] += 0.0001
+                if i == 0:
+                    q_s_plus_d = self._helper_get_q_values(expected_batch["states"], mat_w_plus_d, matrix2_qnet)
+                    q_sp_plus_d = self._helper_get_q_values(expected_batch["next_states"], mat_w_plus_d, matrix2_qnet)
+                else:
+                    q_s_plus_d = self._helper_get_q_values(expected_batch["states"], matrix1_qnet, mat_w_plus_d)
+                    q_sp_plus_d = self._helper_get_q_values(expected_batch["next_states"], matrix1_qnet, mat_w_plus_d)
+
+                loss_w_plus_d = np.mean(loss_func._graph_fn_loss_per_item(
+                    q_s_plus_d,
+                    expected_batch["actions"], expected_batch["rewards"], expected_batch["terminals"],
+                    qt_sp, q_sp_plus_d
+                ))
+                dl_over_dw = (loss - loss_w_plus_d) / 0.0001
+
+                # Apply the changes to our matrices, then check their actual values.
+                mat_updated[i][index] += agent.optimizer.learning_rate * dl_over_dw
+
+        # Check policy and target-policy weights (policy should be updated now).
+        test.check_var("policy/neural-network/hidden/dense/kernel", mat_updated[0], decimals=4)
+        test.check_var("target-policy/neural-network/hidden/dense/kernel", matrix1_target_net)
+        test.check_var("policy/action-adapter/action-layer/dense/kernel", mat_updated[1], decimals=4)
+        test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_target_net)
 
     def _helper_get_q_values(self, input_, matrix1, matrix2):
         """
@@ -173,5 +220,9 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         Returns:
             np.ndarray: The calculated q-values.
         """
+        # Simple NN implementation.
         nn_output = np.matmul(np.matmul(input_, matrix1), matrix2)
-        #q_values =
+        # Simple dueling layer implementation.
+        state_values = np.expand_dims(nn_output[:, 0], axis=-1)
+        q_values = state_values + nn_output[:, 1:] - np.mean(nn_output[:, 1:], axis=-1, keepdims=True)
+        return q_values

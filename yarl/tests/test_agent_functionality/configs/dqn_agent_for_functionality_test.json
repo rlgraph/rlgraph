@@ -1,5 +1,6 @@
 {
   "type": "dqn",
+  "discount": 0.95,
 
   "memory_spec":
   {

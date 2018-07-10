@@ -24,8 +24,6 @@ from yarl.spaces import IntBox, sanity_check_space
 
 if get_backend() == "tf":
     import tensorflow as tf
-elif get_backend() == "python":
-    import numpy as np
 
 
 class DQNLossFunction(LossFunction):
@@ -80,24 +78,23 @@ class DQNLossFunction(LossFunction):
             SingleDataOp: The loss values vector (one single value for each batch item).
         """
         if self.backend == "python" or get_backend() == "python":
+            import numpy as np
             from yarl.utils.numpy import one_hot
 
             if self.double_q:
                 a_primes = np.argmax(q_values_sp, axis=-1)
-                one_hot = one_hot(a_primes, depth=self.action_space.num_categories)
-                qt_sp_ap_values = np.sum(qt_values_sp * one_hot, axis=-1)
+                a_primes_one_hot = one_hot(a_primes, depth=self.action_space.num_categories)
+                qt_sp_ap_values = np.sum(qt_values_sp * a_primes_one_hot, axis=-1)
             else:
                 qt_sp_ap_values = np.max(qt_values_sp, axis=-1)
 
             for _ in range(qt_sp_ap_values.ndim - 1):
                 rewards = np.expand_dims(rewards, axis=1)
 
-            qt_sp_ap_values = np.where(condition=terminals,
-                                       x=np.zeros_like(qt_sp_ap_values),
-                                       y=qt_sp_ap_values)
+            qt_sp_ap_values = np.where(terminals, np.zeros_like(qt_sp_ap_values), qt_sp_ap_values)
 
-            one_hot = one_hot(actions, depth=self.action_space.num_categories)
-            q_s_a_values = np.sum(q_values_s * one_hot, axis=-1)
+            actions_one_hot = one_hot(actions, depth=self.action_space.num_categories)
+            q_s_a_values = np.sum(q_values_s * actions_one_hot, axis=-1)
 
             td_delta = (rewards + self.discount * qt_sp_ap_values) - q_s_a_values
 
