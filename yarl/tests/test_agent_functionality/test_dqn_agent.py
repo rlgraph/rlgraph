@@ -246,16 +246,18 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         test.check_var("replay-memory/memory/rewards", np.array([-3.0, -3.0, -1.0, -1.0, -3.0, -3.0]))
         test.check_var("replay-memory/memory/terminals", np.array([False] * agent.memory.capacity))
 
-        mat_updated = self._helper_update_matrix(expected_batch, matrix1_qnet, matrix2_qnet, matrix1_target_net,
-                                                 matrix2_target_net, agent, loss_func)
+        # Assume that the sync happens first (matrices are already the same when updating).
+        mat_updated = self._helper_update_matrix(expected_batch, matrix1_qnet, matrix2_qnet, matrix1_qnet,
+                                                 matrix2_qnet, agent, loss_func)
 
-        # Now target and policy net should be the same (sync every 8 steps).
+        # Now target-net should be again 1 step behind policy-net.
         test.check_var("policy/neural-network/hidden/dense/kernel", mat_updated[0], decimals=4)
-        test.check_var("target-policy/neural-network/hidden/dense/kernel", mat_updated[0])
+        test.check_var("target-policy/neural-network/hidden/dense/kernel", matrix1_qnet, decimals=4)  # again: old matrix
         test.check_var("policy/action-adapter/action-layer/dense/kernel", mat_updated[1], decimals=4)
-        test.check_var("target-policy/action-adapter/action-layer/dense/kernel", mat_updated[1])
+        test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_qnet, decimals=4)
 
-    def _helper_get_q_values(self, input_, matrix1, matrix2):
+    @staticmethod
+    def _helper_get_q_values(input_, matrix1, matrix2):
         """
         Calculates the q-values for a given simple 1-hidden 1-action-layer (both linear w/o biases) setup.
 
