@@ -162,3 +162,42 @@ class MemSegmentTree(object):
         Returns sum value of storage variable.
         """
         return self.reduce(start, stop, reduce_op=operator.add)
+
+
+class MinSumSegmentTree(object):
+    """
+    This class merges two segment trees' operations for performance reasons to avoid
+    unnecessary duplication of the insert loops.
+    """
+    def __init__(
+            self,
+            sum_tree,
+            min_tree,
+            capacity,
+    ):
+        self.sum_tree = sum_tree
+        self.min_tree = min_tree
+        self.capacity = capacity
+
+    def insert(self, index, element):
+        """
+        Inserts an element into both segment trees by determining
+        its position in the trees.
+
+        Args:
+            index (int): Insertion index.
+            element (any): Element to insert.
+        """
+        index += self.capacity
+        self.sum_tree.values[index] = element
+        self.min_tree.values[index] = element
+
+        # Bit shift should be slightly faster here than division.
+        index = index >> 1
+        while index >= 1:
+            # No shift because small multiplications are optimized.
+            update_index = 2 * index
+            self.sum_tree.values[index] = self.sum_tree.values[update_index] + self.sum_tree.values[update_index + 1]
+            self.min_tree.values[index] = min(self.min_tree.values[update_index],
+                                              self.min_tree.values[update_index + 1])
+            index = index >> 1

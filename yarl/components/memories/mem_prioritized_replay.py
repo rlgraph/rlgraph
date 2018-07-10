@@ -136,9 +136,9 @@ class MemPrioritizedReplay(Specifiable):
         for index in indices:
             sample_prob = self.sum_segment_tree.get(index) / sum_prob
             weight = (sample_prob * self.size) ** (-self.beta)
-            weights.append(weight)
+            weights.append(weight / max_weight)
 
-        return self.read_records(indices=indices), indices, weights
+        return self.read_records(indices=indices), indices, np.asarray(weights)
 
     def update_records(self, indices, update):
         for index, loss in zip(indices, update):
