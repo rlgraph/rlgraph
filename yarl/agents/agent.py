@@ -37,8 +37,9 @@ class Agent(Specifiable):
         self,
         state_space,
         action_space,
-        network_spec=None,
         preprocessing_spec=None,
+        network_spec=None,
+        action_adapter_spec=None,
         exploration_spec=None,
         execution_spec=None,
         optimizer_spec=None,
@@ -53,10 +54,12 @@ class Agent(Specifiable):
         Args:
             state_space (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
             action_space (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
-            network_spec (Optional[list,NeuralNetwork]): Spec list for a NeuralNetwork Component or the NeuralNetwork
-                object itself.
             preprocessing_spec (Optional[list,PreprocessorStack]): The spec list for the different necessary states
                 preprocessing steps or a PreprocessorStack object itself.
+            network_spec (Optional[list,NeuralNetwork]): Spec list for a NeuralNetwork Component or the NeuralNetwork
+                object itself.
+            action_adapter_spec (Optional[dict,ActionAdapter]): The spec-dict for the ActionAdapter Component or the
+                ActionAdapter object itself.
             exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
             optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
@@ -76,13 +79,14 @@ class Agent(Specifiable):
         # The agent's core Component.
         self.core_component = Component(name=self.name)
 
-        self.neural_network = None
-        self.policy = None
+        self.preprocessor = PreprocessorStack.from_spec(preprocessing_spec)
 
+        self.neural_network = None
         if network_spec is not None:
             self.neural_network = NeuralNetwork.from_spec(network_spec)
+        self.action_adapter_spec = action_adapter_spec
+        self.policy = None
 
-        self.preprocessor = PreprocessorStack.from_spec(preprocessing_spec)
         self.exploration = Exploration.from_spec(exploration_spec)
         self.execution_spec = parse_execution_spec(execution_spec)
 
@@ -240,7 +244,7 @@ class Agent(Specifiable):
                 agent should be configured to sample internally.
 
         Returns:
-            Loss value.
+            float: Loss value.
         """
         raise NotImplementedError
 

@@ -59,7 +59,7 @@ class PPOAgent(Agent):
         self.splitter = Splitter(input_space=splitter_input_space)
         self.loss_function = PPOLossFunction(clip_ratio=clip_ratio, discount=self.discount)
 
-        self.assemble_meta_graph()
+        self.define_api_methods()
         self.build_graph()
 
     def _assemble_meta_graph(self, core, *params):

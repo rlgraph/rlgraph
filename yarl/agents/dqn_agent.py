@@ -21,7 +21,7 @@ import numpy as np
 
 from yarl.agents import Agent
 from yarl.components import Synchronizable, Memory, DQNLossFunction, Policy, Merger, Splitter
-from yarl.spaces import Dict, FloatBox, BoolBox
+from yarl.spaces import FloatBox, BoolBox
 from yarl.utils.util import strip_list
 from yarl.utils.visualization_util import get_graph_markup
 
@@ -35,22 +35,24 @@ class DQNAgent(Agent):
     """
 
     def __init__(self, discount=0.98, double_q=True, dueling_q=True, memory_spec=None,
-                 return_preprocessed_states=False, **kwargs):
+                 store_last_memory_batch=False, **kwargs):
         """
         Args:
             discount (float): The discount factor (gamma).
             double_q (bool): Whether to use the double DQN loss function (see [2]).
             dueling_q (bool): Whether to use a dueling layer in the ActionAdapter  (see [3]).
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
-            return_preprocessed_states (bool): Whether to return (and expect in external-batches) always the already
-                preprocessed states (rather than the original states from the env).
-                Exception: When calling `Agent.get_action()`, we always expect the original states from the env.
+            store_last_memory_batch (bool): Whether to store the last pulled batch from the memory in
+                `self.last_memory_batch` for debugging purposes.
+                Default: False.
         """
         super(DQNAgent, self).__init__(**kwargs)
 
         self.discount = discount
         self.double_q = double_q
         self.dueling_q = dueling_q
+        self.store_last_memory_batch = store_last_memory_batch
+        self.last_memory_batch = None
 
         # Define the input Space to our API-methods (all batched).
         state_space = self.state_space.with_batch_rank()
@@ -58,7 +60,7 @@ class DQNAgent(Agent):
         reward_space = FloatBox(add_batch_rank=True)
         terminal_space = BoolBox(add_batch_rank=True)
         self.input_spaces = dict(
-            get_preprocessed_state_and_action=[state_space, int, bool],
+            get_action_and_preprocessed_state=[state_space, int, bool],
             insert_records=[state_space, action_space, reward_space, terminal_space],
             update_from_external_batch=[state_space, action_space, reward_space, terminal_space, state_space]
         )
@@ -70,9 +72,10 @@ class DQNAgent(Agent):
         self.splitter = Splitter("states", "actions", "rewards", "terminals", "next_states")
 
         # The behavioral policy of the algorithm. Also the one that gets updated.
+        self.action_adapter_spec.update(action_space=self.action_space, add_dueling_layer=self.dueling_q)
         self.policy = Policy(
             neural_network=self.neural_network,
-            action_adapter_spec=dict(action_space=self.action_space, add_dueling_layer=self.dueling_q)
+            action_adapter_spec=self.action_adapter_spec
         )
         # Copy our Policy (target-net), make target-net synchronizable.
         self.target_policy = self.policy.copy(scope="target-policy")
@@ -96,15 +99,15 @@ class DQNAgent(Agent):
                            loss_function, optimizer):
 
         # State from environment to action pathway.
-        def get_preprocessed_state_and_action(self_, states, time_step, use_exploration=True):
+        def get_action_and_preprocessed_state(self_, states, time_step, use_exploration=True):
             preprocessed_states = self_.call(preprocessor.preprocess, states)
             sample_deterministic = self_.call(policy.sample_deterministic, preprocessed_states)
             sample_stochastic = self_.call(policy.sample_stochastic, preprocessed_states)
             actions = self_.call(exploration.get_action, sample_deterministic, sample_stochastic,
                                  time_step, use_exploration)
-            return preprocessed_states, actions
+            return actions, preprocessed_states
 
-        self.core_component.define_api_method("get_preprocessed_state_and_action", get_preprocessed_state_and_action)
+        self.core_component.define_api_method("get_action_and_preprocessed_state", get_action_and_preprocessed_state)
 
         # Insert into memory pathway.
         def insert_records(self_, states, actions, rewards, terminals):
@@ -138,7 +141,8 @@ class DQNAgent(Agent):
                               qt_values_sp, q_values_sp)
 
             policy_vars = self_.call(policy._variables)
-            return self_.call(optimizer.step, policy_vars, loss), loss  # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
+            # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
+            return self_.call(optimizer.step, policy_vars, loss), loss, records
 
         self.core_component.define_api_method("update_from_memory", update_from_memory)
 
@@ -167,31 +171,43 @@ class DQNAgent(Agent):
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
         # Increase timesteps by the batch size (number of states in batch).
         self.timesteps += len(batched_states)
-        preprocessed_states, actions = self.graph_executor.execute(
-            api_methods=dict(get_preprocessed_state_and_action=[batched_states, self.timesteps, use_exploration])
+        # Control, which return value to "pull".
+        ret = self.graph_executor.execute(
+            ("get_action_and_preprocessed_state",
+             [batched_states, self.timesteps, use_exploration],
+             [0] if return_preprocessed_states is False else [0, 1])  # 0=action, 1=preprocessed_states
         )
         if return_preprocessed_states:
             if remove_batch_rank:
-                return strip_list(actions), strip_list(preprocessed_states)
+                return strip_list(ret[0]), strip_list(ret[1])
             else:
-                return actions, preprocessed_states
-        elif remove_batch_rank:
-            return strip_list(actions)
-        else:
-            return actions
+                return ret[0], ret[1]
+        return strip_list(ret) if remove_batch_rank else ret
 
     def _observe_graph(self, states, actions, internals, rewards, terminals):
-        self.graph_executor.execute(api_methods=dict(insert_records=[states, actions, rewards, terminals]))
+        self.graph_executor.execute(("insert_records", [states, actions, rewards, terminals]))
 
     def update(self, batch=None):
         # Should we sync the target net? (timesteps-1 b/c it has been increased already in get_action)
-        sync_dict = dict()
+        sync_call = None
         if (self.timesteps - 1) % self.update_spec["sync_interval"] == 0:
-            sync_dict["sync_target_qnet"] = None
+            sync_call = "sync_target_qnet"
 
         if batch is None:
-            ret = self.graph_executor.execute(api_methods=dict(update_from_memory=None).update(sync_dict))
-            return ret["update_from_memory"][1] if isinstance(ret, dict) else ret[1]  # [1]=the loss (0=update no-op)
+            # [0]=no-op step; [1]=the loss; [2]=memory-batch (if pulled)
+            return_ops = [0, 1, 2] if self.store_last_memory_batch is True else [0, 1]
+            ret = self.graph_executor.execute(("update_from_memory", None, return_ops), sync_call)
+
+            if isinstance(ret, dict):
+                ret = ret["update_from_memory"]
+
+            # Store the latest pulled memory batch?
+            if self.store_last_memory_batch is True:
+                self.last_memory_batch = ret[2]
+
+            # Return the loss.
+            return ret[1]
+
         else:
             batch_input = dict(
                 external_batch_states=batch["states"],
@@ -200,7 +216,7 @@ class DQNAgent(Agent):
                 external_batch_terminals=batch["terminals"],
                 external_batch_next_states=batch["next_states"]
             )
-            ret = self.graph_executor.execute(api_methods=dict(update_from_external_batch=batch_input))
+            ret = self.graph_executor.execute(("update_from_external_batch", batch_input), sync_call)
             # [1]=the loss (0=update noop)
             return ret["update_from_external_batch"][1] if isinstance(ret, dict) else ret[1]
 

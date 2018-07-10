@@ -20,11 +20,18 @@
       "type": "dense",
       "units": 2,
       "activation": "linear",
-      "weights_spec": 1.0,
+      "weights_spec": 0.9,
       "biases_spec": false,
       "scope": "hidden"
     }
   ],
+
+  "action_adapter_spec":
+  {
+    "activation": "linear",
+    "weights_spec": 0.8,
+    "biases_spec": false
+  },
 
   "exploration_spec":
   {
