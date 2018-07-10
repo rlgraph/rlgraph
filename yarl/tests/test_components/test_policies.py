@@ -42,7 +42,7 @@ class TestPolicies(unittest.TestCase):
                 get_nn_output=state_space,
                 get_action_layer_output=state_space,
                 get_entropy=state_space,
-                get_logits_and_parameters=state_space,
+                get_logits_parameters_log_probs=state_space,
                 get_q_values=state_space,
                 sample_deterministic=state_space,
                 sample_stochastic=state_space
@@ -61,20 +61,21 @@ class TestPolicies(unittest.TestCase):
         expected_action_layer_output = np.matmul(
             expected_nn_output, policy_params["policy/action-adapter/action-layer/dense/kernel"]
         )
-        expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(2,5))
+        expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(2, 5))
         test.test(("get_action_layer_output", states), expected_outputs=expected_action_layer_output,
                   decimals=5)
 
         # Parameter (probabilities). Softmaxed action_layer_outputs.
         # Logits: log of the parameters.
         expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
-        test.test(("get_logits_and_parameters", states), expected_outputs=[
-            np.log(expected_probabilities_output),
-            np.array(expected_probabilities_output, dtype=np.float32)
+        test.test(("get_logits_parameters_log_probs", states), expected_outputs=[
+            expected_action_layer_output,
+            np.array(expected_probabilities_output, dtype=np.float32),
+            np.log(expected_probabilities_output)
         ], decimals=5)
 
         # Stochastic sample.
-        expected_actions = np.array([0, 3])
+        expected_actions = np.array([0, 0])
         test.test(("sample_stochastic", states), expected_outputs=expected_actions)
 
         # Deterministic sample.
@@ -105,7 +106,7 @@ class TestPolicies(unittest.TestCase):
                 get_action_layer_output=state_space,
                 get_entropy=state_space,
                 get_dueling_output=state_space,
-                get_logits_and_parameters=state_space,
+                get_logits_parameters_log_probs=state_space,
                 #get_q_values=state_space,
                 sample_deterministic=state_space,
                 sample_stochastic=state_space
@@ -144,10 +145,11 @@ class TestPolicies(unittest.TestCase):
 
         # Parameter (probabilities). Softmaxed q_values.
         expected_probabilities_output = softmax(expected_q_values_output, axis=-1)
-        test.test(("get_logits_and_parameters", states),
+        test.test(("get_logits_parameters_log_probs", states),
                   expected_outputs=[
+                      expected_q_values_output,
+                      expected_probabilities_output,
                       np.log(expected_probabilities_output),
-                      expected_probabilities_output
                   ])
 
         # Stochastic sample.

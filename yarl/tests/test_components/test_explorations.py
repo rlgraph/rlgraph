@@ -68,7 +68,7 @@ class TestExplorations(unittest.TestCase):
         exploration_pipeline = Component(action_adapter, distribution, exploration, scope="exploration-pipeline")
 
         def get_action(self_, nn_output, time_step):
-            _, parameters = self_.call(action_adapter.get_logits_and_parameters, nn_output)
+            _, parameters, _ = self_.call(action_adapter.get_logits_parameters_log_probs, nn_output)
             sample_stochastic = self_.call(distribution.sample_stochastic, parameters)
             sample_deterministic = self_.call(distribution.sample_deterministic, parameters)
             action = self_.call(exploration.get_action, sample_stochastic, sample_deterministic, time_step)
@@ -119,7 +119,7 @@ class TestExplorations(unittest.TestCase):
         exploration_pipeline.add_components(action_adapter, distribution, exploration, scope="exploration-pipeline")
 
         def get_action(self_, nn_output):
-            _, parameters = self_.call(action_adapter.get_logits_and_parameters, nn_output)
+            _, parameters, _ = self_.call(action_adapter.get_logits_parameters_log_probs, nn_output)
             sample_stochastic = self_.call(distribution.sample_stochastic, parameters)
             sample_deterministic = self_.call(distribution.sample_deterministic, parameters)
             action = self_.call(exploration.get_action, sample_stochastic, sample_deterministic)
@@ -150,16 +150,16 @@ class TestExplorations(unittest.TestCase):
         input_ = nn_output_space.sample(size=3)
         expected = np.array([
             [
-                [11.449928, 10.330302],
-                [12.449075, 10.092317]
+                [14.051712, 8.483587],
+                [10.151371, 7.607021]
             ],
             [
-                [11.005375, 10.045654],
-                [12.391037, 10.220245]
+                [13.607159, 8.198939],
+                [10.093333, 7.73495]
             ],
             [
-                [11.0556135, 11.439471],
-                [12.206563, 8.926022]
+                [13.657397, 9.592756],
+                [9.908859, 6.4407268]
             ]
         ], dtype=np.float32)
         test.test(("get_action", input_), expected_outputs=expected)

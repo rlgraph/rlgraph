@@ -45,7 +45,7 @@ class Policy(Component):
             else:
                 action_layer_output_reshaped (SingleDataOp): The action layer output, reshaped according to the action
                     space.
-        get_logits_and_parameters: See ActionAdapter Component.
+        get_logits_parameters_log_probs: See ActionAdapter Component.
         sample_stochastic: See Distribution component.
         sample_deterministic: See Distribution component.
         entropy: See Distribution component.
@@ -88,7 +88,8 @@ class Policy(Component):
         else:
             def get_q_values(self_, nn_input):
                 nn_output = self_.call(self_.neural_network.apply, nn_input)
-                return self_.call(self_.action_adapter.get_action_layer_output_reshaped, nn_output)
+                logits, _, _ = self_.call(self_.action_adapter.get_logits_parameters_log_probs, nn_output)
+                return logits
 
         self.define_api_method("get_q_values", get_q_values)
 
@@ -118,26 +119,26 @@ class Policy(Component):
         action_layer_output = self.call(self.action_adapter.get_action_layer_output, nn_output)
         return action_layer_output
 
-    def get_logits_and_parameters(self, nn_input):
+    def get_logits_parameters_log_probs(self, nn_input):
         nn_output = self.call(self.neural_network.apply, nn_input)
-        logits, parameters = self.call(self.action_adapter.get_logits_and_parameters, nn_output)
-        return logits, parameters
+        logits, parameters, log_probs = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
+        return logits, parameters, log_probs
 
     def get_entropy(self, nn_input):
         nn_output = self.call(self.neural_network.apply, nn_input)
-        _, parameters = self.call(self.action_adapter.get_logits_and_parameters, nn_output)
+        _, parameters, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
         entropy = self.call(self.distribution.entropy, parameters)
         return entropy
 
     def sample_stochastic(self, nn_input):
         nn_output = self.call(self.neural_network.apply, nn_input)
-        _, parameters = self.call(self.action_adapter.get_logits_and_parameters, nn_output)
+        _, parameters, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
         sample = self.call(self.distribution.sample_stochastic, parameters)
         return sample
 
     def sample_deterministic(self, nn_input):
         nn_output = self.call(self.neural_network.apply, nn_input)
-        _, parameters = self.call(self.action_adapter.get_logits_and_parameters, nn_output)
+        _, parameters, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
         sample = self.call(self.distribution.sample_deterministic, parameters)
         return sample
 

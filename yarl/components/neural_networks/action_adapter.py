@@ -43,16 +43,15 @@ class ActionAdapter(Component):
     API:
         get_action_layer_output(nn_output) (SingleDataOp): The raw, non-reshaped output of the action-layer
             (DenseLayer) after passing through the raw nn_output (from the previous Component).
-        get_logits_and_parameters(nn_output) (Tuple[SingleDataOp x 2]): The final results of translating nn_output
-            into logits and Distribution-readable parameters (e.g. probabilities).
+        get_logits_parameters_log_probs(nn_output) (Tuple[SingleDataOp x 3]):
+            1) raw nn_output, BUT reshaped
+            2) probabilities (softmaxed (1))
+            3) log(probabilities)
 
         Optional:
             If add_dueling_layer=True:
                 get_dueling_output(nn_output) (Tuple[SingleDataOp x 3]): The state-value, advantage-values
                     (reshaped) and q-values (reshaped) after passing action_layer_output through the dueling layer.
-            else:
-                get_action_layer_output_reshaped(nn_output) (SingleDataOp): The (according to our action Space)
-                    reshaped action-layer output after passing nn_output through it (and reshaping).
     """
     def __init__(self, action_space, weights_spec=None, biases_spec=None, activation=None, add_dueling_layer=False,
                  scope="action-adapter", **kwargs):
@@ -111,30 +110,25 @@ class ActionAdapter(Component):
 
             self.define_api_method("get_dueling_output", get_dueling_output)
 
-            def get_logits_and_parameters(self_, nn_output):
+            def get_logits_parameters_log_probs(self_, nn_output):
                 _, _, q_values = self_.call(self_.get_dueling_output, nn_output, ok_to_call_own_api=True)
-                return self_.call(self_._graph_fn_get_logits_and_parameters, q_values)
+                return self_.call(self_._graph_fn_get_logits_parameters_log_probs, q_values)
 
-            self.define_api_method("get_logits_and_parameters", get_logits_and_parameters)
+            self.define_api_method("get_logits_parameters_log_probs", get_logits_parameters_log_probs)
 
         # Without dueling layer: Provide raw, reshaped action-layer output.
         else:
-            def get_action_layer_output_reshaped(self_, nn_output):
+            def get_logits_parameters_log_probs(self_, nn_output):
                 action_layer_output = self_.call(self_.action_layer.apply, nn_output)
-                return self_.call(self_._graph_fn_reshape, action_layer_output)
+                action_layer_output_reshaped = self_.call(self_._graph_fn_reshape, action_layer_output)
+                return self_.call(self_._graph_fn_get_logits_parameters_log_probs, action_layer_output_reshaped)
 
-            self.define_api_method("get_action_layer_output_reshaped", get_action_layer_output_reshaped)
-
-            def get_logits_and_parameters(self_, nn_output):
-                action_layer_output_reshaped = self_.call(self_.get_action_layer_output_reshaped, nn_output, ok_to_call_own_api=True)
-                return self_.call(self_._graph_fn_get_logits_and_parameters, action_layer_output_reshaped)
-
-            self.define_api_method("get_logits_and_parameters", get_logits_and_parameters)
+            self.define_api_method("get_logits_parameters_log_probs", get_logits_parameters_log_probs)
 
     def check_input_spaces(self, input_spaces, action_space):
         # Check the input Space.
-        if "get_logits_and_parameters" in input_spaces:
-            last_nn_layer_space = input_spaces["get_logits_and_parameters"][0]  # type: Space
+        if "get_logits_parameters_log_probs" in input_spaces:
+            last_nn_layer_space = input_spaces["get_logits_parameters_log_probs"][0]  # type: Space
             sanity_check_space(last_nn_layer_space, non_allowed_types=[ContainerSpace])
 
         # Check the action Space.
@@ -171,12 +165,12 @@ class ActionAdapter(Component):
             action_layer_output_reshaped = tf.reshape(tensor=action_layer_output, shape=shape)
             return action_layer_output_reshaped
 
-    def _graph_fn_get_logits_and_parameters(self, action_layer_output_reshaped):
+    def _graph_fn_get_logits_parameters_log_probs(self, logits):
         """
         Creates properties/parameters and logits from some reshaped output.
 
         Args:
-            action_layer_output_reshaped (SingleDataOp): The output of some layer that is already reshaped
+            logits (SingleDataOp): The output of some layer that is already reshaped
                 according to our action Space.
 
         Returns:
@@ -188,14 +182,12 @@ class ActionAdapter(Component):
         if get_backend() == "tf":
             if isinstance(self.action_space, IntBox):
                 # Discrete actions.
-                parameters = tf.maximum(x=tf.nn.softmax(logits=action_layer_output_reshaped, axis=-1), y=SMALL_NUMBER)
-
+                parameters = tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
                 # Log probs.
-                logits = tf.log(x=parameters)
+                log_probs = tf.log(x=parameters)
             elif isinstance(self.action_space, FloatBox):
                 # Continuous actions.
-                mean, log_sd = tf.split(value=action_layer_output_reshaped, num_or_size_splits=2, axis=1)
-
+                mean, log_sd = tf.split(value=logits, num_or_size_splits=2, axis=1)
                 # Remove moments rank.
                 mean = tf.squeeze(input=mean, axis=1)
                 log_sd = tf.squeeze(input=log_sd, axis=1)
@@ -206,9 +198,9 @@ class ActionAdapter(Component):
                 # Turn log sd into sd.
                 sd = tf.exp(x=log_sd)
 
-                logits = (tf.log(x=mean), log_sd)
                 parameters = (mean, sd)
+                log_probs = (tf.log(x=mean), log_sd)
             else:
                 raise NotImplementedError
 
-            return logits, parameters
+            return logits, parameters, log_probs

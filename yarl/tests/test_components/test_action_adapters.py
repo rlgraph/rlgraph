@@ -39,8 +39,7 @@ class TestActionAdapters(unittest.TestCase):
                                        activation="relu")
         test = ComponentTest(component=action_adapter, input_spaces=dict(
             get_action_layer_output=last_nn_layer_space,
-            get_action_layer_output_reshaped=last_nn_layer_space,
-            get_logits_and_parameters=last_nn_layer_space
+            get_logits_parameters_log_probs=last_nn_layer_space
         ), action_space=action_space)
 
         # Batch of 2 samples.
@@ -54,17 +53,14 @@ class TestActionAdapters(unittest.TestCase):
         ], dtype=np.float32)
         test.test(("get_action_layer_output", inputs), expected_outputs=expected_action_layer_output)
 
-        expected_action_layer_output_reshaped = np.reshape(expected_action_layer_output, newshape=(2, 3, 2, 2))
-        test.test(("get_action_layer_output_reshaped", inputs),
-                  expected_outputs=expected_action_layer_output_reshaped)
-
+        expected_logits = np.reshape(expected_action_layer_output, newshape=(2, 3, 2, 2))
         expected_parameters = np.array([
             [[[0.5] * 2] * 2] * 3,
             [[[0.5] * 2] * 2] * 3,
             ], dtype=np.float32)
-        expected_logits_and_parameters = [np.log(expected_parameters), expected_parameters]
-        test.test(("get_logits_and_parameters", inputs),
-                  expected_outputs=expected_logits_and_parameters)
+        expected_log_probs = np.log(expected_parameters)
+        test.test(("get_logits_parameters_log_probs", inputs),
+                  expected_outputs=[expected_logits, expected_parameters, expected_log_probs])
 
     def test_action_adapter_with_dueling_layer(self):
         # Last NN layer.
@@ -77,7 +73,7 @@ class TestActionAdapters(unittest.TestCase):
         test = ComponentTest(component=action_adapter, input_spaces=dict(
             get_action_layer_output=last_nn_layer_space,
             get_dueling_output=last_nn_layer_space,
-            get_logits_and_parameters=last_nn_layer_space
+            get_logits_parameters_log_probs=last_nn_layer_space
         ), action_space=action_space)
 
         # Batch of 2 samples.
