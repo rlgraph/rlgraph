@@ -611,6 +611,9 @@ class GraphBuilder(Specifiable):
         feed_dict = dict()
 
         for api_method in api_methods:
+            if api_method is None:
+                continue
+
             params = list()
             return_ops = None
             if isinstance(api_method, (list, tuple)):

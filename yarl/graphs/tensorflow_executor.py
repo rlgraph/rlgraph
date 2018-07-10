@@ -155,7 +155,9 @@ class TensorFlowExecutor(GraphExecutor):
 
         # Expand inputs and fetch list with extra device memory init ops
         for api_method in api_methods:
-            if isinstance(api_method, (list, tuple)):
+            if api_method is None:
+                continue
+            elif isinstance(api_method, (list, tuple)):
                 api_method = api_method[0]
                 params = util.force_list(api_method[1])
             else:
