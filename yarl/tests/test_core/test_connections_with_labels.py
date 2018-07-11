@@ -24,7 +24,7 @@ import unittest
 from yarl.components import Component
 from yarl.tests import ComponentTest
 from yarl.utils import root_logger
-from yarl.tests.dummy_components import Dummy1to1
+from yarl.tests.dummy_components import Dummy1To1
 
 
 class TestConnectionsWithLabels(unittest.TestCase):

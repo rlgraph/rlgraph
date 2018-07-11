@@ -136,7 +136,7 @@ class TestExplorations(unittest.TestCase):
         def collect_outs(component_test, outs):
             return collected.append(outs)
 
-        for _ in range_(1000):
+        for i in range_(1000):
             test.test("get_noise", fn_test=collect_outs)
 
         self.assertAlmostEqual(10.0, np.mean(collected), places=1)

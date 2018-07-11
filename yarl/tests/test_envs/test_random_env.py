@@ -25,7 +25,7 @@ from yarl.envs import RandomEnv
 from yarl.tests.test_util import recursive_assert_almost_equal
 
 
-class TestGridWorld(unittest.TestCase):
+class TestRandomEnv(unittest.TestCase):
     """
     Tests creation, resetting and stepping through a deterministic RandomEnv.
     """

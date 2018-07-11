@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
 import unittest
 import logging
 
@@ -26,9 +27,9 @@ from yarl.execution import SingleThreadedWorker
 from yarl.utils import root_logger
 
 
-class TestDQNAgentAssembly(unittest.TestCase):
+class TestDQNAgentLearning(unittest.TestCase):
     """
-    Tests the DQN Agent assembly on the random Env.
+    Tests whether the DQNAgent can learn in simple environments.
     """
     root_logger.setLevel(level=logging.INFO)
 
@@ -39,6 +40,7 @@ class TestDQNAgentAssembly(unittest.TestCase):
         env = GridWorld("2x2")
         agent = DQNAgent.from_spec(
             "configs/test_dqn_agent_for_2x2_grid.json",
+            #discount=1.0,  # very short episodes -> no discount.
             double_q=False,
             dueling_q=False,
             state_space=env.state_space,
@@ -46,19 +48,23 @@ class TestDQNAgentAssembly(unittest.TestCase):
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=10),
             update_spec=dict(update_interval=4, batch_size=24, sync_interval=32),
-            optimizer_spec=dict(learning_rate=0.05)
+            optimizer_spec=dict(learning_rate=0.05),
+            store_last_q_table=True
         )
 
-        time_steps = 10000
+        time_steps = 1000
         worker = SingleThreadedWorker(environment=env, agent=agent)
-        results = worker.execute_timesteps(time_steps, deterministic=True)
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
+
+        print("STATES:\n{}".format(agent.last_q_table["states"]))
+        print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        self.assertAlmostEqual(results["mean_episode_reward"], -2.6261398176291793)
+        self.assertAlmostEqual(results["mean_episode_reward"], -2.9207317073170733)
         self.assertAlmostEqual(results["max_episode_reward"], 0.0)
         self.assertAlmostEqual(results["final_episode_reward"], -1)
-        self.assertEqual(results["episodes_executed"], 329)
+        self.assertEqual(results["episodes_executed"], 328)
 
     def test_double_dqn_on_2x2_grid_world(self):
         """
@@ -73,18 +79,20 @@ class TestDQNAgentAssembly(unittest.TestCase):
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=10),
             update_spec=dict(update_interval=4, batch_size=24, sync_interval=32),
-            optimizer_spec=dict(learning_rate=0.05)
+            optimizer_spec=dict(learning_rate=0.05),
+            store_last_q_table=True
         )
 
+        time_steps = 500
         worker = SingleThreadedWorker(environment=env, agent=agent)
-        results = worker.execute_timesteps(1000, deterministic=True)
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
 
-        self.assertEqual(results["timesteps_executed"], 1000)
-        self.assertEqual(results["env_frames"], 1000)
-        self.assertAlmostEqual(results["mean_episode_reward"], -2.567073170731707)
+        self.assertEqual(results["timesteps_executed"], time_steps)
+        self.assertEqual(results["env_frames"], time_steps)
+        self.assertAlmostEqual(results["mean_episode_reward"], -4.160583941605839)
         self.assertAlmostEqual(results["max_episode_reward"], 0.0)
-        self.assertAlmostEqual(results["final_episode_reward"], 0)
-        self.assertEqual(results["episodes_executed"], 328)
+        self.assertAlmostEqual(results["final_episode_reward"], -1)
+        self.assertEqual(results["episodes_executed"], 137)
 
     def test_double_dueling_dqn_on_4x4_grid_world(self):
         """
@@ -97,19 +105,24 @@ class TestDQNAgentAssembly(unittest.TestCase):
             action_space=env.action_space,
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=10),
-            update_spec=dict(update_interval=4, batch_size=24, sync_interval=32),
-            optimizer_spec=dict(learning_rate=0.005)
+            update_spec=dict(update_interval=4, batch_size=32, sync_interval=32),
+            optimizer_spec=dict(learning_rate=0.1),
+            store_last_q_table=True
         )
 
+        time_steps = 3000
         worker = SingleThreadedWorker(environment=env, agent=agent)
-        results = worker.execute_timesteps(10000, deterministic=True)
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
 
-        self.assertEqual(results["timesteps_executed"], 10000)
-        self.assertEqual(results["env_frames"], 10000)
-        self.assertAlmostEqual(results["mean_episode_reward"], -26.35128805620609)
-        self.assertAlmostEqual(results["max_episode_reward"], -3)
-        self.assertAlmostEqual(results["final_episode_reward"], -3)
-        self.assertEqual(results["episodes_executed"], 1281)
+        print("STATES:\n{}".format(agent.last_q_table["states"]))
+        print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
+
+        self.assertEqual(results["timesteps_executed"], time_steps)
+        self.assertEqual(results["env_frames"], time_steps)
+        self.assertAlmostEqual(results["mean_episode_reward"], -8.99092558983666)
+        self.assertAlmostEqual(results["max_episode_reward"], -4)
+        self.assertAlmostEqual(results["final_episode_reward"], -5)
+        self.assertEqual(results["episodes_executed"], 551)
 
     def test_dqn_on_cart_pole(self):
         """
@@ -123,21 +136,26 @@ class TestDQNAgentAssembly(unittest.TestCase):
             dueling_q=False,
             state_space=env.state_space,
             action_space=env.action_space,
-            observe_spec=dict(buffer_size=100),
+            observe_spec=dict(buffer_size=200),
             execution_spec=dict(seed=10),
-            #update_spec=dict(update_interval=4),
-            #optimizer_spec=dict(type="adagrad", learning_rate=0.001)
+            update_spec=dict(update_interval=4, batch_size=24, sync_interval=64),
+            optimizer_spec=dict(learning_rate=0.0002),
+            store_last_q_table=True
         )
 
-        worker = SingleThreadedWorker(environment=env, agent=agent, render=False)
-        results = worker.execute_timesteps(100000, deterministic=True)
+        time_steps = 5000
+        worker = SingleThreadedWorker(environment=env, agent=agent, render=True)
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
 
-        self.assertEqual(results["timesteps_executed"], 10000)
-        self.assertEqual(results["env_frames"], 10000)
-        self.assertAlmostEqual(results["mean_episode_reward"], 94.33962264150944)
+        print("STATES:\n{}".format(agent.last_q_table["states"]))
+        print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
+
+        self.assertEqual(results["timesteps_executed"], time_steps)
+        self.assertEqual(results["env_frames"], time_steps)
+        self.assertAlmostEqual(results["mean_episode_reward"], 87.71929824561404)
         self.assertAlmostEqual(results["max_episode_reward"], 200.0)
-        self.assertAlmostEqual(results["final_episode_reward"], 156.0)
-        self.assertEqual(results["episodes_executed"], 106)
+        self.assertAlmostEqual(results["final_episode_reward"], 49.0)
+        self.assertEqual(results["episodes_executed"], 57)
 
     def test_double_dueling_dqn_on_cart_pole(self):
         """
@@ -147,25 +165,28 @@ class TestDQNAgentAssembly(unittest.TestCase):
         env.seed(10)
         agent = DQNAgent.from_spec(
             "configs/test_dqn_agent_for_cartpole.json",
-            double_q=False,
+            double_q=True,
             dueling_q=True,
             state_space=env.state_space,
             action_space=env.action_space,
-            observe_spec=dict(buffer_size=100),
+            observe_spec=dict(buffer_size=200),
             execution_spec=dict(seed=10),
-            update_spec=dict(update_interval=4, batch_size=16, sync_interval=32),
-            optimizer_spec=dict(learning_rate=0.005)
+            update_spec=dict(update_interval=4, batch_size=32, sync_interval=16),
+            optimizer_spec=dict(type="adam", learning_rate=0.000005),
+            store_last_q_table=True
         )
 
-        num_timesteps = 10000
-        worker = SingleThreadedWorker(environment=env, agent=agent)
-        results = worker.execute_timesteps(num_timesteps, deterministic=True)
+        time_steps = 5000
+        worker = SingleThreadedWorker(environment=env, agent=agent, render=True)
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
 
-        print(results)
-        self.assertEqual(results["timesteps_executed"], num_timesteps)
-        self.assertEqual(results["env_frames"], num_timesteps)
-        #self.assertAlmostEqual(results["mean_episode_reward"], 94.33962264150944)
+        print("STATES:\n{}".format(agent.last_q_table["states"]))
+        print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
+
+        self.assertEqual(results["timesteps_executed"], time_steps)
+        self.assertEqual(results["env_frames"], time_steps)
+        self.assertAlmostEqual(results["mean_episode_reward"], 94.33962264150944)
         self.assertAlmostEqual(results["max_episode_reward"], 200.0)
-        #self.assertAlmostEqual(results["final_episode_reward"], 156.0)
-        #self.assertEqual(results["episodes_executed"], 106)
+        self.assertAlmostEqual(results["final_episode_reward"], 156.0)
+        self.assertEqual(results["episodes_executed"], 106)
 

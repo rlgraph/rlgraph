@@ -21,7 +21,7 @@ import copy
 import numpy as np
 
 from yarl.agents import Agent
-from yarl.components import Synchronizable, Merger, Splitter, Memory, DQNLossFunction, PrioritizedReplay, \
+from yarl.components import Synchronizable, Merger, Splitter, DQNLossFunction, PrioritizedReplay, \
     Policy
 from yarl.spaces import Dict, IntBox, FloatBox, BoolBox
 
@@ -89,7 +89,7 @@ class ApexAgent(Agent):
         # Add the Q-net, copy it (target-net) and add the target-net.
         self.target_policy = self.policy.copy(scope="target-policy")
         # Make target_policy writable
-        self.target_policy.add_component(Synchronizable(), connections=CONNECT_ALL)
+        self.target_policy.add_components(Synchronizable(), expose_apis="sync")
         core.add_components(self.policy, self.target_policy)
         # Add an Exploration for the q-net (target-net doesn't need one).
         core.add_components(self.exploration)
@@ -162,7 +162,7 @@ class ApexAgent(Agent):
         core.connect((self.policy, "_variables"), (self.target_policy, "_values"))
         core.connect((self.target_policy, "sync"), "sync_target_qnet")
 
-    def get_action(self, states, deterministic=False):
+    def get_action(self, states, use_exploration=True):
         batched_states = self.state_space.batched(states)
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
         # Increase timesteps by the batch size (number of states in batch).

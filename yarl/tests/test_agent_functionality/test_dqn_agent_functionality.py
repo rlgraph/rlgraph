@@ -75,6 +75,7 @@ class TestDQNAgentFunctionality(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space,
             store_last_memory_batch=True,
+            store_last_q_table=True,
             discount=0.95
         )
         worker = SingleThreadedWorker(environment=env, agent=agent)

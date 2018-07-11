@@ -35,7 +35,7 @@ class DQNAgent(Agent):
     """
 
     def __init__(self, discount=0.98, double_q=True, dueling_q=True, memory_spec=None,
-                 store_last_memory_batch=False, **kwargs):
+                 store_last_memory_batch=False, store_last_q_table=False, **kwargs):
         """
         Args:
             discount (float): The discount factor (gamma).
@@ -45,14 +45,20 @@ class DQNAgent(Agent):
             store_last_memory_batch (bool): Whether to store the last pulled batch from the memory in
                 `self.last_memory_batch` for debugging purposes.
                 Default: False.
+            store_last_q_table (bool): Whether to store the Q(s,a) values for the last received batch
+                (memory or external) in `self.last_q_table` for debugging purposes.
+                Default: False.
         """
         super(DQNAgent, self).__init__(**kwargs)
 
         self.discount = discount
         self.double_q = double_q
         self.dueling_q = dueling_q
+        # Debugging tools.
         self.store_last_memory_batch = store_last_memory_batch
         self.last_memory_batch = None
+        self.store_last_q_table = store_last_q_table
+        self.last_q_table = None
 
         # Define the input Space to our API-methods (all batched).
         state_space = self.state_space.with_batch_rank()
@@ -146,7 +152,7 @@ class DQNAgent(Agent):
 
             policy_vars = self_.call(policy._variables)
             # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
-            return self_.call(optimizer.step, policy_vars, loss), loss, records
+            return self_.call(optimizer.step, policy_vars, loss), loss, records, q_values_s
 
         self.core_component.define_api_method("update_from_memory", update_from_memory)
 
@@ -197,22 +203,32 @@ class DQNAgent(Agent):
         if self.timesteps % self.update_spec["sync_interval"] == 0:
             sync_call = "sync_target_qnet"
 
+        # [0]=no-op step; [1]=the loss; [2]=memory-batch (if pulled); [3]=q-values
+        return_ops = [0, 1]
+        q_table = None
+
         if batch is None:
-            # [0]=no-op step; [1]=the loss; [2]=memory-batch (if pulled)
-            return_ops = [0, 1, 2] if self.store_last_memory_batch is True else [0, 1]
+            # Add some additional return-ops to pull (left out normally for performance reasons).
+            if self.store_last_q_table is True:
+                return_ops += [2, 3]  # 2=batch, 3=q-values
+            elif self.store_last_memory_batch is True:
+                return_ops += [2]  # 2=batch
             ret = self.graph_executor.execute(("update_from_memory", None, return_ops), sync_call)
 
+            # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
                 ret = ret["update_from_memory"]
 
-            # Store the latest pulled memory batch?
-            if self.store_last_memory_batch is True:
-                self.last_memory_batch = ret[2]
-
-            # Return the loss.
-            return ret[1]
-
+            # Store the last Q-table?
+            if self.store_last_q_table is True:
+                q_table = dict(
+                    states=ret[2]["states"],
+                    q_values=ret[3]
+                )
         else:
+            # Add some additional return-ops to pull (left out normally for performance reasons).
+            if self.store_last_q_table is True:
+                return_ops += [2]  # 2=q-values
             batch_input = dict(
                 external_batch_states=batch["states"],
                 external_batch_actions=batch["actions"],
@@ -221,8 +237,26 @@ class DQNAgent(Agent):
                 external_batch_next_states=batch["next_states"]
             )
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input), sync_call)
-            # [1]=the loss (0=update noop)
-            return ret["update_from_external_batch"][1] if isinstance(ret, dict) else ret[1]
+
+            # Remove unnecessary return dicts (e.g. sync-op).
+            if isinstance(ret, dict):
+                ret = ret["update_from_memory"]
+
+            # Store the last Q-table?
+            if self.store_last_q_table is True:
+                q_table = dict(
+                    states=batch["states"],
+                    q_values=ret[2]
+                )
+
+        # Store the latest pulled memory batch?
+        if self.store_last_memory_batch is True and batch is None:
+            self.last_memory_batch = ret[2]
+        if self.store_last_q_table is True:
+            self.last_q_table = q_table
+
+        # [1]=the loss (0=update noop)
+        return ret[1]
 
     def __repr__(self):
         return "DQNAgent(doubleQ={} duelingQ={})".format(self.double_q, self.dueling_q)

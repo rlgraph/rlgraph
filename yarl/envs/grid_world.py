@@ -213,7 +213,7 @@ class GridWorld(Environment):
         next_state_type = self.world[next_y, next_x]
         if next_state_type == "H":
             self.is_terminal = True
-            self.reward = -50 if self.reward_function == "sparse" else -100
+            self.reward = -5 if self.reward_function == "sparse" else -10
         elif next_state_type == "F":
             self.is_terminal = False
             self.reward = -3 if self.reward_function == "sparse" else -10

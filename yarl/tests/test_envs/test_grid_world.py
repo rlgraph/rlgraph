@@ -51,7 +51,7 @@ class TestGridWorld(unittest.TestCase):
         env.reset()  # ["XH", " G"]  X=player's position
         s, r, t, _ = env.step(1)  # right: [" X", " G"] -> in the hole
         self.assertTrue(s == 2)
-        self.assertTrue(r == -50.0)
+        self.assertTrue(r == -5.0)
         self.assertTrue(t is True)
 
         # Run against a wall.
