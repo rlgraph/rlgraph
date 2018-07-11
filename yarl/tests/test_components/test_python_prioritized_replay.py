@@ -67,7 +67,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         )
         memory.create_variables(self.input_spaces, None)
 
-        observation = self.record_space.sample(size=1)
+        observation = memory.record_space_flat.sample(size=1)
         memory.insert_records(observation)
 
     def test_update_records(self):

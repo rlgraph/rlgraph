@@ -24,7 +24,7 @@ from six.moves import xrange as range_
 from yarl import Specifiable
 from yarl.components.memories.mem_segment_tree import MemSegmentTree
 from yarl.spaces.space_utils import get_list_registry
-from yarl.utils.ops import flatten_op
+from yarl.spaces import Dict
 
 
 class MemPrioritizedReplay(Specifiable):
@@ -52,9 +52,12 @@ class MemPrioritizedReplay(Specifiable):
     def create_variables(self, input_spaces, action_space):
         # Store our record-space for convenience.
         self.record_space = input_spaces["insert_records"][0]
+        self.record_space_flat = Dict(self.record_space.flatten(custom_scope_separator="-",
+                                                                scope_separator_at_start=False),
+                                      add_batch_rank=True)
 
         # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
-        self.record_registry = get_list_registry(self.record_space, self.capacity, initializer=0.0)
+        self.record_registry = get_list_registry(self.record_space_flat, self.capacity, initializer=0.0)
         self.fixed_key = list(self.record_registry.keys())[0]
         print(self.fixed_key)
         self.priority_capacity = 1
@@ -71,7 +74,7 @@ class MemPrioritizedReplay(Specifiable):
             assert 'states' in self.record_space
             # Next states are not represented as explicit keys in the registry
             # as this would cause extra memory overhead.
-            self.flat_state_keys = list(self.record_space["states"].flatten().keys())
+            self.flat_state_keys = [k for k in self.record_registry.keys() if k[:7] == "states-"]
 
     def insert_records(self, records):
         num_records = len(records[self.fixed_key])

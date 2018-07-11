@@ -114,11 +114,11 @@ class Dict(ContainerSpace, dict):
         return DataOpDict([(key, subspace.get_tensor_variable(name + "/" + key, is_input_feed, add_batch_rank, **kwargs))
                            for key, subspace in self.items()])
 
-    def _flatten(self, mapping, scope_, list_):
+    def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, scope_, list_):
         # Iterate through this Dict.
-        scope_ += "/"
+        scope_ += custom_scope_separator if len(scope_) > 0 or scope_separator_at_start else ""
         for key in sorted(self.keys()):
-            self[key].flatten(mapping, scope_ + key, list_)
+            self[key].flatten(mapping, custom_scope_separator, scope_separator_at_start, scope_ + key, list_)
 
     def __repr__(self):
         return "Dict({})".format([(key, self[key].__repr__()) for key in self.keys()])
@@ -204,11 +204,13 @@ class Tuple(ContainerSpace, tuple):
         return DataOpTuple([subspace.get_tensor_variable(name+"/"+str(i), is_input_feed, add_batch_rank, **kwargs)
                             for i, subspace in enumerate(self)])
 
-    def _flatten(self, mapping, scope_, list_):
+    def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, scope_, list_):
         # Iterate through this Tuple.
-        scope_ += "/" + FLAT_TUPLE_OPEN
+        scope_ += (custom_scope_separator if len(scope_) > 0 or scope_separator_at_start else "") + FLAT_TUPLE_OPEN
         for i, component in enumerate(self):
-            component.flatten(mapping, scope_ + str(i) + FLAT_TUPLE_CLOSE, list_)
+            component.flatten(
+                mapping, custom_scope_separator, scope_separator_at_start, scope_ + str(i) + FLAT_TUPLE_CLOSE, list_
+            )
 
     def __repr__(self):
         return "Tuple({})".format(tuple([cmp.__repr__() for cmp in self]))

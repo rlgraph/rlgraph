@@ -143,7 +143,8 @@ class Space(Specifiable):
         """
         raise NotImplementedError
 
-    def flatten(self, mapping=None, _scope=None, _list=None):
+    def flatten(self, mapping=None, custom_scope_separator='/', scope_separator_at_start=True,
+                _scope=None, _list=None):
         """
         A mapping function to flatten this Space into an OrderedDict whose only values are
         primitive (non-container) Spaces. The keys are created automatically from Dict keys and
@@ -152,6 +153,10 @@ class Space(Specifiable):
         Args:
             mapping (Optional[callable]): A mapping function that takes a flattened auto-generated key and a primitive
                 Space and converts the primitive Space to something else. Default is pass through.
+            custom_scope_separator (str): The separator to use in the returned dict for scopes.
+                Default: '/'.
+            scope_separator_at_start (bool): Whether to add the scope-separator also at the beginning.
+                Default: True.
             _scope (Optional[str]): For recursive calls only. Used for automatic key generation.
             _list (Optional[list]): For recursive calls only. The list so far.
 
@@ -171,21 +176,24 @@ class Space(Specifiable):
             ret = True
             _scope = ""
 
-        self._flatten(mapping, _scope, _list)
+        self._flatten(mapping, custom_scope_separator, scope_separator_at_start, _scope, _list)
 
         # Non recursive (first) call -> Return the final FlattenedDataOp.
         if ret:
             return OrderedDict(_list)
 
-    def _flatten(self, mapping, _scope, _list):
+    def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, _scope, _list):
         """
         Base implementation. May be overridden by ContainerSpace classes.
         Simply sends `self` through the mapping function.
 
         Args:
             mapping (callable): The mapping function to use on a primitive (non-container) Space.
-            _scope (str): The key to use to store the mapped result in list_ (which will be converted into
-                an FlattenedDataOp at the very end).
+            custom_scope_separator (str): The separator to use in the returned dict for scopes.
+                Default: '/'.
+            scope_separator_at_start (bool): Whether to add the scope-separator also at the beginning.
+                Default: True.
+            _scope (str): The flat-key to use to store the mapped result in list_.
             _list (list): The list to append the mapped results to (under key=`scope_`).
         """
         _list.append(tuple([_scope, mapping(_scope, self)]))

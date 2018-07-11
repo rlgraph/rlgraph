@@ -45,9 +45,15 @@ def get_list_registry(space, capacity=None, initializer=0, flatten=True):
     """
     if flatten:
         if capacity is not None:
-            var = space.flatten(mapping=lambda k, primitive: [initializer for _ in xrange(capacity)])
+            var = space.flatten(
+                custom_scope_separator="-", scope_separator_at_start=False,
+                mapping=lambda k, primitive: [initializer for _ in xrange(capacity)]
+            )
         else:
-            var = space.flatten(mapping=lambda k, primitive: [])
+            var = space.flatten(
+                custom_scope_separator="-", scope_separator_at_start=False,
+                mapping=lambda k, primitive: []
+            )
     else:
         if capacity is not None:
             var = [initializer for _ in xrange(capacity)]
