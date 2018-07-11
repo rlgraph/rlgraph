@@ -55,6 +55,11 @@ class LocalOptimizer(Optimizer):
 
         self.define_api_method("step", step)
 
+    def create_variables(self, input_spaces, action_space):
+        # Must register the Optimizer's variables with the Component.
+        #self.register_variables(*self.optimizer.variables)
+        pass
+
     def _graph_fn_calculate_gradients(self, variables, loss):
         """
         Args:

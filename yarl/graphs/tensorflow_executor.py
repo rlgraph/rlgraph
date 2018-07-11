@@ -141,7 +141,7 @@ class TensorFlowExecutor(GraphExecutor):
         self._build_device_strategy(optimizer)
 
         # Build actual TensorFlow graph from meta graph.
-        self.graph_builder.build(input_spaces, self.available_devices, self.default_device, self.device_strategy)
+        self.graph_builder.build_graph(input_spaces, self.available_devices, self.default_device, self.device_strategy)
 
         # Check device assignments for inconsistencies or unused devices.
         self._sanity_check_devices()
@@ -385,10 +385,12 @@ class TensorFlowExecutor(GraphExecutor):
             var_list = list(self.graph_builder.core_component.variables.values())
             init_op = tf.variables_initializer(var_list=var_list)
             ready_op = tf.report_uninitialized_variables(var_list=var_list)
+            ready_for_local_init_op = tf.report_uninitialized_variables(var_list=var_list)
         else:
             # TODO: Distributed tf scaffold.
             init_op = None
             ready_op = None
+            ready_for_local_init_op = None
 
         def init_fn(scaffold, session):
             # NOTE: `self.load_from_file` is either True or a string value.
@@ -414,7 +416,7 @@ class TensorFlowExecutor(GraphExecutor):
             init_feed_dict=None,
             init_fn=init_fn if self.load_from_file else None,
             ready_op=ready_op,
-            ready_for_local_init_op=None,
+            ready_for_local_init_op=ready_for_local_init_op,
             local_init_op=None,
             summary_op=self.summary_op,
             saver=self.saver,

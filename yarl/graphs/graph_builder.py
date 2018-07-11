@@ -26,7 +26,7 @@ from yarl.components import Component
 from yarl.spaces import Space
 from yarl.spaces.space_utils import get_space_from_op
 from yarl.utils.input_parsing import parse_summary_spec
-from yarl.utils.util import force_list, force_tuple
+from yarl.utils.util import force_list, force_tuple, get_shape
 from yarl.utils.ops import DataOpTuple, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn
 from yarl.utils.component_printout import component_print_out
 
@@ -61,8 +61,13 @@ class GraphBuilder(Specifiable):
         self.default_device = None
         self.device_strategy = None
 
-        # Counting recursive steps.
-        self.build_steps = 0
+        # Some build stats:
+        # Number of meta op-records.
+        self.num_meta_ops = 0
+        # Number of actual backend ops.
+        self.num_ops = 0
+        # Number of trainable variables (optimizable weights).
+        self.num_trainable_parameters = 0
 
         # Create an empty core Component into which everything will be assembled by an Algo.
         self.core_component = core_component
@@ -74,31 +79,6 @@ class GraphBuilder(Specifiable):
         # Columns that have been forwarded will be erased again from this collection.
         self.unprocessed_in_op_columns = OrderedDict()
         self.unprocessed_complete_in_op_columns = OrderedDict()
-
-    def build(self, input_spaces, available_devices, default_device=None, device_strategy='default'):
-        """
-        Builds the actual backend-specific graph from the YARL metagraph.
-        Loops through all our sub-components starting at core and assembles the graph by creating placeholders,
-        following Socket->Socket connections and running through our GraphFunctions to generate DataOps.
-
-        Args:
-            input_spaces (dict):
-            available_devices (list): Devices which can be used to assign parts of the graph
-                during graph assembly.
-            default_device (Optional[str]): Default device identifier.
-            device_strategy (Optional[str]): Device strategy.
-        """
-        # self.sanity_check_meta_graph()
-
-        # Set devices usable for this graph.
-        self.available_devices = available_devices
-        self.device_strategy = device_strategy
-        self.default_device = default_device
-
-        # Push all spaces through the API methods, then enter the main iterative DFS while loop.
-        op_records_to_process = self.build_input_space_ops(input_spaces)
-
-        self.build_graph(op_records_to_process)
 
     def build_meta_graph(self, input_spaces=None):
         """
@@ -138,6 +118,10 @@ class GraphBuilder(Specifiable):
         time_build = time.monotonic() - time_start
         self.logger.info("Meta-graph build completed in {} s.".format(time_build))
 
+        # Get some stats on the graph and report.
+        self.num_meta_ops = DataOpRecord._ID + 1
+        self.logger.info("\tMeta-graph op-records generated: {}".format(self.num_meta_ops))
+
     def sanity_check_meta_graph(self, component=None):
         """
         TODO: Rewrite this method according to new API-method design.
@@ -175,47 +159,14 @@ class GraphBuilder(Specifiable):
 
         # Recursively call this method on all the sub-component's sub-components.
         for sub_component in component.sub_components.values():
-            self.build_steps += 1
-            if self.build_steps >= self.MAX_ITERATIVE_LOOPS:
-                raise YARLError("Error sanity checking graph, reached max recursion steps: {}".format(
-                    self.MAX_ITERATIVE_LOOPS
-                ))
+            #self.build_steps += 1
+            #if self.build_steps >= self.MAX_ITERATIVE_LOOPS:
+            #    raise YARLError("Error sanity checking graph, reached max recursion steps: {}".format(
+            #        self.MAX_ITERATIVE_LOOPS
+            #    ))
             self.sanity_check_meta_graph(sub_component)
 
-    def build_input_space_ops(self, input_spaces):
-        """
-        Generates ops from Space information and stores these ops in the DataOpRecords of our API
-        methods.
-
-        Args:
-            input_spaces (dict): Dict with keys=api-method names; values=list of Space objects or specification dicts
-                to create the Spaces that go into the APIMethodRecords.
-
-        Returns:
-            Set[DataOpRecord]: A set of DataOpRecords with which we should start the building
-                process.
-        """
-        op_records_to_process = set()
-
-        for api_method_name, (in_op_records, _) in self.api.items():
-            spaces = force_list(input_spaces[api_method_name]) if input_spaces is not None and \
-                                                                  api_method_name in input_spaces else list()
-            assert len(spaces) == len(in_op_records)
-
-            # Create the placeholder and store it in the given DataOpRecords.
-            for i, space in enumerate(spaces):
-                if not isinstance(space, Space):
-                    space = Space.from_spec(space)
-                # Generate a placeholder and store it as well as the Space itself.
-                in_op_records[i].op = space.get_tensor_variable(name="api-"+api_method_name+"/param-"+str(i),
-                                                                is_input_feed=True)
-                in_op_records[i].space = space
-
-                op_records_to_process.add(in_op_records[i])
-
-        return op_records_to_process
-
-    def build_graph(self, op_records_to_process):
+    def build_graph(self, input_spaces, available_devices, default_device=None, device_strategy='default'):
         """
         The actual iterative depth-first search algorithm to build our graph from the already existing
         meta-Graph structure.
@@ -226,11 +177,22 @@ class GraphBuilder(Specifiable):
         in the entire meta-graph have been filled with actual ops.
 
         Args:
-            op_records_to_process (Set[DataOpRecord]): The initial set of DataOpRecords (with populated `op` fields
-                to start the build with).
+            input_spaces (dict):
+            available_devices (list): Devices which can be used to assign parts of the graph
+                during graph assembly.
+            default_device (Optional[str]): Default device identifier.
+            device_strategy (Optional[str]): Device strategy.
         """
         # Time the build procedure.
         time_start = time.monotonic()
+
+        # Set devices usable for this graph.
+        self.available_devices = available_devices
+        self.device_strategy = device_strategy
+        self.default_device = default_device
+
+        # Push all spaces through the API methods, then enter the main iterative DFS while loop.
+        op_records_to_process = self.build_input_space_ops(input_spaces)
 
         # Collect all components and add those op-recs to the set that are constant.
         components = self.get_all_components()
@@ -297,6 +259,46 @@ class GraphBuilder(Specifiable):
 
         time_build = time.monotonic() - time_start
         self.logger.info("Computation-Graph build completed in {} s ({} iterations).".format(time_build, loop_counter))
+
+        # Get some stats on the graph and report.
+        self.num_ops = self.count_ops()
+        self.logger.info("\tBackend ops generated: {}".format(self.num_ops))
+
+        self.num_trainable_parameters = self.count_trainable_parameters()
+        self.logger.info("\tNumber of trainable parameters: {}".format(self.num_trainable_parameters))
+
+    def build_input_space_ops(self, input_spaces):
+        """
+        Generates ops from Space information and stores these ops in the DataOpRecords of our API
+        methods.
+
+        Args:
+            input_spaces (dict): Dict with keys=api-method names; values=list of Space objects or specification dicts
+                to create the Spaces that go into the APIMethodRecords.
+
+        Returns:
+            Set[DataOpRecord]: A set of DataOpRecords with which we should start the building
+                process.
+        """
+        op_records_to_process = set()
+
+        for api_method_name, (in_op_records, _) in self.api.items():
+            spaces = force_list(input_spaces[api_method_name]) if input_spaces is not None and \
+                                                                  api_method_name in input_spaces else list()
+            assert len(spaces) == len(in_op_records)
+
+            # Create the placeholder and store it in the given DataOpRecords.
+            for i, space in enumerate(spaces):
+                if not isinstance(space, Space):
+                    space = Space.from_spec(space)
+                # Generate a placeholder and store it as well as the Space itself.
+                in_op_records[i].op = space.get_tensor_variable(name="api-"+api_method_name+"/param-"+str(i),
+                                                                is_input_feed=True)
+                in_op_records[i].space = space
+
+                op_records_to_process.add(in_op_records[i])
+
+        return op_records_to_process
 
     def get_all_components(self, component=None, list_=None, level_=0):
         """
@@ -555,6 +557,36 @@ class GraphBuilder(Specifiable):
             assert out_graph_fn_column.op_records[i].op is None
             out_graph_fn_column.op_records[i].op = op
             out_graph_fn_column.op_records[i].space = space
+
+    @staticmethod
+    def count_trainable_parameters():
+        """
+        Counts the number of trainable parameters (e.g. tf.Variables) to get a rough idea of how complex
+        our Model is.
+
+        Returns:
+            int: The number of trainable parameters in the graph.
+        """
+        num_trainable_parameters = 0
+        if get_backend() == "tf":
+            for variable in tf.trainable_variables():
+                # shape is an array of tf.Dimension
+                num_trainable_parameters += get_shape(variable, flat=True)
+
+        return num_trainable_parameters
+
+    @staticmethod
+    def count_ops():
+        """
+        Counts the number of all backend-specific ops present in the graph.
+        This includes variables and placeholders.
+
+        Returns:
+            int: The number of backend-specific ops in the graph.
+        """
+        if get_backend() == "tf":
+            return len(tf.get_default_graph().as_graph_def().node)
+        return 0
 
     def sanity_check_build(self, component=None):
         # TODO: Obsolete method?
