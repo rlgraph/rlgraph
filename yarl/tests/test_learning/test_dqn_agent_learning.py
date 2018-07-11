@@ -177,7 +177,7 @@ class TestDQNAgentLearning(unittest.TestCase):
         )
 
         time_steps = 5000
-        worker = SingleThreadedWorker(environment=env, agent=agent, render=True)
+        worker = SingleThreadedWorker(environment=env, agent=agent, render=False)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         print("STATES:\n{}".format(agent.last_q_table["states"]))
