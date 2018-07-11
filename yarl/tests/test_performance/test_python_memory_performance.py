@@ -133,6 +133,13 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         )
         memory.create_variables(dict(insert_records=[record_space]), None)
 
+        # Avoid flattening
+        record_space = Dict({
+            "/states": self.env.state_space,
+            "/actions": self.env.action_space,
+            "/reward": float,
+            "/terminals": BoolBox(),
+        })
         records = [record_space.sample(size=1) for _ in range(self.inserts)]
 
         start = time.monotonic()
@@ -154,6 +161,12 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         memory.create_variables(dict(insert_records=[record_space]), None)
 
         chunks = int(self.inserts / self.chunksize)
+        record_space = Dict({
+            "/states": self.env.state_space,
+            "/actions": self.env.action_space,
+            "/reward": float,
+            "/terminals": BoolBox(),
+        })
         records = [record_space.sample(size=self.chunksize) for _ in range(chunks)]
         start = time.monotonic()
         for record in records:
