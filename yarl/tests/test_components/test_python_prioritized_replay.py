@@ -70,6 +70,29 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         observation = self.record_space.sample(size=1)
         memory.insert_records(observation)
 
+    def test_update_records(self):
+        """
+        Tests update records logic.
+        """
+        memory = MemPrioritizedReplay(
+            capacity=self.capacity,
+            next_states=True
+        )
+        memory.create_variables(self.input_spaces, None)
+
+        # Insert a few Elements.
+        observation = non_terminal_records(self.record_space, 2)
+        memory.insert_records(observation)
+
+        # Fetch elements and their indices.
+        num_records = 2
+        batch = memory.get_records(num_records)
+        indices = batch[1]
+        self.assertEqual(num_records, len(indices))
+
+        # Does not return anything
+        memory.update_records(indices, np.asarray([0.1, 0.2]))
+
     def test_segment_tree_insert_values(self):
         """
         Tests if segment tree inserts into correct positions.

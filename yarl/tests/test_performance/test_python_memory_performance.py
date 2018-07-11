@@ -19,9 +19,10 @@ from __future__ import print_function
 
 import unittest
 
+import numpy as np
 import time
 
-from six.moves import xrange
+from six.moves import xrange as range_
 from ray.rllib.optimizers.replay_buffer import PrioritizedReplayBuffer
 
 from yarl.components.memories.mem_prioritized_replay import MemPrioritizedReplay
@@ -31,8 +32,8 @@ from yarl.tests import ComponentTest
 
 
 class TestPythonMemoryPerformance(unittest.TestCase):
-
-    # Note: Using Atari states here has to be done with care because without preprocessing, these will require
+    # Note: Using Atari states here has to be done with care because without preprocessing,
+    # these will require
     # large amount sof memory.
     env = OpenAIGymEnv(gym_env='CartPole-v0')
 
@@ -49,7 +50,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
     beta = 1.0
     max_priority = 1.0
 
-    def test_ray_prioritized_replay(self):
+    def test_ray_prioritized_replay_insert(self):
         """
         Tests Ray's memory performance.
         """
@@ -68,7 +69,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         )
 
         # Test individual inserts.
-        records = [record_space.sample(size=1) for _ in range(self.inserts)]
+        records = [record_space.sample(size=1) for _ in range_(self.inserts)]
 
         start = time.monotonic()
         for record in records:
@@ -96,10 +97,10 @@ class TestPythonMemoryPerformance(unittest.TestCase):
 
         # Test chunked inserts -> done via external for loop in Ray.
         chunks = int(self.inserts / self.chunksize)
-        records = [record_space.sample(size=self.chunksize) for _ in range(chunks)]
+        records = [record_space.sample(size=self.chunksize) for _ in range_(chunks)]
         start = time.monotonic()
         for chunk in records:
-            for i in xrange(self.chunksize):
+            for i in range_(self.chunksize):
                 memory.add(
                     obs_t=chunk['states'][i],
                     action=chunk['actions'][i],
@@ -115,7 +116,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             len(records), tp, end
         ))
 
-    def test_yarl_prioritized_replay(self):
+    def test_yarl_prioritized_replay_insert(self):
         """
         Tests Yarl's python memory performance.
         """
@@ -167,7 +168,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             "/reward": float,
             "/terminals": BoolBox(),
         })
-        records = [record_space.sample(size=self.chunksize) for _ in range(chunks)]
+        records = [record_space.sample(size=self.chunksize) for _ in range_(chunks)]
         start = time.monotonic()
         for record in records:
             # Each record now is a chunk.
@@ -177,6 +178,95 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         tp = len(records) * self.chunksize / end
         print('Testing chunked insert performance:')
         print('Inserted {} chunks, throughput: {} records/s, total time: {} s'.format(
+            len(records), tp, end
+        ))
+
+    def test_ray_combined_ops(self):
+        """
+        Tests a combined workflow of insert, sample, update on the prioritized replay memory.
+        """
+        record_space = Dict(
+            states=self.env.state_space,
+            actions=self.env.action_space,
+            reward=float,
+            terminals=BoolBox(),
+            add_batch_rank=True
+        )
+        memory = PrioritizedReplayBuffer(
+            size=self.capacity,
+            alpha=1.0,
+            clip_rewards=True
+        )
+        chunksize = 32
+
+        # Test chunked inserts -> done via external for loop in Ray.
+        chunks = int(self.inserts / chunksize)
+        records = [record_space.sample(size=chunksize) for _ in range_(chunks)]
+        loss_values = [np.random.random(size=self.sample_batch_size) for _ in range_(chunks)]
+        start = time.monotonic()
+
+        for chunk, loss_values in zip(records, loss_values):
+            # Insert
+            for i in range_(chunksize):
+                memory.add(
+                    obs_t=chunk['states'][i],
+                    action=chunk['actions'][i],
+                    reward=chunk['reward'][i],
+                    obs_tp1=chunk['states'][i],
+                    done=chunk['terminals'][i],
+                    weight=None
+                )
+            # Sample
+            batch_tuple = memory.sample(self.sample_batch_size, beta=1.0)
+            indices = batch_tuple[-1]
+            # Update
+            memory.update_priorities(indices, loss_values)
+
+        end = time.monotonic() - start
+        tp = len(records) / end
+        print('Ray: testing combined insert/sample/update performance:')
+        print('Ran {} combined ops, throughput: {} combined ops/s, total time: {} s'.format(
+            len(records), tp, end
+        ))
+
+    def test_yarl_combined_ops(self):
+        """
+        Tests a combined workflow of insert, sample, update on the prioritized replay memory.
+        """
+        record_space = Dict(
+            states=self.env.state_space,
+            actions=self.env.action_space,
+            reward=float,
+            terminals=BoolBox(),
+            add_batch_rank=True
+        )
+        memory = MemPrioritizedReplay(
+            capacity=self.capacity,
+            alpha=1.0
+        )
+        memory.create_variables(dict(insert_records=[record_space]), None)
+
+        chunks = int(self.inserts / self.chunksize)
+        record_space = Dict({
+            "/states": self.env.state_space,
+            "/actions": self.env.action_space,
+            "/reward": float,
+            "/terminals": BoolBox(),
+        })
+        records = [record_space.sample(size=self.chunksize) for _ in range_(chunks)]
+        loss_values = [np.random.random(size=self.sample_batch_size) for _ in range_(chunks)]
+
+        start = time.monotonic()
+        for record, loss_values in zip(records, loss_values):
+            # Each record now is a chunk.
+            memory.insert_records(record)
+            batch, indices, weights = memory.get_records(self.sample_batch_size)
+            memory.update_records(indices, loss_values)
+
+        end = time.monotonic() - start
+        tp = len(records) / end
+        print('YARL: Testing combined op performance:')
+        print('Ran {} combined ops, throughput: {} combined ops/s, total time: {} s'.format(
             len(records), tp, end
         ))
 
