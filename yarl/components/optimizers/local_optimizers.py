@@ -56,8 +56,9 @@ class LocalOptimizer(Optimizer):
         self.define_api_method("step", step)
 
     def create_variables(self, input_spaces, action_space):
+        # TODO: problem dont exist here
         # Must register the Optimizer's variables with the Component.
-        #self.register_variables(*self.optimizer.variables)
+        # self.register_variables(*self.optimizer.variables())
         pass
 
     def _graph_fn_calculate_gradients(self, variables, loss):
@@ -106,8 +107,8 @@ class AdamOptimizer(LocalOptimizer):
         super(AdamOptimizer, self).__init__(
             learning_rate=learning_rate, scope=kwargs.pop("scope", "adam-optimizer"), **kwargs
         )
-
         if get_backend() == "tf":
+            self.logger.info("creating adam ####")
             self.optimizer = tf.train.AdamOptimizer(
                 learning_rate=self.learning_rate,
                 beta1=kwargs.pop("beta_1", kwargs.pop("beta1", 0.9)),

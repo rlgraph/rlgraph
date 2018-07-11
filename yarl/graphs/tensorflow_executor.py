@@ -137,8 +137,8 @@ class TensorFlowExecutor(GraphExecutor):
         # Build the meta-graph (generating empty op-record columns around API methods
         # and graph_fns).
         self.graph_builder.build_meta_graph(input_spaces)
-
-        self._build_device_strategy(optimizer)
+        # TODO optimizer is passed in at tuple
+        self._build_device_strategy(optimizer[0])
 
         # Build actual TensorFlow graph from meta graph.
         self.graph_builder.build_graph(input_spaces, self.available_devices, self.default_device, self.device_strategy)
@@ -383,6 +383,11 @@ class TensorFlowExecutor(GraphExecutor):
         """
         if self.execution_mode == "single":
             var_list = list(self.graph_builder.core_component.variables.values())
+            # We can not fetch optimizer vars.
+            # self.logger.info("optimizer vars before init :")
+            # self.logger.info(self.optimizer.optimizer.variables())
+            # TODO let graph builder do this
+            var_list.extend(self.optimizer.optimizer.variables())
             init_op = tf.variables_initializer(var_list=var_list)
             ready_op = tf.report_uninitialized_variables(var_list=var_list)
             ready_for_local_init_op = tf.report_uninitialized_variables(var_list=var_list)
@@ -524,6 +529,7 @@ class TensorFlowExecutor(GraphExecutor):
         Args:
             optimizer:
         """
+        self.optimizer = optimizer
 
         if self.device_strategy == 'multi_gpu_sync':
             # Assert we have more than one gpu.
@@ -531,8 +537,6 @@ class TensorFlowExecutor(GraphExecutor):
             assert isinstance(optimizer, MultiGpuSyncOptimizer)
 
             # Save optimizer which will return the necessary ops.
-            self.optimizer = optimizer
-
             subgraphs = []
             core = self.graph_builder.core_component()
 
