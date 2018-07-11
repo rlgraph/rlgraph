@@ -69,3 +69,58 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
 
         observation = self.record_space.sample(size=1)
         memory.insert_records(observation)
+
+    def test_segment_tree_insert_values(self):
+        """
+        Tests if segment tree inserts into correct positions.
+        """
+        memory = MemPrioritizedReplay(
+            capacity=self.capacity,
+            next_states=True,
+            alpha=self.alpha,
+            beta=self.beta
+        )
+        memory.create_variables(self.input_spaces, None)
+
+        priority_capacity = 1
+        while priority_capacity < self.capacity:
+            priority_capacity *= 2
+
+        sum_segment_values = memory.sum_segment_tree.values
+        min_segment_values = memory.min_segment_tree.values
+
+        self.assertEqual(sum(sum_segment_values), 0)
+        self.assertEqual(sum(min_segment_values), float('inf'))
+        self.assertEqual(len(sum_segment_values), 2 * priority_capacity)
+        self.assertEqual(len(min_segment_values), 2 * priority_capacity)
+
+        # Insert 1 Element.
+        observation = non_terminal_records(self.record_space, 1)
+        memory.insert_records(observation)
+
+        # Check insert positions
+        # Initial insert is at priority capacity
+        print(sum_segment_values)
+        print(min_segment_values)
+        start = priority_capacity
+
+        while start >= 1:
+            self.assertEqual(sum_segment_values[start], 1.0)
+            self.assertEqual(min_segment_values[start], 1.0)
+            start = int(start / 2)
+
+        # Insert another Element.
+        observation = non_terminal_records(self.record_space, 1)
+        memory.insert_records(observation)
+
+        # Index shifted 1
+        start = priority_capacity + 1
+        self.assertEqual(sum_segment_values[start], 1.0)
+        self.assertEqual(min_segment_values[start], 1.0)
+        start = int(start / 2)
+        while start >= 1:
+            # 1 + 1 is 2 on the segment.
+            self.assertEqual(sum_segment_values[start], 2.0)
+            # min is still 1.
+            self.assertEqual(min_segment_values[start], 1.0)
+            start = int(start / 2)
