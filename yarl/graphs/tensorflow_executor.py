@@ -137,8 +137,7 @@ class TensorFlowExecutor(GraphExecutor):
         # Build the meta-graph (generating empty op-record columns around API methods
         # and graph_fns).
         self.graph_builder.build_meta_graph(input_spaces)
-        # TODO optimizer is passed in at tuple
-        self._build_device_strategy(optimizer[0])
+        self._build_device_strategy(optimizer)
 
         # Build actual TensorFlow graph from meta graph.
         self.graph_builder.build_graph(input_spaces, self.available_devices, self.default_device, self.device_strategy)
@@ -390,12 +389,10 @@ class TensorFlowExecutor(GraphExecutor):
             var_list.extend(self.optimizer.optimizer.variables())
             init_op = tf.variables_initializer(var_list=var_list)
             ready_op = tf.report_uninitialized_variables(var_list=var_list)
-            ready_for_local_init_op = tf.report_uninitialized_variables(var_list=var_list)
         else:
             # TODO: Distributed tf scaffold.
             init_op = None
             ready_op = None
-            ready_for_local_init_op = None
 
         def init_fn(scaffold, session):
             # NOTE: `self.load_from_file` is either True or a string value.
@@ -421,7 +418,7 @@ class TensorFlowExecutor(GraphExecutor):
             init_feed_dict=None,
             init_fn=init_fn if self.load_from_file else None,
             ready_op=ready_op,
-            ready_for_local_init_op=ready_for_local_init_op,
+            ready_for_local_init_op=None,
             local_init_op=None,
             summary_op=self.summary_op,
             saver=self.saver,
@@ -540,7 +537,7 @@ class TensorFlowExecutor(GraphExecutor):
             subgraphs = []
             core = self.graph_builder.core_component()
 
-            # Identify the subgraph relevant for device management.
+            # Identify the sub-graph relevant for device management.
             sub_graph = self.graph_builder.get_subgraph("update_from_external_batch")
             subgraphs.append(sub_graph)
             for device in range(self.num_gpus - 1):

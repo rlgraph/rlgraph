@@ -146,7 +146,7 @@ class Agent(Specifiable):
         """
         Asks our GraphExecutor to actually build the Graph from the YARL meta-graph.
         """
-        self.graph_executor.build(input_spaces, args)
+        self.graph_executor.build(input_spaces, *args)
 
     def get_action(self, states, use_exploration=False, return_preprocessed_states=False):
         """
