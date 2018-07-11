@@ -50,7 +50,7 @@ class PPOAgent(Agent):
         # PPO uses a ring buffer.
         self.memory = Memory.from_spec(memory_spec)
         self.record_space = Dict(states=self.state_space, actions=self.action_space, rewards=float,
-                                 terminals=IntBox(1), add_batch_rank=False)
+                                 terminals=BoolBox(), add_batch_rank=False)
 
         self.policy = Policy(neural_network=self.neural_network, action_adapter_spec=None)
 
@@ -109,22 +109,19 @@ class PPOAgent(Agent):
         Returns:
             batch, ndarray: Sample batch and indices sampled.
         """
-        batch, indices = self.graph_executor.execute(sockets=["get_batch", "get"])
+        batch, indices = self.graph_executor.execute("get_batch", "get")
 
         # Return indices so we later now which priorities to update.
         return batch, indices
 
     def _observe_graph(self, states, actions, internals, rewards, terminals):
-        self.graph_executor.execute("insert_records", inputs=dict(
-            states_for_memory=states,
-            actions_for_memory=actions,
-            rewards_for_memory=rewards,
-            terminals_for_memory=terminals
-        ))
+        self.graph_executor.execute(
+            ("insert_records", [states, actions, rewards, terminals])
+        )
 
     def update(self, batch=None):
         if batch is None:
-            _, loss = self.graph_executor.execute(["update_from_memory", "loss"])
+            _, loss = self.graph_executor.execute("update_from_memory", "loss")
         else:
             batch_input = dict(
                 external_batch_states=batch["states"],
@@ -134,10 +131,11 @@ class PPOAgent(Agent):
                 external_batch_next_states=batch["next_states"]
             )
             _, loss = self.graph_executor.execute(
-                ["update_from_external_batch", "loss"], inputs=batch_input
+                ("update_from_external_batch", batch_input),
+                "loss"
             )
         self.train_time_steps += 1
         return loss
 
     def __repr__(self):
-        return "ApexAgent"
+        return "PPOAgent()"

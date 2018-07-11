@@ -106,13 +106,7 @@ class TestExplorations(unittest.TestCase):
         # Our distribution to go into the Exploration object.
         nn_output_space = FloatBox(shape=(13,), add_batch_rank=True)  # 13: Any flat nn-output should be ok.
 
-        exploration = Exploration.from_spec(dict(
-            noise_spec=dict(
-                type='gaussian_noise',
-                mean=10.0,
-                sd=2.0
-            )
-        ))
+        exploration = Exploration.from_spec(dict(noise_spec=dict(type="gaussian_noise", mean=10.0, sd=2.0)))
 
         # The Component to test.
         exploration_pipeline = Component(scope="continuous-plus-noise")
@@ -138,9 +132,11 @@ class TestExplorations(unittest.TestCase):
 
         # Collect outputs in `collected` list to compare moments.
         collected = list()
-        collect_outs = lambda component_test, outs: collected.append(outs)
 
-        for i in range_(1000):
+        def collect_outs(component_test, outs):
+            return collected.append(outs)
+
+        for _ in range_(1000):
             test.test("get_noise", fn_test=collect_outs)
 
         self.assertAlmostEqual(10.0, np.mean(collected), places=1)

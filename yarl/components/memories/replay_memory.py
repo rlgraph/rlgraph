@@ -28,14 +28,6 @@ from yarl.utils.util import get_batch_size
 class ReplayMemory(Memory):
     """
     Implements a standard replay memory to sample randomized batches.
-
-    API:
-    ins:
-        records (any): The records to insert via a call to out-Socket "insert_records".
-        num_records (int): The number of records to pull via out-Socket "get_records".
-    outs:
-        insert_records (no_op): Triggers an insertion of in-Socket "records" into the memory.
-        get_records (any): Pulls "num_records" (in-Socket) single records from the memory and returns them.
     """
     def __init__(
         self,
@@ -46,7 +38,7 @@ class ReplayMemory(Memory):
     ):
         """
         Args:
-            next_states (bool): If true include next states in the return values of the out-Socket "get_records".
+            next_states (bool): If true include next states in the return values of the API-method "get_records".
         """
         super(ReplayMemory, self).__init__(capacity, scope=scope, **kwargs)
 
@@ -55,8 +47,6 @@ class ReplayMemory(Memory):
         self.index = None
         self.size = None
         self.states = None
-
-        # Extend our interface ("get_records").
 
     def create_variables(self, input_spaces, action_space):
         super(ReplayMemory, self).create_variables(input_spaces, action_space)
@@ -77,8 +67,8 @@ class ReplayMemory(Memory):
 
     def _graph_fn_insert_records(self, records):
         num_records = get_batch_size(records["/terminals"])
-        index = self.read_variable(self.index)
-        update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
+        # List of indices to update (insert from `index` forward and roll over at `self.capacity`).
+        update_indices = tf.range(start=self.index, limit=self.index + num_records) % self.capacity
 
         # Updates all the necessary sub-variables in the record.
         # update_indices = tf.Print(update_indices, [update_indices, index, num_records], summarize=100,
@@ -94,7 +84,7 @@ class ReplayMemory(Memory):
         # Update indices and size.
         with tf.control_dependencies(control_inputs=record_updates):
             index_updates = list()
-            index_updates.append(self.assign_variable(ref=self.index, value=(index + num_records) % self.capacity))
+            index_updates.append(self.assign_variable(ref=self.index, value=(self.index + num_records) % self.capacity))
             update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
             index_updates.append(self.assign_variable(self.size, value=update_size))
 

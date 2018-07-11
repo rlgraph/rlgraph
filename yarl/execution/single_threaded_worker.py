@@ -133,7 +133,7 @@ class SingleThreadedWorker(Worker):
         # Only run everything for at most num_timesteps (if defined).
         while not (0 < num_timesteps <= timesteps_executed):
             # If we are in a second or later loop OR reset is True -> Reset the Env.
-            if timesteps_executed != 0 or reset is True:
+            if timesteps_executed != 0 or reset is True or self.episode_terminal is True:
                 self.episode_return = 0
                 self.episode_timesteps = 0
                 self.episode_terminal = False
@@ -162,21 +162,27 @@ class SingleThreadedWorker(Worker):
                     if self.episode_terminal:
                         break
 
-                self.agent.observe(states=self.episode_state, actions=action, internals=[], rewards=reward,
-                                   terminals=self.episode_terminal)
+                self.episode_return += reward
+                timesteps_executed += 1
+                self.episode_timesteps += 1
+
+                num_timesteps_reached = (0 < num_timesteps <= timesteps_executed)
+                max_episode_timesteps_reached = (0 < max_timesteps_per_episode <= self.episode_timesteps)
+
+                self.agent.observe(
+                    states=self.episode_state, actions=action, internals=[], rewards=reward,
+                    terminals=self.episode_terminal,
+                    episode_was_aborted=max_episode_timesteps_reached
+                )
+
+                self.episode_state = next_state
 
                 loss = self.update_if_necessary()
                 if loss is not None:
                     self.logger.info("LOSS: {}".format(loss))
 
-                self.episode_return += reward
-                timesteps_executed += 1
-                self.episode_timesteps += 1
-                self.episode_state = next_state
-
                 # Is the episode finished or do we have to terminate it prematurely because of other restrictions?
-                if self.episode_terminal or (0 < num_timesteps <= timesteps_executed) or \
-                        (0 < max_timesteps_per_episode <= self.episode_timesteps):
+                if self.episode_terminal or num_timesteps_reached or max_episode_timesteps_reached:
                     break
 
             episodes_executed += 1

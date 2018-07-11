@@ -65,25 +65,24 @@ class TestPolicies(unittest.TestCase):
         test.test(("get_action_layer_output", states), expected_outputs=expected_action_layer_output,
                   decimals=5)
 
-        # Parameter (probabilities). Softmaxed action_layer_outputs.
-        # Logits: log of the parameters.
+        # Logits, parameters (probs) and skip log-probs (numerically unstable for small probs).
         expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
-        test.test(("get_logits_parameters_log_probs", states), expected_outputs=[
+        test.test(("get_logits_parameters_log_probs", states, [0, 1]), expected_outputs=[
             expected_action_layer_output,
-            np.array(expected_probabilities_output, dtype=np.float32),
-            np.log(expected_probabilities_output)
+            np.array(expected_probabilities_output, dtype=np.float32)
+            #np.log(expected_probabilities_output)
         ], decimals=5)
 
         # Stochastic sample.
-        expected_actions = np.array([0, 0])
+        expected_actions = np.array([0, 4])
         test.test(("sample_stochastic", states), expected_outputs=expected_actions)
 
         # Deterministic sample.
-        expected_actions = np.array([0, 0])
+        expected_actions = np.array([2, 4])
         test.test(("sample_deterministic", states), expected_outputs=expected_actions)
 
         # Distribution's entropy.
-        expected_h = np.array([1.4974977, 0.9677231])
+        expected_h = np.array([1.5822479, 0.0047392])
         test.test(("get_entropy", states), expected_outputs=expected_h)
 
     def test_policy_for_discrete_action_space_with_dueling_layer(self):
@@ -145,15 +144,17 @@ class TestPolicies(unittest.TestCase):
 
         # Parameter (probabilities). Softmaxed q_values.
         expected_probabilities_output = softmax(expected_q_values_output, axis=-1)
-        test.test(("get_logits_parameters_log_probs", states),
+        test.test(("get_logits_parameters_log_probs", states, [0, 1]),
                   expected_outputs=[
                       expected_q_values_output,
-                      expected_probabilities_output,
-                      np.log(expected_probabilities_output),
+                      expected_probabilities_output
+                      #np.log(expected_probabilities_output),
                   ])
 
+        print("Probs: {}".format(expected_probabilities_output))
+
         # Stochastic sample.
-        expected_actions = np.array([0, 1, 1])
+        expected_actions = np.array([0, 0, 1])
         test.test(("sample_stochastic", states), expected_outputs=expected_actions)
 
         # Deterministic sample.

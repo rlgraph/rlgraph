@@ -26,7 +26,7 @@ import yarl.spaces as spaces
 from yarl.components.loss_functions.dqn_loss_function import DQNLossFunction
 from yarl.envs import GridWorld, RandomEnv
 from yarl.execution.single_threaded_worker import SingleThreadedWorker
-from yarl.utils import root_logger
+from yarl.utils import root_logger, one_hot
 from yarl.tests.agent_test import AgentTest
 
 
@@ -96,14 +96,16 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         matrix1_target_net = np.array([[0.9] * 2] * 4)
         matrix2_target_net = np.array([[0.8] * 5] * 2)
 
+        a = self._calculate_action(0, matrix1_qnet, matrix2_qnet)
+
         # 1st step -> Expect insert into python-buffer.
         # action: up (0)
         test.step(1, reset=True)
         # Environment's new state.
         test.check_env("state", 0)
         # Agent's buffer.
-        test.check_agent("states_buffer", [0])
-        test.check_agent("actions_buffer", [0])
+        test.check_agent("states_buffer", [0])  # <- prev state
+        test.check_agent("actions_buffer", [a])
         test.check_agent("rewards_buffer", [-1.0])
         test.check_agent("terminals_buffer", [False])
         # Memory contents.
@@ -115,9 +117,9 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         test.check_var("replay-memory/memory/terminals", np.array([False] * agent.memory.capacity))
         # Check policy and target-policy weights (should be the same).
         test.check_var("policy/neural-network/hidden/dense/kernel", matrix1_qnet)
-        test.check_var("target-policy/neural-network/hidden/dense/kernel", matrix1_target_net)
+        test.check_var("target-policy/neural-network/hidden/dense/kernel", matrix1_qnet)
         test.check_var("policy/action-adapter/action-layer/dense/kernel", matrix2_qnet)
-        test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_target_net)
+        test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_qnet)
 
         # 2nd step -> expect insert into memory (and python buffer should be empty again).
         # action: up (0)
@@ -134,18 +136,18 @@ class TestDQNAgentFunctionality(unittest.TestCase):
                                                                [[0.0, 0.0, 0.0, 0.0]] * (agent.memory.capacity - 2)))
         test.check_var("replay-memory/memory/actions", np.array([0, 0] + [0] * (agent.memory.capacity - 2)))
         test.check_var("replay-memory/memory/rewards", np.array([-1.0, -1.0] + [0.0] * (agent.memory.capacity - 2)))
-        test.check_var("replay-memory/memory/terminals", np.array([False] * agent.memory.capacity))
+        test.check_var("replay-memory/memory/terminals", np.array([False, True] + [False] * (agent.memory.capacity - 2)))
         # Check policy and target-policy weights (should be the same).
         test.check_var("policy/neural-network/hidden/dense/kernel", matrix1_qnet)
-        test.check_var("target-policy/neural-network/hidden/dense/kernel", matrix1_target_net)
+        test.check_var("target-policy/neural-network/hidden/dense/kernel", matrix1_qnet)
         test.check_var("policy/action-adapter/action-layer/dense/kernel", matrix2_qnet)
-        test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_target_net)
+        test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_qnet)
 
         # 3rd and 4th step -> expect another insert into memory (and python buffer should be empty again).
-        # actions: up, up
+        # actions: up (0), right (1)  <- exploring is True = more random actions
         # Expect an update to the policy variables (leave target as is (no sync yet)).
-        test.step(2)
-        test.check_env("state", 0)
+        test.step(2, use_exploration=True)
+        test.check_env("state", 2)
         test.check_agent("states_buffer", [])
         test.check_agent("actions_buffer", [])
         test.check_agent("rewards_buffer", [])
@@ -154,16 +156,18 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         test.check_var("replay-memory/size", 4)
         test.check_var("replay-memory/memory/states", np.array([[1.0, 0.0, 0.0, 0.0]] * 4 +
                                                                [[0.0, 0.0, 0.0, 0.0]] * (agent.memory.capacity - 4)))
-        test.check_var("replay-memory/memory/actions", np.array([0] * 4 + [0] * (agent.memory.capacity - 4)))
-        test.check_var("replay-memory/memory/rewards", np.array([-1.0] * 4 + [0.0] * (agent.memory.capacity - 4)))
-        test.check_var("replay-memory/memory/terminals", np.array([False] * agent.memory.capacity))
+        test.check_var("replay-memory/memory/actions", np.array([0, 0, 0, 1] + [0] * (agent.memory.capacity - 4)))
+        test.check_var("replay-memory/memory/rewards", np.array([-1.0] * 3 + [-3.0] +
+                                                                [0.0] * (agent.memory.capacity - 4)))
+        test.check_var("replay-memory/memory/terminals", np.array([False, True] * 2 +
+                                                                  [False] * (agent.memory.capacity - 4)))
         # Get the latest memory batch.
         expected_batch = dict(
             states=np.array([[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]]),
-            actions=np.array([0, 0]),
-            rewards=np.array([-1.0, -1.0]),
-            terminals=np.array([False, False]),
-            next_states=np.array([[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]])
+            actions=np.array([0, 1]),
+            rewards=np.array([-1.0, -3.0]),
+            terminals=np.array([False, True]),
+            next_states=np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]])
         )
         test.check_agent("last_memory_batch", expected_batch)
 
@@ -180,42 +184,43 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         matrix2_qnet = mat_updated[1]
 
         # 5th step -> Another buffer update check.
-        # action: right (1) (weights have been updated -> different actions)
+        # action: down (2) (weights have been updated -> different actions)
         test.step(1)
-        test.check_env("state", 2)
-        test.check_agent("states_buffer", [0])
-        test.check_agent("actions_buffer", [1])
-        test.check_agent("rewards_buffer", [-3.0])
-        test.check_agent("terminals_buffer", [False])
+        test.check_env("state", 3)
+        test.check_agent("states_buffer", [])  # <- all empty b/c we reached end of episode (buffer gets force-flushed)
+        test.check_agent("actions_buffer", [])
+        test.check_agent("rewards_buffer", [])
+        test.check_agent("terminals_buffer", [])
         test.check_agent("last_memory_batch", expected_batch)
-        test.check_var("replay-memory/index", 4)
-        test.check_var("replay-memory/size", 4)
-        test.check_var("replay-memory/memory/states", np.array([[1.0, 0.0, 0.0, 0.0]] * 4 +
-                                                               [[0.0, 0.0, 0.0, 0.0]] * (agent.memory.capacity - 4)))
-        test.check_var("replay-memory/memory/actions", np.array([0] * 4 + [0] * (agent.memory.capacity - 4)))
-        test.check_var("replay-memory/memory/rewards", np.array([-1.0] * 4 +
-                                                                [0.0] * (agent.memory.capacity - 4)))
-        test.check_var("replay-memory/memory/terminals", np.array([False] * agent.memory.capacity))
+        test.check_var("replay-memory/index", 5)
+        test.check_var("replay-memory/size", 5)
+        test.check_var("replay-memory/memory/states", np.array([[1.0, 0.0, 0.0, 0.0]] * 4 + [[0.0, 0.0, 1.0, 0.0]] +
+                                                               [[0.0, 0.0, 0.0, 0.0]] * (agent.memory.capacity - 5)))
+        test.check_var("replay-memory/memory/actions", np.array([0, 0, 0, 1, 2, 0]))
+        test.check_var("replay-memory/memory/rewards", np.array([-1.0] * 3 + [-3.0, 1.0, 0.0]))
+        test.check_var("replay-memory/memory/terminals", np.array([False, True] * 2 + [True, False]))
         test.check_var("policy/neural-network/hidden/dense/kernel", matrix1_qnet, decimals=4)
         test.check_var("target-policy/neural-network/hidden/dense/kernel", matrix1_target_net)
         test.check_var("policy/action-adapter/action-layer/dense/kernel", matrix2_qnet, decimals=4)
         test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_target_net)
 
         # 6th/7th step (with exploration enabled) -> Another buffer update check.
-        # action: right, right (1, 1)
+        # action: up, down (0, 2)
         test.step(2, use_exploration=True)
-        test.check_env("state", 2)
-        test.check_agent("states_buffer", [2])
-        test.check_agent("actions_buffer", [1])
-        test.check_agent("rewards_buffer", [-3.0])
-        test.check_agent("terminals_buffer", [False])
+        test.check_env("state", 1)
+        test.check_agent("states_buffer", [])  # <- all empty again; flushed after 6th step (when buffer was full).
+        test.check_agent("actions_buffer", [])
+        test.check_agent("rewards_buffer", [])
+        test.check_agent("terminals_buffer", [])
         test.check_agent("last_memory_batch", expected_batch)
-        test.check_var("replay-memory/index", 0)  # index has been rolled over (memory capacity is 6)
+        test.check_var("replay-memory/index", 1)  # index has been rolled over (memory capacity is 6)
         test.check_var("replay-memory/size", 6)
-        test.check_var("replay-memory/memory/states", np.array([[1.0, 0.0, 0.0, 0.0]] * 5 + [[0.0, 0.0, 1.0, 0.0]] * 1))
-        test.check_var("replay-memory/memory/actions", np.array([0, 0, 0, 0, 1, 1]))
-        test.check_var("replay-memory/memory/rewards", np.array([-1.0] * 4 + [-3.0] * 2))
-        test.check_var("replay-memory/memory/terminals", np.array([False] * agent.memory.capacity))
+        test.check_var("replay-memory/memory/states", np.array([[1.0, 0.0, 0.0, 0.0]] * 4 +
+                                                               [[0.0, 0.0, 1.0, 0.0]] +
+                                                               [[1.0, 0.0, 0.0, 0.0]]))
+        test.check_var("replay-memory/memory/actions", np.array([2, 0, 0, 1, 2, 0]))
+        test.check_var("replay-memory/memory/rewards", np.array([-1.0] * 3 + [-3.0, 1.0, -1.0]))
+        test.check_var("replay-memory/memory/terminals", np.array([True, True, False, True, True, False]))
 
         test.check_var("policy/neural-network/hidden/dense/kernel", matrix1_qnet, decimals=4)
         test.check_var("target-policy/neural-network/hidden/dense/kernel", matrix1_target_net)
@@ -223,38 +228,46 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_target_net)
 
         # 8th step -> Another buffer update check and weights update and sync.
-        # action: up (0)
+        # action: down (2)
         test.step(1)
-        test.check_env("state", 2)
-        test.check_agent("states_buffer", [])
-        test.check_agent("actions_buffer", [])
-        test.check_agent("rewards_buffer", [])
-        test.check_agent("terminals_buffer", [])
+        test.check_env("state", 1)
+        test.check_agent("states_buffer", [1])
+        test.check_agent("actions_buffer", [2])
+        test.check_agent("rewards_buffer", [-1.0])
+        test.check_agent("terminals_buffer", [False])
         expected_batch = dict(
-            states=np.array([[0.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 0.0]]),
-            actions=np.array([1, 1]),
-            rewards=np.array([-3.0, -3.0]),
-            terminals=np.array([False, False]),
+            states=np.array([[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]]),
+            actions=np.array([0, 1]),
+            rewards=np.array([-1.0, -3.0]),
+            terminals=np.array([True, True]),
             next_states=np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]])  # TODO: <- This is wrong and must be fixed (next-state of first item is from a previous insert and unrelated to first item)
         )
         test.check_agent("last_memory_batch", expected_batch)
-        test.check_var("replay-memory/index", 2)
+        test.check_var("replay-memory/index", 1)
         test.check_var("replay-memory/size", 6)
-        test.check_var("replay-memory/memory/states", np.array([[0.0, 0.0, 1.0, 0.0]] * 2 + [[1.0, 0.0, 0.0, 0.0]] * 3 +
-                                                               [[0.0, 0.0, 1.0, 0.0]]))
-        test.check_var("replay-memory/memory/actions", np.array([1, 1, 0, 0, 1, 1]))  # >=5th action=1, before=0
-        test.check_var("replay-memory/memory/rewards", np.array([-3.0, -3.0, -1.0, -1.0, -3.0, -3.0]))
-        test.check_var("replay-memory/memory/terminals", np.array([False] * agent.memory.capacity))
+        test.check_var("replay-memory/memory/states", np.array([[1.0, 0.0, 0.0, 0.0]] * 4 +
+                                                               [[0.0, 0.0, 1.0, 0.0]] +
+                                                               [[1.0, 0.0, 0.0, 0.0]]))
+        test.check_var("replay-memory/memory/actions", np.array([2, 0, 0, 1, 2, 0]))
+        test.check_var("replay-memory/memory/rewards", np.array([-1.0, -1.0, -1.0, -3.0, 1.0, -1.0]))
+        test.check_var("replay-memory/memory/terminals", np.array([True, True, False, True, True, False]))
 
         # Assume that the sync happens first (matrices are already the same when updating).
         mat_updated = self._helper_update_matrix(expected_batch, matrix1_qnet, matrix2_qnet, matrix1_qnet,
                                                  matrix2_qnet, agent, loss_func)
 
         # Now target-net should be again 1 step behind policy-net.
-        test.check_var("policy/neural-network/hidden/dense/kernel", mat_updated[0], decimals=4)
-        test.check_var("target-policy/neural-network/hidden/dense/kernel", matrix1_qnet, decimals=4)  # again: old matrix
-        test.check_var("policy/action-adapter/action-layer/dense/kernel", mat_updated[1], decimals=4)
-        test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_qnet, decimals=4)
+        test.check_var("policy/neural-network/hidden/dense/kernel", mat_updated[0], decimals=2)
+        test.check_var("target-policy/neural-network/hidden/dense/kernel", matrix1_qnet, decimals=2)  # again: old matrix
+        test.check_var("policy/action-adapter/action-layer/dense/kernel", mat_updated[1], decimals=2)
+        test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_qnet, decimals=2)
+
+    def _calculate_action(self, state, matrix1, matrix2):
+        s = np.asarray([state])
+        s_flat = one_hot(s, depth=4)
+        q_values = self._helper_get_q_values(s_flat, matrix1, matrix2)
+        # Assume greedy.
+        return np.argmax(q_values)
 
     @staticmethod
     def _helper_get_q_values(input_, matrix1, matrix2):

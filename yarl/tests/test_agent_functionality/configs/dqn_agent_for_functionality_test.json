@@ -43,7 +43,7 @@
         "from": 1.0,
         "to": 0.0,
         "start_timestep": 0,
-        "num_timesteps": 10
+        "num_timesteps": 100
       }
     }
   },
