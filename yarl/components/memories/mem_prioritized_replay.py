@@ -78,13 +78,14 @@ class MemPrioritizedReplay(Specifiable):
 
     def insert_records(self, records):
         num_records = len(records[self.fixed_key])
-        update_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
 
         if num_records == 1:
             if self.index >= self.size:
                 self.memory_values.append(records)
             else:
                 self.memory_values[self.index] = records
+            self.sum_segment_tree.insert(self.index, self.default_new_weight)
+            self.min_segment_tree.insert(self.index, self.default_new_weight)
         else:
             insert_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
             for insert_index in insert_indices:
@@ -92,15 +93,13 @@ class MemPrioritizedReplay(Specifiable):
                     self.memory_values.append(records)
                 else:
                     self.memory_values[insert_index] = records
+            for i in range_(num_records):
+                self.sum_segment_tree.insert(insert_indices[i], self.default_new_weight)
+                self.min_segment_tree.insert(insert_indices[i], self.default_new_weight)
 
         # Update indices
         self.index = (self.index + num_records) % self.capacity
         self.size = min(self.size + num_records, self.capacity)
-
-        # Insert into segment trees.
-        for i in range_(num_records):
-            self.sum_segment_tree.insert(update_indices[i], self.default_new_weight)
-            self.min_segment_tree.insert(update_indices[i], self.default_new_weight)
 
     # def insert_records(self, records):
     #     num_records = len(records[self.fixed_key])
