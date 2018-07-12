@@ -81,7 +81,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         memory.create_variables(self.input_spaces, None)
 
         # Insert a few Elements.
-        observation = non_terminal_records(self.record_space, 2)
+        observation = memory.record_space_flat.sample(size=2)
         memory.insert_records(observation)
 
         # Fetch elements and their indices.
@@ -118,7 +118,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         self.assertEqual(len(min_segment_values), 2 * priority_capacity)
 
         # Insert 1 Element.
-        observation = non_terminal_records(self.record_space, 1)
+        observation = memory.record_space_flat.sample(size=1)
         memory.insert_records(observation)
 
         # Check insert positions
@@ -133,7 +133,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
             start = int(start / 2)
 
         # Insert another Element.
-        observation = non_terminal_records(self.record_space, 1)
+        observation =  memory.record_space_flat.sample(size=1)
         memory.insert_records(observation)
 
         # Index shifted 1

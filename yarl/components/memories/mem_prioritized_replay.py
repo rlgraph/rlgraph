@@ -121,7 +121,7 @@ class MemPrioritizedReplay(Specifiable):
 
             # Next states are read via index shift from state variables.
             for flat_state_key in self.flat_state_keys:
-                next_states = [self.record_registry["/states"+flat_state_key][index] for index in next_indices]
+                next_states = [self.record_registry[flat_state_key][index] for index in next_indices]
                 records["/next_states"+flat_state_key] = next_states
         return records
 
@@ -141,6 +141,7 @@ class MemPrioritizedReplay(Specifiable):
             weight = (sample_prob * self.size) ** (-self.beta)
             weights.append(weight / max_weight)
 
+        indices = np.asarray(indices)
         return self.read_records(indices=indices), indices, np.asarray(weights)
 
     def update_records(self, indices, update):
