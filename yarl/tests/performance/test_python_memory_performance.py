@@ -38,7 +38,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
     env = OpenAIGymEnv(gym_env='CartPole-v0')
 
     # Inserts.
-    capacity = 100000
+    capacity = 1000000
     chunksize = 64
     inserts = 1000000
 
@@ -159,6 +159,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         records = [memory.record_space_flat.sample(size=self.chunksize) for _ in range_(chunks)]
         start = time.monotonic()
         for record in records:
+
             # Each record now is a chunk.
             memory.insert_records(record)
 
