@@ -57,7 +57,7 @@ class MemPrioritizedReplay(Specifiable):
                                       add_batch_rank=True)
 
         # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
-        self.record_registry = get_list_registry(self.record_space_flat, self.capacity, initializer=0.0)
+        self.record_registry = get_list_registry(self.record_space_flat)
         self.fixed_key = list(self.record_registry.keys())[0]
         print(self.fixed_key)
         self.priority_capacity = 1
@@ -80,19 +80,19 @@ class MemPrioritizedReplay(Specifiable):
         num_records = len(records[self.fixed_key])
         update_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
 
-        # Update record registry.
         if num_records == 1:
-            # TODO no indices exist so we have to append or presize
             insert_index = (self.index + num_records) % self.capacity
-            for key in self.record_registry:
-                self.record_registry[key][insert_index] = records[key]
+            if insert_index >= self.size:
+                self.memory_values.append(records)
+            else:
+                self.memory_values[insert_index] = records
         else:
             insert_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
-            record_index = 0
             for insert_index in insert_indices:
-                for key in self.record_registry:
-                    self.record_registry[key][insert_index] = records[key][record_index]
-                record_index += 1
+                if insert_index >= self.size:
+                    self.memory_values.append(records)
+                else:
+                    self.memory_values[insert_index] = records
 
         # Update indices
         self.index = (self.index + num_records) % self.capacity
@@ -102,6 +102,56 @@ class MemPrioritizedReplay(Specifiable):
         for i in range_(num_records):
             self.sum_segment_tree.insert(update_indices[i], self.default_new_weight)
             self.min_segment_tree.insert(update_indices[i], self.default_new_weight)
+
+    # def insert_records(self, records):
+    #     num_records = len(records[self.fixed_key])
+    #     update_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
+    #
+    #     # Update record registry.
+    #     if num_records == 1:
+    #         # TODO no indices exist so we have to append or presize
+    #         insert_index = (self.index + num_records) % self.capacity
+    #         for key in self.record_registry:
+    #             self.record_registry[key][insert_index] = records[key]
+    #     else:
+    #         insert_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
+    #         record_index = 0
+    #         for insert_index in insert_indices:
+    #             for key in self.record_registry:
+    #                 self.record_registry[key][insert_index] = records[key][record_index]
+    #             record_index += 1
+    #
+    #     # Update indices
+    #     self.index = (self.index + num_records) % self.capacity
+    #     self.size = min(self.size + num_records, self.capacity)
+    #
+    #     # Insert into segment trees.
+    #     for i in range_(num_records):
+    #         self.sum_segment_tree.insert(update_indices[i], self.default_new_weight)
+    #         self.min_segment_tree.insert(update_indices[i], self.default_new_weight)
+
+    # def read_records(self, indices):
+    #     """
+    #     Obtains record values for the provided indices.
+    #
+    #     Args:
+    #         indices ndarray: Indices to read. Assumed to be not contiguous.
+    #
+    #     Returns:
+    #          dict: Record value dict.
+    #     """
+    #     records = dict()
+    #     for name, variable in self.record_registry.items():
+    #             records[name] = [variable[index] for index in indices]
+    #     if self.next_states:
+    #         next_indices = (indices + 1) % self.capacity
+    #
+    #         # Next states are read via index shift from state variables.
+    #         for flat_state_key in self.flat_state_keys:
+    #             next_states = [self.record_registry[flat_state_key][index] for index in next_indices]
+    #             flat_next_state_key = "next_states"+flat_state_key[len("states"):]
+    #             records[flat_next_state_key] = next_states
+    #     return records
 
     def read_records(self, indices):
         """
@@ -114,16 +164,25 @@ class MemPrioritizedReplay(Specifiable):
              dict: Record value dict.
         """
         records = dict()
-        for name, variable in self.record_registry.items():
-                records[name] = [variable[index] for index in indices]
+        for name in self.record_registry.keys():
+            records[name] = []
         if self.next_states:
-            next_indices = (indices + 1) % self.capacity
-
-            # Next states are read via index shift from state variables.
             for flat_state_key in self.flat_state_keys:
-                next_states = [self.record_registry[flat_state_key][index] for index in next_indices]
-                flat_next_state_key = "next_states"+flat_state_key[len("states"):]
-                records[flat_next_state_key] = next_states
+                flat_next_state_key = "next_states" + flat_state_key[len("states"):]
+                records[flat_next_state_key] = []
+
+        for index in indices:
+            record = self.memory_values[index]
+            for name in self.record_registry.keys():
+                records[name].append(record[name])
+
+            if self.next_states:
+                # TODO these are largely copies
+                next_index = (index + 1) % self.capacity
+                for flat_state_key in self.flat_state_keys:
+                    next_record = self.memory_values[next_index]
+                    flat_next_state_key = "next_states"+flat_state_key[len("states"):]
+                    records[flat_next_state_key].append(next_record[flat_state_key])
         return records
 
     def get_records(self, num_records):
