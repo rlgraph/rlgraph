@@ -64,7 +64,7 @@ class Synchronizable(Component):
         parents_vars = self.parent_component.get_variables(collections=self.collections, custom_scope_separator="-")
 
         # Sanity checking
-        syncs_from, syncs_to = (values_.items(), parents_vars.items())
+        syncs_from, syncs_to = (sorted(values_.items()), sorted(parents_vars.items()))
         if len(syncs_from) != len(syncs_to):
             raise YARLError("ERROR: Number of Variables to sync must match! "
                             "We have {} syncs_from and {} syncs_to.".format(len(syncs_from), len(syncs_to)))
