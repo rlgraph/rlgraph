@@ -103,9 +103,9 @@ class MemSegmentTree(object):
             if self.values[update_index] > prefix_sum:
                 index = update_index
             else:
-                prefix_sum -= update_index
+                prefix_sum -= self.values[update_index]
                 index = update_index + 1
-        return index
+        return index - self.capacity
 
     def reduce(self, start, limit, reduce_op=operator.add):
         """
