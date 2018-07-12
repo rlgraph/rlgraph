@@ -38,7 +38,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
     env = OpenAIGymEnv(gym_env='CartPole-v0')
 
     # Inserts.
-    capacity = 100000
+    capacity = 1000000
     chunksize = 64
     inserts = 1000000
 
@@ -135,13 +135,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         memory.create_variables(dict(insert_records=[record_space]), None)
 
         # Avoid flattening
-        record_space = Dict({
-            "/states": self.env.state_space,
-            "/actions": self.env.action_space,
-            "/reward": float,
-            "/terminals": BoolBox(),
-        })
-        records = [record_space.sample(size=1) for _ in range(self.inserts)]
+        records = [memory.record_space_flat.sample(size=1) for _ in range(self.inserts)]
 
         start = time.monotonic()
         for record in records:
@@ -162,15 +156,10 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         memory.create_variables(dict(insert_records=[record_space]), None)
 
         chunks = int(self.inserts / self.chunksize)
-        record_space = Dict({
-            "/states": self.env.state_space,
-            "/actions": self.env.action_space,
-            "/reward": float,
-            "/terminals": BoolBox(),
-        })
-        records = [record_space.sample(size=self.chunksize) for _ in range_(chunks)]
+        records = [memory.record_space_flat.sample(size=self.chunksize) for _ in range_(chunks)]
         start = time.monotonic()
         for record in records:
+
             # Each record now is a chunk.
             memory.insert_records(record)
 
@@ -244,16 +233,12 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             capacity=self.capacity,
             alpha=1.0
         )
-        memory.create_variables(dict(insert_records=[record_space]), None)
 
+        memory.create_variables(dict(insert_records=[record_space]), None)
+        chunksize = 32
         chunks = int(self.inserts / self.chunksize)
-        record_space = Dict({
-            "/states": self.env.state_space,
-            "/actions": self.env.action_space,
-            "/reward": float,
-            "/terminals": BoolBox(),
-        })
-        records = [record_space.sample(size=self.chunksize) for _ in range_(chunks)]
+
+        records = [memory.record_space_flat.sample(size=chunksize) for _ in range_(chunks)]
         loss_values = [np.random.random(size=self.sample_batch_size) for _ in range_(chunks)]
 
         start = time.monotonic()

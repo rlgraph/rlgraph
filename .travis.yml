@@ -25,9 +25,9 @@ install:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /yarl && python -m pip install .[gym]';
 
 script:
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /yarl && python -m pytest -s yarl/tests/test_core';
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /yarl && python -m pytest -s yarl/tests/test_envs';
-  # - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /yarl && python -m pytest -s yarl/tests/test_components';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /yarl && python -m pytest -s yarl/tests/core';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /yarl && python -m pytest -s yarl/tests/envs';
+  # - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /yarl && python -m pytest -s yarl/tests/components';
   # - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /yarl && python -m pytest -s yarl/tests/test_agents';
 
 notifications:
