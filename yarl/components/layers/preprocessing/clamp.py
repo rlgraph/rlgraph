@@ -26,15 +26,15 @@ class Clamp(PreprocessLayer):
     """
     A simple clamp layer. Clamps each value in the input tensor between min_ and max_.
     """
-    def __init__(self,  min_, max_, scope="clamp", **kwargs):
+    def __init__(self, min=0.0, max=1.0, scope="clamp", **kwargs):
         """
         Args:
-            min_ (float): The min value that any value in the api_methods may have.
-            max_ (float): The max value that any value in the api_methods may have.
+            min_ (float): The min value that any value in the input will be clamped to.
+            max_ (float): The max value that any value in the input will be clamped to.
         """
         super(Clamp, self).__init__(scope=scope, **kwargs)
-        self.min_ = min_
-        self.max_ = max_
+        self.min = min
+        self.max = max
 
     def _graph_fn_apply(self, input_):
-        return tf.clip_by_value(t=input_, clip_value_min=self.min_, clip_value_max=self.max_)
+        return tf.clip_by_value(t=input_, clip_value_min=self.min, clip_value_max=self.max)

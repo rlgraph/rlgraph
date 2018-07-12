@@ -18,15 +18,20 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-import tensorflow as tf
 
+from yarl.backend_system import get_backend
 from yarl.utils.util import get_rank, get_shape
 from yarl.components.layers.preprocessing import PreprocessLayer
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class GrayScale(PreprocessLayer):
     """
     A simple grayscale converter for RGB images of arbitrary dimensions (normally, an image is 2D).
+
+    [1]: C Kanan, GW Cottrell: Color-to-Grayscale: Does the Method Matter in Image Recognition? - PLOS One (2012)
     """
     def __init__(self, weights=None, keep_rank=False, scope="grayscale", **kwargs):
         """
@@ -37,8 +42,11 @@ class GrayScale(PreprocessLayer):
         """
         super(GrayScale, self).__init__(scope=scope, **kwargs)
 
+        # A list of weights used to reduce the last rank (e.g. color rank) of the inputs.
         self.weights = weights or (0.299, 0.587, 0.114)  # magic RGB-weights for "natural" gray-scaling results
+        # The dimension of the last rank (e.g. color rank of the image).
         self.last_rank = len(self.weights)
+        # Whether to keep the last rank with dim=1.
         self.keep_rank = keep_rank
 
     def _graph_fn_apply(self, images):
@@ -49,16 +57,19 @@ class GrayScale(PreprocessLayer):
 
         Args:
             images (tensor): Single image or a batch of images to be gray-scaled (last rank=n colors, where
-                m=len(self.weights)).
+                n=len(self.weights)).
 
         Returns:
-            op: The op for processing the images.
+            DataOp: The op for processing the images.
         """
+        # The reshaped weights used for the grayscale operation.
         images_shape = get_shape(images)
-        assert images_shape[-1] == self.last_rank, "ERROR: Given image's shape ({}) does not match number of " \
-                                                   "weights (last rank must be {})!".format(images_shape,
-                                                                                            self.last_rank)
+        assert images_shape[-1] == self.last_rank,\
+            "ERROR: Given image's shape ({}) does not match number of weights (last rank must be {})!".\
+            format(images_shape, self.last_rank)
         weights_reshaped = np.reshape(a=self.weights,
                                       newshape=tuple([1] * (get_rank(images)-1)) + (self.last_rank,))
-        return tf.reduce_sum(input_tensor=weights_reshaped * images, axis=-1, keepdims=self.keep_rank)
+
+        if get_backend() == "tf":
+            return tf.reduce_sum(input_tensor=weights_reshaped * images, axis=-1, keepdims=self.keep_rank)
 

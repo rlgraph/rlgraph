@@ -32,12 +32,12 @@ class Sequence(PreprocessLayer):
     problems to create the Markov property (velocity of game objects as they move across the screen).
     """
 
-    def __init__(self, seq_length=2, add_rank=True, scope="sequence", **kwargs):
+    def __init__(self, length=2, add_rank=True, scope="sequence", **kwargs):
         """
         Args:
-            seq_length (int): The number of records to always concatenate together.
-                The very first record is simply repeated `sequence_length` times.
-                The second record will generate: Itself and `sequence_length`-1 times the very first record.
+            length (int): The number of records to always concatenate together.
+                The very first record is simply repeated `length` times.
+                The second record will generate: Itself and `length`-1 times the very first record.
                 Etc..
             add_rank (bool): Whether to add another rank to the end of the input with dim=length-of-the-sequence.
                 This could be useful if e.g. a grayscale image of w x h pixels is coming from the env
@@ -47,7 +47,7 @@ class Sequence(PreprocessLayer):
         # -> accept any Space -> flatten to OrderedDict -> input & return OrderedDict -> re-nest.
         super(Sequence, self).__init__(scope=scope, split_ops=False, **kwargs)
 
-        self.sequence_length = seq_length
+        self.length = length
         self.add_rank = add_rank
 
         # Whether the first rank of the api_methods is the batch dimension (known at build time).
@@ -63,7 +63,7 @@ class Sequence(PreprocessLayer):
 
         # Cut the "batch rank" (always 1 anyway) and replace it with the "sequence-rank".
         self.buffer = self.get_variable(name="buffer", trainable=False,
-                                        from_space=in_space, add_batch_rank=self.sequence_length,
+                                        from_space=in_space, add_batch_rank=self.length,
                                         flatten=True)
         # Our index. Points to the slot where we insert next (-1 after reset).
         self.index = self.get_variable(name="index", dtype="int", initializer=-1, trainable=False)
@@ -95,11 +95,11 @@ class Sequence(PreprocessLayer):
             return assigns
 
         # If index is still -1 (after reset):
-        # Pre-fill the entire buffer with `self.sequence_length` x input_.
+        # Pre-fill the entire buffer with `self.length` x input_.
         def after_reset_assign():
             assigns = list()
             for k, v in inputs.items():
-                multiples = (self.sequence_length,) + tuple([1] * (get_rank(v) -
+                multiples = (self.length,) + tuple([1] * (get_rank(v) -
                                                                    (1 if self.first_rank_is_batch else 0)))
                 in_ = v if self.first_rank_is_batch else tf.expand_dims(v, 0)
                 assigns.append(self.assign_variable(
@@ -121,13 +121,13 @@ class Sequence(PreprocessLayer):
         # Make sure the input has been inserted ..
         with tf.control_dependencies(control_inputs=dependencies):
             # Before increasing by 1.
-            index_plus_1 = self.assign_variable(ref=self.index, value=((self.index + 1) % self.sequence_length))
+            index_plus_1 = self.assign_variable(ref=self.index, value=((self.index + 1) % self.length))
 
         with tf.control_dependencies(control_inputs=[index_plus_1]):
             sequences = FlattenedDataOp()
             # Collect the correct previous api_methods from the buffer to form the output sequence.
             for key in inputs.keys():
-                n_in = [self.buffer[key][(self.index + n) % self.sequence_length] for n in xrange(self.sequence_length)]
+                n_in = [self.buffer[key][(self.index + n) % self.length] for n in xrange(self.length)]
 
                 # Add the sequence-rank to the end of our api_methods.
                 if self.add_rank:
