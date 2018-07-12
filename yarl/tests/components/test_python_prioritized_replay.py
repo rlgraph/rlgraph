@@ -20,11 +20,8 @@ from __future__ import print_function
 import unittest
 import numpy as np
 
-from yarl.components.memories import PrioritizedReplay
 from yarl.components.memories.mem_prioritized_replay import MemPrioritizedReplay
 from yarl.spaces import Dict, IntBox, BoolBox, FloatBox
-from yarl.tests import ComponentTest
-from yarl.tests.test_util import non_terminal_records
 
 
 class TestPythonPrioritizedReplay(unittest.TestCase):
