@@ -175,8 +175,8 @@ class MinSumSegmentTree(object):
             min_tree,
             capacity,
     ):
-        self.sum_tree = sum_tree
-        self.min_tree = min_tree
+        self.sum_segment_tree = sum_tree
+        self.min_segment_tree = min_tree
         self.capacity = capacity
 
     def insert(self, index, element):
@@ -189,15 +189,15 @@ class MinSumSegmentTree(object):
             element (any): Element to insert.
         """
         index += self.capacity
-        self.sum_tree.values[index] = element
-        self.min_tree.values[index] = element
+        self.sum_segment_tree.values[index] = element
+        self.min_segment_tree.values[index] = element
 
         # Bit shift should be slightly faster here than division.
         index = index >> 1
         while index >= 1:
             # No shift because small multiplications are optimized.
             update_index = 2 * index
-            self.sum_tree.values[index] = self.sum_tree.values[update_index] + self.sum_tree.values[update_index + 1]
-            self.min_tree.values[index] = min(self.min_tree.values[update_index],
-                                              self.min_tree.values[update_index + 1])
+            self.sum_segment_tree.values[index] = self.sum_segment_tree.values[update_index] + self.sum_segment_tree.values[update_index + 1]
+            self.min_segment_tree.values[index] = min(self.min_segment_tree.values[update_index],
+                                                      self.min_segment_tree.values[update_index + 1])
             index = index >> 1
