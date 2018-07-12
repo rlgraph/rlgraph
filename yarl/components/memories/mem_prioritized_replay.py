@@ -93,9 +93,8 @@ class MemPrioritizedReplay(Specifiable):
                     self.memory_values.append(records)
                 else:
                     self.memory_values[insert_index] = records
-            for i in range_(num_records):
-                self.sum_segment_tree.insert(insert_indices[i], self.default_new_weight)
-                self.min_segment_tree.insert(insert_indices[i], self.default_new_weight)
+                self.sum_segment_tree.insert(insert_index, self.default_new_weight)
+                self.min_segment_tree.insert(insert_index, self.default_new_weight)
 
         # Update indices
         self.index = (self.index + num_records) % self.capacity
