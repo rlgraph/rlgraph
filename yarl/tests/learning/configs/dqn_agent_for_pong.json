@@ -1,0 +1,67 @@
+{
+  "type": "dqn",
+
+  "memory_spec":
+  {
+    "type": "replay",
+    "capacity": 1024
+  },
+
+  "preprocessing_spec":
+  [
+    {
+      "type": "image_resize",
+      "width": 84,
+      "height": 84
+    },
+    {
+      "type": "grayscale",
+      "weights": [1.0, 1.0, 1.0]
+    },
+    {
+      "type": "clamp",
+      "min": 0.0,
+      "max": 1.0
+    },
+    {
+      "type": "sequence",
+      "length": 4
+    }
+  ],
+
+  "network_spec":
+  [
+    {
+      "type": "dense",
+      "units": 20,
+      "activation": "tanh",
+      "scope": "hidden"
+    }
+  ],
+
+  "exploration_spec":
+  {
+    "non_explore_behavior": "max-likelihood",
+    "epsilon_spec": {
+      "decay_spec": {
+        "type": "linear_decay",
+        "from": 1.0,
+        "to": 0.05,
+        "start_timestep": 0,
+        "num_timesteps": 1500
+      }
+    }
+  },
+
+  "update_spec": {
+    "do_updates": true,
+    "update_interval": 4,
+    "batch_size": 16,
+    "synch_interval": 32
+  },
+
+  "optimizer_spec": {
+    "type": "gradient_descent",
+    "learning_rate": 0.001
+  }
+}

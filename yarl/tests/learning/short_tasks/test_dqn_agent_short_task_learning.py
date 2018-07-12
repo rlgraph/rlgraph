@@ -27,7 +27,7 @@ from yarl.execution import SingleThreadedWorker
 from yarl.utils import root_logger
 
 
-class TestDQNAgentLearning(unittest.TestCase):
+class TestDQNAgentShortTaskLearning(unittest.TestCase):
     """
     Tests whether the DQNAgent can learn in simple environments.
     """
@@ -39,7 +39,7 @@ class TestDQNAgentLearning(unittest.TestCase):
         """
         env = GridWorld("2x2")
         agent = DQNAgent.from_spec(
-            "configs/test_dqn_agent_for_2x2_grid.json",
+            "../configs/dqn_agent_for_2x2_grid.json",
             #discount=1.0,  # very short episodes -> no discount.
             double_q=False,
             dueling_q=False,
@@ -72,7 +72,7 @@ class TestDQNAgentLearning(unittest.TestCase):
         """
         env = GridWorld("2x2")
         agent = DQNAgent.from_spec(
-            "configs/test_dqn_agent_for_2x2_grid.json",
+            "../configs/dqn_agent_for_2x2_grid.json",
             dueling_q=False,
             state_space=env.state_space,
             action_space=env.action_space,
@@ -100,7 +100,7 @@ class TestDQNAgentLearning(unittest.TestCase):
         """
         env = GridWorld("4x4")
         agent = DQNAgent.from_spec(
-            "configs/test_dqn_agent_for_4x4_grid.json",
+            "configs/dqn_agent_for_4x4_grid.json",
             state_space=env.state_space,
             action_space=env.action_space,
             observe_spec=dict(buffer_size=100),
@@ -131,7 +131,7 @@ class TestDQNAgentLearning(unittest.TestCase):
         env = OpenAIGymEnv("CartPole-v0")
         env.seed(10)
         agent = DQNAgent.from_spec(
-            "configs/test_dqn_agent_for_cartpole.json",
+            "configs/dqn_agent_for_cartpole.json",
             double_q=False,
             dueling_q=False,
             state_space=env.state_space,
@@ -164,7 +164,7 @@ class TestDQNAgentLearning(unittest.TestCase):
         env = OpenAIGymEnv("CartPole-v0")
         env.seed(10)
         agent = DQNAgent.from_spec(
-            "configs/test_dqn_agent_for_cartpole.json",
+            "configs/dqn_agent_for_cartpole.json",
             double_q=True,
             dueling_q=True,
             state_space=env.state_space,
