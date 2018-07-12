@@ -232,11 +232,12 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             capacity=self.capacity,
             alpha=1.0
         )
-        memory.create_variables(dict(insert_records=[record_space]), None)
 
+        memory.create_variables(dict(insert_records=[record_space]), None)
+        chunksize = 32
         chunks = int(self.inserts / self.chunksize)
 
-        records = [memory.record_space_flat.sample(size=self.chunksize) for _ in range_(chunks)]
+        records = [memory.record_space_flat.sample(size=chunksize) for _ in range_(chunks)]
         loss_values = [np.random.random(size=self.sample_batch_size) for _ in range_(chunks)]
 
         start = time.monotonic()
