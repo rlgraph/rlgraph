@@ -116,7 +116,7 @@ class PrioritizedReplay(Memory):
             assert 'states' in self.record_space
             # Next states are not represented as explicit keys in the registry
             # as this would cause extra memory overhead.
-            self.flat_state_keys = list(self.record_space["states"].flatten().keys())
+            self.flat_state_keys = ["/states"+key for key in self.record_space["states"].flatten().keys()]
 
     def _graph_fn_insert_records(self, records):
         num_records = get_batch_size(records["/terminals"])
@@ -223,8 +223,9 @@ class PrioritizedReplay(Memory):
 
             # Next states are read via index shift from state variables.
             for flat_state_key in self.flat_state_keys:
-                next_states = self.read_variable(self.record_registry["/states"+flat_state_key], next_indices)
-                records["/next_states"+flat_state_key] = next_states
+                next_states = self.read_variable(self.record_registry[flat_state_key], next_indices)
+                flat_next_state_key = "/next_states"+flat_state_key[len("/states"):]
+                records[flat_next_state_key] = next_states
         return records
 
     def _graph_fn_update_records(self, indices, update):
