@@ -59,7 +59,7 @@ class MemPrioritizedReplay(Specifiable):
         # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
         self.record_registry = get_list_registry(self.record_space_flat)
         self.fixed_key = list(self.record_registry.keys())[0]
-        print(self.fixed_key)
+
         self.priority_capacity = 1
         while self.priority_capacity < self.capacity:
             self.priority_capacity *= 2
@@ -81,11 +81,10 @@ class MemPrioritizedReplay(Specifiable):
         update_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
 
         if num_records == 1:
-            insert_index = (self.index + num_records) % self.capacity
-            if insert_index >= self.size:
+            if self.index >= self.size:
                 self.memory_values.append(records)
             else:
-                self.memory_values[insert_index] = records
+                self.memory_values[self.index] = records
         else:
             insert_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
             for insert_index in insert_indices:
