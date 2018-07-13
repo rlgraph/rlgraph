@@ -47,19 +47,6 @@ class ApexMemory(Specifiable):
         self.beta = beta
         self.next_states = next_states
         self.default_new_weight = np.power(self.max_priority, self.alpha)
-
-    # TODO this needs manual calling atm
-    def create_variables(self, input_spaces, action_space):
-        # Store our record-space for convenience.
-        self.record_space = input_spaces["insert_records"][0]
-        self.record_space_flat = Dict(self.record_space.flatten(custom_scope_separator="-",
-                                                                scope_separator_at_start=False),
-                                      add_batch_rank=True)
-
-        # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
-        self.record_registry = get_list_registry(self.record_space_flat)
-        self.fixed_key = list(self.record_registry.keys())[0]
-
         self.priority_capacity = 1
         while self.priority_capacity < self.capacity:
             self.priority_capacity *= 2
@@ -74,12 +61,6 @@ class ApexMemory(Specifiable):
             min_tree=min_segment_tree,
             capacity=self.priority_capacity
         )
-
-        if self.next_states:
-            assert 'states' in self.record_space
-            # Next states are not represented as explicit keys in the registry
-            # as this would cause extra memory overhead.
-            self.flat_state_keys = [k for k in self.record_registry.keys() if k[:7] == "states-"]
 
     def insert_records(self, record):
         if self.index >= self.size:

@@ -25,17 +25,18 @@ import time
 from six.moves import xrange as range_
 from ray.rllib.optimizers.replay_buffer import PrioritizedReplayBuffer
 
-from yarl.components.memories.mem_prioritized_replay import MemPrioritizedReplay
-from yarl.environments import OpenAIGymEnv
-from yarl.spaces import Dict, BoolBox, FloatBox, IntBox
-from yarl.tests import ComponentTest
+from yarl.execution.ray.apex.apex_memory import ApexMemory
+from yarl.spaces import Dict, BoolBox, FloatBox
 
 
 class TestPythonMemoryPerformance(unittest.TestCase):
-    # Note: Using Atari states here has to be done with care because without preprocessing,
-    # these will require
-    # large amount sof memory.
-    env = OpenAIGymEnv(gym_env='CartPole-v0')
+    self.record_space = Dict(
+        states=FloatBox(shape=(4,)),
+        actions=FloatBox(shape=(2,)),
+        reward=float,
+        terminals=BoolBox(),
+        add_batch_rank=True
+    )
 
     # Apex params
     capacity = 2000000
@@ -59,17 +60,8 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             alpha=1.0,
             clip_rewards=True
         )
-        # Testing insert performance
-        record_space = Dict(
-            states=self.env.state_space,
-            actions=self.env.action_space,
-            reward=float,
-            terminals=BoolBox(),
-            add_batch_rank=True
-        )
-
         # Test individual inserts.
-        records = [record_space.sample(size=1) for _ in range_(self.inserts)]
+        records = [self.record_space.sample(size=1) for _ in range_(self.inserts)]
 
         start = time.monotonic()
         for record in records:
@@ -97,7 +89,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
 
         # Test chunked inserts -> done via external for loop in Ray.
         chunks = int(self.inserts / self.chunksize)
-        records = [record_space.sample(size=self.chunksize) for _ in range_(chunks)]
+        records = [self.record_space.sample(size=self.chunksize) for _ in range_(chunks)]
         start = time.monotonic()
         for chunk in records:
             for i in range_(self.chunksize):
@@ -116,30 +108,25 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             len(records), tp, end
         ))
 
-    def test_yarl_prioritized_replay_insert(self):
+    def test_yarl_apex_insert(self):
         """
         Tests Yarl's python memory performance.
         """
-        memory = MemPrioritizedReplay(
+        memory = ApexMemory(
             capacity=self.capacity,
             alpha=1.0
         )
         # Testing insert performance
-        record_space = Dict(
-            states=self.env.state_space,
-            actions=self.env.action_space,
-            reward=float,
-            terminals=BoolBox(),
-            add_batch_rank=True
-        )
-        memory.create_variables(dict(insert_records=[record_space]), None)
-
-        # Avoid flattening
-        records = [memory.record_space_flat.sample(size=1) for _ in range(self.inserts)]
+        records = [self.record_space.sample(size=1) for _ in range(self.inserts)]
 
         start = time.monotonic()
         for record in records:
-            memory.insert_records(record)
+            memory.insert_records((
+                 record['states'],
+                 record['actions'],
+                 record['reward'],
+                 record['terminals']
+            ))
         end = time.monotonic() - start
         tp = len(records) / end
 
@@ -149,19 +136,21 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             len(records), tp, end
         ))
 
-        memory = MemPrioritizedReplay(
+        memory = ApexMemory(
             capacity=self.capacity,
             alpha=1.0
         )
-        memory.create_variables(dict(insert_records=[record_space]), None)
-
         chunks = int(self.inserts / self.chunksize)
-        records = [memory.record_space_flat.sample(size=self.chunksize) for _ in range_(chunks)]
+        records = [self.record_space.sample(size=self.chunksize) for _ in range_(chunks)]
         start = time.monotonic()
-        for record in records:
-
-            # Each record now is a chunk.
-            memory.insert_records(record)
+        for chunk in records:
+            for i in range_(self.chunksize):
+                memory.insert_records((
+                    chunk['states'][i],
+                    chunk['actions'][i],
+                    chunk['reward'][i],
+                    chunk['terminals'][i]
+                ))
 
         end = time.monotonic() - start
         tp = len(records) * self.chunksize / end
@@ -174,13 +163,6 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         """
         Tests a combined workflow of insert, sample, update on the prioritized replay memory.
         """
-        record_space = Dict(
-            states=self.env.state_space,
-            actions=self.env.action_space,
-            reward=float,
-            terminals=BoolBox(),
-            add_batch_rank=True
-        )
         memory = PrioritizedReplayBuffer(
             size=self.capacity,
             alpha=1.0,
@@ -190,12 +172,12 @@ class TestPythonMemoryPerformance(unittest.TestCase):
 
         # Test chunked inserts -> done via external for loop in Ray.
         chunks = int(self.inserts / chunksize)
-        records = [record_space.sample(size=chunksize) for _ in range_(chunks)]
+        records = [self.record_space.sample(size=chunksize) for _ in range_(chunks)]
         loss_values = [np.random.random(size=self.sample_batch_size) for _ in range_(chunks)]
         start = time.monotonic()
 
         for chunk, loss_values in zip(records, loss_values):
-            # Insert
+            # Insert.
             for i in range_(chunksize):
                 memory.add(
                     obs_t=chunk['states'][i],
@@ -205,7 +187,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
                     done=chunk['terminals'][i],
                     weight=None
                 )
-            # Sample
+            # Sample.
             batch_tuple = memory.sample(self.sample_batch_size, beta=1.0)
             indices = batch_tuple[-1]
             # Update
@@ -222,29 +204,25 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         """
         Tests a combined workflow of insert, sample, update on the prioritized replay memory.
         """
-        record_space = Dict(
-            states=self.env.state_space,
-            actions=self.env.action_space,
-            reward=float,
-            terminals=BoolBox(),
-            add_batch_rank=True
-        )
-        memory = MemPrioritizedReplay(
+        memory = ApexMemory(
             capacity=self.capacity,
             alpha=1.0
         )
 
-        memory.create_variables(dict(insert_records=[record_space]), None)
         chunksize = 32
         chunks = int(self.inserts / self.chunksize)
-
-        records = [memory.record_space_flat.sample(size=chunksize) for _ in range_(chunks)]
+        records = [self.record_space.sample(size=chunksize) for _ in range_(chunks)]
         loss_values = [np.random.random(size=self.sample_batch_size) for _ in range_(chunks)]
 
         start = time.monotonic()
         for record, loss_values in zip(records, loss_values):
             # Each record now is a chunk.
-            memory.insert_records(record)
+            memory.insert_records((
+                record['states'],
+                record['actions'],
+                record['reward'],
+                record['terminals']
+            ))
             batch, indices, weights = memory.get_records(self.sample_batch_size)
             memory.update_records(indices, loss_values)
 
