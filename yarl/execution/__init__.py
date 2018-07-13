@@ -17,11 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.execution.env_sample import EnvSample
+from yarl.execution.environment_sample import EnvironmentSample
 from yarl.execution.worker import Worker
 from yarl.execution.single_threaded_worker import SingleThreadedWorker
 
-__all__ = ["Worker", "SingleThreadedWorker", "EnvSample"]
+__all__ = ["Worker", "SingleThreadedWorker", "EnvironmentSample"]
 
 Worker.__lookup_classes__ = dict(
    single=SingleThreadedWorker,

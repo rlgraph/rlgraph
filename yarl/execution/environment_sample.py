@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 
-class EnvSample(object):
+class EnvironmentSample(object):
     """
     Represents a sampled trajectory from an environment.
     """
@@ -28,7 +28,6 @@ class EnvSample(object):
         actions,
         rewards,
         terminals,
-        next_states,
         metrics=None,
         **kwargs
     ):
@@ -38,7 +37,6 @@ class EnvSample(object):
             actions (list): List of actions in the sample.
             rewards (list): List of rewards in the sample.
             terminals (list): List of terminals in the sample.
-            next_states (list): List of next_states in the sample.
             metrics Optional[(dict)]: Metrics, e.g. on timing.
             **kwargs (dict): Any additional information relevant for processing the sample.
         """
@@ -46,7 +44,6 @@ class EnvSample(object):
         self.actions = actions
         self.rewards = rewards
         self.terminals = terminals
-        self.next_states = next_states
         self.metrics = metrics
         self.kwargs = kwargs
 
@@ -61,7 +58,6 @@ class EnvSample(object):
             actions=self.actions,
             rewards=self.rewards,
             terminals=self.terminals,
-            next_states=self.next_states
         )
 
     def get_metrics(self):

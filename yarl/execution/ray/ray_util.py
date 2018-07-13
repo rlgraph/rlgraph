@@ -127,7 +127,7 @@ def split_local_non_local_agents(ray_agents):
 
 
 # Ported Ray compression utils, encoding apparently necessary for Redis.
-def compress(data):
+def ray_compress(data):
     data = pyarrow.serialize(data).to_buffer().to_pybytes()
     data = lz4.frame.compress(data)
     data = base64.b64encode(data)
@@ -135,7 +135,7 @@ def compress(data):
     return data
 
 
-def decompress(data):
+def ray_decompress(data):
     data = base64.b64decode(data)
     data = lz4.frame.decompress(data)
     data = pyarrow.deserialize(data)

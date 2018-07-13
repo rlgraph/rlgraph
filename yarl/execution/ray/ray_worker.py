@@ -22,8 +22,9 @@ import numpy as np
 import time
 
 from yarl.backend_system import get_distributed_backend
-from yarl.execution.env_sample import EnvSample
+from yarl.execution.environment_sample import EnvironmentSample
 from yarl.execution.ray import RayExecutor
+from yarl.execution.ray.ray_util import ray_compress
 
 if get_distributed_backend() == "ray":
     import ray
@@ -118,7 +119,7 @@ class RayWorker(object):
             # Whether the episode has terminated.
             terminal = False
             while True:
-                action = self.agent.get_action(states=state, deterministic=deterministic)
+                action = self.agent.get_action(states=state, use_exploration=deterministic)
                 states.append(state)
                 actions.append(action)
 
@@ -132,7 +133,6 @@ class RayWorker(object):
 
                 rewards.append(reward)
                 terminals.append(terminal)
-                next_states.append(next_state)
                 timesteps_executed += 1
                 episode_timestep += 0
                 state = next_state
@@ -151,12 +151,11 @@ class RayWorker(object):
                         self.sample_steps.append(timesteps_executed)
                         self.sample_times.append(total_time)
                         self.sample_env_frames.append(env_frames)
-                        return EnvSample(
-                            states=states,
+                        return EnvironmentSample(
+                            states=[ray_compress(state) for state in states],
                             actions=actions,
                             rewards=rewards,
                             terminals=terminals,
-                            next_states=next_states,
                             metrics=dict(
                                 # Just pass this to know later how this sample was configured.
                                 break_on_terminal=break_on_terminal,
@@ -184,12 +183,11 @@ class RayWorker(object):
         self.sample_times.append(total_time)
         self.sample_env_frames.append(env_frames)
 
-        return EnvSample(
-            states=states,
+        return EnvironmentSample(
+            states=[ray_compress(state) for state in states],
             actions=actions,
             rewards=rewards,
             terminals=terminals,
-            next_states=next_states,
             metrics=dict(
                 break_on_terminal=break_on_terminal,
                 runtime=total_time,
