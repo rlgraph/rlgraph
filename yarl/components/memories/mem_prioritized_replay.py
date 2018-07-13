@@ -92,12 +92,17 @@ class MemPrioritizedReplay(Specifiable):
             self.merged_segment_tree.insert(self.index, self.default_new_weight)
         else:
             insert_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
+            i = 0
             for insert_index in insert_indices:
-                if insert_index >= self.size:
-                    self.memory_values.append(records)
-                else:
-                    self.memory_values[insert_index] = records
                 self.merged_segment_tree.insert(insert_index, self.default_new_weight)
+                record = dict()
+                for name, record_values in records.items():
+                    record[name] = record_values[i]
+                if insert_index >= self.size:
+                    self.memory_values.append(record)
+                else:
+                    self.memory_values[insert_index] = record
+                i += 1
 
         # Update indices
         self.index = (self.index + num_records) % self.capacity

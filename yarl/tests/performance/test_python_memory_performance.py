@@ -37,14 +37,14 @@ class TestPythonMemoryPerformance(unittest.TestCase):
     # large amount sof memory.
     env = OpenAIGymEnv(gym_env='CartPole-v0')
 
-    # Inserts.
-    capacity = 1000000
+    # Apex params
+    capacity = 2000000
     chunksize = 64
     inserts = 1000000
 
     # Samples.
     samples = 1000
-    sample_batch_size = 64
+    sample_batch_size = 50
 
     alpha = 1.0
     beta = 1.0

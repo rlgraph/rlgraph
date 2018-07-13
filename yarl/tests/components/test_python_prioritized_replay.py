@@ -20,11 +20,8 @@ from __future__ import print_function
 import unittest
 import numpy as np
 
-from yarl.components.memories import PrioritizedReplay
 from yarl.components.memories.mem_prioritized_replay import MemPrioritizedReplay
 from yarl.spaces import Dict, IntBox, BoolBox, FloatBox
-from yarl.tests import ComponentTest
-from yarl.tests.test_util import non_terminal_records
 
 
 class TestPythonPrioritizedReplay(unittest.TestCase):
@@ -70,6 +67,11 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         observation = memory.record_space_flat.sample(size=1)
         memory.insert_records(observation)
 
+        # Test chunked insert
+        observation = memory.record_space_flat.sample(size=5)
+        memory.insert_records(observation)
+
+
     def test_update_records(self):
         """
         Tests update records logic.
@@ -109,8 +111,8 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         while priority_capacity < self.capacity:
             priority_capacity *= 2
 
-        sum_segment_values = memory.sum_segment_tree.values
-        min_segment_values = memory.min_segment_tree.values
+        sum_segment_values = memory.merged_segment_tree.sum_segment_tree.values
+        min_segment_values = memory.merged_segment_tree.min_segment_tree.values
 
         self.assertEqual(sum(sum_segment_values), 0)
         self.assertEqual(sum(min_segment_values), float('inf'))
