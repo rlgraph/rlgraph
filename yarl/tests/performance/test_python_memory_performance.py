@@ -220,7 +220,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             # Each record now is a chunk.
             for i in range_(chunksize):
                 memory.insert_records((
-                    chunk['states'][i],
+                    ray_compress(chunk['states'][i]),
                     chunk['actions'][i],
                     chunk['reward'][i],
                     chunk['terminals'][i]
