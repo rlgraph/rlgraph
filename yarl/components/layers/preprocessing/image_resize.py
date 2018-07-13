@@ -17,10 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
-
+from yarl import get_backend
 from yarl.utils.util import get_rank
 from yarl.components.layers.preprocessing import PreprocessLayer
+
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class ImageResize(PreprocessLayer):
@@ -46,5 +49,9 @@ class ImageResize(PreprocessLayer):
         rank = get_rank(images)
         assert rank == 3 or rank == 4, "ERROR: Given image's rank ({}) is not 3 or 4!".format(rank)
 
-        return tf.image.resize_images(images=images, size=(self.width, self.height))
+        if self.backend == "python" or get_backend() == "python":
+            import cv2
+            return cv2.resize(images, dsize=(self.width, self.height))  # interpolation=cv2.BILINEAR
+        elif get_backend() == "tf":
+            return tf.image.resize_images(images=images, size=(self.width, self.height))
 
