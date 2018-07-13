@@ -188,8 +188,8 @@ class GraphBuilder(Specifiable):
 
         # Set devices usable for this graph.
         self.available_devices = available_devices
-        self.device_strategy = device_strategy
         self.default_device = default_device
+        self.device_strategy = device_strategy
 
         # Push all spaces through the API methods, then enter the main iterative DFS while loop.
         op_records_to_process = self.build_input_space_ops(input_spaces)

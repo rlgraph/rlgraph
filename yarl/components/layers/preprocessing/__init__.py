@@ -22,6 +22,7 @@ from yarl.components.layers.preprocessing.preprocess_layer import PreprocessLaye
 from yarl.components.layers.preprocessing.clamp import Clamp
 from yarl.components.layers.preprocessing.flatten import Flatten
 from yarl.components.layers.preprocessing.grayscale import GrayScale
+from yarl.components.layers.preprocessing.image_binary import ImageBinary
 from yarl.components.layers.preprocessing.image_resize import ImageResize
 from yarl.components.layers.preprocessing.normalize import Normalize
 from yarl.components.layers.preprocessing.scale import Scale
@@ -31,11 +32,13 @@ PreprocessLayer.__lookup_classes__ = dict(
     clamp=Clamp,
     flatten=Flatten,
     grayscale=GrayScale,
+    imagebinary=ImageBinary,
     imageresize=ImageResize,
     normalize=Normalize,
     scale=Scale,
     sequence=Sequence
 )
 
-__all__ = ["PreprocessLayer", "Clamp", "Flatten", "GrayScale", "ImageResize", "Normalize", "Scale", "Sequence"]
+__all__ = ["PreprocessLayer",
+           "Clamp", "Flatten", "GrayScale", "ImageBinary", "ImageResize", "Normalize", "Scale", "Sequence"]
 

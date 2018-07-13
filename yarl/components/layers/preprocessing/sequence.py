@@ -99,8 +99,7 @@ class Sequence(PreprocessLayer):
         def after_reset_assign():
             assigns = list()
             for k, v in inputs.items():
-                multiples = (self.length,) + tuple([1] * (get_rank(v) -
-                                                                   (1 if self.first_rank_is_batch else 0)))
+                multiples = (self.length,) + tuple([1] * (get_rank(v) - (1 if self.first_rank_is_batch else 0)))
                 in_ = v if self.first_rank_is_batch else tf.expand_dims(v, 0)
                 assigns.append(self.assign_variable(
                     ref=self.buffer[k],

@@ -21,9 +21,7 @@ from functools import partial
 import logging
 import numpy as np
 import inspect
-import itertools
 import re
-from six.moves import xrange
 import sys
 import tensorflow as tf
 

@@ -20,7 +20,8 @@ from __future__ import print_function
 from six.moves import xrange as range_
 import unittest
 
-from yarl.components.layers import GrayScale, Flatten, Scale, PreprocessorStack, Sequence
+from yarl.components.layers import GrayScale, Flatten, Scale, PreprocessorStack, Sequence, Clamp, \
+    ImageBinary
 from yarl.spaces import *
 from yarl.tests import ComponentTest
 
@@ -28,6 +29,42 @@ import numpy as np
 
 
 class TestPreprocessors(unittest.TestCase):
+
+    def test_clamp(self):
+        clamp = Clamp(min=0.0, max=1.0)
+        # Grayscale image of 2x2 size.
+        test = ComponentTest(component=clamp, input_spaces=dict(apply=FloatBox(shape=(2, 2), add_batch_rank=True)))
+
+        test.test("reset")
+        # Batch=3
+        input_images = np.array([
+            [[125.6, 10.3], [-45, 5.234]],
+            [[-10.0, 1.0004], [0.0, -0.0003]],
+            [[0.0005, 0.00000009], [90.0, 10000901.347]]
+        ])
+        expected = np.array([
+            [[1.0, 1.0], [0.0, 1.0]],
+            [[0.0, 1.0], [0.0, 0.0]],
+            [[0.0005, 0.00000009], [1.0, 1.0]]
+        ])
+        test.test(("apply", input_images), expected_outputs=expected)
+
+    def test_black_and_white(self):
+        binary = ImageBinary()
+        # Color image of 2x2x3 size.
+        test = ComponentTest(component=binary, input_spaces=dict(apply=FloatBox(shape=(2, 2, 3), add_batch_rank=True)))
+
+        test.test("reset")
+        # Batch=2
+        input_images = np.array([
+            [[[0, 1, 0], [10, 9, 5]], [[0, 0, 0], [0, 0, 1]]],
+            [[[255, 255, 255], [0, 0, 0]], [[0, 0, 0], [255, 43, 0]]]
+        ])
+        expected = np.array([
+            [[1, 1], [0, 1]],
+            [[1, 0], [0, 1]]
+        ])
+        test.test(("apply", input_images), expected_outputs=expected)
 
     def test_simple_preprocessor_stack_with_one_preprocess_layer(self):
         stack = PreprocessorStack(dict(type="scale", scaling_factor=0.5))
@@ -151,7 +188,7 @@ class TestPreprocessors(unittest.TestCase):
 
     def test_sequence_preprocessor(self):
         space = FloatBox(shape=(1,), add_batch_rank=True)
-        component_to_test = Sequence(seq_length=3, add_rank=True)
+        component_to_test = Sequence(length=3, add_rank=True)
         test = ComponentTest(component=component_to_test, input_spaces=dict(apply=space))
 
         vars = component_to_test.get_variables("index", "buffer", global_scope=False)
@@ -186,7 +223,7 @@ class TestPreprocessors(unittest.TestCase):
         # Test with no batch rank.
         space = Tuple(FloatBox(shape=(1,)), FloatBox(shape=(2, 2)), add_batch_rank=False)
 
-        component_to_test = Sequence(seq_length=4, add_rank=False)
+        component_to_test = Sequence(length=4, add_rank=False)
         test = ComponentTest(component=component_to_test, input_spaces=dict(apply=space))
 
         for i in range_(3):
