@@ -96,6 +96,7 @@ class ApexMemory(Specifiable):
             rewards.append(reward)
             terminals.append(terminal)
             next_index = (index + 1) % self.capacity
+
             next_state = self.memory_values[next_index][0]
             next_states.append(next_state)
 

@@ -19,8 +19,10 @@ from __future__ import print_function
 
 import unittest
 import numpy as np
-
+from six.moves import xrange as range_
 from yarl.components.memories.mem_prioritized_replay import MemPrioritizedReplay
+from yarl.execution.ray.apex.apex_memory import ApexMemory
+from yarl.execution.ray.ray_util import ray_compress
 from yarl.spaces import Dict, IntBox, BoolBox, FloatBox
 
 
@@ -35,6 +37,14 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         terminals=BoolBox(),
         add_batch_rank=True
     )
+    apex_space = Dict(
+        states=FloatBox(shape=(4,)),
+        actions=FloatBox(shape=(2,)),
+        reward=float,
+        terminals=BoolBox(),
+        add_batch_rank=True
+    )
+
     memory_variables = ["size", "index", "max-priority"]
 
     capacity = 10
@@ -71,6 +81,20 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         observation = memory.record_space_flat.sample(size=5)
         memory.insert_records(observation)
 
+        # Also test Apex version
+        memory = ApexMemory(
+            capacity=self.capacity,
+            alpha=self.alpha,
+            beta=self.beta
+        )
+        observation = self.apex_space.sample(size=5)
+        for i in range_(5):
+            memory.insert_records((
+                observation['states'][i],
+                observation['actions'][i],
+                observation['reward'][i],
+                observation['terminals'][i]
+            ))
 
     def test_update_records(self):
         """
@@ -92,8 +116,32 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         indices = batch[1]
         self.assertEqual(num_records, len(indices))
 
-        # Does not return anything
+        # Does not return anything.
         memory.update_records(indices, np.asarray([0.1, 0.2]))
+
+        # Test apex memory.
+        memory = ApexMemory(
+            capacity=self.capacity,
+            alpha=self.alpha,
+            beta=self.beta
+        )
+        observation = self.apex_space.sample(size=5)
+        for i in range_(5):
+            memory.insert_records((
+                ray_compress(observation['states'][i]),
+                observation['actions'][i],
+                observation['reward'][i],
+                observation['terminals'][i]
+            ))
+
+        # Fetch elements and their indices.
+        num_records = 5
+        batch = memory.get_records(num_records)
+        indices = batch[1]
+        self.assertEqual(num_records, len(indices))
+
+        # Does not return anything
+        memory.update_records(indices, np.random.uniform(size=10))
 
     def test_segment_tree_insert_values(self):
         """
