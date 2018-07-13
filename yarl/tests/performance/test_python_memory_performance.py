@@ -121,10 +121,10 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         records = [self.record_space.sample(size=1) for _ in range_(self.inserts)]
         for record in records:
             memory.add(
-                obs_t=record['states'],
+                obs_t=ray_compress(record['states']),
                 action=record['actions'],
                 reward=record['reward'],
-                obs_tp1=record['states'],
+                obs_tp1=ray_compress(record['states']),
                 done=record['terminals'],
                 weight=None
             )
@@ -236,7 +236,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         records = [self.record_space.sample(size=1) for _ in range_(self.inserts)]
         for record in records:
             memory.insert_records((
-                 record['states'],
+                 ray_compress(record['states']),
                  record['actions'],
                  record['reward'],
                  record['terminals']
