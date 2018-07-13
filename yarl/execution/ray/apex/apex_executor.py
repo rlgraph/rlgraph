@@ -151,11 +151,7 @@ class ApexExecutor(RayExecutor):
             sample_data = env_sample.get_batch()
             env_steps += self.worker_sample_size
             random_memory.observe.remote(
-                states=sample_data['states'],
-                actions=sample_data['actions'],
-                internals=None,
-                rewards=sample_data['rewards'],
-                terminal=sample_data['terminal']
+
             )
 
             self.steps_since_weights_synced[ray_worker] += self.worker_sample_size

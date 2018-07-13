@@ -169,6 +169,7 @@ class MinSumSegmentTree(object):
     This class merges two segment trees' operations for performance reasons to avoid
     unnecessary duplication of the insert loops.
     """
+
     def __init__(
             self,
             sum_tree,
@@ -197,7 +198,8 @@ class MinSumSegmentTree(object):
         while index >= 1:
             # No shift because small multiplications are optimized.
             update_index = 2 * index
-            self.sum_segment_tree.values[index] = self.sum_segment_tree.values[update_index] + self.sum_segment_tree.values[update_index + 1]
+            self.sum_segment_tree.values[index] = self.sum_segment_tree.values[update_index] +\
+                self.sum_segment_tree.values[update_index + 1]
             self.min_segment_tree.values[index] = min(self.min_segment_tree.values[update_index],
-                                                      self.min_segment_tree.values[update_index + 1])
+                 self.min_segment_tree.values[update_index + 1])
             index = index >> 1

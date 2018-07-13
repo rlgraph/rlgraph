@@ -17,8 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from six.moves import xrange as _range
 from yarl.backend_system import get_distributed_backend
-from yarl.components.memories.mem_prioritized_replay import MemPrioritizedReplay
+from yarl.execution.ray.apex.apex_memory import ApexMemory
 
 if get_distributed_backend() == "ray":
     import ray
@@ -27,10 +28,12 @@ if get_distributed_backend() == "ray":
 @ray.remote
 class RayMemory(object):
     """
-    An in-memory prioritized replay worker used to aaccelerate memory interaction in Ape-X.
+    An in-memory prioritized replay worker
+    used to aaccelerate memory interaction in Ape-X.
     """
-    def __init__(self, memory_spec):
-        self.memory = MemPrioritizedReplay.from_spec(memory_spec)
+    def __init__(self, memory_spec, batch_size):
+        self.memory = ApexMemory.from_spec(memory_spec)
+        self.batch_size = batch_size
 
     def get_batch(self):
         """
@@ -40,14 +43,22 @@ class RayMemory(object):
             dict, ndarray: Sample batch and indices sampled.
 
         """
-        return self.memory.get_batch()
+        return self.memory.get_records(self.batch_size)
 
-    def observe(self, states, actions, internals, rewards, terminals):
+    def observe(self, records):
         """
-        Observes experience(s), see agent observe api for more.
+        Observes experience(s).
 
+        N.b. For performance reason, data layout is slightly different for apex.
         """
-        self.memory.observe(states, actions, internals, rewards, terminals)
+        num_records = len(records['states'])
+        for i in _range(num_records):
+            self.memory.insert_records((
+                records['states'][i],
+                records['actions'][i],
+                records['rewards'][i],
+                records['terminal'][i]
+            ))
 
     def update_priorities(self, indices, loss):
         """
