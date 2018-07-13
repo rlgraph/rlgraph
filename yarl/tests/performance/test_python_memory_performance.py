@@ -211,7 +211,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         )
 
         chunksize = 32
-        chunks = int(self.inserts / self.chunksize)
+        chunks = int(self.inserts / chunksize)
         records = [self.record_space.sample(size=chunksize) for _ in range_(chunks)]
         loss_values = [np.random.random(size=self.sample_batch_size) for _ in range_(chunks)]
 
