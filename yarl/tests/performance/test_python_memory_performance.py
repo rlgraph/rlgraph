@@ -45,7 +45,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
     inserts = 1000000
 
     # Samples.
-    samples = 1000
+    samples = 10000
     sample_batch_size = 50
 
     alpha = 1.0
@@ -109,6 +109,70 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             len(records), tp, end
         ))
 
+    def test_ray_sampling(self):
+        """
+        Tests Ray's memory performance.
+        """
+        memory = PrioritizedReplayBuffer(
+            size=self.capacity,
+            alpha=1.0,
+            clip_rewards=True
+        )
+        records = [self.record_space.sample(size=1) for _ in range_(self.inserts)]
+        for record in records:
+            memory.add(
+                obs_t=record['states'],
+                action=record['actions'],
+                reward=record['reward'],
+                obs_tp1=record['states'],
+                done=record['terminals'],
+                weight=None
+            )
+        start = time.monotonic()
+        for _ in range_(self.samples):
+            batch_tuple = memory.sample(self.sample_batch_size, beta=1.0)
+        end = time.monotonic() - start
+        tp = len(records) / end
+        print('#### Testing Ray Prioritized Replay memory ####')
+        print('Testing sampling performance:')
+        print('Sampled {} batches, throughput: {} records/s, total time: {} s'.format(
+            len(records), tp, end
+        ))
+
+    def test_ray_updating(self):
+        """
+        Tests Ray's memory performance.
+        """
+        memory = PrioritizedReplayBuffer(
+            size=self.capacity,
+            alpha=1.0,
+            clip_rewards=True
+        )
+        records = [self.record_space.sample(size=1) for _ in range_(self.inserts)]
+        for record in records:
+            memory.add(
+                obs_t=record['states'],
+                action=record['actions'],
+                reward=record['reward'],
+                obs_tp1=record['states'],
+                done=record['terminals'],
+                weight=None
+            )
+        loss_values = [np.random.random(size=self.sample_batch_size) for _ in range_(self.samples)]
+        indices = [np.random.randint(low=0, high=self.inserts, size=self.sample_batch_size) for _
+                   in range_(self.samples)]
+
+        start = time.monotonic()
+        for index, loss in zip(indices, loss_values):
+            memory.update_priorities(index, loss)
+        end = time.monotonic() - start
+        tp = len(records) / end
+        print('#### Testing Ray Prioritized Replay memory ####')
+        print('Testing updating performance:')
+        print('Updates {} loss batches, throughput: {} records/s, total time: {} s'.format(
+            len(records), tp, end
+        ))
+
     def test_yarl_apex_insert(self):
         """
         Tests Yarl's python memory performance.
@@ -157,6 +221,66 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         tp = len(records) * self.chunksize / end
         print('Testing chunked insert performance:')
         print('Inserted {} chunks, throughput: {} records/s, total time: {} s'.format(
+            len(records), tp, end
+        ))
+
+    def test_yarl_sampling(self):
+        """
+        Tests Yarl's sampling performance.
+        """
+        memory = ApexMemory(
+            capacity=self.capacity,
+            alpha=1.0
+        )
+
+        records = [self.record_space.sample(size=1) for _ in range_(self.inserts)]
+        for record in records:
+            memory.insert_records((
+                 record['states'],
+                 record['actions'],
+                 record['reward'],
+                 record['terminals']
+            ))
+        start = time.monotonic()
+        for _ in range_(self.samples):
+            batch_tuple = memory.get_records(self.sample_batch_size)
+        end = time.monotonic() - start
+        tp = len(records) / end
+        print('#### Testing YARL Prioritized Replay memory ####')
+        print('Testing sampling performance:')
+        print('Sampled {} batches, throughput: {} records/s, total time: {} s'.format(
+            len(records), tp, end
+        ))
+
+    def test_yarl_updating(self):
+        """
+        Tests YARL's memory performance.
+        """
+        memory = ApexMemory(
+            capacity=self.capacity,
+            alpha=1.0
+        )
+
+        records = [self.record_space.sample(size=1) for _ in range_(self.inserts)]
+        for record in records:
+            memory.insert_records((
+                 record['states'],
+                 record['actions'],
+                 record['reward'],
+                 record['terminals']
+            ))
+        loss_values = [np.random.random(size=self.sample_batch_size) for _ in range_(self.samples)]
+        indices = [np.random.randint(low=0, high=self.inserts, size=self.sample_batch_size) for _
+                   in range_(self.samples)]
+
+        start = time.monotonic()
+        for index, loss in zip(indices, loss_values):
+            memory.update_records(index, loss)
+        end = time.monotonic() - start
+        tp = len(records) / end
+        print('#### Testing YARL Prioritized Replay memory ####')
+        print('Testing updating performance:')
+        print('Updates {} loss batches, throughput: {} records/s, total time: {} s'.format(
             len(records), tp, end
         ))
 
