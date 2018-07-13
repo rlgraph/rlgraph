@@ -386,7 +386,8 @@ class TensorFlowExecutor(GraphExecutor):
             # self.logger.info("optimizer vars before init :")
             # self.logger.info(self.optimizer.optimizer.variables())
             # TODO let graph builder do this
-            var_list.extend(self.optimizer.optimizer.variables())
+            if self.optimizer is not None:
+                var_list.extend(self.optimizer.optimizer.variables())
             init_op = tf.variables_initializer(var_list=var_list)
             ready_op = tf.report_uninitialized_variables(var_list=var_list)
         else:
