@@ -216,14 +216,15 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         loss_values = [np.random.random(size=self.sample_batch_size) for _ in range_(chunks)]
 
         start = time.monotonic()
-        for record, loss_values in zip(records, loss_values):
+        for chunk, loss_values in zip(records, loss_values):
             # Each record now is a chunk.
-            memory.insert_records((
-                ray_compress(record['states']),
-                record['actions'],
-                record['reward'],
-                record['terminals']
-            ))
+            for i in range_(chunksize):
+                memory.insert_records((
+                    chunk['states'][i],
+                    chunk['actions'][i],
+                    chunk['reward'][i],
+                    chunk['terminals'][i]
+                ))
             batch, indices, weights = memory.get_records(self.sample_batch_size)
             memory.update_records(indices, loss_values)
 
