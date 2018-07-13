@@ -19,12 +19,12 @@ from __future__ import print_function
 
 from yarl.tests.agent_test import AgentTest
 from yarl.tests.component_test import ComponentTest
-from .test_util import recursive_assert_almost_equal
-from .dummy_components import *
+from yarl.tests.test_util import recursive_assert_almost_equal
+from yarl.tests.dummy_components import *
 
 
 __all__ = ["recursive_assert_almost_equal",
            "ComponentTest",
-           "Dummy0to1", "Dummy1to1", "Dummy1to2", "Dummy2to1"
+           "Dummy0to1", "Dummy1To1", "Dummy1To2", "Dummy2To1"
            ]
 
