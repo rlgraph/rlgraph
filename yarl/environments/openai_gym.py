@@ -23,7 +23,7 @@ import time
 
 from yarl import YARLError
 from yarl.utils.util import dtype
-from yarl.envs import Environment
+from yarl.environments import Environment
 from yarl.spaces import *
 
 
@@ -74,8 +74,7 @@ class OpenAIGymEnv(Environment):
         self.gym_env.close()
         self.gym_env = None
 
-    def step(self, **kwargs):
-        actions = kwargs.get("actions")
+    def step(self, actions):
         if self.visualize:
             self.gym_env.render()
         state, reward, terminal, info = self.gym_env.step(actions)
