@@ -26,6 +26,7 @@ from six.moves import xrange as range_
 from ray.rllib.optimizers.replay_buffer import PrioritizedReplayBuffer
 
 from yarl.execution.ray.apex.apex_memory import ApexMemory
+from yarl.execution.ray.ray_util import ray_compress
 from yarl.spaces import Dict, BoolBox, FloatBox
 
 
@@ -180,10 +181,10 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             # Insert.
             for i in range_(chunksize):
                 memory.add(
-                    obs_t=chunk['states'][i],
+                    obs_t=ray_compress(chunk['states'][i]),
                     action=chunk['actions'][i],
                     reward=chunk['reward'][i],
-                    obs_tp1=chunk['states'][i],
+                    obs_tp1=ray_compress(chunk['states'][i]),
                     done=chunk['terminals'][i],
                     weight=None
                 )
@@ -218,7 +219,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         for record, loss_values in zip(records, loss_values):
             # Each record now is a chunk.
             memory.insert_records((
-                record['states'],
+                ray_compress(record['states']),
                 record['actions'],
                 record['reward'],
                 record['terminals']
