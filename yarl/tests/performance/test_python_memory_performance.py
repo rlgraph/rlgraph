@@ -30,7 +30,7 @@ from yarl.spaces import Dict, BoolBox, FloatBox
 
 
 class TestPythonMemoryPerformance(unittest.TestCase):
-    self.record_space = Dict(
+    record_space = Dict(
         states=FloatBox(shape=(4,)),
         actions=FloatBox(shape=(2,)),
         reward=float,
