@@ -132,11 +132,11 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         for _ in range_(self.samples):
             batch_tuple = memory.sample(self.sample_batch_size, beta=1.0)
         end = time.monotonic() - start
-        tp = len(records) / end
+        tp = self.samples / end
         print('#### Testing Ray Prioritized Replay memory ####')
         print('Testing sampling performance:')
         print('Sampled {} batches, throughput: {} records/s, total time: {} s'.format(
-            len(records), tp, end
+            self.samples, tp, end
         ))
 
     def test_ray_updating(self):
@@ -166,11 +166,11 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         for index, loss in zip(indices, loss_values):
             memory.update_priorities(index, loss)
         end = time.monotonic() - start
-        tp = len(records) / end
+        tp = len(indices) / end
         print('#### Testing Ray Prioritized Replay memory ####')
         print('Testing updating performance:')
         print('Updates {} loss batches, throughput: {} records/s, total time: {} s'.format(
-            len(records), tp, end
+            len(indices), tp, end
         ))
 
     def test_yarl_apex_insert(self):
@@ -245,11 +245,11 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         for _ in range_(self.samples):
             batch_tuple = memory.get_records(self.sample_batch_size)
         end = time.monotonic() - start
-        tp = len(records) / end
+        tp = self.samples / end
         print('#### Testing YARL Prioritized Replay memory ####')
         print('Testing sampling performance:')
         print('Sampled {} batches, throughput: {} records/s, total time: {} s'.format(
-            len(records), tp, end
+            self.samples, tp, end
         ))
 
     def test_yarl_updating(self):
@@ -277,11 +277,11 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         for index, loss in zip(indices, loss_values):
             memory.update_records(index, loss)
         end = time.monotonic() - start
-        tp = len(records) / end
+        tp = len(indices) / end
         print('#### Testing YARL Prioritized Replay memory ####')
         print('Testing updating performance:')
         print('Updates {} loss batches, throughput: {} records/s, total time: {} s'.format(
-            len(records), tp, end
+            len(indices), tp, end
         ))
 
     def test_ray_combined_ops(self):
