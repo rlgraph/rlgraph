@@ -61,6 +61,7 @@ def get_list_registry(space, capacity=None, initializer=0, flatten=True):
             var = []
     return var
 
+
 def get_space_from_op(op):
     """
     Tries to re-create a Space object given some DataOp.
@@ -108,6 +109,7 @@ def get_space_from_op(op):
             if shape is None:
                 return 0
             add_batch_rank = False
+            # Detect automatically whether the first rank is a batch rank.
             if shape is not () and shape[0] is None:
                 shape = shape[1:]
                 add_batch_rank = True

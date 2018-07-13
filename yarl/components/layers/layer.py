@@ -47,7 +47,7 @@ class Layer(Component):
             *inputs (any): The input(s) to this layer.
 
         Returns:
-            The output(s) of this layer.
+            DataOp: The output(s) of this layer.
         """
         raise NotImplementedError
 

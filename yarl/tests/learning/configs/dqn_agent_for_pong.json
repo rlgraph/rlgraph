@@ -15,7 +15,8 @@
       "height": 84
     },
     {
-      "type": "grayscale"
+      "type": "grayscale",
+      "keep_rank": true
     },
     {
       "type": "divide",
@@ -23,7 +24,8 @@
     },
     {
       "type": "sequence",
-      "length": 4
+      "length": 4,
+      "add_rank": false
     }
   ],
 
@@ -33,19 +35,22 @@
         "type": "conv2d",
         "filters": 32,
         "kernel_size": 8,
-        "strides": 4
+        "strides": 4,
+        "scope": "conv1"
     },
     {
         "type": "conv2d",
         "filters": 64,
         "kernel_size": 4,
-        "strides": 2
+        "strides": 2,
+        "scope": "conv2"
     },
     {
         "type": "conv2d",
         "filters": 64,
         "kernel_size": 3,
-        "strides": 1
+        "strides": 1,
+        "scope": "conv3"
     },
     {
         "type": "flatten"

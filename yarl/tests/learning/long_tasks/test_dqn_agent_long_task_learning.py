@@ -40,23 +40,24 @@ class TestDQNAgentLongTaskLearning(unittest.TestCase):
         env = OpenAIGymEnv("Pong-v0")
         agent = DQNAgent.from_spec(
             "../configs/dqn_agent_for_pong.json",
+            discount=0.97,
             double_q=False,
             dueling_q=False,
             state_space=env.state_space,
             action_space=env.action_space,
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=10),
-            update_spec=dict(update_interval=4, batch_size=24, sync_interval=32),
-            optimizer_spec=dict(learning_rate=0.05),
-            store_last_q_table=True
+            update_spec=dict(update_interval=4, batch_size=64, sync_interval=32),
+            optimizer_spec=dict(type="adam", learning_rate=0.02),
+            #store_last_q_table=True
         )
 
         time_steps = 1000
         worker = SingleThreadedWorker(environment=env, agent=agent, render=True)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
-        print("STATES:\n{}".format(agent.last_q_table["states"]))
-        print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
+        #print("STATES:\n{}".format(agent.last_q_table["states"]))
+        #print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)

@@ -17,12 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from six.moves import xrange
+from six.moves import xrange as range_
 
 import tensorflow as tf
 
 from yarl.utils.ops import FlattenedDataOp
-from yarl.utils.util import get_rank, force_list, get_batch_size
+from yarl.utils.util import get_rank, get_shape, force_list, get_batch_size
 from yarl.components.layers.preprocessing import PreprocessLayer
 
 
@@ -40,8 +40,8 @@ class Sequence(PreprocessLayer):
                 The second record will generate: Itself and `length`-1 times the very first record.
                 Etc..
             add_rank (bool): Whether to add another rank to the end of the input with dim=length-of-the-sequence.
-                This could be useful if e.g. a grayscale image of w x h pixels is coming from the env
-                (no color channel). The output of the preprocessor would then be of shape [batch] x w x h x [length].
+                If False, concatenates the sequence within the last rank.
+                Default: True.
         """
         # Switch off split (it's switched on for all LayerComponents by default).
         # -> accept any Space -> flatten to OrderedDict -> input & return OrderedDict -> re-nest.
@@ -73,9 +73,9 @@ class Sequence(PreprocessLayer):
 
     def _graph_fn_apply(self, inputs):
         """
-        Sequences (stitches) together the incoming api_methods by using our buffer (with stored older records).
-        Sequencing happens within the last rank if `self.add_rank` is False, otherwise a new rank is added at the end for
-        the sequencing.
+        Sequences (stitches) together the incoming inputs by using our buffer (with stored older records).
+        Sequencing happens within the last rank if `self.add_rank` is False, otherwise a new rank is added at the end
+        for the sequencing.
 
         Args:
             inputs (FlattenedDataOp): The FlattenedDataOp to be sequenced.
@@ -110,23 +110,17 @@ class Sequence(PreprocessLayer):
         # Insert the input at the correct index or fill empty buffer entirely with input.
         insert_inputs = tf.cond(pred=(self.index >= 0), true_fn=normal_assign, false_fn=after_reset_assign)
 
-        # Make sure the input has been inserted ..
-        # .. and that the first rank's dynamic size is 1 (single item, no batching).
-        dependencies = force_list(insert_inputs)
-        if self.first_rank_is_batch:
-            for key, value in inputs.items():
-                dependencies.append(tf.assert_equal(x=get_batch_size(value), y=1))
-
-        # Make sure the input has been inserted ..
-        with tf.control_dependencies(control_inputs=dependencies):
-            # Before increasing by 1.
+        # Make sure the input has been inserted.
+        with tf.control_dependencies(control_inputs=force_list(insert_inputs)):
+            # Then increase index by 1.
             index_plus_1 = self.assign_variable(ref=self.index, value=((self.index + 1) % self.length))
 
+        # Then gather the output.
         with tf.control_dependencies(control_inputs=[index_plus_1]):
             sequences = FlattenedDataOp()
-            # Collect the correct previous api_methods from the buffer to form the output sequence.
+            # Collect the correct previous inputs from the buffer to form the output sequence.
             for key in inputs.keys():
-                n_in = [self.buffer[key][(self.index + n) % self.length] for n in xrange(self.length)]
+                n_in = [self.buffer[key][(self.index + n) % self.length] for n in range_(self.length)]
 
                 # Add the sequence-rank to the end of our api_methods.
                 if self.add_rank:
@@ -137,9 +131,13 @@ class Sequence(PreprocessLayer):
 
                 # Put batch rank back in (buffer does not have it).
                 if self.first_rank_is_batch:
-                    sequences[key] = tf.expand_dims(input=sequence, axis=0, name="apply")
+                    sequence = tf.expand_dims(input=sequence, axis=0, name="apply")
                 # Or not.
                 else:
-                    sequences[key] = tf.identity(input=sequence, name="apply")
+                    sequence = tf.identity(input=sequence, name="apply")
+
+                # Must pass the sequence through a placeholder_with_default dummy to set back the
+                # batch rank to '?', instead of 1 (1 would confuse the auto Space inferral).
+                sequences[key] = tf.placeholder_with_default(sequence, shape=(None,) + tuple(get_shape(sequence)[1:]))
 
             return sequences
