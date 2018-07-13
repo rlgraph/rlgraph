@@ -42,7 +42,7 @@ extras_require = {
     'gym': 'gym',
     'horovod': 'horovod',
     'pytorch': 'pytorch',
-    'ray': 'ray'
+    'ray': ['ray', 'lz4', 'pyarrow']
 }
 
 setup(

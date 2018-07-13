@@ -18,16 +18,17 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-
+import base64
 import logging
 from yarl import YARLError, get_distributed_backend
-from yarl.execution.ray import RayAgent
 
 if get_distributed_backend() == "ray":
     import ray
+    import lz4.frame
+    import pyarrow
 
 
-# Largely follow utils used in Ray RLlib ported to use the RayAgent wrapper.
+# Follows utils used in Ray RLlib.
 
 
 class RayTaskPool(object):
@@ -123,3 +124,22 @@ def split_local_non_local_agents(ray_agents):
         else:
             non_local.append(a)
     return local, non_local
+
+
+# Ported Ray compression utils, encoding apparently necessary for Redis.
+def compress(data):
+    data = pyarrow.serialize(data).to_buffer().to_pybytes()
+    data = lz4.frame.compress(data)
+    data = base64.b64encode(data)
+
+    return data
+
+
+def decompress(data):
+    data = base64.b64decode(data)
+    data = lz4.frame.decompress(data)
+    data = pyarrow.deserialize(data)
+    return data
+
+
+
