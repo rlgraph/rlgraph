@@ -207,17 +207,17 @@ def default_dict(original, defaults):
     return original
 
 
-def clamp(x, min_, max_):
+def clip(x, min_, max_):
     """
-    Clamps x between min_ and max_.
+    Clips x between min_ and max_.
 
     Args:
-        x (float): The input to be clamped.
+        x (float): The input to be clipped.
         min_ (float): The min value for x.
         max_ (float): The max value for x.
 
     Returns:
-        float: The clamped value.
+        float: The clipped value.
     """
     return max(min_, min(x, max_))
 

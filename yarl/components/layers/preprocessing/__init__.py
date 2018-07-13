@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from yarl.components.layers.preprocessing.preprocess_layer import PreprocessLayer
 
-from yarl.components.layers.preprocessing.clamp import Clamp
+from yarl.components.layers.preprocessing.clip import Clip
 from yarl.components.layers.preprocessing.flatten import Flatten
 from yarl.components.layers.preprocessing.grayscale import GrayScale
 from yarl.components.layers.preprocessing.image_binary import ImageBinary
@@ -29,7 +29,7 @@ from yarl.components.layers.preprocessing.multiply_divide import Multiply, Divid
 from yarl.components.layers.preprocessing.sequence import Sequence
 
 PreprocessLayer.__lookup_classes__ = dict(
-    clamp=Clamp,
+    clip=Clip,
     divide=Divide,
     flatten=Flatten,
     grayscale=GrayScale,
@@ -41,5 +41,6 @@ PreprocessLayer.__lookup_classes__ = dict(
 )
 
 __all__ = ["PreprocessLayer",
-           "Clamp", "Divide", "Flatten", "GrayScale", "ImageBinary", "ImageResize", "Multiply", "Normalize", "Sequence"]
+           "Clip", "Divide", "Flatten", "GrayScale", "ImageBinary", "ImageResize", "Multiply", "Normalize", "Sequence"]
+
 

@@ -20,7 +20,7 @@ from __future__ import print_function
 from six.moves import xrange as range_
 import unittest
 
-from yarl.components.layers import GrayScale, Flatten, Multiply, PreprocessorStack, Sequence, Clamp, \
+from yarl.components.layers import GrayScale, Flatten, Multiply, PreprocessorStack, Sequence, Clip, \
     ImageBinary
 from yarl.spaces import *
 from yarl.tests import ComponentTest
@@ -30,10 +30,10 @@ import numpy as np
 
 class TestPreprocessors(unittest.TestCase):
 
-    def test_clamp(self):
-        clamp = Clamp(min=0.0, max=1.0)
+    def test_clip(self):
+        clip = Clip(min=0.0, max=1.0)
         # Grayscale image of 2x2 size.
-        test = ComponentTest(component=clamp, input_spaces=dict(apply=FloatBox(shape=(2, 2), add_batch_rank=True)))
+        test = ComponentTest(component=clip, input_spaces=dict(apply=FloatBox(shape=(2, 2), add_batch_rank=True)))
 
         test.test("reset")
         # Batch=3

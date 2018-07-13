@@ -17,24 +17,31 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
+import numpy as np
 
+from yarl import get_backend
 from yarl.components.layers.preprocessing import PreprocessLayer
 
+if get_backend() == "tf":
+    import tensorflow as tf
 
-class Clamp(PreprocessLayer):
+
+class Clip(PreprocessLayer):
     """
-    A simple clamp layer. Clamps each value in the input tensor between min_ and max_.
+    A simple clip-by-value layer. Clips each value in the input tensor between min_ and max_.
     """
-    def __init__(self, min=0.0, max=1.0, scope="clamp", **kwargs):
+    def __init__(self, min=0.0, max=1.0, scope="clip", **kwargs):
         """
         Args:
-            min_ (float): The min value that any value in the input will be clamped to.
-            max_ (float): The max value that any value in the input will be clamped to.
+            min_ (float): The min value that any value in the input can have.
+            max_ (float): The max value that any value in the input can have.
         """
-        super(Clamp, self).__init__(scope=scope, **kwargs)
+        super(Clip, self).__init__(scope=scope, **kwargs)
         self.min = min
         self.max = max
 
     def _graph_fn_apply(self, input_):
-        return tf.clip_by_value(t=input_, clip_value_min=self.min, clip_value_max=self.max)
+        if self.backend == "python" or get_backend() == "python":
+            return np.clip(input_, a_min=self.min, a_max=self.max)
+        elif get_backend() == "tf":
+            return tf.clip_by_value(t=input_, clip_value_min=self.min, clip_value_max=self.max)

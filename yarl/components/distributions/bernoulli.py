@@ -38,9 +38,9 @@ class Bernoulli(Distribution):
             prob (DataOp): The p value (probability that distribution returns True).
         """
         # TODO: Move this into some sort of NN-output-cleanup component. This is repetitive stuff.
-        ## Clamp raw_input between 0 and 1 to make it interpretable as a probability.
+        ## Clip raw_input between 0 and 1 to make it interpretable as a probability.
         #p = tf.sigmoid(x=flat_input)
-        ## Clamp to avoid 0.0 or 1.0 probabilities (adds numerical stability).
+        ## Clip to avoid 0.0 or 1.0 probabilities (adds numerical stability).
         #p = tf.clip_by_value(p, clip_value_min=SMALL_NUMBER, clip_value_max=(1.0 - SMALL_NUMBER))
         if get_backend() == "tf":
             return tf.distributions.Bernoulli(probs=prob, dtype=util.dtype("bool"))
