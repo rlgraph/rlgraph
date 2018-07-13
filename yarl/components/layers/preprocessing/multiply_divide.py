@@ -20,22 +20,21 @@ from __future__ import print_function
 from yarl.components.layers.preprocessing import PreprocessLayer
 
 
-class Scale(PreprocessLayer):
+class Multiply(PreprocessLayer):
     """
-    Simply scales an input by a constant scaling-factor.
+    Scales an input by a constant scaling-factor.
     """
-
-    def __init__(self, scaling_factor, scope="scale", **kwargs):
+    def __init__(self, factor, scope="multiply", **kwargs):
         """
         Args:
             scaling_factor (float): The factor to scale with.
         """
-        super(Scale, self).__init__(scope=scope, **kwargs)
-        self.scaling_factor = scaling_factor
+        super(Multiply, self).__init__(scope=scope, **kwargs)
+        self.factor = factor
 
     def _graph_fn_apply(self, tensor):
         """
-        Simply multiplies the input with our scaling factor.
+        Multiplies the input with our factor.
 
         Args:
             tensor (tensor): The input to be scaled.
@@ -43,4 +42,29 @@ class Scale(PreprocessLayer):
         Returns:
             op: The op to scale the input.
         """
-        return tensor * self.scaling_factor
+        return tensor * self.factor
+
+
+class Divide(PreprocessLayer):
+    """
+    Divides an input by a constant value.
+    """
+    def __init__(self, divisor, scope="divide", **kwargs):
+        """
+        Args:
+            scaling_factor (float): The factor to scale with.
+        """
+        super(Divide, self).__init__(scope=scope, **kwargs)
+        self.divisor = divisor
+
+    def _graph_fn_apply(self, tensor):
+        """
+        Divides the input by with our divisor.
+
+        Args:
+            tensor (tensor): The input to be divided.
+
+        Returns:
+            DataOp: The op to divide the input.
+        """
+        return tensor / self.divisor

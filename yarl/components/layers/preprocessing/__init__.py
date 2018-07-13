@@ -25,20 +25,21 @@ from yarl.components.layers.preprocessing.grayscale import GrayScale
 from yarl.components.layers.preprocessing.image_binary import ImageBinary
 from yarl.components.layers.preprocessing.image_resize import ImageResize
 from yarl.components.layers.preprocessing.normalize import Normalize
-from yarl.components.layers.preprocessing.scale import Scale
+from yarl.components.layers.preprocessing.multiply_divide import Multiply, Divide
 from yarl.components.layers.preprocessing.sequence import Sequence
 
 PreprocessLayer.__lookup_classes__ = dict(
     clamp=Clamp,
+    divide=Divide,
     flatten=Flatten,
     grayscale=GrayScale,
     imagebinary=ImageBinary,
     imageresize=ImageResize,
+    multiply=Multiply,
     normalize=Normalize,
-    scale=Scale,
     sequence=Sequence
 )
 
 __all__ = ["PreprocessLayer",
-           "Clamp", "Flatten", "GrayScale", "ImageBinary", "ImageResize", "Normalize", "Scale", "Sequence"]
+           "Clamp", "Divide", "Flatten", "GrayScale", "ImageBinary", "ImageResize", "Multiply", "Normalize", "Sequence"]
 

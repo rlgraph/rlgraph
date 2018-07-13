@@ -20,7 +20,7 @@ from __future__ import print_function
 from six.moves import xrange as range_
 import unittest
 
-from yarl.components.layers import GrayScale, Flatten, Scale, PreprocessorStack, Sequence, Clamp, \
+from yarl.components.layers import GrayScale, Flatten, Multiply, PreprocessorStack, Sequence, Clamp, \
     ImageBinary
 from yarl.spaces import *
 from yarl.tests import ComponentTest
@@ -165,7 +165,7 @@ class TestPreprocessors(unittest.TestCase):
         )
 
         # Construct the Component to test (PreprocessorStack).
-        scale = Scale(scaling_factor=2)
+        scale = Multiply(factor=2)
         gray = GrayScale(weights=(0.5, 0.5), keep_rank=False)
         test = ComponentTest(component=PreprocessorStack(scale, gray), input_spaces=dict(preprocess=space))
 

@@ -26,6 +26,7 @@ if get_backend() == "tf":
 
 class ImageBinary(PreprocessLayer):
     """
+    # TODO: Better to move this into grayscale! When needed.
     A simple binary converter for images of arbitrary dimensions. All non-black pixels are converted to
     1.0s, all black pixels (all 0.0 in last rank) remain.
     """
