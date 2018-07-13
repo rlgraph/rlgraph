@@ -26,7 +26,7 @@ if get_distributed_backend() == "ray":
 
 
 @ray.remote
-class RayMemory(object):
+class RayMemoryActor(object):
     """
     An in-memory prioritized replay worker
     used to aaccelerate memory interaction in Ape-X.

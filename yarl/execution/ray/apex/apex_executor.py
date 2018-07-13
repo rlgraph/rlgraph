@@ -21,7 +21,7 @@ from six.moves import queue
 from yarl import get_distributed_backend
 from yarl.agents import Agent
 from yarl.execution.ray import RayWorker
-from yarl.execution.ray.apex.ray_memory import RayMemory
+from yarl.execution.ray.apex.ray_memory_actor import RayMemoryActor
 from yarl.execution.ray.ray_executor import RayExecutor
 import random
 from threading import Thread
@@ -104,7 +104,7 @@ class ApexExecutor(RayExecutor):
 
         self.logger.info("Initializing {} local replay memories.".format(self.num_local_workers))
         self.ray_local_replay_memories = create_colocated_ray_actors(
-            cls=RayMemory,
+            cls=RayMemoryActor,
             config=self.agent_config['memory_spec'],
             num_agents=self.num_local_workers
         )
