@@ -27,6 +27,7 @@ with open(os.path.join(os.path.dirname(__file__), 'yarl', 'version.py')) as fp:
 
 install_requires = [
     'cached_property',
+    'opencv-python',
     'numpy',
     'pyyaml',
     'pytest',
