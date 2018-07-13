@@ -219,6 +219,12 @@ class TestPreprocessors(unittest.TestCase):
             index_value, buffer_value = test.get_variable_values(index, buffer)
             self.assertEqual(index_value, 1)
 
+            # Insert more than one sample.
+            test.test(("apply", np.array([[0.6], [0.7]])),
+                      expected_outputs=np.array([[[0.5, 0.6, 0.7]]]))
+            index_value, buffer_value = test.get_variable_values(index, buffer)
+            self.assertEqual(index_value, 0)
+
     def test_sequence_preprocessor_with_container_space(self):
         # Test with no batch rank.
         space = Tuple(FloatBox(shape=(1,)), FloatBox(shape=(2, 2)), add_batch_rank=False)

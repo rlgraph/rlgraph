@@ -751,7 +751,6 @@ class Component(Specifiable):
 
         # Function is a graph_fn: Build a simple wrapper API-method around it and name it `name`.
         if func_type == "graph_fn":
-            kwargs = kwargs
 
             def api_method(self_, *inputs):
                 func_ = getattr(self_, func.__name__)

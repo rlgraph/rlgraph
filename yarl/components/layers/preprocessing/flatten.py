@@ -17,14 +17,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
 import numpy as np
 
-from yarl import YARLError
+from yarl import YARLError, get_backend
 from yarl.utils.util import get_shape
 from yarl.spaces import Space, IntBox
-
 from yarl.components.layers.preprocessing import PreprocessLayer
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class Flatten(PreprocessLayer):
@@ -43,7 +44,8 @@ class Flatten(PreprocessLayer):
         """
         super(Flatten, self).__init__(scope=scope, add_auto_key_as_first_param=True, **kwargs)
 
-        self.has_batch = None
+        # The new shape(s) after flattening.
+        self.new_shapes = dict()
 
         self.flatten_categories = flatten_categories
         # Stores the number of categories in IntBoxes.
@@ -53,8 +55,14 @@ class Flatten(PreprocessLayer):
         super(Flatten, self).check_input_spaces(input_spaces, action_space)
 
         # Check whether our input space has-batch or not and store this information here.
-        in_space = input_spaces["apply"][0]  # type: Space
-        self.has_batch = in_space.has_batch_rank
+        in_space = input_spaces["apply"][0]  # type: Dict
+
+        for k, v in in_space.flatten().items():
+            if v.has_batch_rank:
+                self.new_shapes[k] = (-1, v.flat_dim)
+            else:
+                self.new_shapes[k] = (v.flat_dim,)
+
         # Check whether we have to flatten the incoming categories of an IntBox into a FloatBox with additional
         # rank (categories rank). Store the dimension of this additional rank in the `self.num_categories` dict.
         if self.flatten_categories is True:
@@ -70,13 +78,18 @@ class Flatten(PreprocessLayer):
             self.num_categories = in_space.flatten(mapping=mapping_func)
 
     def _graph_fn_apply(self, key, input_):
-        if self.has_batch:
-            shape = (-1, int(np.prod(get_shape(input_)[1:])))
-        else:
-            shape = tuple([get_shape(input_, flat=True)])
+        if self.backend == "python" or get_backend() == "python":
+            from yarl.utils.numpy import one_hot
 
-        reshaped = tf.reshape(tensor=input_, shape=shape)
-        # Create a one-hot axis for the categories at the end.
-        if self.num_categories[key] > 1:
-            reshaped = tf.squeeze(tf.one_hot(indices=reshaped, depth=self.num_categories[key], axis=1), axis=2)
-        return tf.identity(reshaped, name="flattened")
+            reshaped = np.reshape(a=input_, newshape=self.new_shapes[key])
+            # Create a one-hot axis for the categories at the end.
+            if self.num_categories[key] > 1:
+                reshaped = np.squeeze(one_hot(reshaped, depth=self.num_categories[key]), axis=2)
+            return reshaped
+
+        elif get_backend() == "tf":
+            reshaped = tf.reshape(tensor=input_, shape=self.new_shapes[key])
+            # Create a one-hot axis for the categories at the end.
+            if self.num_categories[key] > 1:
+                reshaped = tf.squeeze(tf.one_hot(indices=reshaped, depth=self.num_categories[key], axis=1), axis=2)
+            return tf.identity(reshaped, name="flattened")
