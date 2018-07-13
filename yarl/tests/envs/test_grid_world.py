@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import unittest
 
-from yarl.envs import GridWorld
+from yarl.environments import GridWorld
 
 
 class TestGridWorld(unittest.TestCase):

@@ -21,7 +21,7 @@ import numpy as np
 import unittest
 
 from yarl.spaces import IntBox, FloatBox
-from yarl.envs import RandomEnv
+from yarl.environments import RandomEnv
 from yarl.tests.test_util import recursive_assert_almost_equal
 
 

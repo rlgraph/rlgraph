@@ -21,7 +21,7 @@ import numpy as np
 import unittest
 import logging
 
-from yarl.envs import GridWorld, OpenAIGymEnv
+from yarl.environments import GridWorld, OpenAIGymEnv
 from yarl.agents import DQNAgent
 from yarl.execution import SingleThreadedWorker
 from yarl.utils import root_logger

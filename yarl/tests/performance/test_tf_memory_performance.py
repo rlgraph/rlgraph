@@ -22,7 +22,7 @@ import unittest
 import time
 
 from yarl.components import ReplayMemory, PrioritizedReplay
-from yarl.envs import OpenAIGymEnv
+from yarl.environments import OpenAIGymEnv
 from yarl.spaces import Dict, BoolBox, FloatBox, IntBox
 from yarl.tests import ComponentTest
 

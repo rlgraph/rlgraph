@@ -24,7 +24,7 @@ import unittest
 from yarl.agents import DQNAgent
 import yarl.spaces as spaces
 from yarl.components.loss_functions.dqn_loss_function import DQNLossFunction
-from yarl.envs import GridWorld, RandomEnv
+from yarl.environments import GridWorld, RandomEnv
 from yarl.execution.single_threaded_worker import SingleThreadedWorker
 from yarl.utils import root_logger, one_hot
 from yarl.tests.agent_test import AgentTest

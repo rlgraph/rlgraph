@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 
 from yarl.agents.dqn_agent import DQNAgent
-from yarl.envs import OpenAIGymEnv
+from yarl.environments import OpenAIGymEnv
 from yarl.execution.single_threaded_worker import SingleThreadedWorker
 
 
@@ -34,7 +34,7 @@ class TestSingleThreadedDQN(unittest.TestCase):
 
     def test_replay_memory_atari_throughput(self):
         """
-        Tests throughput on standard Atari envs using the replay memory.
+        Tests throughput on standard Atari environments using the replay memory.
         """
         agent = DQNAgent(
             states_spec=self.env.state_space,
@@ -58,7 +58,7 @@ class TestSingleThreadedDQN(unittest.TestCase):
 
     def test_prioritized_replay_atari_throughput(self):
         """
-        Tests throughput on standard Atari envs using the prioritized replay memory.
+        Tests throughput on standard Atari environments using the prioritized replay memory.
         """
         agent = DQNAgent(
             states_spec=self.env.state_space,

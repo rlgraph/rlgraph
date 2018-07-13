@@ -17,10 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.envs.environment import Environment
-from yarl.envs.grid_world import GridWorld
-from yarl.envs.openai_gym import OpenAIGymEnv
-from yarl.envs.random_env import RandomEnv
+from yarl.environments.environment import Environment
+from yarl.environments.grid_world import GridWorld
+from yarl.environments.openai_gym import OpenAIGymEnv
+from yarl.environments.random_env import RandomEnv
 
 
 Environment.__lookup_classes__ = dict(

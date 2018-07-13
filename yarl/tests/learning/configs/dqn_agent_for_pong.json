@@ -4,7 +4,7 @@
   "memory_spec":
   {
     "type": "replay",
-    "capacity": 1024
+    "capacity": 10000
   },
 
   "preprocessing_spec":

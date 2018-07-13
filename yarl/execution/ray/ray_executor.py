@@ -26,7 +26,7 @@ import time
 
 from yarl import get_distributed_backend
 from yarl.agents import Agent
-from yarl.envs import Environment
+from yarl.environments import Environment
 
 if get_distributed_backend() == "ray":
     import ray

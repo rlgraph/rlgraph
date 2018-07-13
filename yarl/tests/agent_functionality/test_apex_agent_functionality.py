@@ -24,7 +24,7 @@ import time
 
 from yarl.agents import ApexAgent
 import yarl.spaces as spaces
-from yarl.envs import RandomEnv
+from yarl.environments import RandomEnv
 from yarl.execution.single_threaded_worker import SingleThreadedWorker
 from yarl.spaces import FloatBox, BoolBox
 from yarl.utils import root_logger

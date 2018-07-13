@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 
 from yarl.agents.random_agent import RandomAgent
-from yarl.envs import OpenAIGymEnv
+from yarl.environments import OpenAIGymEnv
 from yarl.execution.single_threaded_worker import SingleThreadedWorker
 
 

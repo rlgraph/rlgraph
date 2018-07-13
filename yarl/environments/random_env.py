@@ -23,7 +23,7 @@ import random
 from six.moves import xrange
 import time
 
-from yarl.envs import Environment
+from yarl.environments import Environment
 import yarl.spaces as spaces
 
 

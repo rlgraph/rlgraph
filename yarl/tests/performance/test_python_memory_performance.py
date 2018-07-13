@@ -26,7 +26,7 @@ from six.moves import xrange as range_
 from ray.rllib.optimizers.replay_buffer import PrioritizedReplayBuffer
 
 from yarl.components.memories.mem_prioritized_replay import MemPrioritizedReplay
-from yarl.envs import OpenAIGymEnv
+from yarl.environments import OpenAIGymEnv
 from yarl.spaces import Dict, BoolBox, FloatBox, IntBox
 from yarl.tests import ComponentTest
 
