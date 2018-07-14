@@ -135,7 +135,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         tp = self.samples / end
         print('#### Testing Ray Prioritized Replay memory ####')
         print('Testing sampling performance:')
-        print('Sampled {} batches, throughput: {} records/s, total time: {} s'.format(
+        print('Sampled {} batches, throughput: {} samples/s, total time: {} s'.format(
             self.samples, tp, end
         ))
 
@@ -169,7 +169,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         tp = len(indices) / end
         print('#### Testing Ray Prioritized Replay memory ####')
         print('Testing updating performance:')
-        print('Updates {} loss batches, throughput: {} records/s, total time: {} s'.format(
+        print('Updates {} loss batches, throughput: {} updates/s, total time: {} s'.format(
             len(indices), tp, end
         ))
 
@@ -248,7 +248,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         tp = self.samples / end
         print('#### Testing YARL Prioritized Replay memory ####')
         print('Testing sampling performance:')
-        print('Sampled {} batches, throughput: {} records/s, total time: {} s'.format(
+        print('Sampled {} batches, throughput: {} batches/s, total time: {} s'.format(
             self.samples, tp, end
         ))
 
@@ -280,7 +280,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         tp = len(indices) / end
         print('#### Testing YARL Prioritized Replay memory ####')
         print('Testing updating performance:')
-        print('Updates {} loss batches, throughput: {} records/s, total time: {} s'.format(
+        print('Updates {} loss batches, throughput: {} updates/s, total time: {} s'.format(
             len(indices), tp, end
         ))
 
