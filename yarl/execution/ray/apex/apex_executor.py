@@ -45,7 +45,6 @@ class ApexExecutor(RayExecutor):
             environment_spec (dict): Environment spec. Each worker in the cluster will instantiate
                 an environment using this spec.
             agent_config (dict): Config dict containing agent and execution specs.
-            # TODO this does not seem like it belongs here
             repeat_actions (Optional[int]): How often actions are repeated after retrieving them from the agent.
 
         """
@@ -185,11 +184,7 @@ class ApexExecutor(RayExecutor):
         # 3. Update priorities on priority sampling workers using loss values produced by update worker.
         while not self.update_output_queue.empty():
             ray_memory, indices, loss = self.update_output_queue.get()
-
-            # TODO this is not very clean:
-            # The point of this is that the ray agent itself should be generic
-            # and does not need an api method to update priorities.
-            ray_memory.agent.update_priorities.remote(indices, loss)
+            ray_memory.update_priorities.remote(indices, loss)
         return env_steps
 
 

@@ -19,14 +19,10 @@ from __future__ import print_function
 
 import logging
 import unittest
-
-import time
-
 from yarl.agents import ApexAgent
 import yarl.spaces as spaces
 from yarl.environments import RandomEnv
 from yarl.execution.single_threaded_worker import SingleThreadedWorker
-from yarl.spaces import FloatBox, BoolBox
 from yarl.utils import root_logger
 
 
@@ -42,50 +38,20 @@ class TestApexAgent(unittest.TestCase):
         """
         env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
         agent = ApexAgent.from_spec(
-            "configs/apex_agent_for_random_env.json",
+            "configs/dqn_agent_for_random_env.json",
             state_space=env.state_space,
             action_space=env.action_space
         )
 
-        time_steps = 100
         worker = SingleThreadedWorker(environment=env, agent=agent)
-        results = worker.execute_timesteps(time_steps, deterministic=True)
+        timesteps = 100
+        results = worker.execute_timesteps(timesteps, use_exploration=False)
 
-        self.assertEqual(results["timesteps_executed"], time_steps)
-        self.assertEqual(results["env_frames"], time_steps)
+        print(results)
+
+        self.assertEqual(results["timesteps_executed"], timesteps)
+        self.assertEqual(results["env_frames"], timesteps)
         # Assert deterministic execution of Env and Agent.
         self.assertAlmostEqual(results["mean_episode_reward"], 5.923551400230593)
         self.assertAlmostEqual(results["max_episode_reward"], 14.312868008192979)
         self.assertAlmostEqual(results["final_episode_reward"], 0.14325251090518198)
-
-    def test_get_batch(self):
-        """
-        Tests if the external get-batch logic returns a batch and the corresponding
-        indices after inserting one.
-        """
-        env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
-        state_space = env.state_space
-        action_space = env.action_space
-        agent = ApexAgent.from_spec(
-            "configs/apex_agent_for_random_env.json",
-            state_space=state_space,
-            action_space=action_space
-        )
-        rewards = FloatBox()
-        terminals = BoolBox()
-
-        # Observe a few times.
-        start = time.monotonic()
-        agent.observe(
-            states=state_space.sample(size=100),
-            actions=action_space.sample(size=100),
-            internals=[],
-            rewards=rewards.sample(size=100),
-            terminals=terminals.sample(size=100)
-        )
-        end = time.monotonic() - start
-        print("Time to insert 100 elements {} s.".format(end))
-
-        batch = agent.get_batch()
-        print(batch)
-        # Sample a batch and its indices.
