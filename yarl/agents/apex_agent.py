@@ -17,13 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import copy
 import numpy as np
 
 from yarl.agents import Agent
 from yarl.components import Synchronizable, Merger, Splitter, DQNLossFunction, PrioritizedReplay, \
     Policy
-from yarl.spaces import Dict, IntBox, FloatBox, BoolBox
+from yarl.spaces import FloatBox, BoolBox
 from yarl.utils.util import strip_list
 
 
@@ -163,9 +162,10 @@ class ApexAgent(Agent):
 
         self.core_component.define_api_method("update_from_external_batch", update_from_external_batch)
 
-    def _assemble_meta_graph(self, core, *params):
-        # Define our interface.
-        pass
+        def update_priorities(self_, indices, loss):
+            return self_.call(memory._graph_fn_update_records, indices, loss)
+
+        self.core_component.define_api_method("update_priorities", update_priorities)
 
     def get_action(self, states, use_exploration=True, return_preprocessed_states=False):
         batched_states = self.state_space.batched(states)
@@ -185,19 +185,6 @@ class ApexAgent(Agent):
                 return ret[0], ret[1]
         return strip_list(ret) if remove_batch_rank else ret
 
-    def get_batch(self):
-        """
-        Samples a batch from the priority replay memory.
-
-        Returns:
-            batch, ndarray: Sample batch and indices sampled.
-        """
-        # TODO define ops
-        batch, indices = self.graph_executor.execute(sockets=["get_batch", "get"])
-
-        # Return indices so we later now which priorities to update.
-        return batch, indices
-
     def update_priorities(self, indices, loss):
         """
         Updates priorities of provided indices in replay memory via externally
@@ -207,11 +194,7 @@ class ApexAgent(Agent):
             indices (ndarray): Indices to update in replay memory.
             loss (ndarray):  Loss values for indices.
         """
-        pass
-        # self.graph_executor.execute(
-        #     sockets=["sample_indices", "sample_losses"],
-        #     inputs=dict(sample_indices=indices, sample_losses=loss)
-        # )
+        self.graph_executor.execute(("update_priorities", [indices, loss]))
 
     def _observe_graph(self, states, actions, internals, rewards, terminals):
         self.graph_executor.execute(("insert_records", [states, actions, rewards, terminals]))
