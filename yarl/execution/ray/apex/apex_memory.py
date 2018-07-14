@@ -24,8 +24,6 @@ from six.moves import xrange as range_
 from yarl import Specifiable
 from yarl.components.memories.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
 from yarl.execution.ray.ray_util import ray_decompress
-from yarl.spaces.space_utils import get_list_registry
-from yarl.spaces import Dict
 
 
 class ApexMemory(Specifiable):

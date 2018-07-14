@@ -29,7 +29,7 @@ if get_distributed_backend() == "ray":
 class RayMemoryActor(object):
     """
     An in-memory prioritized replay worker
-    used to aaccelerate memory interaction in Ape-X.
+    used to accelerate memory interaction in Ape-X.
     """
     def __init__(self, memory_spec, batch_size):
         self.memory = ApexMemory.from_spec(memory_spec)

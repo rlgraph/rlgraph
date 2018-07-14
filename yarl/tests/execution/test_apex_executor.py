@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import json
+import os
 import unittest
 from yarl.execution.ray import ApexExecutor
 
@@ -26,13 +28,9 @@ class TestRayExecutor(unittest.TestCase):
     Tests the ApexExecutor which provides an interface for distributing Apex-style workloads
     via Ray.
     """
-
     env_spec = dict(
       type="openai",
       gym_env="CartPole-v0"
-    )
-    agent_config = dict(
-        type="random"
     )
 
     # Note that all of these args are allowed to be none,
@@ -51,10 +49,14 @@ class TestRayExecutor(unittest.TestCase):
     )
 
     def test_apex_workload(self):
+        path = os.path.join(os.getcwd(), "configs/apex_agent.json")
+        with open(path, 'rt') as fp:
+            agent_config = json.load(fp)
+
         # Define executor, test assembly.
         executor = ApexExecutor(
             environment_spec=self.env_spec,
-            agent_config=self.agent_config,
+            agent_config=agent_config,
             cluster_spec=self.cluster_spec
         )
         print("Successfully created executor.")
