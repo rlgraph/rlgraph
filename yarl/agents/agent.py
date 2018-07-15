@@ -37,6 +37,7 @@ class Agent(Specifiable):
         self,
         state_space,
         action_space,
+        preprocessed_state_space,  # TODO: remove this requirement as soon as we have full numpy-based Components (then we can infer everything automatically)
         preprocessing_spec=None,
         network_spec=None,
         action_adapter_spec=None,
@@ -73,6 +74,8 @@ class Agent(Specifiable):
 
         self.state_space = Space.from_spec(state_space).with_batch_rank(False)
         self.logger.info("Parsed state space definition: {}".format(self.state_space))
+        self.preprocessed_state_space = Space.from_spec(preprocessed_state_space).with_batch_rank(False)
+        self.logger.info("Parsed preprocessed-state space definition: {}".format(self.preprocessed_state_space))
         self.action_space = Space.from_spec(action_space).with_batch_rank(False)
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
 
@@ -148,18 +151,18 @@ class Agent(Specifiable):
         """
         self.graph_executor.build(input_spaces, *args)
 
-    def get_action(self, states, use_exploration=False, return_preprocessed_states=False):
+    def get_action(self, states, internals=None, use_exploration=True, extra_returns=None):
         """
         Returns action(s) for the passed state(s). If `states` is a single state, returns a single action, otherwise,
         returns a batch of actions, where batch-size = number of states passed in.
-        Optionally, also returns the preprocessed states.
 
         Args:
-            states (Union[dict,np.ndarray]): State dict/tuple or numpy array.
-            use_exploration (bool): If True, no exploration or sampling may be applied
+            states (Union[dict,np.ndarray]): States dict/tuple or numpy array.
+            internals (Union[dict,np.ndarray]): Internal states dict/tuple or numpy array.
+            use_exploration (bool): If False, no exploration or sampling may be applied
                 when retrieving an action.
-            return_preprocessed_states (bool): Whether to return the preprocessed states as a second
-                return value.
+            extra_returns (Optional[Set[str]]): Optional set of Agent-specific strings for additional return
+                values (besides the actions).
 
         Returns:
             any: Action(s) as dict/tuple/np.ndarray (depending on `self.action_space`).
@@ -248,7 +251,7 @@ class Agent(Specifiable):
                 agent should be configured to sample internally.
 
         Returns:
-            float: Loss value.
+            float: The loss value calculated in this update.
         """
         raise NotImplementedError
 

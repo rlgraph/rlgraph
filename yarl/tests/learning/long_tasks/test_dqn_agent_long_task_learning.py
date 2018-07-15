@@ -24,6 +24,7 @@ import logging
 from yarl.environments import OpenAIGymEnv
 from yarl.agents import DQNAgent
 from yarl.execution import SingleThreadedWorker
+from yarl.spaces import FloatBox
 from yarl.utils import root_logger
 
 
@@ -44,6 +45,7 @@ class TestDQNAgentLongTaskLearning(unittest.TestCase):
             double_q=False,
             dueling_q=False,
             state_space=env.state_space,
+            preprocessed_state_space=FloatBox(shape=(84, 84, 4)),
             action_space=env.action_space,
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=10),

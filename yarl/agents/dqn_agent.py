@@ -62,13 +62,15 @@ class DQNAgent(Agent):
 
         # Define the input Space to our API-methods (all batched).
         state_space = self.state_space.with_batch_rank()
+        preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()
         action_space = self.action_space.with_batch_rank()
         reward_space = FloatBox(add_batch_rank=True)
         terminal_space = BoolBox(add_batch_rank=True)
         self.input_spaces = dict(
-            get_action_and_preprocessed_state=[state_space, int, bool],
-            insert_records=[state_space, action_space, reward_space, terminal_space],
-            update_from_external_batch=[state_space, action_space, reward_space, terminal_space, state_space]
+            get_preprocessed_state_and_action=[state_space, int, bool],  # state, time-step, use_exploration
+            insert_records=[preprocessed_state_space, action_space, reward_space, terminal_space],
+            update_from_external_batch=[preprocessed_state_space, action_space, reward_space,
+                                        terminal_space, preprocessed_state_space]
         )
         # The merger to merge inputs into one record Dict going into the memory.
         self.merger = Merger("states", "actions", "rewards", "terminals")
@@ -108,20 +110,21 @@ class DQNAgent(Agent):
     def define_api_methods(self, preprocessor, merger, memory, splitter, policy, target_policy, exploration,
                            loss_function, optimizer):
 
-        # State from environment to action pathway.
-        def get_action_and_preprocessed_state(self_, states, time_step, use_exploration=True):
+        # State (from environment) to action.
+        def get_preprocessed_state_and_action(self_, states, time_step, use_exploration=True):
             preprocessed_states = self_.call(preprocessor.preprocess, states)
             sample_deterministic = self_.call(policy.sample_deterministic, preprocessed_states)
             sample_stochastic = self_.call(policy.sample_stochastic, preprocessed_states)
             actions = self_.call(exploration.get_action, sample_deterministic, sample_stochastic,
                                  time_step, use_exploration)
-            return actions, preprocessed_states
+            # TODO: Alternatively, move exploration (especially epsilon-based) into python.
+            # TODO: return internal states as well and maybe the exploration decision
+            return preprocessed_states, actions
 
-        self.core_component.define_api_method("get_action_and_preprocessed_state", get_action_and_preprocessed_state)
+        self.core_component.define_api_method("get_preprocessed_state_and_action", get_preprocessed_state_and_action)
 
-        # Insert into memory pathway.
-        def insert_records(self_, states, actions, rewards, terminals):
-            preprocessed_states = self_.call(preprocessor.preprocess, states)
+        # Insert into memory.
+        def insert_records(self_, preprocessed_states, actions, rewards, terminals):
             records = self_.call(merger.merge, preprocessed_states, actions, rewards, terminals)
             return self_.call(memory.insert_records, records)
 
@@ -138,14 +141,14 @@ class DQNAgent(Agent):
         def update_from_memory(self_):
             records = self_.call(memory.get_records, self.update_spec["batch_size"])
 
-            states, actions, rewards, terminals, next_states = self_.call(splitter.split, records)
+            preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = self_.call(splitter.split, records)
 
             # Get the different Q-values.
-            q_values_s = self_.call(policy.get_q_values, states)
-            qt_values_sp = self_.call(target_policy.get_q_values, next_states)
+            q_values_s = self_.call(policy.get_q_values, preprocessed_s)
+            qt_values_sp = self_.call(target_policy.get_q_values, preprocessed_s_prime)
             q_values_sp = None
             if self.double_q:
-                q_values_sp = self_.call(policy.get_q_values, next_states)
+                q_values_sp = self_.call(policy.get_q_values, preprocessed_s_prime)
 
             loss = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
                               qt_values_sp, q_values_sp)
@@ -157,51 +160,67 @@ class DQNAgent(Agent):
         self.core_component.define_api_method("update_from_memory", update_from_memory)
 
         # Learn from an external batch.
-        def update_from_external_batch(self_, states, actions, rewards, terminals, next_states):
-            preprocessed_s = self_.call(preprocessor.preprocess, states)
-            preprocessed_sp = self_.call(preprocessor.preprocess, next_states)
-
+        def update_from_external_batch(self_, preprocessed_s, actions, rewards, terminals, preprocessed_s_prime):
             # Get the different Q-values.
             q_values_s = self_.call(policy.get_q_values, preprocessed_s)
-            qt_values_sp = self_.call(target_policy.get_q_values, preprocessed_sp)
+            qt_values_sp = self_.call(target_policy.get_q_values, preprocessed_s_prime)
             q_values_sp = None
             if self.double_q:
-                q_values_sp = self_.call(policy.get_q_values, preprocessed_sp)
+                q_values_sp = self_.call(policy.get_q_values, preprocessed_s_prime)
 
             loss = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
                               qt_values_sp, q_values_sp)
 
             policy_vars = self_.call(policy._variables)
-            return self_.call(optimizer.step, policy_vars, loss), loss  # TODO:For multi-GPU, the final-loss will probably have to come from the optimizer.
+            return self_.call(optimizer.step, policy_vars, loss), loss  # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
 
         self.core_component.define_api_method("update_from_external_batch", update_from_external_batch)
 
-    def get_action(self, states, use_exploration=True, return_preprocessed_states=False):
+    def get_action(self, states, internals=None, use_exploration=True, extra_returns=None):
+        """
+        Args:
+            extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return
+                values (besides the actions). Possible values are:
+                - 'preprocessed_states': The preprocessed states after passing the given states
+                    through the preprocessor stack.
+                - 'internal_states': The internal states returned by the RNNs in the NN pipeline.
+                - 'used_exploration': Whether epsilon- or noise-based exploration was used or not.
+
+        Returns:
+            tuple or single value depending on `extra_returns`:
+                - action
+                - the preprocessed states
+        """
+        extra_returns = {extra_returns} if isinstance(extra_returns, str) else (extra_returns or set())
+
         batched_states = self.state_space.batched(states)
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
+
         # Increase timesteps by the batch size (number of states in batch).
         self.timesteps += len(batched_states)
-        # Control, which return value to "pull".
-        ret = self.graph_executor.execute(
-            ("get_action_and_preprocessed_state",
-             [batched_states, self.timesteps, use_exploration],
-             [0] if return_preprocessed_states is False else [0, 1])  # 0=action, 1=preprocessed_states
-        )
-        if return_preprocessed_states:
-            if remove_batch_rank:
-                return strip_list(ret[0]), strip_list(ret[1])
-            else:
-                return ret[0], ret[1]
-        return strip_list(ret) if remove_batch_rank else ret
+
+        # Control, which return value to "pull" (depending on `additional_returns`).
+        return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
+        ret = self.graph_executor.execute((
+            "get_preprocessed_state_and_action",
+            [batched_states, self.timesteps, use_exploration],
+            # 0=preprocessed_states, 1=action
+            return_ops
+        ))
+        if remove_batch_rank:
+            return strip_list(ret)
+        else:
+            return ret
 
     def _observe_graph(self, states, actions, internals, rewards, terminals):
         self.graph_executor.execute(("insert_records", [states, actions, rewards, terminals]))
 
     def update(self, batch=None):
         # Should we sync the target net? (timesteps-1 b/c it has been increased already in get_action)
-        sync_call = None
         if self.timesteps % self.update_spec["sync_interval"] == 0:
             sync_call = "sync_target_qnet"
+        else:
+            sync_call = None
 
         # [0]=no-op step; [1]=the loss; [2]=memory-batch (if pulled); [3]=q-values
         return_ops = [0, 1]

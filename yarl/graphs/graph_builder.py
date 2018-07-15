@@ -656,8 +656,10 @@ class GraphBuilder(Specifiable):
             if api_method not in self.api:
                 raise YARLError("No API-method with name '{}' found!".format(api_method))
 
-            fetch_dict[api_method] = [op_rec.op for i, op_rec in enumerate(self.api[api_method][1])
-                                      if return_ops is None or i in return_ops]
+            if return_ops is None:
+                fetch_dict[api_method] = [op_rec.op for i, op_rec in enumerate(self.api[api_method][1])]
+            else:
+                fetch_dict[api_method] = [self.api[api_method][1][i].op for i in return_ops]
 
             for i, param in enumerate(params):
                 if len(self.api[api_method][0]) <= i:

@@ -36,6 +36,7 @@
         "filters": 32,
         "kernel_size": 8,
         "strides": 4,
+        "activation": "relu",
         "scope": "conv1"
     },
     {
@@ -43,6 +44,7 @@
         "filters": 64,
         "kernel_size": 4,
         "strides": 2,
+        "activation": "relu",
         "scope": "conv2"
     },
     {
@@ -50,6 +52,7 @@
         "filters": 64,
         "kernel_size": 3,
         "strides": 1,
+        "activation": "relu",
         "scope": "conv3"
     },
     {
@@ -57,7 +60,8 @@
     },
     {
         "type": "dense",
-        "units": 512
+        "units": 512,
+        "activation": "relu"
     }
   ],
 

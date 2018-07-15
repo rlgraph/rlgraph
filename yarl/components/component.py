@@ -69,9 +69,12 @@ class Component(Specifiable):
             global_component (bool): In distributed mode, this flag indicates if the component is part of the
                 shared global model or local to the worker. Defaults to False and will be ignored if set to
                 True in non-distributed mode.
+
+            # TODO: remove when we have numpy-based Components (then we can do test calls to infer everything automatically)
             graph_fn_num_outputs (dict): A dict specifying which graph_fns have how many return values.
                 This can be useful if graph_fns don't clearly have a fixed number of return values and the auto-inferral
                 utility function cannot determine the actual number of returned values.
+
             switched_off_apis (Optional[Set[str]]): Set of API-method names that should NOT be build for this Component.
             backend (str): The custom backend that this Component obliges to. None to use the YARL global backend.
                 Default: None.
@@ -277,6 +280,7 @@ class Component(Specifiable):
 
         # Create 2 op-record columns, one going into the graph_fn and one getting out of there and link
         # them together via the graph_fn (w/o calling it).
+        # TODO: remove when we have numpy-based Components (then we can do test calls to infer everything automatically)
         if method.__name__ in self.graph_fn_num_outputs:
             num_graph_fn_return_values = self.graph_fn_num_outputs[method.__name__]
         else:

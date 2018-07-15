@@ -146,8 +146,8 @@ class SingleThreadedWorker(Worker):
                 self.environment.render()
 
             while True:
-                action = self.agent.get_action(
-                    states=self.episode_state, use_exploration=use_exploration, return_preprocessed_states=False
+                action, preprocessed_state = self.agent.get_action(
+                    states=self.episode_state, use_exploration=use_exploration, extra_returns="preprocessed_states"
                 )
 
                 # Accumulate the reward over n env-steps (equals one action pick). n=self.repeat_actions
@@ -170,7 +170,7 @@ class SingleThreadedWorker(Worker):
                 max_episode_timesteps_reached = (0 < max_timesteps_per_episode <= self.episode_timesteps)
 
                 self.agent.observe(
-                    states=self.episode_state, actions=action, internals=[], rewards=reward,
+                    states=preprocessed_state, actions=action, internals=[], rewards=reward,
                     terminals=self.episode_terminal,
                     episode_was_aborted=max_episode_timesteps_reached
                 )

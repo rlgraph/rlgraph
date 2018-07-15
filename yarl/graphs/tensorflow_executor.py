@@ -157,12 +157,13 @@ class TensorFlowExecutor(GraphExecutor):
             if api_method is None:
                 continue
             elif isinstance(api_method, (list, tuple)):
-                api_method = api_method[0]
                 params = util.force_list(api_method[1])
+                api_method = api_method[0]
             else:
                 params = list()
             if api_method in self.DEVICE_API_METHODS:
                 fetch_dict, feed_dict = self.update_device_inputs_if_necessary(fetch_dict, feed_dict, *params)
+
         ret = self.monitored_session.run(fetch_dict, feed_dict=feed_dict,
                                          options=self.session_options, run_metadata=self.run_metadata)
 
@@ -170,9 +171,13 @@ class TensorFlowExecutor(GraphExecutor):
             self.update_profiler_if_necessary()
 
         # Return single values instead of lists of 1 item.
-        ret = {k: (v[0] if len(ret[k]) == 1 else v) for k, v in ret.items()}
-        # If only one API-method was called, strip that as well and return only the output of that API-method.
-        return ret if len(ret) > 1 else list(ret.values())[0]
+        ret = {k: (v[0] if len(ret[k]) == 1 else tuple(v)) for k, v in ret.items()}
+
+        # If only one key in ret, remove it.
+        if len(api_methods) == 1:
+            ret = ret[next(iter(ret))]
+
+        return ret
 
     def update_device_inputs_if_necessary(self, fetch_list, feed_dict, *params):
         """

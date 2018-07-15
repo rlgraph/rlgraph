@@ -175,17 +175,27 @@ force_tuple = partial(force_list, to_tuple=True)
 
 def strip_list(elements):
     """
-    If `elements` is a list (or tuple) of length 1, returns that single item, otherwise
-    leaves `elements` untouched.
+    Loops through elements if it's a tuple, otherwise processes elements as follows:
+    If a list (or np.ndarray) of length 1, extracts that single item, otherwise leaves
+    the list/np.ndarray untouched.
 
     Args:
-        elements (Optional[any]): The input single item, list, or tuple to be converted into a
-            single item (if length is 1).
+        elements (any): The input single item, list, or np.ndarray to be converted into
+            single item(s) (if length is 1).
 
     Returns:
-        any: A single element (the only one in input) or the original input list.
+        any: Single element(s) (the only one in input) or the original input list.
     """
-    return elements[0] if isinstance(elements, (np.ndarray, tuple, list)) and len(elements) == 1 else elements
+    # `elements` is a tuple (e.g. from a function return). Process each element separately.
+    if isinstance(elements, tuple):
+        ret = []
+        for el in elements:
+            ret.append(el[0] if isinstance(el, (np.ndarray, list)) and len(el) == 1 else el)
+        return tuple(ret)
+    # `elements` is not a tuple: Process only `elements`.
+    else:
+        return elements[0] if isinstance(elements, (np.ndarray, list)) and len(elements) == 1 else \
+            elements
 
 
 def default_dict(original, defaults):
