@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from yarl.agents import Agent
-from yarl.components import Synchronizable, Memory, DQNLossFunction, Policy, Merger, Splitter
+from yarl.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, Policy, Merger, Splitter
 from yarl.spaces import FloatBox, BoolBox
 from yarl.utils.util import strip_list
 from yarl.utils.visualization_util import get_graph_markup
@@ -139,7 +139,14 @@ class DQNAgent(Agent):
 
         # Learn from memory.
         def update_from_memory(self_):
-            records = self_.call(memory.get_records, self.update_spec["batch_size"])
+            # PRs also return updated weights and their indices.
+            if isinstance(memory, PrioritizedReplay):
+                records, sample_indices, corrected_weights = self_.call(
+                    memory.get_records, self.update_spec["batch_size"]
+                )
+            # Non-PR memory.
+            else:
+                records = self_.call(memory.get_records, self.update_spec["batch_size"])
 
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = self_.call(splitter.split, records)
 
@@ -150,12 +157,17 @@ class DQNAgent(Agent):
             if self.double_q:
                 q_values_sp = self_.call(policy.get_q_values, preprocessed_s_prime)
 
-            loss = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-                              qt_values_sp, q_values_sp)
+            loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
+                                             qt_values_sp, q_values_sp)
 
             policy_vars = self_.call(policy._variables)
+            step_op = self_.call(optimizer.step, policy_vars, loss)
+
+            # If we are using a PR: Update its weights based on the loss.
+            # TODO: update priorities of PR based on loss per item.
+
             # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
-            return self_.call(optimizer.step, policy_vars, loss), loss, records, q_values_s
+            return step_op, loss, records, q_values_s
 
         self.core_component.define_api_method("update_from_memory", update_from_memory)
 
@@ -168,11 +180,12 @@ class DQNAgent(Agent):
             if self.double_q:
                 q_values_sp = self_.call(policy.get_q_values, preprocessed_s_prime)
 
-            loss = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-                              qt_values_sp, q_values_sp)
+            loss, _ = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
+                                             qt_values_sp, q_values_sp)
 
             policy_vars = self_.call(policy._variables)
-            return self_.call(optimizer.step, policy_vars, loss), loss  # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
+            step_op = self_.call(optimizer.step, policy_vars, loss)
+            return step_op, loss  # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
 
         self.core_component.define_api_method("update_from_external_batch", update_from_external_batch)
 

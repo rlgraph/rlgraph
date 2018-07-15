@@ -58,7 +58,8 @@ class LossFunction(Component):
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
         loss_per_item = self.call(self._graph_fn_loss_per_item, *inputs)
-        return self.call(self._graph_fn_loss_average, loss_per_item)
+        total_loss = self.call(self._graph_fn_loss_average, loss_per_item)
+        return total_loss, loss_per_item
 
     def _graph_fn_loss_per_item(self, *inputs):
         """
