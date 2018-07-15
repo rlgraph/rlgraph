@@ -88,6 +88,8 @@ class ApexExecutor(RayExecutor):
         environment = RayExecutor.build_env_from_config(self.environment_spec)
         self.agent_config['state_space'] = environment.state_space
         self.agent_config['action_space'] = environment.action_space
+        # TODO: Fix dependency on this information.
+        self.agent_config['preprocessed_state_space'] = environment.state_space
         self.local_agent = self.build_agent_from_config(self.agent_config)
 
         # Set up worker thread for performing updates.

@@ -32,6 +32,8 @@ Memory.__lookup_classes__ = dict(
     prioritizedreplay=PrioritizedReplay,
     prioritizedreplaybuffer=PrioritizedReplay
 )
+Memory.__default_constructor__ = ReplayMemory
+
 
 __all__ = ["Memory", "ReplayMemory", "RingBuffer", "PrioritizedReplay"]
 

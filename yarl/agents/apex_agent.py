@@ -38,7 +38,7 @@ class ApexAgent(DQNAgent):
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
         """
         assert memory_spec["type"] == "prioritized_replay"
-        super(ApexAgent, self).__init__(discount, memory_spec, **kwargs)
+        super(ApexAgent, self).__init__(discount=discount, memory_spec=memory_spec, **kwargs)
 
         # Apex uses train time steps for syncing.
         self.train_time_steps = 0

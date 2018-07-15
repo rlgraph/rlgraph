@@ -7,13 +7,6 @@
     "capacity": 10
   },
 
-  "preprocessing_spec":
-  [
-    {
-      "type": "flatten"
-    }
-  ],
-
   "network_spec":
   [
     {

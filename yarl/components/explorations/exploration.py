@@ -67,7 +67,7 @@ class Exploration(Component):
         if epsilon_spec and noise_spec:
             raise YARLError("Cannot use both epsilon exploration and a noise component at the same time.")
 
-        # Add epsilon component
+        # Add epsilon component.
         if epsilon_spec:
             self.epsilon_exploration = EpsilonExploration.from_spec(epsilon_spec)
             self.add_components(self.epsilon_exploration)
@@ -78,7 +78,7 @@ class Exploration(Component):
                 return self_.call(self_._graph_fn_pick, use_exploration, epsilon_decision,
                                   sample_deterministic, sample_stochastic)
 
-        # Add noise component
+        # Add noise component.
         elif noise_spec:
             self.noise_component = NoiseComponent.from_spec(noise_spec)
             self.add_components(self.noise_component)
@@ -88,7 +88,7 @@ class Exploration(Component):
                 return self_.call(self_._graph_fn_add_noise, use_exploration, noise,
                                   sample_deterministic, sample_stochastic)
 
-        # Don't explore at all
+        # Don't explore at all.
         else:
             if self.non_explore_behavior == "max-likelihood":
                 def get_action(self_, sample_deterministic, sample_stochastic, time_step=0, use_exploration=False):

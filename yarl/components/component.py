@@ -127,6 +127,8 @@ class Component(Specifiable):
         # key=full-scope variable name (scope=component/sub-component scope)
         # value=the actual variable
         self.variables = dict()
+        # Whether variables created by this Component should be trainable or not.
+        #self.variables_non_trainable = True
         # All summary ops that are held by this component (and its sub-components) by name.
         # key=full-scope summary name (scope=component/sub-component scope)
         # value=the actual summary op
