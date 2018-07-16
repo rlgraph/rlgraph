@@ -8,7 +8,9 @@
   },
   "apex_replay_spec":
   {
-    "capacity": 1000,
+    "memory_spec": {
+      "capacity": 1000
+    },
     "num_replay_memories": 1,
     "min_sample_memory_size": 100
   },
