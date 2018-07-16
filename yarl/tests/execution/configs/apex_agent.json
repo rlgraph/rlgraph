@@ -4,7 +4,7 @@
   "memory_spec":
   {
     "type": "prioritized_replay",
-    "capacity": 10
+    "capacity": 1000
   },
   "preprocessing_spec":
   [],

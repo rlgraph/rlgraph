@@ -30,20 +30,16 @@ class ApexMemory(Specifiable):
     """
     Apex prioritized replay implementing compression.
 
-    API:
-        update_records(indices, update) -> Updates the given indices with the given priority scores.
     """
-    def __init__(self, capacity=1000, next_states=True, alpha=1.0, beta=0.0):
+    def __init__(self, capacity=1000, alpha=1.0, beta=0.0):
         self.memory_values = []
         self.index = 0
         self.capacity = capacity
-
         self.size = 0
         self.max_priority = 1.0
 
         self.alpha = alpha
         self.beta = beta
-        self.next_states = next_states
         self.default_new_weight = np.power(self.max_priority, self.alpha)
         self.priority_capacity = 1
         while self.priority_capacity < self.capacity:

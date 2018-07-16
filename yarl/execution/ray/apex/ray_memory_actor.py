@@ -33,7 +33,14 @@ class RayMemoryActor(RayActor):
     used to accelerate memory interaction in Ape-X.
     """
     def __init__(self, memory_spec):
-        self.memory = ApexMemory.from_spec(memory_spec)
+        # N.b. The memory spec contains type PrioritizedReplay because that is
+        # used for the agent. We hence do not use from_spec but just read the relevant
+        # args.
+        self.memory = ApexMemory(
+            capacity=memory_spec["capacity"],
+            alpha=memory_spec.get("alpha", 1.0),
+            beta=memory_spec.get("beta", 1.0)
+        )
 
     def get_batch(self, batch_size):
         """
