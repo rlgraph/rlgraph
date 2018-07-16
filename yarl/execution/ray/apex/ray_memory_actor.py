@@ -20,22 +20,35 @@ from __future__ import print_function
 from six.moves import xrange as _range
 from yarl.backend_system import get_distributed_backend
 from yarl.execution.ray.apex.apex_memory import ApexMemory
+from yarl.execution.ray.ray_actor import RayActor
 
 if get_distributed_backend() == "ray":
     import ray
 
 
 @ray.remote
-class RayMemoryActor(object):
+class RayMemoryActor(RayActor):
     """
     An in-memory prioritized replay worker
     used to accelerate memory interaction in Ape-X.
     """
-    def __init__(self, memory_spec, batch_size):
-        self.memory = ApexMemory.from_spec(memory_spec)
-        self.batch_size = batch_size
+    def __init__(self, apex_replay_spec):
+        """
+        Args:
+            apex_replay_spec (dict): Specifies behaviour of this replay actor. Must contain key "memory spec".
+        """
+        # N.b. The memory spec contains type PrioritizedReplay because that is
+        # used for the agent. We hence do not use from_spec but just read the relevant
+        # args.
+        self.min_sample_memory_size = apex_replay_spec["min_sample_memory_size"]
+        memory_spec = apex_replay_spec["memory_spec"]
+        self.memory = ApexMemory(
+            capacity=memory_spec["capacity"],
+            alpha=memory_spec.get("alpha", 1.0),
+            beta=memory_spec.get("beta", 1.0)
+        )
 
-    def get_batch(self):
+    def get_batch(self, batch_size):
         """
         Samples a batch from the replay memory.
 
@@ -43,7 +56,10 @@ class RayMemoryActor(object):
             dict, ndarray: Sample batch and indices sampled.
 
         """
-        return self.memory.get_records(self.batch_size)
+        if self.memory.size < self.min_sample_memory_size:
+            return None
+        else:
+            return self.memory.get_records(batch_size)
 
     def observe(self, records):
         """
@@ -69,4 +85,4 @@ class RayMemoryActor(object):
             indices (ndarray): Indices to update in replay memory.
             loss (ndarray):  Loss values for indices.
         """
-        self.memory.update_priorities(indices, loss)
+        self.memory.update_records(indices, loss)

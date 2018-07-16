@@ -52,25 +52,26 @@ class ApexExecutor(RayExecutor):
         self.environment_spec = environment_spec
         # Must specify an agent type.
         assert "type" in agent_config
+        self.apex_replay_spec = agent_config.pop("apex_replay_spec")
         self.agent_config = agent_config
         self.repeat_actions = repeat_actions
 
         # These are the Ray remote tasks which sample batches from the replay memory
         # and pass them to the learner.
         self.prioritized_replay_tasks = RayTaskPool()
-        self.replay_sampling_task_depth = self.cluster_spec['task_queue_depth']
+        self.replay_sampling_task_depth = self.cluster_spec["replay_sampling_task_depth"]
+        self.replay_batch_size = self.agent_config["update_spec"]["batch_size"]
 
         # How often weights are synced to remote workers.
-        self.weight_sync_steps = self.cluster_spec['weight_sync_steps']
+        self.weight_sync_steps = self.cluster_spec["weight_sync_steps"]
         # Necessary for target network updates.
         self.weight_syncs_executed = 0
         self.steps_since_weights_synced = dict()
 
         # These are the tasks actually interacting with the environment.
         self.env_sample_tasks = RayTaskPool()
-        self.env_interaction_task_depth = self.cluster_spec['env_interaction_task_depth']
-
-        self.worker_sample_size = self.cluster_spec['num_worker_samples']
+        self.env_interaction_task_depth = self.cluster_spec["env_interaction_task_depth"]
+        self.worker_sample_size = self.cluster_spec["num_worker_samples"]
 
         self.logger.info("Setting up execution for Apex executor.")
         self.setup_execution()
@@ -80,16 +81,16 @@ class ApexExecutor(RayExecutor):
         self.ray_init()
 
         # Setup queues for communication between main communication loop and learner.
-        self.sample_input_queue = queue.Queue(maxsize=self.cluster_spec['learn_queue_size'])
+        self.sample_input_queue = queue.Queue(maxsize=self.cluster_spec["learn_queue_size"])
         self.update_output_queue = queue.Queue()
 
         # Create local worker agent according to spec.
         # Extract states and actions space.
         environment = RayExecutor.build_env_from_config(self.environment_spec)
-        self.agent_config['state_space'] = environment.state_space
-        self.agent_config['action_space'] = environment.action_space
+        self.agent_config["state_space"] = environment.state_space
+        self.agent_config["action_space"] = environment.action_space
         # TODO: Fix dependency on this information.
-        self.agent_config['preprocessed_state_space'] = environment.state_space
+        self.agent_config["preprocessed_state_space"] = environment.state_space
         self.local_agent = self.build_agent_from_config(self.agent_config)
 
         # Set up worker thread for performing updates.
@@ -100,13 +101,13 @@ class ApexExecutor(RayExecutor):
         )
 
         # Create remote sample workers based on ray cluster spec.
-        self.num_local_workers = self.cluster_spec['num_local_workers']
-        self.num_remote_workers = self.cluster_spec['num_remote_workers']
+        self.num_local_workers = self.cluster_spec["num_local_workers"]
+        self.num_remote_workers = self.cluster_spec["num_remote_workers"]
 
         self.logger.info("Initializing {} local replay memories.".format(self.num_local_workers))
         self.ray_local_replay_memories = create_colocated_ray_actors(
             cls=RayMemoryActor,
-            config=self.agent_config['memory_spec'],
+            config=self.apex_replay_spec,
             num_agents=self.num_local_workers
         )
 
@@ -123,7 +124,7 @@ class ApexExecutor(RayExecutor):
         for ray_memory in self.ray_local_replay_memories:
             for _ in range(self.replay_sampling_task_depth):
                 # This initializes remote tasks to sample from the prioritized replay memories of each worker.
-                self.prioritized_replay_tasks.add_task(ray_memory, ray_memory.get_batch.remote())
+                self.prioritized_replay_tasks.add_task(ray_memory, ray_memory.get_batch.remote(self.replay_batch_size))
 
         # Env interaction tasks via RayWorkers which each
         # have a local agent.
@@ -139,7 +140,13 @@ class ApexExecutor(RayExecutor):
 
     def _execute_step(self):
         """
-        Performs a single step on the distributed Ray execution.
+        Executes a workload on Ray. The main loop performs the following
+        steps until the specified number of steps or episodes is finished:
+
+        - Retrieve sample batches via Ray from remote workers
+        - Insert these into the local memory
+        - Have a separate learn thread sample batches from the memory and compute updates
+        - Sync weights to the shared model so remot eworkers can update their weights.
         """
         # Env steps done during this rollout.
         env_steps = 0
@@ -171,7 +178,7 @@ class ApexExecutor(RayExecutor):
         # 2. Fetch completed replay priority sampling task, move to worker, reschedule.
         for ray_memory, replay_remote_task in self.prioritized_replay_tasks.get_completed():
             # Immediately schedule new batch sampling tasks on these workers.
-            self.prioritized_replay_tasks.add_task(ray_memory, ray_memory.get_batch.remote())
+            self.prioritized_replay_tasks.add_task(ray_memory, ray_memory.get_batch.remote(self.replay_batch_size))
 
             # Retrieve results via id.
             result = ray.get(object_ids=replay_remote_task)
@@ -224,7 +231,6 @@ class UpdateWorker(Thread):
             # Fetch input for update:
             # Replay memory used
             memory_actor, sample_batch, indices = self.input_queue.get()
-
             if sample_batch is not None:
                 loss = self.agent.update(batch=sample_batch)
                 # Just pass back indices for updating.

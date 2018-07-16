@@ -4,16 +4,26 @@
   "memory_spec":
   {
     "type": "prioritized_replay",
-    "capacity": 10
+    "capacity": 1000
   },
+  "apex_replay_spec":
+  {
+    "memory_spec": {
+      "capacity": 1000
+    },
+    "num_replay_memories": 1,
+    "min_sample_memory_size": 100
+  },
+  "preprocessing_spec":
+  [],
 
   "network_spec":
   [
     {
       "type": "dense",
-      "units": 3,
+      "units": 20,
       "activation": "tanh",
-      "scope": "hidden-layer"
+      "scope": "hidden"
     }
   ],
 
@@ -24,10 +34,22 @@
       "decay_spec": {
         "type": "linear_decay",
         "from": 1.0,
-        "to": 0.1,
+        "to": 0.05,
         "start_timestep": 0,
-        "num_timesteps": 10000
+        "num_timesteps": 1500
       }
     }
+  },
+
+  "update_spec": {
+    "do_updates": true,
+    "update_interval": 4,
+    "batch_size": 16,
+    "synch_interval": 32
+  },
+
+  "optimizer_spec": {
+    "type": "gradient_descent",
+    "learning_rate": 0.001
   }
 }

@@ -99,13 +99,8 @@ class RayExecutor(object):
 
     def execute_workload(self, workload):
         """
-        Executes a workload via Ape-X semantics. The main loop performs the following
-        steps until the specified number of steps or episodes is finished:
-
-        - Retrieve sample batches via Ray from remote workers
-        - Insert these into the local memory
-        - Have a separate learn thread sample batches from the memory and compute updates
-        - Sync weights to the shared model so remot eworkers can update their weights.
+        Executes a workload on Ray and measures worker statistics. Workload semantics
+        are decided via the private implementer, _execute_step().
         """
         start = time.monotonic()
         self.init_tasks()
