@@ -82,12 +82,12 @@
   "update_spec": {
     "do_updates": true,
     "update_interval": 4,
-    "batch_size": 16,
-    "synch_interval": 32
+    "batch_size": 32,
+    "synch_interval": 10000
   },
 
   "optimizer_spec": {
-    "type": "gradient_descent",
-    "learning_rate": 0.001
+    "type": "adam",
+    "learning_rate": 0.00025
   }
 }
