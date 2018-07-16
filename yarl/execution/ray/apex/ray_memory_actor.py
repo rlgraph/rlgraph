@@ -31,11 +31,10 @@ class RayMemoryActor(object):
     An in-memory prioritized replay worker
     used to accelerate memory interaction in Ape-X.
     """
-    def __init__(self, memory_spec, batch_size):
+    def __init__(self, memory_spec):
         self.memory = ApexMemory.from_spec(memory_spec)
-        self.batch_size = batch_size
 
-    def get_batch(self):
+    def get_batch(self, batch_size):
         """
         Samples a batch from the replay memory.
 
@@ -43,7 +42,7 @@ class RayMemoryActor(object):
             dict, ndarray: Sample batch and indices sampled.
 
         """
-        return self.memory.get_records(self.batch_size)
+        return self.memory.get_records(batch_size)
 
     def observe(self, records):
         """

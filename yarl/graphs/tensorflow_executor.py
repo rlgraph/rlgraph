@@ -106,7 +106,7 @@ class TensorFlowExecutor(GraphExecutor):
         """
         Initializes default device and loads available devices.
         """
-        if self.device_strategy == 'default':
+        if self.device_strategy == "default":
             # Default device is user provided device or first CPU.
             default_device = self.execution_spec.get("default_device", None)
             if default_device is None:
