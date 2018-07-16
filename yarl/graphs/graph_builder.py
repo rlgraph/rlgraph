@@ -337,7 +337,8 @@ class GraphBuilder(Specifiable):
             if spaces_dict is not None:
                 self.logger.debug("Component {} is input-complete; spaces_dict={}".
                                   format(component.name, spaces_dict))
-                component.when_input_complete(spaces_dict, self.action_space)
+                device = self.get_device(component)
+                component.when_input_complete(spaces_dict, self.action_space, device)
                 # Call all no-input graph_fns of the new Component.
                 for no_in_col in component.no_input_graph_fn_columns:
                     # Do not call _variables (only later, when Component is also variable-complete).
@@ -369,39 +370,19 @@ class GraphBuilder(Specifiable):
             op_rec_column (DataOpRecordColumnIntoGraphFn): The column of DataOpRecords to be fed through the
                 graph_fn.
         """
-        # We have to specify the device and the variable scope here as we will be running through a
-        # GraphFunction, which may add ops to the graph.
-        assigned_device = op_rec_column.component.device or self.default_device
+        # Get the device for the ops generated in the graph_fn (None for custom device-definitions within the graph_fn).
+        device = self.get_device(op_rec_column.component)
 
         if get_backend() == "tf":
-            if assigned_device is not None and assigned_device not in self.available_devices:
-                self.logger.error("Assigned device '{}' for graph_fn '{}' not in available devices:\n {}".
-                                  format(assigned_device, op_rec_column.graph_fn.__name__, self.available_devices))
-
-            if assigned_device is not None:
-                # These strategies always set a default device.
-                assert self.device_strategy == 'default' or self.device_strategy == 'multi_gpu_sync'
-                # Assign proper device to all ops created in this context manager.
-                with tf.device(assigned_device):
-                    # Name ops correctly according to our Component hierarchy.
-                    with tf.name_scope(op_rec_column.component.global_scope+
-                                       ('/' if op_rec_column.component.global_scope else "")):
-                        self.logger.debug(
-                            "Assigning device '{}' to graph_fn '{}' (scope '{}').".
-                            format(assigned_device, op_rec_column.graph_fn.__name__,
-                                   op_rec_column.component.global_scope)
-                        )
-                        self.run_through_graph_fn(op_rec_column)
-            else:
-                # Custom device strategy with no default device.
-                assert self.device_strategy == 'custom'
+            # Assign proper device to all ops created in this context manager.
+            with tf.device(device):
                 # Name ops correctly according to our Component hierarchy.
-                with tf.name_scope(op_rec_column.component.global_scope +
+                with tf.name_scope(op_rec_column.component.global_scope+
                                    ('/' if op_rec_column.component.global_scope else "")):
                     self.logger.debug(
                         "Assigning device '{}' to graph_fn '{}' (scope '{}').".
-                            format(assigned_device, op_rec_column.graph_fn.__name__,
-                                   op_rec_column.component.global_scope)
+                        format(device, op_rec_column.graph_fn.__name__,
+                               op_rec_column.component.global_scope)
                     )
                     self.run_through_graph_fn(op_rec_column)
 
@@ -409,11 +390,34 @@ class GraphBuilder(Specifiable):
         op_rec_column.already_sent = True
 
         # Store assigned names for debugging.
-        if assigned_device is not None:
-            if assigned_device not in self.device_component_assignments:
-                self.device_component_assignments[assigned_device] = [str(op_rec_column.graph_fn.__name__)]
+        if device is not None:
+            if device not in self.device_component_assignments:
+                self.device_component_assignments[device] = [str(op_rec_column.graph_fn.__name__)]
             else:
-                self.device_component_assignments[assigned_device].append(str(op_rec_column.graph_fn.__name__))
+                self.device_component_assignments[device].append(str(op_rec_column.graph_fn.__name__))
+
+    def get_device(self, component):
+        """
+        Determines and returns a device based on a given Component (or `self.default_device`).
+        Also does some sanity checking against our `device_strategy`.
+
+        Args:
+            component (Component): The Component to check for a defined device.
+
+        Returns:
+            str: The device to use.
+        """
+        device = component.device or self.default_device
+
+        if device is not None and device not in self.available_devices:
+            raise YARLError("Device '{}' not in available devices:\n {}".format(device, self.available_devices))
+        # These strategies always set a default device.
+        if device is not None:
+            assert self.device_strategy == 'default' or self.device_strategy == 'multi_gpu_sync'
+        else:
+            assert self.device_strategy == 'custom'
+
+        return device
 
     def get_subgraph(self, api_methods):
         """

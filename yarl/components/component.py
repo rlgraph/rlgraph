@@ -444,7 +444,7 @@ class Component(Specifiable):
         self.variable_complete = all(sc.input_complete for sc in self.sub_components.values())
         return self.variable_complete
 
-    def when_input_complete(self, input_spaces, action_space, summary_regexp=None):
+    def when_input_complete(self, input_spaces, action_space, device=None, summary_regexp=None):
         """
         Wrapper that calls both `create_variables` and `assert_input_spaces` in sequence and passes the dict with
         the input_spaces for each in-Socket (kay=Socket's name) as parameter.
@@ -455,6 +455,7 @@ class Component(Specifiable):
             action_space (Space): The action Space of the Agent/GraphBuilder. Can be used to construct and connect
                 more Components (which rely on this information). This eliminates the need to pass the action Space
                 information into many Components' constructors.
+            device (str): The device to use for the variables generated.
             summary_regexp (Optional[str]): A regexp (str) that defines, which summaries should be generated
                 and registered.
         """
@@ -465,8 +466,9 @@ class Component(Specifiable):
         self.check_input_spaces(input_spaces, action_space)
         # Allow the Component to create all its variables.
         if get_backend() == "tf":
-            with tf.variable_scope(self.global_scope):
-                self.create_variables(input_spaces, action_space)
+            with tf.device(device):
+                with tf.variable_scope(self.global_scope):
+                    self.create_variables(input_spaces, action_space)
 
         # Add all created variables up the parent/container hierarchy.
         self.propagate_variables()

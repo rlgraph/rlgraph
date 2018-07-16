@@ -137,7 +137,7 @@ class Sequence(PreprocessLayer):
                     sequence = tf.identity(input=sequence, name="apply")
 
                 # Must pass the sequence through a placeholder_with_default dummy to set back the
-                # batch rank to '?', instead of 1 (1 would confuse the auto Space inferral).
+                # batch rank to '?', instead of 1 (1 would confuse the auto Space inference).
                 sequences[key] = tf.placeholder_with_default(sequence, shape=(None,) + tuple(get_shape(sequence)[1:]))
 
             return sequences
