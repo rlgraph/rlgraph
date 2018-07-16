@@ -70,7 +70,6 @@ class ApexExecutor(RayExecutor):
         # These are the tasks actually interacting with the environment.
         self.env_sample_tasks = RayTaskPool()
         self.env_interaction_task_depth = self.cluster_spec["env_interaction_task_depth"]
-
         self.worker_sample_size = self.cluster_spec["num_worker_samples"]
 
         self.logger.info("Setting up execution for Apex executor.")
@@ -124,7 +123,7 @@ class ApexExecutor(RayExecutor):
         for ray_memory in self.ray_local_replay_memories:
             for _ in range(self.replay_sampling_task_depth):
                 # This initializes remote tasks to sample from the prioritized replay memories of each worker.
-                self.prioritized_replay_tasks.add_task(ray_memory, ray_memory.get_batch.remote())
+                self.prioritized_replay_tasks.add_task(ray_memory, ray_memory.get_batch.remote(self.replay_batch_size))
 
         # Env interaction tasks via RayWorkers which each
         # have a local agent.
