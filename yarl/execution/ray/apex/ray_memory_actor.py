@@ -76,4 +76,4 @@ class RayMemoryActor(RayActor):
             indices (ndarray): Indices to update in replay memory.
             loss (ndarray):  Loss values for indices.
         """
-        self.memory.update_priorities(indices, loss)
+        self.memory.update_records(indices, loss)

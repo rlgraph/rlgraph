@@ -140,7 +140,13 @@ class ApexExecutor(RayExecutor):
 
     def _execute_step(self):
         """
-        Performs a single step on the distributed Ray execution.
+        Executes a workload on Ray. The main loop performs the following
+        steps until the specified number of steps or episodes is finished:
+
+        - Retrieve sample batches via Ray from remote workers
+        - Insert these into the local memory
+        - Have a separate learn thread sample batches from the memory and compute updates
+        - Sync weights to the shared model so remot eworkers can update their weights.
         """
         # Env steps done during this rollout.
         env_steps = 0
