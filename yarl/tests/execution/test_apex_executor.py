@@ -37,10 +37,10 @@ class TestRayExecutor(unittest.TestCase):
     # Ray will just start a local redis and fetch number of cpus.
     cluster_spec = dict(
         redis_address=None,
-        num_cpus=2,
+        num_cpus=4,
         num_gpus=0,
-        task_queue_depth=1,
         weight_sync_steps=100,
+        replay_sampling_task_depth=1,
         env_interaction_task_depth=1,
         num_worker_samples=100,
         learn_queue_size=1,

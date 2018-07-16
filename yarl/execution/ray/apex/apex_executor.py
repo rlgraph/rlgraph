@@ -52,13 +52,14 @@ class ApexExecutor(RayExecutor):
         self.environment_spec = environment_spec
         # Must specify an agent type.
         assert "type" in agent_config
+        self.apex_replay_spec = agent_config.pop("apex_replay_spec")
         self.agent_config = agent_config
         self.repeat_actions = repeat_actions
 
         # These are the Ray remote tasks which sample batches from the replay memory
         # and pass them to the learner.
         self.prioritized_replay_tasks = RayTaskPool()
-        self.replay_sampling_task_depth = self.cluster_spec["task_queue_depth"]
+        self.replay_sampling_task_depth = self.cluster_spec["replay_sampling_task_depth"]
         self.replay_batch_size = self.agent_config["update_spec"]["batch_size"]
 
         # How often weights are synced to remote workers.
@@ -106,7 +107,7 @@ class ApexExecutor(RayExecutor):
         self.logger.info("Initializing {} local replay memories.".format(self.num_local_workers))
         self.ray_local_replay_memories = create_colocated_ray_actors(
             cls=RayMemoryActor,
-            config=self.agent_config["apex_replay_spec"],
+            config=self.apex_replay_spec,
             num_agents=self.num_local_workers
         )
 
@@ -230,7 +231,6 @@ class UpdateWorker(Thread):
             # Fetch input for update:
             # Replay memory used
             memory_actor, sample_batch, indices = self.input_queue.get()
-
             if sample_batch is not None:
                 loss = self.agent.update(batch=sample_batch)
                 # Just pass back indices for updating.
