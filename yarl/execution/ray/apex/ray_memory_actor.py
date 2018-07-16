@@ -20,13 +20,14 @@ from __future__ import print_function
 from six.moves import xrange as _range
 from yarl.backend_system import get_distributed_backend
 from yarl.execution.ray.apex.apex_memory import ApexMemory
+from yarl.execution.ray.ray_actor import RayActor
 
 if get_distributed_backend() == "ray":
     import ray
 
 
 @ray.remote
-class RayMemoryActor(object):
+class RayMemoryActor(RayActor):
     """
     An in-memory prioritized replay worker
     used to accelerate memory interaction in Ape-X.

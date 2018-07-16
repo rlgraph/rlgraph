@@ -18,9 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
-import os
 
 from yarl import get_distributed_backend
+from yarl.execution.ray.ray_actor import RayActor
 from yarl.execution.ray.ray_executor import RayExecutor
 
 if get_distributed_backend() == "ray":
@@ -28,9 +28,8 @@ if get_distributed_backend() == "ray":
 
 
 @ray.remote
-class RayAgent(object):
+class RayAgent(RayActor):
     """
-    (experimental)
     This class provides a wrapper around YARL agents so they can be used with ray's remote
     abstractions.
     """
@@ -46,21 +45,19 @@ class RayAgent(object):
         assert "type" in agent_config
         self.agent = RayExecutor.build_agent_from_config(agent_config)
 
-    # TODO mostly mirroring agent API here - should we inherit from agent, even if we then use
-    # a child agent to execute?
-    def get_action(self, states, deterministic=False):
+    def get_action(self, states, use_exploration=False):
         """
         Retrieves action(s) for the passed state(s).
 
         Args:
             states (Union[dict, ndarray]): State dict or array.
-            deterministic (bool): If True, no exploration or sampling may be applied
+            use_exploration (bool): If True, no exploration or sampling may be applied
                 when retrieving an action.
 
         Returns:
              Actions dict.
         """
-        return self.agent.get_action(states, deterministic)
+        return self.agent.get_action(states, use_exploration)
 
     def get_batch(self):
         """
@@ -71,15 +68,6 @@ class RayAgent(object):
         """
         # Agent must define op to return batches.
         return self.agent.call_graph_op(op="get_records")
-
-    def get_host(self):
-        """
-        Returns host node identifier.
-
-        Returns:
-            str: Node name this agent is running on.
-        """
-        return os.uname()[1]
 
     def call_graph_op(self, op, inputs=None):
         """
