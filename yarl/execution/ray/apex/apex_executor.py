@@ -106,7 +106,7 @@ class ApexExecutor(RayExecutor):
         self.logger.info("Initializing {} local replay memories.".format(self.num_local_workers))
         self.ray_local_replay_memories = create_colocated_ray_actors(
             cls=RayMemoryActor,
-            config=self.agent_config["memory_spec"],
+            config=self.agent_config["apex_replay_spec"],
             num_agents=self.num_local_workers
         )
 

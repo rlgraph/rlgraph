@@ -6,6 +6,12 @@
     "type": "prioritized_replay",
     "capacity": 1000
   },
+  "apex_replay_spec":
+  {
+    "capacity": 1000,
+    "num_replay_memories": 1,
+    "min_sample_memory_size": 100
+  },
   "preprocessing_spec":
   [],
 
