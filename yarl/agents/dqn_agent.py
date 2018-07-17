@@ -48,7 +48,6 @@ class DQNAgent(Agent):
                 (memory or external) in `self.last_q_table` for debugging purposes.
                 Default: False.
         """
-        print(kwargs)
         super(DQNAgent, self).__init__(**kwargs)
 
         self.discount = discount
@@ -294,4 +293,3 @@ class DQNAgent(Agent):
 
     def __repr__(self):
         return "DQNAgent(doubleQ={} duelingQ={})".format(self.double_q, self.dueling_q)
-

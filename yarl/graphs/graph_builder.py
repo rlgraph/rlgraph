@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from collections import OrderedDict
 import logging
+import re
 import time
 
 from yarl import YARLError, Specifiable, get_backend
@@ -419,7 +420,16 @@ class GraphBuilder(Specifiable):
         # Component specifies it's own device: Use that.
         # Then follow our device_map.
         # Last resort: Use `self.default_device` (may be None).
-        device = component.device or self.device_map.get(component.name, self.default_device)
+        device = component.device
+        # Try a map lookup via global-scope of the component.
+        if device is None:
+            # Sort by scope-length (such that the most specific assignments have priority).
+            for key in sorted(self.device_map.keys(), key=len, reverse=True):
+                if re.search(r'^{}\b'.format(key), component.global_scope):
+                    device = self.device_map[key]
+                    break
+            else:
+                device = self.default_device
         # Device is specific to whether we are creating variables or ops.
         if isinstance(device, dict):
             device = device["variables"] if variables is True else device["ops"]

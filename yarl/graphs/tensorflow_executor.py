@@ -82,7 +82,7 @@ class TensorFlowExecutor(GraphExecutor):
         self.graph_default_context = None
         self.local_device_protos = device_lib.list_local_devices()
         self.available_devices = [x.name for x in self.local_device_protos]
-        self.device_strategy = self.execution_spec.get('device_strategy', 'default')
+        self.device_strategy = None
         self.default_device = None
         self.device_map = None
 
@@ -113,7 +113,13 @@ class TensorFlowExecutor(GraphExecutor):
         """
         Initializes default device and loads available devices.
         """
+        self.device_strategy = self.execution_spec["device_strategy"]
         if self.device_strategy == "default":
+            if self.execution_spec["device_map"] is not None:
+                self.logger.warning(
+                    "`device_map` given for device-strategy=`default`. Map will be ignored. Use "
+                    "device-strategy=`custom` together with a `device_map`."
+                )
             self.logger.info("Initializing graph executor with default device strategy. "
                              "Backend will assign all devices.")
         elif self.device_strategy == 'multi_gpu_sync':
@@ -123,7 +129,7 @@ class TensorFlowExecutor(GraphExecutor):
             self.num_gpus = len(self.gpu_names)
             self.logger.info("Initializing graph executor with synchronized multi-gpu device strategy. "
                              "Default device: {}. Available gpus are: {}.".format(self.default_device, self.gpu_names))
-        elif self.device_strategy == 'custom':
+        elif self.device_strategy == "custom":
             # Default device is user provided device or first CPU.
             default_device = self.execution_spec.get("default_device", None)
             if default_device is None:
@@ -137,7 +143,7 @@ class TensorFlowExecutor(GraphExecutor):
             self.device_map = dict()
             # Clean up device map so it only contains devices that are actually available (otherwise,
             # use the default device).
-            for component_name, device in self.execution_spec["device_map"]:
+            for component_name, device in self.execution_spec["device_map"].items():
                 if device in self.available_devices:
                     self.device_map[component_name] = device
             self.logger.info("Initializing graph executor with custom device strategy (default device: {}).".

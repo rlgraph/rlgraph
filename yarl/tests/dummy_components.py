@@ -131,7 +131,7 @@ class DummyWithVar(Component):
         run_plus(input_): input_ + `self.constant_variable`
         run_minus(input_): input_ - `self.constant_value`
     """
-    def __init__(self, scope="dummy-for-testing-input-completeness", constant_value=2.0, **kwargs):
+    def __init__(self, scope="dummy-with-var", constant_value=2.0, **kwargs):
         """
         Args:
             constant_value (float): A constant to add to input in our graph_fn.
@@ -165,12 +165,12 @@ class DummyWithSubComponents(Component):
     API:
         run(input_): Result of input_ + sub_comp.run(input_) + `self.constant_value`
     """
-    def __init__(self, scope="dummy-with-sub-components", constant_value=1.0):
+    def __init__(self, scope="dummy-with-sub-components", constant_value=1.0, **kwargs):
         """
         Args:
             constant_value (float): A constant to add to input in our graph_fn.
         """
-        super(DummyWithSubComponents, self).__init__(scope=scope)
+        super(DummyWithSubComponents, self).__init__(scope=scope, **kwargs)
         self.constant_value = constant_value
 
         # Create a sub-Component and add it.
