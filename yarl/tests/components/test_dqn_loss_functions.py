@@ -73,8 +73,9 @@ class TestDQNLossFunctions(unittest.TestCase):
         test.test(("loss_per_item", input_), expected_outputs=expected_loss_per_item)
         # Expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
-        test.test(("loss", input_), expected_outputs=expected_loss)
         test.test(("loss_average", expected_loss_per_item), expected_outputs=expected_loss)
+        # Both.
+        test.test(("loss", input_), expected_outputs=[expected_loss, expected_loss_per_item])
 
     def test_double_dqn_loss_function_on_int_action_space(self):
         # Create a shape=() 3-action discrete-space.
@@ -122,8 +123,9 @@ class TestDQNLossFunctions(unittest.TestCase):
         test.test(("loss_per_item", input_), expected_outputs=expected_loss_per_item)
         # Expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
-        test.test(("loss", input_), expected_outputs=expected_loss)
         test.test(("loss_average", expected_loss_per_item), expected_outputs=expected_loss)
+        # Both.
+        test.test(("loss", input_), expected_outputs=[expected_loss, expected_loss_per_item])
 
     def test_dqn_loss_function_in_multi_action_space(self):
         # Create a shape=(3,) 4-action discrete-space.
@@ -174,8 +176,9 @@ class TestDQNLossFunctions(unittest.TestCase):
         print(test.test(("loss_per_item", input_), expected_outputs=None))
         # Just expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
-        test.test(("loss", input_), expected_outputs=expected_loss)
         test.test(("loss_average", expected_loss_per_item), expected_outputs=expected_loss)
+        # Both.
+        test.test(("loss", input_), expected_outputs=[expected_loss, expected_loss_per_item])
 
     def test_double_dqn_loss_function_on_multi_int_action_space(self):
         # Create a shape=(2,2) 3-action discrete-space.
@@ -255,5 +258,6 @@ class TestDQNLossFunctions(unittest.TestCase):
         test.test(("loss_per_item", input_), expected_outputs=expected_loss_per_item)
         # Expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
-        test.test(("loss", input_), expected_outputs=expected_loss)
         test.test(("loss_average", expected_loss_per_item), expected_outputs=expected_loss)
+        # Both.
+        test.test(("loss", input_), expected_outputs=[expected_loss, expected_loss_per_item])

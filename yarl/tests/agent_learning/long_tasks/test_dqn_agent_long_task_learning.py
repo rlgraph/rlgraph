@@ -48,14 +48,14 @@ class TestDQNAgentLongTaskLearning(unittest.TestCase):
             preprocessed_state_space=FloatBox(shape=(84, 84, 4)),
             action_space=env.action_space,
             observe_spec=dict(buffer_size=200),
-            #execution_spec=dict(seed=10),
+            execution_spec=dict(device_strategy="default"),
             #update_spec=dict(update_interval=4, batch_size=64, sync_interval=32),
             #optimizer_spec=dict(type="adam", learning_rate=0.02),
             #store_last_q_table=True
         )
 
-        time_steps = 100000
-        worker = SingleThreadedWorker(environment=env, agent=agent, render=True)
+        time_steps = 2000000
+        worker = SingleThreadedWorker(environment=env, agent=agent, render=False)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         #print("STATES:\n{}".format(agent.last_q_table["states"]))

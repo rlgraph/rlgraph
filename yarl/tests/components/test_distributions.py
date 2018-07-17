@@ -194,4 +194,4 @@ class TestDistributions(unittest.TestCase):
         expected = np.array([[2.1588295, 1.0059931, 44.69817, 150.37675, 30.661076]], dtype=np.float32)
         test.test(("draw", input_), expected_outputs=expected)
         expected = np.array([[-0.6715696, 0.9988091, 44.73782, 150.38652, 14.133482]], dtype=np.float32)
-        test.test(("sample_stochastic", input_[0]), expected_outputs=expected)
+        test.test(("sample_stochastic", input_[0]), expected_outputs=expected, decimals=4)

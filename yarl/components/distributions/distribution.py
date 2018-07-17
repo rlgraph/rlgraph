@@ -32,27 +32,22 @@ class Distribution(Component):
 
     API:
         get_distribution(parameters): The backend-specific distribution object.
-
-    ins:
-        parameters (numeric): The parameters of the distribution (e.g. mean and variance for a Gaussian).
-            The Space of parameters must have a batch-rank.
-        values (numeric): Values for which we want log probabilities returned.
-        max_likelihood (bool): Whether to sample or to get the max-likelihood value (deterministic) when
-            using the "draw" out-Socket. This Socket is optional and can be switched on via the constructor parameter:
-            "expose_draw"=True.
-        other_distribution (backend-specific distribution object): Input distribution for calculating the
-            KL-divergence between this Distribution and "other_distribution".
-    outs:
-        sample_stochastic (numeric): Returns a stochastic sample from the distribution.
-        sample_deterministic (numeric): Returns the max-likelihood value (deterministic) from the distribution.
-        entropy (float): The entropy value of the distribution.
-        log_prob (numeric): The log probabilities for given values.
-        draw (numeric): Draws a sample from the distribution (if max_likelihood is True, this is will be
+        sample_stochastic(parameters): Returns a stochastic sample from the distribution.
+        sample_deterministic(parameters): Returns the max-likelihood value (deterministic) from the distribution.
+        draw(parameters): Draws a sample from the distribution (if max_likelihood is True, this is will be
             a deterministic draw, otherwise a stochastic sample). This Socket is optional and can be switched on via
             the constructor parameter: "expose_draw"=True. By default, this Socket is not exposed.
-        kl_divergence (numeric): The Kullback-Leibler Divergence between this Distribution and another one.
+        entropy(parameters): The entropy value of the distribution.
+        log_prob(parameters): The log probabilities for given values.
+        kl_divergence(parameters, other_parameters): The Kullback-Leibler Divergence between a Distribution and
+            another one.
     """
     def __init__(self, scope="distribution", **kwargs):
+        """
+        Keyword Args:
+            seed (Optional[int]): An optional random seed to use when sampling stochastically.
+        """
+        self.seed = kwargs.pop("seed", None)
         super(Distribution, self).__init__(scope=scope, **kwargs)
 
         # Define our API-method to get a distribution object:
@@ -156,7 +151,7 @@ class Distribution(Component):
         Returns:
             DataOp: The drawn sample.
         """
-        return distribution.sample()
+        return distribution.sample(seed=self.seed)
 
     def _graph_fn_log_prob(self, distribution, values):
         """
