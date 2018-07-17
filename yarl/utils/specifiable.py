@@ -133,7 +133,7 @@ class Specifiable(object):
                 module = importlib.import_module(module_name)
                 constructor = getattr(module, function_name)
             else:
-                raise YARLError("ERROR: String specifier ({}) in from_spec must be a filename, a module+class, or"
+                raise YARLError("ERROR: String specifier ({}) in from_spec must be a filename, a module+class, or "
                                 "a key into {}.__lookup_classes__!".format(type_, cls.__name__))
 
         if not constructor:

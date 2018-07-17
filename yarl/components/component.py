@@ -85,7 +85,7 @@ class Component(Specifiable):
 
         assert re.match(r'^[\w\-]*$', self.scope), \
             "ERROR: scope {} does not match scope-pattern! Needs to be \\w or '-'.".format(self.scope)
-        # The global scope string defining the exact nexted position of this Component in the Graph.
+        # The global scope string defining the exact nested position of this Component in the Graph.
         # e.g. "/core/component1/sub-component-a"
         self.global_scope = self.scope
         # Names of sub-components that exist (parallelly) inside a containing component must be unique.
@@ -729,7 +729,7 @@ class Component(Specifiable):
         # Recurse up the container hierarchy.
         self.parent_component.propagate_summary(key_)
 
-    def define_api_method(self, name, func=None, **kwargs):
+    def define_api_method(self, name, func=None, must_be_complete=True, **kwargs):
         """
         Creates a very basic graph_fn based API method for this Component.
         Alternative way for defining an API method directly in the Component via def.
@@ -738,6 +738,9 @@ class Component(Specifiable):
             name (Union[str,callable]): The name of the API method to create or one of the Component's method to
                 create the API-method from.
             func (Optional[callable]): The graph_fn to wrap or the custom function to set as API-method.
+            must_be_complete (bool): Whether this API-method must have all its incoming Spaces defined in order
+                for the Component to count as "input-complete". Some API-methods may be still input-incomplete without
+                affecting the Component's build process.
 
         Keyword Args:
             flatten_ops (bool,Set[int]): See `self.call` for details.
@@ -778,7 +781,7 @@ class Component(Specifiable):
         setattr(api_method, "__self__", self)
         setattr(api_method, "__name__", name)
 
-        self.api_methods[name] = APIMethodRecord(getattr(self, name), component=self)
+        self.api_methods[name] = APIMethodRecord(getattr(self, name), component=self, must_be_complete=must_be_complete)
 
     def add_components(self, *components, **kwargs):
         """
@@ -829,7 +832,7 @@ class Component(Specifiable):
 
         Args:
             sub_component (Optional[Component]): The sub-Component object whose global_scope needs to be updated.
-                USe None for this Component itself.
+                Use None for this Component itself.
         """
         if sub_component is None:
             sub_component = self

@@ -49,8 +49,8 @@ class FixedLoop(Component):
                 flatten_ops = graph_fn.flatten_ops
                 break
         if not self.graph_fn_to_call:
-            raise YARLError("ERROR: GraphFn '{}' not found in Component '{}'!".format(graph_fn_name,
-                                                                                      call_component.global_scope))
+            raise YARLError("ERROR: GraphFn '{}' not found in Component '{}'!".
+                            format(graph_fn_name, call_component.global_scope))
         # TODO: Do we sum up, append to list, ...?
         #self.define_inputs("inputs")
         # self.define_outputs("fixed_loop_result")
