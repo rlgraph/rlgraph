@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl.agents import DQNAgent
-from yarl.components import Synchronizable
 
 
 class ApexAgent(DQNAgent):
@@ -32,14 +31,13 @@ class ApexAgent(DQNAgent):
     to enable external updates of priorities. Ape-X also enables per default dueling and double
     DQN.
     """
-    def __init__(self, discount=0.98, memory_spec=None, **kwargs):
+    def __init__(self, memory_spec=None, **kwargs):
         """
         Args:
-            discount (float): The discount factor (gamma).
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
         """
         assert memory_spec["type"] == "prioritized_replay"
-        super(ApexAgent, self).__init__(discount=discount, memory_spec=memory_spec, **kwargs)
+        super(ApexAgent, self).__init__(memory_spec=memory_spec, name=kwargs.pop("name", "apex-agent"), **kwargs)
 
         # Apex uses train time steps for syncing.
         self.train_time_steps = 0
@@ -79,4 +77,4 @@ class ApexAgent(DQNAgent):
         return ret[1]
 
     def __repr__(self):
-        return "ApexAgent"
+        return "ApexAgent()"

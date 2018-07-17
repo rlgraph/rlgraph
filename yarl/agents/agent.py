@@ -21,7 +21,7 @@ from yarl import Specifiable, get_backend
 from yarl.graphs.graph_executor import GraphExecutor
 from yarl.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec,\
     get_optimizer_from_device_strategy
-from yarl.components import Component, Exploration, PreprocessorStack, NeuralNetwork, Synchronizable
+from yarl.components import Component, Exploration, PreprocessorStack, NeuralNetwork, Synchronizable, Policy
 from yarl.graphs import GraphBuilder
 from yarl.spaces import Space
 
@@ -31,13 +31,14 @@ import logging
 
 class Agent(Specifiable):
     """
-    Generic agent defining YARL-API operations.
+    Generic agent defining YARL-API operations and parses and sanitizes configuration specs.
     """
     def __init__(
         self,
         state_space,
         action_space,
         preprocessed_state_space,  # TODO: remove this requirement as soon as we have full numpy-based Components (then we can infer everything automatically)
+        discount=0.98,
         preprocessing_spec=None,
         network_spec=None,
         action_adapter_spec=None,
@@ -50,13 +51,12 @@ class Agent(Specifiable):
         name="agent"
     ):
         """
-        Generic agent which parses and sanitizes configuration specs.
-
         Args:
             state_space (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
             action_space (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
             preprocessing_spec (Optional[list,PreprocessorStack]): The spec list for the different necessary states
                 preprocessing steps or a PreprocessorStack object itself.
+            discount (float): The discount factor (gamma).
             network_spec (Optional[list,NeuralNetwork]): Spec list for a NeuralNetwork Component or the NeuralNetwork
                 object itself.
             action_adapter_spec (Optional[dict,ActionAdapter]): The spec-dict for the ActionAdapter Component or the
@@ -79,16 +79,37 @@ class Agent(Specifiable):
         self.action_space = Space.from_spec(action_space).with_batch_rank(False)
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
 
+        self.discount = discount
+
         # The agent's core Component.
         self.core_component = Component(name=self.name)
 
+        # Define the input-Spaces:
+        # Tag the input-Space to `self.set_policy_weights` as equal to whatever the variables-Space will be for
+        # the Agent's policy Component.
+        self.input_spaces = dict(
+            set_policy_weights="variables:policy"
+        )
+
+        # Construct the Preprocessor.
         self.preprocessor = PreprocessorStack.from_spec(preprocessing_spec)
 
+        # Construct the Policy network.
         self.neural_network = None
         if network_spec is not None:
             self.neural_network = NeuralNetwork.from_spec(network_spec)
         self.action_adapter_spec = action_adapter_spec
-        self.policy = None
+
+        # The behavioral policy of the algorithm. Also the one that gets updated.
+        action_adapter_dict = dict(action_space=self.action_space)
+        if self.action_adapter_spec is None:
+            self.action_adapter_spec = action_adapter_dict
+        else:
+            self.action_adapter_spec.update(action_adapter_dict)
+        self.policy = Policy(
+            neural_network=self.neural_network,
+            action_adapter_spec=self.action_adapter_spec
+        )
 
         self.exploration = Exploration.from_spec(exploration_spec)
         self.execution_spec = parse_execution_spec(execution_spec)
@@ -154,7 +175,7 @@ class Agent(Specifiable):
         def set_policy_weights(self_, weights):
             return self_.call(self.policy.sync, weights)
 
-        self.core_component.define_api_method("set_policy_weights", set_policy_weights)
+        self.core_component.define_api_method("set_policy_weights", set_policy_weights, must_be_complete=False)
 
     def build_graph(self, input_spaces, *args):
         """
@@ -181,7 +202,7 @@ class Agent(Specifiable):
         """
         raise NotImplementedError
 
-    def observe(self, states, actions, internals, rewards, terminals):
+    def observe(self, preprocessed_states, actions, internals, rewards, terminals):
         """
         Observes an experience tuple or a batch of experience tuples. Note: If configured,
         first uses buffers and then internally calls _observe_graph() to actually run the computation graph.
@@ -189,29 +210,29 @@ class Agent(Specifiable):
         child Agent.
 
         Args:
-            states (Union[dict, ndarray]): States dict or array.
+            preprocessed_states (Union[dict, ndarray]): Preprocessed states dict or array.
             actions (Union[dict, ndarray]): Actions dict or array containing actions performed for the given state(s).
             internals (Union[list]): Internal state(s) returned by agent for the given states.Must be
                 empty list if no internals available.
             rewards (float): Scalar reward(s) observed.
             terminals (bool): Boolean indicating terminal.
         """
-        batched_states = self.state_space.batched(states)
+        batched_states = self.preprocessed_state_space.batched(preprocessed_states)
 
         # Check for illegal internals.
         if internals is None:
             internals = []
 
         # Add batch rank?
-        if batched_states.ndim == np.asarray(states).ndim + 1:
-            states = np.asarray([states])
+        if batched_states.ndim == np.asarray(preprocessed_states).ndim + 1:
+            preprocessed_states = np.asarray([preprocessed_states])
             actions = np.asarray([actions])
             internals = np.asarray([internals])
             rewards = np.asarray([rewards])
             terminals = np.asarray([terminals])
 
         if self.observe_spec["buffer_enabled"] is True:
-            self.states_buffer.extend(states)
+            self.states_buffer.extend(preprocessed_states)
             self.actions_buffer.extend(actions)
             self.internals_buffer.extend(internals)
             self.rewards_buffer.extend(rewards)
@@ -223,7 +244,7 @@ class Agent(Specifiable):
             if buffer_is_full or self.terminals_buffer[-1]:
                 self.terminals_buffer[-1] = True
                 self._observe_graph(
-                    states=np.asarray(self.states_buffer),
+                    preprocessed_states=np.asarray(self.states_buffer),
                     actions=np.asarray(self.actions_buffer),
                     internals=np.asarray(self.internals_buffer),
                     rewards=np.asarray(self.rewards_buffer),
@@ -231,9 +252,9 @@ class Agent(Specifiable):
                 )
                 self.reset_buffers()
         else:
-            self._observe_graph(states, actions, internals, rewards, terminals)
+            self._observe_graph(preprocessed_states, actions, internals, rewards, terminals)
 
-    def _observe_graph(self, states, actions, internals, rewards, terminals):
+    def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals):
         """
         This methods defines the actual call to the computational graph by executing
         the respective graph op via the graph executor. Since this may use varied underlying
@@ -241,7 +262,7 @@ class Agent(Specifiable):
         calls this method to move data into the graph.
 
         Args:
-            states (Union[dict,ndarray]): States dict or array.
+            preprocessed_states (Union[dict,ndarray]): Preprocessed states dict or array.
             actions (Union[dict,ndarray]): Actions dict or array containing actions performed for the given state(s).
             internals (Union[list]): Internal state(s) returned by agent for the given states. Must be an empty list
                 if no internals available.

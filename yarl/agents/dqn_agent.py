@@ -33,11 +33,10 @@ class DQNAgent(Agent):
     [3] Dueling Network Architectures for Deep Reinforcement Learning, Wang et al. - 2016
     """
 
-    def __init__(self, discount=0.98, double_q=True, dueling_q=True, memory_spec=None,
+    def __init__(self, double_q=True, dueling_q=True, memory_spec=None,
                  store_last_memory_batch=False, store_last_q_table=False, **kwargs):
         """
         Args:
-            discount (float): The discount factor (gamma).
             double_q (bool): Whether to use the double DQN loss function (see [2]).
             dueling_q (bool): Whether to use a dueling layer in the ActionAdapter  (see [3]).
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
@@ -48,29 +47,35 @@ class DQNAgent(Agent):
                 (memory or external) in `self.last_q_table` for debugging purposes.
                 Default: False.
         """
-        super(DQNAgent, self).__init__(**kwargs)
+        # Fix action-adapter before passing it to the super constructor.
+        action_adapter_spec = kwargs.pop("action_adapter_spec", dict())
+        action_adapter_spec.update(dict(add_dueling_layer=dueling_q))
+        super(DQNAgent, self).__init__(
+            action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "dqn-agent"), **kwargs
+        )
 
-        self.discount = discount
         self.double_q = double_q
         self.dueling_q = dueling_q
+
         # Debugging tools.
         self.store_last_memory_batch = store_last_memory_batch
         self.last_memory_batch = None
         self.store_last_q_table = store_last_q_table
         self.last_q_table = None
 
-        # Define the input Space to our API-methods (all batched).
+        # Extend input Space definitions to this Agent's specific API-methods.
         state_space = self.state_space.with_batch_rank()
         preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()
         action_space = self.action_space.with_batch_rank()
         reward_space = FloatBox(add_batch_rank=True)
         terminal_space = BoolBox(add_batch_rank=True)
-        self.input_spaces = dict(
+        self.input_spaces.update(dict(
             get_preprocessed_state_and_action=[state_space, int, bool],  # state, time-step, use_exploration
             insert_records=[preprocessed_state_space, action_space, reward_space, terminal_space],
             update_from_external_batch=[preprocessed_state_space, action_space, reward_space,
                                         terminal_space, preprocessed_state_space]
-        )
+        ))
+
         # The merger to merge inputs into one record Dict going into the memory.
         self.merger = Merger("states", "actions", "rewards", "terminals")
         # The replay memory.
@@ -78,16 +83,6 @@ class DQNAgent(Agent):
         # The splitter for splitting up the records coming from the memory.
         self.splitter = Splitter("states", "actions", "rewards", "terminals", "next_states")
 
-        # The behavioral policy of the algorithm. Also the one that gets updated.
-        action_adapter_dict = dict(action_space=self.action_space, add_dueling_layer=self.dueling_q)
-        if self.action_adapter_spec is None:
-            self.action_adapter_spec = action_adapter_dict
-        else:
-            self.action_adapter_spec.update(action_adapter_dict)
-        self.policy = Policy(
-            neural_network=self.neural_network,
-            action_adapter_spec=self.action_adapter_spec
-        )
         # Copy our Policy (target-net), make target-net synchronizable.
         self.target_policy = self.policy.copy(scope="target-policy")
         self.target_policy.add_components(Synchronizable(), expose_apis="sync")
@@ -108,8 +103,7 @@ class DQNAgent(Agent):
 
     def define_api_methods(self, preprocessor, merger, memory, splitter, policy, target_policy, exploration,
                            loss_function, optimizer):
-        super(DQNAgent, self).define_api_methods(preprocessor, merger, memory, splitter, policy,
-                                                 target_policy, exploration, loss_function, optimizer)
+        super(DQNAgent, self).define_api_methods()
 
         # State (from environment) to action.
         def get_preprocessed_state_and_action(self_, states, time_step, use_exploration=True):
@@ -226,8 +220,8 @@ class DQNAgent(Agent):
         else:
             return ret
 
-    def _observe_graph(self, states, actions, internals, rewards, terminals):
-        self.graph_executor.execute(("insert_records", [states, actions, rewards, terminals]))
+    def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals):
+        self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
     def update(self, batch=None):
         # Should we sync the target net? (timesteps-1 b/c it has been increased already in get_action)

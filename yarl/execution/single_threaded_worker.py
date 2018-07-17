@@ -174,7 +174,7 @@ class SingleThreadedWorker(Worker):
                     self.episode_terminal = True
 
                 self.agent.observe(
-                    states=preprocessed_state, actions=action, internals=[], rewards=reward,
+                    preprocessed_states=preprocessed_state, actions=action, internals=[], rewards=reward,
                     terminals=self.episode_terminal
                 )
 
