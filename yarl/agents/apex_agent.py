@@ -41,9 +41,6 @@ class ApexAgent(DQNAgent):
         assert memory_spec["type"] == "prioritized_replay"
         super(ApexAgent, self).__init__(discount=discount, memory_spec=memory_spec, **kwargs)
 
-        # Make policy syncable.
-        self.policy.add_components(Synchronizable(), expose_apis="sync")
-
         # Apex uses train time steps for syncing.
         self.train_time_steps = 0
 
@@ -52,6 +49,8 @@ class ApexAgent(DQNAgent):
         super(ApexAgent, self).define_api_methods(preprocessor, merger, memory,
                                                   splitter, policy, target_policy,
                                                   exploration, loss_function, optimizer)
+        # Make policy syncable.
+        self.policy.add_components(Synchronizable(), expose_apis="sync")
 
         # TODO every agent has a policy, so maybe this should be in the generic agent?
         # Add api methods for syncing.
