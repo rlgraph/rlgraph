@@ -55,3 +55,17 @@ class TestApexAgent(unittest.TestCase):
         self.assertAlmostEqual(results["mean_episode_reward"], 5.923551400230593)
         self.assertAlmostEqual(results["max_episode_reward"], 14.312868008192979)
         self.assertAlmostEqual(results["final_episode_reward"], 0.14325251090518198)
+
+    def test_apex_weight_syncing(self):
+        env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
+
+        agent = ApexAgent.from_spec(
+            "configs/apex_agent_for_random_env.json",
+            state_space=env.state_space,
+            action_space=env.action_space,
+            preprocessed_state_space=env.state_space
+        )
+
+        policy_weights = agent.get_policy_weights()
+        print('policy weights: {}'.format(policy_weights))
+

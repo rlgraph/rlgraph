@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl.agents import DQNAgent
+from yarl.components import Synchronizable
 
 
 class ApexAgent(DQNAgent):
