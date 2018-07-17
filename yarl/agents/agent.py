@@ -181,7 +181,7 @@ class Agent(Specifiable):
         """
         raise NotImplementedError
 
-    def observe(self, states, actions, internals, rewards, terminals, episode_was_aborted=False):
+    def observe(self, states, actions, internals, rewards, terminals):
         """
         Observes an experience tuple or a batch of experience tuples. Note: If configured,
         first uses buffers and then internally calls _observe_graph() to actually run the computation graph.
@@ -195,8 +195,6 @@ class Agent(Specifiable):
                 empty list if no internals available.
             rewards (float): Scalar reward(s) observed.
             terminals (bool): Boolean indicating terminal.
-            episode_was_aborted (bool): Whether the episode was aborted due to the maximum number of time steps reached.
-                In that case, we will artificially set terminal=True for the last record.
         """
         batched_states = self.state_space.batched(states)
 
@@ -222,7 +220,7 @@ class Agent(Specifiable):
             buffer_is_full = len(self.rewards_buffer) >= self.observe_spec["buffer_size"]
             # If the buffer is full OR the episode was aborted:
             # Change terminal of last record artificially to True, insert and flush the buffer.
-            if buffer_is_full or episode_was_aborted or self.terminals_buffer[-1]:
+            if buffer_is_full or self.terminals_buffer[-1]:
                 self.terminals_buffer[-1] = True
                 self._observe_graph(
                     states=np.asarray(self.states_buffer),

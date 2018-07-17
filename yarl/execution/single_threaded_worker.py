@@ -168,18 +168,21 @@ class SingleThreadedWorker(Worker):
 
                 num_timesteps_reached = (0 < num_timesteps <= timesteps_executed)
                 max_episode_timesteps_reached = (0 < max_timesteps_per_episode <= self.episode_timesteps)
+                # The episode was aborted artificially (without actually being terminal).
+                # Change the last terminal flag to True.
+                if max_episode_timesteps_reached:
+                    self.episode_terminal = True
 
                 self.agent.observe(
                     states=preprocessed_state, actions=action, internals=[], rewards=reward,
-                    terminals=self.episode_terminal,
-                    episode_was_aborted=max_episode_timesteps_reached
+                    terminals=self.episode_terminal
                 )
 
                 self.episode_state = next_state
 
                 loss = self.update_if_necessary()
-                if loss is not None:
-                    self.logger.info("LOSS: {}".format(loss))
+                #if loss is not None:
+                #    self.logger.info("LOSS: {}".format(loss))
 
                 # Is the episode finished or do we have to terminate it prematurely because of other restrictions?
                 if self.episode_terminal or num_timesteps_reached or max_episode_timesteps_reached:
