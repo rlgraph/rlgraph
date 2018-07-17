@@ -48,6 +48,7 @@ class DQNAgent(Agent):
                 (memory or external) in `self.last_q_table` for debugging purposes.
                 Default: False.
         """
+        print(kwargs)
         super(DQNAgent, self).__init__(**kwargs)
 
         self.discount = discount
@@ -108,6 +109,8 @@ class DQNAgent(Agent):
 
     def define_api_methods(self, preprocessor, merger, memory, splitter, policy, target_policy, exploration,
                            loss_function, optimizer):
+        super(DQNAgent, self).define_api_methods(preprocessor, merger, memory, splitter, policy,
+                                                 target_policy, exploration, loss_function, optimizer)
 
         # State (from environment) to action.
         def get_preprocessed_state_and_action(self_, states, time_step, use_exploration=True):

@@ -21,7 +21,7 @@ from yarl import Specifiable, get_backend
 from yarl.graphs.graph_executor import GraphExecutor
 from yarl.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec,\
     get_optimizer_from_device_strategy
-from yarl.components import Component, Exploration, PreprocessorStack, NeuralNetwork
+from yarl.components import Component, Exploration, PreprocessorStack, NeuralNetwork, Synchronizable
 from yarl.graphs import GraphBuilder
 from yarl.spaces import Space
 
@@ -143,7 +143,18 @@ class Agent(Specifiable):
         Args:
             params (any): Params to be used freely by child Agent implementations.
         """
-        raise NotImplementedError
+        self.policy.add_components(Synchronizable(), expose_apis="sync")
+
+        # Add api methods for syncing.
+        def get_policy_weights(self_):
+            return self_.call(self.policy._variables)
+
+        self.core_component.define_api_method("get_policy_weights", get_policy_weights)
+
+        def set_policy_weights(self_, weights):
+            return self_.call(self.policy.sync, weights)
+
+        self.core_component.define_api_method("set_policy_weights", set_policy_weights)
 
     def build_graph(self, input_spaces, *args):
         """
@@ -320,7 +331,7 @@ class Agent(Specifiable):
         Returns:
             any: Weights and optionally weight meta data for this model.
         """
-        pass
+        return self.graph_executor.execute("get_policy_weights")
 
     def set_weights(self, weights):
         """
@@ -332,4 +343,5 @@ class Agent(Specifiable):
         Raises:
             ValueError if weights do not match graph weights in shapes and types.
         """
-        pass
+        return self.graph_executor.execute(("set_policy_weights", weights))
+
