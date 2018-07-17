@@ -21,6 +21,7 @@ import os
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
+from yarl import YARLError
 from yarl.components import MultiGpuSyncOptimizer
 from yarl.graphs.graph_executor import GraphExecutor
 from yarl.backend_system import get_distributed_backend
@@ -81,6 +82,13 @@ class TensorFlowExecutor(GraphExecutor):
         self.graph_default_context = None
         self.local_device_protos = device_lib.list_local_devices()
         self.available_devices = [x.name for x in self.local_device_protos]
+        self.device_strategy = self.execution_spec.get('device_strategy', 'default')
+        self.default_device = None
+        self.device_map = None
+
+        # Number of available GPUs and their names.
+        self.gpu_names = None
+        self.num_gpus = 0
 
         # Tf profiler.
         self.session_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
@@ -93,7 +101,6 @@ class TensorFlowExecutor(GraphExecutor):
             self.profile_step = 0
             self.profiling_frequency = self.execution_spec["profiler_frequency"]
 
-        self.device_strategy = self.execution_spec.get('device_strategy', 'default')
         self.init_device_strategy()
 
         # # Initialize distributed backend.
@@ -107,27 +114,36 @@ class TensorFlowExecutor(GraphExecutor):
         Initializes default device and loads available devices.
         """
         if self.device_strategy == "default":
+            self.logger.info("Initializing graph executor with default device strategy. "
+                             "Backend will assign all devices.")
+        elif self.device_strategy == 'multi_gpu_sync':
+            # Default device is CPU, executor will create extra operations and assign all visible GPUs automatically.
+            self.default_device = [x.name for x in self.local_device_protos if x.device_type == 'CPU'][0]
+            self.gpu_names = [x.name for x in self.local_device_protos if x.device_type == 'GPU']
+            self.num_gpus = len(self.gpu_names)
+            self.logger.info("Initializing graph executor with synchronized multi-gpu device strategy. "
+                             "Default device: {}. Available gpus are: {}.".format(self.default_device, self.gpu_names))
+        elif self.device_strategy == 'custom':
             # Default device is user provided device or first CPU.
             default_device = self.execution_spec.get("default_device", None)
             if default_device is None:
                 self.default_device = [x.name for x in self.local_device_protos if x.device_type == 'CPU'][0]
             else:
                 self.default_device = default_device
-            self.logger.info("Initializing graph executor with default device strategy,"
-                             "default device is: {}".format(self.default_device))
-        elif self.device_strategy == 'multi_gpu_sync':
-            # Default device is CPU, executor will create extra operations and assign all
-            # visible GPUs automatically.
-            self.default_device = [x.name for x in self.local_device_protos if x.device_type == 'CPU'][0]
-            self.gpu_names = [x.name for x in self.local_device_protos if x.device_type == 'GPU']
-            self.num_gpus = (len(self.gpu_names))
-            self.logger.info("Initializing graph executor with synchronized multi-gpu device strategy,"
-                             "available gpus are: {}".format(self.gpu_names))
-        elif self.device_strategy == 'custom':
-            # TODO check in graph builder if default device None works.
-            self.default_device = None
-            self.logger.info("Initializing graph executor with custom device strategy, "
-                             "no work to be done.")
+                # Sanity check, whether given default device exists.
+                if self.default_device not in self.available_devices:
+                    raise YARLError("Provided `default_device` ('{}') is not in `available_devices` ({})".
+                                    format(self.default_device, self.available_devices))
+            self.device_map = dict()
+            # Clean up device map so it only contains devices that are actually available (otherwise,
+            # use the default device).
+            for component_name, device in self.execution_spec["device_map"]:
+                if device in self.available_devices:
+                    self.device_map[component_name] = device
+            self.logger.info("Initializing graph executor with custom device strategy (default device: {}).".
+                             format(self.default_device))
+        else:
+            raise YARLError("Invalid device_strategy ('{}') for GraphExecutor!".format(self.device_strategy))
 
     def build(self, input_spaces, optimizer=None):
         # Prepare for graph assembly.
@@ -140,7 +156,10 @@ class TensorFlowExecutor(GraphExecutor):
         self._build_device_strategy(optimizer)
 
         # Build actual TensorFlow graph from meta graph.
-        self.graph_builder.build_graph(input_spaces, self.available_devices, self.default_device, self.device_strategy)
+        self.graph_builder.build_graph(
+            input_spaces=input_spaces, available_devices=self.available_devices,
+            device_strategy=self.device_strategy, default_device=self.default_device, device_map=self.device_map
+        )
 
         # Check device assignments for inconsistencies or unused devices.
         self._sanity_check_devices()

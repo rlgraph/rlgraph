@@ -111,10 +111,19 @@ def parse_execution_spec(execution_spec):
     default_spec = dict(
         mode="single",
         distributed_spec=None,
+
+        # Device placement settings.
+        device_strategy="default",
+        default_device=None,
+        device_map=None,
+
         session_config=None,
-        seed=None,  # random seed for the tf graph
-        enable_profiler=False,  # enabling the tf profiler?
-        profiler_frequency=1000  # with which frequency do we print out profiler information?
+        # Random seed for the tf graph.
+        seed=None,
+        # Enabling the tf profiler?
+        enable_profiler=False,
+        # With which frequency do we print out profiler information?
+        profiler_frequency=1000
     )
     execution_spec = default_dict(execution_spec, default_spec)
 
@@ -130,7 +139,7 @@ def parse_execution_spec(execution_spec):
             global_shared_memory=True
         )
         default_dict(execution_spec.get("distributed_spec"), default_distributed)
-        execution_spec["session_config"] = execution_spec.get("session_config")
+        # ?? execution_spec["session_config"] = execution_spec.get("session_config")
 
     return execution_spec
 

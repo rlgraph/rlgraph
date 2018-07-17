@@ -58,8 +58,10 @@ class GraphBuilder(Specifiable):
         # All components assigned to each device, for debugging and analysis.
         self.device_component_assignments = dict()
         self.available_devices = None
-        self.default_device = None
+        # Device specifications.
         self.device_strategy = None
+        self.default_device = None
+        self.device_map = None
 
         # Some build stats:
         # Number of meta op-records.
@@ -166,7 +168,8 @@ class GraphBuilder(Specifiable):
             #    ))
             self.sanity_check_meta_graph(sub_component)
 
-    def build_graph(self, input_spaces, available_devices, default_device=None, device_strategy='default'):
+    def build_graph(self, input_spaces, available_devices,
+                    device_strategy="default", default_device=None, device_map=None):
         """
         The actual iterative depth-first search algorithm to build our graph from the already existing
         meta-Graph structure.
@@ -180,16 +183,18 @@ class GraphBuilder(Specifiable):
             input_spaces (dict):
             available_devices (list): Devices which can be used to assign parts of the graph
                 during graph assembly.
-            default_device (Optional[str]): Default device identifier.
             device_strategy (Optional[str]): Device strategy.
+            default_device (Optional[str]): Default device identifier.
+            device_map (Optional[Dict]): Dict of Component names mapped to device names to place the Component's ops.
         """
         # Time the build procedure.
         time_start = time.monotonic()
 
         # Set devices usable for this graph.
         self.available_devices = available_devices
-        self.default_device = default_device
         self.device_strategy = device_strategy
+        self.default_device = default_device
+        self.device_map = device_map
 
         # Push all spaces through the API methods, then enter the main iterative DFS while loop.
         op_records_to_process = self.build_input_space_ops(input_spaces)
@@ -292,10 +297,13 @@ class GraphBuilder(Specifiable):
                 if not isinstance(space, Space):
                     space = Space.from_spec(space)
                 # Generate a placeholder and store it as well as the Space itself.
-                in_op_records[i].op = space.get_tensor_variable(name="api-"+api_method_name+"/param-"+str(i),
-                                                                is_input_feed=True)
+                device = self.get_device(next(iter(in_op_records[0].next)).column.component, variables=True)
+                if get_backend() == "tf":
+                    with tf.device(device):
+                        in_op_records[i].op = space.get_tensor_variable(
+                            name="api-"+api_method_name+"/param-"+str(i), is_input_feed=True
+                        )
                 in_op_records[i].space = space
-
                 op_records_to_process.add(in_op_records[i])
 
         return op_records_to_process
@@ -337,7 +345,7 @@ class GraphBuilder(Specifiable):
             if spaces_dict is not None:
                 self.logger.debug("Component {} is input-complete; spaces_dict={}".
                                   format(component.name, spaces_dict))
-                device = self.get_device(component)
+                device = self.get_device(component, variables=True)
                 component.when_input_complete(spaces_dict, self.action_space, device)
                 # Call all no-input graph_fns of the new Component.
                 for no_in_col in component.no_input_graph_fn_columns:
@@ -371,7 +379,7 @@ class GraphBuilder(Specifiable):
                 graph_fn.
         """
         # Get the device for the ops generated in the graph_fn (None for custom device-definitions within the graph_fn).
-        device = self.get_device(op_rec_column.component)
+        device = self.get_device(op_rec_column.component, variables=False)
 
         if get_backend() == "tf":
             # Assign proper device to all ops created in this context manager.
@@ -396,26 +404,37 @@ class GraphBuilder(Specifiable):
             else:
                 self.device_component_assignments[device].append(str(op_rec_column.graph_fn.__name__))
 
-    def get_device(self, component):
+    def get_device(self, component, variables=False):
         """
         Determines and returns a device based on a given Component (or `self.default_device`).
         Also does some sanity checking against our `device_strategy`.
 
         Args:
             component (Component): The Component to check for a defined device.
+            variables (bool): Whether the device is for the variables of the Component (vs the ops).
 
         Returns:
             str: The device to use.
         """
-        device = component.device or self.default_device
+        # Component specifies it's own device: Use that.
+        # Then follow our device_map.
+        # Last resort: Use `self.default_device` (may be None).
+        device = component.device or self.device_map.get(component.name, self.default_device)
+        # Device is specific to whether we are creating variables or ops.
+        if isinstance(device, dict):
+            if variables is True:
+                device = device["variables"]
+            else:
+                device = device["ops"]
 
         if device is not None and device not in self.available_devices:
             raise YARLError("Device '{}' not in available devices:\n {}".format(device, self.available_devices))
-        # These strategies always set a default device.
-        if device is not None:
-            assert self.device_strategy == 'default' or self.device_strategy == 'multi_gpu_sync'
-        else:
-            assert self.device_strategy == 'custom'
+
+        # Do some sanity checking on which strategies require a default device.
+        #if device is not None:
+        #    assert self.device_strategy == "custom" or self.device_strategy == "multi_gpu_sync"
+        #else:
+        #    assert self.device_strategy == "default"
 
         return device
 
