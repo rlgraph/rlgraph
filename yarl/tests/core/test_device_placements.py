@@ -49,9 +49,14 @@ class TestDevicePlacements(unittest.TestCase):
         Place variables on CPU, ops on GPU (if exists).
         """
         a = DummyWithVar(scope="A", device=dict(variables="/device:CPU:0", ops="/device:GPU:0"))
-        test = ComponentTest(component=a, input_spaces=dict(run=float))
-        # TODO: Actually check the device of the variables and ops in a.
+        test = ComponentTest(component=a, input_spaces=dict(run_plus=float, run_minus=float))
+        # Actually check the device of the variables and ops in a.
+        device = "/device:GPU:0" if "/device:GPU:0" in test.graph_builder.available_devices else ""
+        self.assertEqual(a.api_methods["run_plus"].in_op_columns[0].op_records[0].op.device, "/device:CPU:0")
+        self.assertEqual(a.api_methods["run_plus"].out_op_columns[0].op_records[0].op.device, device)
+        self.assertEqual(a.api_methods["run_minus"].in_op_columns[0].op_records[0].op.device, "/device:CPU:0")
+        self.assertEqual(a.api_methods["run_minus"].out_op_columns[0].op_records[0].op.device, device)
 
-        # Expected: in + 1.0
-        test.test(("run", 1.1), expected_outputs=2.1)
+        # Expected: in + 2.0
+        test.test(("run_plus", 1.1), expected_outputs=3.1)
 

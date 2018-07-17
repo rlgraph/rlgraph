@@ -194,7 +194,7 @@ class GraphBuilder(Specifiable):
         self.available_devices = available_devices
         self.device_strategy = device_strategy
         self.default_device = default_device
-        self.device_map = device_map
+        self.device_map = device_map or dict()
 
         # Push all spaces through the API methods, then enter the main iterative DFS while loop.
         op_records_to_process = self.build_input_space_ops(input_spaces)
@@ -422,19 +422,14 @@ class GraphBuilder(Specifiable):
         device = component.device or self.device_map.get(component.name, self.default_device)
         # Device is specific to whether we are creating variables or ops.
         if isinstance(device, dict):
-            if variables is True:
-                device = device["variables"]
-            else:
-                device = device["ops"]
+            device = device["variables"] if variables is True else device["ops"]
 
+        # If device is not available, use the default device (or None).
         if device is not None and device not in self.available_devices:
-            raise YARLError("Device '{}' not in available devices:\n {}".format(device, self.available_devices))
-
-        # Do some sanity checking on which strategies require a default device.
-        #if device is not None:
-        #    assert self.device_strategy == "custom" or self.device_strategy == "multi_gpu_sync"
-        #else:
-        #    assert self.device_strategy == "default"
+            device = self.device_map.get(component.name, self.default_device)
+        # Device is specific to whether we are creating variables or ops.
+        if isinstance(device, dict):
+            device = device["variables"] if variables is True else device["ops"]
 
         return device
 
