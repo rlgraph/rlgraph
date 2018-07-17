@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl.agents import DQNAgent
+from yarl.components import Synchronizable
 
 
 class ApexAgent(DQNAgent):
@@ -40,8 +41,35 @@ class ApexAgent(DQNAgent):
         assert memory_spec["type"] == "prioritized_replay"
         super(ApexAgent, self).__init__(discount=discount, memory_spec=memory_spec, **kwargs)
 
+        # Make policy syncable.
+        self.policy.add_components(Synchronizable(), expose_apis="sync")
+
         # Apex uses train time steps for syncing.
         self.train_time_steps = 0
+
+    def define_api_methods(self, preprocessor, merger, memory, splitter, policy, target_policy, exploration,
+                           loss_function, optimizer):
+        super(ApexAgent, self).define_api_methods(preprocessor, merger, memory,
+                                                  splitter, policy, target_policy,
+                                                  exploration, loss_function, optimizer)
+
+        # TODO every agent has a policy, so maybe this should be in the generic agent?
+        # Add api methods for syncing.
+        def get_policy_weights(self_):
+            return self_.call(policy._variables)
+
+        self.core_component.define_api_method("get_policy_weights", get_policy_weights)
+
+        def set_policy_weights(self_, weights):
+            return self_.call(policy.sync, weights)
+
+        self.core_component.define_api_method("set_policy_weights", set_policy_weights)
+
+    def get_policy_weights(self):
+        return self.graph_executor.execute("get_policy_weights")
+
+    def set_policy_weights(self, weights):
+        return self.graph_executor.execute(("set_policy_weights", weights))
 
     def update(self, batch=None):
         # In apex, syncing is based on num steps trained, not steps sampled.

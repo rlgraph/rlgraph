@@ -23,7 +23,6 @@ from yarl.agents import Agent
 from yarl.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, Policy, Merger, Splitter
 from yarl.spaces import FloatBox, BoolBox
 from yarl.utils.util import strip_list
-from yarl.utils.visualization_util import get_graph_markup
 
 
 class DQNAgent(Agent):
