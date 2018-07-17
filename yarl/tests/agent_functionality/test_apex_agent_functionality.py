@@ -63,8 +63,8 @@ class TestApexAgent(unittest.TestCase):
         agent = ApexAgent.from_spec(
             "configs/apex_agent_for_random_env.json",
             state_space=env.state_space,
-            action_space=env.action_space,
-            preprocessed_state_space=env.state_space
+            preprocessed_state_space=spaces.FloatBox(shape=(2,)),  # TODO: remove once auto preprocessor Space inference done.
+            action_space=env.action_space
         )
 
         policy_weights = agent.get_policy_weights()
