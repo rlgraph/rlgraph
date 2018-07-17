@@ -30,12 +30,12 @@ class Dummy1To1(Component):
     API:
         run(input_): Result of input_ + `self.constant_value`
     """
-    def __init__(self, scope="dummy-1-to-1", constant_value=1.0):
+    def __init__(self, scope="dummy-1-to-1", constant_value=1.0, **kwargs):
         """
         Args:
             constant_value (float): A constant to add to input in our graph_fn.
         """
-        super(Dummy1To1, self).__init__(scope=scope)
+        super(Dummy1To1, self).__init__(scope=scope, **kwargs)
         self.constant_value = constant_value
 
         # Automatically generate an API-method around our graph_fn.
@@ -123,7 +123,7 @@ class Dummy2GraphFns1To1(Component):
         return input_ - self.constant_value * 2
 
 
-class DummyInputComplete(Component):
+class DummyWithVar(Component):
     """
     A dummy component with a couple of sub-components that have their own API methods.
 
@@ -131,12 +131,12 @@ class DummyInputComplete(Component):
         run_plus(input_): input_ + `self.constant_variable`
         run_minus(input_): input_ - `self.constant_value`
     """
-    def __init__(self, scope="dummy-for-testing-input-completeness", constant_value=2.0):
+    def __init__(self, scope="dummy-for-testing-input-completeness", constant_value=2.0, **kwargs):
         """
         Args:
             constant_value (float): A constant to add to input in our graph_fn.
         """
-        super(DummyInputComplete, self).__init__(scope=scope)
+        super(DummyWithVar, self).__init__(scope=scope, **kwargs)
         self.constant_value = constant_value
         self.constant_variable = None
 
@@ -174,7 +174,7 @@ class DummyWithSubComponents(Component):
         self.constant_value = constant_value
 
         # Create a sub-Component and add it.
-        self.sub_comp = DummyInputComplete()
+        self.sub_comp = DummyWithVar()
         self.add_components(self.sub_comp)
 
     def run1(self, input_):
