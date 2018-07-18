@@ -23,6 +23,7 @@ from yarl.agents import Agent
 import yarl.spaces as spaces
 from yarl.environments import RandomEnv
 from yarl.execution.single_threaded_worker import SingleThreadedWorker
+from yarl.tests import recursive_assert_almost_equal
 from yarl.utils import root_logger
 
 
@@ -70,9 +71,10 @@ class TestApexAgentFunctionality(unittest.TestCase):
         policy_weights = agent.get_policy_weights()
         print('policy weights: {}'.format(policy_weights))
 
-        updated_weights = [w + 0.01 for w in policy_weights]
-        agent.set_weights(updated_weights)
+        for variable, weights in policy_weights.items():
+            weights += 0.01
+        agent.set_weights(policy_weights)
 
         new_weights = agent.get_policy_weights()
-        self.assertEqual(new_weights, updated_weights)
+        recursive_assert_almost_equal(policy_weights, new_weights)
 

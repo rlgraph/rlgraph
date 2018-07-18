@@ -69,7 +69,8 @@ class PrioritizedReplay(Memory):
         self.define_api_method(
             name="update_records",
             func=self._graph_fn_update_records,
-            flatten_ops=False
+            flatten_ops=False,
+            must_be_complete=False
         )
 
     def create_variables(self, input_spaces, action_space):
