@@ -70,3 +70,9 @@ class TestApexAgentFunctionality(unittest.TestCase):
         policy_weights = agent.get_policy_weights()
         print('policy weights: {}'.format(policy_weights))
 
+        updated_weights = [w + 0.01 for w in policy_weights]
+        agent.set_weights(updated_weights)
+
+        new_weights = agent.get_policy_weights()
+        self.assertEqual(new_weights, updated_weights)
+
