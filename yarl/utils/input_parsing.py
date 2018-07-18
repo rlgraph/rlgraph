@@ -127,8 +127,10 @@ def parse_execution_spec(execution_spec):
     )
     execution_spec = default_dict(execution_spec, default_spec)
 
-    execution_mode = execution_spec.get("mode")
-    if execution_mode == "distributed":
+    # Sub specifications:
+
+    # Distributed specifications.
+    if execution_spec.get("mode") == "distributed":
         default_distributed = dict(
             job="ps",
             task_index=0,
@@ -136,10 +138,17 @@ def parse_execution_spec(execution_spec):
                 ps=["localhost:22222"],
                 worker=["localhost:22223"]
             ),
-            global_shared_memory=True
+            global_shared_memory=True,
+            protocol=None
         )
-        default_dict(execution_spec.get("distributed_spec"), default_distributed)
-        # ?? execution_spec["session_config"] = execution_spec.get("session_config")
+        execution_spec["distributed_spec"] = default_dict(execution_spec.get("distributed_spec"), default_distributed)
+
+    # Session config.
+    default_session_config = dict(
+        allow_soft_placement=True,
+        log_device_placement=True
+    )
+    execution_spec["session_config"] = default_dict(execution_spec.get("session_config"), default_session_config)
 
     return execution_spec
 

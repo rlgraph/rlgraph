@@ -276,8 +276,8 @@ class TensorFlowExecutor(GraphExecutor):
             server_or_cluster_def=self.distributed_spec["cluster_spec"],
             job_name=self.distributed_spec["job"],
             task_index=self.distributed_spec["task_index"],
-            protocol=self.distributed_spec.get("protocol"),
-            config=self.distributed_spec.get("session_config"),
+            protocol=self.distributed_spec["protocol"],
+            config=tf.ConfigProto(**self.session_config),
             start=True
         )
         if self.distributed_spec["job"] == "ps":
@@ -463,12 +463,14 @@ class TensorFlowExecutor(GraphExecutor):
         Args:
             hooks (list): A list of session hooks to use.
         """
+        session_config = tf.ConfigProto(**self.session_config)
+
         if self.execution_mode == "distributed":
             self.logger.info("Setting up distributed TensorFlow session.")
             session_creator = tf.train.ChiefSessionCreator(
                 scaffold=self.scaffold,
                 master=self.server.target,
-                config=self.session_config,
+                config=session_config,
                 checkpoint_dir=None,
                 checkpoint_filename_with_path=None
             )
@@ -486,7 +488,7 @@ class TensorFlowExecutor(GraphExecutor):
                 hooks=hooks,
                 scaffold=self.scaffold,
                 master='',  # Default value.
-                config=self.session_config,
+                config=session_config,
                 checkpoint_dir=None
             )
 
