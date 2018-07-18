@@ -46,6 +46,9 @@ class OpenAIGymEnv(Environment):
         else:
             self.gym_env = gym_env
 
+        # Manually set the frameskip property to 1 as we are setting frame skipping in the YARL workers.
+        self.gym_env.env.frameskip = 1
+
         observation_space = self.translate_space(self.gym_env.observation_space)
         action_space = self.translate_space(self.gym_env.action_space)
         super(OpenAIGymEnv, self).__init__(observation_space, action_space)

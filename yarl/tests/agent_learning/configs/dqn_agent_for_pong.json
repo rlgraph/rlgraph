@@ -1,6 +1,8 @@
 {
   "type": "dqn",
 
+  "discount": 0.99,
+
   "memory_spec":
   {
     "type": "replay",
@@ -79,6 +81,11 @@
     }
   },
 
+  "observe_spec":
+  {
+    "buffer_size": 200
+  },
+
   "update_spec": {
     "do_updates": true,
     "update_interval": 4,
@@ -89,6 +96,6 @@
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.002
+    "learning_rate": 0.02
   }
 }

@@ -99,7 +99,7 @@ class SingleThreadedWorker(Worker):
             update_spec (Optional[dict]): Update parameters. If None, the worker only performs rollouts.
                 Matches the structure of an Agent's update_spec dict and will be "defaulted" by that dict.
                 See `input_parsing/parse_update_spec.py` for more details.
-            repeat_actions (int): How often actions are repeated after retrieving them from the agent.
+            repeat_actions (Optional[int]): How often actions are repeated after retrieving them from the agent.
                 Use None for the Worker's default value.
             reset (bool): Whether to reset the environment and all the Worker's internal counters.
                 Default: True.
@@ -155,12 +155,14 @@ class SingleThreadedWorker(Worker):
                 next_state = None
                 for _ in range_(repeat_actions):
                     next_state, step_reward, self.episode_terminal, info = self.environment.step(actions=action)
-                    if self.render:
-                        self.environment.render()
                     self.env_frames += 1
                     reward += step_reward
                     if self.episode_terminal:
                         break
+
+                # Only render once per action.
+                if self.render:
+                    self.environment.render()
 
                 self.episode_return += reward
                 timesteps_executed += 1
