@@ -21,7 +21,7 @@ import logging
 import numpy as np
 import unittest
 
-from yarl.agents import DQNAgent
+from yarl.agents import Agent
 import yarl.spaces as spaces
 from yarl.components.loss_functions.dqn_loss_function import DQNLossFunction
 from yarl.environments import GridWorld, RandomEnv
@@ -41,7 +41,7 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         Creates a DQNAgent and runs it for a few steps in the random Env.
         """
         env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
-        agent = DQNAgent.from_spec(
+        agent = Agent.from_spec(
             "configs/dqn_agent_for_random_env.json",
             double_q=False,
             dueling_q=False,
@@ -68,11 +68,12 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         all steps of the learning process.
         """
         env = GridWorld(world="2x2", save_mode=True)  # no holes, just fire
-        agent = DQNAgent.from_spec(  # type: DQNAgent
+        agent = Agent.from_spec(  # type: DQNAgent
             "configs/dqn_agent_for_functionality_test.json",
             double_q=True,
             dueling_q=True,
             state_space=env.state_space,
+            #preprocessed_state_space=env.state_space,
             action_space=env.action_space,
             store_last_memory_batch=True,
             store_last_q_table=True,

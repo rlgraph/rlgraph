@@ -19,14 +19,14 @@ from __future__ import print_function
 
 import logging
 import unittest
-from yarl.agents import ApexAgent
+from yarl.agents import Agent
 import yarl.spaces as spaces
 from yarl.environments import RandomEnv
 from yarl.execution.single_threaded_worker import SingleThreadedWorker
 from yarl.utils import root_logger
 
 
-class TestApexAgent(unittest.TestCase):
+class TestApexAgentFunctionality(unittest.TestCase):
     """
     Tests the ApexAgent assembly on the RandomEnv.
     """
@@ -37,7 +37,7 @@ class TestApexAgent(unittest.TestCase):
         Creates an ApexAgent and runs it for a few steps in the RandomEnv.
         """
         env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
-        agent = ApexAgent.from_spec(
+        agent = Agent.from_spec(
             "configs/apex_agent_for_random_env.json",
             state_space=env.state_space,
             preprocessed_state_space=spaces.FloatBox(shape=(2,)),  # TODO: remove once auto preprocessor Space inference done.
@@ -60,7 +60,7 @@ class TestApexAgent(unittest.TestCase):
     def test_apex_weight_syncing(self):
         env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
 
-        agent = ApexAgent.from_spec(
+        agent = Agent.from_spec(
             "configs/apex_agent_for_random_env.json",
             state_space=env.state_space,
             preprocessed_state_space=spaces.FloatBox(shape=(2,)),  # TODO: remove once auto preprocessor Space inference done.
