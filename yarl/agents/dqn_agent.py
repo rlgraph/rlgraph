@@ -135,6 +135,7 @@ class DQNAgent(Agent):
         # Learn from memory.
         def update_from_memory(self_):
             # PRs also return updated weights and their indices.
+            sample_indices = None
             if isinstance(memory, PrioritizedReplay):
                 records, sample_indices, corrected_weights = self_.call(
                     memory.get_records, self.update_spec["batch_size"]
@@ -159,7 +160,8 @@ class DQNAgent(Agent):
             step_op = self_.call(optimizer.step, policy_vars, loss)
 
             # If we are using a PR: Update its weights based on the loss.
-            # TODO: update priorities of PR based on loss per item.
+            if isinstance(memory, PrioritizedReplay):
+                step_op = self_.call(memory.update_record, sample_indices, loss_per_item)
 
             # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
             return step_op, loss, records, q_values_s
