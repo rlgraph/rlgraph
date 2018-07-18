@@ -24,23 +24,23 @@ class RandomAgent(Agent):
     """
     An Agent that picks random actions from the action Space.
     """
-    def __init__(self, state_space, action_space, preprocessed_state_space, **kwargs):
+    def __init__(self, state_space, action_space, **kwargs):
         super(RandomAgent, self).__init__(
-            state_space=state_space, action_space=action_space, preprocessed_state_space=preprocessed_state_space,
+            state_space=state_space, action_space=action_space, preprocessed_state_space=state_space,
             name=kwargs.pop("name", "random-agent"), **kwargs
         )
 
-    def get_action(self, preprocessed_states, internals=None, use_exploration=False, extra_returns=None):
+    def get_action(self, states, internals=None, use_exploration=False, extra_returns=None):
         a = self.action_space.sample()
         if extra_returns is not None and "preprocessed_states" in extra_returns:
-            return a, preprocessed_states
+            return a, states
         else:
             return a
 
     def update(self, batch=None):
         pass
 
-    def _observe_graph(self, states, actions, internals, rewards, terminals):
+    def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals):
         pass
 
     # Override these with pass so we can use them when testing distributed strategies.

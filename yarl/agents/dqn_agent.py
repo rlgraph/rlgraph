@@ -176,7 +176,7 @@ class DQNAgent(Agent):
                 q_values_sp = self_.call(policy.get_q_values, preprocessed_s_prime)
 
             loss, _ = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-                                             qt_values_sp, q_values_sp)
+                                 qt_values_sp, q_values_sp)
 
             policy_vars = self_.call(policy._variables)
             step_op = self_.call(optimizer.step, policy_vars, loss)
