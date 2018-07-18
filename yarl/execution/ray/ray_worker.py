@@ -203,7 +203,7 @@ class RayWorker(object):
             )
         )
 
-    def set_weights(self, weights):
+    def set_policy_weights(self, weights):
         self.agent.set_policy_weights(weights)
 
     def get_batch(self):
