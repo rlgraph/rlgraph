@@ -86,15 +86,15 @@ class RayAgent(RayActor):
         """
         self.agent.call_graph_op(op, inputs)
 
-    def get_weights(self):
+    def get_policy_weights(self):
         """
-        Returns the weights of this agent. See Agent API for docs.
+        Returns the policy weights of this agent. See Agent API for docs.
         """
-        return self.agent.get_weights()
+        return self.agent.get_policy_weights()
 
-    def set_weights(self, weights):
+    def set_policy_weights(self, weights):
         """
-        Sets the weights of this agent. See Agent API for docs.
+        Sets the policy weights of this agent. See Agent API for docs.
         """
         return self.agent.set_policy_weights(weights=weights)
 
