@@ -19,11 +19,12 @@ from __future__ import print_function
 
 from collections import OrderedDict
 import logging
+import re
 import time
 
 from yarl import YARLError, Specifiable, get_backend
 from yarl.components import Component
-from yarl.spaces import Space
+from yarl.spaces import Space, Dict
 from yarl.spaces.space_utils import get_space_from_op
 from yarl.utils.input_parsing import parse_summary_spec
 from yarl.utils.util import force_list, force_tuple, get_shape
@@ -84,7 +85,9 @@ class GraphBuilder(Specifiable):
 
     def build_meta_graph(self, input_spaces=None):
         """
-        Builds the meta graph by building op records for all api methods.
+        Builds the meta-graph by constructing op-record columns going into and coming out of all API-methods
+        and graph_fns.
+
         Args:
             input_spaces (Optional[Space]): Input spaces for api methods.
         """
@@ -99,9 +102,9 @@ class GraphBuilder(Specifiable):
                                     "core-component '{}'!".format(api_method_name, self.core_component.name))
 
         # Call all API methods of the core and thereby, create empty in-op columns that serve as placeholders
-        # and directed links for the build time.
-        self.logger.debug(self.core_component.api_methods)
+        # and bi-directional links for the build time.
         for api_method_name, api_method_rec in self.core_component.api_methods.items():
+            self.logger.debug("Building meta-graph of API-method '{}'.".format(api_method_name))
             # Create an new in column and map it to the resulting out column.
             in_ops_records = list()
             if input_spaces is not None and api_method_name in input_spaces:
@@ -194,10 +197,11 @@ class GraphBuilder(Specifiable):
         self.available_devices = available_devices
         self.device_strategy = device_strategy
         self.default_device = default_device
-        self.device_map = device_map
+        self.device_map = device_map or dict()
 
-        # Push all spaces through the API methods, then enter the main iterative DFS while loop.
-        op_records_to_process = self.build_input_space_ops(input_spaces)
+        # Create the first actual ops based on the input-spaces.
+        # Some ops can only be created later when variable-based-Spaces are known (op_records_to_process_later).
+        op_records_to_process, op_records_to_process_later = self.build_input_space_ops(input_spaces)
 
         # Collect all components and add those op-recs to the set that are constant.
         components = self.get_all_components()
@@ -260,6 +264,33 @@ class GraphBuilder(Specifiable):
                                 "are: {}".format(new_op_records_list))
 
             op_records_list = new_op_records_list
+
+            # If we are done with the build, check for API-methods' ops that are dependent on variables
+            # generated during the build and build these now.
+            if len(op_records_list) == 0 and op_records_to_process_later is not None:
+                op_records_list = list(op_records_to_process_later)
+                # Invalidate later-set.
+                op_records_to_process_later = None
+
+                # Loop through the op_records list and sanity check for "variables"-dependent Spaces, then get these
+                # Spaces, create the placeholders and keep building.
+                for op_rec in op_records_list:
+                    space_desc = op_rec.space
+                    mo = re.search(r'^variables:(.+)', space_desc)
+                    assert mo
+                    component_path = mo.group(1).split("/")
+                    component = self.core_component
+                    for level in component_path:
+                        assert level in component.sub_components,\
+                            "ERROR: `component_path` ('{}') contains non-existent Components!".format(component_path)
+                        component = component.sub_components[level]
+                    var_spaces = {k: get_space_from_op(v) for k, v in sorted(
+                        component.get_variables(custom_scope_separator="-").items()
+                    )}
+                    var_space = Dict(var_spaces)
+                    op_rec.space = var_space
+                    op_rec.op = self.get_placeholder("api-", space=var_space, component=self.core_component)
+
             loop_counter += 1
 
         time_build = time.monotonic() - time_start
@@ -286,6 +317,7 @@ class GraphBuilder(Specifiable):
                 process.
         """
         op_records_to_process = set()
+        op_records_to_process_later = set()
 
         for api_method_name, (in_op_records, _) in self.api.items():
             spaces = force_list(input_spaces[api_method_name]) if input_spaces is not None and \
@@ -294,19 +326,46 @@ class GraphBuilder(Specifiable):
 
             # Create the placeholder and store it in the given DataOpRecords.
             for i, space in enumerate(spaces):
-                if not isinstance(space, Space):
+                # Space is dependent on the variables of some sub-component (wait with the construction of the
+                # placeholder until after the build).
+                if isinstance(space, str) and re.match(r'^variables:', space):
+                    in_op_records[i].space = space
+                    op_records_to_process_later.add(in_op_records[i])
+                    continue
+
+                # Construct Space from a spec.
+                elif not isinstance(space, Space):
                     space = Space.from_spec(space)
-                # Generate a placeholder and store it as well as the Space itself.
-                device = self.get_device(next(iter(in_op_records[0].next)).column.component, variables=True)
-                if get_backend() == "tf":
-                    with tf.device(device):
-                        in_op_records[i].op = space.get_tensor_variable(
-                            name="api-"+api_method_name+"/param-"+str(i), is_input_feed=True
-                        )
+
                 in_op_records[i].space = space
+                in_op_records[i].op = self.get_placeholder(
+                    name="api-" + api_method_name + "/param-" + str(i),
+                    space=space,
+                    component=next(iter(in_op_records[0].next)).column.component
+                )
                 op_records_to_process.add(in_op_records[i])
 
-        return op_records_to_process
+        return op_records_to_process, op_records_to_process_later
+
+    def get_placeholder(self, name, space, component):
+        """
+        Generates one or more placeholders given a name, space and a component (for device inference).
+
+        Args:
+            name (str): The name of the placeholder to create.
+            space (Space): The Space object to generate the placeholder for.
+            component (Component): The Component into which the placeholder will go (needed  for automatic device
+                inference).
+
+        Returns:
+            DataOp: The generated placeholder(s) as a DataOp (e.g. DataOpTuple, SingleDataOp, etc..).
+        """
+        device = self.get_device(component, variables=True)
+        placeholder = None
+        if get_backend() == "tf":
+            with tf.device(device):
+                placeholder = space.get_tensor_variable(name=name, is_input_feed=True)
+        return placeholder
 
     def get_all_components(self, component=None, list_=None, level_=0):
         """
@@ -389,8 +448,7 @@ class GraphBuilder(Specifiable):
                                    ('/' if op_rec_column.component.global_scope else "")):
                     self.logger.debug(
                         "Assigning device '{}' to graph_fn '{}' (scope '{}').".
-                        format(device, op_rec_column.graph_fn.__name__,
-                               op_rec_column.component.global_scope)
+                        format(device, op_rec_column.graph_fn.__name__, op_rec_column.component.global_scope)
                     )
                     self.run_through_graph_fn(op_rec_column)
 
@@ -414,27 +472,31 @@ class GraphBuilder(Specifiable):
             variables (bool): Whether the device is for the variables of the Component (vs the ops).
 
         Returns:
-            str: The device to use.
+            str: The device to use for the component (its ops or variables or both).
         """
         # Component specifies it's own device: Use that.
         # Then follow our device_map.
         # Last resort: Use `self.default_device` (may be None).
-        device = component.device or self.device_map.get(component.name, self.default_device)
+        device = component.device
+        # Try a map lookup via global-scope of the component.
+        if device is None:
+            # Sort by scope-length (such that the most specific assignments have priority).
+            for key in sorted(self.device_map.keys(), key=len, reverse=True):
+                if re.search(r'^{}\b'.format(key), component.global_scope):
+                    device = self.device_map[key]
+                    break
+            else:
+                device = self.default_device
         # Device is specific to whether we are creating variables or ops.
         if isinstance(device, dict):
-            if variables is True:
-                device = device["variables"]
-            else:
-                device = device["ops"]
+            device = device["variables"] if variables is True else device["ops"]
 
+        # If device is not available, use the default device (or None).
         if device is not None and device not in self.available_devices:
-            raise YARLError("Device '{}' not in available devices:\n {}".format(device, self.available_devices))
-
-        # Do some sanity checking on which strategies require a default device.
-        #if device is not None:
-        #    assert self.device_strategy == "custom" or self.device_strategy == "multi_gpu_sync"
-        #else:
-        #    assert self.device_strategy == "default"
+            device = self.device_map.get(component.name, self.default_device)
+        # Device is specific to whether we are creating variables or ops.
+        if isinstance(device, dict):
+            device = device["variables"] if variables is True else device["ops"]
 
         return device
 

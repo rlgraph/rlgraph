@@ -36,15 +36,13 @@ class PPOAgent(Agent):
 
     """
 
-    def __init__(self, clip_ratio, discount=0.98, memory_spec=None, **kwargs):
+    def __init__(self, clip_ratio, memory_spec=None, **kwargs):
         """
         Args:
-            discount (float): The discount factor (gamma).
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the PPO algorithm.
         """
-        super(PPOAgent, self).__init__(**kwargs)
+        super(PPOAgent, self).__init__(name=kwargs.pop("name", "ppo-agent"), **kwargs)
 
-        self.discount = discount
         self.train_time_steps = 0
 
         # PPO uses a ring buffer.

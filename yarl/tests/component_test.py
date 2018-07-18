@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from yarl import get_backend
 from yarl.utils import root_logger
+from yarl.utils.input_parsing import parse_execution_spec
 from yarl.graphs import GraphBuilder
 from yarl.graphs.graph_executor import GraphExecutor
 from yarl.tests.test_util import recursive_assert_almost_equal
@@ -35,7 +36,9 @@ class ComponentTest(object):
         action_space=None,
         seed=10,
         logging_level=None,
-        enable_profiler=False
+        enable_profiler=False,
+        device_strategy="default",
+        device_map=None
     ):
         """
         Args:
@@ -48,6 +51,8 @@ class ComponentTest(object):
                 If None, do not seed the Graph (things may behave non-deterministically).
             logging_level (Optional[int]): When provided, sets YARL's root_logger's logging level to this value.
             enable_profiler (Optional(bool)): When enabled, activates backend profiling.
+            device_strategy (Optional[str]): Optional device-strategy to be passed into GraphExecutor.
+            device_map (Optional[Dict[str,str]]): Optional device-map to be passed into GraphExecutor.
         """
         self.seed = seed
         if logging_level is not None:
@@ -57,13 +62,16 @@ class ComponentTest(object):
         self.graph_builder = GraphBuilder(action_space=action_space, core_component=component)
 
         # Build the model.
+        execution_spec = parse_execution_spec(dict(
+            seed=self.seed,
+            enable_profiler=enable_profiler,
+            device_strategy=device_strategy,
+            device_map=device_map
+        ))
         self.graph_executor = GraphExecutor.from_spec(
             get_backend(),
             graph_builder=self.graph_builder,
-            execution_spec=dict(
-                seed=self.seed,
-                enable_profiler=enable_profiler
-            )
+            execution_spec=execution_spec
         )
         self.graph_executor.build(input_spaces)
 
