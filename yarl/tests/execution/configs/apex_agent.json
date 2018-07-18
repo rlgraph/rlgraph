@@ -1,24 +1,24 @@
 {
   "type": "apex",
-
-  "memory_spec":
-  {
+  "memory_spec": {
     "type": "prioritized_replay",
     "capacity": 1000
   },
-  "apex_replay_spec":
-  {
+  "apex_replay_spec": {
     "memory_spec": {
       "capacity": 1000
     },
     "num_replay_memories": 1,
     "min_sample_memory_size": 100
   },
-  "preprocessing_spec":
-  [],
-
-  "network_spec":
-  [
+  "preprocessing_spec": [],
+  "execution_spec": {
+    "session_config": {
+      "log_device_placement": false,
+      "allow_soft_placement": true
+    }
+  },
+  "network_spec": [
     {
       "type": "dense",
       "units": 20,
@@ -26,9 +26,7 @@
       "scope": "hidden"
     }
   ],
-
-  "exploration_spec":
-  {
+  "exploration_spec": {
     "non_explore_behavior": "max-likelihood",
     "epsilon_spec": {
       "decay_spec": {
@@ -40,14 +38,12 @@
       }
     }
   },
-
   "update_spec": {
     "do_updates": true,
     "update_interval": 4,
     "batch_size": 16,
     "synch_interval": 32
   },
-
   "optimizer_spec": {
     "type": "gradient_descent",
     "learning_rate": 0.001

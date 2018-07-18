@@ -57,7 +57,7 @@ class RayMemoryActor(RayActor):
 
         """
         if self.memory.size < self.min_sample_memory_size:
-            return None
+            return None, None
         else:
             return self.memory.get_records(batch_size)
 
