@@ -128,10 +128,10 @@ class ApexExecutor(RayExecutor):
 
         # Env interaction tasks via RayWorkers which each
         # have a local agent.
-        weights = self.local_agent.get_weights()
+        weights = self.local_agent.get_policy_weights()
         for ray_worker in self.ray_remote_workers:
             self.steps_since_weights_synced[ray_worker] = 0
-            ray_worker.set_weights.remote(weights)
+            ray_worker.set_policy_weights.remote(weights)
             for _ in range(self.env_interaction_task_depth):
                 self.env_sample_tasks.add_task(ray_worker, ray_worker.execute_and_get_timesteps.remote(
                     self.worker_sample_size,
@@ -164,8 +164,8 @@ class ApexExecutor(RayExecutor):
             if self.steps_since_weights_synced[ray_worker] >= self.weight_sync_steps:
                 if weights is None or self.update_worker.update_done:
                     self.update_worker.update_done = False
-                    weights = ray.put(self.local_agent.get_weights())
-                ray_worker.set_weights.remote(weights)
+                    weights = ray.put(self.local_agent.get_policy_weights())
+                ray_worker.set_policy_weights.remote(weights)
                 self.weight_syncs_executed += 1
                 self.steps_since_weights_synced[ray_worker] = 0
 

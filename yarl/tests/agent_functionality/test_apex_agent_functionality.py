@@ -73,7 +73,7 @@ class TestApexAgentFunctionality(unittest.TestCase):
 
         for variable, weights in policy_weights.items():
             weights += 0.01
-        agent.set_weights(policy_weights)
+        agent.set_policy_weights(policy_weights)
 
         new_weights = agent.get_policy_weights()
         recursive_assert_almost_equal(policy_weights, new_weights)
