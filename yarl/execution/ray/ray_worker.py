@@ -84,7 +84,7 @@ class RayWorker(RayActor):
         self,
         num_timesteps,
         max_timesteps_per_episode=0,
-        deterministic=False,
+        use_exploration=True,
         break_on_terminal=False
     ):
         """
@@ -119,7 +119,8 @@ class RayWorker(RayActor):
             # Whether the episode has terminated.
             terminal = False
             while True:
-                action = self.agent.get_action(states=state, use_exploration=deterministic)
+                action = self.agent.get_action(states=state, use_exploration=use_exploration,
+                                               extra_returns="preprocessed_states")
                 states.append(state)
                 actions.append(action)
 
