@@ -53,6 +53,9 @@ class RayExecutor(object):
         self.ray_remote_workers = None
         self.cluster_spec = cluster_spec
 
+        # Map worker objects to host ids.
+        self.worker_ids = dict()
+
     def ray_init(self):
         """
         Connects to a Ray cluster or starts one if none exists.
@@ -83,7 +86,9 @@ class RayExecutor(object):
         """
         workers = []
         for i in range_(num_actors):
-            workers.append(cls.remote("worker_{}".format(i), *args))
+            worker = cls.remote(*args)
+            self.worker_ids[worker] = "worker_{}".format(i)
+            workers.append(worker)
         return workers
 
     def setup_execution(self):

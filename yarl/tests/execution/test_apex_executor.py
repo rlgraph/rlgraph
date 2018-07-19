@@ -33,8 +33,6 @@ class TestRayExecutor(unittest.TestCase):
       gym_env="CartPole-v0"
     )
 
-    # Note that all of these args are allowed to be none,
-    # Ray will just start a local redis and fetch number of cpus.
     cluster_spec = dict(
         redis_address=None,
         num_cpus=4,

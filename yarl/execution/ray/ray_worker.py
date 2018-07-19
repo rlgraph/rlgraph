@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from six.moves import xrange
+from six.moves import xrange as range_
 import numpy as np
 import time
 
@@ -37,19 +37,16 @@ class RayWorker(RayActor):
     Ray wrapper for single threaded worker, provides further api methods to interact
     with the agent used in the worker.
     """
-    def __init__(self, worker_id, env_spec, agent_config, repeat_actions=1):
+    def __init__(self, env_spec, agent_config, repeat_actions=1):
         """
         Creates agent and environment for Ray worker.
         Args:
-            worker_id (str): Identifier which will be concatenated with host to uniquely identify this worker
-                for analytics and debugging.
             env_spec (dict): Environment config for environment to run.
             agent_config (dict): Agent configuration dict.
             repeat_actions (int): How often actions are repeated after retrieving them from the agent.
         """
         # Should be set.
         assert get_distributed_backend() == "ray"
-        self.worker_id = "{}_{}".format(self.get_host(), worker_id)
 
         # Ray cannot handle **kwargs in remote objects.
         self.environment = RayExecutor.build_env_from_config(env_spec)
@@ -106,7 +103,6 @@ class RayWorker(RayActor):
         actions = []
         rewards = []
         terminals = []
-        next_states = []
 
         # Continue in last state from prior execution.
         state = self.last_state
@@ -130,7 +126,7 @@ class RayWorker(RayActor):
                 # Accumulate the reward over n env-steps (equals one action pick). n=self.repeat_actions
                 reward = 0
                 next_state = None
-                for _ in xrange(self.repeat_actions):
+                for _ in range_(self.repeat_actions):
                     next_state, step_reward, terminal, info = self.environment.step(actions=action)
                     env_frames += 1
                     reward += step_reward
