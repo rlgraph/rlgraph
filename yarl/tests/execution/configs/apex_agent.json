@@ -11,7 +11,12 @@
     "num_replay_memories": 1,
     "min_sample_memory_size": 100
   },
-  "preprocessing_spec": [],
+ "preprocessing_spec":
+  [
+    {
+      "type": "flatten"
+    }
+  ],
   "execution_spec": {
     "session_config": {
       "log_device_placement": false,

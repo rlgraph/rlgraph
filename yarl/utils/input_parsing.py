@@ -146,7 +146,7 @@ def parse_execution_spec(execution_spec):
     # Session config.
     default_session_config = dict(
         allow_soft_placement=True,
-        log_device_placement=True
+        log_device_placement=False
     )
     execution_spec["session_config"] = default_dict(execution_spec.get("session_config"), default_session_config)
 

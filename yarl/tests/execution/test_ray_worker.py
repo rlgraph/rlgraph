@@ -99,6 +99,7 @@ class TestRayWorker(unittest.TestCase):
         if "apex_replay_spec" in agent_config:
             agent_config.pop("apex_replay_spec")
 
+        print(agent_config)
         local_agent = Agent.from_spec(
             agent_config,
             state_space=env.state_space,
@@ -112,7 +113,13 @@ class TestRayWorker(unittest.TestCase):
         # This imitates the initial executor sync without ray.put
         weights = local_agent.get_policy_weights()
         print('Weight type in init sync = {}'.format(type(weights)))
+        print(weights)
         worker.set_policy_weights.remote(weights)
         print('Init weight sync successful.')
 
         # Replicate worker syncing steps as done in e.g. Ape-X executor:
+        weights = ray.put(local_agent.get_policy_weights())
+        print('Weight type returned by ray put = {}'.format(type(weights)))
+        print(weights)
+        worker.set_policy_weights.remote(weights)
+        print('Object store weight sync successful.')
