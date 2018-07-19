@@ -120,6 +120,9 @@ class ApexExecutor(RayExecutor):
         )
 
     def init_tasks(self):
+        # Start learner thread.
+        self.update_worker.start()
+
         # Prioritized replay sampling tasks via RayAgents.
         for ray_memory in self.ray_local_replay_memories:
             for _ in range(self.replay_sampling_task_depth):
