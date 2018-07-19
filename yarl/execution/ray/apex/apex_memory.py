@@ -29,7 +29,6 @@ from yarl.execution.ray.ray_util import ray_decompress
 class ApexMemory(Specifiable):
     """
     Apex prioritized replay implementing compression.
-
     """
     def __init__(self, capacity=1000, alpha=1.0, beta=0.0):
         self.memory_values = []

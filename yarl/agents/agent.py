@@ -194,7 +194,7 @@ class Agent(Specifiable):
             use_exploration (bool): If False, no exploration or sampling may be applied
                 when retrieving an action.
             extra_returns (Optional[Set[str]]): Optional set of Agent-specific strings for additional return
-                values (besides the actions).
+                values (besides the actions). All Agents must support "preprocessed_states".
 
         Returns:
             any: Action(s) as dict/tuple/np.ndarray (depending on `self.action_space`).

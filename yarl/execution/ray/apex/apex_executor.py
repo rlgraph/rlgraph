@@ -34,7 +34,7 @@ if get_distributed_backend() == "ray":
 
 class ApexExecutor(RayExecutor):
     """
-    Implements the distributed update semantics of distributed prioritized experience replay (APE-X),
+    Implements the distributed update semantics of distributed prioritized experience replay (Ape-X),
     as described in:
 
     https://arxiv.org/abs/1803.00933

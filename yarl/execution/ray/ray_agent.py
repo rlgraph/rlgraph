@@ -30,7 +30,7 @@ if get_distributed_backend() == "ray":
 @ray.remote
 class RayAgent(RayActor):
     """
-    This class provides a wrapper around YARL agents so they can be used with ray's remote
+    This class provides a wrapper around YARL Agents so they can be used with ray's remote
     abstractions.
     """
     def __init__(self, agent_config):
@@ -81,6 +81,7 @@ class RayAgent(RayActor):
                 Depending on these given api_methods, the correct backend-ops can be selected within the given out-Sockets.
                 If only one out-Socket is given in `sockets`, and this out-Socket only needs a single in-Socket's data,
                 this in-Socket's data may be given here directly.
+
         Returns:
             any: Result of the op call.
         """
@@ -127,6 +128,3 @@ class RayAgent(RayActor):
             Loss value.
         """
         self.agent.update(batch)
-
-
-
