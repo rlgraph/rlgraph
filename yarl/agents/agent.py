@@ -350,7 +350,7 @@ class Agent(Specifiable):
         Returns:
             any: Weights and optionally weight meta data for this model.
         """
-        return self.graph_executor.execute("get_policy_weights")
+        return dict(self.graph_executor.execute("get_policy_weights"))
 
     def set_policy_weights(self, weights):
         """

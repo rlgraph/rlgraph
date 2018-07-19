@@ -123,8 +123,13 @@ class RayExecutor(object):
         while timesteps_executed < num_timesteps:
             step_time = time.monotonic()
             worker_steps_executed, update_steps = self._execute_step()
+
             step_times.append(time.monotonic() - step_time)
             timesteps_executed += worker_steps_executed
+            self.logger.info("Executed {} Ray worker steps, ({} of {} ({} %))".format(
+                worker_steps_executed, update_steps, timesteps_executed,
+                num_timesteps, (timesteps_executed/ num_timesteps)
+            ))
 
         total_time = (time.monotonic() - start) or 1e-10
         self.logger.info("Time steps executed: {} ({} ops/s)".
