@@ -17,10 +17,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import json
+import os
 import unittest
 from time import sleep
 
-from yarl import get_distributed_backend
+from yarl import get_distributed_backend, spaces
+from yarl.agents import Agent
+from yarl.environments import RandomEnv
 from yarl.execution.ray import RayWorker
 
 if get_distributed_backend() == "ray":
@@ -80,3 +84,35 @@ class TestRayWorker(unittest.TestCase):
 
         # We do not break on terminal so there should be exactly 100 steps.
         self.assertEqual(len(observations['terminals']), 100)
+
+    def test_worker_weight_syncing(self):
+        """
+        Tests weight synchronization with a local agent and a remote worker.
+        """
+        # First, create a local agent
+        env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
+        path = os.path.join(os.getcwd(), "configs/apex_agent.json")
+        with open(path, 'rt') as fp:
+            agent_config = json.load(fp)
+
+        # Remove unneeded apex params.
+        if "apex_replay_spec" in agent_config:
+            agent_config.pop("apex_replay_spec")
+
+        local_agent = Agent.from_spec(
+            agent_config,
+            state_space=env.state_space,
+            preprocessed_state_space=spaces.FloatBox(shape=(2,)),
+            action_space=env.action_space
+        )
+
+        # Create a remote worker with the same agent config.
+        worker = RayWorker.remote(self.env_spec, self.agent_config)
+
+        # This imitates the initial executor sync without ray.put
+        weights = local_agent.get_policy_weights()
+        print('Weight type in init sync = {}'.format(type(weights)))
+        worker.set_policy_weights.remote(weights)
+        print('Init weight sync successful.')
+
+        # Replicate worker syncing steps as done in e.g. Ape-X executor:

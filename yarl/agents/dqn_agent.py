@@ -159,12 +159,13 @@ class DQNAgent(Agent):
             policy_vars = self_.call(policy._variables)
             step_op = self_.call(optimizer.step, policy_vars, loss)
 
+            # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
             # If we are using a PR: Update its weights based on the loss.
             if isinstance(memory, PrioritizedReplay):
-                step_op = self_.call(memory.update_records, sample_indices, loss_per_item)
-
-            # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
-            return step_op, loss, records, q_values_s
+                update_pr_step_op = self_.call(memory.update_records, sample_indices, loss_per_item)
+                return step_op, loss, records, q_values_s, update_pr_step_op
+            else:
+                return step_op, loss, records, q_values_s
 
         self.core_component.define_api_method("update_from_memory", update_from_memory)
 

@@ -60,6 +60,9 @@ class EnvironmentSample(object):
             terminals=self.terminals,
         )
 
+    def get_batch_size(self):
+        return len(self.states)
+
     def get_metrics(self):
         return self.metrics
 

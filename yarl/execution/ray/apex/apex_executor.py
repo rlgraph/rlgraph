@@ -160,10 +160,10 @@ class ApexExecutor(RayExecutor):
             random_memory = random.choice(self.ray_local_replay_memories)
 
             sample_data = env_sample.get_batch()
-            env_steps += self.worker_sample_size
+            env_steps += env_sample.get_batch_size()
             random_memory.observe.remote(sample_data)
 
-            self.steps_since_weights_synced[ray_worker] += self.worker_sample_size
+            self.steps_since_weights_synced[ray_worker] += env_sample.get_batch_size()
             if self.steps_since_weights_synced[ray_worker] >= self.weight_sync_steps:
                 if weights is None or self.update_worker.update_done:
                     self.update_worker.update_done = False
