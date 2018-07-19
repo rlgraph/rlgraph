@@ -22,6 +22,7 @@ from yarl import get_backend
 from yarl.utils.initializer import Initializer
 from yarl.components.layers.nn.nn_layer import NNLayer
 from yarl.components.layers.nn.activation_functions import get_activation_function
+import yarl.utils.util as utils
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -34,7 +35,8 @@ class LSTMLayer(NNLayer):
     """
     def __init__(
             self, units, use_peepholes=False, cell_clip=None, weights_spec=None, forget_bias=1.0,
-            sequence_length=None, parallel_iterations=32, swap_memory=False, time_major=False, **kwargs):
+            sequence_length=None, parallel_iterations=32, swap_memory=False, time_major=False,
+            dtype="float", **kwargs):
         """
         Args:
             units (int): The number of units in the LSTM cell.
@@ -55,9 +57,12 @@ class LSTMLayer(NNLayer):
                 Default: False.
             time_major (bool): Whether the time rank is the first rank (vs the batch rank).
                 Default: False.
+            dtype (str): The dtype of this LSTM. Default: "float".
         """
-        super(LSTMLayer, self).__init__(scope=kwargs.pop("scope", "lstm-layer"),
-                                        activation=kwargs.pop("activation", "tanh"), **kwargs)
+        super(LSTMLayer, self).__init__(
+            graph_fn_num_outputs=dict(_graph_fn_apply=2),  # LSTMs: 1) unrolled output and 2) tuple(c_state, m_state)
+            scope=kwargs.pop("scope", "lstm-layer"), activation=kwargs.pop("activation", "tanh"), **kwargs
+        )
 
         self.units = units
         self.use_peepholes = use_peepholes
@@ -70,14 +75,15 @@ class LSTMLayer(NNLayer):
         self.parallel_iterations = parallel_iterations
         self.swap_memory = swap_memory
         self.time_major = time_major
+        self.dtype = utils.dtype(dtype)
 
         self.lstm_cell = None
 
     def create_variables(self, input_spaces, action_space):
         in_space = input_spaces["apply"][0]
 
-        # Create weights.
-        weights_shape = (in_space.shape[0] + self.units, self.units)  # [0] b/c Space.shape never includes batch-rank
+        # Create one weight matrix: [input nodes + internal state nodes, 4 (4 internal layers) * internal state nodes]
+        weights_shape = (in_space.shape[0] + self.units, 4 * self.units)  # [0]=one past batch rank
         self.weights_init = Initializer.from_spec(shape=weights_shape, specification=self.weights_spec)
 
         # Wrapper for backend.
@@ -88,17 +94,23 @@ class LSTMLayer(NNLayer):
                 cell_clip=self.cell_clip,
                 initializer=self.weights_init.initializer,
                 forget_bias=self.forget_bias,
-                activation=get_activation_function(self.activation, *self.activation_params)
+                activation=get_activation_function(self.activation, *self.activation_params),
+                dtype=self.dtype
             )
 
             # Now build the layer so that its variables get created.
-            self.lstm_cell.build(in_space.get_shape(with_batch_rank=True))
+            in_space_without_time_rank = list(in_space.get_shape(with_batch_rank=True))
+            # Remove time-rank.
+            in_space_without_time_rank.pop(1)
+            self.lstm_cell.build(tf.TensorShape(in_space_without_time_rank))
             # Register the generated variables with our registry.
             self.register_variables(*self.lstm_cell.variables)
 
     def _graph_fn_apply(self, input_, initial_state=None):
         if get_backend() == "tf":
+            # Run the input (and initial state) through a dynamic LSTM.
             return tf.nn.dynamic_rnn(
                 cell=self.lstm_cell, inputs=input_, sequence_length=self.sequence_length, initial_state=initial_state,
-                parallel_iterations=self.parallel_iterations, swap_memory=self.swap_memory, time_major=self.time_major
+                parallel_iterations=self.parallel_iterations, swap_memory=self.swap_memory, time_major=self.time_major,
+                dtype=self.dtype
             )

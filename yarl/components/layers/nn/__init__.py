@@ -22,13 +22,15 @@ from yarl.components.layers.nn.concat_layer import ConcatLayer
 from yarl.components.layers.nn.conv2d_layer import Conv2DLayer
 from yarl.components.layers.nn.dense_layer import DenseLayer
 from yarl.components.layers.nn.dueling_layer import DuelingLayer
+from yarl.components.layers.nn.lstm_layer import LSTMLayer
 
 NNLayer.__lookup_classes__ = dict(
     concat=ConcatLayer,
     conv2d=Conv2DLayer,
     dense=DenseLayer,
     fc=DenseLayer,  # alias
-    dueling=DuelingLayer
+    dueling=DuelingLayer,
+    lstm=LSTMLayer
 )
 
-__all__ = ["NNLayer", "ConcatLayer", "Conv2DLayer", "DenseLayer", "DuelingLayer"]
+__all__ = ["NNLayer"] + list(set(map(lambda x: x.__name__, NNLayer.__lookup_classes__.values())))

@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 import numpy as np
 
-from yarl.components.layers import DenseLayer, Conv2DLayer, ConcatLayer, DuelingLayer
+from yarl.components.layers import DenseLayer, Conv2DLayer, ConcatLayer, DuelingLayer, LSTMLayer
 from yarl.spaces import FloatBox, IntBox
 from yarl.tests import ComponentTest
 
@@ -120,4 +120,27 @@ class TestNNLayer(unittest.TestCase):
                                     expected_advantage_values,
                                     expected_q_values],
                   decimals=5)
+
+    def test_lstm_layer(self):
+        # 0th rank=batch-rank; 1st rank=time/sequence-rank; 2nd-nth rank=data.
+        # Sequence length = 4
+        input_space = FloatBox(shape=(4, 3), add_batch_rank=True)
+        action_space = IntBox(2, shape=(2, 2))
+
+        lstm_layer = LSTMLayer(units=5, weights_spec=0.87)
+        test = ComponentTest(component=lstm_layer, input_spaces=dict(apply=input_space), action_space=action_space)
+
+        # Batch of 2 samples.
+        inputs = input_space.sample(size=2)
+
+        """
+        Calculation: Very 1st node is the state-value, all others are the advantages per action.
+        """
+        #expected_state_value = np.array([2.12345])  # batch-size=1
+        #expected_advantage_values = np.reshape(inputs[:,1:], newshape=(1, 4, 2, 3))
+        #expected_q_values = np.array([[[[ expected_state_value[0] ]]]]) + expected_advantage_values - \
+        #                    np.mean(expected_advantage_values, axis=-1, keepdims=True)
+        print(test.test(("apply", inputs),
+                  expected_outputs=None,
+                  decimals=5))
 
