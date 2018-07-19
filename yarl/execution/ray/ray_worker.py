@@ -24,6 +24,7 @@ import time
 from yarl.backend_system import get_distributed_backend
 from yarl.execution.environment_sample import EnvironmentSample
 from yarl.execution.ray import RayExecutor
+from yarl.execution.ray.ray_actor import RayActor
 from yarl.execution.ray.ray_util import ray_compress
 
 if get_distributed_backend() == "ray":
@@ -31,21 +32,24 @@ if get_distributed_backend() == "ray":
 
 
 @ray.remote
-class RayWorker(object):
+class RayWorker(RayActor):
     """
     Ray wrapper for single threaded worker, provides further api methods to interact
     with the agent used in the worker.
     """
-    def __init__(self, env_spec, agent_config, repeat_actions=1):
+    def __init__(self, worker_id, env_spec, agent_config, repeat_actions=1):
         """
         Creates agent and environment for Ray worker.
         Args:
+            worker_id (str): Identifier which will be concatenated with host to uniquely identify this worker
+                for analytics and debugging.
             env_spec (dict): Environment config for environment to run.
             agent_config (dict): Agent configuration dict.
             repeat_actions (int): How often actions are repeated after retrieving them from the agent.
         """
         # Should be set.
         assert get_distributed_backend() == "ray"
+        self.worker_id = "{}_{}".format(self.get_host(), worker_id)
 
         # Ray cannot handle **kwargs in remote objects.
         self.environment = RayExecutor.build_env_from_config(env_spec)
@@ -205,9 +209,6 @@ class RayWorker(object):
 
     def set_policy_weights(self, weights):
         self.agent.set_policy_weights(weights)
-
-    def get_batch(self):
-        return self.agent.call_graph_op("sample")
 
     def get_workload_statistics(self):
         return dict(

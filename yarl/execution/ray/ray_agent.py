@@ -96,7 +96,7 @@ class RayAgent(RayActor):
         """
         Sets the policy weights of this agent. See Agent API for docs.
         """
-        return self.agent.set_policy_weights(weights=weights)
+        self.agent.set_policy_weights(weights=weights)
 
     def observe(self, states, actions, internals, reward, terminal):
         """

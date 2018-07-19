@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from copy import deepcopy
 
-from six.moves import xrange
+from six.moves import xrange as range_
 import logging
 import numpy as np
 import time
@@ -73,6 +73,7 @@ class RayExecutor(object):
     def create_remote_workers(self, cls, num_actors, *args):
         """
         Creates Ray actors for remote execution.
+
         Args:
             cls (RayWorker): Actor class, must be an instance of RayWorker.
             num_actors (int): Num
@@ -80,7 +81,10 @@ class RayExecutor(object):
         Returns:
             list: Remote Ray actors.
         """
-        return [cls.remote(*args) for _ in xrange(num_actors)]
+        workers = []
+        for i in range_(num_actors):
+            workers.append(cls.remote("worker_{}".format(i), *args))
+        return workers
 
     def setup_execution(self):
         """

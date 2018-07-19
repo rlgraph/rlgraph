@@ -132,6 +132,7 @@ class ApexExecutor(RayExecutor):
         for ray_worker in self.ray_remote_workers:
             self.steps_since_weights_synced[ray_worker] = 0
             ray_worker.set_policy_weights.remote(weights)
+            self.logger.info("Synced worker {} weights, initializing sample tasks.".format(ray_worker.worker_id))
             for _ in range(self.env_interaction_task_depth):
                 self.env_sample_tasks.add_task(ray_worker, ray_worker.execute_and_get_timesteps.remote(
                     self.worker_sample_size,
@@ -165,6 +166,7 @@ class ApexExecutor(RayExecutor):
                 if weights is None or self.update_worker.update_done:
                     self.update_worker.update_done = False
                     weights = ray.put(self.local_agent.get_policy_weights())
+                self.logger.info("Syncing weights for worker {}".format(ray_worker.worker_id))
                 ray_worker.set_policy_weights.remote(weights)
                 self.weight_syncs_executed += 1
                 self.steps_since_weights_synced[ray_worker] = 0
@@ -181,9 +183,8 @@ class ApexExecutor(RayExecutor):
             self.prioritized_replay_tasks.add_task(ray_memory, ray_memory.get_batch.remote(self.replay_batch_size))
 
             # Retrieve results via id.
-            result = ray.get(object_ids=replay_remote_task)
-            self.logger.info("Get result of replay task: {}".format(result))
             sampled_batch, sample_indices = ray.get(object_ids=replay_remote_task)
+            self.logger.info("Received result of replay task: {}".format(sampled_batch))
 
             # Pass to the agent doing the actual updates.
             # The ray worker is passed along because we need to update its priorities later in the subsequent
