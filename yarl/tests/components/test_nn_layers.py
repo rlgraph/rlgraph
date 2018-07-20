@@ -129,40 +129,38 @@ class TestNNLayer(unittest.TestCase):
         input_space = FloatBox(shape=(sequence_length, 3), add_batch_rank=True)
         action_space = IntBox(2, shape=(2, 2))
 
-        lstm_layer = LSTMLayer(units=5, weights_spec=1.0, forget_bias=0.0)
+        lstm_layer = LSTMLayer(units=5)
         test = ComponentTest(component=lstm_layer, input_spaces=dict(apply=input_space), action_space=action_space)
 
         # Batch of n samples.
         inputs = np.ones(shape=(batch_size, sequence_length, 3))
 
         # First matmul the inputs times the LSTM matrix:
-        lstm_matrix = test.get_variable_values(lstm_layer.get_variables("lstm-layer/lstm_cell/kernel"))
-        lstm_matrix = lstm_matrix["lstm-layer/lstm_cell/kernel"]
-        m_states = np.zeros(shape=(batch_size, 5))
+        var_values = test.get_variable_values(lstm_layer.variables)
+        lstm_matrix = var_values["lstm-layer/lstm-cell/kernel"]
+        lstm_biases = var_values["lstm-layer/lstm-cell/bias"]
+        h_states = np.zeros(shape=(batch_size, 5))
         c_states = np.zeros(shape=(batch_size, 5))
         unrolled_outputs = np.zeros(shape=(batch_size, sequence_length, 5))
         # Push the batch 4 times through the LSTM cell and capture the outputs plus the final m- and c-states.
         for t in range(sequence_length):
             input_matrix = inputs[:, t, :]
-            input_matrix = np.concatenate((input_matrix, m_states), axis=1)
-            input_matmul_matrix = np.matmul(input_matrix, lstm_matrix)
-            # Forget gate.
-            sigmoid_1 = sigmoid(input_matmul_matrix[:, 0:5])
-            c_states = np.multiply(c_states, sigmoid_1)  # + 0.0
-            # Add gate.
-            sigmoid_2 = sigmoid(input_matmul_matrix[:, 5:10])
-            tanh_3 = np.tanh(input_matmul_matrix[:, 10:15])
+            input_matrix = np.concatenate((input_matrix, h_states), axis=1)
+            input_matmul_matrix = np.matmul(input_matrix, lstm_matrix) + lstm_biases
+            # Forget gate (3rd slot in tf output matrix). Add static forget bias.
+            sigmoid_1 = sigmoid(input_matmul_matrix[:, 10:15]) + lstm_layer.forget_bias
+            c_states = np.multiply(c_states, sigmoid_1)
+            # Add gate (1st and 2nd slots in tf output matrix).
+            sigmoid_2 = sigmoid(input_matmul_matrix[:, 0:5])
+            tanh_3 = np.tanh(input_matmul_matrix[:, 5:10])
             c_states = np.add(c_states, np.multiply(sigmoid_2, tanh_3))
-            # Output gate.
-            sigmoid_4 = np.tanh(input_matmul_matrix[:, 15:20])
-            m_states = np.multiply(sigmoid_4, np.tanh(c_states))
+            # Output gate (last slot in tf output matrix).
+            sigmoid_4 = sigmoid(input_matmul_matrix[:, 15:20])
+            h_states = np.multiply(sigmoid_4, np.tanh(c_states))
 
             # Store this output time-slice.
-            unrolled_outputs[:, t, :] = m_states
+            unrolled_outputs[:, t, :] = h_states
 
-        print(unrolled_outputs)
-        print(c_states)
-        print(m_states)
-
-        print(test.test(("apply", inputs), expected_outputs=None, decimals=5))
+        expected = [unrolled_outputs, c_states, h_states]
+        test.test(("apply", inputs), expected_outputs=expected, decimals=5)
 
