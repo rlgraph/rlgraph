@@ -34,7 +34,7 @@ class DQNAgent(Agent):
     [4] https://en.wikipedia.org/wiki/Huber_loss
     """
 
-    def __init__(self, double_q=True, dueling_q=True, huber_loss=True, memory_spec=None,
+    def __init__(self, double_q=True, dueling_q=True, huber_loss=False, memory_spec=None,
                  store_last_memory_batch=False, store_last_q_table=False, **kwargs):
         """
         Args:
