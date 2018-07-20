@@ -272,15 +272,9 @@ class DQNAgent(Agent):
             # Add some additional return-ops to pull (left out normally for performance reasons).
             if self.store_last_q_table is True:
                 return_ops += [2]  # 2=q-values
-            # TODO add importance weights
-            batch_input = dict(
-                external_batch_states=batch["states"],
-                external_batch_actions=batch["actions"],
-                external_batch_rewards=batch["rewards"],
-                external_batch_terminals=batch["terminals"],
-                external_batch_next_states=batch["next_states"],
-                importance_weights=batch["importance_weights"]
-            )
+
+            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
+                           batch["next_states"], batch["importance_weights"]]
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input), sync_call)
 
             # Remove unnecessary return dicts (e.g. sync-op).

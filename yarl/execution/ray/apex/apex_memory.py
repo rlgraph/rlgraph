@@ -96,7 +96,7 @@ class ApexMemory(Specifiable):
         return dict(
             states=[ray_decompress(state) for state in states],
             actions=actions,
-            reward=rewards,
+            rewards=rewards,
             terminals=terminals,
             next_states=[ray_decompress(state) for state in next_states]
         )
