@@ -212,6 +212,9 @@ class RayExecutor(object):
         steps_executed = 0
 
         for ray_worker in self.ray_remote_workers:
+            self.logger.info("Retrieving workload statistics for worker: {}".format(
+                self.worker_ids[ray_worker])
+            )
             task = ray_worker.get_workload_statistics.remote()
             metrics = ray.get(task)
             min_rewards.append(metrics['min_episode_reward'])

@@ -37,16 +37,19 @@ class TestRayExecutor(unittest.TestCase):
         redis_address=None,
         num_cpus=4,
         num_gpus=0,
-        weight_sync_steps=100,
+        weight_sync_steps=64,
         replay_sampling_task_depth=1,
         env_interaction_task_depth=1,
-        num_worker_samples=50,
+        num_worker_samples=200,
         learn_queue_size=1,
         num_local_workers=1,
         num_remote_workers=1
     )
 
-    def test_apex_workload(self):
+    def test_workload_run(self):
+        """
+        Tests if the execution loop works without testing learning.
+        """
         path = os.path.join(os.getcwd(), "configs/apex_agent.json")
         with open(path, 'rt') as fp:
             agent_config = json.load(fp)
@@ -60,6 +63,35 @@ class TestRayExecutor(unittest.TestCase):
         print("Successfully created executor.")
 
         # Executes actual workload.
-        result = executor.execute_workload(workload=dict(num_timesteps=10000))
+        result = executor.execute_workload(workload=dict(num_timesteps=1000))
+        print("Finished executing workload:")
+        print(result)
+
+    def test_learning_cartpole(self):
+        """
+        Tests if apex can learn a simple environment using a single worker, thus replicating
+        dqn.
+        """
+        path = os.path.join(os.getcwd(), "configs/apex_agent.json")
+        with open(path, 'rt') as fp:
+            agent_config = json.load(fp)
+
+        # Cartpole settings from cartpole dqn test.
+        agent_config.update(
+            execution_spec=dict(seed=10),
+            update_spec=dict(update_interval=4, batch_size=24, sync_interval=64),
+            optimizer_spec=dict(learning_rate=0.0002),
+        )
+
+        # Define executor, test assembly.
+        executor = ApexExecutor(
+            environment_spec=self.env_spec,
+            agent_config=agent_config,
+            cluster_spec=self.cluster_spec
+        )
+        print("Successfully created executor.")
+
+        # Executes actual workload.
+        result = executor.execute_workload(workload=dict(num_timesteps=5000))
         print("Finished executing workload:")
         print(result)

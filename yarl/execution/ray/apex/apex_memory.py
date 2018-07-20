@@ -36,9 +36,9 @@ class ApexMemory(Specifiable):
         self.capacity = capacity
         self.size = 0
         self.max_priority = 1.0
-
         self.alpha = alpha
         self.beta = beta
+
         self.default_new_weight = np.power(self.max_priority, self.alpha)
         self.priority_capacity = 1
         while self.priority_capacity < self.capacity:

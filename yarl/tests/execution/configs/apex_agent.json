@@ -8,6 +8,7 @@
     "memory_spec": {
       "capacity": 1000
     },
+    "clip_rewards": true,
     "num_replay_memories": 1,
     "min_sample_memory_size": 100
   },

@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
 from six.moves import xrange as range_
 from yarl.backend_system import get_distributed_backend
 from yarl.execution.ray.apex.apex_memory import ApexMemory
@@ -42,10 +43,12 @@ class RayMemoryActor(RayActor):
         # args.
         self.min_sample_memory_size = apex_replay_spec["min_sample_memory_size"]
         memory_spec = apex_replay_spec["memory_spec"]
+        self.clip_rewards = apex_replay_spec.get("clip_rewards", True)
+
         self.memory = ApexMemory(
             capacity=memory_spec["capacity"],
             alpha=memory_spec.get("alpha", 1.0),
-            beta=memory_spec.get("beta", 1.0)
+            beta=memory_spec.get("beta", 1.0),
         )
 
     def get_batch(self, batch_size):
@@ -71,11 +74,18 @@ class RayMemoryActor(RayActor):
         """
         records = env_sample.get_batch()
         num_records = len(records['states'])
+
+        # TODO port to tf PR behaviour.
+        if self.clip_rewards:
+            rewards = np.sign(records["rewards"])
+        else:
+            rewards = records["rewards"]
         for i in range_(num_records):
+
             self.memory.insert_records((
                 records['states'][i],
                 records['actions'][i],
-                records['rewards'][i],
+                rewards,
                 records['terminals'][i]
             ))
 
