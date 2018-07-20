@@ -60,7 +60,7 @@ class LSTMLayer(NNLayer):
             dtype (str): The dtype of this LSTM. Default: "float".
         """
         super(LSTMLayer, self).__init__(
-            graph_fn_num_outputs=dict(_graph_fn_apply=2),  # LSTMs: 1) unrolled output and 2) tuple(c_state, m_state)
+            graph_fn_num_outputs=dict(_graph_fn_apply=3),  # LSTMs: unrolled output, final c_state, final h_state
             scope=kwargs.pop("scope", "lstm-layer"), activation=kwargs.pop("activation", "tanh"), **kwargs
         )
 
@@ -95,7 +95,8 @@ class LSTMLayer(NNLayer):
                 initializer=self.weights_init.initializer,
                 forget_bias=self.forget_bias,
                 activation=get_activation_function(self.activation, *self.activation_params),
-                dtype=self.dtype
+                dtype=self.dtype,
+                name="lstm-cell"
             )
 
             # Now build the layer so that its variables get created.
@@ -106,12 +107,17 @@ class LSTMLayer(NNLayer):
             # Register the generated variables with our registry.
             self.register_variables(*self.lstm_cell.variables)
 
-    def _graph_fn_apply(self, input_, initial_state=None):
+    def _graph_fn_apply(self, input_, initial_c_state=None, initial_h_state=None):
         if get_backend() == "tf":
             # Run the input (and initial state) through a dynamic LSTM and return unrolled outputs and final
             # internal states.
-            return tf.nn.dynamic_rnn(
-                cell=self.lstm_cell, inputs=input_, sequence_length=self.sequence_length, initial_state=initial_state,
+            if initial_c_state is None or initial_h_state is None:
+                initial_states = None
+            else:
+                initial_states = (initial_c_state, initial_h_state)
+            lstm_out, lstm_state_tuple = tf.nn.dynamic_rnn(
+                cell=self.lstm_cell, inputs=input_, sequence_length=self.sequence_length, initial_state=initial_states,
                 parallel_iterations=self.parallel_iterations, swap_memory=self.swap_memory, time_major=self.time_major,
                 dtype=self.dtype
             )
+            return lstm_out, lstm_state_tuple[0], lstm_state_tuple[1]
