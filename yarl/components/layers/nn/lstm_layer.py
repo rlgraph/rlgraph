@@ -120,4 +120,5 @@ class LSTMLayer(NNLayer):
                 parallel_iterations=self.parallel_iterations, swap_memory=self.swap_memory, time_major=self.time_major,
                 dtype=self.dtype
             )
+            # Returns: Unrolled-output (time series h-states), final c-state, final h-state.
             return lstm_out, lstm_state_tuple[0], lstm_state_tuple[1]

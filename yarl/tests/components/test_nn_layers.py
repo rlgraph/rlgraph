@@ -124,8 +124,8 @@ class TestNNLayer(unittest.TestCase):
 
     def test_lstm_layer(self):
         # 0th rank=batch-rank; 1st rank=time/sequence-rank; 2nd-nth rank=data.
-        batch_size = 1
-        sequence_length = 1
+        batch_size = 3
+        sequence_length = 2
         input_space = FloatBox(shape=(sequence_length, 3), add_batch_rank=True)
         action_space = IntBox(2, shape=(2, 2))
 
@@ -142,13 +142,13 @@ class TestNNLayer(unittest.TestCase):
         h_states = np.zeros(shape=(batch_size, 5))
         c_states = np.zeros(shape=(batch_size, 5))
         unrolled_outputs = np.zeros(shape=(batch_size, sequence_length, 5))
-        # Push the batch 4 times through the LSTM cell and capture the outputs plus the final m- and c-states.
+        # Push the batch 4 times through the LSTM cell and capture the outputs plus the final h- and c-states.
         for t in range(sequence_length):
             input_matrix = inputs[:, t, :]
             input_matrix = np.concatenate((input_matrix, h_states), axis=1)
             input_matmul_matrix = np.matmul(input_matrix, lstm_matrix) + lstm_biases
             # Forget gate (3rd slot in tf output matrix). Add static forget bias.
-            sigmoid_1 = sigmoid(input_matmul_matrix[:, 10:15]) + lstm_layer.forget_bias
+            sigmoid_1 = sigmoid(input_matmul_matrix[:, 10:15] + lstm_layer.forget_bias)
             c_states = np.multiply(c_states, sigmoid_1)
             # Add gate (1st and 2nd slots in tf output matrix).
             sigmoid_2 = sigmoid(input_matmul_matrix[:, 0:5])
@@ -162,5 +162,9 @@ class TestNNLayer(unittest.TestCase):
             unrolled_outputs[:, t, :] = h_states
 
         expected = [unrolled_outputs, c_states, h_states]
-        test.test(("apply", inputs), expected_outputs=expected, decimals=5)
+        test.test(("apply", inputs), expected_outputs=expected)
+
+        #test.assert_equal(c_states, ret[1])
+        #test.assert_equal(h_states, ret[2])
+        #test.assert_equal(unrolled_outputs, ret[0])
 
