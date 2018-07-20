@@ -31,14 +31,16 @@ class DQNAgent(Agent):
     [1] Human-level control through deep reinforcement learning. Mnih, Kavukcuoglu, Silver et al. - 2015
     [2] Deep Reinforcement Learning with Double Q-learning. v. Hasselt, Guez, Silver - 2015
     [3] Dueling Network Architectures for Deep Reinforcement Learning, Wang et al. - 2016
+    [4] https://en.wikipedia.org/wiki/Huber_loss
     """
 
-    def __init__(self, double_q=True, dueling_q=True, memory_spec=None,
+    def __init__(self, double_q=True, dueling_q=True, huber_loss=True, memory_spec=None,
                  store_last_memory_batch=False, store_last_q_table=False, **kwargs):
         """
         Args:
             double_q (bool): Whether to use the double DQN loss function (see [2]).
             dueling_q (bool): Whether to use a dueling layer in the ActionAdapter  (see [3]).
+            huber_loss (bool) : Whether to apply a Huber loss. (see [4]).
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
             store_last_memory_batch (bool): Whether to store the last pulled batch from the memory in
                 `self.last_memory_batch` for debugging purposes.
@@ -56,6 +58,7 @@ class DQNAgent(Agent):
 
         self.double_q = double_q
         self.dueling_q = dueling_q
+        self.huber_loss = huber_loss
 
         # Debugging tools.
         self.store_last_memory_batch = store_last_memory_batch
@@ -90,7 +93,7 @@ class DQNAgent(Agent):
 
         use_importance_weights = isinstance(self.memory, PrioritizedReplay)
         self.loss_function = DQNLossFunction(discount=self.discount, double_q=self.double_q,
-                                             importance_weights=use_importance_weights)
+                                             huber_loss=self.huber_loss, importance_weights=use_importance_weights)
 
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
@@ -202,7 +205,7 @@ class DQNAgent(Agent):
 
     def get_action(self, states, internals=None, use_exploration=True, extra_returns=None):
         """
-        Args:
+        Args:mitte august haben wir ein meeting mit vivacity labs, die rl for traffic optimizati
             extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return
                 values (besides the actions). Possible values are:
                 - 'preprocessed_states': The preprocessed states after passing the given states

@@ -77,3 +77,4 @@ class TestApexAgentFunctionality(unittest.TestCase):
 
         new_weights = agent.get_policy_weights()
         recursive_assert_almost_equal(policy_weights, new_weights)
+
