@@ -59,7 +59,9 @@ class RayMemoryActor(RayActor):
         if self.memory.size < self.min_sample_memory_size:
             return None, None
         else:
-            return self.memory.get_records(batch_size)
+            batch, indices, weights = self.memory.get_records(batch_size)
+            batch["importance_weights"] = weights
+            return batch, indices
 
     def observe(self, env_sample):
         """
@@ -74,7 +76,7 @@ class RayMemoryActor(RayActor):
                 records['states'][i],
                 records['actions'][i],
                 records['rewards'][i],
-                records['terminal'][i]
+                records['terminals'][i]
             ))
 
     def update_priorities(self, indices, loss):

@@ -36,12 +36,14 @@ class DQNLossFunction(LossFunction):
         loss_per_item(q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None): The DQN loss per batch
             item.
     """
-    def __init__(self, double_q=False, scope="dqn-loss-function", **kwargs):
+    def __init__(self, double_q=False, importance_weights=False, scope="dqn-loss-function", **kwargs):
         """
         Args:
             double_q (bool): Whether to use the double DQN loss function (see DQNAgent [2]).
+            importance_weights (bool): Where to use importance weights from a prioritized replay.
         """
         self.double_q = double_q
+        self.importance_weights = importance_weights
 
         super(DQNLossFunction, self).__init__(scope=scope, **kwargs)
 
@@ -59,7 +61,8 @@ class DQNLossFunction(LossFunction):
         )
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 
-    def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None):
+    def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, terminals,
+                                qt_values_sp, q_values_sp=None, importance_weights=None):
         """
         Args:
             q_values_s (SingleDataOp): The batch of Q-values representing the expected accumulated discounted returns
@@ -73,7 +76,8 @@ class DQNLossFunction(LossFunction):
             q_values_sp (Optional[SingleDataOp]): If `self.double_q` is True: The batch of Q-values representing the
                 expected accumulated discounted returns (estimated by the (main) policy net) when in s' and taking
                 different actions a'.
-
+            importance_weights (Optional[SingleDataOp]): If 'self.importance_weights' is True: The batch of weights to
+                apply to the losses.
         Returns:
             SingleDataOp: The loss values vector (one single value for each batch item).
         """
@@ -99,7 +103,14 @@ class DQNLossFunction(LossFunction):
             td_delta = (rewards + self.discount * qt_sp_ap_values) - q_s_a_values
 
             if td_delta.ndim > 1:
-                td_delta = np.mean(td_delta, axis=list(range(1, self.ranks_to_reduce + 1)))
+                if self.importance_weights:
+                    td_delta = np.mean(
+                        (td_delta * importance_weights),
+                        axis=list(range(1, self.ranks_to_reduce + 1))
+                    )
+
+                else:
+                    td_delta = np.mean(td_delta, axis=list(range(1, self.ranks_to_reduce + 1)))
 
             return np.power(td_delta, 2)
 
@@ -136,6 +147,13 @@ class DQNLossFunction(LossFunction):
 
             # Reduce over the composite actions, if any.
             if get_rank(td_delta) > 1:
-                td_delta = tf.reduce_mean(input_tensor=td_delta, axis=list(range(1, self.ranks_to_reduce + 1)))
+                #TODO huber loss?
+                if self.importance_weights:
+                    td_delta = tf.reduce_mean(
+                        input_tensor=td_delta * importance_weights,
+                        axis=list(range(1, self.ranks_to_reduce + 1))
+                    )
+                else:
+                    td_delta = tf.reduce_mean(input_tensor=td_delta, axis=list(range(1, self.ranks_to_reduce + 1)))
 
             return tf.pow(x=td_delta, y=2)

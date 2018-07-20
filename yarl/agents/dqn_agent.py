@@ -69,11 +69,12 @@ class DQNAgent(Agent):
         action_space = self.action_space.with_batch_rank()
         reward_space = FloatBox(add_batch_rank=True)
         terminal_space = BoolBox(add_batch_rank=True)
+        weight_space = FloatBox(add_batch_rank=True)
         self.input_spaces.update(dict(
             get_preprocessed_state_and_action=[state_space, int, bool],  # state, time-step, use_exploration
             insert_records=[preprocessed_state_space, action_space, reward_space, terminal_space],
             update_from_external_batch=[preprocessed_state_space, action_space, reward_space,
-                                        terminal_space, preprocessed_state_space]
+                                        terminal_space, preprocessed_state_space, weight_space]
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.
@@ -87,7 +88,9 @@ class DQNAgent(Agent):
         self.target_policy = self.policy.copy(scope="target-policy")
         self.target_policy.add_components(Synchronizable(), expose_apis="sync")
 
-        self.loss_function = DQNLossFunction(discount=self.discount, double_q=self.double_q)
+        use_importance_weights = isinstance(self.memory, PrioritizedReplay)
+        self.loss_function = DQNLossFunction(discount=self.discount, double_q=self.double_q,
+                                             importance_weights=use_importance_weights)
 
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
@@ -136,8 +139,9 @@ class DQNAgent(Agent):
         def update_from_memory(self_):
             # PRs also return updated weights and their indices.
             sample_indices = None
+            importance_weights = None
             if isinstance(memory, PrioritizedReplay):
-                records, sample_indices, corrected_weights = self_.call(
+                records, sample_indices, importance_weights = self_.call(
                     memory.get_records, self.update_spec["batch_size"]
                 )
             # Non-PR memory.
@@ -153,8 +157,12 @@ class DQNAgent(Agent):
             if self.double_q:
                 q_values_sp = self_.call(policy.get_q_values, preprocessed_s_prime)
 
-            loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-                                             qt_values_sp, q_values_sp)
+            if isinstance(memory, PrioritizedReplay):
+                loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
+                                                 qt_values_sp, q_values_sp, importance_weights)
+            else:
+                loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
+                                                 qt_values_sp, q_values_sp)
 
             policy_vars = self_.call(policy._variables)
             step_op = self_.call(optimizer.step, policy_vars, loss)
@@ -170,7 +178,8 @@ class DQNAgent(Agent):
         self.core_component.define_api_method("update_from_memory", update_from_memory)
 
         # Learn from an external batch.
-        def update_from_external_batch(self_, preprocessed_s, actions, rewards, terminals, preprocessed_s_prime):
+        def update_from_external_batch(self_, preprocessed_s, actions, rewards, terminals,
+                                       preprocessed_s_prime, importance_weights):
             # Get the different Q-values.
             q_values_s = self_.call(policy.get_q_values, preprocessed_s)
             qt_values_sp = self_.call(target_policy.get_q_values, preprocessed_s_prime)
@@ -178,8 +187,12 @@ class DQNAgent(Agent):
             if self.double_q:
                 q_values_sp = self_.call(policy.get_q_values, preprocessed_s_prime)
 
-            loss, _ = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-                                 qt_values_sp, q_values_sp)
+            if isinstance(memory, PrioritizedReplay):
+                loss, _ = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
+                                     qt_values_sp, q_values_sp, importance_weights)
+            else:
+                loss, _ = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
+                                     qt_values_sp, q_values_sp)
 
             policy_vars = self_.call(policy._variables)
             step_op = self_.call(optimizer.step, policy_vars, loss)
@@ -259,12 +272,14 @@ class DQNAgent(Agent):
             # Add some additional return-ops to pull (left out normally for performance reasons).
             if self.store_last_q_table is True:
                 return_ops += [2]  # 2=q-values
+            # TODO add importance weights
             batch_input = dict(
                 external_batch_states=batch["states"],
                 external_batch_actions=batch["actions"],
                 external_batch_rewards=batch["rewards"],
                 external_batch_terminals=batch["terminals"],
-                external_batch_next_states=batch["next_states"]
+                external_batch_next_states=batch["next_states"],
+                importance_weights=batch["importance_weights"]
             )
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input), sync_call)
 

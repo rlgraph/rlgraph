@@ -45,6 +45,8 @@ class TestDQNAgentFunctionality(unittest.TestCase):
             "configs/dqn_agent_for_random_env.json",
             double_q=False,
             dueling_q=False,
+            preprocessed_state_space=spaces.FloatBox(shape=(2,)),
+            # TODO: remove once auto preprocessor Space inference done.
             state_space=env.state_space,
             action_space=env.action_space
         )
