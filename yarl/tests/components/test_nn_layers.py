@@ -23,6 +23,7 @@ import numpy as np
 from yarl.components.layers import DenseLayer, Conv2DLayer, ConcatLayer, DuelingLayer, LSTMLayer
 from yarl.spaces import FloatBox, IntBox
 from yarl.tests import ComponentTest
+from yarl.utils.numpy import sigmoid
 
 
 class TestNNLayer(unittest.TestCase):
@@ -123,24 +124,45 @@ class TestNNLayer(unittest.TestCase):
 
     def test_lstm_layer(self):
         # 0th rank=batch-rank; 1st rank=time/sequence-rank; 2nd-nth rank=data.
-        # Sequence length = 4
-        input_space = FloatBox(shape=(4, 3), add_batch_rank=True)
+        batch_size = 1
+        sequence_length = 1
+        input_space = FloatBox(shape=(sequence_length, 3), add_batch_rank=True)
         action_space = IntBox(2, shape=(2, 2))
 
-        lstm_layer = LSTMLayer(units=5, weights_spec=0.87)
+        lstm_layer = LSTMLayer(units=5, weights_spec=1.0, forget_bias=0.0)
         test = ComponentTest(component=lstm_layer, input_spaces=dict(apply=input_space), action_space=action_space)
 
-        # Batch of 2 samples.
-        inputs = input_space.sample(size=2)
+        # Batch of n samples.
+        inputs = np.ones(shape=(batch_size, sequence_length, 3))
 
-        """
-        Calculation: Very 1st node is the state-value, all others are the advantages per action.
-        """
-        #expected_state_value = np.array([2.12345])  # batch-size=1
-        #expected_advantage_values = np.reshape(inputs[:,1:], newshape=(1, 4, 2, 3))
-        #expected_q_values = np.array([[[[ expected_state_value[0] ]]]]) + expected_advantage_values - \
-        #                    np.mean(expected_advantage_values, axis=-1, keepdims=True)
-        print(test.test(("apply", inputs),
-                  expected_outputs=None,
-                  decimals=5))
+        # First matmul the inputs times the LSTM matrix:
+        lstm_matrix = test.get_variable_values(lstm_layer.get_variables("lstm-layer/lstm_cell/kernel"))
+        lstm_matrix = lstm_matrix["lstm-layer/lstm_cell/kernel"]
+        m_states = np.zeros(shape=(batch_size, 5))
+        c_states = np.zeros(shape=(batch_size, 5))
+        unrolled_outputs = np.zeros(shape=(batch_size, sequence_length, 5))
+        # Push the batch 4 times through the LSTM cell and capture the outputs plus the final m- and c-states.
+        for t in range(sequence_length):
+            input_matrix = inputs[:, t, :]
+            input_matrix = np.concatenate((input_matrix, m_states), axis=1)
+            input_matmul_matrix = np.matmul(input_matrix, lstm_matrix)
+            # Forget gate.
+            sigmoid_1 = sigmoid(input_matmul_matrix[:, 0:5])
+            c_states = np.multiply(c_states, sigmoid_1)  # + 0.0
+            # Add gate.
+            sigmoid_2 = sigmoid(input_matmul_matrix[:, 5:10])
+            tanh_3 = np.tanh(input_matmul_matrix[:, 10:15])
+            c_states = np.add(c_states, np.multiply(sigmoid_2, tanh_3))
+            # Output gate.
+            sigmoid_4 = np.tanh(input_matmul_matrix[:, 15:20])
+            m_states = np.multiply(sigmoid_4, np.tanh(c_states))
+
+            # Store this output time-slice.
+            unrolled_outputs[:, t, :] = m_states
+
+        print(unrolled_outputs)
+        print(c_states)
+        print(m_states)
+
+        print(test.test(("apply", inputs), expected_outputs=None, decimals=5))
 

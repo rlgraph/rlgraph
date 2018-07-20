@@ -108,7 +108,8 @@ class LSTMLayer(NNLayer):
 
     def _graph_fn_apply(self, input_, initial_state=None):
         if get_backend() == "tf":
-            # Run the input (and initial state) through a dynamic LSTM.
+            # Run the input (and initial state) through a dynamic LSTM and return unrolled outputs and final
+            # internal states.
             return tf.nn.dynamic_rnn(
                 cell=self.lstm_cell, inputs=input_, sequence_length=self.sequence_length, initial_state=initial_state,
                 parallel_iterations=self.parallel_iterations, swap_memory=self.swap_memory, time_major=self.time_major,

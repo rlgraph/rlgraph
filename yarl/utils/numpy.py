@@ -20,6 +20,24 @@ from __future__ import print_function
 import numpy as np
 
 
+def sigmoid(x, derivative=False):
+    """
+    Returns the sigmoid function applied to x.
+    Alternatively, can return the derivative or the sigmoid function.
+
+    Args:
+        x (np.ndarray): The input to the sigmoid function.
+        derivative (bool): Whether to return the derivative or not. Default: False.
+
+    Returns:
+        np.ndarray: The sigmoid function (or its derivative) applied to x.
+    """
+    if derivative:
+        return x * (1 - x)
+    else:
+        return 1 / (1 + np.exp(-x))
+
+
 def softmax(x, axis=-1):
     """
     Returns the softmax values for x as:
@@ -30,6 +48,7 @@ def softmax(x, axis=-1):
 
     Args:
         x (np.ndarray): The input to the softmax function.
+        axis (int): The axis along which to softmax.
 
     Returns:
         np.ndarray: The softmax over x.

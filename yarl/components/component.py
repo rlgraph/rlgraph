@@ -647,14 +647,18 @@ class Component(Specifiable):
                 return ret
             # Return only variables of this Component by name.
             else:
-                return self.get_variables_by_name(custom_scope_separator, global_scope, names)
+                return self.get_variables_by_name(
+                    *names, custom_scope_separator=custom_scope_separator, global_scope=global_scope
+                )
 
-    def get_variables_by_name(self, custom_scope_separator, global_scope, names):
+    def get_variables_by_name(self, *names, **kwargs):
         """
         Retrieves this components variables by name.
 
         Args:
             names (List[str]): List of names of Variable to return.
+
+        Keyword Args:
             custom_scope_separator (str): The separator to use in the returned dict for scopes.
                 Default: '/'.
             global_scope (bool): Whether to use keys in the returned dict that include the global-scopes of the
@@ -663,6 +667,10 @@ class Component(Specifiable):
         Returns:
             dict: Dict containing the requested names as keys and variables as values.
         """
+        custom_scope_separator = kwargs.pop("custom_scope_separator", "/")
+        global_scope = kwargs.pop("global_scope", False)
+        assert not kwargs
+
         variables = dict()
         for name in names:
             global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
