@@ -40,7 +40,7 @@ class TestRayExecutor(unittest.TestCase):
         weight_sync_steps=100,
         replay_sampling_task_depth=1,
         env_interaction_task_depth=1,
-        num_worker_samples=100,
+        num_worker_samples=50,
         learn_queue_size=1,
         num_local_workers=1,
         num_remote_workers=1
@@ -58,10 +58,6 @@ class TestRayExecutor(unittest.TestCase):
             cluster_spec=self.cluster_spec
         )
         print("Successfully created executor.")
-
-        # Kicks off remote tasks.
-        executor.init_tasks()
-        print("Initialized Apex executor Ray tasks, starting workload:")
 
         # Executes actual workload.
         result = executor.execute_workload(workload=dict(num_timesteps=10000))

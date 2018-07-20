@@ -119,7 +119,7 @@ class RayWorker(RayActor):
             # Whether the episode has terminated.
             terminal = False
             while True:
-                action = self.agent.get_action(states=state, use_exploration=use_exploration,
+                action, preprocessed_state = self.agent.get_action(states=state, use_exploration=use_exploration,
                                                extra_returns="preprocessed_states")
                 states.append(state)
                 actions.append(action)

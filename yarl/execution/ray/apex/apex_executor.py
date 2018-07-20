@@ -156,17 +156,23 @@ class ApexExecutor(RayExecutor):
         """
         # Env steps done during this rollout.
         env_steps = 0
+        update_steps = 0
         weights = None
         # 1. Fetch results from RayWorkers.
         for ray_worker, env_sample in self.env_sample_tasks.get_completed():
             # Randomly add env sample to a local replay actor.
             random_memory = random.choice(self.ray_local_replay_memories)
 
-            sample_data = env_sample.get_batch()
-            env_steps += env_sample.get_batch_size()
-            random_memory.observe.remote(sample_data)
+            # sample_data = env_sample.get_batch()
+            # env_steps += env_sample.get_batch_size()
+            env_steps += self.worker_sample_size
+            # self.logger.debug("Received {} env samples from worker {}".format(env_steps,
+            #                                                                   self.worker_ids[ray_worker]))
+            random_memory.observe.remote(env_sample)
 
-            self.steps_since_weights_synced[ray_worker] += env_sample.get_batch_size()
+            # TODO see if issue is clarified on estimating sample size
+            # self.steps_since_weights_synced[ray_worker] += env_sample.get_batch_size()
+            self.steps_since_weights_synced[ray_worker] += self.worker_sample_size
             if self.steps_since_weights_synced[ray_worker] >= self.weight_sync_steps:
                 if weights is None or self.update_worker.update_done:
                     self.update_worker.update_done = False
@@ -201,7 +207,9 @@ class ApexExecutor(RayExecutor):
         while not self.update_output_queue.empty():
             ray_memory, indices, loss = self.update_output_queue.get()
             ray_memory.update_priorities.remote(indices, loss)
-        return env_steps
+            update_steps += self.replay_batch_size
+
+        return env_steps, update_steps
 
 
 class UpdateWorker(Thread):

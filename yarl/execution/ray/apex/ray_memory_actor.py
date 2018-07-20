@@ -59,21 +59,24 @@ class RayMemoryActor(RayActor):
         if self.memory.size < self.min_sample_memory_size:
             return None, None
         else:
-            return self.memory.get_records(batch_size)
+            batch, indices, weights = self.memory.get_records(batch_size)
+            batch["importance_weights"] = weights
+            return batch, indices
 
-    def observe(self, records):
+    def observe(self, env_sample):
         """
         Observes experience(s).
 
         N.b. For performance reason, data layout is slightly different for apex.
         """
+        records = env_sample.get_batch()
         num_records = len(records['states'])
         for i in range_(num_records):
             self.memory.insert_records((
                 records['states'][i],
                 records['actions'][i],
                 records['rewards'][i],
-                records['terminal'][i]
+                records['terminals'][i]
             ))
 
     def update_priorities(self, indices, loss):
