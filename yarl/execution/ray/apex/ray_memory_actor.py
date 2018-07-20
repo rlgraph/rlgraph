@@ -61,12 +61,13 @@ class RayMemoryActor(RayActor):
         else:
             return self.memory.get_records(batch_size)
 
-    def observe(self, records):
+    def observe(self, env_sample):
         """
         Observes experience(s).
 
         N.b. For performance reason, data layout is slightly different for apex.
         """
+        records = env_sample.get_batch()
         num_records = len(records['states'])
         for i in range_(num_records):
             self.memory.insert_records((
