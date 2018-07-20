@@ -121,6 +121,8 @@ class ApexMemory(Specifiable):
         return self.read_records(indices=indices), indices, np.asarray(weights)
 
     def update_records(self, indices, update):
+        print('indices = {}'.format(indices))
+        print('update = {}'.format(update))
         for index, loss in zip(indices, update):
             priority = np.power(loss, self.alpha)
             self.merged_segment_tree.insert(index, priority)

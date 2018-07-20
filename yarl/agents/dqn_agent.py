@@ -191,15 +191,15 @@ class DQNAgent(Agent):
                 q_values_sp = self_.call(policy.get_q_values, preprocessed_s_prime)
 
             if isinstance(memory, PrioritizedReplay):
-                loss, _ = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
+                loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
                                      qt_values_sp, q_values_sp, importance_weights)
             else:
-                loss, _ = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
+                loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
                                      qt_values_sp, q_values_sp)
 
             policy_vars = self_.call(policy._variables)
             step_op = self_.call(optimizer.step, policy_vars, loss)
-            return step_op, loss  # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
+            return step_op, loss, loss_per_item  # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
 
         self.core_component.define_api_method("update_from_external_batch", update_from_external_batch)
 
@@ -282,7 +282,7 @@ class DQNAgent(Agent):
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
-                ret = ret["update_from_memory"]
+                ret = ret["update_from_external_batch"]
 
             # Store the last Q-table?
             if self.store_last_q_table is True:
@@ -298,7 +298,8 @@ class DQNAgent(Agent):
             self.last_q_table = q_table
 
         # [1]=the loss (0=update noop)
-        return ret[1]
+        # [2]=loss per item for external update, records for update from memory
+        return ret[1], ret[2]
 
     def __repr__(self):
         return "DQNAgent(doubleQ={} duelingQ={})".format(self.double_q, self.dueling_q)

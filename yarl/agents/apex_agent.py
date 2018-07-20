@@ -59,23 +59,17 @@ class ApexAgent(DQNAgent):
                 ret = ret["update_from_memory"]
         else:
             # Add some additional return-ops to pull (left out normally for performance reasons).
-
-            batch_input = dict(
-                external_batch_states=batch["states"],
-                external_batch_actions=batch["actions"],
-                external_batch_rewards=batch["rewards"],
-                external_batch_terminals=batch["terminals"],
-                external_batch_next_states=batch["next_states"]
-            )
+            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
+                           batch["next_states"], batch["importance_weights"]]
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input), sync_call)
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
-                ret = ret["update_from_memory"]
+                ret = ret["update_from_external_batch"]
 
         # [1]=the loss (0=update noop)
         self.train_time_steps += 1
-        return ret[1]
+        return ret[1], ret[2]
 
     def __repr__(self):
-        return "ApexAgent()"
+        return "ApexAgent"
