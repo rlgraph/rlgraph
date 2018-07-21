@@ -101,20 +101,20 @@ class ApexExecutor(RayExecutor):
         )
 
         # Create remote sample workers based on ray cluster spec.
-        self.num_local_workers = self.cluster_spec["num_local_workers"]
-        self.num_remote_workers = self.cluster_spec["num_remote_workers"]
+        self.num_replay_workers = self.cluster_spec["num_replay_workers"]
+        self.num_sample_workers = self.cluster_spec["num_sample_workers"]
 
-        self.logger.info("Initializing {} local replay memories.".format(self.num_local_workers))
+        self.logger.info("Initializing {} local replay memories.".format(self.num_replay_workers))
         self.ray_local_replay_memories = create_colocated_ray_actors(
             cls=RayMemoryActor,
             config=self.apex_replay_spec,
-            num_agents=self.num_local_workers
+            num_agents=self.num_replay_workers
         )
 
         # Create remote workers for data collection.
-        self.logger.info("Initializing {} remote data collection agents.".format(self.num_remote_workers))
+        self.logger.info("Initializing {} remote data collection agents.".format(self.num_sample_workers))
         self.ray_remote_workers = self.create_remote_workers(
-            RayWorker, self.num_remote_workers,
+            RayWorker, self.num_sample_workers,
             # *args
             self.environment_spec, self.agent_config, self.repeat_actions
         )

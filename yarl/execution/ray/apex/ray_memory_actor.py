@@ -81,7 +81,6 @@ class RayMemoryActor(RayActor):
         else:
             rewards = records["rewards"]
         for i in range_(num_records):
-
             self.memory.insert_records((
                 records['states'][i],
                 records['actions'][i],

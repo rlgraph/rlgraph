@@ -2,15 +2,14 @@
   "type": "apex",
   "memory_spec": {
     "type": "prioritized_replay",
-    "capacity": 1000
+    "capacity": 10000
   },
   "apex_replay_spec": {
     "memory_spec": {
-      "capacity": 1000
+      "capacity": 10000
     },
     "clip_rewards": true,
-    "num_replay_memories": 1,
-    "min_sample_memory_size": 100
+    "min_sample_memory_size": 500
   },
  "preprocessing_spec":
   [

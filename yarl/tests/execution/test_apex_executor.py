@@ -40,10 +40,10 @@ class TestApexExecutor(unittest.TestCase):
         weight_sync_steps=64,
         replay_sampling_task_depth=1,
         env_interaction_task_depth=1,
-        num_worker_samples=200,
+        num_worker_samples=100,
         learn_queue_size=1,
-        num_local_workers=1,
-        num_remote_workers=1
+        num_sample_workers=4,
+        num_replay_workers=1
     )
 
     def test_learning_cartpole(self):
@@ -57,7 +57,6 @@ class TestApexExecutor(unittest.TestCase):
 
         # Cartpole settings from cartpole dqn test.
         agent_config.update(
-            execution_spec=dict(seed=10),
             update_spec=dict(update_interval=4, batch_size=24, sync_interval=64),
             optimizer_spec=dict(learning_rate=0.0002, clip_grad_norm=40.0)
         )
@@ -71,6 +70,6 @@ class TestApexExecutor(unittest.TestCase):
         print("Successfully created executor.")
 
         # Executes actual workload.
-        result = executor.execute_workload(workload=dict(num_timesteps=5000))
+        result = executor.execute_workload(workload=dict(num_timesteps=100000))
         print("Finished executing workload:")
         print(result)
