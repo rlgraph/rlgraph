@@ -22,7 +22,7 @@ import numpy as np
 from yarl import YARLError, get_backend
 from yarl.spaces import IntBox
 from yarl.components.layers.preprocessing import PreprocessLayer
-from yarl.utils.ops import unflatten_op
+from yarl.utils.ops import flatten_op, unflatten_op
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -51,6 +51,15 @@ class Flatten(PreprocessLayer):
         # Stores the number of categories in IntBoxes.
         self.num_categories = dict()
 
+        # The output spaces after preprocessing (per flat-key).
+        self.output_spaces = None
+
+    def get_preprocessed_space(self, space):
+        ret = dict()
+        for k, v in space.flatten().items():
+            ret[k] = v.__class__(shape=(v.flat_dim,), add_batch_rank=v.has_batch_rank)
+        return unflatten_op(ret)
+
     def check_input_spaces(self, input_spaces, action_space):
         super(Flatten, self).check_input_spaces(input_spaces, action_space)
 
@@ -58,8 +67,7 @@ class Flatten(PreprocessLayer):
         in_space = input_spaces["apply"][0]  # type: Dict
 
         # Store the mapped output Spaces (per flat key).
-        for k, v in in_space.flatten().items():
-            self.output_spaces[k] = v.__class__(shape=(v.flat_dim,), add_batch_rank=v.has_batch_rank)
+        self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
 
         # Check whether we have to flatten the incoming categories of an IntBox into a FloatBox with additional
         # rank (categories rank). Store the dimension of this additional rank in the `self.num_categories` dict.

@@ -103,7 +103,6 @@ class TestRayWorker(unittest.TestCase):
         local_agent = Agent.from_spec(
             agent_config,
             state_space=env.state_space,
-            preprocessed_state_space=spaces.FloatBox(shape=(2,)),
             action_space=env.action_space
         )
 

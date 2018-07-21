@@ -26,8 +26,7 @@ class RandomAgent(Agent):
     """
     def __init__(self, state_space, action_space, **kwargs):
         super(RandomAgent, self).__init__(
-            state_space=state_space, action_space=action_space, preprocessed_state_space=state_space,
-            name=kwargs.pop("name", "random-agent"), **kwargs
+            state_space=state_space, action_space=action_space, name=kwargs.pop("name", "random-agent"), **kwargs
         )
 
     def get_action(self, states, internals=None, use_exploration=False, extra_returns=None):

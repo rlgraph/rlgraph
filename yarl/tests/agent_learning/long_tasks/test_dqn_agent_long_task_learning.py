@@ -42,7 +42,6 @@ class TestDQNAgentLongTaskLearning(unittest.TestCase):
             # Uses 2015 DQN parameters as closely as possible.
             "../configs/dqn_agent_for_pong.json",
             state_space=env.state_space,
-            preprocessed_state_space=FloatBox(shape=(84, 84, 4)),
             action_space=env.action_space,
         )
 

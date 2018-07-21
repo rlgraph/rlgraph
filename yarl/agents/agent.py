@@ -37,7 +37,6 @@ class Agent(Specifiable):
         self,
         state_space,
         action_space,
-        preprocessed_state_space,  # TODO: remove this requirement as soon as we have full numpy-based Components (then we can infer everything automatically)
         discount=0.98,
         preprocessing_spec=None,
         network_spec=None,
@@ -74,8 +73,6 @@ class Agent(Specifiable):
 
         self.state_space = Space.from_spec(state_space).with_batch_rank(False)
         self.logger.info("Parsed state space definition: {}".format(self.state_space))
-        self.preprocessed_state_space = Space.from_spec(preprocessed_state_space).with_batch_rank(False)
-        self.logger.info("Parsed preprocessed-state space definition: {}".format(self.preprocessed_state_space))
         self.action_space = Space.from_spec(action_space).with_batch_rank(False)
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
 
@@ -93,6 +90,8 @@ class Agent(Specifiable):
 
         # Construct the Preprocessor.
         self.preprocessor = PreprocessorStack.from_spec(preprocessing_spec)
+        self.preprocessed_state_space = self.preprocessor.get_preprocessed_space(self.state_space)
+        self.logger.info("Parsed preprocessed-state space definition: {}".format(self.preprocessed_state_space))
 
         # Construct the Policy network.
         self.neural_network = None

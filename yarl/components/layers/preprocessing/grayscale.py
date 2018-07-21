@@ -20,8 +20,9 @@ from __future__ import print_function
 import numpy as np
 
 from yarl.backend_system import get_backend
-from yarl.utils.util import get_rank, get_shape
 from yarl.components.layers.preprocessing import PreprocessLayer
+from yarl.utils.ops import flatten_op, unflatten_op
+from yarl.utils.util import get_rank, get_shape
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -48,18 +49,24 @@ class GrayScale(PreprocessLayer):
         self.last_rank = len(self.weights)
         # Whether to keep the last rank with dim=1.
         self.keep_rank = keep_rank
+        # The output spaces after preprocessing (per flat-key).
+        self.output_spaces = None
 
-    def check_input_spaces(self, input_spaces, action_space):
-        super(GrayScale, self).check_input_spaces(input_spaces, action_space)
-        in_space = input_spaces["apply"][0]
-        # Store the mapped output Spaces (per flat key).
-        for k, v in in_space.flatten().items():
+    def get_preprocessed_space(self, space):
+        ret = dict()
+        for k, v in space.flatten().items():
             shape = list(v.get_shape(with_batch_rank=True))
             if self.keep_rank is True:
                 shape[-1] = 1
             else:
                 shape.pop(-1)
-            self.output_spaces[k] = v.__class__(shape=tuple(shape), add_batch_rank=v.has_batch_rank)
+            ret[k] = v.__class__(shape=tuple(shape), add_batch_rank=v.has_batch_rank)
+        return unflatten_op(ret)
+
+    def check_input_spaces(self, input_spaces, action_space):
+        super(GrayScale, self).check_input_spaces(input_spaces, action_space)
+        in_space = input_spaces["apply"][0]
+        self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
 
     def _graph_fn_apply(self, images):
         """

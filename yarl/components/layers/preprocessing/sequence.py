@@ -21,7 +21,7 @@ from six.moves import xrange as range_
 
 import tensorflow as tf
 
-from yarl.utils.ops import FlattenedDataOp
+from yarl.utils.ops import FlattenedDataOp, unflatten_op
 from yarl.utils.util import get_rank, get_shape, force_list, get_batch_size
 from yarl.components.layers.preprocessing import PreprocessLayer
 
@@ -56,20 +56,26 @@ class Sequence(PreprocessLayer):
         self.buffer = None
         # The index into the buffer.
         self.index = None
+        # The output spaces after preprocessing (per flat-key).
+        self.output_spaces = None
+
+    def get_preprocessed_space(self, space):
+        ret = dict()
+        for k, v in space.flatten().items():
+            shape = list(v.shape)
+            if self.add_rank:
+                shape.append(self.length)
+            else:
+                shape[-1] *= self.length
+            ret[k] = v.__class__(shape=tuple(shape), add_batch_rank=v.has_batch_rank)
+        return unflatten_op(ret)
 
     def check_input_spaces(self, input_spaces, action_space):
         super(Sequence, self).check_input_spaces(input_spaces, action_space)
         in_space = input_spaces["apply"][0]
         self.first_rank_is_batch = in_space.has_batch_rank
 
-        # Store the mapped output Spaces (per flat key).
-        for k, v in in_space.flatten().items():
-            shape = list(v.shape)
-            if self.add_rank:
-                shape.append(self.length)
-            else:
-                shape[-1] *= self.length
-            self.output_spaces[k] = v.__class__(shape=tuple(shape), add_batch_rank=v.has_batch_rank)
+        self.output_spaces = self.get_preprocessed_space(in_space)
 
     def create_variables(self, input_spaces, action_space):
         in_space = input_spaces["apply"][0]

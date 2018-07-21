@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from yarl import get_backend
-from yarl.utils.util import get_rank
+from yarl.utils.ops import flatten_op, unflatten_op
 from yarl.components.layers.preprocessing import PreprocessLayer
 
 
@@ -39,22 +39,29 @@ class ImageResize(PreprocessLayer):
         super(ImageResize, self).__init__(scope=scope, **kwargs)
         self.width = width
         self.height = height
+        # The output spaces after preprocessing (per flat-key).
+        self.output_spaces = None
+
+    def get_preprocessed_space(self, space):
+        ret = dict()
+        for k, v in space.flatten().items():
+            # Do some sanity checking.
+            rank = v.rank
+            assert rank == 2 or rank == 3, \
+                "ERROR: Given image's rank (which is {}{}, not counting batch rank) must be either 2 or 3!".\
+                format(rank, ("" if k == "" else " for key '{}'".format(k)))
+            # Determine the output shape.
+            shape = list(v.shape)
+            shape[0] = self.width
+            shape[1] = self.height
+            ret[k] = v.__class__(shape=tuple(shape), add_batch_rank=v.has_batch_rank)
+        return unflatten_op(ret)
 
     def check_input_spaces(self, input_spaces, action_space):
         super(ImageResize, self).check_input_spaces(input_spaces, action_space)
         in_space = input_spaces["apply"][0]
 
-        # Store the mapped output Spaces (per flat key).
-        for k, v in in_space.flatten().items():
-            # Do some sanity checking.
-            rank = in_space.rank
-            assert rank == 2 or rank == 3, \
-                "ERROR: Given image's rank (which is {}{}, not counting batch rank) must be either 2 or 3!".\
-                format(rank, ("" if k == "" else " for key '{}'".format(k)))
-            shape = list(v.shape)
-            shape[0] = self.width
-            shape[1] = self.height
-            self.output_spaces[k] = v.__class__(shape=tuple(shape), add_batch_rank=v.has_batch_rank)
+        self.output_spaces = self.get_preprocessed_space(in_space)
 
     def _graph_fn_apply(self, images):
         """

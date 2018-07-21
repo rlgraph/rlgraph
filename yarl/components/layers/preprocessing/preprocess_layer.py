@@ -40,12 +40,17 @@ class PreprocessLayer(Layer):
 
         self.define_api_method("reset", self._graph_fn_reset)
 
-        self.input_spaces = None
-        self.output_spaces = None
+    def get_preprocessed_space(self, space):
+        """
+        Returns the Space obtained after pushing the space input through this layer.
 
-    def check_input_spaces(self, input_spaces, action_space):
-        self.input_spaces = input_spaces
-        self.output_spaces = copy.deepcopy(input_spaces)
+        Args:
+            space (Space): The incoming Space object.
+
+        Returns:
+            Space: The Space after preprocessing.
+        """
+        return space
 
     def _graph_fn_reset(self):
         """

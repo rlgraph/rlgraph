@@ -41,7 +41,6 @@ class TestApexAgentFunctionality(unittest.TestCase):
         agent = Agent.from_spec(
             "configs/apex_agent_for_random_env.json",
             state_space=env.state_space,
-            preprocessed_state_space=spaces.FloatBox(shape=(2,)),  # TODO: remove once auto preprocessor Space inference done.
             action_space=env.action_space
         )
 
@@ -64,7 +63,6 @@ class TestApexAgentFunctionality(unittest.TestCase):
         agent = Agent.from_spec(
             "configs/apex_agent_for_random_env.json",
             state_space=env.state_space,
-            preprocessed_state_space=spaces.FloatBox(shape=(2,)),  # TODO: remove once auto preprocessor Space inference done.
             action_space=env.action_space
         )
 
