@@ -49,6 +49,18 @@ class GrayScale(PreprocessLayer):
         # Whether to keep the last rank with dim=1.
         self.keep_rank = keep_rank
 
+    def check_input_spaces(self, input_spaces, action_space):
+        super(GrayScale, self).check_input_spaces(input_spaces, action_space)
+        in_space = input_spaces["apply"][0]
+        # Store the mapped output Spaces (per flat key).
+        for k, v in in_space.flatten().items():
+            shape = list(v.get_shape(with_batch_rank=True))
+            if self.keep_rank is True:
+                shape[-1] = 1
+            else:
+                shape.pop(-1)
+            self.output_spaces[k] = v.__class__(shape=tuple(shape), add_batch_rank=v.has_batch_rank)
+
     def _graph_fn_apply(self, images):
         """
         Gray-scales images of arbitrary rank.

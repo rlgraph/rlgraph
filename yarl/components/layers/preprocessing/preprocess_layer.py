@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+import copy
 import tensorflow as tf
 
 from yarl.components.layers import Layer
@@ -38,6 +39,13 @@ class PreprocessLayer(Layer):
         super(PreprocessLayer, self).__init__(scope=scope, **kwargs)
 
         self.define_api_method("reset", self._graph_fn_reset)
+
+        self.input_spaces = None
+        self.output_spaces = None
+
+    def check_input_spaces(self, input_spaces, action_space):
+        self.input_spaces = input_spaces
+        self.output_spaces = copy.deepcopy(input_spaces)
 
     def _graph_fn_reset(self):
         """
