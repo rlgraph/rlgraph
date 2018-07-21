@@ -45,3 +45,4 @@ class Clip(PreprocessLayer):
             return np.clip(input_, a_min=self.min, a_max=self.max)
         elif get_backend() == "tf":
             return tf.clip_by_value(t=input_, clip_value_min=self.min, clip_value_max=self.max)
+

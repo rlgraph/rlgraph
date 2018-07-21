@@ -40,15 +40,27 @@ class ImageResize(PreprocessLayer):
         self.width = width
         self.height = height
 
+    def check_input_spaces(self, input_spaces, action_space):
+        super(ImageResize, self).check_input_spaces(input_spaces, action_space)
+        in_space = input_spaces["apply"][0]
+
+        # Store the mapped output Spaces (per flat key).
+        for k, v in in_space.flatten().items():
+            # Do some sanity checking.
+            rank = in_space.rank
+            assert rank == 2 or rank == 3, \
+                "ERROR: Given image's rank (which is {}{}, not counting batch rank) must be either 2 or 3!".\
+                format(rank, ("" if k == "" else " for key '{}'".format(k)))
+            shape = list(v.shape)
+            shape[0] = self.width
+            shape[1] = self.height
+            self.output_spaces[k] = v.__class__(shape=tuple(shape), add_batch_rank=v.has_batch_rank)
+
     def _graph_fn_apply(self, images):
         """
         Images come in with either a batch dimension or not.
         However, this
         """
-        # Do some sanity checking.
-        rank = get_rank(images)
-        assert rank == 3 or rank == 4, "ERROR: Given image's rank ({}) is not 3 or 4!".format(rank)
-
         if self.backend == "python" or get_backend() == "python":
             import cv2
             return cv2.resize(images, dsize=(self.width, self.height))  # interpolation=cv2.BILINEAR

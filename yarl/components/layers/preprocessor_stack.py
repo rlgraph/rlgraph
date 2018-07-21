@@ -70,3 +70,12 @@ class PreprocessorStack(Stack):
             with tf.control_dependencies(preprocessor_resets):
                 return tf.no_op()
 
+    def get_preprocessed_space(self):
+        """
+        Returns the Space obtained after pushing the input through all layers of this Stack.
+
+        Returns:
+            Space: The Space after preprocessing.
+        """
+        # Get the last preprocess_layer and return its output-Space.
+        return list(self.sub_components.values())[-1].output_spaces

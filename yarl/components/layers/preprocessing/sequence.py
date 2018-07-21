@@ -57,6 +57,20 @@ class Sequence(PreprocessLayer):
         # The index into the buffer.
         self.index = None
 
+    def check_input_spaces(self, input_spaces, action_space):
+        super(Sequence, self).check_input_spaces(input_spaces, action_space)
+        in_space = input_spaces["apply"][0]
+        self.first_rank_is_batch = in_space.has_batch_rank
+
+        # Store the mapped output Spaces (per flat key).
+        for k, v in in_space.flatten().items():
+            shape = list(v.shape)
+            if self.add_rank:
+                shape.append(self.length)
+            else:
+                shape[-1] *= self.length
+            self.output_spaces[k] = v.__class__(shape=tuple(shape), add_batch_rank=v.has_batch_rank)
+
     def create_variables(self, input_spaces, action_space):
         in_space = input_spaces["apply"][0]
         self.first_rank_is_batch = in_space.has_batch_rank
