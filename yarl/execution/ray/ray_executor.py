@@ -69,8 +69,8 @@ class RayExecutor(object):
             self.logger.warning("Warning: No redis address provided, starting local redis server.")
         ray.init(
             redis_address=self.cluster_spec.get('redis_address', None),
-            num_cpus=self.cluster_spec.get('ray_num_cpus', None),
-            num_gpus=self.cluster_spec.get('ray_num_gpus', None)
+            num_cpus=self.cluster_spec.get('num_cpus', None),
+            num_gpus=self.cluster_spec.get('num_gpus', None)
         )
 
     def create_remote_workers(self, cls, num_actors, *args):

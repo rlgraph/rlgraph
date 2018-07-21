@@ -23,7 +23,7 @@ import unittest
 from yarl.execution.ray import ApexExecutor
 
 
-class TestRayExecutor(unittest.TestCase):
+class TestApexExecutor(unittest.TestCase):
     """
     Tests the ApexExecutor which provides an interface for distributing Apex-style workloads
     via Ray.
@@ -45,27 +45,6 @@ class TestRayExecutor(unittest.TestCase):
         num_local_workers=1,
         num_remote_workers=1
     )
-
-    def test_workload_run(self):
-        """
-        Tests if the execution loop works without testing learning.
-        """
-        path = os.path.join(os.getcwd(), "configs/apex_agent.json")
-        with open(path, 'rt') as fp:
-            agent_config = json.load(fp)
-
-        # Define executor, test assembly.
-        executor = ApexExecutor(
-            environment_spec=self.env_spec,
-            agent_config=agent_config,
-            cluster_spec=self.cluster_spec
-        )
-        print("Successfully created executor.")
-
-        # Executes actual workload.
-        result = executor.execute_workload(workload=dict(num_timesteps=1000))
-        print("Finished executing workload:")
-        print(result)
 
     def test_learning_cartpole(self):
         """

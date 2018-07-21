@@ -123,12 +123,6 @@ class ApexExecutor(RayExecutor):
         # Start learner thread.
         self.update_worker.start()
 
-        # Prioritized replay sampling tasks via RayAgents.
-        for ray_memory in self.ray_local_replay_memories:
-            for _ in range(self.replay_sampling_task_depth):
-                # This initializes remote tasks to sample from the prioritized replay memories of each worker.
-                self.prioritized_replay_tasks.add_task(ray_memory, ray_memory.get_batch.remote(self.replay_batch_size))
-
         # Env interaction tasks via RayWorkers which each
         # have a local agent.
         weights = self.local_agent.get_policy_weights()
@@ -143,6 +137,12 @@ class ApexExecutor(RayExecutor):
                     self.worker_sample_size,
                     break_on_terminal=False
                 ))
+
+        # Prioritized replay sampling tasks via RayAgents.
+        for ray_memory in self.ray_local_replay_memories:
+            for _ in range(self.replay_sampling_task_depth):
+                # This initializes remote tasks to sample from the prioritized replay memories of each worker.
+                self.prioritized_replay_tasks.add_task(ray_memory, ray_memory.get_batch.remote(self.replay_batch_size))
 
     def _execute_step(self):
         """
@@ -246,6 +246,7 @@ class UpdateWorker(Thread):
             # Fetch input for update:
             # Replay memory used
             memory_actor, sample_batch, indices = self.input_queue.get()
+            print(sample_batch)
             if sample_batch is not None:
                 loss, loss_per_item = self.agent.update(batch=sample_batch)
 
