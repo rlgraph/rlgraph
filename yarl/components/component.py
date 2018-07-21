@@ -127,8 +127,6 @@ class Component(Specifiable):
         # key=full-scope variable name (scope=component/sub-component scope)
         # value=the actual variable
         self.variables = dict()
-        # Whether variables created by this Component should be trainable or not.
-        #self.variables_non_trainable = True
         # All summary ops that are held by this component (and its sub-components) by name.
         # key=full-scope summary name (scope=component/sub-component scope)
         # value=the actual summary op
@@ -366,9 +364,6 @@ class Component(Specifiable):
         # create a new out-column with num-records == num-return values.
         name = method.__name__
         self.logger.debug("Calling api method {} with owner {}:".format(name, method_owner))
-        #self.logger.debug("API methods generated from graph_fns: {}, external methods: {}, api methods: {}".format(
-        #    self.generated_from_graph_fn, self.defined_externally, self.api_methods
-        #))
         out_op_recs = method(*in_op_column.op_records)
         out_op_recs = util.force_list(out_op_recs)
         out_op_column = DataOpRecordColumnFromAPIMethod(
@@ -730,8 +725,8 @@ class Component(Specifiable):
 
         # If already there -> Error.
         if key_ in self.parent_component.summaries:
-            raise YARLError("ERROR: Summary registry of '{}' already has a summary under key '{}'!". \
-                            format(self.parent_component.name, key_))
+            raise YARLError("ERROR: Summary registry of '{}' already has a summary under key '{}'!".
+                format(self.parent_component.name, key_))
         self.parent_component.summaries[key_] = self.summaries[key_]
 
         # Recurse up the container hierarchy.
@@ -775,14 +770,8 @@ class Component(Specifiable):
                 func_ = getattr(self_, func.__name__)
                 return self_.call(func_, *inputs, **kwargs)
 
-            #self.generated_from_graph_fn.add('{}-{}'.format(self.scope, name))
-
         # Function is a (custom) API-method. Register it with this Component.
         else:
-            # TODO: What if API-method doesn't include any calls but just a single return statement? This assert would fail.
-            # assert func_type == "api", "ERROR: Inferred func_type of func '{}' is not 'api', but '{}'!".\
-            #    format(func, func_type)
-            #self.defined_externally.add('{}-{}'.format(self.scope, name))
             api_method = func
 
         setattr(self, name, api_method.__get__(self, self.__class__))

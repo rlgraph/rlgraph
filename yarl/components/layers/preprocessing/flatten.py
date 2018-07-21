@@ -44,9 +44,6 @@ class Flatten(PreprocessLayer):
         """
         super(Flatten, self).__init__(scope=scope, add_auto_key_as_first_param=True, **kwargs)
 
-        # The new shape(s) after flattening.
-        #self.new_shapes = dict()
-
         self.flatten_categories = flatten_categories
         # Stores the number of categories in IntBoxes.
         self.num_categories = dict()

@@ -32,9 +32,13 @@ class Environment(Specifiable):
                 itself.
             action_space (Union[dict,Space]): The spec-dict for generating the action Space or the action Space object
                 itself.
+            #reward_clipping (Optionalp[Tuple[float,float],float]: An optional reward clipping setting used
+            #    to restrict all rewards produced by the Environment to be in a certain range.
+            #    None for no clipping. Single float for clipping between -`reward_clipping` and +`reward_clipping`.
         """
         self.state_space = Space.from_spec(state_space)
         self.action_space = Space.from_spec(action_space)
+        # self.reward_clipping = reward_clipping
 
     def seed(self, seed=None):
         """
