@@ -75,6 +75,8 @@ class RayWorker(RayActor):
 
         # Was the last state a terminal state so env should be reset in next call?
         self.last_terminal = False
+        self.last_ep_timestep = 0
+        self.last_ep_reward = 0
 
     # Remote functions to interact with this workers agent.
     def call_agent_op(self, op, inputs=None):
@@ -104,18 +106,21 @@ class RayWorker(RayActor):
         rewards = []
         terminals = []
 
-        # Continue in last state from prior execution.
-        state = self.last_state
-
         while timesteps_executed < num_timesteps:
             # Reset env either if finished an episode in current loop or if last state
             # from previous execution was terminal.
             if self.last_terminal is True or episodes_executed > 0:
                 state = self.environment.reset()
+                self.last_ep_reward = 0
+                # The reward accumulated over one episode.
+                episode_reward = 0
+                episode_timestep = 0
+            else:
+                # Continue training between calls.
+                state = self.last_state
+                episode_reward = self.last_ep_reward
+                episode_timestep = self.last_ep_timestep
 
-            # The reward accumulated over one episode.
-            episode_reward = 0
-            episode_timestep = 0
             # Whether the episode has terminated.
             terminal = False
             while True:
@@ -134,8 +139,9 @@ class RayWorker(RayActor):
 
                 rewards.append(reward)
                 terminals.append(terminal)
+                episode_reward += reward
                 timesteps_executed += 1
-                episode_timestep += 0
+                episode_timestep += 1
                 state = next_state
 
                 if terminal or (0 < num_timesteps <= timesteps_executed) or \
@@ -179,6 +185,8 @@ class RayWorker(RayActor):
 
         # Otherwise return when all time steps done
         self.last_terminal = terminal
+        self.last_ep_reward = episode_reward
+
         total_time = (time.monotonic() - start) or 1e-10
         self.sample_steps.append(timesteps_executed)
         self.sample_times.append(total_time)

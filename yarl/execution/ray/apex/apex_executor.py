@@ -246,7 +246,6 @@ class UpdateWorker(Thread):
             # Fetch input for update:
             # Replay memory used
             memory_actor, sample_batch, indices = self.input_queue.get()
-            print(sample_batch)
             if sample_batch is not None:
                 loss, loss_per_item = self.agent.update(batch=sample_batch)
 
