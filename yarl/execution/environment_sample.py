@@ -24,26 +24,16 @@ class EnvironmentSample(object):
     """
     def __init__(
         self,
-        states,
-        actions,
-        rewards,
-        terminals,
+        sample_batch,
         metrics=None,
         **kwargs
     ):
         """
         Args:
-            states (list): List of states in the sample.
-            actions (list): List of actions in the sample.
-            rewards (list): List of rewards in the sample.
-            terminals (list): List of terminals in the sample.
-            metrics Optional[(dict)]: Metrics, e.g. on timing.
+            sample_batch (dict): Dict containing sample trajectories.
             **kwargs (dict): Any additional information relevant for processing the sample.
         """
-        self.states = states
-        self.actions = actions
-        self.rewards = rewards
-        self.terminals = terminals
+        self.sample_batch = sample_batch
         self.metrics = metrics
         self.kwargs = kwargs
 
@@ -53,15 +43,7 @@ class EnvironmentSample(object):
         Returns:
             dict: Sample batch.
         """
-        return dict(
-            states=self.states,
-            actions=self.actions,
-            rewards=self.rewards,
-            terminals=self.terminals,
-        )
-
-    def get_batch_size(self):
-        return len(self.states)
+        return self.sample_batch
 
     def get_metrics(self):
         return self.metrics

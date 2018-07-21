@@ -82,10 +82,11 @@ class RayMemoryActor(RayActor):
             rewards = records["rewards"]
         for i in range_(num_records):
             self.memory.insert_records((
-                records['states'][i],
-                records['actions'][i],
+                records["states"][i],
+                records["actions"][i],
                 rewards[i],
-                records['terminals'][i]
+                records["terminals"][i],
+                records["weights"][i]
             ))
 
     def update_priorities(self, indices, loss):

@@ -56,11 +56,18 @@ class ApexMemory(Specifiable):
         )
 
     def insert_records(self, record):
+        # TODO: This has the record interface, but actually expects a specific structure anyway, so
+        # may as well change API?
         if self.index >= self.size:
             self.memory_values.append(record)
         else:
             self.memory_values[self.index] = record
-        self.merged_segment_tree.insert(self.index, self.default_new_weight)
+
+        # Weights.
+        if record[4] is not None:
+            self.merged_segment_tree.insert(self.index, record[4])
+        else:
+            self.merged_segment_tree.insert(self.index, self.default_new_weight)
 
         # Update indices.
         self.index = (self.index + 1) % self.capacity
