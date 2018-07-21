@@ -59,7 +59,7 @@ class TestApexExecutor(unittest.TestCase):
         agent_config.update(
             execution_spec=dict(seed=10),
             update_spec=dict(update_interval=4, batch_size=24, sync_interval=64),
-            optimizer_spec=dict(learning_rate=0.0002),
+            optimizer_spec=dict(learning_rate=0.0002, clip_grad_norm=40.0)
         )
 
         # Define executor, test assembly.

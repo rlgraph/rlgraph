@@ -30,11 +30,15 @@ class LocalOptimizer(Optimizer):
     A local optimizer performs optimization irrespective of any distributed semantics, i.e.
     it has no knowledge of other machines and does not implement any communications with them.
     """
-    def __init__(self, learning_rate, two_step=False, **kwargs):
+    def __init__(self, learning_rate, two_step=False, clip_grad_norm=None, **kwargs):
         super(LocalOptimizer, self).__init__(
             learning_rate=learning_rate, scope=kwargs.pop("scope", "local-optimizer"), **kwargs
         )
         self.two_step = two_step
+        self.clip_grad_norm = clip_grad_norm
+        if self.clip_grad_norm is not None:
+            assert isinstance(self.clip_grad_norm, float),\
+                "ERROR: 'clip_grad_norm' must be of type float but is type {}".format(type(self.clip_grad_norm))
 
         # The wrapped, backend-specific optimizer object.
         self.optimizer = None
@@ -68,12 +72,15 @@ class LocalOptimizer(Optimizer):
             loss (SingeDataOp): The total loss over a batch to be minimized.
         """
         if get_backend() == "tf":
-            grads_and_vars = DataOpTuple(self.optimizer.compute_gradients(
+            grads_and_vars = self.optimizer.compute_gradients(
                 loss=loss,
                 var_list=list(variables.values()) if isinstance(variables, dict) else variables
-            ))
-
-            return grads_and_vars
+            )
+            if self.clip_grad_norm is not None:
+                for i, (grad, var) in enumerate(grads_and_vars):
+                    if grad is not None:
+                        grads_and_vars[i] = (tf.clip_by_norm(t=grad, clip_norm=self.clip_grad_norm), var)
+            return DataOpTuple(grads_and_vars)
 
     def _graph_fn_apply_gradients(self, grads_and_vars):
         if get_backend() == "tf":
@@ -108,7 +115,6 @@ class AdamOptimizer(LocalOptimizer):
             learning_rate=learning_rate, scope=kwargs.pop("scope", "adam-optimizer"), **kwargs
         )
         if get_backend() == "tf":
-            self.logger.info("creating adam ####")
             self.optimizer = tf.train.AdamOptimizer(
                 learning_rate=self.learning_rate,
                 beta1=kwargs.pop("beta_1", kwargs.pop("beta1", 0.9)),

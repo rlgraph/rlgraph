@@ -85,7 +85,7 @@ class RayMemoryActor(RayActor):
             self.memory.insert_records((
                 records['states'][i],
                 records['actions'][i],
-                rewards,
+                rewards[i],
                 records['terminals'][i]
             ))
 
