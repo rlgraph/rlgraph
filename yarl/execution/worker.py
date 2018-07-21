@@ -27,18 +27,18 @@ class Worker(Specifiable):
     """
     Generic worker to locally interact with simulator environments.
     """
-    def __init__(self, environment, agent, repeat_actions=1):
+    def __init__(self, environment, agent, frameskip=1):
         """
         Args:
             environment (env): Environment to execute.
             agent (Agent): Agent to execute environment on.
-            repeat_actions (int): How often actions are repeated after retrieving them from the agent.
+            frameskip (int): How often actions are repeated after retrieving them from the agent.
                 This setting can be overwritten in the single calls to the different `execute_..` methods.
         """
         self.logger = logging.getLogger(__name__)
         self.environment = environment
         self.agent = agent
-        self.repeat_actions = repeat_actions
+        self.frameskip = frameskip
 
         # Update schedule if worker is performing updates.
         self.updating = None
@@ -48,7 +48,7 @@ class Worker(Specifiable):
         self.sync_interval = None
 
     def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
-                          repeat_actions=1, reset=True):
+                          frameskip=1, reset=True):
         """
         Executes environment for a fixed number of timesteps.
 
@@ -62,7 +62,7 @@ class Worker(Specifiable):
                 how many steps to perform before beginning to update.
             use_exploration (Optional[bool]): Indicates whether to utilize exploration (epsilon or noise based)
                 when picking actions.
-            repeat_actions (int): How often actions are repeated after retrieving them from the agent.
+            frameskip (int): How often actions are repeated after retrieving them from the agent.
                 Use None for the Worker's default value.
             reset (bool): Whether to reset the environment and all the Worker's internal counters.
                 Default: True.
@@ -73,7 +73,7 @@ class Worker(Specifiable):
         pass
 
     def execute_and_get_timesteps(self, num_timesteps, max_timesteps_per_episode=0, use_exploration=True,
-                                  repeat_actions=None, reset=True):
+                                  frameskip=None, reset=True):
         """
         Executes timesteps and returns experiences. Intended for distributed data collection
         without performing updates.
@@ -84,7 +84,7 @@ class Worker(Specifiable):
                 Use None or 0 for no limit. Default: None.
             use_exploration (Optional[bool]): Indicates whether to utilize exploration (epsilon or noise based)
                 when picking actions.
-            repeat_actions (int): How often actions are repeated after retrieving them from the agent.
+            frameskip (int): How often actions are repeated after retrieving them from the agent.
                 Use None for the Worker's default value.
             reset (bool): Whether to reset the environment and all the Worker's internal counters.
                 Default: True.
@@ -95,7 +95,7 @@ class Worker(Specifiable):
         pass
 
     def execute_episodes(self, num_episodes, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
-                         repeat_actions=None, reset=True):
+                         frameskip=None, reset=True):
         """
         Executes environment for a fixed number of episodes.
 
@@ -109,7 +109,7 @@ class Worker(Specifiable):
                 how many steps to perform before beginning to update.
             use_exploration (Optional[bool]): Indicates whether to utilize exploration (epsilon or noise based)
                 when picking actions.
-            repeat_actions (int): How often actions are repeated after retrieving them from the agent.
+            frameskip (int): How often actions are repeated after retrieving them from the agent.
                 Use None for the Worker's default value.
             reset (bool): Whether to reset the environment and all the Worker's internal counters.
                 Default: True.
@@ -120,7 +120,7 @@ class Worker(Specifiable):
         pass
 
     def execute_and_get_episodes(self, num_episodes, max_timesteps_per_episode=0, use_exploration=False,
-                                 repeat_actions=None, reset=True):
+                                 frameskip=None, reset=True):
         """
         Executes episodes and returns experiences as separate episode sequences.
         Intended for distributed data collection without performing updates.
@@ -131,7 +131,8 @@ class Worker(Specifiable):
                 Use None or 0 for no limit. Default: None.
             use_exploration (Optional[bool]): Indicates whether to utilize exploration (epsilon or noise based)
                 when picking actions.
-            repeat_actions (int): How often actions are repeated after retrieving them from the agent.
+            frameskip (int): How often actions are repeated after retrieving them from the agent. Rewards are
+                accumulated over the skipped frames.
             reset (bool): Whether to reset the environment and all the Worker's internal counters.
                 Default: True.
 

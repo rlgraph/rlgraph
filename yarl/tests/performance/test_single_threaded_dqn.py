@@ -49,10 +49,10 @@ class TestSingleThreadedDQN(unittest.TestCase):
         worker = SingleThreadedWorker(
             environment=self.env,
             agent=agent,
-            repeat_actions=1
+            frameskip=1
         )
 
-        result = worker.execute_timesteps(num_timesteps=1000000, deterministic=False)
+        result = worker.execute_timesteps(num_timesteps=1000000, use_exploration=True)
         print('Agent throughput = {} ops/s'.format(result['ops_per_second']))
         print('Environment throughput = {} frames/s'.format(result['env_frames_per_second']))
 
@@ -73,9 +73,9 @@ class TestSingleThreadedDQN(unittest.TestCase):
         worker = SingleThreadedWorker(
             environment=self.env,
             agent=agent,
-            repeat_actions=1
+            frameskip=1
         )
 
-        result = worker.execute_timesteps(num_timesteps=1000000, deterministic=False)
+        result = worker.execute_timesteps(num_timesteps=1000000, use_exploration=True)
         print('Agent throughput = {} ops/s'.format(result['ops_per_second']))
         print('Environment throughput = {} frames/s'.format(result['env_frames_per_second']))

@@ -23,7 +23,6 @@ import logging
 from yarl.environments import OpenAIGymEnv
 from yarl.agents import Agent
 from yarl.execution import SingleThreadedWorker
-from yarl.spaces import FloatBox
 from yarl.utils import root_logger
 
 
@@ -37,17 +36,18 @@ class TestDQNAgentLongTaskLearning(unittest.TestCase):
         """
         Creates a DQNAgent and runs it via a Runner on an openAI Pong Env.
         """
-        env = OpenAIGymEnv("Pong-v0")
+        env = OpenAIGymEnv("Pong-v0", frameskip=4)
         agent = Agent.from_spec(
             # Uses 2015 DQN parameters as closely as possible.
             "../configs/dqn_agent_for_pong.json",
             state_space=env.state_space,
-            action_space=env.action_space,
+            # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
+            action_space=env.action_space
         )
 
-        time_steps = 2000000
+        time_steps = 4000000
         worker = SingleThreadedWorker(environment=env, agent=agent, render=False)
-        results = worker.execute_timesteps(time_steps, use_exploration=True, repeat_actions=4)
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)

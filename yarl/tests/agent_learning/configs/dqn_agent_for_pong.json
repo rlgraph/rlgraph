@@ -83,7 +83,7 @@
 
   "observe_spec":
   {
-    "buffer_size": 200
+    "buffer_size": 3000
   },
 
   "update_spec": {
@@ -96,6 +96,6 @@
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.02
+    "learning_rate": 0.0001
   }
 }

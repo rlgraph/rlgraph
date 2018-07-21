@@ -45,7 +45,7 @@ class AgentTest(object):
         # Use the Agent's GraphBuilder.
         self.graph_executor = self.agent.graph_executor
 
-    def step(self, num_timesteps=1, use_exploration=False, repeat_actions=None, reset=False):
+    def step(self, num_timesteps=1, use_exploration=False, frameskip=None, reset=False):
         """
         Performs n steps in the environment, picking up from where the Agent/Environment was before (no reset).
 
@@ -53,7 +53,7 @@ class AgentTest(object):
             num_timesteps (int): How many time steps to perform using the Worker.
             use_exploration (Optional[bool]): Indicates whether to utilize exploration (epsilon or noise based)
                 when picking actions. Default: False (b/c we are testing).
-            repeat_actions (Union[int,None]): Number of repeated (same) actions in one "step".
+            frameskip (Union[int,None]): Number of repeated (same) actions in one "step".
             reset (bool): Whether to reset the previous run(s) and start from scratch.
                 Default: False. Picks up from a previous `step` (even if in the middle of an episode).
 
@@ -62,7 +62,7 @@ class AgentTest(object):
         """
         # Perform n steps and return stats.
         return self.worker.execute_timesteps(num_timesteps=num_timesteps, use_exploration=use_exploration,
-                                             repeat_actions=repeat_actions, reset=reset)
+                                             frameskip=frameskip, reset=reset)
 
     def check_env(self, prop, expected_value, decimals=7):
         """

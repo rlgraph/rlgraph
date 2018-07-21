@@ -53,24 +53,24 @@ class SingleThreadedWorker(Worker):
         self.episode_state = None
 
     def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
-                          repeat_actions=None, reset=True):
+                          frameskip=None, reset=True):
         return self._execute(
             num_timesteps=num_timesteps,
             max_timesteps_per_episode=max_timesteps_per_episode,
             use_exploration=use_exploration,
             update_spec=update_spec,
-            repeat_actions=repeat_actions,
+            frameskip=frameskip,
             reset=reset
         )
 
     def execute_episodes(self, num_episodes, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
-                         repeat_actions=None, reset=True):
+                         frameskip=None, reset=True):
         return self._execute(
             num_episodes=num_episodes,
             max_timesteps_per_episode = max_timesteps_per_episode,
             use_exploration=use_exploration,
             update_spec=update_spec,
-            repeat_actions=repeat_actions,
+            frameskip=frameskip,
             reset=reset
         )
 
@@ -81,7 +81,7 @@ class SingleThreadedWorker(Worker):
         max_timesteps_per_episode=None,
         use_exploration=True,
         update_spec=None,
-        repeat_actions=None,
+        frameskip=None,
         reset=True
     ):
         """
@@ -99,8 +99,8 @@ class SingleThreadedWorker(Worker):
             update_spec (Optional[dict]): Update parameters. If None, the worker only performs rollouts.
                 Matches the structure of an Agent's update_spec dict and will be "defaulted" by that dict.
                 See `input_parsing/parse_update_spec.py` for more details.
-            repeat_actions (Optional[int]): How often actions are repeated after retrieving them from the agent.
-                Use None for the Worker's default value.
+            frameskip (Optional[int]): How often actions are repeated after retrieving them from the agent.
+                Rewards are accumulated over the number of skips. Use None for the Worker's default value.
             reset (bool): Whether to reset the environment and all the Worker's internal counters.
                 Default: True.
 
@@ -116,7 +116,7 @@ class SingleThreadedWorker(Worker):
         num_timesteps = num_timesteps or 0
         num_episodes = num_episodes or 0
         max_timesteps_per_episode = max_timesteps_per_episode or 0
-        repeat_actions = repeat_actions or self.repeat_actions
+        frameskip = frameskip or self.frameskip
 
         # Stats.
         timesteps_executed = 0
@@ -150,10 +150,10 @@ class SingleThreadedWorker(Worker):
                     states=self.episode_state, use_exploration=use_exploration, extra_returns="preprocessed_states"
                 )
 
-                # Accumulate the reward over n env-steps (equals one action pick). n=self.repeat_actions
+                # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
                 reward = 0
                 next_state = None
-                for _ in range_(repeat_actions):
+                for _ in range_(frameskip):
                     next_state, step_reward, self.episode_terminal, info = self.environment.step(actions=action)
                     self.env_frames += 1
                     reward += step_reward

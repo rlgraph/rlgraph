@@ -39,13 +39,13 @@ class ApexExecutor(RayExecutor):
 
     https://arxiv.org/abs/1803.00933
     """
-    def __init__(self, environment_spec, agent_config, cluster_spec, repeat_actions=1):
+    def __init__(self, environment_spec, agent_config, cluster_spec, frameskip=1):
         """
         Args:
             environment_spec (dict): Environment spec. Each worker in the cluster will instantiate
                 an environment using this spec.
             agent_config (dict): Config dict containing agent and execution specs.
-            repeat_actions (Optional[int]): How often actions are repeated after retrieving them from the agent.
+            frameskip (Optional[int]): How often actions are repeated after retrieving them from the agent.
 
         """
         super(ApexExecutor, self).__init__(cluster_spec)
@@ -54,7 +54,7 @@ class ApexExecutor(RayExecutor):
         assert "type" in agent_config
         self.apex_replay_spec = agent_config.pop("apex_replay_spec")
         self.agent_config = agent_config
-        self.repeat_actions = repeat_actions
+        self.frameskip = frameskip
 
         # These are the Ray remote tasks which sample batches from the replay memory
         # and pass them to the learner.
@@ -89,8 +89,6 @@ class ApexExecutor(RayExecutor):
         environment = RayExecutor.build_env_from_config(self.environment_spec)
         self.agent_config["state_space"] = environment.state_space
         self.agent_config["action_space"] = environment.action_space
-        # TODO: Fix dependency on this information.
-        self.agent_config["preprocessed_state_space"] = environment.state_space
         self.local_agent = self.build_agent_from_config(self.agent_config)
 
         # Set up worker thread for performing updates.
@@ -116,7 +114,7 @@ class ApexExecutor(RayExecutor):
         self.ray_remote_workers = self.create_remote_workers(
             RayWorker, self.num_sample_workers,
             # *args
-            self.environment_spec, self.agent_config, self.repeat_actions
+            self.environment_spec, self.agent_config, self.frameskip
         )
 
     def init_tasks(self):

@@ -37,13 +37,13 @@ class RayWorker(RayActor):
     Ray wrapper for single threaded worker, provides further api methods to interact
     with the agent used in the worker.
     """
-    def __init__(self, env_spec, agent_config, repeat_actions=1):
+    def __init__(self, env_spec, agent_config, frameskip=1):
         """
         Creates agent and environment for Ray worker.
         Args:
             env_spec (dict): Environment config for environment to run.
             agent_config (dict): Agent configuration dict.
-            repeat_actions (int): How often actions are repeated after retrieving them from the agent.
+            frameskip (int): How often actions are repeated after retrieving them from the agent.
         """
         # Should be set.
         assert get_distributed_backend() == "ray"
@@ -57,7 +57,7 @@ class RayWorker(RayActor):
 
         # Ray cannot handle **kwargs in remote objects.
         self.agent = RayExecutor.build_agent_from_config(agent_config)
-        self.repeat_actions = repeat_actions
+        self.frameskip = frameskip
 
         # Save these so they can be fetched after training if desired.
         self.episode_rewards = []
@@ -129,10 +129,10 @@ class RayWorker(RayActor):
                 states.append(state)
                 actions.append(action)
 
-                # Accumulate the reward over n env-steps (equals one action pick). n=self.repeat_actions
+                # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
                 reward = 0
                 next_state = None
-                for _ in range_(self.repeat_actions):
+                for _ in range_(self.frameskip):
                     next_state, step_reward, terminal, info = self.environment.step(actions=action)
                     env_frames += 1
                     reward += step_reward

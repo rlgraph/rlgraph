@@ -87,7 +87,7 @@ class PPOAgent(Agent):
 
         # TODO define and connect missing components
 
-    def get_action(self, states, deterministic=False):
+    def get_action(self, states, use_exploration=True):
         batched_states = self.state_space.batched(states)
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
         # Increase timesteps by the batch size (number of states in batch).

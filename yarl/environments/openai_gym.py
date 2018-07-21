@@ -31,10 +31,12 @@ class OpenAIGymEnv(Environment):
     """
     OpenAI Gym Integration: https://gym.openai.com/.
     """
-    def __init__(self, gym_env, monitor=None, monitor_safe=False, monitor_video=0, visualize=False):
+    def __init__(self, gym_env, frameskip=None, monitor=None, monitor_safe=False, monitor_video=0, visualize=False):
         """
         Args:
             gym_env (Union[str,gym.Env]): OpenAI Gym environment ID or actual gym.Env. See https://gym.openai.com/envs
+            frameskip (Optional[Tuple[int,int],int]): How many frames should be skipped with (repeated action and
+                accumulated reward). Default: (2,5) -> Uniformly pull from set [2,3,4].
             monitor: Output directory. Setting this to None disables monitoring.
             monitor_safe: Setting this to True prevents existing log files to be overwritten. Default False.
             monitor_video: Save a video every monitor_video steps. Setting this to 0 disables recording of videos.
@@ -46,8 +48,9 @@ class OpenAIGymEnv(Environment):
         else:
             self.gym_env = gym_env
 
-        # Manually set the frameskip property to 1 as we are setting frame skipping in the YARL workers.
-        self.gym_env.env.frameskip = 1
+        # Manually set the frameskip property.
+        if frameskip is not None:
+            self.gym_env.env.frameskip = frameskip
 
         observation_space = self.translate_space(self.gym_env.observation_space)
         action_space = self.translate_space(self.gym_env.action_space)
