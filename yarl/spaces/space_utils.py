@@ -119,7 +119,7 @@ def get_space_from_op(op):
             # TODO: This is going to fail if time_major=True or we only have a time-rank (no batch rank)!
             # Detect automatically whether the first rank(s) are batch and/or time rank.
             if shape is not () and shape[0] is None:
-                if shape[1] is None:
+                if len(shape) > 1 and shape[1] is None:
                     shape = shape[2:]
                     add_time_rank = True
                 else:
