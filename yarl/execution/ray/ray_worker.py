@@ -38,12 +38,13 @@ class RayWorker(RayActor):
     Ray wrapper for single threaded worker, provides further api methods to interact
     with the agent used in the worker.
     """
-    def __init__(self, env_spec, agent_config, frameskip=1):
+    def __init__(self, agent_config, env_spec, worker_spec, frameskip=1):
         """
         Creates agent and environment for Ray worker.
         Args:
-            env_spec (dict): Environment config for environment to run.
             agent_config (dict): Agent configuration dict.
+            env_spec (dict): Environment config for environment to run.
+            worker_spec (dict): Worker parameters.
             frameskip (int): How often actions are repeated after retrieving them from the agent.
         """
         # Should be set.
@@ -57,7 +58,8 @@ class RayWorker(RayActor):
         agent_config['action_space'] = self.environment.action_space
 
         # Worker computes weights for prioritized sampling.
-        self.worker_computes_weights = agent_config.pop("worker_computes_weights", True)
+        self.worker_computes_weights = worker_spec.pop("worker_computes_weights", True)
+        self.n_step_adjustment = worker_spec.pop("n_step_adjustment", 1)
 
         # Ray cannot handle **kwargs in remote objects.
         self.agent = RayExecutor.build_agent_from_config(agent_config)
@@ -237,7 +239,7 @@ class RayWorker(RayActor):
     def _process_sample_if_necessary(self, states, actions, rewards, next_states, terminals):
         """
         Post-processes sample, e.g. by computing priority weights, compressing, applying
-        n-step corrections.
+        n-step corrections, ported from ray RLLib.
 
         Args:
             states (list): List of states.
@@ -250,6 +252,24 @@ class RayWorker(RayActor):
             dict: Sample batch dict.
         """
         weights = np.ones_like(terminals)
+
+        if self.n_step_adjustment > 1:
+            for i in range_(len(rewards) - self.n_step_adjustment + 1):
+                # Ignore terminals.
+                if terminals[i]:
+                    continue
+                for j in range_(1, self.n_step_adjustment):
+                    states[i] = states[i + j]
+                    rewards[i] += self.discount ** j * rewards[i + j]
+
+                    # Set remaining reward to 0.
+                    if terminals[i + j]:
+                        break
+
+            # Truncate.
+            new_len = len(states) - self.n_step_adjustment + 1
+            for arr in [states, actions, rewards, next_states, terminals]:
+                del arr[new_len:]
 
         # Compute loss-per-item.
         if self.worker_computes_weights:

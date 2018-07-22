@@ -53,6 +53,7 @@ class ApexExecutor(RayExecutor):
         # Must specify an agent type.
         assert "type" in agent_config
         self.apex_replay_spec = agent_config.pop("apex_replay_spec")
+        self.worker_spec = agent_config.pop("worker_spec")
         self.agent_config = agent_config
         self.frameskip = frameskip
 
@@ -89,6 +90,7 @@ class ApexExecutor(RayExecutor):
         environment = RayExecutor.build_env_from_config(self.environment_spec)
         self.agent_config["state_space"] = environment.state_space
         self.agent_config["action_space"] = environment.action_space
+
         self.local_agent = self.build_agent_from_config(self.agent_config)
 
         # Set up worker thread for performing updates.
@@ -112,9 +114,9 @@ class ApexExecutor(RayExecutor):
         # Create remote workers for data collection.
         self.logger.info("Initializing {} remote data collection agents.".format(self.num_sample_workers))
         self.ray_remote_workers = self.create_remote_workers(
-            RayWorker, self.num_sample_workers,
+            RayWorker, self.num_sample_workers, self.agent_config,
             # *args
-            self.environment_spec, self.agent_config, self.frameskip
+            self.environment_spec, self.worker_spec, self.frameskip
         )
 
     def init_tasks(self):
@@ -156,20 +158,17 @@ class ApexExecutor(RayExecutor):
         env_steps = 0
         update_steps = 0
         weights = None
+
         # 1. Fetch results from RayWorkers.
         for ray_worker, env_sample in self.env_sample_tasks.get_completed():
             # Randomly add env sample to a local replay actor.
             random_memory = random.choice(self.ray_local_replay_memories)
 
-            # sample_data = env_sample.get_batch()
-            # env_steps += env_sample.get_batch_size()
+            # N.b. this is only accurate if samples always return exactly the required time steps
+            # and do not return early.
             env_steps += self.worker_sample_size
-            # self.logger.debug("Received {} env samples from worker {}".format(env_steps,
-            #                                                                   self.worker_ids[ray_worker]))
             random_memory.observe.remote(env_sample)
 
-            # TODO see if issue is clarified on estimating sample size
-            # self.steps_since_weights_synced[ray_worker] += env_sample.get_batch_size()
             self.steps_since_weights_synced[ray_worker] += self.worker_sample_size
             if self.steps_since_weights_synced[ray_worker] >= self.weight_sync_steps:
                 if weights is None or self.update_worker.update_done:

@@ -49,6 +49,7 @@ class RayMemoryActor(RayActor):
             capacity=memory_spec["capacity"],
             alpha=memory_spec.get("alpha", 1.0),
             beta=memory_spec.get("beta", 1.0),
+            n_step=memory_spec.get("n_step_adjustment", 1)
         )
 
     def get_batch(self, batch_size):

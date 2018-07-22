@@ -73,20 +73,21 @@ class RayExecutor(object):
             num_gpus=self.cluster_spec.get('num_gpus', None)
         )
 
-    def create_remote_workers(self, cls, num_actors, *args):
+    def create_remote_workers(self, cls, num_actors, agent_config, *args):
         """
         Creates Ray actors for remote execution.
 
         Args:
             cls (RayWorker): Actor class, must be an instance of RayWorker.
             num_actors (int): Num
+            agent_config (dict): Agent config.
             *args (any): Arguments for RayWorker class.
         Returns:
             list: Remote Ray actors.
         """
         workers = []
         for i in range_(num_actors):
-            worker = cls.remote(*args)
+            worker = cls.remote(deepcopy(agent_config), *args)
             self.worker_ids[worker] = "worker_{}".format(i)
             workers.append(worker)
         return workers
