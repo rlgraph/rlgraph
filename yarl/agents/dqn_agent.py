@@ -174,9 +174,9 @@ class DQNAgent(Agent):
             # If we are using a PR: Update its weights based on the loss.
             if isinstance(memory, PrioritizedReplay):
                 update_pr_step_op = self_.call(memory.update_records, sample_indices, loss_per_item)
-                return step_op, loss, records, q_values_s, update_pr_step_op
+                return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
             else:
-                return step_op, loss, records, q_values_s
+                return step_op, loss, loss_per_item, records, q_values_s
 
         self.core_component.define_api_method("update_from_memory", update_from_memory)
 
@@ -199,7 +199,8 @@ class DQNAgent(Agent):
 
             policy_vars = self_.call(policy._variables)
             step_op = self_.call(optimizer.step, policy_vars, loss)
-            return step_op, loss, loss_per_item  # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
+            # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
+            return step_op, loss, loss_per_item, q_values_s
 
         self.core_component.define_api_method("update_from_external_batch", update_from_external_batch)
 
@@ -249,16 +250,16 @@ class DQNAgent(Agent):
         else:
             sync_call = None
 
-        # [0]=no-op step; [1]=the loss; [2]=memory-batch (if pulled); [3]=q-values
-        return_ops = [0, 1]
+        # [0]=no-op step; [1]=the loss; [2]=loss-per-item, [3]=memory-batch (if pulled); [4]=q-values
+        return_ops = [0, 1, 2]
         q_table = None
 
         if batch is None:
             # Add some additional return-ops to pull (left out normally for performance reasons).
             if self.store_last_q_table is True:
-                return_ops += [2, 3]  # 2=batch, 3=q-values
+                return_ops += [3, 4]  # 3=batch, 4=q-values
             elif self.store_last_memory_batch is True:
-                return_ops += [2]  # 2=batch
+                return_ops += [3]  # 3=batch
             ret = self.graph_executor.execute(("update_from_memory", None, return_ops), sync_call)
 
             # Remove unnecessary return dicts (e.g. sync-op).
@@ -268,17 +269,17 @@ class DQNAgent(Agent):
             # Store the last Q-table?
             if self.store_last_q_table is True:
                 q_table = dict(
-                    states=ret[2]["states"],
-                    q_values=ret[3]
+                    states=ret[3]["states"],
+                    q_values=ret[4]
                 )
         else:
             # Add some additional return-ops to pull (left out normally for performance reasons).
             if self.store_last_q_table is True:
-                return_ops += [2]  # 2=q-values
+                return_ops += [3]  # 3=q-values
 
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
                            batch["next_states"], batch["importance_weights"]]
-            ret = self.graph_executor.execute(("update_from_external_batch", batch_input), sync_call)
+            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops), sync_call)
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
@@ -288,7 +289,7 @@ class DQNAgent(Agent):
             if self.store_last_q_table is True:
                 q_table = dict(
                     states=batch["states"],
-                    q_values=ret[2]
+                    q_values=ret[3]
                 )
 
         # Store the latest pulled memory batch?

@@ -159,7 +159,8 @@ class Worker(Specifiable):
                     self.agent.timesteps % self.update_interval == 0:  # update frequency check
                 loss = 0
                 for _ in range_(self.update_steps):
-                    loss += self.agent.update()
+                    ret = self.agent.update()
+                    loss += ret[0]
                 return loss
 
         return None
