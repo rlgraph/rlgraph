@@ -87,7 +87,7 @@ class RayMemoryActor(RayActor):
                 records["actions"][i],
                 rewards[i],
                 records["terminals"][i],
-                records["weights"][i]
+                records["importance_weights"][i]
             ))
 
     def update_priorities(self, indices, loss):

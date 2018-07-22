@@ -91,7 +91,7 @@ class ApexMemory(Specifiable):
         next_states = []
         for index in indices:
             record = self.memory_values[index]
-            state, action, reward, terminal = record
+            state, action, reward, terminal, weight = record
             states.append(state)
             actions.append(action)
             rewards.append(reward)
