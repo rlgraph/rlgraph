@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from yarl import YARLError, get_backend
-from yarl.spaces import IntBox
+from yarl.spaces import IntBox, FloatBox
 from yarl.components.layers.preprocessing import PreprocessLayer
 from yarl.utils.ops import flatten_op, unflatten_op
 
@@ -54,7 +54,9 @@ class Flatten(PreprocessLayer):
     def get_preprocessed_space(self, space):
         ret = dict()
         for k, v in space.flatten().items():
-            ret[k] = v.__class__(shape=(v.flat_dim,), add_batch_rank=v.has_batch_rank)
+            flat_dim = v.flat_dim_with_categories if self.flatten_categories is True and v.__class__ == IntBox \
+                else v.flat_dim
+            ret[k] = FloatBox(shape=(flat_dim,), add_batch_rank=v.has_batch_rank, add_time_rank=v.has_time_rank)
         return unflatten_op(ret)
 
     def check_input_spaces(self, input_spaces, action_space):
@@ -84,16 +86,18 @@ class Flatten(PreprocessLayer):
         if self.backend == "python" or get_backend() == "python":
             from yarl.utils.numpy import one_hot
 
-            reshaped = np.reshape(a=input_, newshape=self.output_spaces[key].get_shape(with_batch_rank=-1))
-            # Create a one-hot axis for the categories at the end.
+            # Create a one-hot axis for the categories at the end?
             if self.num_categories[key] > 1:
-                reshaped = np.squeeze(one_hot(reshaped, depth=self.num_categories[key]), axis=2)
+                input_ = one_hot(input_, depth=self.num_categories[key])
+            reshaped = np.reshape(a=input_, newshape=self.output_spaces[key].get_shape(with_batch_rank=-1,
+                                                                                       with_time_rank=-1))
             return reshaped
 
         elif get_backend() == "tf":
-            reshaped = tf.reshape(tensor=input_, shape=self.output_spaces[key].get_shape(with_batch_rank=-1))
-            # Create a one-hot axis for the categories at the end.
+            # Create a one-hot axis for the categories at the end?
             if self.num_categories[key] > 1:
-                reshaped = tf.squeeze(tf.one_hot(indices=reshaped, depth=self.num_categories[key], axis=1), axis=2)
+                input_ = tf.one_hot(indices=input_, depth=self.num_categories[key], axis=-1)
+            reshaped = tf.reshape(tensor=input_, shape=self.output_spaces[key].get_shape(with_batch_rank=-1,
+                                                                                         with_time_rank=-1))
             return tf.identity(reshaped, name="flattened")
 
