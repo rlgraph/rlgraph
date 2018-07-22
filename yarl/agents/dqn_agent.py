@@ -205,7 +205,7 @@ class DQNAgent(Agent):
 
     def get_action(self, states, internals=None, use_exploration=True, extra_returns=None):
         """
-        Args:mitte august haben wir ein meeting mit vivacity labs, die rl for traffic optimizati
+        Args:
             extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return
                 values (besides the actions). Possible values are:
                 - 'preprocessed_states': The preprocessed states after passing the given states
@@ -220,7 +220,7 @@ class DQNAgent(Agent):
         """
         extra_returns = {extra_returns} if isinstance(extra_returns, str) else (extra_returns or set())
 
-        batched_states = self.state_space.batched(states)
+        batched_states = self.state_space.force_batch(states)
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
 
         # Increase timesteps by the batch size (number of states in batch).

@@ -30,7 +30,7 @@ class IntBox(BoxSpace):
     A box in Z^n (only integers; each coordinate is bounded)
     e.g. an image (w x h x RGB) where each color channel pixel can be between 0 and 255.
     """
-    def __init__(self, low=None, high=None, shape=None, add_batch_rank=False):
+    def __init__(self, low=None, high=None, shape=None, add_batch_rank=False, add_time_rank=False):
         """
         Three kinds of valid input:
             IntBox(6)  # only high is given -> low assumed to be 0 (0D scalar).
@@ -48,11 +48,12 @@ class IntBox(BoxSpace):
             high = low
             low = 0
 
-        super(IntBox, self).__init__(low=low, high=high, shape=shape, add_batch_rank=add_batch_rank, dtype="int")
+        super(IntBox, self).__init__(low=low, high=high, shape=shape, add_batch_rank=add_batch_rank,
+                                     add_time_rank=add_time_rank, dtype="int")
         self.num_categories = None if self.global_bounds is False else self.global_bounds[1]
 
-    def get_shape(self, with_batch_rank=False, with_category_rank=False, **kwargs):
-        shape = super(IntBox, self).get_shape(with_batch_rank=with_batch_rank)
+    def get_shape(self, with_batch_rank=False, with_time_rank=False, with_category_rank=False, **kwargs):
+        shape = super(IntBox, self).get_shape(with_batch_rank=with_batch_rank, with_time_rank=with_time_rank)
         if with_category_rank is not False:
             return shape + ((self.num_categories,) if self.num_categories is not None else ())
         return shape

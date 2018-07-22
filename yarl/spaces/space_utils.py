@@ -78,20 +78,26 @@ def get_space_from_op(op):
     if isinstance(op, dict):  # DataOpDict
         spec = dict()
         add_batch_rank = False
+        add_time_rank = False
         for k, v in op.items():
             spec[k] = get_space_from_op(v)
             if spec[k].has_batch_rank:
                 add_batch_rank = True
-        return Dict(spec, add_batch_rank=add_batch_rank)
+            if spec[k].has_time_rank:
+                add_time_rank = True
+        return Dict(spec, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
     # a Tuple
     elif isinstance(op, tuple):  # DataOpTuple
         spec = list()
         add_batch_rank = False
+        add_time_rank = False
         for i in op:
             spec.append(get_space_from_op(i))
             if spec[-1].has_batch_rank:
                 add_batch_rank = True
-        return Tuple(spec, add_batch_rank=add_batch_rank)
+            if spec[-1].has_time_rank:
+                add_time_rank = True
+        return Tuple(spec, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
     # primitive Space -> infer from op dtype and shape
     else:
         # Simple constant value DataOp (python type or an np.ndarray).
@@ -109,26 +115,33 @@ def get_space_from_op(op):
             if shape is None:
                 return 0
             add_batch_rank = False
-            # Detect automatically whether the first rank is a batch rank.
+            add_time_rank = False
+            # TODO: This is going to fail if time_major=True or we only have a time-rank (no batch rank)!
+            # Detect automatically whether the first rank(s) are batch and/or time rank.
             if shape is not () and shape[0] is None:
-                shape = shape[1:]
+                if shape[1] is None:
+                    shape = shape[2:]
+                    add_time_rank = True
+                else:
+                    shape = shape[1:]
                 add_batch_rank = True
 
             # a FloatBox
             if op.dtype.base_dtype == dtype("float"):
-                return FloatBox(shape=shape, add_batch_rank=add_batch_rank)
+                return FloatBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
             # an IntBox
             elif op.dtype.base_dtype == dtype("int"):
-                return IntBox(shape=shape, add_batch_rank=add_batch_rank)  # low, high=dummy values
+                return IntBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
             # a BoolBox
             elif op.dtype.base_dtype == dtype("bool"):
-                return BoolBox(add_batch_rank=add_batch_rank)
+                return BoolBox(add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
 
     raise YARLError("ERROR: Cannot derive Space from op '{}' (unknown type?)!".format(op))
 
 
 def sanity_check_space(
-        space, allowed_types=None, non_allowed_types=None, must_have_batch_rank=None, must_have_categories=None,
+        space, allowed_types=None, non_allowed_types=None, must_have_batch_rank=None,
+        must_have_time_rank=None, must_have_categories=None,
         rank=None, num_categories=None
 ):
     """
@@ -140,6 +153,8 @@ def sanity_check_space(
         non_allowed_types (Optional[List[type]]): A list of type that this Space must not be an instance of.
         must_have_batch_rank (Optional[bool]): Whether the Space  must (True) or must not (False) have the
             `has_batch_rank` property set to True. None, if it doesn't matter.
+        must_have_time_rank (Optional[bool]): Whether the Space  must (True) or must not (False) have the
+            `has_time_rank` property set to True. None, if it doesn't matter.
         must_have_categories (Optional[bool]): For IntBoxes, whether the Space must (True) or must not (False) have
             global bounds with `num_categories` > 0. None, if it doesn't matter.
         rank (Optional[int,tuple]): An int or a tuple (min,max) range within which the Space's rank must lie.
@@ -170,6 +185,17 @@ def sanity_check_space(
                 raise YARLError("ERROR: Space ({}) has a batch rank, but is not allowed to!".format(space))
             else:
                 raise YARLError("ERROR: Space ({}) does not have a batch rank, but must have one!".format(space))
+
+    if must_have_time_rank is not None:
+        if space.has_time_rank != must_have_time_rank:
+            # Last chance: Check for rank >= 3, that would be ok as well.
+            if must_have_time_rank is True and len(space.get_shape(with_batch_rank=True, with_time_rank=True)) >= 2:
+                pass
+            # Something is wrong.
+            elif space.has_time_rank is True:
+                raise YARLError("ERROR: Space ({}) has a time rank, but is not allowed to!".format(space))
+            else:
+                raise YARLError("ERROR: Space ({}) does not have a time rank, but must have one!".format(space))
 
     if must_have_categories is not None:
         if not isinstance(space, IntBox):

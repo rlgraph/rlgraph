@@ -216,7 +216,7 @@ class Agent(Specifiable):
             rewards (float): Scalar reward(s) observed.
             terminals (bool): Boolean indicating terminal.
         """
-        batched_states = self.preprocessed_state_space.batched(preprocessed_states)
+        batched_states = self.preprocessed_state_space.force_batch(preprocessed_states)
 
         # Check for illegal internals.
         if internals is None:

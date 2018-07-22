@@ -35,10 +35,23 @@ class TestSpaces(unittest.TestCase):
         """
         for class_ in [FloatBox, IntBox, BoolBox]:
             for add_batch_rank in [False, True]:
-                if class_ != BoolBox:
-                    for low, high in [(None, None), (-1.0, 10.0), ((1.0, 2.0), (3.0, 4.0)),
-                                      (((1.0, 2.0, 3.0), (4.0, 5.0, 6.0)), ((7.0, 8.0, 9.0), (10.0, 11.0, 12.0)))]:
-                        space = class_(low=low, high=high, add_batch_rank=add_batch_rank)
+                # TODO: Test time-rank more thoroughly.
+                for add_time_rank in [False, True]:
+                    if class_ != BoolBox:
+                        for low, high in [(None, None), (-1.0, 10.0), ((1.0, 2.0), (3.0, 4.0)),
+                                          (((1.0, 2.0, 3.0), (4.0, 5.0, 6.0)), ((7.0, 8.0, 9.0), (10.0, 11.0, 12.0)))]:
+                            space = class_(low=low, high=high, add_batch_rank=add_batch_rank,
+                                           add_time_rank=add_time_rank)
+                            if add_batch_rank is False:
+                                sample = space.sample()
+                                self.assertTrue(space.contains(sample))
+                            else:
+                                for batch_size in range_(1, 4):
+                                    samples = space.sample(size=batch_size)
+                                    for s in samples:
+                                        self.assertTrue(space.contains(s))
+                    else:
+                        space = class_(add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
                         if add_batch_rank is False:
                             sample = space.sample()
                             self.assertTrue(space.contains(sample))
@@ -47,16 +60,6 @@ class TestSpaces(unittest.TestCase):
                                 samples = space.sample(size=batch_size)
                                 for s in samples:
                                     self.assertTrue(space.contains(s))
-                else:
-                    space = class_(add_batch_rank=add_batch_rank)
-                    if add_batch_rank is False:
-                        sample = space.sample()
-                        self.assertTrue(space.contains(sample))
-                    else:
-                        for batch_size in range_(1, 4):
-                            samples = space.sample(size=batch_size)
-                            for s in samples:
-                                self.assertTrue(space.contains(s))
 
     def test_complex_space_sampling_and_check_via_contains(self):
         """

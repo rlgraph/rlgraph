@@ -22,7 +22,7 @@ import numpy as np
 import re
 
 from yarl import get_backend, YARLError
-from yarl.utils.util import dtype
+import yarl.utils.util as util
 from yarl.utils.initializer import Initializer
 from yarl.spaces.space import Space
 
@@ -32,7 +32,7 @@ class BoxSpace(Space):
     A box in R^n with a shape tuple of len n. Each dimension may be bounded.
     """
 
-    def __init__(self, low, high, shape=None, add_batch_rank=False, dtype="float"):
+    def __init__(self, low, high, shape=None, add_batch_rank=False, add_time_rank=False, dtype="float"):
         """
         Args:
             low (any): The lower bound (see Valid Inputs for more information).
@@ -48,7 +48,7 @@ class BoxSpace(Space):
             BoxSpace(np.array([-1.0,-2.0]), np.array([2.0,4.0])) # low and high are arrays of the same shape
                 (no shape given!) -> nD array where each dimension has different bounds.
         """
-        super(BoxSpace, self).__init__(add_batch_rank=add_batch_rank)
+        super(BoxSpace, self).__init__(add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
         self._dtype = dtype
 
         # Determine the shape.
@@ -83,9 +83,10 @@ class BoxSpace(Space):
                 self.low = low + np.zeros(self.shape)
                 self.high = high + np.zeros(self.shape)
 
-    def batched(self, samples):
-        # No batch rank given (compared to this Space), add it.
-        if np.asarray(samples).ndim == len(self.get_shape(with_batch_rank=False)):
+    def force_batch(self, samples):
+        assert self.has_time_rank is False, "ERROR: Cannot force a batch rank if Space `has_time_rank` is True!"
+        # No extra rank given (compared to this Space), add a batch rank.
+        if np.asarray(samples).ndim == len(self.get_shape(with_batch_rank=False, with_time_rank=False)):
             samples = np.array([samples])  # batch size=1
         return samples
 
@@ -93,11 +94,23 @@ class BoxSpace(Space):
     def shape(self):
         return self._shape
 
-    def get_shape(self, with_batch_rank=False, **kwargs):
+    def get_shape(self, with_batch_rank=False, with_time_rank=False, **kwargs):
         if with_batch_rank is not False:
-            return (((None,) if with_batch_rank is True else (with_batch_rank,))
-                    if self.has_batch_rank else ()) + self.shape
-        return self.shape
+            batch_rank = (((None,) if with_batch_rank is True else (with_batch_rank,))
+                          if self.has_batch_rank else ())
+        else:
+            batch_rank = ()
+
+        if with_time_rank is not False:
+            time_rank = (((None,) if with_time_rank is True else (with_time_rank,))
+                          if self.has_time_rank else ())
+        else:
+            time_rank = ()
+
+        if self.time_major is False:
+            return batch_rank + time_rank + self.shape
+        else:
+            return time_rank + batch_rank + self.shape
 
     @cached_property
     def flat_dim(self):
@@ -121,30 +134,39 @@ class BoxSpace(Space):
         """
         return self._global_bounds
 
-    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, **kwargs):
+    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None, **kwargs):
         add_batch_rank = self.has_batch_rank if add_batch_rank is None else add_batch_rank
         batch_rank = () if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,)
-        shape = tuple(batch_rank + self.shape)
+
+        add_time_rank = self.has_time_rank if add_time_rank is None else add_time_rank
+        time_rank = () if add_time_rank is False else (None,) if add_time_rank is True else (add_time_rank,)
+
+        if self.time_major is False:
+            shape = batch_rank + time_rank + self.shape
+        else:
+            shape = time_rank + batch_rank + self.shape
+
         if get_backend() == "tf":
             import tensorflow as tf
             # TODO: re-evaluate the cutting of a leading '/_?' (tf doesn't like it)
             name = re.sub(r'^/_?', "", name)
             if is_input_feed:
-                return tf.placeholder(dtype=dtype(self.dtype), shape=shape, name=name)
+                return tf.placeholder(dtype=util.dtype(self.dtype), shape=shape, name=name)
             else:
                 init_spec = kwargs.pop("initializer", None)
                 # Bools should be initializable via 0 or not 0.
                 if self.dtype == "bool" and isinstance(init_spec, (int, float)):
                     init_spec = (init_spec != 0)
                 yarl_initializer = Initializer.from_spec(shape=shape, specification=init_spec)
-                return tf.get_variable(name, shape=shape, dtype=dtype(self.dtype),
+                return tf.get_variable(name, shape=shape, dtype=util.dtype(self.dtype),
                                        initializer=yarl_initializer.initializer,
                                        **kwargs)
         else:
             raise YARLError("ERROR: Pytorch not supported yet!")
 
     def __repr__(self):
-        return "{}({}{})".format(type(self).__name__.title(), self.shape, "; +batch" if self.has_batch_rank else "")
+        return "{}({}{}{})".format(type(self).__name__.title(), self.shape, "; +batch" if self.has_batch_rank else "",
+                                   "; +time" if self.has_time_rank else "")
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and \

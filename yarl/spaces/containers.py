@@ -46,8 +46,8 @@ class Dict(ContainerSpace, dict):
     A Dict space (an ordered and keyed combination of n other spaces).
     Supports nesting of other Dict/Tuple spaces (or any other Space types) inside itself.
     """
-    def __init__(self, spec=None, add_batch_rank=False, **kwargs):
-        ContainerSpace.__init__(self, add_batch_rank=add_batch_rank)
+    def __init__(self, spec=None, add_batch_rank=False, add_time_rank=False, **kwargs):
+        ContainerSpace.__init__(self, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
 
         # Allow for any spec or already constructed Space to be passed in as values in the python-dict.
         # Spec may be part of kwargs.
@@ -64,18 +64,20 @@ class Dict(ContainerSpace, dict):
                 raise YARLError("ERROR: Key to Dict must not contain '/' or '{}\d+{}'! Is {}.".
                                 format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, key))
             value = spec[key]
-            # Value is already a Space: Copy it (to not affect original Space) and maybe add/remove batch-rank.
+            # Value is already a Space: Copy it (to not affect original Space) and maybe add/remove batch/time-ranks.
             if isinstance(value, Space):
-                dict_[key] = value.with_batch_rank(add_batch_rank)
+                w_batch = value.with_batch_rank(add_batch_rank)
+                w_time = w_batch.with_time_rank(add_time_rank)
+                dict_[key] = w_time
             # Value is a list/tuple -> treat as Tuple space.
             elif isinstance(value, (list, tuple)):
-                dict_[key] = Tuple(*value, add_batch_rank=add_batch_rank)
+                dict_[key] = Tuple(*value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
             # Value is a spec (or a spec-dict with "type" field) -> produce via `from_spec`.
             elif (isinstance(value, dict) and "type" in value) or not isinstance(value, dict):
-                dict_[key] = Space.from_spec(value, add_batch_rank=add_batch_rank)
+                dict_[key] = Space.from_spec(value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
             # Value is a simple dict -> recursively construct another Dict Space as a sub-space of this one.
             else:
-                dict_[key] = Dict(value, add_batch_rank=add_batch_rank)
+                dict_[key] = Dict(value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
 
         dict.__init__(self, dict_)
 
@@ -84,16 +86,22 @@ class Dict(ContainerSpace, dict):
         for v in self.values():
             v._add_batch_rank(add_batch_rank)
 
-    def batched(self, samples):
-        return dict([(key, self[key].batched(samples[key])) for key in sorted(self.keys())])
+    def _add_time_rank(self, add_time_rank=False):
+        super(Dict, self)._add_time_rank(add_time_rank)
+        for v in self.values():
+            v._add_time_rank(add_time_rank)
+
+    def force_batch(self, samples):
+        return dict([(key, self[key].force_batch(samples[key])) for key in sorted(self.keys())])
 
     @cached_property
     def shape(self):
         return tuple([self[key].shape for key in sorted(self.keys())])
 
-    def get_shape(self, with_batch_rank=False, with_category_rank=False):
-        return tuple([self[key].get_shape(with_batch_rank=with_batch_rank,
-                                          with_category_rank=with_category_rank) for key in sorted(self.keys())])
+    def get_shape(self, with_batch_rank=False, with_time_rank=False, with_category_rank=False):
+        return tuple([self[key].get_shape(
+            with_batch_rank=with_batch_rank, with_time_rank=with_time_rank, with_category_rank=with_category_rank
+        ) for key in sorted(self.keys())])
 
     @cached_property
     def rank(self):
@@ -107,8 +115,9 @@ class Dict(ContainerSpace, dict):
     def dtype(self):
         return DataOpDict([(key, subspace.dtype) for key, subspace in self.items()])
 
-    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, **kwargs):
-        return DataOpDict([(key, subspace.get_tensor_variable(name + "/" + key, is_input_feed, add_batch_rank, **kwargs))
+    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None, **kwargs):
+        return DataOpDict([(key, subspace.get_tensor_variable(name + "/" + key, is_input_feed,
+                                                              add_batch_rank, add_time_rank, **kwargs))
                            for key, subspace in self.items()])
 
     def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, scope_, list_):
@@ -146,44 +155,52 @@ class Tuple(ContainerSpace, tuple):
             components = components[0]
 
         add_batch_rank = kwargs.get("add_batch_rank", False)
+        add_time_rank = kwargs.get("add_time_rank", False)
 
         # Allow for any spec or already constructed Space to be passed in as values in the python-list/tuple.
         list_ = list()
         for value in components:
             # Value is already a Space: Copy it (to not affect original Space) and maybe add/remove batch-rank.
             if isinstance(value, Space):
-                list_.append(value.with_batch_rank(add_batch_rank))
+                list_.append(value.with_batch_rank(add_batch_rank).with_time_rank(add_time_rank))
             # Value is a list/tuple -> treat as Tuple space.
             elif isinstance(value, (list, tuple)):
-                list_.append(Tuple(*value, add_batch_rank=add_batch_rank))
+                list_.append(Tuple(*value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank))
             # Value is a spec (or a spec-dict with "type" field) -> produce via `from_spec`.
             elif (isinstance(value, dict) and "type" in value) or not isinstance(value, dict):
-                list_.append(Space.from_spec(value, add_batch_rank=add_batch_rank))
+                list_.append(Space.from_spec(value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank))
             # Value is a simple dict -> recursively construct another Dict Space as a sub-space of this one.
             else:
-                list_.append(Dict(value, add_batch_rank=add_batch_rank))
+                list_.append(Dict(value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank))
 
         return tuple.__new__(cls, list_)
 
     def __init__(self, *components, **kwargs):
         add_batch_rank = kwargs.get("add_batch_rank", False)
-        super(Tuple, self).__init__(add_batch_rank=add_batch_rank)
+        add_time_rank = kwargs.get("add_time_rank", False)
+        super(Tuple, self).__init__(add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
 
     def _add_batch_rank(self, add_batch_rank=False):
         super(Tuple, self)._add_batch_rank(add_batch_rank)
         for v in self:
             v._add_batch_rank(add_batch_rank)
 
-    def batched(self, samples):
-        return tuple([c.batched(samples[i]) for i, c in enumerate(self)])
+    def _add_time_rank(self, add_time_rank=False):
+        super(Tuple, self)._add_time_rank(add_time_rank)
+        for v in self:
+            v._add_time_rank(add_time_rank)
+
+    def force_batch(self, samples):
+        return tuple([c.force_batch(samples[i]) for i, c in enumerate(self)])
 
     @cached_property
     def shape(self):
         return tuple([c.shape for c in self])
 
-    def get_shape(self, with_batch_rank=False, with_category_rank=False):
-        return tuple([c.get_shape(with_batch_rank=with_batch_rank,
-                                  with_category_rank=with_category_rank) for c in self])
+    def get_shape(self, with_batch_rank=False, with_time_rank=False, with_category_rank=False):
+        return tuple([c.get_shape(
+            with_batch_rank=with_batch_rank, with_time_rank=with_time_rank, with_category_rank=with_category_rank
+        ) for c in self])
 
     @cached_property
     def rank(self):
@@ -197,8 +214,9 @@ class Tuple(ContainerSpace, tuple):
     def dtype(self):
         return DataOpTuple([c.dtype for c in self])
 
-    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, **kwargs):
-        return DataOpTuple([subspace.get_tensor_variable(name+"/"+str(i), is_input_feed, add_batch_rank, **kwargs)
+    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None, **kwargs):
+        return DataOpTuple([subspace.get_tensor_variable(name+"/"+str(i), is_input_feed,
+                                                         add_batch_rank, add_time_rank, **kwargs)
                             for i, subspace in enumerate(self)])
 
     def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, scope_, list_):

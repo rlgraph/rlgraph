@@ -25,27 +25,67 @@ from yarl.utils.specifiable import Specifiable
 
 class Space(Specifiable):
     """
-    Space class (based and compatible with openAI).
-    Provides a classification for state-, action- and reward spaces.
+    Space class (based on and compatible with openAI Spaces).
+    Provides a classification for state-, action-, reward- and other spaces.
     """
-    def __init__(self, add_batch_rank=False):
+    def __init__(self, add_batch_rank=False, add_time_rank=False, time_major=False):
         """
         Args:
-            add_batch_rank (bool): Whether to always add a batch rank at the 0th position when creating
+            add_batch_rank (bool): Whether to always add a batch rank at the 0th (or 1st) position when creating
                 variables from this Space.
+            add_time_rank (bool): Whether to always add a time rank at the 1st (or 0th) position when creating
+                variables from this Space.
+            time_major (bool): Whether the time rank should come before the batch rank. Not important if one
+                of these ranks (or both) does not exist.
         """
         self._shape = None
+
         self.has_batch_rank = None
+        self.has_time_rank = None
+
+        self.time_major = time_major
+
         self._add_batch_rank(add_batch_rank)
+        self._add_time_rank(add_time_rank)
 
     def _add_batch_rank(self, add_batch_rank=False):
         """
-        Recursively changes the add_batch_rank property of all child Spaces in this ContainerSpace.
+        Changes the add_batch_rank property of this Space (and of all child Spaces in a ContainerSpace).
 
         Args:
-            add_batch_rank (bool): Whether this ContainerSpace and all it's children should have a batch rank.
+            add_batch_rank (bool): Whether this Space (and all child Spaces in a ContainerSpace) should have a
+                batch rank.
         """
         self.has_batch_rank = add_batch_rank
+
+    def _add_time_rank(self, add_time_rank=False):
+        """
+        Changes the add_time_rank property of this Space (and of all child Spaces in a ContainerSpace).
+
+        Args:
+            add_time_rank (bool): Whether this Space (and all child Spaces in a ContainerSpace) should have a
+                time rank.
+        """
+        self.has_time_rank = add_time_rank
+
+    def with_extra_ranks(self, add_batch_rank=True, add_time_rank=True):
+        """
+        Returns a deepcopy of this Space, but with `has_batch_rank` and `has_time_rank`
+        set to the provided value. Use None to leave whatever value this Space has already.
+
+        Args:
+            add_batch_rank (Optional[bool]): If True or False, set the `has_batch_rank` property of the new Space
+                to this value. Use None to leave the property as is.
+            add_time_rank (Optional[bool]): If True or False, set the `has_time_rank` property of the new Space
+                to this value. Use None to leave the property as is.
+
+        Returns:
+            Space: The deepcopy of this Space, but with `has_batch_rank` set to True.
+        """
+        ret = copy.deepcopy(self)
+        ret._add_batch_rank(add_batch_rank if add_batch_rank is not None else self.has_batch_rank)
+        ret._add_time_rank(add_time_rank if add_time_rank is not None else self.has_time_rank)
+        return ret
 
     def with_batch_rank(self, add_batch_rank=True):
         """
@@ -54,11 +94,18 @@ class Space(Specifiable):
         Returns:
             Space: The deepcopy of this Space, but with `has_batch_rank` set to True.
         """
-        ret = copy.deepcopy(self)
-        ret._add_batch_rank(add_batch_rank)
-        return ret
+        return self.with_extra_ranks(add_batch_rank=add_batch_rank, add_time_rank=None)
 
-    def batched(self, samples):
+    def with_time_rank(self, add_time_rank=True):
+        """
+        Returns a deepcopy of this Space, but with `has_time_rank` set to the provided value.
+
+        Returns:
+            Space: The deepcopy of this Space, but with `has_time_rank` set to True.
+        """
+        return self.with_extra_ranks(add_batch_rank=None, add_time_rank=add_time_rank)
+
+    def force_batch(self, samples):
         """
         Makes sure that `samples` is always returned with a batch rank no matter whether
         it already has one or not (in which case this method returns a batch of 1) or
@@ -70,25 +117,29 @@ class Space(Specifiable):
         Returns:
             any: The batched sample.
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     @property
     def shape(self):
         """
         Returns:
-            tuple: The shape of this Space as a tuple. Without batch (or other) ranks.
+            tuple: The shape of this Space as a tuple. Without batch or time ranks.
         """
         raise NotImplementedError
 
-    def get_shape(self, with_batch_rank=False, **kwargs):
+    def get_shape(self, with_batch_rank=False, with_time_rank=False, **kwargs):
         """
         Returns the shape of this Space as a tuple with certain additional ranks at the front (batch) or the back
         (e.g. categories).
 
         Args:
-            with_batch_rank (Union[bool,int]): Whether to include a possible batch-rank as `None` at 0th position.
-                If `with_batch_rank` is -1, the possible batch-rank is returned as -1 (instead of None) at the 0th
-                position.
+            with_batch_rank (Union[bool,int]): Whether to include a possible batch-rank as `None` at 0th (or 1st)
+                position. If `with_batch_rank` is -1, the possible batch-rank is returned as -1 (instead of None) at
+                the 0th (or 1st) position.
+                Default: False.
+            with_time_rank (Union[bool,int]): Whether to include a possible time-rank as `None` at 1st (or 0th)
+                position. If `with_time_rank` is -1, the possible time-rank is returned as -1 (instead of None) at
+                the 1st (or 0th) position.
                 Default: False.
 
         Returns:
@@ -100,7 +151,8 @@ class Space(Specifiable):
     def rank(self):
         """
         Returns:
-            int: The rank of the Space (e.g. 3 for a space with shape=(10, 7, 5)).
+            int: The rank of the Space not including batch- or time-ranks
+            (e.g. 3 for a space with shape=(10, 7, 5)).
         """
         return len(self.shape)
 
@@ -108,7 +160,7 @@ class Space(Specifiable):
     def flat_dim(self):
         """
         Returns:
-            int: The dimension of the flattened vector of the tensor representation.
+            int: The length of a flattened vector derived from this Space.
         """
         raise NotImplementedError
 
@@ -122,7 +174,7 @@ class Space(Specifiable):
         """
         raise NotImplementedError
 
-    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, **kwargs):
+    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None, **kwargs):
         """
         Returns a backend-specific variable/placeholder that matches the space's shape.
 
@@ -130,9 +182,13 @@ class Space(Specifiable):
             name (str): The name for the variable.
             is_input_feed (bool): Whether the returned object should be an input placeholder,
                 instead of a full variable.
-            add_batch_rank (Optional[bool,int]): If True, will add a 0th rank (None) to
+            add_batch_rank (Optional[bool,int]): If True, will add a 0th (or 1st) rank (None) to
                 the created variable. If it is an int, will add that int (-1 means None).
-                If None, will use the Space's default value: `self.add_batch_rank`.
+                If None, will use the Space's default value: `self.has_batch_rank`.
+                Default: None.
+            add_time_rank (Optional[bool,int]): If True, will add a 1st (or 0th) rank (None) to
+                the created variable. If it is an int, will add that int (-1 means None).
+                If None, will use the Space's default value: `self.has_time_rank`.
                 Default: None.
 
         Keyword Args:
@@ -223,8 +279,9 @@ class Space(Specifiable):
 
     def _get_np_shape(self, num_samples=None):
         """
+        TODO: what about the time rank?
         Helper to determine, which shape one should pass to the numpy random funcs for sampling from a Space.
-        Depends on num_samples, the shape of this Space and the add_batch_rank setting.
+        Depends on num_samples, the shape of this Space and the `self.has_batch_rank` setting.
 
         Args:
             num_samples (Optional[int]): Number of samples to pull. If None or 0, pull 1 sample, but without batch rank

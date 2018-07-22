@@ -23,7 +23,7 @@ from yarl.spaces.box_space import BoxSpace
 
 
 class FloatBox(BoxSpace):
-    def __init__(self, low=None, high=None, shape=None, add_batch_rank=False):
+    def __init__(self, low=None, high=None, shape=None, add_batch_rank=False, add_time_rank=False):
         if low is None:
             assert high is None, "ERROR: If `low` is None, `high` must be None as well!"
             low = float("-inf")
@@ -36,7 +36,8 @@ class FloatBox(BoxSpace):
                 high = low
                 low = 0.0
 
-        super(FloatBox, self).__init__(low=low, high=high, shape=shape, add_batch_rank=add_batch_rank, dtype="float")
+        super(FloatBox, self).__init__(low=low, high=high, shape=shape, add_batch_rank=add_batch_rank,
+                                       add_time_rank=add_time_rank, dtype="float")
 
     def sample(self, size=None):
         shape = self._get_np_shape(num_samples=size)
