@@ -21,6 +21,7 @@ from six.moves import xrange as range_
 import numpy as np
 import time
 
+from yarl import SMALL_NUMBER
 from yarl.backend_system import get_distributed_backend
 from yarl.execution.environment_sample import EnvironmentSample
 from yarl.execution.ray import RayExecutor
@@ -55,6 +56,9 @@ class RayWorker(RayActor):
         agent_config['state_space'] = self.environment.state_space
         agent_config['action_space'] = self.environment.action_space
 
+        # Worker computes weights for prioritized sampling.
+        self.worker_computes_weights = agent_config.pop("worker_computes_weights", True)
+
         # Ray cannot handle **kwargs in remote objects.
         self.agent = RayExecutor.build_agent_from_config(agent_config)
         self.frameskip = frameskip
@@ -83,11 +87,11 @@ class RayWorker(RayActor):
         self.agent.call_graph_op(op, inputs)
 
     def execute_and_get_timesteps(
-        self,
-        num_timesteps,
-        max_timesteps_per_episode=0,
-        use_exploration=True,
-        break_on_terminal=False
+            self,
+            num_timesteps,
+            max_timesteps_per_episode=0,
+            use_exploration=True,
+            break_on_terminal=False
     ):
         """
         Collects and returns timestep experience.
@@ -104,6 +108,7 @@ class RayWorker(RayActor):
         states = []
         actions = []
         rewards = []
+        next_states = []
         terminals = []
 
         while timesteps_executed < num_timesteps:
@@ -125,7 +130,7 @@ class RayWorker(RayActor):
             terminal = False
             while True:
                 action, preprocessed_state = self.agent.get_action(states=state, use_exploration=use_exploration,
-                                               extra_returns="preprocessed_states")
+                                                                   extra_returns="preprocessed_states")
                 states.append(state)
                 actions.append(action)
 
@@ -139,6 +144,7 @@ class RayWorker(RayActor):
 
                 rewards.append(reward)
                 terminals.append(terminal)
+                next_states.append(next_state)
                 episode_reward += reward
                 timesteps_executed += 1
                 episode_timestep += 1
@@ -158,11 +164,11 @@ class RayWorker(RayActor):
                         self.sample_steps.append(timesteps_executed)
                         self.sample_times.append(total_time)
                         self.sample_env_frames.append(env_frames)
+                        sample_batch = self._process_sample_if_necessary(states, actions,
+                                                                         rewards, next_states, terminals)
+
                         return EnvironmentSample(
-                            states=[ray_compress(state) for state in states],
-                            actions=actions,
-                            rewards=rewards,
-                            terminals=terminals,
+                            sample_batch,
                             metrics=dict(
                                 # Just pass this to know later how this sample was configured.
                                 break_on_terminal=break_on_terminal,
@@ -192,11 +198,10 @@ class RayWorker(RayActor):
         self.sample_times.append(total_time)
         self.sample_env_frames.append(env_frames)
 
+        sample_batch = self._process_sample_if_necessary(states, actions, rewards, next_states, terminals)
+
         return EnvironmentSample(
-            states=[ray_compress(state) for state in states],
-            actions=actions,
-            rewards=rewards,
-            terminals=terminals,
+            sample_batch,
             metrics=dict(
                 break_on_terminal=break_on_terminal,
                 runtime=total_time,
@@ -227,4 +232,42 @@ class RayWorker(RayActor):
             worker_steps=self.total_worker_steps,
             mean_worker_ops_per_second=sum(self.sample_steps) / sum(self.sample_times),
             mean_worker_env_frames_per_second=sum(self.sample_env_frames) / sum(self.sample_times)
+        )
+
+    def _process_sample_if_necessary(self, states, actions, rewards, next_states, terminals):
+        """
+        Post-processes sample, e.g. by computing priority weights, compressing, applying
+        n-step corrections.
+
+        Args:
+            states (list): List of states.
+            actions (list): List of actions.
+            rewards (list): List of rewards.
+            next_states: (list): List of next_states.
+            terminals (list): List of terminals.
+
+        Returns:
+            dict: Sample batch dict.
+        """
+        weights = np.ones_like(terminals)
+
+        # Compute loss-per-item.
+        if self.worker_computes_weights:
+            _, loss_per_item = self.agent.update(
+                dict(
+                    states=states,
+                    actions=actions,
+                    rewards=rewards,
+                    terminals=terminals,
+                    next_states=next_states
+                )
+            )
+            weights = np.abs(loss_per_item) + SMALL_NUMBER
+
+        return dict(
+            states=[ray_compress(state) for state in states],
+            actions=actions,
+            rewards=rewards,
+            terminals=terminals,
+            weights=weights
         )

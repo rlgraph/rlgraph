@@ -17,35 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
-class EnvironmentSample(object):
-    """
-    Represents a sampled trajectory from an environment.
-    """
-    def __init__(
-        self,
-        sample_batch,
-        metrics=None,
-        **kwargs
-    ):
-        """
-        Args:
-            sample_batch (dict): Dict containing sample trajectories.
-            **kwargs (dict): Any additional information relevant for processing the sample.
-        """
-        self.sample_batch = sample_batch
-        self.metrics = metrics
-        self.kwargs = kwargs
-
-    def get_batch(self):
-        """
-        Get experience sample in insert format.
-        Returns:
-            dict: Sample batch.
-        """
-        return self.sample_batch
-
-    def get_metrics(self):
-        return self.metrics
+from yarl.components.helpers.v_trace_function import VTraceFunction
 
 
+__all__ = ["VTraceFunction"]

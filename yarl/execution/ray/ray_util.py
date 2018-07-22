@@ -47,9 +47,6 @@ class RayTaskPool(object):
             worker (any): Worker completing the task, must use the @ray.remote decorator.
             ray_object_id (str): Ray object id. See ray documentation for how these are used.
         """
-        self.logger.debug("Adding task {} to worker {}".format(
-            ray_object_id, worker
-        ))
         # Map which worker is responsible for completing the Ray task.
         self.ray_tasks[ray_object_id] = worker
 
