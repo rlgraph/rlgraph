@@ -37,16 +37,24 @@ class DQNLossFunction(LossFunction):
         loss_per_item(q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None): The DQN loss per batch
             item.
     """
-    def __init__(self, double_q=False, huber_loss=False,  importance_weights=False,
+    def __init__(self, double_q=False, huber_loss=False, importance_weights=False, n_step=1,
                  scope="dqn-loss-function", **kwargs):
         """
         Args:
             double_q (bool): Whether to use the double DQN loss function (see DQNAgent [2]).
             huber_loss (bool): Whether to apply a huber loss correction(see DQNAgent [2]).
             importance_weights (bool): Where to use importance weights from a prioritized replay.
+            n_step (int)
         """
         self.double_q = double_q
         self.huber_loss = huber_loss
+        assert n_step >= 1, "Number of steps for n-step learning must be >= 1, is {}".format(
+            n_step
+        )
+        # TODO reward must be preprocessed to work correctly for n-step.
+        # For Apex, this is done in the worker - do we want to move this as an in-graph option too?
+        self.n_step = n_step
+
         # Clip value, see https://en.wikipedia.org/wiki/Huber_loss
         self.huber_delta = kwargs.get("huber_delta", 1.0)
         self.importance_weights = importance_weights
@@ -148,7 +156,7 @@ class DQNLossFunction(LossFunction):
             q_s_a_values = tf.reduce_sum(input_tensor=(q_values_s * one_hot), axis=-1)
 
             # Calculate the TD-delta (target - current estimate).
-            td_delta = (rewards + self.discount * qt_sp_ap_values) - q_s_a_values
+            td_delta = (rewards + (self.discount ** self.n_step) * qt_sp_ap_values) - q_s_a_values
 
             # Reduce over the composite actions, if any.
             if get_rank(td_delta) > 1:

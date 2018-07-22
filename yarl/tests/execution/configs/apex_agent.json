@@ -1,5 +1,9 @@
 {
   "type": "apex",
+  "worker_spec": {
+      "n_step_adjustment": 3,
+      "worker_computes_weights": true
+  },
   "memory_spec": {
     "type": "prioritized_replay",
     "capacity": 10000
@@ -9,7 +13,8 @@
       "capacity": 10000
     },
     "clip_rewards": true,
-    "min_sample_memory_size": 500
+    "min_sample_memory_size": 500,
+    "n_step_adjustment": 3
   },
  "preprocessing_spec":
   [

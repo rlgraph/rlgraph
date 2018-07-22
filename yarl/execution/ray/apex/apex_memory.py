@@ -30,7 +30,7 @@ class ApexMemory(Specifiable):
     """
     Apex prioritized replay implementing compression.
     """
-    def __init__(self, capacity=1000, alpha=1.0, beta=0.0):
+    def __init__(self, capacity=1000, alpha=1.0, beta=0.0, n_step=1):
         self.memory_values = []
         self.index = 0
         self.capacity = capacity
@@ -38,6 +38,7 @@ class ApexMemory(Specifiable):
         self.max_priority = 1.0
         self.alpha = alpha
         self.beta = beta
+        self.nstep = n_step
 
         self.default_new_weight = np.power(self.max_priority, self.alpha)
         self.priority_capacity = 1
@@ -95,7 +96,7 @@ class ApexMemory(Specifiable):
             actions.append(action)
             rewards.append(reward)
             terminals.append(terminal)
-            next_index = (index + 1) % self.capacity
+            next_index = (index + self.nstep) % self.capacity
 
             next_state = self.memory_values[next_index][0]
             next_states.append(next_state)
