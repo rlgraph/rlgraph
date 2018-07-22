@@ -60,6 +60,7 @@ class RayWorker(RayActor):
         # Worker computes weights for prioritized sampling.
         self.worker_computes_weights = worker_spec.pop("worker_computes_weights", True)
         self.n_step_adjustment = worker_spec.pop("n_step_adjustment", 1)
+        self.discount = agent_config.get("discount", 0.99)
 
         # Ray cannot handle **kwargs in remote objects.
         self.agent = RayExecutor.build_agent_from_config(agent_config)

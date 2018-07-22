@@ -1,5 +1,6 @@
 {
   "type": "apex",
+  "discount": 0.99,
   "worker_spec": {
       "n_step_adjustment": 3,
       "worker_computes_weights": true
