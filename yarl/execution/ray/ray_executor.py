@@ -129,7 +129,7 @@ class RayExecutor(object):
             timesteps_executed += worker_steps_executed
             self.logger.info("Executed {} Ray worker steps, {} update steps, ({} of {} ({} %))".format(
                 worker_steps_executed, update_steps, timesteps_executed,
-                num_timesteps, (timesteps_executed / num_timesteps)
+                num_timesteps, (100 * timesteps_executed / num_timesteps)
             ))
 
         total_time = (time.monotonic() - start) or 1e-10

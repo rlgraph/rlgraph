@@ -280,7 +280,8 @@ class RayWorker(RayActor):
                     actions=actions,
                     rewards=rewards,
                     terminals=terminals,
-                    next_states=next_states
+                    next_states=next_states,
+                    importance_weights=weights
                 )
             )
             weights = np.abs(loss_per_item) + SMALL_NUMBER
@@ -290,5 +291,5 @@ class RayWorker(RayActor):
             actions=actions,
             rewards=rewards,
             terminals=terminals,
-            weights=weights
+            importance_weights=weights
         )
