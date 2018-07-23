@@ -19,5 +19,9 @@ from __future__ import print_function
 
 from yarl.components.helpers.v_trace_function import VTraceFunction
 
+VTraceFunction.__lookup_classes__ = dict(
+    vtrace=VTraceFunction,
+    vtracefunc=VTraceFunction
+)
 
 __all__ = ["VTraceFunction"]

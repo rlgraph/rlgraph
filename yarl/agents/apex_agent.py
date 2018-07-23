@@ -67,8 +67,9 @@ class ApexAgent(DQNAgent):
             if isinstance(ret, dict):
                 ret = ret["update_from_external_batch"]
 
-        # [1]=the loss (0=update noop)
         self.train_time_steps += 1
+
+        # Return [1]=total loss, [2]=loss-per-item (skip [0]=update noop).
         return ret[1], ret[2]
 
     def __repr__(self):
