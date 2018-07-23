@@ -38,11 +38,9 @@ class RayExecutor(object):
 
     A Ray executor implements a specific distributed learning semantic by delegating
     distributed state management and execution to the Ray execution engine.
-
     """
     def __init__(self, cluster_spec):
         """
-
         Args:
             cluster_spec (dict): Contains all information necessary to set up and execute
                 agents on a Ray cluster.
@@ -86,6 +84,7 @@ class RayExecutor(object):
             num_actors (int): Num
             agent_config (dict): Agent config.
             *args (any): Arguments for RayWorker class.
+
         Returns:
             list: Remote Ray actors.
         """

@@ -41,6 +41,7 @@ class RayWorker(RayActor):
     def __init__(self, agent_config, env_spec, worker_spec, frameskip=1):
         """
         Creates agent and environment for Ray worker.
+
         Args:
             agent_config (dict): Agent configuration dict.
             env_spec (dict): Environment config for environment to run.

@@ -72,7 +72,7 @@ class RayAgent(RayActor):
     def call_graph_op(self, op, inputs=None):
         """
         Utility method to call any desired operation on the graph, identified via output socket.
-        Delegator this call to the YARL graph executor.
+        Delegates this call to the YARL graph executor.
 
         Args:
             op (str): Name of the op, i.e. the name of its output socket on the YARL metagraph.
@@ -112,7 +112,6 @@ class RayAgent(RayActor):
             internals (Union[list, None]): Internal state(s) returned by agent for the given states.
             reward (float): Scalar reward(s) observed.
             terminal (bool): Boolean indicating terminal.
-
         """
         self.agent.observe(states, actions, internals, reward, terminal)
 

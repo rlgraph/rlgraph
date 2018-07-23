@@ -283,7 +283,7 @@ class SegmentTree(object):
         """
         Returns min value of storage variable.
         """
-        return  self.reduce(0, self.capacity - 1, reduce_op=tf.minimum)
+        return self.reduce(0, self.capacity - 1, reduce_op=tf.minimum)
 
     def get_sum(self):
         """
