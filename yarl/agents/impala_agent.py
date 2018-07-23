@@ -31,30 +31,37 @@ class IMPALAAgent(Agent):
     [1] IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures - Espeholt, Soyer,
         Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
     """
-    def __init__(self, type_="explorer", **kwargs):
+    def __init__(self, **kwargs):
         """
-        Args:
-            type_ (str): One of "explorer" or "learner". Default: "explorer"
+        Keyword Args:
+            type (str): One of "explorer" or "learner". Default: "explorer".
         """
+        type_ = kwargs.pop("type", "explorer")
         assert type_ in ["explorer", "learner"]
         self.type = type_
 
-        # Depending on the type, remove pieces from the Agent we don't need.
+        # Depending on the job-type, remove the pieces from the Agent-spec/graph we won't need.
         exploration_spec = kwargs.pop("exploration_spec", None),
         optimizer_spec = kwargs.pop("optimizer_spec", None)
         observe_spec = kwargs.pop("observe_spec", None)
+        # Learners won't need  to explore (act) or observe (insert into Queue).
         if self.type == "learner":
             exploration_spec = None
             observe_spec = None
             update_spec = kwargs.pop("update_spec", None)
+        # Explorers won't need to learn (no optimizer needed in graph).
         else:
             optimizer_spec = None
             update_spec = kwargs.pop("update_spec", dict(do_updates=False))
 
+        # Now that we fixed the Agent's spec, call the super constructor.
         super(IMPALAAgent, self).__init__(
             exploration_spec=exploration_spec, optimizer_spec=optimizer_spec, observe_spec=observe_spec,
-            update_spec=update_spec, name=kwargs.pop("name", "impala-{}-agent".format(type_)), **kwargs
+            update_spec=update_spec, name=kwargs.pop("name", "impala-{}-agent".format(self.type)), **kwargs
         )
+
+        # Create our FIFOQueue (explorers will enqueue, learner(s) will dequeue).
+        self.fifo_queue = FIFOQueue()
 
         # Extend input Space definitions to this Agent's specific API-methods.
         state_space = self.state_space.with_batch_rank()
@@ -62,25 +69,19 @@ class IMPALAAgent(Agent):
         action_space = self.action_space.with_batch_rank()
         reward_space = FloatBox(add_batch_rank=True)
         terminal_space = BoolBox(add_batch_rank=True)
-        weight_space = FloatBox(add_batch_rank=True)
         self.input_spaces.update(dict(
-            get_preprocessed_state_and_action=[state_space, int, bool],  # state, time-step, use_exploration
-            insert_records=[preprocessed_state_space, action_space, reward_space, terminal_space],
-            update_from_external_batch=[preprocessed_state_space, action_space, reward_space,
-                                        terminal_space, preprocessed_state_space, weight_space]
+            perform_n_steps_and_insert_into_fifo=[state_space, int, bool],  # state, time-step, use_exploration
         ))
 
-        # Create the FIFOQueue.
-        self.fifo_queue = FIFOQueue()
-
-        if self.type == "learner":
-            self.loss_function = IMPALALossFunction()
-        else:
-            self.loss_function = None
-
         # Add all our sub-components to the core.
-        sub_components = [self.preprocessor, self.policy, self.fifo_queue, self.exploration,
-                          self.loss_function, self.optimizer]
+        if self.type == "explorer":
+            self.loss_function = None
+            sub_components = [self.preprocessor, self.policy, self.exploration, self.fifo_queue]
+        else:
+            # TODO: add loss func options here and to our ctor.
+            self.loss_function = IMPALALossFunction()
+            sub_components = [self.fifo_queue, self.policy, self.loss_function, self.optimizer]
+
         self.core_component.add_components(*sub_components)
 
         # Define the Agent's (core Component's) API.
@@ -90,42 +91,46 @@ class IMPALAAgent(Agent):
         # print(markup)
         self.build_graph(self.input_spaces, self.optimizer)
 
-    def define_api_methods(self, preprocessor, policy, fifo_queue, exploration, loss_function, optimizer):
+    def define_api_methods(self, *sub_components):
         super(IMPALAAgent, self).define_api_methods()
 
-        # State (from environment) to action.
-        def get_preprocessed_state_and_action(self_, states, time_step, use_exploration=True):
+        if self.type == "explorer":
+            self.define_api_methods_explorer(*sub_components)
+        else:
+            self.define_api_methods_learner(*sub_components)
+
+    def define_api_methods_explorer(self, preprocessor, policy, exploration, fifo_queue):
+        """
+        Defines the API-methods used by an IMPALA explorer. Explorers only step through an environment (n-steps at
+        a time), collect the results and push them into the FIFO queue. Results include: The actions actually
+        taken, the discounted accumulated returns for each action, the probability of each taken action according to
+        the behavior policy.
+
+        Args:
+            preprocessor (PreprocessorStack): The PreprocessorStack to preprocess all states coming from the env.
+            policy (Policy): The Policy Component used to compute actions.
+            exploration (Exploration): The Exploration
+            fifo_queue (FIFOQueue): The FIFOQueue Component used to enqueue env sample runs (n-step).
+        """
+        # Perform n-steps in the env and insert the results into our FIFO-queue.
+        def perform_n_steps_and_insert_into_fifo(self_, initial_states, initial_time_step, use_exploration=True):
+            # TODO: use a new n-step Component to step through the env and collect results.
             preprocessed_states = self_.call(preprocessor.preprocess, states)
             sample_deterministic = self_.call(policy.sample_deterministic, preprocessed_states)
             sample_stochastic = self_.call(policy.sample_stochastic, preprocessed_states)
             actions = self_.call(exploration.get_action, sample_deterministic, sample_stochastic,
                                  time_step, use_exploration)
-            # TODO: Alternatively, move exploration (especially epsilon-based) into python.
-            # TODO: return internal states as well and maybe the exploration decision
             return preprocessed_states, actions
 
-        self.core_component.define_api_method("get_preprocessed_state_and_action",
-                                              get_preprocessed_state_and_action)
+        self.core_component.define_api_method(
+            "perform_n_steps_and_insert_into_fifo", perform_n_steps_and_insert_into_fifo
+        )
 
-        # Insert into memory.
-        def insert_records(self_, preprocessed_states, actions, rewards, terminals):
-            records = self_.call(merger.merge, preprocessed_states, actions, rewards, terminals)
-            return self_.call(memory.insert_records, records)
-
-        self.core_component.define_api_method("insert_records", insert_records)
+    def define_api_methods_learner(self, fifo_queue, policy, loss_function, optimizer):
 
         # Learn from memory.
-        def update_from_memory(self_):
-            # PRs also return updated weights and their indices.
-            sample_indices = None
-            importance_weights = None
-            if isinstance(memory, PrioritizedReplay):
-                records, sample_indices, importance_weights = self_.call(
-                    memory.get_records, self.update_spec["batch_size"]
-                )
-            # Non-PR memory.
-            else:
-                records = self_.call(memory.get_records, self.update_spec["batch_size"])
+        def update_from_fifo_queue(self_):
+            records = self_.call(memory.get_records, self.update_spec["batch_size"])
 
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = self_.call(splitter.split,
                                                                                            records)
@@ -137,25 +142,16 @@ class IMPALAAgent(Agent):
             if self.double_q:
                 q_values_sp = self_.call(policy.get_q_values, preprocessed_s_prime)
 
-            if isinstance(memory, PrioritizedReplay):
-                loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-                                                 qt_values_sp, q_values_sp, importance_weights)
-            else:
-                loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-                                                 qt_values_sp, q_values_sp)
+            loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
+                                             qt_values_sp, q_values_sp)
 
             policy_vars = self_.call(policy._variables)
             step_op = self_.call(optimizer.step, policy_vars, loss)
 
             # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
-            # If we are using a PR: Update its weights based on the loss.
-            if isinstance(memory, PrioritizedReplay):
-                update_pr_step_op = self_.call(memory.update_records, sample_indices, loss_per_item)
-                return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
-            else:
-                return step_op, loss, loss_per_item, records, q_values_s
+            return step_op, loss, loss_per_item, records, q_values_s
 
-        self.core_component.define_api_method("update_from_memory", update_from_memory)
+        self.core_component.define_api_method("update_from_fifo_queue", update_from_fifo_queue)
 
     def get_action(self, states, internals=None, use_exploration=True, extra_returns=None):
         """
@@ -197,12 +193,6 @@ class IMPALAAgent(Agent):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
     def update(self, batch=None):
-        # Should we sync the target net? (timesteps-1 b/c it has been increased already in get_action)
-        if self.timesteps % self.update_spec["sync_interval"] == 0:
-            sync_call = "sync_target_qnet"
-        else:
-            sync_call = None
-
         # [0]=no-op step; [1]=the loss; [2]=loss-per-item, [3]=memory-batch (if pulled); [4]=q-values
         return_ops = [0, 1, 2]
         q_table = None
@@ -213,7 +203,7 @@ class IMPALAAgent(Agent):
                 return_ops += [3, 4]  # 3=batch, 4=q-values
             elif self.store_last_memory_batch is True:
                 return_ops += [3]  # 3=batch
-            ret = self.graph_executor.execute(("update_from_memory", None, return_ops), sync_call)
+            ret = self.graph_executor.execute(("update_from_memory", None, return_ops))
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
@@ -232,8 +222,7 @@ class IMPALAAgent(Agent):
 
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
                            batch["next_states"], batch["importance_weights"]]
-            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops),
-                                              sync_call)
+            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
