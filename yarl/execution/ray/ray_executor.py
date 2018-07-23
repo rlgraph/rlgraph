@@ -231,6 +231,7 @@ class RayExecutor(object):
         config = deepcopy(agent_config)
         # Pop type on a copy because this may be called by multiple classes/worker types.
         agent_cls = Agent.__lookup_classes__.get(config.pop('type'))
+
         return agent_cls(**config)
 
     @staticmethod
@@ -240,7 +241,7 @@ class RayExecutor(object):
         at the moment.
 
         Args:
-            env_spec (dict): Environment specificaton. Must contain 'type' field to lookup constructor.
+            env_spec (dict): Environment specification. Must contain 'type' field to lookup constructor.
 
         Returns:
             Environment: Env object.
@@ -329,5 +330,5 @@ class RayExecutor(object):
             mean_worker_op_throughput=np.mean(worker_op_throughputs),
             min_worker_op_throughput=np.min(worker_op_throughputs),
             max_worker_op_throughput=np.max(worker_op_throughputs),
-            mean_worker_env_frame_throughput=np.mean(worker_op_throughputs)
+            mean_worker_env_frame_throughput=np.mean(worker_env_frame_throughputs)
         )

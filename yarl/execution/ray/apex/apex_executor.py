@@ -113,7 +113,7 @@ class ApexExecutor(RayExecutor):
 
         # Create remote workers for data collection.
         self.logger.info("Initializing {} remote data collection agents.".format(self.num_sample_workers))
-        self.ray_remote_workers = self.create_remote_workers(
+        self.ray_env_sample_workers = self.create_remote_workers(
             RayWorker, self.num_sample_workers, self.agent_config,
             # *args
             self.environment_spec, self.worker_spec, self.frameskip
@@ -126,7 +126,7 @@ class ApexExecutor(RayExecutor):
         # Env interaction tasks via RayWorkers which each
         # have a local agent.
         weights = self.local_agent.get_policy_weights()
-        for ray_worker in self.ray_remote_workers:
+        for ray_worker in self.ray_env_sample_workers:
             self.steps_since_weights_synced[ray_worker] = 0
             ray_worker.set_policy_weights.remote(weights)
 
