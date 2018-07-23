@@ -224,6 +224,12 @@ class RayWorker(RayActor):
         self.agent.set_policy_weights(weights)
 
     def get_workload_statistics(self):
+        """
+        Returns performance results for this worker.
+
+        Returns:
+            dict: Performance metrics.
+        """
         return dict(
             episode_timesteps=self.episode_timesteps,
             episode_rewards=self.episode_rewards,

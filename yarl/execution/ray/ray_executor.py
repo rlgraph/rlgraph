@@ -50,12 +50,12 @@ class RayExecutor(object):
         self.logger = logging.getLogger(__name__)
 
         # Ray workers for remote data collection.
-        self.ray_remote_workers = None
+        self.ray_env_sample_workers = None
         self.cluster_spec = cluster_spec
 
         # Global performance metrics.
-        self.env_sample_iteration_throughputs = list()
-        self.update_iteration_throughputs = list()
+        self.env_sample_iteration_throughputs = None
+        self.update_iteration_throughputs = None
 
         # Map worker objects to host ids.
         self.worker_ids = dict()
@@ -123,13 +123,16 @@ class RayExecutor(object):
         self.update_iteration_throughputs = list()
         self.init_tasks()
 
+        # Init.
+        self.env_sample_iteration_throughputs = list()
+        self.update_iteration_throughputs = list()
+
         # Assume time step based initially.
         num_timesteps = workload['num_timesteps']
 
-        # Number of time steps between logging loss.
+        # Performance reporting granularity.
         report_interval = workload['report_interval']
         timesteps_executed = 0
-        step_times = []
         iteration_times = []
         iteration_time_steps = []
         iteration_update_steps = []
@@ -142,7 +145,7 @@ class RayExecutor(object):
             iteration_start = time.monotonic()
 
             # Record sampling and learning throughput every interval.
-            while iteration_time_steps < report_interval:
+            while iteration_step < report_interval:
                 worker_steps_executed, update_steps = self._execute_step()
                 iteration_step += worker_steps_executed
                 iteration_updates += update_steps
@@ -174,8 +177,8 @@ class RayExecutor(object):
             self.env_sample_iteration_throughputs.append(iteration_time_steps[i] / it_time)
             self.update_iteration_throughputs.append(iteration_update_steps[i] / it_time)
 
-        worker_stats = self.get_worker_results()
-        self.logger.info("Retrieved worker stats for {} workers:".format(len(self.ray_remote_workers)))
+        worker_stats = self.get_aggregate_worker_results()
+        self.logger.info("Retrieved worker stats for {} workers:".format(len(self.ray_env_sample_workers)))
         self.logger.info(worker_stats)
 
         return dict(
@@ -245,7 +248,46 @@ class RayExecutor(object):
         env_cls = Environment.__lookup_classes__.get(env_spec['type'])
         return env_cls(env_spec['gym_env'])
 
-    def get_worker_results(self):
+    def result_by_worker(self, worker_id=None):
+        """
+        Retreives full episode-reward time series for a worker by id (or first worker in registry if None).
+
+        Args:
+            worker_id Optional[str]:
+
+        Returns:
+            dict: Full results for this worker.
+        """
+        if worker_id is not None:
+            # Get first.
+            assert worker_id in self.ray_env_sample_workers.keys(),\
+                "Parameter worker_id: {} must be valid key. Fetch keys via 'get_sample_worker_ids'.".\
+                format(worker_id)
+            ray_worker = self.ray_env_sample_workers[worker_id]
+        else:
+            # Otherwise just pick  first.
+            ray_worker = list(self.ray_env_sample_workers.values())[0]
+
+        task = ray_worker.get_workload_statistics.remote()
+        metrics = ray.get(task)
+
+        # Return full reward series.
+        return dict(
+            episode_rewards=metrics["episode_rewards"],
+            episode_timesteps=metrics["episode_timesteps"]
+        )
+
+    def get_sample_worker_ids(self):
+        """
+        Returns identifeirs of all sample workers.
+
+        Returns:
+            list: List of worker name strings in case individual analysis of one worker's results are required via
+                'result_by_worker'.
+        """
+        return list(self.worker_ids.keys())
+
+    def get_aggregate_worker_results(self):
         """
         Fetches execution statistics from remote workers and aggregates them.
 
@@ -261,7 +303,7 @@ class RayExecutor(object):
         episodes_executed = 0
         steps_executed = 0
 
-        for ray_worker in self.ray_remote_workers:
+        for ray_worker in self.ray_env_sample_workers:
             self.logger.info("Retrieving workload statistics for worker: {}".format(
                 self.worker_ids[ray_worker])
             )
