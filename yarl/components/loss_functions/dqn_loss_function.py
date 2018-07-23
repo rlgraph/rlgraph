@@ -113,7 +113,7 @@ class DQNLossFunction(LossFunction):
             actions_one_hot = one_hot(actions, depth=self.action_space.num_categories)
             q_s_a_values = np.sum(q_values_s * actions_one_hot, axis=-1)
 
-            td_delta = (rewards + self.discount * qt_sp_ap_values) - q_s_a_values
+            td_delta = (rewards + (self.discount ** self.n_step) * qt_sp_ap_values) - q_s_a_values
 
             if td_delta.ndim > 1:
                 if self.importance_weights:

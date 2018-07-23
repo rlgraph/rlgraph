@@ -3,7 +3,9 @@
   "discount": 0.99,
   "worker_spec": {
       "n_step_adjustment": 3,
-      "worker_computes_weights": true
+      "worker_computes_weights": true,
+      "sample_exploration": true,
+      "exploration_min_value": 0.5
   },
   "memory_spec": {
     "type": "prioritized_replay",
