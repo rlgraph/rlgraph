@@ -183,20 +183,22 @@ class RayExecutor(object):
             runtime=total_time,
             timesteps_executed=timesteps_executed,
             ops_per_second=(timesteps_executed / total_time),
-            min_iteration_throughput=np.mean(step_times),
-            max_iteration_throughput=np.mean(step_times),
-            mean_iteration_throughput=None,
+            min_iteration_sample_throughput=np.min(self.env_sample_iteration_throughputs),
+            max_iteration_sample_throughput=np.max(self.env_sample_iteration_throughputs),
+            mean_iteration_sample_throughput=np.mean(self.env_sample_iteration_throughputs),
+            min_iteration_update_throughput=np.min(self.update_iteration_throughputs),
+            max_iteration_update_throughput=np.max(self.update_iteration_throughputs),
+            mean_iteration_update_throughput=np.mean(self.update_iteration_throughputs),
             # Should be same as iteration throughput?
-            global_throughput=timesteps_executed / total_time,
             # Worker stats.
-            mean_worker_op_throughput=worker_stats['mean_worker_op_throughput'],
-            max_worker_op_throughput=worker_stats['max_worker_op_throughput'],
-            min_worker_op_throughput=worker_stats['min_worker_op_throughput'],
-            mean_worker_reward=worker_stats['mean_reward'],
-            max_worker_reward=worker_stats['max_reward'],
-            min_worker_reward=worker_stats['min_reward'],
+            mean_worker_op_throughput=worker_stats["mean_worker_op_throughput"],
+            max_worker_op_throughput=worker_stats["max_worker_op_throughput"],
+            min_worker_op_throughput=worker_stats["min_worker_op_throughput"],
+            mean_worker_reward=worker_stats["mean_reward"],
+            max_worker_reward=worker_stats["max_reward"],
+            min_worker_reward=worker_stats["min_reward"],
             # This is the mean final episode over all workers.
-            final_reward=worker_stats['mean_final_reward']
+            final_reward=worker_stats["mean_final_reward"]
         )
 
     def sample_metrics(self):
@@ -265,14 +267,14 @@ class RayExecutor(object):
             )
             task = ray_worker.get_workload_statistics.remote()
             metrics = ray.get(task)
-            min_rewards.append(metrics['min_episode_reward'])
-            max_rewards.append(metrics['max_episode_reward'])
-            mean_rewards.append(metrics['mean_episode_reward'])
-            episodes_executed += metrics['episodes_executed']
-            steps_executed += metrics['worker_steps']
-            final_rewards.append(metrics['final_episode_reward'])
-            worker_op_throughputs.append(metrics['mean_worker_ops_per_second'])
-            worker_env_frame_throughputs.append(metrics['mean_worker_env_frames_per_second'])
+            min_rewards.append(metrics["min_episode_reward"])
+            max_rewards.append(metrics["max_episode_reward"])
+            mean_rewards.append(metrics["mean_episode_reward"])
+            episodes_executed += metrics["episodes_executed"]
+            steps_executed += metrics["worker_steps"]
+            final_rewards.append(metrics["final_episode_reward"])
+            worker_op_throughputs.append(metrics["mean_worker_ops_per_second"])
+            worker_env_frame_throughputs.append(metrics["mean_worker_env_frames_per_second"])
 
         return dict(
             min_reward=np.min(min_rewards),
