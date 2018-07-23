@@ -41,7 +41,7 @@ class Memory(Component):
         self.capacity = capacity
 
         # All memories must provide these.
-        self.define_api_method("insert_records", func=self._graph_fn_insert_records, flatten_ops=True)
+        self.define_api_method(name="insert_records", func=self._graph_fn_insert_records, flatten_ops=True)
         self.define_api_method(name="get_records", func=self._graph_fn_get_records, flatten_ops=False)
 
     def create_variables(self, input_spaces, action_space):

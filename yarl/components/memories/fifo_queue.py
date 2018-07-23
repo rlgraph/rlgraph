@@ -20,6 +20,7 @@ from __future__ import print_function
 from yarl import get_backend
 from yarl.components.memories.memory import Memory
 from yarl.spaces.space_utils import sanity_check_space
+from yarl.utils.ops import FlattenedDataOp
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -35,6 +36,8 @@ class FIFOQueue(Memory):
         # Holds the actual backend-specific queue object.
         self.queue = None
 
+        self.define_api_method("get_size", self._graph_fn_get_size)
+
     def create_variables(self, input_spaces, action_space):
         # Overwrite parent version as we don't need a custom registry.
         in_space = input_spaces["insert_records"][0]
@@ -45,7 +48,7 @@ class FIFOQueue(Memory):
         names = list()
         for k, v in in_space.flatten().items():
             sanity_check_space(v, must_have_batch_rank=True)
-            shapes.append(v.get_shape(with_batch_rank=True))
+            shapes.append(v.shape)
             dtypes.append(v.dtype)
             names.append(k)
 
@@ -59,7 +62,20 @@ class FIFOQueue(Memory):
             )
 
     def _graph_fn_insert_records(self, records):
+        # Insert the records as FlattenedDataOp (dict).
         return self.queue.enqueue_many(records)
 
     def _graph_fn_get_records(self, num_records):
-        return self.queue.dequeue_many(num_records)
+        # Get the records as dict.
+        record_dict = self.queue.dequeue_many(num_records)
+        # Return a FlattenedDataOp.
+        return FlattenedDataOp(record_dict)
+
+    def _graph_fn_get_size(self):
+        """
+        Returns the current size of the queue.
+
+        Returns:
+            DataOp: The current size of the queue (how many items are in it).
+        """
+        return self.queue.size()
