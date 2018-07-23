@@ -53,6 +53,10 @@ class RayExecutor(object):
         self.ray_remote_workers = None
         self.cluster_spec = cluster_spec
 
+        # Global performance metrics.
+        self.env_sample_iteration_throughputs = list()
+        self.update_iteration_throughputs = list()
+
         # Map worker objects to host ids.
         self.worker_ids = dict()
 
@@ -111,30 +115,64 @@ class RayExecutor(object):
         """
         Executes a workload on Ray and measures worker statistics. Workload semantics
         are decided via the private implementer, _execute_step().
+        Args:
+            workload (dict): Workload parameters, primarily 'num_timesteps' and 'report_interval'
+                to indicate how many steps to execute and how often to report results.
         """
-        start = time.monotonic()
+        self.env_sample_iteration_throughputs = list()
+        self.update_iteration_throughputs = list()
         self.init_tasks()
 
         # Assume time step based initially.
         num_timesteps = workload['num_timesteps']
+
+        # Number of time steps between logging loss.
+        report_interval = workload['report_interval']
         timesteps_executed = 0
         step_times = []
+        iteration_times = []
+        iteration_time_steps = []
+        iteration_update_steps = []
 
+        start = time.monotonic()
         # Call _execute_step as many times as required.
         while timesteps_executed < num_timesteps:
-            step_time = time.monotonic()
-            worker_steps_executed, update_steps = self._execute_step()
+            iteration_step = 0
+            iteration_updates = 0
+            iteration_start = time.monotonic()
 
-            step_times.append(time.monotonic() - step_time)
-            timesteps_executed += worker_steps_executed
+            # Record sampling and learning throughput every interval.
+            while iteration_time_steps < report_interval:
+                worker_steps_executed, update_steps = self._execute_step()
+                iteration_step += worker_steps_executed
+                iteration_updates += update_steps
+
+            iteration_end = time.monotonic() - iteration_start
+            timesteps_executed += iteration_step
+
+            # Append raw values, compute stats after experiment is done.
+            iteration_times.append(iteration_end)
+            iteration_update_steps.append(iteration_updates)
+            iteration_time_steps.append(iteration_step)
+
             self.logger.info("Executed {} Ray worker steps, {} update steps, ({} of {} ({} %))".format(
-                worker_steps_executed, update_steps, timesteps_executed,
+                iteration_step, iteration_updates, timesteps_executed,
                 num_timesteps, (100 * timesteps_executed / num_timesteps)
             ))
 
+        # self.env_sample_throughputs.append(timesteps_executed)
+        # self.update_throughputs.append(update_steps)
         total_time = (time.monotonic() - start) or 1e-10
         self.logger.info("Time steps executed: {} ({} ops/s)".
                          format(timesteps_executed, timesteps_executed / total_time))
+        all_updates = np.sum(iteration_update_steps)
+        self.logger.info("Updates executed: {}, ({} updates/s)".format(
+            all_updates, all_updates / total_time
+        ))
+        for i in range_(len(iteration_times)):
+            it_time = iteration_times[i]
+            self.env_sample_iteration_throughputs.append(iteration_time_steps[i] / it_time)
+            self.update_iteration_throughputs.append(iteration_update_steps[i] / it_time)
 
         worker_stats = self.get_worker_results()
         self.logger.info("Retrieved worker stats for {} workers:".format(len(self.ray_remote_workers)))
@@ -145,8 +183,11 @@ class RayExecutor(object):
             runtime=total_time,
             timesteps_executed=timesteps_executed,
             ops_per_second=(timesteps_executed / total_time),
-            mean_step_time=np.mean(step_times),
-            throughput=timesteps_executed / total_time,
+            min_iteration_throughput=np.mean(step_times),
+            max_iteration_throughput=np.mean(step_times),
+            mean_iteration_throughput=None,
+            # Should be same as iteration throughput?
+            global_throughput=timesteps_executed / total_time,
             # Worker stats.
             mean_worker_op_throughput=worker_stats['mean_worker_op_throughput'],
             max_worker_op_throughput=worker_stats['max_worker_op_throughput'],
@@ -157,6 +198,12 @@ class RayExecutor(object):
             # This is the mean final episode over all workers.
             final_reward=worker_stats['mean_final_reward']
         )
+
+    def sample_metrics(self):
+        return self.env_sample_iteration_throughputs
+
+    def update_metrics(self):
+        return self.update_iteration_throughputs
 
     def _execute_step(self):
         """

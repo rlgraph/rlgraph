@@ -35,14 +35,14 @@ class TestApexExecutor(unittest.TestCase):
 
     cluster_spec = dict(
         redis_address=None,
-        num_cpus=18,
+        num_cpus=6,
         num_gpus=0,
-        weight_sync_steps=64,
+        weight_sync_steps=32,
         replay_sampling_task_depth=1,
         env_interaction_task_depth=1,
         num_worker_samples=50,
         learn_queue_size=1,
-        num_sample_workers=16,
+        num_sample_workers=4,
         num_replay_workers=1
     )
 
