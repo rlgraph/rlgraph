@@ -63,7 +63,7 @@ class RayWorker(RayActor):
         self.discount = agent_config.get("discount", 0.99)
 
         # Ray cannot handle **kwargs in remote objects.
-        self.agent = RayExecutor.build_agent_from_config(agent_config)
+        self.agent = self.setup_agent(agent_config, worker_spec)
         self.frameskip = frameskip
 
         # Save these so they can be fetched after training if desired.
@@ -85,16 +85,38 @@ class RayWorker(RayActor):
         self.last_ep_timestep = 0
         self.last_ep_reward = 0
 
+    def setup_agent(self, agent_config, worker_spec):
+        """
+        Sets up agent, potentially modifying its configuration via worker specific settings.
+        """
+        sample_exploration = worker_spec.pop("sample_exploration", False)
+        # Adjust exploration for this worker.
+        if sample_exploration:
+            exploration_min_value = worker_spec.pop("exploration_min_value", 0.0)
+            epsilon_spec = agent_config["exploration_spec"]["epsilon_spec"]
+
+            if "decay_spec" in epsilon_spec:
+                decay_from = epsilon_spec["decay_spec"]["from"]
+                assert decay_from >= exploration_min_value, \
+                    "Min value for exploration sampling must be smaller than" \
+                    "decay_from {} in exploration_spec but is {}.".format(decay_from, exploration_min_value)
+
+                # Sample a new initial epsilon from the interval [exploration_min_value, decay_from).
+                sampled_from = np.random.uniform(low=exploration_min_value, high=decay_from)
+                epsilon_spec["decay_spec"]["from"] = sampled_from
+
+        return RayExecutor.build_agent_from_config(agent_config)
+
     # Remote functions to interact with this workers agent.
     def call_agent_op(self, op, inputs=None):
         self.agent.call_graph_op(op, inputs)
 
     def execute_and_get_timesteps(
-            self,
-            num_timesteps,
-            max_timesteps_per_episode=0,
-            use_exploration=True,
-            break_on_terminal=False
+        self,
+        num_timesteps,
+        max_timesteps_per_episode=0,
+        use_exploration=True,
+        break_on_terminal=False
     ):
         """
         Collects and returns timestep experience.
