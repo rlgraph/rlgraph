@@ -37,9 +37,9 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
 
     def test_initial_training_pong(self):
         """
-        Tests if apex can start learning pong effectively.
+        Tests if Apex can start learning pong effectively on ray.
         """
-        path = os.path.join(os.getcwd(), "configs/apex_agent.json")
+        path = os.path.join(os.getcwd(), "configs/ray_apex_for_pong.json")
         with open(path, 'rt') as fp:
             agent_config = json.load(fp)
 
@@ -47,10 +47,8 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
             environment_spec=self.env_spec,
             agent_config=agent_config,
         )
-        # Define executor, test assembly.
-        print("Successfully created executor.")
 
         # Executes actual workload.
-        result = executor.execute_workload(workload=dict(num_timesteps=50000000, report_interval=10000))
+        result = executor.execute_workload(workload=dict(num_timesteps=50000000, report_interval=50000))
         print("Finished executing workload:")
         print(result)
