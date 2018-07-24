@@ -91,7 +91,7 @@ class TestRayWorker(unittest.TestCase):
         """
         # First, create a local agent
         env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
-        path = os.path.join(os.getcwd(), "configs/apex_agent.json")
+        path = os.path.join(os.getcwd(), "configs/apex_agent_cartpole.json")
         with open(path, 'rt') as fp:
             agent_config = json.load(fp)
 

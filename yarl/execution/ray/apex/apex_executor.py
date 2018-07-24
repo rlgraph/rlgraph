@@ -39,14 +39,12 @@ class ApexExecutor(RayExecutor):
 
     https://arxiv.org/abs/1803.00933
     """
-    def __init__(self, environment_spec, agent_config, frameskip=1):
+    def __init__(self, environment_spec, agent_config):
         """
         Args:
             environment_spec (dict): Environment spec. Each worker in the cluster will instantiate
                 an environment using this spec.
             agent_config (dict): Config dict containing agent and execution specs.
-            frameskip (Optional[int]): How often actions are repeated after retrieving them from the agent.
-
         """
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         super(ApexExecutor, self).__init__(executor_spec=ray_spec.pop("executor_spec"))
@@ -59,7 +57,7 @@ class ApexExecutor(RayExecutor):
         # Must specify an agent type.
         assert "type" in agent_config
         self.agent_config = agent_config
-        self.frameskip = frameskip
+        self.frameskip = self.worker_spec.get("frame_skip", 1)
 
         # These are the Ray remote tasks which sample batches from the replay memory
         # and pass them to the learner.
