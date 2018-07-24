@@ -33,19 +33,6 @@ class TestApexExecutor(unittest.TestCase):
       gym_env="CartPole-v0"
     )
 
-    cluster_spec = dict(
-        redis_address=None,
-        num_cpus=6,
-        num_gpus=0,
-        weight_sync_steps=32,
-        replay_sampling_task_depth=1,
-        env_interaction_task_depth=1,
-        num_worker_samples=50,
-        learn_queue_size=1,
-        num_sample_workers=4,
-        num_replay_workers=1
-    )
-
     def test_learning_cartpole(self):
         """
         Tests if apex can learn a simple environment using a single worker, thus replicating
@@ -61,12 +48,11 @@ class TestApexExecutor(unittest.TestCase):
             optimizer_spec=dict(learning_rate=0.0002, clip_grad_norm=40.0)
         )
 
-        # Define executor, test assembly.
         executor = ApexExecutor(
             environment_spec=self.env_spec,
             agent_config=agent_config,
-            cluster_spec=self.cluster_spec
         )
+        # Define executor, test assembly.
         print("Successfully created executor.")
 
         # Executes actual workload.

@@ -1,26 +1,11 @@
 {
   "type": "apex",
   "discount": 0.99,
-  "worker_spec": {
-      "n_step_adjustment": 3,
-      "worker_computes_weights": true,
-      "sample_exploration": true,
-      "exploration_min_value": 0.5
-  },
   "memory_spec": {
     "type": "prioritized_replay",
     "capacity": 10000
   },
-  "apex_replay_spec": {
-    "memory_spec": {
-      "capacity": 10000
-    },
-    "clip_rewards": true,
-    "min_sample_memory_size": 500,
-    "n_step_adjustment": 3
-  },
- "preprocessing_spec":
-  [
+  "preprocessing_spec": [
     {
       "type": "flatten"
     }
@@ -29,6 +14,34 @@
     "session_config": {
       "log_device_placement": false,
       "allow_soft_placement": true
+    },
+    "ray_spec": {
+      "executor_spec": {
+        "redis_address": null,
+        "num_cpus": 6,
+        "num_gpus": 0,
+        "weight_sync_steps": 32,
+        "replay_sampling_task_depth": 1,
+        "env_interaction_task_depth": 1,
+        "num_worker_samples": 50,
+        "learn_queue_size": 1,
+        "num_sample_workers": 4,
+        "num_replay_workers": 1
+      },
+      "worker_spec": {
+        "n_step_adjustment": 3,
+        "worker_computes_weights": true,
+        "sample_exploration": true,
+        "exploration_min_value": 0.5
+      },
+      "apex_replay_spec": {
+        "memory_spec": {
+          "capacity": 10000
+        },
+        "clip_rewards": true,
+        "min_sample_memory_size": 500,
+        "n_step_adjustment": 3
+      }
     }
   },
   "network_spec": [

@@ -39,17 +39,17 @@ class RayExecutor(object):
     A Ray executor implements a specific distributed learning semantic by delegating
     distributed state management and execution to the Ray execution engine.
     """
-    def __init__(self, cluster_spec):
+    def __init__(self, executor_spec):
         """
         Args:
-            cluster_spec (dict): Contains all information necessary to set up and execute
+            executor_spec (dict): Contains all information necessary to set up and execute
                 agents on a Ray cluster.
         """
         self.logger = logging.getLogger(__name__)
 
         # Ray workers for remote data collection.
         self.ray_env_sample_workers = None
-        self.cluster_spec = cluster_spec
+        self.executor_spec = executor_spec
 
         # Global performance metrics.
         self.env_sample_iteration_throughputs = None
@@ -62,17 +62,17 @@ class RayExecutor(object):
         """
         Connects to a Ray cluster or starts one if none exists.
         """
-        self.logger.info("Initializing Ray cluster with cluster spec:")
-        for spec_key, value in self.cluster_spec.items():
+        self.logger.info("Initializing Ray cluster with executor spec:")
+        for spec_key, value in self.executor_spec.items():
             self.logger.info("{}: {}".format(spec_key, value))
 
         # Avoiding accidentally starting local redis clusters.
-        if 'redis_host' not in self.cluster_spec:
+        if 'redis_host' not in self.executor_spec:
             self.logger.warning("Warning: No redis address provided, starting local redis server.")
         ray.init(
-            redis_address=self.cluster_spec.get('redis_address', None),
-            num_cpus=self.cluster_spec.get('num_cpus', None),
-            num_gpus=self.cluster_spec.get('num_gpus', None)
+            redis_address=self.executor_spec.get('redis_address', None),
+            num_cpus=self.executor_spec.get('num_cpus', None),
+            num_gpus=self.executor_spec.get('num_gpus', None)
         )
 
     def create_remote_workers(self, cls, num_actors, agent_config, *args):
