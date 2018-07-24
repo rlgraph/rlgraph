@@ -17,13 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
 import unittest
 
 from yarl.components.loss_functions import DQNLossFunction
 from yarl.spaces import *
 from yarl.tests import ComponentTest
-
-import numpy as np
 
 
 class TestDQNLossFunctions(unittest.TestCase):

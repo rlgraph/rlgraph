@@ -34,9 +34,9 @@ class LSTMLayer(NNLayer):
     a final internal state and a batch of output sequences.
     """
     def __init__(
-            self, units, use_peepholes=False, cell_clip=None, weights_spec=None, forget_bias=1.0,
+            self, units, use_peepholes=False, cell_clip=None, forget_bias=1.0,
             sequence_length=None, parallel_iterations=32, swap_memory=False, time_major=False,
-            dtype="float", **kwargs):
+            **kwargs):  # weights_spec=None, dtype="float"
         """
         Args:
             units (int): The number of units in the LSTM cell.
@@ -44,8 +44,8 @@ class LSTMLayer(NNLayer):
                 Default: False.
             cell_clip (Optional[float]): If provided, the cell state is clipped by this value prior to the cell
                 output activation. Default: None.
-            weights_spec: A specifier for the weight-matrices' initializers.
-                If None, use the default initializers.
+            # weights_spec: A specifier for the weight-matrices' initializers.
+            #    If None, use the default initializers.
             forget_bias (float): The forget gate bias to use. Default: 1.0.
             sequence_length (Optional[np.ndarray]): An int vector mapping each batch item to a sequence length
                 such that the remaining time slots for each batch item are filled with zeros.
@@ -57,7 +57,7 @@ class LSTMLayer(NNLayer):
                 Default: False.
             time_major (bool): Whether the time rank is the first rank (vs the batch rank).
                 Default: False.
-            dtype (str): The dtype of this LSTM. Default: "float".
+            # dtype (str): The dtype of this LSTM. Default: "float".
         """
         super(LSTMLayer, self).__init__(
             graph_fn_num_outputs=dict(_graph_fn_apply=3),  # LSTMs: unrolled output, final c_state, final h_state
@@ -67,15 +67,15 @@ class LSTMLayer(NNLayer):
         self.units = units
         self.use_peepholes = use_peepholes
         self.cell_clip = cell_clip
-        self.weights_spec = weights_spec
-        self.weights_init = None
+        # self.weights_spec = weights_spec
+        # self.weights_init = None
         self.forget_bias = forget_bias
 
         self.sequence_length = sequence_length
         self.parallel_iterations = parallel_iterations
         self.swap_memory = swap_memory
         self.time_major = time_major
-        self.dtype = utils.dtype(dtype)
+        # self.dtype = utils.dtype(dtype)
 
         self.lstm_cell = None
 
@@ -83,20 +83,21 @@ class LSTMLayer(NNLayer):
         in_space = input_spaces["apply"][0]
 
         # Create one weight matrix: [input nodes + internal state nodes, 4 (4 internal layers) * internal state nodes]
-        weights_shape = (in_space.shape[0] + self.units, 4 * self.units)  # [0]=one past batch rank
-        self.weights_init = Initializer.from_spec(shape=weights_shape, specification=self.weights_spec)
+        # weights_shape = (in_space.shape[0] + self.units, 4 * self.units)  # [0]=one past batch rank
+        # self.weights_init = Initializer.from_spec(shape=weights_shape, specification=self.weights_spec)
 
         # Wrapper for backend.
         if get_backend() == "tf":
-            self.lstm_cell = tf.nn.rnn_cell.LSTMCell(
+            self.lstm_cell = tf.contrib.rnn.LSTMBlockCell(  #tf.nn.rnn_cell.LSTMCell(
                 num_units=self.units,
-                use_peepholes=self.use_peepholes,
+                use_peephole=self.use_peepholes,
                 cell_clip=self.cell_clip,
-                initializer=self.weights_init.initializer,
                 forget_bias=self.forget_bias,
-                activation=get_activation_function(self.activation, *self.activation_params),
-                dtype=self.dtype,
                 name="lstm-cell"
+                # These are all not supported yet for LSTMBlockCell (only for the slower LSTMCell)
+                # initializer=self.weights_init.initializer,
+                # activation=get_activation_function(self.activation, *self.activation_params),
+                # dtype=self.dtype,
             )
 
             # Now build the layer so that its variables get created.
@@ -115,10 +116,12 @@ class LSTMLayer(NNLayer):
                 initial_states = None
             else:
                 initial_states = (initial_c_state, initial_h_state)
+
             lstm_out, lstm_state_tuple = tf.nn.dynamic_rnn(
                 cell=self.lstm_cell, inputs=input_, sequence_length=self.sequence_length, initial_state=initial_states,
                 parallel_iterations=self.parallel_iterations, swap_memory=self.swap_memory, time_major=self.time_major,
-                dtype=self.dtype
+                dtype="float" #self.dtype
             )
+
             # Returns: Unrolled-output (time series h-states), final c-state, final h-state.
             return lstm_out, lstm_state_tuple[0], lstm_state_tuple[1]

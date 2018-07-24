@@ -29,6 +29,10 @@ from yarl.execution.worker import Worker
 class SingleThreadedWorker(Worker):
 
     def __init__(self, **kwargs):
+        """
+        Keyword Args:
+            render (bool): Whether to render the environment after each action. Default: False.
+        """
         self.render = kwargs.pop("render", False)
 
         super(SingleThreadedWorker, self).__init__(**kwargs)
