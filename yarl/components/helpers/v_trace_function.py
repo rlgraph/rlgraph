@@ -17,10 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
-
+from yarl import get_backend
 from yarl.components import Component
 from yarl.spaces.space_utils import sanity_check_space
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class VTraceFunction(Component):
@@ -79,68 +81,72 @@ class VTraceFunction(Component):
         A=action Space
 
         Args:
-            log_rhos (DataOp): The log of the IS (importance sampling) weights:
-                log(target_policy(a) / behaviour_policy(a)). Log space is used for numerical stability.
+            log_rhos (DataOp): DataOp (time x batch x values) holding the log values of the IS
+                (importance sampling) weights: log(target_policy(a) / behaviour_policy(a)).
+                Log space is used for numerical stability (for the timesteps s=t to s=t+N-1).
             discounts (DataOp): DataOp (time x batch x values) holding the discounts collected when stepping
-                through the environment.
+                through the environment (for the timesteps s=t to s=t+N-1).
             rewards (DataOp): DataOp (time x batch x values) holding the rewards collected when stepping
-                through the environment.
-            values (DataOp): A float32 tensor of shape [T, B] with the value function estimates
-              wrt. the target policy.
-            bootstrapped_v: The last (bootstrapped) to use as a value function estimate after n time steps.
+                through the environment (for the timesteps s=t to s=t+N-1).
+            values (DataOp): DataOp (time x batch x values) holding the the value function estimates
+                wrt. the learner's policy (pi) (for the timesteps s=t to s=t+N-1).
+            bootstrapped_v: DataOp (batch x values) holding the last (bootstrapped) value estimate to use as a value
+                function estimate after n time steps (V(xs) for s=t+N).
 
         Returns:
             DataOpTuple:
                 v-trace values (vs) in time x batch dimensions used to train the value-function (baseline).
                 PG-advantage values in time x batch dimensions used for training via policy gradient with baseline.
         """
-        rhos = tf.exp(x=log_rhos)
-        if self.rho_bar is not None:
-            rho_t = tf.minimum(x=self.rho_bar, y=rhos)
-        else:
-            rho_t = rhos
+        if get_backend() == "tf":
+            rhos = tf.exp(x=log_rhos)
+            if self.rho_bar is not None:
+                rho_t = tf.minimum(x=self.rho_bar, y=rhos)
+            else:
+                rho_t = rhos
 
-        # Apply c-bar clipping to all rhos.
-        c_i = tf.minimum(x=self.c_bar, y=rhos)
-        # Build the vector of Vt from t+1 on until the bootstrapped value after n steps
-        # [v1, ..., v_t+1].
-        # This is the same vector as `values` except that it will be shifted by 1 timestep to the right.
-        values_t_plus_1 = tf.concat(values=[values[1:], tf.expand_dims(input=bootstrapped_v, axis=0)], axis=0)
-        # Calculate the temporal difference terms (delta-t-V in the paper).
-        dt_vs = rho_t * (rewards + discounts * values_t_plus_1 - values)
+            # Apply c-bar clipping to all rhos.
+            c_i = tf.minimum(x=self.c_bar, y=rhos)
 
-        # We are doing backwards computation, revert all vectors.
-        gamma_c_dtv_at_t = (tf.reverse(tensor=discounts, axis=[0]),
-                            tf.reverse(tensor=c_i, axis=[0]),
-                            tf.reverse(tensor=dt_vs, axis=[0]))
+            # This is the same vector as `values` except that it will be shifted by 1 timestep to the right and
+            # include - as the last item - the bootstrapped V value at s=t+N.
+            values_t_plus_1 = tf.concat(values=[values[1:], tf.expand_dims(input=bootstrapped_v, axis=0)], axis=0)
+            # Calculate the temporal difference terms (delta-t-V in the paper) for each s=t to s=t+N-1.
+            dt_vs = rho_t * (rewards + discounts * values_t_plus_1 - values)
 
-        # V-trace vs are calculated through a scan from the back to the beginning
-        # of the given trajectory.
-        def scan_func(acc, gamma_c_dtv_at_t_):
-            gamma_t, c_t, dt_v = gamma_c_dtv_at_t_
-            return dt_v + gamma_t * c_t * acc
+            # We are doing backwards computation, revert all vectors.
+            elements = (
+                tf.reverse(tensor=discounts, axis=[0]), tf.reverse(tensor=c_i, axis=[0]),
+                tf.reverse(tensor=dt_vs, axis=[0])
+            )
 
-        vs_minus_v_xs = tf.scan(
-            fn=scan_func,
-            elems=gamma_c_dtv_at_t,
-            initializer=tf.zeros_like(tensor=bootstrapped_v),
-            parallel_iterations=1,
-            back_prop=False
-        )
-        # Reverse the results back to original order.
-        vs_minus_v_xs = tf.reverse(tensor=vs_minus_v_xs, axis=[0])
+            # V-trace vs are calculated through a scan from the back to the beginning
+            # of the given trajectory.
+            def scan_func(accumulated, elements_):
+                gamma_t, c_t, dt_v = elements_
+                return dt_v + gamma_t * c_t * accumulated
 
-        # Add V(x_s) to get v_s.
-        vs = tf.add(x=vs_minus_v_xs, y=values)
+            vs_minus_v_xs = tf.scan(
+                fn=scan_func,
+                elems=elements,
+                initializer=tf.zeros_like(tensor=bootstrapped_v),
+                parallel_iterations=1,
+                back_prop=False
+            )
+            # Reverse the results back to original order.
+            vs_minus_v_xs = tf.reverse(tensor=vs_minus_v_xs, axis=[0])
 
-        # Advantage for policy gradient.
-        vs_t_plus_1 = tf.concat(values=[vs[1:], tf.expand_dims(input=bootstrapped_v, axis=0)], axis=0)
-        if self.rho_bar_pg is not None:
-            rho_t_pg = tf.minimum(x=self.rho_bar_pg, y=rhos)
-        else:
-            rho_t_pg = rhos
-        pg_advantages = rho_t_pg * (rewards + discounts * vs_t_plus_1 - values)
+            # Add V(x_s) to get v_s.
+            vs = tf.add(x=vs_minus_v_xs, y=values)
 
-        # Make sure no gradients backpropagated through the returned values.
-        return tf.stop_gradient(input=vs), tf.stop_gradient(input=pg_advantages)
+            # Advantage for policy gradient.
+            vs_t_plus_1 = tf.concat(values=[vs[1:], tf.expand_dims(input=bootstrapped_v, axis=0)], axis=0)
+            if self.rho_bar_pg is not None:
+                rho_t_pg = tf.minimum(x=self.rho_bar_pg, y=rhos)
+            else:
+                rho_t_pg = rhos
+            pg_advantages = rho_t_pg * (rewards + discounts * vs_t_plus_1 - values)
+
+            # Make sure no gradients back-propagated through the returned values.
+            return tf.stop_gradient(input=vs), tf.stop_gradient(input=pg_advantages)
 
