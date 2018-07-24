@@ -30,13 +30,12 @@ if get_distributed_backend() == "ray":
 @ray.remote
 class RayMemoryActor(RayActor):
     """
-    An in-memory prioritized replay worker
-    used to accelerate memory interaction in Ape-X.
+    An in-memory prioritized replay worker used to accelerate memory interaction in Ape-X.
     """
     def __init__(self, apex_replay_spec):
         """
         Args:
-            apex_replay_spec (dict): Specifies behaviour of this replay actor. Must contain key "memory spec".
+            apex_replay_spec (dict): Specifies behaviour of this replay actor. Must contain key "memory_spec".
         """
         # N.b. The memory spec contains type PrioritizedReplay because that is
         # used for the agent. We hence do not use from_spec but just read the relevant

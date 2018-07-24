@@ -80,6 +80,7 @@ class RayWorker(RayActor):
 
         # To continue running through multiple exec calls.
         self.last_state = self.environment.reset()
+        self.agent.reset()
 
         # Was the last state a terminal state so env should be reset in next call?
         self.last_terminal = False
@@ -138,10 +139,11 @@ class RayWorker(RayActor):
         terminals = []
 
         while timesteps_executed < num_timesteps:
-            # Reset env either if finished an episode in current loop or if last state
+            # Reset Env and Agent either if finished an episode in current loop or if last state
             # from previous execution was terminal.
             if self.last_terminal is True or episodes_executed > 0:
                 state = self.environment.reset()
+                self.agent.reset()
                 self.last_ep_reward = 0
                 # The reward accumulated over one episode.
                 episode_reward = 0

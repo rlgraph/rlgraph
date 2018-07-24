@@ -111,6 +111,13 @@ class DQNAgent(Agent):
                            loss_function, optimizer):
         super(DQNAgent, self).define_api_methods()
 
+        # Reset operation (resets preprocessor).
+        def reset_preprocessor(self_):
+            reset_op = self_.call(preprocessor.reset)
+            return reset_op
+
+        self.core_component.define_api_method("reset_preprocessor", reset_preprocessor)
+
         # State (from environment) to action.
         def get_preprocessed_state_and_action(self_, states, time_step, use_exploration=True):
             preprocessed_states = self_.call(preprocessor.preprocess, states)
@@ -301,6 +308,14 @@ class DQNAgent(Agent):
         # [1]=the loss (0=update noop)
         # [2]=loss per item for external update, records for update from memory
         return ret[1], ret[2]
+
+    def reset(self):
+        """
+        Resets our preprocessor, but only if it contains stateful PreprocessLayer Components (meaning
+        the PreprocessorStack has at least one variable defined).
+        """
+        if len(self.preprocessor.variables) > 0:
+            self.graph_executor.execute("reset_preprocessor")
 
     def __repr__(self):
         return "DQNAgent(doubleQ={} duelingQ={})".format(self.double_q, self.dueling_q)

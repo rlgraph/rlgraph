@@ -136,13 +136,14 @@ class SingleThreadedWorker(Worker):
 
         # Only run everything for at most num_timesteps (if defined).
         while not (0 < num_timesteps <= timesteps_executed):
-            # If we are in a second or later loop OR reset is True -> Reset the Env.
+            # If we are in a second or later loop OR reset is True -> Reset the Env and the Agent.
             if timesteps_executed != 0 or reset is True or self.episode_terminal is True:
                 self.episode_return = 0
                 self.episode_timesteps = 0
                 self.episode_terminal = False
                 self.episode_start = time.monotonic()
                 self.episode_state = self.environment.reset()
+                self.agent.reset()
             elif self.episode_state is None:
                 raise YARLError("Runner must be reset at the very beginning. Environment is in invalid state.")
 
@@ -186,9 +187,7 @@ class SingleThreadedWorker(Worker):
 
                 self.episode_state = next_state
 
-                loss = self.update_if_necessary()
-                #if loss is not None:
-                #    self.logger.info("LOSS: {}".format(loss))
+                self.update_if_necessary()
 
                 # Is the episode finished or do we have to terminate it prematurely because of other restrictions?
                 if self.episode_terminal or num_timesteps_reached or max_episode_timesteps_reached:

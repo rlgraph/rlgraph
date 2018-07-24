@@ -294,6 +294,13 @@ class Agent(Specifiable):
         """
         pass
 
+    def reset(self):
+        """
+        Must be implemented to define some reset behavior (before starting a new episode).
+        This could include resetting the preprocessor and other Components.
+        """
+        pass  # optional
+
     def call_graph_op(self, op, inputs=None):
         """
         Utility method to call any desired operation on the graph, identified via output socket.

@@ -69,6 +69,41 @@ class RayAgent(RayActor):
         # Agent must define op to return batches.
         return self.agent.call_graph_op(op="get_records")
 
+    def observe(self, states, actions, internals, reward, terminal):
+        """
+        Observes an experience tuple or a batch of experience tuples. Note: If configured,
+        first uses buffers and then internally calls _observe_graph() to actually run the computation graph.
+        If buffering is disabled, this just routes the call to the respective `_observe_graph()` method of the
+        child Agent.
+
+        Args:
+            states (Union[dict, ndarray]): States dict or array.
+            actions (Union[dict, ndarray]): Actions dict or array containing actions performed for the given state(s).
+            internals (Union[list, None]): Internal state(s) returned by agent for the given states.
+            reward (float): Scalar reward(s) observed.
+            terminal (bool): Boolean indicating terminal.
+        """
+        self.agent.observe(states, actions, internals, reward, terminal)
+
+    def update(self, batch=None):
+        """
+        Performs an update on the computation graph.
+
+        Args:
+            batch (Optional[dict]): Optional external data batch to use for update. If None, the
+                agent should be configured to sample internally.
+
+        Returns:
+            Loss value.
+        """
+        return self.agent.update(batch)
+
+    def reset(self):
+        """
+        Resets the wrapped Agent.
+        """
+        self.agent.reset()
+
     def call_graph_op(self, op, inputs=None):
         """
         Utility method to call any desired operation on the graph, identified via output socket.
@@ -99,31 +134,3 @@ class RayAgent(RayActor):
         """
         self.agent.set_policy_weights(weights=weights)
 
-    def observe(self, states, actions, internals, reward, terminal):
-        """
-        Observes an experience tuple or a batch of experience tuples. Note: If configured,
-        first uses buffers and then internally calls _observe_graph() to actually run the computation graph.
-        If buffering is disabled, this just routes the call to the respective `_observe_graph()` method of the
-        child Agent.
-
-        Args:
-            states (Union[dict, ndarray]): States dict or array.
-            actions (Union[dict, ndarray]): Actions dict or array containing actions performed for the given state(s).
-            internals (Union[list, None]): Internal state(s) returned by agent for the given states.
-            reward (float): Scalar reward(s) observed.
-            terminal (bool): Boolean indicating terminal.
-        """
-        self.agent.observe(states, actions, internals, reward, terminal)
-
-    def update(self, batch=None):
-        """
-        Performs an update on the computation graph.
-
-        Args:
-        batch (Optional[dict]): Optional external data batch to use for update. If None, the
-            agent should be configured to sample internally.
-
-        Returns:
-            Loss value.
-        """
-        self.agent.update(batch)
