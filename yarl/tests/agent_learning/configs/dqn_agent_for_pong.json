@@ -96,6 +96,7 @@
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0001
+    "learning_rate": 0.0001,
+    "clip_grad_norm": 20
   }
 }

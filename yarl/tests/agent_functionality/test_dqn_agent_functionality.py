@@ -105,7 +105,7 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         # Environment's new state.
         test.check_env("state", 0)
         # Agent's buffer.
-        test.check_agent("states_buffer", [0])  # <- prev state
+        test.check_agent("states_buffer", [[1.0, 0.0, 0.0, 0.0]])  # <- prev state (preprocessed)
         test.check_agent("actions_buffer", [a])
         test.check_agent("rewards_buffer", [-1.0])
         test.check_agent("terminals_buffer", [False])
@@ -145,20 +145,21 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_qnet)
 
         # 3rd and 4th step -> expect another insert into memory (and python buffer should be empty again).
-        # actions: up (0), right (1)  <- exploring is True = more random actions
+        # actions: down (2), up (0)  <- exploring is True = more random actions
         # Expect an update to the policy variables (leave target as is (no sync yet)).
         test.step(2, use_exploration=True)
-        test.check_env("state", 2)
+        test.check_env("state", 0)
         test.check_agent("states_buffer", [])
         test.check_agent("actions_buffer", [])
         test.check_agent("rewards_buffer", [])
         test.check_agent("terminals_buffer", [])
         test.check_var("replay-memory/index", 4)
         test.check_var("replay-memory/size", 4)
-        test.check_var("replay-memory/memory/states", np.array([[1.0, 0.0, 0.0, 0.0]] * 4 +
+        test.check_var("replay-memory/memory/states", np.array([[1.0, 0.0, 0.0, 0.0]] * 3 +
+                                                               [[0.0, 1.0, 0.0, 0.0]] +
                                                                [[0.0, 0.0, 0.0, 0.0]] * (agent.memory.capacity - 4)))
-        test.check_var("replay-memory/memory/actions", np.array([0, 0, 0, 1] + [0] * (agent.memory.capacity - 4)))
-        test.check_var("replay-memory/memory/rewards", np.array([-1.0] * 3 + [-3.0] +
+        test.check_var("replay-memory/memory/actions", np.array([0, 0, 2, 0] + [0] * (agent.memory.capacity - 4)))
+        test.check_var("replay-memory/memory/rewards", np.array([-1.0] * 4 +  # + [-3.0] +
                                                                 [0.0] * (agent.memory.capacity - 4)))
         test.check_var("replay-memory/memory/terminals", np.array([False, True] * 2 +
                                                                   [False] * (agent.memory.capacity - 4)))
