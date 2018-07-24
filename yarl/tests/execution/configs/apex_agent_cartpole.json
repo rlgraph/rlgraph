@@ -18,18 +18,18 @@
     "ray_spec": {
       "executor_spec": {
         "redis_address": null,
-        "num_cpus": 6,
+        "num_cpus": 1,
         "num_gpus": 0,
         "weight_sync_steps": 32,
         "replay_sampling_task_depth": 1,
         "env_interaction_task_depth": 1,
         "num_worker_samples": 50,
         "learn_queue_size": 1,
-        "num_sample_workers": 4,
+        "num_sample_workers": 1,
         "num_replay_workers": 1
       },
       "worker_spec": {
-        "n_step_adjustment": 3,
+        "n_step_adjustment": 1,
         "worker_computes_weights": true,
         "sample_exploration": true,
         "exploration_min_value": 0.5
@@ -39,8 +39,8 @@
           "capacity": 10000
         },
         "clip_rewards": true,
-        "min_sample_memory_size": 500,
-        "n_step_adjustment": 3
+        "min_sample_memory_size": 200,
+        "n_step_adjustment": 1
       }
     }
   },
@@ -73,6 +73,6 @@
   "optimizer_spec": {
     "type": "gradient_descent",
     "learning_rate": 0.001,
-    "clip_grad_norm": 20
+    "clip_grad_norm": 20.0
   }
 }

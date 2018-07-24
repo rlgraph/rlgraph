@@ -24,30 +24,24 @@ import unittest
 from yarl.execution.ray import ApexExecutor
 
 
-class TestApexExecutor(unittest.TestCase):
+class TestApexAgentLongTaskLearning(unittest.TestCase):
     """
-    Tests the ApexExecutor which provides an interface for distributing Apex-style workloads
-    via Ray.
+    Tests whether the Apex Agent can start learning in pong.
+
+    WARNING: This test requires large amounts of memory due to large buffer size.
     """
     env_spec = dict(
       type="openai",
-      gym_env="CartPole-v0"
+      gym_env="PongNoFrameskip-v4"
     )
 
-    def test_learning_cartpole(self):
+    def test_initial_training_pong(self):
         """
-        Tests if apex can learn a simple environment using a single worker, thus replicating
-        dqn.
+        Tests if apex can start learning pong effectively.
         """
-        path = os.path.join(os.getcwd(), "configs/apex_agent_cartpole.json")
+        path = os.path.join(os.getcwd(), "configs/apex_agent.json")
         with open(path, 'rt') as fp:
             agent_config = json.load(fp)
-
-        # Cartpole settings from cartpole dqn test.
-        agent_config.update(
-            update_spec=dict(update_interval=4, batch_size=24, sync_interval=64),
-            optimizer_spec=dict(learning_rate=0.0002, clip_grad_norm=40.0)
-        )
 
         executor = ApexExecutor(
             environment_spec=self.env_spec,
@@ -57,10 +51,6 @@ class TestApexExecutor(unittest.TestCase):
         print("Successfully created executor.")
 
         # Executes actual workload.
-        result = executor.execute_workload(workload=dict(num_timesteps=100000, report_interval=1000))
+        result = executor.execute_workload(workload=dict(num_timesteps=50000000, report_interval=10000))
         print("Finished executing workload:")
         print(result)
-
-    # TODO this is long running, move to long running tess?
-
-

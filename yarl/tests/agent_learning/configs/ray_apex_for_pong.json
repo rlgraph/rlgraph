@@ -1,0 +1,117 @@
+{
+  "type": "apex",
+  "discount": 0.99,
+  "memory_spec": {
+    "type": "replay",
+    "capacity": 2000000
+  },
+  "preprocessing_spec": [
+    {
+      "type": "image_resize",
+      "width": 84,
+      "height": 84
+    },
+    {
+      "type": "grayscale",
+      "keep_rank": true
+    },
+    {
+      "type": "divide",
+      "divisor": 255
+    },
+    {
+      "type": "sequence",
+      "length": 4,
+      "add_rank": false
+    }
+  ],
+  "network_spec": [
+    {
+      "type": "conv2d",
+      "filters": 16,
+      "kernel_size": 8,
+      "strides": 4,
+      "activation": "relu",
+      "scope": "conv1"
+    },
+    {
+      "type": "conv2d",
+      "filters": 32,
+      "kernel_size": 4,
+      "strides": 2,
+      "activation": "relu",
+      "scope": "conv2"
+    },
+    {
+      "type": "conv2d",
+      "filters": 512,
+      "kernel_size": 10,
+      "strides": 1,
+      "activation": "relu",
+      "scope": "conv3"
+    },
+    {
+      "type": "flatten"
+    },
+    {
+      "type": "dense",
+      "units": 256,
+      "activation": "relu"
+    }
+  ],
+  "exploration_spec": {
+    "non_explore_behavior": "max-likelihood",
+    "epsilon_spec": {
+      "decay_spec": {
+        "type": "linear_decay",
+        "from": 1.0,
+        "to": 0.1,
+        "start_timestep": 50000,
+        "num_timesteps": 1000000
+      }
+    },
+    "ray_spec": {
+      "executor_spec": {
+        "redis_address": null,
+        "num_cpus": 18,
+        "num_gpus": 0,
+        "weight_sync_steps": 400,
+        "replay_sampling_task_depth": 2,
+        "env_interaction_task_depth": 4,
+        "num_worker_samples": 50,
+        "learn_queue_size": 16,
+        "num_sample_workers": 16,
+        "num_replay_workers": 1
+      },
+      "worker_spec": {
+        "frame_skip": 4,
+        "n_step_adjustment": 3,
+        "worker_computes_weights": true,
+        "sample_exploration": true,
+        "exploration_min_value": 0.5
+      },
+      "apex_replay_spec": {
+        "memory_spec": {
+          "capacity": 2000000
+        },
+        "clip_rewards": true,
+        "min_sample_memory_size": 50000,
+        "n_step_adjustment": 3
+      }
+    }
+  },
+  "observe_spec": {
+    "buffer_size": 3000
+  },
+  "update_spec": {
+    "do_updates": true,
+    "update_interval": 4,
+    "steps_before_update": 50000,
+    "batch_size": 512,
+    "synch_interval": 500000
+  },
+  "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.0001
+  }
+}
