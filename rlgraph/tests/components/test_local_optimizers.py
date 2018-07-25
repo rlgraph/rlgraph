@@ -38,7 +38,7 @@ class TestLocalOptimizers(unittest.TestCase):
     def test_calculate_gradients(self):
         x = tf.Variable(2, name='x', dtype=tf.float32)
         log_x = tf.log(x)
-        loss = tf.square(log_x)
+        loss = tf.square(x=log_x)
 
         grads_and_vars = self.optimizer._graph_fn_calculate_gradients(variables=[x], loss=loss)
         print(grads_and_vars)
@@ -46,7 +46,7 @@ class TestLocalOptimizers(unittest.TestCase):
     def test_apply_gradients(self):
         x = tf.Variable(2, name='x', dtype=tf.float32)
         log_x = tf.log(x)
-        loss = tf.square(log_x)
+        loss = tf.square(x=log_x)
 
         grads_and_vars = self.optimizer._graph_fn_calculate_gradients(variables=[x], loss=loss)
         step = self.optimizer._graph_fn_apply_gradients(grads_and_vars)

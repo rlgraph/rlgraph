@@ -169,7 +169,7 @@ class DQNLossFunction(LossFunction):
                 else:
                     td_delta = tf.reduce_mean(input_tensor=td_delta, axis=list(range(1, self.ranks_to_reduce + 1)))
 
-            return tf.pow(x=td_delta, y=2)
+            return tf.square(x=td_delta)
 
     def _apply_huber_loss_if_necessary(self, td_delta):
         if self.huber_loss:

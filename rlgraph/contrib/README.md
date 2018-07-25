@@ -31,8 +31,7 @@ full path must be:
 `contrib/my_project/rlgraph/components/filters/my_filter.py`.
 
 
-Have fun RLGraphing :)
-Thank you for your contributions to this library!
+Have fun RLGraph-ing :)
 
-
+And thank you for your contributions to this library!
 
