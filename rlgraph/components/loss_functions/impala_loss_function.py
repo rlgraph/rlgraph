@@ -30,10 +30,10 @@ class IMPALALossFunction(LossFunction):
     The IMPALA loss function based on v-trace off-policy policy gradient corrections, described in detail in [1].
     The three terms of the loss function are:
     1) The policy gradient term:
-        L[pg] = rho_pg * nabla log(pi(a|s)) * Advantage
+        L[pg] = (rho_pg * advantages) * nabla log(pi(a|s)), where (rho_pg * advantages)=pg_advantages in code below.
     2) The value-function baseline term:
-        L[V] = 0.5 (vs - V(xs))^2 -> so that dL/dtheta = (vs - V(xs)) nabla V(xs)
-    3) The entropy regulariser term:
+        L[V] = 0.5 (vs - V(xs))^2, such that dL/dtheta = (vs - V(xs)) nabla V(xs)
+    3) The entropy regularizer term:
         L[E] = - SUM[all actions a] pi(a|s) * log pi(a|s)
 
     [1] IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures - Espeholt, Soyer,
@@ -82,7 +82,8 @@ class IMPALALossFunction(LossFunction):
 
         if get_backend() == "tf":
             # The policy gradient loss.
-            loss_pg = pg_advantages * tf.log(action_probs)  # TODO: get the probs only of the actions taken
+            TODO: get the probs only of the actions taken
+            loss_pg = pg_advantages * tf.log(action_probs)
 
             # The value-function baseline loss.
             loss_baseline = 0.5 * tf.square(x=tf.subtract(vs, values))
