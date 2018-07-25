@@ -1,4 +1,4 @@
-# Copyright 2018 The RLGraph-Project, All Rights Reserved.
+# Copyright 2018 The RLgraph authors, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ setup(
     version=version_vars['__version__'],
     description='A Framework for Flexible Deep Reinforcement Learning Graphs',
     url='https://rlgraph.org',
-    author='rlgraph',
+    author='The RLgraph development team',
     author_email='rlgraph@rlgraph.org',
     license='Apache 2.0',
     packages=[package for package in find_packages() if package.startswith('rlgraph')],
