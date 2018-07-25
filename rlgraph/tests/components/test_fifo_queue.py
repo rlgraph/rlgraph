@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,10 +22,10 @@ import threading
 import time
 import unittest
 
-from yarl.components.memories.fifo_queue import FIFOQueue
-from yarl.spaces import Dict, BoolBox, Tuple
-from yarl.tests import ComponentTest
-from yarl.utils.ops import flatten_op, unflatten_op
+from rlgraph.components.memories.fifo_queue import FIFOQueue
+from rlgraph.spaces import Dict, BoolBox, Tuple
+from rlgraph.tests import ComponentTest
+from rlgraph.utils.ops import flatten_op, unflatten_op
 
 
 class TestFIFOQueue(unittest.TestCase):

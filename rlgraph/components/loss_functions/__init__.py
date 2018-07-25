@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.loss_functions.loss_function import LossFunction
-from yarl.components.loss_functions.dqn_loss_function import DQNLossFunction
-from yarl.components.loss_functions.ppo_loss_function import PPOLossFunction
+from rlgraph.components.loss_functions.loss_function import LossFunction
+from rlgraph.components.loss_functions.dqn_loss_function import DQNLossFunction
+from rlgraph.components.loss_functions.ppo_loss_function import PPOLossFunction
 
 LossFunction.__lookup_classes__ = dict(
     dqnlossfunction=DQNLossFunction,

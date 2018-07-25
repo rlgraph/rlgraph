@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ from __future__ import print_function
 
 import re
 
-from yarl.components import Component
-from yarl.spaces import ContainerSpace
-from yarl.utils.ops import DataOpDict
+from rlgraph.components import Component
+from rlgraph.spaces import ContainerSpace
+from rlgraph.utils.ops import DataOpDict
 
 
 class Merger(Component):

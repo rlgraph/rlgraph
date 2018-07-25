@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import get_backend
-from yarl.components.optimizers.optimizer import Optimizer
+from rlgraph import get_backend
+from rlgraph.components.optimizers.optimizer import Optimizer
 
 
 if get_backend() == "tf":
@@ -132,7 +132,7 @@ class MultiGpuSyncOptimizer(Optimizer):
         """
         Utility to average gradients across replicas.
 
-        Note: ported from Ray RLLib to demonstrate the different modularization in YARL.
+        Note: ported from Ray RLLib to demonstrate the different modularization in RLGraph.
 
         Args:
             gpu_gradients (list): List grads_and_vars lists.

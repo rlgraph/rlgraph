@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import YARLError, get_backend
-from yarl.utils.ops import DataOpDict
-from yarl.utils.util import get_shape
-from yarl.components import Component
+from rlgraph import RLGraphError, get_backend
+from rlgraph.utils.ops import DataOpDict
+from rlgraph.utils.util import get_shape
+from rlgraph.components import Component
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -66,15 +66,15 @@ class Synchronizable(Component):
         # Sanity checking
         syncs_from, syncs_to = (sorted(values_.items()), sorted(parents_vars.items()))
         if len(syncs_from) != len(syncs_to):
-            raise YARLError("ERROR: Number of Variables to sync must match! "
+            raise RLGraphError("ERROR: Number of Variables to sync must match! "
                             "We have {} syncs_from and {} syncs_to.".format(len(syncs_from), len(syncs_to)))
         for (key_from, var_from), (key_to, var_to) in zip(syncs_from, syncs_to):
             # Sanity checking. TODO: Check the names' ends? Without the global scope?
             #if key_from != key_to:
-            #    raise YARLError("ERROR: Variable names for syncing must match in order and name! "
+            #    raise RLGraphError("ERROR: Variable names for syncing must match in order and name! "
             #                    "Mismatch at from={} and to={}.".format(key_from, key_to))
             if get_shape(var_from) != get_shape(var_to):
-                raise YARLError("ERROR: Variable shapes for syncing must match! "
+                raise RLGraphError("ERROR: Variable shapes for syncing must match! "
                                 "Shape mismatch between from={} ({}) and to={} ({}).".
                                 format(key_from, get_shape(var_from), key_to, get_shape(var_to)))
             syncs.append(self.assign_variable(var_to, var_from))

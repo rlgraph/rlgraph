@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import Specifiable, get_backend
-from yarl.graphs.graph_executor import GraphExecutor
-from yarl.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec,\
+from rlgraph import Specifiable, get_backend
+from rlgraph.graphs.graph_executor import GraphExecutor
+from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec,\
     get_optimizer_from_device_strategy
-from yarl.components import Component, Exploration, PreprocessorStack, NeuralNetwork, Synchronizable, Policy
-from yarl.graphs import GraphBuilder
-from yarl.spaces import Space
+from rlgraph.components import Component, Exploration, PreprocessorStack, NeuralNetwork, Synchronizable, Policy
+from rlgraph.graphs import GraphBuilder
+from rlgraph.spaces import Space
 
 import numpy as np
 import logging
@@ -31,7 +31,7 @@ import logging
 
 class Agent(Specifiable):
     """
-    Generic agent defining YARL-API operations and parses and sanitizes configuration specs.
+    Generic agent defining RLGraph-API operations and parses and sanitizes configuration specs.
     """
     def __init__(
         self,
@@ -178,7 +178,7 @@ class Agent(Specifiable):
 
     def build_graph(self, input_spaces, *args):
         """
-        Asks our GraphExecutor to actually build the Graph from the YARL meta-graph.
+        Asks our GraphExecutor to actually build the Graph from the RLGraph meta-graph.
         """
         self.graph_executor.build(input_spaces, *args)
 
@@ -304,10 +304,10 @@ class Agent(Specifiable):
     def call_graph_op(self, op, inputs=None):
         """
         Utility method to call any desired operation on the graph, identified via output socket.
-        Delegate this call to the YARL graph executor.
+        Delegate this call to the RLGraph graph executor.
 
         Args:
-            op (str): Name of the op, i.e. the name of its output socket on the YARL metagraph.
+            op (str): Name of the op, i.e. the name of its output socket on the RLGraph metagraph.
             inputs (Optional[dict,np.array]): Dict specifying the provided api_methods for some in-Sockets (key=in-Socket name,
                 values=the values that should go into this Socket (e.g. numpy arrays)).
                 Depending on these given api_methods, the correct backend-ops can be selected within the given out-Sockets.

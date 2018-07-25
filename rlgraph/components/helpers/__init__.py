@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.helpers.v_trace_function import VTraceFunction
+from rlgraph.components.helpers.v_trace_function import VTraceFunction
 
 VTraceFunction.__lookup_classes__ = dict(
     vtrace=VTraceFunction,

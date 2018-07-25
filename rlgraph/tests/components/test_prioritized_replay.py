@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@ from __future__ import print_function
 import unittest
 import numpy as np
 
-from yarl.components.memories import PrioritizedReplay
-from yarl.spaces import Dict, IntBox, BoolBox, FloatBox
-from yarl.tests import ComponentTest
-from yarl.tests.test_util import non_terminal_records
+from rlgraph.components.memories import PrioritizedReplay
+from rlgraph.spaces import Dict, IntBox, BoolBox, FloatBox
+from rlgraph.tests import ComponentTest
+from rlgraph.tests.test_util import non_terminal_records
 
 
 class TestPrioritizedReplay(unittest.TestCase):

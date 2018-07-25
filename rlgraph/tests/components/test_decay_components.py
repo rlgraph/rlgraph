@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,14 +20,14 @@ from __future__ import print_function
 import unittest
 import numpy as np
 
-from yarl.components.common.decay_components import *
-from yarl.spaces import *
-from yarl.tests import ComponentTest
+from rlgraph.components.common.decay_components import *
+from rlgraph.spaces import *
+from rlgraph.tests import ComponentTest
 
 
 class TestDecayComponents(unittest.TestCase):
     """
-    Tests YARL's decay components.
+    Tests RLGraph's decay components.
     """
 
     # Decaying a value always without batch dimension (does not make sense for global time step).

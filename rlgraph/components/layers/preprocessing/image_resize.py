@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import get_backend
-from yarl.utils.ops import flatten_op, unflatten_op
-from yarl.components.layers.preprocessing import PreprocessLayer
+from rlgraph import get_backend
+from rlgraph.utils.ops import flatten_op, unflatten_op
+from rlgraph.components.layers.preprocessing import PreprocessLayer
 
 
 if get_backend() == "tf":

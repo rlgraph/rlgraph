@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@ from __future__ import print_function
 import unittest
 import numpy as np
 
-from yarl.components.layers import Stack
-from yarl.tests.dummy_components import Dummy1To1, Dummy2To1, Dummy1To2
-from yarl.spaces import FloatBox, IntBox
-from yarl.tests import ComponentTest
+from rlgraph.components.layers import Stack
+from rlgraph.tests.dummy_components import Dummy1To1, Dummy2To1, Dummy1To2
+from rlgraph.spaces import FloatBox, IntBox
+from rlgraph.tests import ComponentTest
 
 
 class TestStack(unittest.TestCase):

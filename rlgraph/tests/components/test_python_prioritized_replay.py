@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@ from __future__ import print_function
 import unittest
 import numpy as np
 from six.moves import xrange as range_
-from yarl.components.memories.mem_prioritized_replay import MemPrioritizedReplay
-from yarl.execution.ray.apex.apex_memory import ApexMemory
-from yarl.execution.ray.ray_util import ray_compress
-from yarl.spaces import Dict, IntBox, BoolBox, FloatBox
+from rlgraph.components.memories.mem_prioritized_replay import MemPrioritizedReplay
+from rlgraph.execution.ray.apex.apex_memory import ApexMemory
+from rlgraph.execution.ray.ray_util import ray_compress
+from rlgraph.spaces import Dict, IntBox, BoolBox, FloatBox
 
 
 class TestPythonPrioritizedReplay(unittest.TestCase):

@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import get_backend
-from yarl.components import Component, DecayComponent, PolynomialDecay, Bernoulli
-from yarl.components.distributions import Bernoulli
+from rlgraph import get_backend
+from rlgraph.components import Component, DecayComponent, PolynomialDecay, Bernoulli
+from rlgraph.components.distributions import Bernoulli
 
 if get_backend() == "tf":
     import tensorflow as tf

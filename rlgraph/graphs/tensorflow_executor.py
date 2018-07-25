@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,11 +21,11 @@ import os
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
-from yarl import YARLError
-from yarl.components import MultiGpuSyncOptimizer
-from yarl.graphs.graph_executor import GraphExecutor
-from yarl.backend_system import get_distributed_backend
-import yarl.utils as util
+from rlgraph import RLGraphError
+from rlgraph.components import MultiGpuSyncOptimizer
+from rlgraph.graphs.graph_executor import GraphExecutor
+from rlgraph.backend_system import get_distributed_backend
+import rlgraph.utils as util
 
 
 class TensorFlowExecutor(GraphExecutor):
@@ -138,7 +138,7 @@ class TensorFlowExecutor(GraphExecutor):
                 self.default_device = default_device
                 # Sanity check, whether given default device exists.
                 if self.default_device not in self.available_devices:
-                    raise YARLError("Provided `default_device` ('{}') is not in `available_devices` ({})".
+                    raise RLGraphError("Provided `default_device` ('{}') is not in `available_devices` ({})".
                                     format(self.default_device, self.available_devices))
             self.device_map = dict()
             # Clean up device map so it only contains devices that are actually available (otherwise,
@@ -149,7 +149,7 @@ class TensorFlowExecutor(GraphExecutor):
             self.logger.info("Initializing graph executor with custom device strategy (default device: {}).".
                              format(self.default_device))
         else:
-            raise YARLError("Invalid device_strategy ('{}') for GraphExecutor!".format(self.device_strategy))
+            raise RLGraphError("Invalid device_strategy ('{}') for GraphExecutor!".format(self.device_strategy))
 
     def build(self, input_spaces, optimizer=None):
         # Prepare for graph assembly.
@@ -549,7 +549,7 @@ class TensorFlowExecutor(GraphExecutor):
         may be required to split up incoming data, load it to device memories, and aggregate
         results.
 
-        In YARL, graph building and execution are separated so different device strategies can be
+        In RLGraph, graph building and execution are separated so different device strategies can be
         plugged into single agent definitions. For example, one agent may use a single cpu or GPU,
         a local multi-gpu strategy and combine this with distributed sample collection via distributed
         TensorFlow or Ray.

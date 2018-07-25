@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.utils.yarl_error import YARLError
+from rlgraph.utils.rlgraph_error import RLGraphError
 
 # Default backend ('tf' for tensorflow or 'pt' for PyTorch)
 BACKEND = "tf"
@@ -72,7 +72,7 @@ def set_distributed_backend(_distributed_backend):
         distributed_backend = _distributed_backend
         # Distributed backend must be compatible with backend.
         if distributed_backend not in distributed_compatible_backends[backend]:
-           raise YARLError("Distributed backend {} not compatible with backend {}. Compatible backends"
+           raise RLGraphError("Distributed backend {} not compatible with backend {}. Compatible backends"
                            "are: {}".format(distributed_backend, backend, distributed_compatible_backends[backend]))
 
         if distributed_backend == 'distributed_tf':
@@ -80,26 +80,26 @@ def set_distributed_backend(_distributed_backend):
             try:
                 import tensorflow
             except ModuleNotFoundError as e:
-                raise YARLError("INIT ERROR: Cannot run distributed_tf without backend (tensorflow)! "
+                raise RLGraphError("INIT ERROR: Cannot run distributed_tf without backend (tensorflow)! "
                                 "Please install tensorflow first via `pip install tensorflow` or "
                                 "`pip install tensorflow-gpu`.")
         elif distributed_backend == "horovod":
             try:
                 import horovod
             except ModuleNotFoundError as e:
-                raise YARLError("INIT ERROR: Cannot run YARL with distributed backend Horovod.")
+                raise RLGraphError("INIT ERROR: Cannot run RLGraph with distributed backend Horovod.")
         elif distributed_backend == "ray":
             try:
                 import ray
             except ModuleNotFoundError as e:
-                raise YARLError("INIT ERROR: Cannot run YARL with distributed backend Ray.")
+                raise RLGraphError("INIT ERROR: Cannot run RLGraph with distributed backend Ray.")
         else:
-            raise YARLError("Distributed backend {} not supported".format(distributed_backend))
+            raise RLGraphError("Distributed backend {} not supported".format(distributed_backend))
 
 
 def set_backend(backend_):
     """
-    Gets or sets the computation backend for YARL.
+    Gets or sets the computation backend for RLGraph.
 
     Args:
         backend_ (str): So far, only 'tf' supported.
@@ -113,20 +113,20 @@ def set_backend(backend_):
             try:
                 import tensorflow as tf
             except ModuleNotFoundError as e:
-                raise YARLError("INIT ERROR: Cannot run YARL without backend (tensorflow)! "
+                raise RLGraphError("INIT ERROR: Cannot run RLGraph without backend (tensorflow)! "
                                 "Please install tensorflow first via `pip install tensorflow` or "
                                 "`pip install tensorflow-gpu`.")
         # TODO: remove once pytorch done.
         elif backend == "pt":
-            raise YARLError("INIT ERROR: Backend 'PyTorch' not supported in YARL prototype. Use 'tf' instead.")
+            raise RLGraphError("INIT ERROR: Backend 'PyTorch' not supported in RLGraph prototype. Use 'tf' instead.")
         else:
-            raise YARLError("INIT ERROR: Backend '{}' not supported! Use 'tf' for tensorflow or 'pt' for PyTorch.")
+            raise RLGraphError("INIT ERROR: Backend '{}' not supported! Use 'tf' for tensorflow or 'pt' for PyTorch.")
 
         # Test for tf-eager support.
         if backend == "tf-eager":
             try:
                 tf.enable_eager_execution()
             except AttributeError as e:
-                raise YARLError("INIT ERROR: Cannot run YARL in backend 'tf-eager'! "
+                raise RLGraphError("INIT ERROR: Cannot run RLGraph in backend 'tf-eager'! "
                                 "Your version of tf ({}) does not support eager execution. Update with "
                                 "`pip install --upgrade tensorflow`.".format(tf.__version__))

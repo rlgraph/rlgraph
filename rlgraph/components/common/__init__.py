@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.common.splitter import Splitter
-from yarl.components.common.merger import Merger
-from yarl.components.common.synchronizable import Synchronizable
-from yarl.components.common.decay_components import *
-from yarl.components.common.noise_components import *
-from yarl.components.common.fixed_loop import FixedLoop
-from yarl.components.common.sampler import Sampler
+from rlgraph.components.common.splitter import Splitter
+from rlgraph.components.common.merger import Merger
+from rlgraph.components.common.synchronizable import Synchronizable
+from rlgraph.components.common.decay_components import *
+from rlgraph.components.common.noise_components import *
+from rlgraph.components.common.fixed_loop import FixedLoop
+from rlgraph.components.common.sampler import Sampler
 
 
 DecayComponent.__lookup_classes__ = dict(

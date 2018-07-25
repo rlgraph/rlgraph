@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ from __future__ import print_function
 
 import logging
 
-from yarl import Specifiable
-from yarl.utils.input_parsing import parse_saver_spec, parse_execution_spec
+from rlgraph import Specifiable
+from rlgraph.utils.input_parsing import parse_saver_spec, parse_execution_spec
 
 
 class GraphExecutor(Specifiable):
@@ -38,7 +38,7 @@ class GraphExecutor(Specifiable):
         """
         Abstract graph executor.
         Args:
-            graph_builder (GraphBuilder): A graph builder which manages the YARL metagraph.
+            graph_builder (GraphBuilder): A graph builder which manages the RLGraph metagraph.
             saver_spec (dict): The saver specification for saving this graph to disk.
             execution_spec (dict): The specification dict for the execution types (local vs distributed, etc..) and
                 settings (cluster types, etc..).

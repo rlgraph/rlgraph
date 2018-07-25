@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ from __future__ import print_function
 
 import numpy as np
 
-from yarl.utils.util import dtype
-from yarl.spaces.box_space import BoxSpace
+from rlgraph.utils.util import dtype
+from rlgraph.spaces.box_space import BoxSpace
 
 
 class BoolBox(BoxSpace):

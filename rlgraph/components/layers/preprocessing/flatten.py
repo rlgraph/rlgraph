@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ from __future__ import print_function
 
 import numpy as np
 
-from yarl import YARLError, get_backend
-from yarl.spaces import IntBox, FloatBox
-from yarl.components.layers.preprocessing import PreprocessLayer
-from yarl.utils.ops import flatten_op, unflatten_op
+from rlgraph import RLGraphError, get_backend
+from rlgraph.spaces import IntBox, FloatBox
+from rlgraph.components.layers.preprocessing import PreprocessLayer
+from rlgraph.utils.ops import flatten_op, unflatten_op
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -75,7 +75,7 @@ class Flatten(PreprocessLayer):
                 if isinstance(space, IntBox):
                     # Must have global bounds (bounds valid for all axes).
                     if space.num_categories is False:
-                        raise YARLError("ERROR: Cannot flatten categories if one of the IntBox spaces ({}={}) does not "
+                        raise RLGraphError("ERROR: Cannot flatten categories if one of the IntBox spaces ({}={}) does not "
                                         "have global bounds (its `num_categories` is False)!".format(key, space))
                     return space.num_categories
                 # No categories. Keep as is.
@@ -84,7 +84,7 @@ class Flatten(PreprocessLayer):
 
     def _graph_fn_apply(self, key, input_):
         if self.backend == "python" or get_backend() == "python":
-            from yarl.utils.numpy import one_hot
+            from rlgraph.utils.numpy import one_hot
 
             # Create a one-hot axis for the categories at the end?
             if self.num_categories[key] > 1:

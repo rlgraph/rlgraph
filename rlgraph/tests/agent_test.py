@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.utils import root_logger
-from yarl.tests.test_util import recursive_assert_almost_equal
-from yarl.execution.worker import Worker
+from rlgraph.utils import root_logger
+from rlgraph.tests.test_util import recursive_assert_almost_equal
+from rlgraph.execution.worker import Worker
 
 
 class AgentTest(object):
@@ -32,7 +32,7 @@ class AgentTest(object):
             worker (Worker): The Worker (holding the Env and Agent) to use for stepping.
             #seed (Optional[int]): The seed to use for random-seeding the Model object.
             #    If None, do not seed the Graph (things may behave non-deterministically).
-            logging_level (Optional[int]): When provided, sets YARL's root_logger's logging level to this value.
+            logging_level (Optional[int]): When provided, sets RLGraph's root_logger's logging level to this value.
             enable_profiler (Optional(bool)): When enabled, activates backend profiling.
         """
         self.worker = worker

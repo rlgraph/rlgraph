@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,10 +22,10 @@ import os
 import unittest
 from time import sleep
 
-from yarl import get_distributed_backend, spaces
-from yarl.agents import Agent
-from yarl.environments import RandomEnv
-from yarl.execution.ray import RayWorker
+from rlgraph import get_distributed_backend, spaces
+from rlgraph.agents import Agent
+from rlgraph.environments import RandomEnv
+from rlgraph.execution.ray import RayWorker
 
 if get_distributed_backend() == "ray":
     import ray

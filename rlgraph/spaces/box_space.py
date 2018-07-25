@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ from cached_property import cached_property
 import numpy as np
 import re
 
-from yarl import get_backend, YARLError
-import yarl.utils.util as util
-from yarl.utils.initializer import Initializer
-from yarl.spaces.space import Space
+from rlgraph import get_backend, RLGraphError
+import rlgraph.utils.util as util
+from rlgraph.utils.initializer import Initializer
+from rlgraph.spaces.space import Space
 
 
 class BoxSpace(Space):
@@ -157,12 +157,12 @@ class BoxSpace(Space):
                 # Bools should be initializable via 0 or not 0.
                 if self.dtype == "bool" and isinstance(init_spec, (int, float)):
                     init_spec = (init_spec != 0)
-                yarl_initializer = Initializer.from_spec(shape=shape, specification=init_spec)
+                rlgraph_initializer = Initializer.from_spec(shape=shape, specification=init_spec)
                 return tf.get_variable(name, shape=shape, dtype=util.dtype(self.dtype),
-                                       initializer=yarl_initializer.initializer,
+                                       initializer=rlgraph_initializer.initializer,
                                        **kwargs)
         else:
-            raise YARLError("ERROR: Pytorch not supported yet!")
+            raise RLGraphError("ERROR: Pytorch not supported yet!")
 
     def __repr__(self):
         return "{}({}{}{})".format(type(self).__name__.title(), self.shape, "; +batch" if self.has_batch_rank else "",

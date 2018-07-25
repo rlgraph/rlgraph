@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,12 +21,12 @@ from six.moves import xrange as range_
 import numpy as np
 import time
 
-from yarl import SMALL_NUMBER
-from yarl.backend_system import get_distributed_backend
-from yarl.execution.environment_sample import EnvironmentSample
-from yarl.execution.ray import RayExecutor
-from yarl.execution.ray.ray_actor import RayActor
-from yarl.execution.ray.ray_util import ray_compress
+from rlgraph import SMALL_NUMBER
+from rlgraph.backend_system import get_distributed_backend
+from rlgraph.execution.environment_sample import EnvironmentSample
+from rlgraph.execution.ray import RayExecutor
+from rlgraph.execution.ray.ray_actor import RayActor
+from rlgraph.execution.ray.ray_util import ray_compress
 
 if get_distributed_backend() == "ray":
     import ray

@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ import unittest
 import numpy as np
 from six.moves import xrange as range_
 
-from yarl.components import Component
-from yarl.components.layers.preprocessing import Flatten
-from yarl.spaces import FloatBox
-from yarl.tests import ComponentTest
+from rlgraph.components import Component
+from rlgraph.components.layers.preprocessing import Flatten
+from rlgraph.spaces import FloatBox
+from rlgraph.tests import ComponentTest
 
 
 class TestComponentCopy(unittest.TestCase):

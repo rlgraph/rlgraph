@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ from collections import OrderedDict
 import numpy as np
 import re
 
-from yarl.utils.yarl_error import YARLError
+from rlgraph.utils.rlgraph_error import RLGraphError
 
 # Defines how to generate auto-keys for flattened Tuple-Space items.
 # _T\d+_
@@ -244,7 +244,7 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
                 If no FlattenedDataOp is in ops, returns ops as-is.
 
         Raises:
-            YARLError: If there are more than 1 flattened ops in ops and their keys don't match 100%.
+            RLGraphError: If there are more than 1 flattened ops in ops and their keys don't match 100%.
         """
         assert all(op is not None for op in ops)  # just make sure
 
@@ -258,7 +258,7 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
                 for key, value in flattened[0]:
                     k_other, v_other = next(iter_)
                     if key != k_other:  # or get_shape(v_other) != get_shape(value):
-                        raise YARLError("ERROR: Flattened ops have a key mismatch ({} vs {})!".format(key, k_other))
+                        raise RLGraphError("ERROR: Flattened ops have a key mismatch ({} vs {})!".format(key, k_other))
 
         # We have one or many (matching) ContainerDataOps: Split the calls.
         if len(flattened) > 0:

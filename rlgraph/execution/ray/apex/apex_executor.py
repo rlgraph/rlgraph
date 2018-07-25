@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,15 +18,15 @@ from __future__ import division
 from __future__ import print_function
 
 from six.moves import queue
-from yarl import get_distributed_backend
-from yarl.agents import Agent
-from yarl.execution.ray import RayWorker
-from yarl.execution.ray.apex.ray_memory_actor import RayMemoryActor
-from yarl.execution.ray.ray_executor import RayExecutor
+from rlgraph import get_distributed_backend
+from rlgraph.agents import Agent
+from rlgraph.execution.ray import RayWorker
+from rlgraph.execution.ray.apex.ray_memory_actor import RayMemoryActor
+from rlgraph.execution.ray.ray_executor import RayExecutor
 import random
 from threading import Thread
 
-from yarl.execution.ray.ray_util import create_colocated_ray_actors, RayTaskPool
+from rlgraph.execution.ray.ray_util import create_colocated_ray_actors, RayTaskPool
 
 if get_distributed_backend() == "ray":
     import ray
@@ -221,10 +221,10 @@ class UpdateWorker(Thread):
 
     def __init__(self, agent, input_queue, output_queue):
         """
-        Initializes the worker with a YARL agent and queues for
+        Initializes the worker with a RLGraph agent and queues for
 
         Args:
-            agent (Agent): YARL agent used to execute local updates.
+            agent (Agent): RLGraph agent used to execute local updates.
             input_queue (queue.Queue): Input queue the worker will use to poll samples.
             output_queue (queue.Queue): Output queue the worker will use to push results of local
                 update computations.

@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import get_backend, YARLError
-from yarl.utils.util import dtype
-from yarl.components import Component
-from yarl.spaces import IntBox, FloatBox
-from yarl.spaces.space_utils import sanity_check_space
-from yarl.components.explorations.epsilon_exploration import EpsilonExploration
-from yarl.components.common import NoiseComponent
+from rlgraph import get_backend, RLGraphError
+from rlgraph.utils.util import dtype
+from rlgraph.components import Component
+from rlgraph.spaces import IntBox, FloatBox
+from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.components.explorations.epsilon_exploration import EpsilonExploration
+from rlgraph.components.common import NoiseComponent
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -65,7 +65,7 @@ class Exploration(Component):
 
         # Don't allow both epsilon and noise component
         if epsilon_spec and noise_spec:
-            raise YARLError("Cannot use both epsilon exploration and a noise component at the same time.")
+            raise RLGraphError("Cannot use both epsilon exploration and a noise component at the same time.")
 
         # Add epsilon component.
         if epsilon_spec:
@@ -105,7 +105,7 @@ class Exploration(Component):
 
         if self.epsilon_exploration and self.noise_component:
             # Check again at graph creation? This is currently redundant to the check in __init__
-            raise YARLError("Cannot use both epsilon exploration and a noise component at the same time.")
+            raise RLGraphError("Cannot use both epsilon exploration and a noise component at the same time.")
 
         if self.epsilon_exploration:
             sanity_check_space(self.action_space, allowed_types=[IntBox], must_have_categories=True,

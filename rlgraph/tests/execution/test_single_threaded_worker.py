@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ from __future__ import print_function
 
 import unittest
 
-from yarl.agents.random_agent import RandomAgent
-from yarl.environments import OpenAIGymEnv
-from yarl.execution.single_threaded_worker import SingleThreadedWorker
+from rlgraph.agents.random_agent import RandomAgent
+from rlgraph.environments import OpenAIGymEnv
+from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
 
 
 class TestSingleThreadedWorker(unittest.TestCase):

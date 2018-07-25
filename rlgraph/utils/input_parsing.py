@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,15 +19,15 @@ from __future__ import print_function
 
 import os.path
 
-from yarl import YARLError
-from yarl.components import Optimizer, MultiGpuSyncOptimizer
-from yarl.utils.util import default_dict
+from rlgraph import RLGraphError
+from rlgraph.components import Optimizer, MultiGpuSyncOptimizer
+from rlgraph.utils.util import default_dict
 
 
 def parse_saver_spec(saver_spec):
     default_spec = dict(
         # The directory in which to store model checkpoint files.
-        directory=os.path.expanduser("~/yarl_checkpoints/"),  # default=home dir
+        directory=os.path.expanduser("~/rlgraph_checkpoints/"),  # default=home dir
         # The base file name for a saved checkpoint.
         checkpoint_basename="model.ckpt",
         # How many files to maximally store for one graph.
@@ -61,7 +61,7 @@ def get_optimizer_from_device_strategy(optimizer_spec, device_strategy='default'
         # Wrap local optimizer in multi device optimizer.
         return MultiGpuSyncOptimizer(local_optimizer=local_optimizer)
     else:
-        raise YARLError("Device strategy {} is not allowed. Allowed strategies are 'default', 'custom',"
+        raise RLGraphError("Device strategy {} is not allowed. Allowed strategies are 'default', 'custom',"
                         "and 'multi_gpu_sync'".format(device_strategy))
 
 
@@ -77,7 +77,7 @@ def parse_summary_spec(summary_spec):
     """
     default_spec = dict(
         # The directory in which to store the summary files.
-        directory=os.path.expanduser("~/yarl_summaries/"),  # default=home dir
+        directory=os.path.expanduser("~/rlgraph_summaries/"),  # default=home dir
         # A regexp pattern that a summary op (including its global scope) has to match in order for it to
         # be included in the graph's summaries.
         summaries_regexp="",
@@ -206,7 +206,7 @@ def parse_update_spec(update_spec):
     # Assert that the synch interval is a multiple of the update_interval.
     if update_spec["sync_interval"] / update_spec["update_interval"] != \
         update_spec["sync_interval"] // update_spec["update_interval"]:
-        raise YARLError(
+        raise RLGraphError(
             "ERROR: sync_interval ({}) must be multiple of update_interval "
             "({})!".format(update_spec["sync_interval"], update_spec["update_interval"])
         )

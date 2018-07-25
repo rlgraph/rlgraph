@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,19 +17,19 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.utils.util import default_dict
+from rlgraph.utils.util import default_dict
 
 # Core.
-from yarl.components.component import Component
+from rlgraph.components.component import Component
 # Component child-classes.
-from yarl.components.common import *
-from yarl.components.distributions import *
-from yarl.components.explorations import *
-from yarl.components.layers import *
-from yarl.components.loss_functions import *
-from yarl.components.memories import *
-from yarl.components.neural_networks import *
-from yarl.components.optimizers import *
+from rlgraph.components.common import *
+from rlgraph.components.distributions import *
+from rlgraph.components.explorations import *
+from rlgraph.components.layers import *
+from rlgraph.components.loss_functions import *
+from rlgraph.components.memories import *
+from rlgraph.components.neural_networks import *
+from rlgraph.components.optimizers import *
 
 Component.__lookup_classes__ = dict()
 # Add all specific sub-classes to this one.

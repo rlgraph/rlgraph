@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from functools import partial
 
-from yarl import get_backend, YARLError
+from rlgraph import get_backend, RLGraphError
 
 
 if get_backend() == "tf":
@@ -82,4 +82,4 @@ def get_activation_function(activation_function=None, *other_parameters):
     elif activation_function == "tanh":
         return tf.nn.tanh
     else:
-        raise YARLError("ERROR: Unknown activation_function '{}'!".format(activation_function))
+        raise RLGraphError("ERROR: Unknown activation_function '{}'!".format(activation_function))

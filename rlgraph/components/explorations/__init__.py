@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.explorations.exploration import Exploration
-from yarl.components.explorations.epsilon_exploration import EpsilonExploration
+from rlgraph.components.explorations.exploration import Exploration
+from rlgraph.components.explorations.epsilon_exploration import EpsilonExploration
 
 __all__ = ["Exploration", "EpsilonExploration"]
 

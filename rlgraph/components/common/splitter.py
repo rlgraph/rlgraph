@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import YARLError
-from yarl.components import Component
-from yarl.spaces import Dict
+from rlgraph import RLGraphError
+from rlgraph.components import Component
+from rlgraph.spaces import Dict
 
 
 class Splitter(Component):
@@ -52,7 +52,7 @@ class Splitter(Component):
         # Keys of in_space must all be part of `self.output_order`.
         for i, name in enumerate(self.output_order):
             if name not in in_space:
-                raise YARLError("Item {} in `output_order` of Splitter '{}' is not part of the input Space ({})!".
+                raise RLGraphError("Item {} in `output_order` of Splitter '{}' is not part of the input Space ({})!".
                                 format(i, self.global_scope, in_space))
 
     def _graph_fn_split(self, input_):

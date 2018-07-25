@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@ from __future__ import print_function
 import copy
 import numpy as np
 
-from yarl.agents import Agent
-from yarl.components import Synchronizable, Merger, Splitter,\
+from rlgraph.agents import Agent
+from rlgraph.components import Synchronizable, Merger, Splitter,\
     Memory, PPOLossFunction, Policy
-from yarl.spaces import Dict, IntBox, FloatBox, BoolBox
+from rlgraph.spaces import Dict, IntBox, FloatBox, BoolBox
 
 
 class PPOAgent(Agent):

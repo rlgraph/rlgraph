@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ import gym
 import numpy as np
 import time
 
-from yarl import YARLError
-from yarl.utils.util import dtype
-from yarl.environments import Environment
-from yarl.spaces import *
+from rlgraph import RLGraphError
+from rlgraph.utils.util import dtype
+from rlgraph.environments import Environment
+from rlgraph.spaces import *
 
 
 class OpenAIGymEnv(Environment):
@@ -92,7 +92,7 @@ class OpenAIGymEnv(Environment):
     @staticmethod
     def translate_space(space):
         """
-        Translates openAI spaces into YARL Space classes.
+        Translates openAI spaces into RLGraph Space classes.
 
         Args:
             space (gym.spaces.Space): The openAI Space to be translated.
@@ -113,7 +113,7 @@ class OpenAIGymEnv(Environment):
         elif isinstance(space, gym.spaces.Dict):
             return Dict({k: OpenAIGymEnv.translate_space(v) for k, v in space.spaces.items()})
         else:
-            raise YARLError("Unknown openAI gym Space class for state_space!")
+            raise RLGraphError("Unknown openAI gym Space class for state_space!")
 
     def __str__(self):
         return "OpenAIGym({})".format(self.gym_env)

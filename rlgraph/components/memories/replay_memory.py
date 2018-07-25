@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@ from __future__ import print_function
 import re
 import tensorflow as tf
 
-from yarl.components.memories.memory import Memory
-from yarl.utils.ops import FlattenedDataOp
-from yarl.utils.util import get_batch_size
+from rlgraph.components.memories.memory import Memory
+from rlgraph.utils.ops import FlattenedDataOp
+from rlgraph.utils.util import get_batch_size
 
 
 class ReplayMemory(Memory):

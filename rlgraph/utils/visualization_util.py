@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@ from __future__ import print_function
 
 import requests
 
-from yarl import YARLError
-from yarl.spaces import Space
+from rlgraph import RLGraphError
+from rlgraph.spaces import Space
 
 
 def get_graph_markup(component, level=0, draw_graph_fns=False):
     """
-    Returns graph markup to be used for YARL metagraph plotting.
+    Returns graph markup to be used for RLGraph metagraph plotting.
 
     Uses the (mermaid)[https://github.com/knsv/mermaid] markup language.
 
@@ -49,7 +49,7 @@ def get_graph_markup(component, level=0, draw_graph_fns=False):
         markup += "classDef graph_fn fill:#ff9,stroke:#333,stroke-width:2px;\n"
         markup += "\n"
     else:
-        raise YARLError("Invalid component indentation level {}".format(level))
+        raise RLGraphError("Invalid component indentation level {}".format(level))
 
     all_sockets = list()
     all_graph_fns = list()

@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ from __future__ import print_function
 
 import logging
 
-from yarl import get_distributed_backend
-from yarl.execution.ray.ray_actor import RayActor
-from yarl.execution.ray.ray_executor import RayExecutor
+from rlgraph import get_distributed_backend
+from rlgraph.execution.ray.ray_actor import RayActor
+from rlgraph.execution.ray.ray_executor import RayExecutor
 
 if get_distributed_backend() == "ray":
     import ray
@@ -30,7 +30,7 @@ if get_distributed_backend() == "ray":
 @ray.remote
 class RayAgent(RayActor):
     """
-    This class provides a wrapper around YARL Agents so they can be used with ray's remote
+    This class provides a wrapper around RLGraph Agents so they can be used with ray's remote
     abstractions.
     """
     def __init__(self, agent_config):
@@ -107,10 +107,10 @@ class RayAgent(RayActor):
     def call_graph_op(self, op, inputs=None):
         """
         Utility method to call any desired operation on the graph, identified via output socket.
-        Delegates this call to the YARL graph executor.
+        Delegates this call to the RLGraph graph executor.
 
         Args:
-            op (str): Name of the op, i.e. the name of its output socket on the YARL metagraph.
+            op (str): Name of the op, i.e. the name of its output socket on the RLGraph metagraph.
             inputs (Optional[dict,np.array]): Dict specifying the provided api_methods for some in-Sockets (key=in-Socket name,
                 values=the values that should go into this Socket (e.g. numpy arrays)).
                 Depending on these given api_methods, the correct backend-ops can be selected within the given out-Sockets.

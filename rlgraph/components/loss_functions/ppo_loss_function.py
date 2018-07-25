@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import get_backend
-from yarl.components import Categorical
-from yarl.components.loss_functions import LossFunction
-from yarl.spaces import IntBox, sanity_check_space, FloatBox
+from rlgraph import get_backend
+from rlgraph.components import Categorical
+from rlgraph.components.loss_functions import LossFunction
+from rlgraph.spaces import IntBox, sanity_check_space, FloatBox
 
 if get_backend() == "tf":
     import tensorflow as tf

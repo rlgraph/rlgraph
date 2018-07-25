@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import get_backend
-from yarl.components.layers.preprocessing import PreprocessLayer
-from yarl.utils.util import default_dict
+from rlgraph import get_backend
+from rlgraph.components.layers.preprocessing import PreprocessLayer
+from rlgraph.utils.util import default_dict
 
-from yarl.components.layers.stack import Stack
+from rlgraph.components.layers.stack import Stack
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -43,7 +43,7 @@ class PreprocessorStack(Stack):
             preprocessors (PreprocessorLayer): The PreprocessorLayers to add to the Stack and connect to each other.
 
         Raises:
-            YARLError: If a sub-component is not a PreprocessLayer object.
+            RLGraphError: If a sub-component is not a PreprocessLayer object.
         """
         # Link sub-Components' `apply` methods together to yield PreprocessorStack's `preprocess` method.
         # NOTE: Do not include `reset` here as it is defined explicitly below.

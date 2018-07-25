@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ import numpy as np
 from six.moves import xrange as range_
 import unittest
 
-from yarl.components import Component, ActionAdapter, Exploration, EpsilonExploration, LinearDecay
-from yarl.components.distributions import Categorical, Normal
-from yarl.spaces import *
-from yarl.tests import ComponentTest
+from rlgraph.components import Component, ActionAdapter, Exploration, EpsilonExploration, LinearDecay
+from rlgraph.components.distributions import Categorical, Normal
+from rlgraph.spaces import *
+from rlgraph.tests import ComponentTest
 
 
 class TestExplorations(unittest.TestCase):

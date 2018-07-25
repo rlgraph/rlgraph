@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,11 +19,11 @@ from __future__ import print_function
 
 from functools import partial
 
-from yarl import get_backend
-from yarl.utils import util
-from yarl.spaces.space_utils import sanity_check_space
-from yarl.spaces.int_box import IntBox
-from yarl.components import Component
+from rlgraph import get_backend
+from rlgraph.utils import util
+from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.spaces.int_box import IntBox
+from rlgraph.components import Component
 
 if get_backend() == "tf":
     import tensorflow as tf

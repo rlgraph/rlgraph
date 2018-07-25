@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -173,7 +173,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             len(indices), tp, end
         ))
 
-    def test_yarl_apex_insert(self):
+    def test_rlgraph_apex_insert(self):
         """
         Tests Yarl's python memory performance.
         """
@@ -195,7 +195,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         end = time.monotonic() - start
         tp = len(records) / end
 
-        print('#### Testing YARL python prioritized replay ####')
+        print('#### Testing RLGraph python prioritized replay ####')
         print('Testing insert performance:')
         print('Inserted {} separate records, throughput: {} records/s, total time: {} s'.format(
             len(records), tp, end
@@ -224,7 +224,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             len(records), tp, end
         ))
 
-    def test_yarl_sampling(self):
+    def test_rlgraph_sampling(self):
         """
         Tests Yarl's sampling performance.
         """
@@ -246,15 +246,15 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             batch_tuple = memory.get_records(self.sample_batch_size)
         end = time.monotonic() - start
         tp = self.samples / end
-        print('#### Testing YARL Prioritized Replay memory ####')
+        print('#### Testing RLGraph Prioritized Replay memory ####')
         print('Testing sampling performance:')
         print('Sampled {} batches, throughput: {} batches/s, total time: {} s'.format(
             self.samples, tp, end
         ))
 
-    def test_yarl_updating(self):
+    def test_rlgraph_updating(self):
         """
-        Tests YARL's memory performance.
+        Tests RLGraph's memory performance.
         """
         memory = ApexMemory(
             capacity=self.capacity,
@@ -278,7 +278,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             memory.update_records(index, loss)
         end = time.monotonic() - start
         tp = len(indices) / end
-        print('#### Testing YARL Prioritized Replay memory ####')
+        print('#### Testing RLGraph Prioritized Replay memory ####')
         print('Testing updating performance:')
         print('Updates {} loss batches, throughput: {} updates/s, total time: {} s'.format(
             len(indices), tp, end
@@ -325,7 +325,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
             len(records), tp, end
         ))
 
-    def test_yarl_combined_ops(self):
+    def test_rlgraph_combined_ops(self):
         """
         Tests a combined workflow of insert, sample, update on the prioritized replay memory.
         """
@@ -354,7 +354,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
 
         end = time.monotonic() - start
         tp = len(records) / end
-        print('YARL: Testing combined op performance:')
+        print('RLGraph: Testing combined op performance:')
         print('Ran {} combined ops, throughput: {} combined ops/s, total time: {} s'.format(
             len(records), tp, end
         ))

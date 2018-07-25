@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@ from __future__ import print_function
 from cached_property import cached_property
 import numpy as np
 
-from yarl import LARGE_INTEGER
-from yarl.spaces.box_space import BoxSpace
-from yarl.utils.util import dtype
+from rlgraph import LARGE_INTEGER
+from rlgraph.spaces.box_space import BoxSpace
+from rlgraph.utils.util import dtype
 
 
 class IntBox(BoxSpace):

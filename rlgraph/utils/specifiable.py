@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ import os
 import re
 import yaml
 import logging
-from yarl.utils.yarl_error import YARLError
-from yarl.utils.util import default_dict
+from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.util import default_dict
 
 
 class Specifiable(object):
@@ -133,11 +133,11 @@ class Specifiable(object):
                 module = importlib.import_module(module_name)
                 constructor = getattr(module, function_name)
             else:
-                raise YARLError("ERROR: String specifier ({}) in from_spec must be a filename, a module+class, or "
+                raise RLGraphError("ERROR: String specifier ({}) in from_spec must be a filename, a module+class, or "
                                 "a key into {}.__lookup_classes__!".format(type_, cls.__name__))
 
         if not constructor:
-            raise YARLError("Invalid type: {}".format(type_))
+            raise RLGraphError("Invalid type: {}".format(type_))
 
         obj = constructor(*ctor_args, **ctor_kwargs)
         assert isinstance(obj, constructor.func if isinstance(constructor, partial) else constructor)
@@ -160,7 +160,7 @@ class Specifiable(object):
         """
         path = os.path.join(os.getcwd(), filename)
         if not os.path.isfile(path):
-            raise YARLError('No such file: {}'.format(filename))
+            raise RLGraphError('No such file: {}'.format(filename))
 
         with open(path, 'rt') as fp:
             if path.endswith('.yaml') or path.endswith('.yml'):
@@ -189,4 +189,4 @@ class Specifiable(object):
         elif isinstance(mixed, str):
             return cls.from_file(filename=mixed)
         else:
-            raise YARLError('Invalid input to `from_mixed`: {}'.format(mixed))
+            raise RLGraphError('Invalid input to `from_mixed`: {}'.format(mixed))

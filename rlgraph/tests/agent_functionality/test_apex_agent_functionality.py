@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,12 +19,12 @@ from __future__ import print_function
 
 import logging
 import unittest
-from yarl.agents import Agent
-import yarl.spaces as spaces
-from yarl.environments import RandomEnv
-from yarl.execution.single_threaded_worker import SingleThreadedWorker
-from yarl.tests import recursive_assert_almost_equal
-from yarl.utils import root_logger
+from rlgraph.agents import Agent
+import rlgraph.spaces as spaces
+from rlgraph.environments import RandomEnv
+from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
+from rlgraph.tests import recursive_assert_almost_equal
+from rlgraph.utils import root_logger
 
 
 class TestApexAgentFunctionality(unittest.TestCase):

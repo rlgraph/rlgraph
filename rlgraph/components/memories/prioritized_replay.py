@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@ from __future__ import print_function
 import tensorflow as tf
 import numpy as np
 
-from yarl.components.memories.memory import Memory
-from yarl.components.memories.segment_tree import SegmentTree
-from yarl.utils.ops import FlattenedDataOp
-from yarl.utils.util import get_batch_size
+from rlgraph.components.memories.memory import Memory
+from rlgraph.components.memories.segment_tree import SegmentTree
+from rlgraph.utils.ops import FlattenedDataOp
+from rlgraph.utils.util import get_batch_size
 
 
 class PrioritizedReplay(Memory):

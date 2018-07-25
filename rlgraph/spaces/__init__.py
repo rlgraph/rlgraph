@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@ from __future__ import print_function
 from functools import partial
 import numpy as np
 
-from yarl.spaces.space import Space
-from yarl.spaces.box_space import BoxSpace
-from yarl.spaces.float_box import FloatBox
-from yarl.spaces.int_box import IntBox
-from yarl.spaces.bool_box import BoolBox
-from yarl.spaces.containers import ContainerSpace, Dict, Tuple
-from yarl.spaces.space_utils import sanity_check_space
+from rlgraph.spaces.space import Space
+from rlgraph.spaces.box_space import BoxSpace
+from rlgraph.spaces.float_box import FloatBox
+from rlgraph.spaces.int_box import IntBox
+from rlgraph.spaces.bool_box import BoolBox
+from rlgraph.spaces.containers import ContainerSpace, Dict, Tuple
+from rlgraph.spaces.space_utils import sanity_check_space
 
 
 Space.__lookup_classes__ = dict({

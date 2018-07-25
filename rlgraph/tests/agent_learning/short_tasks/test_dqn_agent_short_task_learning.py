@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ import numpy as np
 import unittest
 import logging
 
-from yarl.environments import GridWorld, OpenAIGymEnv
-from yarl.agents import DQNAgent
-from yarl.execution import SingleThreadedWorker
-from yarl.utils import root_logger
+from rlgraph.environments import GridWorld, OpenAIGymEnv
+from rlgraph.agents import DQNAgent
+from rlgraph.execution import SingleThreadedWorker
+from rlgraph.utils import root_logger
 
 
 class TestDQNAgentShortTaskLearning(unittest.TestCase):

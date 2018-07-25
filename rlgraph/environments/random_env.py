@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ import random
 from six.moves import xrange
 import time
 
-from yarl.environments import Environment
-import yarl.spaces as spaces
+from rlgraph.environments import Environment
+import rlgraph.spaces as spaces
 
 
 class RandomEnv(Environment):

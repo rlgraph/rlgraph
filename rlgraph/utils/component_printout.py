@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ from __future__ import print_function
 
 import logging
 
-from yarl.utils.ops import SingleDataOp
-from yarl.components import Component
+from rlgraph.utils.ops import SingleDataOp
+from rlgraph.components import Component
 
 
 def component_print_out(component, phase=None):

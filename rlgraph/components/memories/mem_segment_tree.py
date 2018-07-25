@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import operator
 
-from yarl import YARLError
+from rlgraph import RLGraphError
 
 
 class MemSegmentTree(object):
@@ -133,7 +133,7 @@ class MemSegmentTree(object):
         elif reduce_op == max:
             result = float('-inf')
         else:
-            raise YARLError("Unsupported reduce OP. Support ops are [add, min, max].")
+            raise RLGraphError("Unsupported reduce OP. Support ops are [add, min, max].")
 
         start += self.capacity
         limit += self.capacity

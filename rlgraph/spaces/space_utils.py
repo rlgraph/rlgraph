@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@ from __future__ import print_function
 from six.moves import xrange
 import numpy as np
 
-from yarl.spaces import BoxSpace
-from yarl.utils.util import YARLError, dtype, get_shape
-from yarl.utils.ops import SingleDataOp
-from yarl.spaces.bool_box import BoolBox
-from yarl.spaces.int_box import IntBox
-from yarl.spaces.float_box import FloatBox
-from yarl.spaces.containers import Dict, Tuple
+from rlgraph.spaces import BoxSpace
+from rlgraph.utils.util import RLGraphError, dtype, get_shape
+from rlgraph.utils.ops import SingleDataOp
+from rlgraph.spaces.bool_box import BoolBox
+from rlgraph.spaces.int_box import IntBox
+from rlgraph.spaces.float_box import FloatBox
+from rlgraph.spaces.containers import Dict, Tuple
 
 
 def get_list_registry(space, capacity=None, initializer=0, flatten=True):
@@ -136,7 +136,7 @@ def get_space_from_op(op):
             elif op.dtype.base_dtype == dtype("bool"):
                 return BoolBox(add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
 
-    raise YARLError("ERROR: Cannot derive Space from op '{}' (unknown type?)!".format(op))
+    raise RLGraphError("ERROR: Cannot derive Space from op '{}' (unknown type?)!".format(op))
 
 
 def sanity_check_space(
@@ -164,16 +164,16 @@ def sanity_check_space(
             None if it doesn't matter.
 
     Raises:
-        YARLError: Various YARLErrors, if any of the conditions is not met.
+        RLGraphError: Various RLGraphErrors, if any of the conditions is not met.
     """
     # Check the types.
     if allowed_types is not None:
         if not isinstance(space, tuple(allowed_types)):
-            raise YARLError("ERROR: Space ({}) is not an instance of {}!".format(space, allowed_types))
+            raise RLGraphError("ERROR: Space ({}) is not an instance of {}!".format(space, allowed_types))
 
     if non_allowed_types is not None:
         if isinstance(space, tuple(non_allowed_types)):
-            raise YARLError("ERROR: Space ({}) must not be an instance of {}!".format(space, non_allowed_types))
+            raise RLGraphError("ERROR: Space ({}) must not be an instance of {}!".format(space, non_allowed_types))
 
     if must_have_batch_rank is not None:
         if space.has_batch_rank != must_have_batch_rank:
@@ -182,9 +182,9 @@ def sanity_check_space(
                 pass
             # Something is wrong.
             elif space.has_batch_rank is True:
-                raise YARLError("ERROR: Space ({}) has a batch rank, but is not allowed to!".format(space))
+                raise RLGraphError("ERROR: Space ({}) has a batch rank, but is not allowed to!".format(space))
             else:
-                raise YARLError("ERROR: Space ({}) does not have a batch rank, but must have one!".format(space))
+                raise RLGraphError("ERROR: Space ({}) does not have a batch rank, but must have one!".format(space))
 
     if must_have_time_rank is not None:
         if space.has_time_rank != must_have_time_rank:
@@ -193,31 +193,31 @@ def sanity_check_space(
                 pass
             # Something is wrong.
             elif space.has_time_rank is True:
-                raise YARLError("ERROR: Space ({}) has a time rank, but is not allowed to!".format(space))
+                raise RLGraphError("ERROR: Space ({}) has a time rank, but is not allowed to!".format(space))
             else:
-                raise YARLError("ERROR: Space ({}) does not have a time rank, but must have one!".format(space))
+                raise RLGraphError("ERROR: Space ({}) does not have a time rank, but must have one!".format(space))
 
     if must_have_categories is not None:
         if not isinstance(space, IntBox):
-            raise YARLError("ERROR: Space ({}) is not an IntBox. Only IntBox Spaces can have categories!".format(space))
+            raise RLGraphError("ERROR: Space ({}) is not an IntBox. Only IntBox Spaces can have categories!".format(space))
         elif space.global_bounds is False:
-            raise YARLError("ERROR: Space ({}) must have categories (globally valid value bounds)!".format(space))
+            raise RLGraphError("ERROR: Space ({}) must have categories (globally valid value bounds)!".format(space))
 
     if rank is not None:
         if isinstance(rank, int):
             if space.rank != rank:
-                raise YARLError("ERROR: Space ({}) has rank {}, but must have rank {}!".format(space, space.rank, rank))
+                raise RLGraphError("ERROR: Space ({}) has rank {}, but must have rank {}!".format(space, space.rank, rank))
         elif not ((rank[0] or 0) <= space.rank <= (rank[1] or float("inf"))):
-            raise YARLError("ERROR: Space ({}) has rank {}, but its rank must be between {} and "
+            raise RLGraphError("ERROR: Space ({}) has rank {}, but its rank must be between {} and "
                             "{}!".format(space, space.rank, rank[0], rank[1]))
 
     if num_categories is not None:
         if not isinstance(space, IntBox):
-            raise YARLError("ERROR: Space ({}) is not an IntBox. Only IntBox Spaces can have categories!".format(space))
+            raise RLGraphError("ERROR: Space ({}) is not an IntBox. Only IntBox Spaces can have categories!".format(space))
         elif isinstance(num_categories, int):
             if space.num_categories != num_categories:
-                raise YARLError("ERROR: Space ({}) has `num_categories` {}, but must have {}!".
+                raise RLGraphError("ERROR: Space ({}) has `num_categories` {}, but must have {}!".
                                 format(space, space.num_categories, num_categories))
         elif not ((num_categories[0] or 0) <= space.num_categories <= (num_categories[1] or float("inf"))):
-            raise YARLError("ERROR: Space ({}) has `num_categories` {}, but this value must be between {} and "
+            raise RLGraphError("ERROR: Space ({}) has `num_categories` {}, but this value must be between {} and "
                             "{}!".format(space, space.num_categories, num_categories[0], num_categories[1]))

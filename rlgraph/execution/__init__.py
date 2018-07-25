@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.execution.environment_sample import EnvironmentSample
-from yarl.execution.worker import Worker
-from yarl.execution.single_threaded_worker import SingleThreadedWorker
+from rlgraph.execution.environment_sample import EnvironmentSample
+from rlgraph.execution.worker import Worker
+from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
 
 __all__ = ["Worker", "SingleThreadedWorker", "EnvironmentSample"]
 

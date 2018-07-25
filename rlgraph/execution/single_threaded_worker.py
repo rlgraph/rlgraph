@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,9 +21,9 @@ import numpy as np
 from six.moves import xrange as range_
 import time
 
-from yarl import YARLError
-from yarl.utils.util import default_dict
-from yarl.execution.worker import Worker
+from rlgraph import RLGraphError
+from rlgraph.utils.util import default_dict
+from rlgraph.execution.worker import Worker
 
 
 class SingleThreadedWorker(Worker):
@@ -145,7 +145,7 @@ class SingleThreadedWorker(Worker):
                 self.episode_state = self.environment.reset()
                 self.agent.reset()
             elif self.episode_state is None:
-                raise YARLError("Runner must be reset at the very beginning. Environment is in invalid state.")
+                raise RLGraphError("Runner must be reset at the very beginning. Environment is in invalid state.")
 
             if self.render:
                 self.environment.render()

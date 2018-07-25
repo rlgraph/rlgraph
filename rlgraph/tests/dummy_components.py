@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@ from __future__ import print_function
 import copy
 import numpy as np
 
-from yarl.utils.ops import FlattenedDataOp, DataOpRecord
-from yarl.utils.util import force_list
-from yarl.components import Component
+from rlgraph.utils.ops import FlattenedDataOp, DataOpRecord
+from rlgraph.utils.util import force_list
+from rlgraph.components import Component
 
 
 class Dummy1To1(Component):

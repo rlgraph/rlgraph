@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,14 +22,14 @@ import logging
 import re
 import time
 
-from yarl import YARLError, Specifiable, get_backend
-from yarl.components import Component
-from yarl.spaces import Space, Dict
-from yarl.spaces.space_utils import get_space_from_op
-from yarl.utils.input_parsing import parse_summary_spec
-from yarl.utils.util import force_list, force_tuple, get_shape
-from yarl.utils.ops import DataOpTuple, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn
-from yarl.utils.component_printout import component_print_out
+from rlgraph import RLGraphError, Specifiable, get_backend
+from rlgraph.components import Component
+from rlgraph.spaces import Space, Dict
+from rlgraph.spaces.space_utils import get_space_from_op
+from rlgraph.utils.input_parsing import parse_summary_spec
+from rlgraph.utils.util import force_list, force_tuple, get_shape
+from rlgraph.utils.ops import DataOpTuple, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn
+from rlgraph.utils.component_printout import component_print_out
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -37,7 +37,7 @@ if get_backend() == "tf":
 
 class GraphBuilder(Specifiable):
     """
-    The graph builder assembles the YARL meta-graph by tracing through
+    The graph builder assembles the RLGraph meta-graph by tracing through
     components, sockets and connections and creating the underlying computation
     graph.
     """
@@ -98,7 +98,7 @@ class GraphBuilder(Specifiable):
         if input_spaces is not None:
             for api_method_name in input_spaces.keys():
                 if api_method_name not in self.core_component.api_methods:
-                    raise YARLError("ERROR: `input_spaces` contains API-method ('{}') that's not defined in "
+                    raise RLGraphError("ERROR: `input_spaces` contains API-method ('{}') that's not defined in "
                                     "core-component '{}'!".format(api_method_name, self.core_component.name))
 
         # Call all API methods of the core and thereby, create empty in-op columns that serve as placeholders
@@ -148,7 +148,7 @@ class GraphBuilder(Specifiable):
         for in_sock in component.input_sockets:  # type: Socket
             if len(in_sock.incoming_connections) == 0 and \
                     in_sock.name not in component.unconnected_sockets_in_meta_graph:
-                raise YARLError("Component '{}' has in-Socket ({}) without any incoming connections! If this is "
+                raise RLGraphError("Component '{}' has in-Socket ({}) without any incoming connections! If this is "
                                 "intended before the build process, you have to add the Socket's name to the "
                                 "Component's `unconnected_sockets_in_meta_graph` set. Then this error will be "
                                 "suppressed for this Component.".format(component.name, in_sock.name))
@@ -159,14 +159,14 @@ class GraphBuilder(Specifiable):
                 in_sock = in_sock_rec["socket"]
                 if len(in_sock.incoming_connections) == 0 and \
                         in_sock.name not in component.unconnected_sockets_in_meta_graph:
-                    raise YARLError("GraphFn {}/{} has in-Socket ({}) without any incoming "
+                    raise RLGraphError("GraphFn {}/{} has in-Socket ({}) without any incoming "
                                     "connections!".format(component.name, graph_fn.name, in_sock_rec["socket"].name))
 
         # Recursively call this method on all the sub-component's sub-components.
         for sub_component in component.sub_components.values():
             #self.build_steps += 1
             #if self.build_steps >= self.MAX_ITERATIVE_LOOPS:
-            #    raise YARLError("Error sanity checking graph, reached max recursion steps: {}".format(
+            #    raise RLGraphError("Error sanity checking graph, reached max recursion steps: {}".format(
             #        self.MAX_ITERATIVE_LOOPS
             #    ))
             self.sanity_check_meta_graph(sub_component)
@@ -259,7 +259,7 @@ class GraphBuilder(Specifiable):
             # Sanity check, whether we are stuck.
             new_op_records_list = sorted(new_op_records_to_process, key=lambda rec: rec.id)
             if op_records_list == new_op_records_list:
-                raise YARLError("Build procedure is deadlocked. Most likely, you are having a "
+                raise RLGraphError("Build procedure is deadlocked. Most likely, you are having a "
                                 "circularly dependent Component in your meta-graph. The current op-records to process "
                                 "are: {}".format(new_op_records_list))
 
@@ -590,7 +590,7 @@ class GraphBuilder(Specifiable):
                     for key, params in call_params.items():
                         ops[key] = force_tuple(op_rec_column.graph_fn(*params))
                         if num_return_values >= 0 and num_return_values != len(ops[key]):
-                            raise YARLError("Different split-runs through {} do not return the same number of "
+                            raise RLGraphError("Different split-runs through {} do not return the same number of "
                                             "values!".format(op_rec_column.graph_fn.__name__))
                         num_return_values = len(ops[key])
                     # Un-split the results dict into a tuple of `num_return_values` slots.
@@ -697,7 +697,7 @@ class GraphBuilder(Specifiable):
                 for in_sock_name, in_sock_record in graph_fn.input_sockets.items():
                     if len(in_sock_record["socket"].op_records) == 0 and \
                             in_sock_name not in component.unconnected_sockets_in_meta_graph:
-                        raise YARLError("in-Socket '{}' of GraphFunction '{}' of Component '{}' does not have "
+                        raise RLGraphError("in-Socket '{}' of GraphFunction '{}' of Component '{}' does not have "
                                         "any incoming ops!".format(in_sock_name, graph_fn.name,
                                                                    component.global_scope))
 
@@ -707,7 +707,7 @@ class GraphBuilder(Specifiable):
                 # Look for the missing Socket and raise an Error.
                 for in_sock in sub_component.input_sockets:
                     if in_sock.space is None:
-                        raise YARLError("Component '{}' is not input-complete. In-Socket '{}' does not " \
+                        raise RLGraphError("Component '{}' is not input-complete. In-Socket '{}' does not " \
                                         "have any incoming connections.".
                                         format(sub_component.global_scope, in_sock.name))
 
@@ -739,7 +739,7 @@ class GraphBuilder(Specifiable):
                 api_method = api_method[0]
 
             if api_method not in self.api:
-                raise YARLError("No API-method with name '{}' found!".format(api_method))
+                raise RLGraphError("No API-method with name '{}' found!".format(api_method))
 
             if return_ops is None:
                 fetch_dict[api_method] = [op_rec.op for i, op_rec in enumerate(self.api[api_method][1])]
@@ -748,7 +748,7 @@ class GraphBuilder(Specifiable):
 
             for i, param in enumerate(params):
                 if len(self.api[api_method][0]) <= i:
-                    raise YARLError("API-method with name '{}' only has {} input parameters! You passed in "
+                    raise RLGraphError("API-method with name '{}' only has {} input parameters! You passed in "
                                     "{}.".format(api_method, len(self.api[api_method][0]), len(params)))
                 placeholder = self.api[api_method][0][i].op  # 0=input op-recs; i=ith input op-rec
                 if isinstance(placeholder, DataOpTuple):

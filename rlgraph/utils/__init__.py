@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,11 +23,11 @@ from rlgraph.utils.initializer import Initializer
 from rlgraph.utils.util import dtype, get_shape, get_rank, force_tuple, force_list, LARGE_INTEGER, SMALL_NUMBER, \
     tf_logger, print_logging_handler, root_logger, logging_formatter
 from rlgraph.utils.numpy import softmax, relu, one_hot
-from rlgraph.utils.yarl_error import YARLError
+from rlgraph.utils.rlgraph_error import RLGraphError
 
 
 __all__ = [
-    "YARLError",
+    "RLGraphError",
     "Initializer", "Specifiable",
     "dtype", "get_shape", "get_rank", "force_tuple", "force_list",
     "logging_formatter", "root_logger", "tf_logger", "print_logging_handler", "softmax", "relu", "one_hot",

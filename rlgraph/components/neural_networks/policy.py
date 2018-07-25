@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import YARLError
-from yarl.spaces import IntBox, FloatBox
-from yarl.components import Component, Synchronizable
-from yarl.components.distributions import Normal, Categorical
-from yarl.components.neural_networks.neural_network import NeuralNetwork
-from yarl.components.neural_networks.action_adapter import ActionAdapter
+from rlgraph import RLGraphError
+from rlgraph.spaces import IntBox, FloatBox
+from rlgraph.components import Component, Synchronizable
+from rlgraph.components.distributions import Normal, Categorical
+from rlgraph.components.neural_networks.neural_network import NeuralNetwork
+from rlgraph.components.neural_networks.action_adapter import ActionAdapter
 
 
 class Policy(Component):
@@ -100,7 +100,7 @@ class Policy(Component):
         elif isinstance(action_space, FloatBox):
             self.distribution = Normal()
         else:
-            raise YARLError("ERROR: `action_space` is of type {} and not allowed in {} Component!".
+            raise RLGraphError("ERROR: `action_space` is of type {} and not allowed in {} Component!".
                             format(type(action_space).__name__, self.name))
 
         self.add_components(self.neural_network, self.action_adapter, self.distribution)

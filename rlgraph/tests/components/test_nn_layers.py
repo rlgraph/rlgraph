@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@ from __future__ import print_function
 import unittest
 import numpy as np
 
-from yarl.components.layers import DenseLayer, Conv2DLayer, ConcatLayer, DuelingLayer, LSTMLayer
-from yarl.spaces import FloatBox, IntBox
-from yarl.tests import ComponentTest
-from yarl.utils.numpy import sigmoid
+from rlgraph.components.layers import DenseLayer, Conv2DLayer, ConcatLayer, DuelingLayer, LSTMLayer
+from rlgraph.spaces import FloatBox, IntBox
+from rlgraph.tests import ComponentTest
+from rlgraph.utils.numpy import sigmoid
 
 
 class TestNNLayer(unittest.TestCase):

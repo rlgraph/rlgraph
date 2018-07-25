@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.distributions.distribution import Distribution
-from yarl.components.distributions.bernoulli import Bernoulli
-from yarl.components.distributions.beta import Beta
-from yarl.components.distributions.categorical import Categorical
-from yarl.components.distributions.normal import Normal
+from rlgraph.components.distributions.distribution import Distribution
+from rlgraph.components.distributions.bernoulli import Bernoulli
+from rlgraph.components.distributions.beta import Beta
+from rlgraph.components.distributions.categorical import Categorical
+from rlgraph.components.distributions.normal import Normal
 
 Distribution.__lookup_classes__ = dict(
     bernoulli=Bernoulli,

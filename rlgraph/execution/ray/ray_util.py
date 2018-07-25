@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ from __future__ import print_function
 import os
 import base64
 import logging
-from yarl import YARLError, get_distributed_backend
+from rlgraph import RLGraphError, get_distributed_backend
 
 if get_distributed_backend() == "ray":
     import ray
@@ -81,7 +81,7 @@ def create_colocated_ray_actors(cls, config, num_agents, max_attempts=10):
         list: List of created agents.
 
     Raises:
-        YARL-Error if not enough agents could be created within the specified number of attempts.
+        RLGraph-Error if not enough agents could be created within the specified number of attempts.
     """
     agents = []
     attempt = 1
@@ -92,7 +92,7 @@ def create_colocated_ray_actors(cls, config, num_agents, max_attempts=10):
         agents.extend(local_agents)
 
     if len(agents) < num_agents:
-        raise YARLError("Could not create the specified number ({}) of agents.".format(
+        raise RLGraphError("Could not create the specified number ({}) of agents.".format(
             num_agents
         ))
 

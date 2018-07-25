@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.agents.agent import Agent
-from yarl.agents.dqn_agent import DQNAgent
-from yarl.agents.apex_agent import ApexAgent
-from yarl.agents.ppo_agent import PPOAgent
-from yarl.agents.random_agent import RandomAgent
+from rlgraph.agents.agent import Agent
+from rlgraph.agents.dqn_agent import DQNAgent
+from rlgraph.agents.apex_agent import ApexAgent
+from rlgraph.agents.ppo_agent import PPOAgent
+from rlgraph.agents.random_agent import RandomAgent
 
 
 Agent.__lookup_classes__ = dict(

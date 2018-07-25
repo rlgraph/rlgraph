@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ from __future__ import print_function
 
 import numpy as np
 
-from yarl.agents import Agent
-from yarl.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, Policy, Merger, Splitter
-from yarl.spaces import FloatBox, BoolBox
-from yarl.utils.util import strip_list
+from rlgraph.agents import Agent
+from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, Policy, Merger, Splitter
+from rlgraph.spaces import FloatBox, BoolBox
+from rlgraph.utils.util import strip_list
 
 
 class DQNAgent(Agent):

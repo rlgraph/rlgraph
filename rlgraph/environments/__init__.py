@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.environments.environment import Environment
-from yarl.environments.grid_world import GridWorld
-from yarl.environments.openai_gym import OpenAIGymEnv
-from yarl.environments.random_env import RandomEnv
+from rlgraph.environments.environment import Environment
+from rlgraph.environments.grid_world import GridWorld
+from rlgraph.environments.openai_gym import OpenAIGymEnv
+from rlgraph.environments.random_env import RandomEnv
 
 
 Environment.__lookup_classes__ = dict(

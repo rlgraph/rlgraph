@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import YARLError, get_backend
-from yarl.components import Component
+from rlgraph import RLGraphError, get_backend
+from rlgraph.components import Component
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -49,7 +49,7 @@ class FixedLoop(Component):
                 flatten_ops = graph_fn.flatten_ops
                 break
         if not self.graph_fn_to_call:
-            raise YARLError("ERROR: GraphFn '{}' not found in Component '{}'!".
+            raise RLGraphError("ERROR: GraphFn '{}' not found in Component '{}'!".
                             format(graph_fn_name, call_component.global_scope))
         # TODO: Do we sum up, append to list, ...?
         #self.define_inputs("inputs")

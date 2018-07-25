@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@ from __future__ import print_function
 import unittest
 import tensorflow as tf
 
-from yarl.components.optimizers import GradientDescentOptimizer
-from yarl.spaces import Tuple
-from yarl.tests import ComponentTest
+from rlgraph.components.optimizers import GradientDescentOptimizer
+from rlgraph.spaces import Tuple
+from rlgraph.tests import ComponentTest
 
 
 class TestLocalOptimizers(unittest.TestCase):

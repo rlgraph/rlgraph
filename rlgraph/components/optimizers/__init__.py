@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ from __future__ import print_function
 
 from functools import partial
 
-from yarl.components.optimizers.horovod_optimizer import HorovodOptimizer
-from yarl.components.optimizers.local_optimizers import *
-from yarl.components.optimizers.multi_gpu_sync_optimizer import MultiGpuSyncOptimizer
-from yarl.components.optimizers.optimizer import Optimizer
+from rlgraph.components.optimizers.horovod_optimizer import HorovodOptimizer
+from rlgraph.components.optimizers.local_optimizers import *
+from rlgraph.components.optimizers.multi_gpu_sync_optimizer import MultiGpuSyncOptimizer
+from rlgraph.components.optimizers.optimizer import Optimizer
 
 
 Optimizer.__lookup_classes__ = dict(

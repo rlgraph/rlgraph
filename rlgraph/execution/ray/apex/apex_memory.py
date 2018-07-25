@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,9 +21,9 @@ import numpy as np
 import operator
 from six.moves import xrange as range_
 
-from yarl import Specifiable
-from yarl.components.memories.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
-from yarl.execution.ray.ray_util import ray_decompress
+from rlgraph import Specifiable
+from rlgraph.components.memories.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
+from rlgraph.execution.ray.ray_util import ray_decompress
 
 
 class ApexMemory(Specifiable):

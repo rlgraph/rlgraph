@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ from __future__ import print_function
 
 from math import log
 
-from yarl import get_backend, SMALL_NUMBER
-from yarl.components import Component
-from yarl.components.layers.nn import DenseLayer, DuelingLayer
-from yarl.spaces import Space, IntBox, FloatBox, ContainerSpace, sanity_check_space
+from rlgraph import get_backend, SMALL_NUMBER
+from rlgraph.components import Component
+from rlgraph.components.layers.nn import DenseLayer, DuelingLayer
+from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace, sanity_check_space
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -58,9 +58,9 @@ class ActionAdapter(Component):
         """
         Args:
             action_space (Space): The action Space within which this Component will create actions.
-            weights_spec (Optional[]): An optional YARL Initializer spec that will be used to initialize the weights
+            weights_spec (Optional[]): An optional RLGraph Initializer spec that will be used to initialize the weights
                 of `self.action layer`. Default: None (use default initializer).
-            biases_spec (any): An optional YARL Initializer spec that will be used to initialize the biases
+            biases_spec (any): An optional RLGraph Initializer spec that will be used to initialize the biases
                 of `self.action layer`. Default: False (no biases).
             activation (Optional[str]): The activation function to use for `self.action_layer`.
                 Default: None (=linear).

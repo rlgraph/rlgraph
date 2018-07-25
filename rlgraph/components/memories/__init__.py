@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.memories.memory import Memory
-from yarl.components.memories.replay_memory import ReplayMemory
-from yarl.components.memories.ring_buffer import RingBuffer
-from yarl.components.memories.prioritized_replay import PrioritizedReplay
+from rlgraph.components.memories.memory import Memory
+from rlgraph.components.memories.replay_memory import ReplayMemory
+from rlgraph.components.memories.ring_buffer import RingBuffer
+from rlgraph.components.memories.prioritized_replay import PrioritizedReplay
 
 
 Memory.__lookup_classes__ = dict(

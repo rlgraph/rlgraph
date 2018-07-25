@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,9 +21,9 @@ from cached_property import cached_property
 import numpy as np
 import re
 
-from yarl import YARLError
-from yarl.utils.ops import DataOpDict, DataOpTuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE
-from yarl.spaces.space import Space
+from rlgraph import RLGraphError
+from rlgraph.utils.ops import DataOpDict, DataOpTuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE
+from rlgraph.spaces.space import Space
 
 
 class ContainerSpace(Space):
@@ -58,10 +58,10 @@ class Dict(ContainerSpace, dict):
         for key in sorted(spec.keys()):
             # Keys must be strings.
             if not isinstance(key, str):
-                raise YARLError("ERROR: No non-str keys allowed in a Dict-Space!")
+                raise RLGraphError("ERROR: No non-str keys allowed in a Dict-Space!")
             # Prohibit reserved characters (for flattened syntax).
             if re.search(r'/|{}\d+{}'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), key):
-                raise YARLError("ERROR: Key to Dict must not contain '/' or '{}\d+{}'! Is {}.".
+                raise RLGraphError("ERROR: Key to Dict must not contain '/' or '{}\d+{}'! Is {}.".
                                 format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, key))
             value = spec[key]
             # Value is already a Space: Copy it (to not affect original Space) and maybe add/remove batch/time-ranks.

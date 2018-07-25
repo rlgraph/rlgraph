@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,9 +21,9 @@ from six.moves import xrange as range_
 
 import tensorflow as tf
 
-from yarl.utils.ops import FlattenedDataOp, unflatten_op
-from yarl.utils.util import get_rank, get_shape, force_list, get_batch_size
-from yarl.components.layers.preprocessing import PreprocessLayer
+from rlgraph.utils.ops import FlattenedDataOp, unflatten_op
+from rlgraph.utils.util import get_rank, get_shape, force_list, get_batch_size
+from rlgraph.components.layers.preprocessing import PreprocessLayer
 
 
 class Sequence(PreprocessLayer):

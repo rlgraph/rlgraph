@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.layers.layer import Layer
-from yarl.spaces import FloatBox, sanity_check_space
+from rlgraph.components.layers.layer import Layer
+from rlgraph.spaces import FloatBox, sanity_check_space
 
 
 class NNLayer(Layer):

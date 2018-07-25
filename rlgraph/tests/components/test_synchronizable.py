@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@ from __future__ import print_function
 import numpy as np
 import unittest
 
-from yarl.components import Component, Synchronizable
-from yarl.spaces import FloatBox
-from yarl.tests import ComponentTest
+from rlgraph.components import Component, Synchronizable
+from rlgraph.spaces import FloatBox
+from rlgraph.tests import ComponentTest
 
 VARIABLE_NAMES = ["variable_to_sync1", "variable_to_sync2"]
 

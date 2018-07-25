@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ import unittest
 import numpy as np
 from six.moves import xrange as range_
 
-from yarl.components.memories.ring_buffer import RingBuffer
-from yarl.spaces import Dict, BoolBox
-from yarl.tests import ComponentTest
-from yarl.tests.test_util import non_terminal_records, terminal_records
+from rlgraph.components.memories.ring_buffer import RingBuffer
+from rlgraph.spaces import Dict, BoolBox
+from rlgraph.tests import ComponentTest
+from rlgraph.tests.test_util import non_terminal_records, terminal_records
 
 
 class TestRingBufferMemory(unittest.TestCase):

@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ from __future__ import print_function
 
 import unittest
 
-from yarl.components import Sampler, FixedLoop, LinearDecay
-from yarl.spaces import BoolBox, Dict, IntBox
-from yarl.tests import ComponentTest
+from rlgraph.components import Sampler, FixedLoop, LinearDecay
+from rlgraph.spaces import BoolBox, Dict, IntBox
+from rlgraph.tests import ComponentTest
 
 
 class TestFixedLoopComponent(unittest.TestCase):

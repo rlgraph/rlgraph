@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,14 +21,14 @@ import numpy as np
 from six.moves import xrange as range_
 import unittest
 
-from yarl.components.common.noise_components import *
-from yarl.spaces import *
-from yarl.tests import ComponentTest
+from rlgraph.components.common.noise_components import *
+from rlgraph.spaces import *
+from rlgraph.tests import ComponentTest
 
 
 class TestNoiseComponents(unittest.TestCase):
     """
-    Tests YARL's noise components.
+    Tests RLGraph's noise components.
     """
 
     # Decaying a value always without batch dimension (does not make sense for global time step).

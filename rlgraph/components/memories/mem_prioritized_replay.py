@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ import numpy as np
 import operator
 from six.moves import xrange as range_
 
-from yarl import Specifiable
-from yarl.components.memories.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
-from yarl.spaces.space_utils import get_list_registry
-from yarl.spaces import Dict
+from rlgraph import Specifiable
+from rlgraph.components.memories.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
+from rlgraph.spaces.space_utils import get_list_registry
+from rlgraph.spaces import Dict
 
 
 class MemPrioritizedReplay(Specifiable):

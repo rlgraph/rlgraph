@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,16 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.components.layers.preprocessing.preprocess_layer import PreprocessLayer
+from rlgraph.components.layers.preprocessing.preprocess_layer import PreprocessLayer
 
-from yarl.components.layers.preprocessing.clip import Clip
-from yarl.components.layers.preprocessing.flatten import Flatten
-from yarl.components.layers.preprocessing.grayscale import GrayScale
-from yarl.components.layers.preprocessing.image_binary import ImageBinary
-from yarl.components.layers.preprocessing.image_resize import ImageResize
-from yarl.components.layers.preprocessing.normalize import Normalize
-from yarl.components.layers.preprocessing.multiply_divide import Multiply, Divide
-from yarl.components.layers.preprocessing.sequence import Sequence
+from rlgraph.components.layers.preprocessing.clip import Clip
+from rlgraph.components.layers.preprocessing.flatten import Flatten
+from rlgraph.components.layers.preprocessing.grayscale import GrayScale
+from rlgraph.components.layers.preprocessing.image_binary import ImageBinary
+from rlgraph.components.layers.preprocessing.image_resize import ImageResize
+from rlgraph.components.layers.preprocessing.normalize import Normalize
+from rlgraph.components.layers.preprocessing.multiply_divide import Multiply, Divide
+from rlgraph.components.layers.preprocessing.sequence import Sequence
 
 PreprocessLayer.__lookup_classes__ = dict(
     clip=Clip,

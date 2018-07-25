@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ from __future__ import print_function
 
 import numpy as np
 
-from yarl.backend_system import get_backend
-from yarl.components.layers.preprocessing import PreprocessLayer
-from yarl.utils.ops import flatten_op, unflatten_op
-from yarl.utils.util import get_rank, get_shape
+from rlgraph.backend_system import get_backend
+from rlgraph.components.layers.preprocessing import PreprocessLayer
+from rlgraph.utils.ops import flatten_op, unflatten_op
+from rlgraph.utils.util import get_rank, get_shape
 
 if get_backend() == "tf":
     import tensorflow as tf

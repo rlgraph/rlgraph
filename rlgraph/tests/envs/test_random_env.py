@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@ from __future__ import print_function
 import numpy as np
 import unittest
 
-from yarl.spaces import IntBox, FloatBox
-from yarl.environments import RandomEnv
-from yarl.tests.test_util import recursive_assert_almost_equal
+from rlgraph.spaces import IntBox, FloatBox
+from rlgraph.environments import RandomEnv
+from rlgraph.tests.test_util import recursive_assert_almost_equal
 
 
 class TestRandomEnv(unittest.TestCase):

@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,12 +24,12 @@ import inspect
 import numpy as np
 import re
 
-from yarl import YARLError, get_backend, Specifiable
-from yarl.utils.ops import SingleDataOp, DataOpDict, DataOpRecord, APIMethodRecord, \
+from rlgraph import RLGraphError, get_backend, Specifiable
+from rlgraph.utils.ops import SingleDataOp, DataOpDict, DataOpRecord, APIMethodRecord, \
     DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn, DataOpRecordColumnIntoAPIMethod, \
     DataOpRecordColumnFromAPIMethod, GraphFnRecord
-from yarl.utils import util
-from yarl.spaces.space import Space
+from rlgraph.utils import util
+from rlgraph.spaces.space import Space
 
 
 if get_backend() == "tf":
@@ -76,7 +76,7 @@ class Component(Specifiable):
                 utility function cannot determine the actual number of returned values.
 
             switched_off_apis (Optional[Set[str]]): Set of API-method names that should NOT be build for this Component.
-            backend (str): The custom backend that this Component obliges to. None to use the YARL global backend.
+            backend (str): The custom backend that this Component obliges to. None to use the RLGraph global backend.
                 Default: None.
         """
         # Scope if used to create scope hierarchies inside the Graph.
@@ -207,7 +207,7 @@ class Component(Specifiable):
         if method.__name__ in method_owner.api_methods:
             if method_owner is self and ok_to_call_own_api is False:
                 parent_caller = inspect.stack()[1][3]
-                raise YARLError("'{}' Component's API-method ('{}') cannot `call` another API-method ('{}') of the "
+                raise RLGraphError("'{}' Component's API-method ('{}') cannot `call` another API-method ('{}') of the "
                                 "same Component!".format(self.name, parent_caller, method.__name__))
             return self.call_api(method, method_owner, *params)
 
@@ -251,7 +251,7 @@ class Component(Specifiable):
         # Make sure the graph_fn belongs to this Component (not allowed to call graph_fn of other component
         # directly).
         if method_owner is not self:
-            raise YARLError("Graph_fn '{}' may only be sent to `call` by its owner ({})! However, '{}' is "
+            raise RLGraphError("Graph_fn '{}' may only be sent to `call` by its owner ({})! However, '{}' is "
                             "calling it.".format(method.__name__, method_owner.scope, self.scope))
 
         # Sanity check number of actual graph_fn input values against len(params).
@@ -269,7 +269,7 @@ class Component(Specifiable):
                     [p.default is inspect.Parameter.empty for p in actual_params]):
                 pass
             else:
-                raise YARLError("ERROR: Graph_fn '{}/{}' has {} input-parameters, but {} ({}) were being provided in "
+                raise RLGraphError("ERROR: Graph_fn '{}/{}' has {} input-parameters, but {} ({}) were being provided in "
                                 "the `Component.call` method!".
                                 format(self.name, method.__name__, len(inspect.signature(method).parameters),
                                        len(params), params))
@@ -707,7 +707,7 @@ class Component(Specifiable):
 
         # Registers the new summary with this Component.
         if global_name in self.summaries:
-            raise YARLError("ERROR: Summary with name '{}' already exists in {}'s summary "
+            raise RLGraphError("ERROR: Summary with name '{}' already exists in {}'s summary "
                             "registry!".format(global_name, self.name))
         self.summaries[global_name] = summary
         self.propagate_summary(global_name)
@@ -725,7 +725,7 @@ class Component(Specifiable):
 
         # If already there -> Error.
         if key_ in self.parent_component.summaries:
-            raise YARLError("ERROR: Summary registry of '{}' already has a summary under key '{}'!".
+            raise RLGraphError("ERROR: Summary registry of '{}' already has a summary under key '{}'!".
                 format(self.parent_component.name, key_))
         self.parent_component.summaries[key_] = self.summaries[key_]
 
@@ -752,10 +752,10 @@ class Component(Specifiable):
         """
         # There already is an API-method with that name.
         if name in self.api_methods:
-            raise YARLError("API-method with name '{}' already defined!".format(name))
+            raise RLGraphError("API-method with name '{}' already defined!".format(name))
         # There already is another object property with that name (avoid accidental overriding).
         elif getattr(self, name, None) is not None:
-            raise YARLError("Component '{}' already has a property called '{}'. Cannot define an API-method with "
+            raise RLGraphError("Component '{}' already has a property called '{}'. Cannot define an API-method with "
                             "the same name!".format(self.name, name))
         # Do not build this API as per ctor instructions.
         elif name in self.switched_off_apis:
@@ -802,11 +802,11 @@ class Component(Specifiable):
                 component = Component.from_spec(component)
             # Make sure no two components with the same name are added to this one (own scope doesn't matter).
             if component.name in self.sub_components:
-                raise YARLError("ERROR: Sub-Component with name '{}' already exists in this one!".
+                raise RLGraphError("ERROR: Sub-Component with name '{}' already exists in this one!".
                                 format(component.name))
             # Make sure each Component can only be added once to a parent/container Component.
             elif component.parent_component is not None:
-                raise YARLError("ERROR: Sub-Component with name '{}' has already been added once to a container "
+                raise RLGraphError("ERROR: Sub-Component with name '{}' has already been added once to a container "
                                 "Component! Each Component can only be added once to a parent.".format(component.name))
             component.parent_component = self
             self.sub_components[component.name] = component
@@ -859,7 +859,7 @@ class Component(Specifiable):
             # -> Make sure the variable object is identical.
             if key in self.parent_component.variables:
                 if self.variables[key] is not self.parent_component.variables[key]:
-                    raise YARLError("ERROR: Variable registry of '{}' already has a variable under key '{}'!". \
+                    raise RLGraphError("ERROR: Variable registry of '{}' already has a variable under key '{}'!". \
                                     format(self.parent_component.name, key))
             self.parent_component.variables[key] = self.variables[key]
 
@@ -975,7 +975,7 @@ class Component(Specifiable):
         Returns:
             DataOpDict: Dict with keys=variable names and values=variable (SingleDataOp).
         """
-        # Must use custom_scope_separator here b/c YARL doesn't allow Dict with '/'-chars in the keys.
+        # Must use custom_scope_separator here b/c RLGraph doesn't allow Dict with '/'-chars in the keys.
         # '/' could collide with a FlattenedDataOp's keys and mess up the un-flatten process.
         variables_dict = self.get_variables(custom_scope_separator="-")
         return DataOpDict(variables_dict)

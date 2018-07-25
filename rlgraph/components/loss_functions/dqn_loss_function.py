@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-from yarl import get_backend
-from yarl.utils.util import get_rank
-from yarl.components.loss_functions import LossFunction
-from yarl.spaces import IntBox, sanity_check_space
+from rlgraph import get_backend
+from rlgraph.utils.util import get_rank
+from rlgraph.components.loss_functions import LossFunction
+from rlgraph.spaces import IntBox, sanity_check_space
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -96,7 +96,7 @@ class DQNLossFunction(LossFunction):
             SingleDataOp: The loss values vector (one single value for each batch item).
         """
         if self.backend == "python" or get_backend() == "python":
-            from yarl.utils.numpy import one_hot
+            from rlgraph.utils.numpy import one_hot
 
             if self.double_q:
                 a_primes = np.argmax(q_values_sp, axis=-1)

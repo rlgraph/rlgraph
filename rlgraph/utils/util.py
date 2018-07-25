@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,8 +25,8 @@ import re
 import sys
 import tensorflow as tf
 
-from yarl.backend_system import get_backend
-from yarl.utils.yarl_error import YARLError
+from rlgraph.backend_system import get_backend
+from rlgraph.utils.rlgraph_error import RLGraphError
 
 if get_backend() == "tf":
     import tensorflow as be
@@ -79,7 +79,7 @@ def dtype(dtype_, to="tf"):
     elif dtype_ in ["int64", np.int64]:
         return np.int64 if to == "np" else tf.int64
 
-    raise YARLError("Error: Type conversion to '{}' for type '{}' not supported.".format(to, str(dtype_)))
+    raise RLGraphError("Error: Type conversion to '{}' for type '{}' not supported.".format(to, str(dtype_)))
 
 
 def get_rank(tensor):

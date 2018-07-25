@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ from __future__ import print_function
 
 import numpy as np
 
-from yarl.backend_system import get_backend
-from yarl.utils.yarl_error import YARLError
-from yarl.utils.specifiable import Specifiable
-from yarl.utils.util import dtype
+from rlgraph.backend_system import get_backend
+from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.specifiable import Specifiable
+from rlgraph.utils.util import dtype
 
 
 class Initializer(Specifiable):
@@ -33,7 +33,7 @@ class Initializer(Specifiable):
             specification (any): A spec that determines the nature of this initializer.
 
         Raises:
-            YARLError: If a fixed shape in `specification` does not match `shape`.
+            RLGraphError: If a fixed shape in `specification` does not match `shape`.
         """
         # The shape of the variable to be initialized.
         self.shape = shape
@@ -52,16 +52,16 @@ class Initializer(Specifiable):
             elif isinstance(specification, list):
                 array = np.asarray(specification, dtype=dtype("float32", "np"))
                 if array.shape != self.shape:
-                    raise YARLError("ERROR: Number/shape of given items ({}) not identical with shape ({})!".
+                    raise RLGraphError("ERROR: Number/shape of given items ({}) not identical with shape ({})!".
                                     format(array.shape, self.shape))
             # A nD initializer (numpy-array).
             elif isinstance(specification, np.ndarray):
                 if specification.shape != self.shape:
-                    raise YARLError("ERROR: Shape of given items ({}) not identical with shape ({})!".
+                    raise RLGraphError("ERROR: Shape of given items ({}) not identical with shape ({})!".
                                     format(specification.shape, self.shape))
             # Unknown type.
             else:
-                raise YARLError("ERROR: Bad specification given ({}) for Initializer object!".format(specification))
+                raise RLGraphError("ERROR: Bad specification given ({}) for Initializer object!".format(specification))
 
             # Create the backend initializer object.
             if get_backend() == "tf":

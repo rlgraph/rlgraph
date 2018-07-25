@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ import logging
 import numpy as np
 import time
 
-from yarl import get_distributed_backend
-from yarl.agents import Agent
-from yarl.environments import Environment
+from rlgraph import get_distributed_backend
+from rlgraph.agents import Agent
+from rlgraph.environments import Environment
 
 if get_distributed_backend() == "ray":
     import ray
@@ -225,7 +225,7 @@ class RayExecutor(object):
             agent_config (dict): Agent config. Must contain 'type' field to lookup constructor.
 
         Returns:
-            Agent: YARL agent object.
+            Agent: RLGraph agent object.
         """
         config = deepcopy(agent_config)
         # Pop type on a copy because this may be called by multiple classes/worker types.

@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.tests.agent_test import AgentTest
-from yarl.tests.component_test import ComponentTest
-from yarl.tests.test_util import recursive_assert_almost_equal
-from yarl.tests.dummy_components import *
+from rlgraph.tests.agent_test import AgentTest
+from rlgraph.tests.component_test import ComponentTest
+from rlgraph.tests.test_util import recursive_assert_almost_equal
+from rlgraph.tests.dummy_components import *
 
 
 __all__ = ["recursive_assert_almost_equal",

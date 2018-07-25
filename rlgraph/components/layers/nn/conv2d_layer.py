@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import get_backend
-from yarl.utils.initializer import Initializer
-from yarl.components.layers.nn.nn_layer import NNLayer
-from yarl.components.layers.nn.activation_functions import get_activation_function
+from rlgraph import get_backend
+from rlgraph.utils.initializer import Initializer
+from rlgraph.components.layers.nn.nn_layer import NNLayer
+from rlgraph.components.layers.nn.activation_functions import get_activation_function
 
 if get_backend() == "tf":
     import tensorflow as tf

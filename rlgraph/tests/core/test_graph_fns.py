@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ import logging
 import numpy as np
 import unittest
 
-from yarl.tests import ComponentTest
-from yarl.utils import root_logger
-import yarl.spaces as spaces
-from yarl.tests.dummy_components import *
+from rlgraph.tests import ComponentTest
+from rlgraph.utils import root_logger
+import rlgraph.spaces as spaces
+from rlgraph.tests.dummy_components import *
 
 
 class TestGraphFns(unittest.TestCase):

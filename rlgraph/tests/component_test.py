@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl import get_backend
-from yarl.utils import root_logger
-from yarl.utils.input_parsing import parse_execution_spec
-from yarl.graphs import GraphBuilder
-from yarl.graphs.graph_executor import GraphExecutor
-from yarl.tests.test_util import recursive_assert_almost_equal
+from rlgraph import get_backend
+from rlgraph.utils import root_logger
+from rlgraph.utils.input_parsing import parse_execution_spec
+from rlgraph.graphs import GraphBuilder
+from rlgraph.graphs.graph_executor import GraphExecutor
+from rlgraph.tests.test_util import recursive_assert_almost_equal
 
 
 class ComponentTest(object):
@@ -49,7 +49,7 @@ class ComponentTest(object):
             action_space (Optional[Space]): The action space to pass into the GraphBuilder.
             seed (Optional[int]): The seed to use for random-seeding the Model object.
                 If None, do not seed the Graph (things may behave non-deterministically).
-            logging_level (Optional[int]): When provided, sets YARL's root_logger's logging level to this value.
+            logging_level (Optional[int]): When provided, sets RLGraph's root_logger's logging level to this value.
             enable_profiler (Optional(bool)): When enabled, activates backend profiling.
             device_strategy (Optional[str]): Optional device-strategy to be passed into GraphExecutor.
             device_map (Optional[Dict[str,str]]): Optional device-map to be passed into GraphExecutor.

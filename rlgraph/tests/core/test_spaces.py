@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ from __future__ import print_function
 from six.moves import xrange as range_
 import unittest
 
-from yarl.spaces import *
-from yarl.utils.ops import FLAT_TUPLE_CLOSE, FLAT_TUPLE_OPEN
+from rlgraph.spaces import *
+from rlgraph.utils.ops import FLAT_TUPLE_CLOSE, FLAT_TUPLE_OPEN
 
 
 class TestSpaces(unittest.TestCase):

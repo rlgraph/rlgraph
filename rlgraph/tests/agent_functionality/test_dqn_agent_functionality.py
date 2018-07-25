@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,13 +21,13 @@ import logging
 import numpy as np
 import unittest
 
-from yarl.agents import Agent
-import yarl.spaces as spaces
-from yarl.components.loss_functions.dqn_loss_function import DQNLossFunction
-from yarl.environments import GridWorld, RandomEnv
-from yarl.execution.single_threaded_worker import SingleThreadedWorker
-from yarl.utils import root_logger, one_hot
-from yarl.tests.agent_test import AgentTest
+from rlgraph.agents import Agent
+import rlgraph.spaces as spaces
+from rlgraph.components.loss_functions.dqn_loss_function import DQNLossFunction
+from rlgraph.environments import GridWorld, RandomEnv
+from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
+from rlgraph.utils import root_logger, one_hot
+from rlgraph.tests.agent_test import AgentTest
 
 
 class TestDQNAgentFunctionality(unittest.TestCase):

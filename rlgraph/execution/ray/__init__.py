@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.execution.ray.ray_executor import RayExecutor
-from yarl.execution.ray.ray_agent import RayAgent
-from yarl.execution.ray.ray_worker import RayWorker
-from yarl.execution.ray.apex.apex_executor import ApexExecutor
+from rlgraph.execution.ray.ray_executor import RayExecutor
+from rlgraph.execution.ray.ray_agent import RayAgent
+from rlgraph.execution.ray.ray_worker import RayWorker
+from rlgraph.execution.ray.apex.apex_executor import ApexExecutor
 
 __all__ = ["RayExecutor", "ApexExecutor", "RayAgent", "RayWorker"]
 

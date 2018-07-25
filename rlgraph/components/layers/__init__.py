@@ -1,4 +1,4 @@
-# Copyright 2018 The YARL-Project, All Rights Reserved.
+# Copyright 2018 The RLGraph-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,16 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.utils.util import default_dict
+from rlgraph.utils.util import default_dict
 
 # Basics.
-from yarl.components.layers.stack import Stack
-from yarl.components.layers.layer import Layer
-from yarl.components.layers.preprocessor_stack import PreprocessorStack
+from rlgraph.components.layers.stack import Stack
+from rlgraph.components.layers.layer import Layer
+from rlgraph.components.layers.preprocessor_stack import PreprocessorStack
 # Preprocessing Layers.
-from yarl.components.layers.preprocessing import *
+from rlgraph.components.layers.preprocessing import *
 # NN-Layers.
-from yarl.components.layers.nn import *
+from rlgraph.components.layers.nn import *
 
 # The Stacks.
 Stack.__lookup_classes__ = dict(
