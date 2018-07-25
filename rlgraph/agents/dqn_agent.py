@@ -92,8 +92,10 @@ class DQNAgent(Agent):
         self.target_policy.add_components(Synchronizable(), expose_apis="sync")
 
         use_importance_weights = isinstance(self.memory, PrioritizedReplay)
-        self.loss_function = DQNLossFunction(discount=self.discount, double_q=self.double_q,
-                                             huber_loss=self.huber_loss, importance_weights=use_importance_weights)
+        self.loss_function = DQNLossFunction(
+            discount=self.discount, double_q=self.double_q, huber_loss=self.huber_loss,
+            importance_weights=use_importance_weights
+        )
 
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
