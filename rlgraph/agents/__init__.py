@@ -18,8 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.agents.agent import Agent
-from rlgraph.agents.apex_agent import ApexAgent
 from rlgraph.agents.dqn_agent import DQNAgent
+from rlgraph.agents.apex_agent import ApexAgent
 from rlgraph.agents.impala_agent import IMPALAAgent
 from rlgraph.agents.ppo_agent import PPOAgent
 from rlgraph.agents.random_agent import RandomAgent
