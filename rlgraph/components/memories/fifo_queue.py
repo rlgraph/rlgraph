@@ -46,11 +46,11 @@ class FIFOQueue(Memory):
         shapes = list()
         dtypes = list()
         names = list()
-        for k, v in in_space.flatten().items():
-            sanity_check_space(v, must_have_batch_rank=True)
-            shapes.append(v.shape)
-            dtypes.append(v.dtype)
-            names.append(k)
+        for key, value in in_space.flatten().items():
+            sanity_check_space(value, must_have_batch_rank=True)
+            shapes.append(value.shape)
+            dtypes.append(value.dtype)
+            names.append(key)
 
         # Construct the wrapped FIFOQueue object.
         if get_backend() == "tf":

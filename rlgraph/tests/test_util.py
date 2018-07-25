@@ -71,16 +71,16 @@ def recursive_assert_almost_equal(x, y, decimals=7):
     # A dict type.
     if isinstance(x, dict):
         assert isinstance(y, dict), "ERROR: If x is dict, y needs to be a dict as well!"
-        for k, v in x.items():
-            assert k in y, "ERROR: y does not have x's key='{}'!".format(k)
-            recursive_assert_almost_equal(v, y[k], decimals=decimals)
+        for key, value in x.items():
+            assert key in y, "ERROR: y does not have x's key='{}'!".format(key)
+            recursive_assert_almost_equal(value, y[key], decimals=decimals)
     # A tuple type.
     elif isinstance(x, (tuple, list)):
         assert isinstance(y, (tuple, list)), "ERROR: If x is tuple, y needs to be a tuple as well!"
         assert len(y) == len(x), "ERROR: y does not have the same length as " \
                                  "x ({} vs {})!".format(len(y), len(x))
-        for i, v in enumerate(x):
-            recursive_assert_almost_equal(v, y[i], decimals=decimals)
+        for i, value in enumerate(x):
+            recursive_assert_almost_equal(value, y[i], decimals=decimals)
     # Boolean stuff.
     elif isinstance(x, (np.bool_, bool)):
         assert bool(x) is bool(y), "ERROR: x ({}) is not y ({})!".format(x, y)

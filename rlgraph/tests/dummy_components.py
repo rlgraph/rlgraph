@@ -249,8 +249,8 @@ class OnlyFlattenDummy(Component):
         """
         ret = FlattenedDataOp()
         ret2 = FlattenedDataOp()
-        for k, v in input1.items():
-            ret[k] = v + input2[""]
-            ret2[k] = v - input2[""]
+        for key, value in input1.items():
+            ret[key] = value + input2[""]
+            ret2[key] = value - input2[""]
         return ret, ret2, input2
 

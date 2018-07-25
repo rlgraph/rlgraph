@@ -53,10 +53,10 @@ class Flatten(PreprocessLayer):
 
     def get_preprocessed_space(self, space):
         ret = dict()
-        for k, v in space.flatten().items():
-            flat_dim = v.flat_dim_with_categories if self.flatten_categories is True and v.__class__ == IntBox \
-                else v.flat_dim
-            ret[k] = FloatBox(shape=(flat_dim,), add_batch_rank=v.has_batch_rank, add_time_rank=v.has_time_rank)
+        for key, value in space.flatten().items():
+            flat_dim = value.flat_dim_with_categories if self.flatten_categories is True and value.__class__ == IntBox \
+                else value.flat_dim
+            ret[key] = FloatBox(shape=(flat_dim,), add_batch_rank=v.has_batch_rank, add_time_rank=value.has_time_rank)
         return unflatten_op(ret)
 
     def check_input_spaces(self, input_spaces, action_space):

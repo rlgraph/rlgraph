@@ -111,7 +111,7 @@ class OpenAIGymEnv(Environment):
         elif isinstance(space, gym.spaces.Tuple):
             return Tuple(*[OpenAIGymEnv.translate_space(s) for s in space.spaces])
         elif isinstance(space, gym.spaces.Dict):
-            return Dict({k: OpenAIGymEnv.translate_space(v) for k, v in space.spaces.items()})
+            return Dict({key: OpenAIGymEnv.translate_space(value) for key, value in space.spaces.items()})
         else:
             raise RLGraphError("Unknown openAI gym Space class for state_space!")
 

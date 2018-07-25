@@ -103,8 +103,8 @@ class TestSpaces(unittest.TestCase):
 
         result = ""
         flat_space_and_mapped = space.flatten(mapping=mapping_func)
-        for k, v in flat_space_and_mapped.items():
-            result += "{}:{},".format(k, v)
+        for key, value in flat_space_and_mapped.items():
+            result += "{}:{},".format(key, value)
 
         tuple_txt = [FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE] * 10
         expected = "/{}0{}/a:1,/{}0{}/b:1,/{}0{}/c/d:1,/{}1{}:1,/{}2{}:1,/{}3{}:6,/{}4{}/{}0{}:1,/{}4{}/{}1{}:1,".\

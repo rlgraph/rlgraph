@@ -61,13 +61,13 @@ class Sequence(PreprocessLayer):
 
     def get_preprocessed_space(self, space):
         ret = dict()
-        for k, v in space.flatten().items():
-            shape = list(v.shape)
+        for key, value in space.flatten().items():
+            shape = list(value.shape)
             if self.add_rank:
                 shape.append(self.length)
             else:
                 shape[-1] *= self.length
-            ret[k] = v.__class__(shape=tuple(shape), add_batch_rank=v.has_batch_rank)
+            ret[key] = value.__class__(shape=tuple(shape), add_batch_rank=value.has_batch_rank)
         return unflatten_op(ret)
 
     def check_input_spaces(self, input_spaces, action_space):
@@ -107,10 +107,10 @@ class Sequence(PreprocessLayer):
         # A normal (index != -1) assign op.
         def normal_assign():
             assigns = list()
-            for k, v in inputs.items():
+            for key, value in inputs.items():
                 # [0]=skip batch (which must be len=1 anyway)
                 assigns.append(self.assign_variable(
-                    ref=self.buffer[k][self.index], value=v[0] if self.first_rank_is_batch else v)
+                    ref=self.buffer[key][self.index], value=value[0] if self.first_rank_is_batch else value)
                 )
             return assigns
 
@@ -118,11 +118,11 @@ class Sequence(PreprocessLayer):
         # Pre-fill the entire buffer with `self.length` x input_.
         def after_reset_assign():
             assigns = list()
-            for k, v in inputs.items():
-                multiples = (self.length,) + tuple([1] * (get_rank(v) - (1 if self.first_rank_is_batch else 0)))
-                in_ = v if self.first_rank_is_batch else tf.expand_dims(v, 0)
+            for key, value in inputs.items():
+                multiples = (self.length,) + tuple([1] * (get_rank(value) - (1 if self.first_rank_is_batch else 0)))
+                in_ = value if self.first_rank_is_batch else tf.expand_dims(value, 0)
                 assigns.append(self.assign_variable(
-                    ref=self.buffer[k],
+                    ref=self.buffer[key],
                     value=tf.tile(input=in_, multiples=multiples)
                 ))
             return assigns

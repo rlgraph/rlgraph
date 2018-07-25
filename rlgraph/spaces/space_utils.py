@@ -79,11 +79,11 @@ def get_space_from_op(op):
         spec = dict()
         add_batch_rank = False
         add_time_rank = False
-        for k, v in op.items():
-            spec[k] = get_space_from_op(v)
-            if spec[k].has_batch_rank:
+        for key, value in op.items():
+            spec[key] = get_space_from_op(value)
+            if spec[key].has_batch_rank:
                 add_batch_rank = True
-            if spec[k].has_time_rank:
+            if spec[key].has_time_rank:
                 add_time_rank = True
         return Dict(spec, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
     # a Tuple

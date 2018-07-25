@@ -196,7 +196,7 @@ class TensorFlowExecutor(GraphExecutor):
             self.update_profiler_if_necessary()
 
         # Return single values instead of lists of 1 item.
-        ret = {k: (v[0] if len(ret[k]) == 1 else tuple(v)) for k, v in ret.items()}
+        ret = {key: (value[0] if len(ret[key]) == 1 else tuple(value)) for key, value in ret.items()}
 
         # If only one key in ret, remove it.
         if len(api_methods) == 1:

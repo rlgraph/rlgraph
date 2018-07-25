@@ -86,8 +86,8 @@ class TestFIFOQueue(unittest.TestCase):
         records = self.record_space.sample(size=self.capacity + 1)
 
         expected = dict()
-        for k, v in flatten_op(records).items():
-            expected[k] = v[:2]
+        for key, value in flatten_op(records).items():
+            expected[key] = value[:2]
         expected = unflatten_op(expected)
 
         # Start thread to save this one from getting stuck due to capacity overflow.

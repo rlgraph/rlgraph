@@ -284,7 +284,7 @@ class GraphBuilder(Specifiable):
                         assert level in component.sub_components,\
                             "ERROR: `component_path` ('{}') contains non-existent Components!".format(component_path)
                         component = component.sub_components[level]
-                    var_spaces = {k: get_space_from_op(v) for k, v in sorted(
+                    var_spaces = {key: get_space_from_op(value) for key, value in sorted(
                         component.get_variables(custom_scope_separator="-").items()
                     )}
                     var_space = Dict(var_spaces)
