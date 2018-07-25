@@ -37,8 +37,8 @@ class LocalOptimizer(Optimizer):
         self.two_step = two_step
         self.clip_grad_norm = clip_grad_norm
         if self.clip_grad_norm is not None:
-            assert isinstance(self.clip_grad_norm, float),\
-                "ERROR: 'clip_grad_norm' must be of type float but is type {}".format(type(self.clip_grad_norm))
+            assert isinstance(self.clip_grad_norm, float) or isinstance(self.clip_grad_norm, int),\
+                "ERROR: 'clip_grad_norm' must be of type float or int but is type {}".format(type(self.clip_grad_norm))
 
         # The wrapped, backend-specific optimizer object.
         self.optimizer = None
