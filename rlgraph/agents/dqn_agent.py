@@ -88,7 +88,7 @@ class DQNAgent(Agent):
         self.splitter = Splitter("states", "actions", "rewards", "terminals", "next_states")
 
         # Copy our Policy (target-net), make target-net synchronizable.
-        self.target_policy = self.policy.copy(scope="target-policy")
+        self.target_policy = self.policy.copy(scope="target-policy", trainable=False)
         self.target_policy.add_components(Synchronizable(), expose_apis="sync")
 
         use_importance_weights = isinstance(self.memory, PrioritizedReplay)

@@ -80,7 +80,8 @@ class Conv2DLayer(NNLayer):
                 activation=get_activation_function(self.activation, *self.activation_params),
                 use_bias=(self.biases_spec is not False),
                 kernel_initializer=self.kernel_init.initializer,
-                bias_initializer=(self.biases_init.initializer or tf.zeros_initializer())
+                bias_initializer=(self.biases_init.initializer or tf.zeros_initializer()),
+                trainable=(True if self.trainable is not False else False)
             )
 
             # Now build the layer so that its variables get created.

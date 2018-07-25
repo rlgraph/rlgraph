@@ -66,6 +66,8 @@ class Component(Specifiable):
                 If name is empty, use scope as name (as last resort).
             scope (str): The scope of this Component for naming variables in the Graph.
             device (str): Device this component will be assigned to. If None, defaults to CPU.
+            trainable (Optional[bool]): Whether to make the variables of this Component always trainable or not.
+                Use None for no specific preference.
             global_component (bool): In distributed mode, this flag indicates if the component is part of the
                 shared global model or local to the worker. Defaults to False and will be ignored if set to
                 True in non-distributed mode.
@@ -91,6 +93,7 @@ class Component(Specifiable):
         # Names of sub-components that exist (parallelly) inside a containing component must be unique.
         self.name = kwargs.pop("name", self.scope)  # if no name given, use scope
         self.device = kwargs.pop("device", None)
+        self.trainable = kwargs.pop("trainable", None)
         self.global_component = kwargs.pop("global_component", False)
         self.graph_fn_num_outputs = kwargs.pop("graph_fn_num_outputs", dict())
         self.switched_off_apis = kwargs.pop("switched_off_apis", set())
@@ -866,7 +869,7 @@ class Component(Specifiable):
         # Recurse up the container hierarchy.
         self.parent_component.propagate_variables(keys)
 
-    def copy(self, name=None, scope=None, device=None, global_component=False):
+    def copy(self, name=None, scope=None, device=None, trainable=None, global_component=False):
         """
         Copies this component and returns a new component with possibly another name and another scope.
         The new component has its own variables (they are not shared with the variables of this component as they
@@ -878,6 +881,8 @@ class Component(Specifiable):
             name (str): The name of the new Component. If None, use the value of scope.
             scope (str): The scope of the new Component. If None, use the same scope as this component.
             device (str): The device of the new Component. If None, use the same device as this one.
+            trainable (Optional[bool]): Whether to make all variables in this component trainable or not.
+                Use None for no specific preference.
             global_component (Optional[bool]): Whether the new Component is global or not. If None, use the same
                 setting as this one.
 
@@ -894,6 +899,8 @@ class Component(Specifiable):
             name = scope
         if device is None:
             device = self.device
+        if trainable is None:
+            trainable = self.trainable
         if global_component is None:
             global_component = self.global_component
 
@@ -905,11 +912,9 @@ class Component(Specifiable):
         new_component.global_scope = scope
         new_component.propagate_scope(sub_component=None)
         new_component.device = device
+        new_component.trainable = trainable
         new_component.global_component = global_component
         new_component.parent_component = None  # erase the parent pointer
-        # OBSOLETE: Change __self__ of all API-methods.
-        #for api_method_rec in new_component.api_methods.values():
-        #    setattr(api_method_rec.method, "__self__", new_component)
 
         return new_component
 

@@ -94,6 +94,8 @@ class LSTMLayer(NNLayer):
                 cell_clip=self.cell_clip,
                 forget_bias=self.forget_bias,
                 name="lstm-cell"
+                # TODO: self.trainable needs to be recognized somewhere here.
+
                 # These are all not supported yet for LSTMBlockCell (only for the slower LSTMCell)
                 # initializer=self.weights_init.initializer,
                 # activation=get_activation_function(self.activation, *self.activation_params),
