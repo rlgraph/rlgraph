@@ -21,6 +21,8 @@ import json
 import os
 import unittest
 
+from rlgraph.agents import ApexAgent
+from rlgraph.environments import OpenAIGymEnv
 from rlgraph.execution.ray import ApexExecutor
 
 
@@ -32,8 +34,24 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
     """
     env_spec = dict(
       type="openai",
-      gym_env="PongNoFrameskip-v4"
+          gym_env="PongNoFrameskip-v4"
     )
+
+    def test_agent_compilation(self):
+        """
+        Tests agent compilation without Ray to ease debugging on Windows.
+        """
+        path = os.path.join(os.getcwd(), "../configs/ray_apex_for_pong.json")
+        with open(path, 'rt') as fp:
+            agent_config = json.load(fp)
+            # Remove.
+            agent_config["execution_spec"].pop("ray_spec")
+        environment = OpenAIGymEnv("PongNoFrameskip-v4", frameskip=4)
+
+        agent_config["state_space"] = environment.state_space
+        agent_config["action_space"] = environment.action_space
+        agent = ApexAgent.from_spec(agent_config)
+        print('Compiled apex agent')
 
     def test_initial_training_pong(self):
         """
