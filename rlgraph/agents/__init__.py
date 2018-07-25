@@ -18,21 +18,25 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.agents.agent import Agent
-from rlgraph.agents.dqn_agent import DQNAgent
 from rlgraph.agents.apex_agent import ApexAgent
+from rlgraph.agents.dqn_agent import DQNAgent
+from rlgraph.agents.impala_agent import IMPALAAgent
 from rlgraph.agents.ppo_agent import PPOAgent
 from rlgraph.agents.random_agent import RandomAgent
 
 
 Agent.__lookup_classes__ = dict(
-    dqn=DQNAgent,
-    dqnagent=DQNAgent,
     apex=ApexAgent,
     apexagent=ApexAgent,
+    dqn=DQNAgent,
+    dqnagent=DQNAgent,
+    impala=IMPALAAgent,
+    impalaagent=IMPALAAgent,
     ppo=PPOAgent,
     ppoagent=PPOAgent,
     random=RandomAgent
 )
 
-__all__ = ["Agent", "DQNAgent", "ApexAgent", "PPOAgent", "RandomAgent"]
+__all__ = ["Agent"] + \
+          list(set(map(lambda x: x.__name__, Agent.__lookup_classes__.values())))
 
