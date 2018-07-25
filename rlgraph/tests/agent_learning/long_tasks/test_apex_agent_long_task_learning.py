@@ -39,7 +39,7 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         """
         Tests if Apex can start learning pong effectively on ray.
         """
-        path = os.path.join(os.getcwd(), "configs/ray_apex_for_pong.json")
+        path = os.path.join(os.getcwd(), "../configs/ray_apex_for_pong.json")
         with open(path, 'rt') as fp:
             agent_config = json.load(fp)
 

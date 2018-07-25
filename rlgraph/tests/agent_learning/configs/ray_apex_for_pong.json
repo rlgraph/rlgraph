@@ -69,7 +69,9 @@
         "start_timestep": 50000,
         "num_timesteps": 1000000
       }
-    },
+    }
+  },
+  "execution_spec": {
     "ray_spec": {
       "executor_spec": {
         "redis_address": null,
