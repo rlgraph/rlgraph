@@ -22,7 +22,7 @@ from setuptools import setup, find_packages
 
 # Read __version__ avoiding imports that might be in install_requires
 version_vars = dict()
-with open(os.path.join(os.path.dirname(__file__), 'yarl', 'version.py')) as fp:
+with open(os.path.join(os.path.dirname(__file__), 'rlgraph', 'version.py')) as fp:
     exec(fp.read(), version_vars)
 
 install_requires = [
@@ -46,14 +46,14 @@ extras_require = {
 }
 
 setup(
-    name='yarl',
+    name='rlgraph',
     version=version_vars['__version__'],
     description='A Framework for Flexible Deep Reinforcement Learning Graphs',
-    url='https://yarl-project.org',
-    author='yarl',
-    author_email='yarl@yarl-project.org',
+    url='https://rlgraph-project.org',
+    author='rlgraph',
+    author_email='rlgraph@rlgraph-project.org',
     license='Apache 2.0',
-    packages=[package for package in find_packages() if package.startswith('yarl')],
+    packages=[package for package in find_packages() if package.startswith('rlgraph')],
     install_requires=install_requires,
     setup_requires=setup_requires,
     extras_require=extras_require,

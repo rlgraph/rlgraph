@@ -60,7 +60,7 @@ class Specifiable(object):
         - A string or an object that is a key in `cls`'s `__lookup_classes__` dict: The value in `__lookup_classes__`
             for that key will be used as the constructor.
         - A python callable: Use that as constructor.
-        - A string: Either a json filename or the name of a python module+class (e.g. "yarl.components.Component")
+        - A string: Either a json filename or the name of a python module+class (e.g. "rlgraph.components.Component")
             to be Will be used to
 
         Args:

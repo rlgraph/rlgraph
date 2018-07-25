@@ -80,7 +80,7 @@ class ComponentTest(object):
         Does one test pass through the component to test.
 
         Args:
-            api_methods (Union[str,list,tuple]): See yarl.graphs.graph_executor for details.
+            api_methods (Union[str,list,tuple]): See rlgraph.graphs.graph_executor for details.
             A specifier for an API-method call.
                 - str: Call the API-method that has the given name w/o any input args.
                 - tuple len=2: 0=the API-method name to call; 1=the input args to use for the call.

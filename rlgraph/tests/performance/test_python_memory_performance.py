@@ -25,9 +25,9 @@ import time
 from six.moves import xrange as range_
 from ray.rllib.optimizers.replay_buffer import PrioritizedReplayBuffer
 
-from yarl.execution.ray.apex.apex_memory import ApexMemory
-from yarl.execution.ray.ray_util import ray_compress
-from yarl.spaces import Dict, BoolBox, FloatBox
+from rlgraph.execution.ray.apex.apex_memory import ApexMemory
+from rlgraph.execution.ray.ray_util import ray_compress
+from rlgraph.spaces import Dict, BoolBox, FloatBox
 
 
 class TestPythonMemoryPerformance(unittest.TestCase):

@@ -17,13 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from yarl.utils.ops import DataOp, SingleDataOp, DataOpDict, DataOpTuple, ContainerDataOp, FlattenedDataOp
-from yarl.utils.specifiable import Specifiable
-from yarl.utils.initializer import Initializer
-from yarl.utils.util import dtype, get_shape, get_rank, force_tuple, force_list, LARGE_INTEGER, SMALL_NUMBER, \
+from rlgraph.utils.ops import DataOp, SingleDataOp, DataOpDict, DataOpTuple, ContainerDataOp, FlattenedDataOp
+from rlgraph.utils.specifiable import Specifiable
+from rlgraph.utils.initializer import Initializer
+from rlgraph.utils.util import dtype, get_shape, get_rank, force_tuple, force_list, LARGE_INTEGER, SMALL_NUMBER, \
     tf_logger, print_logging_handler, root_logger, logging_formatter
-from yarl.utils.numpy import softmax, relu, one_hot
-from yarl.utils.yarl_error import YARLError
+from rlgraph.utils.numpy import softmax, relu, one_hot
+from rlgraph.utils.yarl_error import YARLError
 
 
 __all__ = [

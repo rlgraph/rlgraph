@@ -19,9 +19,9 @@ from __future__ import print_function
 
 import unittest
 
-from yarl.agents.dqn_agent import DQNAgent
-from yarl.environments import OpenAIGymEnv
-from yarl.execution.single_threaded_worker import SingleThreadedWorker
+from rlgraph.agents.dqn_agent import DQNAgent
+from rlgraph.environments import OpenAIGymEnv
+from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
 
 
 class TestSingleThreadedDQN(unittest.TestCase):

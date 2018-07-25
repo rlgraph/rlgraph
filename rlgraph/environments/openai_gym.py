@@ -98,7 +98,7 @@ class OpenAIGymEnv(Environment):
             space (gym.spaces.Space): The openAI Space to be translated.
 
         Returns:
-            Space: The translated yarl Space.
+            Space: The translated rlgraph Space.
         """
         if isinstance(space, gym.spaces.Discrete):
             return IntBox(space.n)

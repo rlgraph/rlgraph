@@ -719,7 +719,7 @@ class GraphBuilder(Specifiable):
         Creates a fetch-dict and a feed-dict for a graph session call.
 
         Args:
-            api_methods (dict): See `yarl.graphs.graph_executor` for details.
+            api_methods (dict): See `rlgraph.graphs.graph_executor` for details.
 
         Returns:
             Tuple[list,dict]: Fetch-list, feed-dict with relevant args.
