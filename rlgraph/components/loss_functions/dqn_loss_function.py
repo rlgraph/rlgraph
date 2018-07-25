@@ -128,6 +128,9 @@ class DQNLossFunction(LossFunction):
             return np.power(td_delta, 2)
 
         elif get_backend() == "tf":
+            # Make sure the target policy's outputs are treated as constant when calculating gradients.
+            qt_values_sp = tf.stop_gradient(qt_values_sp)
+
             if self.double_q:
                 # For double-Q, we no longer use the max(a')Qt(s'a') value.
                 # Instead, the a' used to get the Qt(s'a') is given by argmax(a') Q(s',a') <- Q=q-net, not target net!

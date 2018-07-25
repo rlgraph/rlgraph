@@ -152,5 +152,6 @@ class VTraceFunction(Component):
             vs_t_plus_1 = tf.concat(values=[vs[1:], tf.expand_dims(input=bootstrapped_v, axis=0)], axis=0)
             pg_advantages = rho_t_pg * (rewards + discounts * vs_t_plus_1 - values)
 
-            # Make sure no gradients back-propagated through the returned values.
-            return tf.stop_gradient(input=vs), tf.stop_gradient(input=pg_advantages)
+            # Return v-traces and policy gradient advantage values based on: A=r+gamma*v-trace(s+1) - V(s).
+            # With `r+gamma*v-trace(s+1)` also called `qs` in the paper.
+            return vs, pg_advantages

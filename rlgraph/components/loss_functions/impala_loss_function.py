@@ -79,6 +79,9 @@ class IMPALALossFunction(LossFunction):
         # Both vs and pg_advantages will block the gradient as they should be treated as constants by the gradient
         # calculator of this loss func.
         vs, pg_advantages = self.v_trace_function._graph_fn_calc_v_trace_values(TODO)
+        # Make sure vs and advantage values are treated as constants for the gradient calculation.
+        vs = tf.stop_gradient(vs)
+        pg_advantages = tf.stop_gradient(pg_advantages)
 
         if get_backend() == "tf":
             # The policy gradient loss.
