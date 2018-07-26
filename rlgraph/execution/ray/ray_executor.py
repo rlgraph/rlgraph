@@ -245,8 +245,12 @@ class RayExecutor(object):
         Returns:
             Environment: Env object.
         """
-        env_cls = Environment.__lookup_classes__.get(env_spec['type'])
-        return env_cls(env_spec['gym_env'])
+        env_cls = Environment.__lookup_classes__.get(env_spec["type"])
+        # TODO fix when Ray can do kwargs better.
+        if "type" == "openai":
+            return env_cls(env_spec["gym_env"], env_spec["frame_skip"])
+        else:
+            return env_cls(env_spec['gym_env'])
 
     def result_by_worker(self, worker_id=None):
         """

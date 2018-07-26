@@ -34,7 +34,9 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
     """
     env_spec = dict(
         type="openai",
-        gym_env="PongNoFrameskip-v4"
+        gym_env="Pong-v0",
+        # The frameskip in the agent config will trigger.
+        frameskip=4
     )
 
     def test_agent_compilation(self):
@@ -46,7 +48,7 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
             agent_config = json.load(fp)
             # Remove.
             agent_config["execution_spec"].pop("ray_spec")
-        environment = OpenAIGymEnv("PongNoFrameskip-v4", frameskip=4)
+        environment = OpenAIGymEnv("Pong-v0", frameskip=4 )
 
         agent = ApexAgent.from_spec(
             agent_config, state_space=environment.state_space, action_space=environment.action_space

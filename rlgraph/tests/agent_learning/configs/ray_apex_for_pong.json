@@ -89,7 +89,7 @@
         "num_replay_workers": 1
       },
       "worker_spec": {
-        "frame_skip": 4,
+        "frame_skip": 1,
         "n_step_adjustment": 3,
         "worker_computes_weights": true,
         "sample_exploration": true,
