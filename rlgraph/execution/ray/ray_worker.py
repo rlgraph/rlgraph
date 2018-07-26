@@ -291,13 +291,6 @@ class RayWorker(RayActor):
         Returns:
             dict: Sample batch dict.
         """
-        states = np.asarray(states)
-        actions = np.asarray(actions)
-        rewards = np.asarray(rewards)
-        next_states = self.agent.preprocessed_state_space.force_batch(next_states)
-        terminals = np.asarray(terminals)
-        weights = np.ones_like(terminals)
-
         if self.n_step_adjustment > 1:
             for i in range_(len(rewards) - self.n_step_adjustment + 1):
                 # Ignore terminals.
@@ -315,6 +308,14 @@ class RayWorker(RayActor):
             new_len = len(states) - self.n_step_adjustment + 1
             for arr in [states, actions, rewards, next_states, terminals]:
                 del arr[new_len:]
+
+        # Convert for update.
+        states = np.asarray(states)
+        actions = np.asarray(actions)
+        rewards = np.asarray(rewards)
+        next_states = self.agent.preprocessed_state_space.force_batch(next_states)
+        terminals = np.asarray(terminals)
+        weights = np.ones_like(terminals)
 
         # Compute loss-per-item.
         if self.worker_computes_weights:
