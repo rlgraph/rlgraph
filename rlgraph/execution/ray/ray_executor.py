@@ -230,7 +230,6 @@ class RayExecutor(object):
         config = deepcopy(agent_config)
         # Pop type on a copy because this may be called by multiple classes/worker types.
         agent_cls = Agent.__lookup_classes__.get(config.pop('type'))
-
         return agent_cls(**config)
 
     @staticmethod
@@ -245,12 +244,8 @@ class RayExecutor(object):
         Returns:
             Environment: Env object.
         """
-        env_cls = Environment.__lookup_classes__.get(env_spec["type"])
-        # TODO fix when Ray can do kwargs better.
-        if "type" == "openai":
-            return env_cls(env_spec["gym_env"], env_spec["frame_skip"])
-        else:
-            return env_cls(env_spec['gym_env'])
+        env_cls = Environment.__lookup_classes__.get(env_spec.pop("type"))
+        return env_cls(**env_spec)
 
     def result_by_worker(self, worker_id=None):
         """

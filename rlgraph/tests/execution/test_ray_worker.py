@@ -37,9 +37,6 @@ class TestRayWorker(unittest.TestCase):
       type="openai",
       gym_env="CartPole-v0"
     )
-    agent_config = dict(
-        type="random"
-    )
 
     def setUp(self):
         """
@@ -51,7 +48,12 @@ class TestRayWorker(unittest.TestCase):
         """
         Simply tests if time-step execution loop works and returns the samples.
         """
-        worker = RayWorker.remote(self.env_spec, self.agent_config)
+        path = os.path.join(os.getcwd(), "configs/apex_agent_cartpole.json")
+        with open(path, 'rt') as fp:
+            agent_config = json.load(fp)
+
+        worker_spec = agent_config["execution_spec"].pop("ray_spec")
+        worker = RayWorker.remote(agent_config, self.env_spec, worker_spec)
 
         # Test when breaking on terminal.
         # Init remote task.
@@ -99,7 +101,7 @@ class TestRayWorker(unittest.TestCase):
         if "apex_replay_spec" in agent_config:
             agent_config.pop("apex_replay_spec")
 
-        print(agent_config)
+        worker_spec = agent_config["execution_spec"].pop("ray_spec")
         local_agent = Agent.from_spec(
             agent_config,
             state_space=env.state_space,
@@ -107,7 +109,7 @@ class TestRayWorker(unittest.TestCase):
         )
 
         # Create a remote worker with the same agent config.
-        worker = RayWorker.remote(self.env_spec, self.agent_config)
+        worker = RayWorker.remote(self.env_spec, agent_config, worker_spec)
 
         # This imitates the initial executor sync without ray.put
         weights = local_agent.get_policy_weights()
