@@ -308,7 +308,7 @@ class RayWorker(RayActor):
         # Compute loss-per-item.
         if self.worker_computes_weights:
             # Next states were just collected, we batch process them here.
-            next_states = self.agent.call_graph_op("preprocess_states", next_states)
+            next_states = self.agent.call_graph_op("preprocess_states", [next_states])
             # TODO we can merge this preprocessing into the same call.
             _, loss_per_item = self.agent.update(
                 dict(
