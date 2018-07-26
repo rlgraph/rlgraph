@@ -5,11 +5,7 @@
     "type": "prioritized_replay",
     "capacity": 10000
   },
-  "preprocessing_spec": [
-    {
-      "type": "flatten"
-    }
-  ],
+  "preprocessing_spec": null,
   "execution_spec": {
     "session_config": {
       "log_device_placement": false,
@@ -29,7 +25,7 @@
         "num_replay_workers": 1
       },
       "worker_spec": {
-        "n_step_adjustment": 1,
+        "n_step_adjustment": 0,
         "worker_computes_weights": true,
         "sample_exploration": true,
         "exploration_min_value": 0.5
@@ -40,7 +36,7 @@
         },
         "clip_rewards": true,
         "min_sample_memory_size": 200,
-        "n_step_adjustment": 1
+        "n_step_adjustment": 0
       }
     }
   },

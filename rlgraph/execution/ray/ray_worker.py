@@ -115,10 +115,6 @@ class RayWorker(RayActor):
 
         return RayExecutor.build_agent_from_config(agent_config)
 
-    # Remote functions to interact with this workers agent.
-    def call_agent_op(self, op, inputs=None):
-        self.agent.call_graph_op(op, inputs)
-
     def execute_and_get_timesteps(
         self,
         num_timesteps,
@@ -141,8 +137,10 @@ class RayWorker(RayActor):
         states = []
         actions = []
         rewards = []
-        next_states = []
         terminals = []
+        # In case we area breaking on terminal.
+        break_loop = False
+        next_state = np.zeros_like(self.last_state)
 
         while timesteps_executed < num_timesteps:
             # Reset Env and Agent either if finished an episode in current loop or if last state
@@ -162,6 +160,7 @@ class RayWorker(RayActor):
 
             # Whether the episode has terminated.
             terminal = False
+
             while True:
                 action, preprocessed_state = self.agent.get_action(states=state, use_exploration=use_exploration,
                                                                    extra_returns="preprocessed_states")
@@ -170,7 +169,6 @@ class RayWorker(RayActor):
 
                 # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
                 reward = 0
-                next_state = None
                 for _ in range_(self.frameskip):
                     next_state, step_reward, terminal, info = self.environment.step(actions=action)
                     env_frames += 1
@@ -180,7 +178,6 @@ class RayWorker(RayActor):
 
                 rewards.append(reward)
                 terminals.append(terminal)
-                next_states.append(next_state)
                 episode_reward += reward
                 timesteps_executed += 1
                 episode_timestep += 1
@@ -189,41 +186,16 @@ class RayWorker(RayActor):
                 if terminal or (0 < num_timesteps <= timesteps_executed) or \
                         (0 < max_timesteps_per_episode <= episode_timestep):
                     episodes_executed += 1
-                    # Just return all samples collected so far.
                     self.episode_rewards.append(episode_reward)
                     self.episode_timesteps.append(episode_timestep)
                     self.total_worker_steps += timesteps_executed
 
-                    if break_on_terminal:
-                        self.last_terminal = True
-                        total_time = (time.monotonic() - start) or 1e-10
-                        self.sample_steps.append(timesteps_executed)
-                        self.sample_times.append(total_time)
-                        self.sample_env_frames.append(env_frames)
-                        sample_batch = self._process_sample_if_necessary(states, actions,
-                                                                         rewards, next_states, terminals)
-
-                        return EnvironmentSample(
-                            sample_batch,
-                            metrics=dict(
-                                # Just pass this to know later how this sample was configured.
-                                break_on_terminal=break_on_terminal,
-                                runtime=total_time,
-                                # Agent act/observe throughput.
-                                timesteps_executed=timesteps_executed,
-                                ops_per_second=(timesteps_executed / total_time),
-                                # Env frames including action repeats.
-                                env_frames=env_frames,
-                                env_frames_per_second=(env_frames / total_time),
-                                episodes_executed=1,
-                                episodes_per_minute=(1 / (total_time / 60)),
-                                episode_rewards=episode_reward
-                            )
-                        )
-                    else:
-                        break
-
-            self.episodes_executed += 1
+                    if terminal and break_on_terminal:
+                        break_loop = True
+                    break
+                self.episodes_executed += 1
+            if break_loop:
+                break
 
         # Otherwise return when all time steps done
         self.last_terminal = terminal
@@ -233,7 +205,18 @@ class RayWorker(RayActor):
         self.sample_steps.append(timesteps_executed)
         self.sample_times.append(total_time)
         self.sample_env_frames.append(env_frames)
-
+        next_states = states[1:]
+        print('next states shape')
+        print(np.asarray(next_states).shape)
+        # Get the remaining final state.
+        if terminal:
+            preprocessed_state = np.zeros_like(next_state)
+        else:
+            next_state = self.agent.preprocessed_state_space.force_batch(next_state)
+            preprocessed_state = self.agent.preprocess_states(next_state)
+        next_states.extend(preprocessed_state)
+        print('next states shape')
+        print(np.asarray(next_states).shape)
         sample_batch = self._process_sample_if_necessary(states, actions, rewards, next_states, terminals)
 
         return EnvironmentSample(
@@ -313,14 +296,14 @@ class RayWorker(RayActor):
         states = np.asarray(states)
         actions = np.asarray(actions)
         rewards = np.asarray(rewards)
-        next_states = self.agent.preprocessed_state_space.force_batch(next_states)
+        next_states = np.asarray(next_states)
         terminals = np.asarray(terminals)
-        weights = np.ones_like(terminals)
+
+        weights = np.ones_like(rewards)
 
         # Compute loss-per-item.
         if self.worker_computes_weights:
             # Next states were just collected, we batch process them here.
-            next_states = self.agent.call_graph_op("preprocess_states", next_states)
             # TODO we can merge this preprocessing into the same call.
             _, loss_per_item = self.agent.update(
                 dict(

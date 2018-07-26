@@ -92,7 +92,12 @@ class Agent(Specifiable):
         # Construct the Preprocessor.
         self.preprocessor = PreprocessorStack.from_spec(preprocessing_spec)
         self.preprocessed_state_space = self.preprocessor.get_preprocessed_space(self.state_space)
-        self.logger.info("Parsed preprocessed-state space definition: {}".format(self.preprocessed_state_space))
+        self.preprocessing_required = preprocessing_spec is not None
+        if self.preprocessing_required:
+            self.logger.info("Preprocessing required.")
+            self.logger.info("Parsed preprocessed-state space definition: {}".format(self.preprocessed_state_space))
+        else:
+            self.logger.info("No preprocessing required.")
 
         # Construct the Policy network.
         self.neural_network = None
@@ -178,11 +183,10 @@ class Agent(Specifiable):
         self.core_component.define_api_method("set_policy_weights", set_policy_weights, must_be_complete=False)
 
         # To pre-process external data if needed.
-        if self.preprocessor:
-            def preprocess_states(self_, states):
-                preprocessed_states = self_.call(self.preprocessor.preprocess, states)
-                return preprocessed_states
-            self.core_component.define_api_method("preprocess_states", preprocess_states, must_be_complete=False)
+        def preprocess_states(self_, states):
+            preprocessed_states = self_.call(self.preprocessor.preprocess, states)
+            return preprocessed_states
+        self.core_component.define_api_method("preprocess_states", preprocess_states, must_be_complete=False)
 
     def build_graph(self, input_spaces, *args):
         """
@@ -322,6 +326,23 @@ class Agent(Specifiable):
             any: Result of the op call.
         """
         return self.graph_executor.execute((op, inputs))
+
+    def preprocess_states(self, states):
+        """
+        Applies the agent's preprocessor to one or more states, e.g. to preprocess external data
+        before inserting to memory without acting. Returns identity if no preprocessor defined.
+
+        Args:
+            states (np.array): State(s) to preprocess.
+
+        Returns:
+            np.array: Preprocessed states.
+        """
+        if self.preprocessing_required:
+            self.call_api_method("preprocess_states", states)
+        else:
+            # Return identity.
+            return states
 
     def export_graph(self, filename=None):
         """
