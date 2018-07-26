@@ -59,7 +59,8 @@ class TestNNLayer(unittest.TestCase):
         # Space must contain batch dimension (otherwise, NNlayer will complain).
         space = FloatBox(shape=(2, 2, 3), add_batch_rank=True)  # e.g. a simple 3-color image
 
-        conv2d_layer = Conv2DLayer(filters=4, kernel_size=2, strides=1, kernel_spec=0.5, biases_spec=False)
+        conv2d_layer = Conv2DLayer(filters=4, kernel_size=2, strides=1, padding="valid",
+                                   kernel_spec=0.5, biases_spec=False)
         test = ComponentTest(component=conv2d_layer, input_spaces=dict(apply=space))
 
         # Batch of 2 samples.
