@@ -55,6 +55,20 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         )
         print('Compiled apex agent')
 
+    def test_worker_init(self):
+        """
+        Tests if workers initialize without problems for the pong config.
+        """
+        path = os.path.join(os.getcwd(), "../configs/ray_apex_for_pong.json")
+        with open(path, 'rt') as fp:
+            agent_config = json.load(fp)
+
+        executor = ApexExecutor(
+            environment_spec=self.env_spec,
+            agent_config=agent_config,
+        )
+        executor.test_worker_init()
+
     def test_initial_training_pong(self):
         """
         Tests if Apex can start learning pong effectively on ray.

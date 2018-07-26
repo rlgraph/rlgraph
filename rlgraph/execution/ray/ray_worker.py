@@ -83,9 +83,15 @@ class RayWorker(RayActor):
         self.agent.reset()
 
         # Was the last state a terminal state so env should be reset in next call?
-        self.last_terminal = False
         self.last_ep_timestep = 0
         self.last_ep_reward = 0
+        self.last_terminal = False
+
+    def get_constructor_success(self):
+        """
+        For debugging: fetch the last attribute. Will fail if constructor failed.
+        """
+        return not self.last_terminal
 
     def setup_agent(self, agent_config, worker_spec):
         """
@@ -308,7 +314,7 @@ class RayWorker(RayActor):
         # Compute loss-per-item.
         if self.worker_computes_weights:
             # Next states were just collected, we batch process them here.
-            next_states = self.preprocessed_state_space.force_batch(next_states)
+            next_states = self.agent.preprocessed_state_space.force_batch(next_states)
             next_states = self.agent.call_graph_op("preprocess_states", next_states)
             # TODO we can merge this preprocessing into the same call.
             _, loss_per_item = self.agent.update(
