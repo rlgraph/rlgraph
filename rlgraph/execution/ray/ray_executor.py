@@ -127,10 +127,10 @@ class RayExecutor(object):
         self.update_iteration_throughputs = list()
 
         # Assume time step based initially.
-        num_timesteps = workload['num_timesteps']
+        num_timesteps = workload["num_timesteps"]
 
         # Performance reporting granularity.
-        report_interval = workload['report_interval']
+        report_interval = workload["report_interval"]
         timesteps_executed = 0
         iteration_times = []
         iteration_time_steps = []

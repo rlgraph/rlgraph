@@ -176,6 +176,13 @@ class Agent(Specifiable):
 
         self.core_component.define_api_method("set_policy_weights", set_policy_weights, must_be_complete=False)
 
+        # To pre-process external data if needed.
+        if self.preprocessor:
+            def preprocess_states(self_, states):
+                preprocessed_states = self_.call(self.preprocessor.preprocess, states)
+                return preprocessed_states
+            self.core_component.define_api_method("preprocess_states", preprocess_states)
+
     def build_graph(self, input_spaces, *args):
         """
         Asks our GraphExecutor to actually build the Graph from the RLGraph meta-graph.

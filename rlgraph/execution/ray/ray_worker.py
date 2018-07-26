@@ -159,7 +159,7 @@ class RayWorker(RayActor):
             while True:
                 action, preprocessed_state = self.agent.get_action(states=state, use_exploration=use_exploration,
                                                                    extra_returns="preprocessed_states")
-                states.append(state)
+                states.append(preprocessed_state)
                 actions.append(action)
 
                 # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
@@ -169,6 +169,8 @@ class RayWorker(RayActor):
                     next_state, step_reward, terminal, info = self.environment.step(actions=action)
                     env_frames += 1
                     reward += step_reward
+                    if terminal:
+                        break
 
                 rewards.append(reward)
                 terminals.append(terminal)
@@ -305,6 +307,9 @@ class RayWorker(RayActor):
 
         # Compute loss-per-item.
         if self.worker_computes_weights:
+            # Next states were just collected, we batch process them here.
+            next_states = self.agent.call_graph_op("preprocess_states", next_states)
+            # TODO we can merge this preprocessing into the same call.
             _, loss_per_item = self.agent.update(
                 dict(
                     states=states,
