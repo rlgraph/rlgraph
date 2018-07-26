@@ -33,8 +33,8 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
     WARNING: This test requires large amounts of memory due to large buffer size.
     """
     env_spec = dict(
-      type="openai",
-          gym_env="PongNoFrameskip-v4"
+        type="openai",
+        gym_env="PongNoFrameskip-v4"
     )
 
     def test_agent_compilation(self):
@@ -48,9 +48,9 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
             agent_config["execution_spec"].pop("ray_spec")
         environment = OpenAIGymEnv("PongNoFrameskip-v4", frameskip=4)
 
-        agent_config["state_space"] = environment.state_space
-        agent_config["action_space"] = environment.action_space
-        agent = ApexAgent.from_spec(agent_config)
+        agent = ApexAgent.from_spec(
+            agent_config, state_space=environment.state_space, action_space=environment.action_space
+        )
         print('Compiled apex agent')
 
     def test_initial_training_pong(self):
