@@ -87,7 +87,10 @@ class BoxSpace(Space):
         assert self.has_time_rank is False, "ERROR: Cannot force a batch rank if Space `has_time_rank` is True!"
         # No extra rank given (compared to this Space), add a batch rank.
         if np.asarray(samples).ndim == len(self.get_shape(with_batch_rank=False, with_time_rank=False)):
-            samples = np.array([samples])  # batch size=1
+            return np.array([samples])  # batch size=1
+        # Samples is a list (whose len is interpreted as the batch size) -> return as np.array.
+        elif isinstance(samples, list):
+            return np.asarray(samples)
         return samples
 
     @property
