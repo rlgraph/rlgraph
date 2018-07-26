@@ -291,6 +291,11 @@ class RayWorker(RayActor):
         Returns:
             dict: Sample batch dict.
         """
+        states = np.asarray(states)
+        actions = np.asarray(actions)
+        rewards = np.asarray(rewards)
+        next_states = self.agent.preprocessed_state_space.force_batch(next_states)
+        terminals = np.asarray(terminals)
         weights = np.ones_like(terminals)
 
         if self.n_step_adjustment > 1:
@@ -314,7 +319,6 @@ class RayWorker(RayActor):
         # Compute loss-per-item.
         if self.worker_computes_weights:
             # Next states were just collected, we batch process them here.
-            next_states = self.agent.preprocessed_state_space.force_batch(next_states)
             next_states = self.agent.call_graph_op("preprocess_states", next_states)
             # TODO we can merge this preprocessing into the same call.
             _, loss_per_item = self.agent.update(
