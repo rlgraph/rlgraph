@@ -114,11 +114,12 @@ class DQNAgent(Agent):
         super(DQNAgent, self).define_api_methods()
 
         # Reset operation (resets preprocessor).
-        def reset_preprocessor(self_):
-            reset_op = self_.call(preprocessor.reset)
-            return reset_op
+        if self.preprocessing_required:
+            def reset_preprocessor(self_):
+                reset_op = self_.call(preprocessor.reset)
+                return reset_op
 
-        self.core_component.define_api_method("reset_preprocessor", reset_preprocessor)
+            self.core_component.define_api_method("reset_preprocessor", reset_preprocessor)
 
         # State (from environment) to action.
         def get_preprocessed_state_and_action(self_, states, time_step, use_exploration=True):
@@ -316,7 +317,7 @@ class DQNAgent(Agent):
         Resets our preprocessor, but only if it contains stateful PreprocessLayer Components (meaning
         the PreprocessorStack has at least one variable defined).
         """
-        if len(self.preprocessor.variables) > 0:
+        if self.preprocessing_required and len(self.preprocessor.variables) > 0:
             self.graph_executor.execute("reset_preprocessor")
 
     def __repr__(self):

@@ -205,18 +205,17 @@ class RayWorker(RayActor):
         self.sample_steps.append(timesteps_executed)
         self.sample_times.append(total_time)
         self.sample_env_frames.append(env_frames)
+
+        # Create the last next state after shifting.
         next_states = states[1:]
-        print('next states shape')
-        print(np.asarray(next_states).shape)
         # Get the remaining final state.
         if terminal:
             preprocessed_state = np.zeros_like(next_state)
         else:
             next_state = self.agent.preprocessed_state_space.force_batch(next_state)
             preprocessed_state = self.agent.preprocess_states(next_state)
-        next_states.extend(preprocessed_state)
-        print('next states shape')
-        print(np.asarray(next_states).shape)
+        # This has a batch dim, so we can either do an append(np.squeeze), or extend.
+        next_states.append(np.squeeze(preprocessed_state))
         sample_batch = self._process_sample_if_necessary(states, actions, rewards, next_states, terminals)
 
         return EnvironmentSample(
@@ -293,12 +292,6 @@ class RayWorker(RayActor):
                 del arr[new_len:]
 
         # Convert for update.
-        states = np.asarray(states)
-        actions = np.asarray(actions)
-        rewards = np.asarray(rewards)
-        next_states = np.asarray(next_states)
-        terminals = np.asarray(terminals)
-
         weights = np.ones_like(rewards)
 
         # Compute loss-per-item.
