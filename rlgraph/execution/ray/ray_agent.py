@@ -67,7 +67,7 @@ class RayAgent(RayActor):
             Sample dict containing the record space specified by the agent's space definitions.
         """
         # Agent must define op to return batches.
-        return self.agent.call_graph_op(op="get_records")
+        return self.agent.call_api_method(op="get_records")
 
     def observe(self, states, actions, internals, reward, terminal):
         """
@@ -120,7 +120,7 @@ class RayAgent(RayActor):
         Returns:
             any: Result of the op call.
         """
-        self.agent.call_graph_op(op, inputs)
+        self.agent.call_api_method(op, inputs)
 
     def get_policy_weights(self):
         """

@@ -49,5 +49,5 @@ class RandomAgent(Agent):
     def get_weights(self):
         pass
 
-    def call_graph_op(self, op, inputs=None):
+    def call_api_method(self, op, inputs=None):
         pass

@@ -309,18 +309,15 @@ class Agent(Specifiable):
         """
         pass  # optional
 
-    def call_graph_op(self, op, inputs=None):
+    def call_api_method(self, op, inputs=None):
         """
-        Utility method to call any desired operation on the graph, identified via output socket.
+        Utility method to call any desired api method on the graph, identified via output socket.
         Delegate this call to the RLGraph graph executor.
 
         Args:
-            op (str): Name of the op, i.e. the name of its output socket on the RLGraph metagraph.
-            inputs (Optional[dict,np.array]): Dict specifying the provided api_methods for some in-Sockets (key=in-Socket name,
-                values=the values that should go into this Socket (e.g. numpy arrays)).
-                Depending on these given api_methods, the correct backend-ops can be selected within the given out-Sockets.
-                If only one out-Socket is given in `sockets`, and this out-Socket only needs a single in-Socket's data,
-                this in-Socket's data may be given here directly.
+            op (str): Name of the api method.
+            inputs (Optional[dict,np.array]): Dict specifying the provided api_methods for (key=input space name,
+                values=the values that should go into this space (e.g. numpy arrays)).
         Returns:
             any: Result of the op call.
         """
