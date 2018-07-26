@@ -186,7 +186,8 @@ class Agent(Specifiable):
         def preprocess_states(self_, states):
             preprocessed_states = self_.call(self.preprocessor.preprocess, states)
             return preprocessed_states
-        self.core_component.define_api_method("preprocess_states", preprocess_states, must_be_complete=False)
+
+        self.core_component.define_api_method("preprocess_states", preprocess_states)
 
     def build_graph(self, input_spaces, *args):
         """
