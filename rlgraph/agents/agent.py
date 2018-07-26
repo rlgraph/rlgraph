@@ -85,7 +85,8 @@ class Agent(Specifiable):
         # Tag the input-Space to `self.set_policy_weights` as equal to whatever the variables-Space will be for
         # the Agent's policy Component.
         self.input_spaces = dict(
-            set_policy_weights="variables:policy"
+            set_policy_weights="variables:policy",
+            preprocess_states= self.state_space.with_batch_rank()
         )
 
         # Construct the Preprocessor.
@@ -181,7 +182,7 @@ class Agent(Specifiable):
             def preprocess_states(self_, states):
                 preprocessed_states = self_.call(self.preprocessor.preprocess, states)
                 return preprocessed_states
-            self.core_component.define_api_method("preprocess_states", preprocess_states)
+            self.core_component.define_api_method("preprocess_states", preprocess_states, must_be_complete=False)
 
     def build_graph(self, input_spaces, *args):
         """
