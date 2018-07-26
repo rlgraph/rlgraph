@@ -85,7 +85,7 @@
         "env_interaction_task_depth": 4,
         "num_worker_samples": 50,
         "learn_queue_size": 16,
-        "num_sample_workers": 16,
+        "num_sample_workers": 1,
         "num_replay_workers": 1
       },
       "worker_spec": {

@@ -244,6 +244,7 @@ class RayExecutor(object):
         Returns:
             Environment: Env object.
         """
+        env_spec = deepcopy(env_spec)
         env_cls = Environment.__lookup_classes__.get(env_spec.pop("type"))
         return env_cls(**env_spec)
 
