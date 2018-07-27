@@ -340,7 +340,7 @@ class Agent(Specifiable):
             np.array: Preprocessed states.
         """
         if self.preprocessing_required:
-            self.call_api_method("preprocess_states", states)
+            return self.call_api_method("preprocess_states", states)
         else:
             # Return identity.
             return states
