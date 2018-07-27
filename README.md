@@ -24,31 +24,31 @@ Agents can be imported and used as follows:
 
 ```python
 from rlgraph.agents import DQNAgent
-
 environment = OpenAIGymEnv("Cartpole-v0")
 
 # Create from .json, file, see agent doc for all
 # possible configuration parameters.
 agent = DQNAgent(
-	"config.json",
-	 state_space=environment.state_space, 	 action_space=environment.action_space
+  "config.json",
+  state_space=environment.state_space, 
+  action_space=environment.action_space
 )
 
 # Get an action, take a step, observe reward
 state = environment.reset()
 action, preprocessed state = agent.get_action(
-	states=state,
-	extra_returns="preprocessed_states"
+  states=state,
+  extra_returns="preprocessed_states"
 )
 
 next_state, reward, terminal, info =  environment.step(action)
 
 # Observe result.
 agent.observe(
-	preprocessed_states=preprocessed_state,
-	actions=action,
- 	internals=[],
-	rewards=reward
+  preprocessed_states=preprocessed_state,
+  actions=action,
+  internals=[],
+  rewards=reward
 )
 
 # Call update when desired:
@@ -68,8 +68,8 @@ from rlgraph.execution.ray import ApexExecutor
 env_spec = dict(type="openai", gym_env="CartPole-v0")
 
 exec = ApexExecutor(
-    environment_spec=env_spec,
-    agent_config=agent_config,
+  environment_spec=env_spec,
+  agent_config=agent_config,
 )
 
 # Executes actual workload.
