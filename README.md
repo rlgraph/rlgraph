@@ -1,12 +1,13 @@
 # RLgraph
-A Framework for Flexible Deep Reinforcement Learning Graphs
+Flexible computation graphs for deep reinforcement learning.
 
-RLGraph is a framework to quickly prototype, define and execute reinforcement learning
+RLgraph is a framework to quickly prototype, define and execute reinforcement learning
 algorithms both in research and practice.
  
-RLGraph exposes a well defined API for using agents, and offers a novel component concept for testing and assembly.
-By separating graph definition, compilation and execution, multiple distributed backends
-and device management can be accessed without modifying agent definitions.
+RLgraph exposes a well defined API for using agents, and offers a novel component concept
+for testing and assembly of components. By separating graph definition, compilation and execution,
+multiple distributed backends and device execution strategies can be accessed without modifying
+agent definitions.
 
 ## Install
 
@@ -18,6 +19,10 @@ Note that some backends (e.g. ray) need additional dependencies (see setup.py). 
 
 ```pip install rlgraph[ray]```
 
+To successfully run tests, please also install OpenAI gym, e.g.
+
+```pip install gym[all]```
+
 ## Import and use agents
 
 Agents can be imported and used as follows:
@@ -26,21 +31,22 @@ Agents can be imported and used as follows:
 from rlgraph.agents import DQNAgent
 environment = OpenAIGymEnv("Cartpole-v0")
 
-# Create from .json, file, see agent doc for all
+# Create from .json file or dict, see agent API for all
 # possible configuration parameters.
 agent = DQNAgent(
-  "config.json",
+  "configs/config.json",
   state_space=environment.state_space, 
   action_space=environment.action_space
 )
 
-# Get an action, take a step, observe reward
+# Get an action, take a step, observe reward.
 state = environment.reset()
 action, preprocessed state = agent.get_action(
   states=state,
   extra_returns="preprocessed_states"
 )
 
+# Execute step in environment.
 next_state, reward, terminal, info =  environment.step(action)
 
 # Observe result.
@@ -67,15 +73,16 @@ from rlgraph.execution.ray import ApexExecutor
 # rlgraph/tests/execution/test_apex_executor.py
 env_spec = dict(type="openai", gym_env="CartPole-v0")
 
+# Ray executor creating Ray actors.
 exec = ApexExecutor(
   environment_spec=env_spec,
   agent_config=agent_config,
 )
 
-# Executes actual workload.
-result = exec(workload=dict(num_timesteps=10000, report_interval=1000))
+# Executes actual workload on distributed Ray cluster.
+result = exec.execute_workload(workload=dict(num_timesteps=10000, report_interval=1000))
 
-# Prints result metrics
+# Prints result metrics.
 print(result)
 ```
 
