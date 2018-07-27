@@ -25,6 +25,19 @@ from rlgraph.utils.util import default_dict
 
 
 def parse_saver_spec(saver_spec):
+    """
+    Parses the saver spec. Returns None if input None, otherwise
+    provides default parameters.
+
+    Args:
+        saver_spec (Union[None, dict]): Saver parameters.
+
+    Returns:
+        Union(dict, None): Saver spec or None.
+    """
+
+    if saver_spec is None:
+        return None
     default_spec = dict(
         # The directory in which to store model checkpoint files.
         directory=os.path.expanduser("~/rlgraph_checkpoints/"),  # default=home dir

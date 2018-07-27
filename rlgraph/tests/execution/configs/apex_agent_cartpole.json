@@ -6,6 +6,7 @@
     "capacity": 10000
   },
   "preprocessing_spec": null,
+  "saver_spec": null,
   "execution_spec": {
     "session_config": {
       "log_device_placement": false,

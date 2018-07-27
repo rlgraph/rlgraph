@@ -116,7 +116,6 @@ class RayWorker(RayActor):
 
         return RayExecutor.build_agent_from_config(agent_config)
 
-    @ray.method(num_return_vals=2)
     def execute_and_get_timesteps(
         self,
         num_timesteps,

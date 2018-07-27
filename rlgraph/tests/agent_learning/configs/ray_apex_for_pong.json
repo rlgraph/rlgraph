@@ -5,6 +5,7 @@
     "type": "prioritized_replay",
     "capacity": 10000
   },
+  "saver_spec": null,
   "preprocessing_spec": [
     {
       "type": "image_resize",

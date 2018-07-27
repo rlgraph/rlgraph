@@ -47,6 +47,7 @@ class Agent(Specifiable):
         observe_spec=None,
         update_spec=None,
         summary_spec=None,
+        saver_spec=None,
         name="agent"
     ):
         """
@@ -148,7 +149,8 @@ class Agent(Specifiable):
         self.graph_executor = GraphExecutor.from_spec(
             get_backend(),
             graph_builder=self.graph_builder,
-            execution_spec=self.execution_spec
+            execution_spec=self.execution_spec,
+            saver_spec=saver_spec
         )  # type: GraphExecutor
 
     def reset_buffers(self):

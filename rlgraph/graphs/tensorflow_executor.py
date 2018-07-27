@@ -342,7 +342,7 @@ class TensorFlowExecutor(GraphExecutor):
             var_list=list(self.graph_builder.core_component.variables.values()),
             reshape=False,
             sharded=False,
-            max_to_keep=self.saver_spec["max_checkpoints"],  # TODO: open question: how to handle settings?
+            max_to_keep=self.saver_spec.get("max_checkpoints", 1) if self.saver_spec else None,
             keep_checkpoint_every_n_hours=10000.0,
             name=None,
             restore_sequentially=False,
@@ -356,8 +356,9 @@ class TensorFlowExecutor(GraphExecutor):
             filename=None
         )
 
-        # Add saver hook to session.
-        if self.execution_mode == "single" or self.distributed_spec["task_index"] == 0:
+        # Add saver hook to session if saver spec was provided.
+        if self.saver_spec is not None and (self.execution_mode == "single"
+                                            or self.distributed_spec["task_index"] == 0):
             self.saver_directory = self.saver_spec["directory"]
             saver_hook = tf.train.CheckpointSaverHook(
                 checkpoint_dir=self.saver_directory,
@@ -428,9 +429,12 @@ class TensorFlowExecutor(GraphExecutor):
         def init_fn(scaffold, session):
             # NOTE: `self.load_from_file` is either True or a string value.
             # - No specific file given -> Use latest checkpoint.
+            saver_dir = self.saver_spec.get("directory", "") if self.saver_spec else ""
             if self.load_from_file is True:
+                assert self.saver_spec is not None,\
+                    "ERROR: load_from_file is True but no saver_spec with 'directory' provided"
                 file = tf.train.latest_checkpoint(
-                    checkpoint_dir=self.saver_spec["directory"],
+                    checkpoint_dir=saver_dir,
                     latest_filename=None
                 )
             # - File given -> Look for it in cwd, then in our checkpoint directory.
@@ -438,7 +442,7 @@ class TensorFlowExecutor(GraphExecutor):
                 assert isinstance(self.load_from_file, str)
                 file = self.load_from_file
                 if not os.path.isfile(file):
-                    file = os.path.join(self.saver_spec["directory"], self.load_from_file)
+                    file = os.path.join(saver_dir, self.load_from_file)
 
             if file is not None:
                 scaffold.saver.restore(sess=session, save_path=file)
