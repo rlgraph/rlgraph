@@ -106,6 +106,6 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         )
 
         # Executes actual workload.
-        result = executor.execute_workload(workload=dict(num_timesteps=5000000, report_interval=5000))
+        result = executor.execute_workload(workload=dict(num_timesteps=10000000, report_interval=10000))
         print("Finished executing workload:")
         print(result)

@@ -205,7 +205,7 @@ class RayExecutor(object):
             max_worker_reward=worker_stats["max_reward"],
             min_worker_reward=worker_stats["min_reward"],
             # This is the mean final episode over all workers.
-            final_reward=worker_stats["mean_final_reward"]
+            mean_final_reward=worker_stats["mean_final_reward"]
         )
 
     def sample_metrics(self):
