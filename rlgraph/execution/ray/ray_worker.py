@@ -118,12 +118,15 @@ class RayWorker(RayActor):
         num_timesteps,
         max_timesteps_per_episode=0,
         use_exploration=True,
+        return_exact_batch_size=True,
         break_on_terminal=False
     ):
         """
         Collects and returns timestep experience.
 
         Args:
+            return_exact_batch_size (Optional[bool]): If true, separately returns the exact number of
+                samples in the batch after postprocessing (e.g. n-stup truncating).
             break_on_terminal (Optional[bool]): If true, breaks when a terminal is encountered. If false,
                 executes exactly 'num_timesteps' steps.
         """
@@ -215,13 +218,11 @@ class RayWorker(RayActor):
 
         # This has a batch dim, so we can either do an append(np.squeeze), or extend.
         next_states.append(np.squeeze(preprocessed_state))
-        sample_batch = self._process_sample_if_necessary(states, actions, rewards, next_states, terminals)
+        sample_batch, batch_size = self._process_sample_if_necessary(states, actions, rewards, next_states, terminals)
 
         # Note that the controller already evaluates throughput so there is no need
         # for each worker to calculate expensive statistics now.
-        return EnvironmentSample(
-            sample_batch,
-            metrics=dict(
+        sample= EnvironmentSample(sample_batch=sample_batch, metrics=dict(
                 runtime=total_time,
                 # Agent act/observe throughput.
                 timesteps_executed=timesteps_executed,
@@ -231,6 +232,11 @@ class RayWorker(RayActor):
                 env_frames_per_second=(env_frames / total_time)
             )
         )
+        if return_exact_batch_size:
+            # This is separate so it is captured by Ray separately.
+            return sample, batch_size
+        else:
+            return sample
 
     def set_policy_weights(self, weights):
         self.agent.set_policy_weights(weights)
@@ -313,4 +319,4 @@ class RayWorker(RayActor):
             rewards=rewards,
             terminals=terminals,
             importance_weights=weights
-        )
+        ), len(rewards)

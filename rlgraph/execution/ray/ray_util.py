@@ -54,7 +54,7 @@ class RayTaskPool(object):
         else:
             ray_object_id = ray_object_ids
         self.ray_tasks[ray_object_id] = worker
-        self.ray_tasks[ray_object_id] = ray_object_ids
+        self.ray_objects[ray_object_id] = ray_object_ids
 
     def get_completed(self):
         """
