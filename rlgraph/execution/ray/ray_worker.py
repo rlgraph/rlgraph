@@ -51,6 +51,8 @@ class RayWorker(RayActor):
         """
         # Should be set.
         assert get_distributed_backend() == "ray"
+        # Internal frameskip of env.
+        self.env_frame_skip = env_spec.get("frameskip", 1)
         self.environment = RayExecutor.build_env_from_config(env_spec)
 
         # Then update agent config.
@@ -64,7 +66,7 @@ class RayWorker(RayActor):
 
         # Ray cannot handle **kwargs in remote objects.
         self.agent = self.setup_agent(agent_config, worker_spec)
-        self.frameskip = frameskip
+        self.worker_frameskip = frameskip
 
         # Save these so they can be fetched after training if desired.
         self.episode_rewards = []
@@ -116,18 +118,16 @@ class RayWorker(RayActor):
 
     @ray.method(num_return_vals=2)
     def execute_and_get_timesteps(
-            self,
-            num_timesteps,
-            max_timesteps_per_episode=0,
-            use_exploration=True,
-            break_on_terminal=False
+        self,
+        num_timesteps,
+        max_timesteps_per_episode=0,
+        use_exploration=True,
+        break_on_terminal=False
     ):
         """
         Collects and returns timestep experience.
 
         Args:
-            return_exact_batch_size (Optional[bool]): If true, separately returns the exact number of
-                samples in the batch after postprocessing (e.g. n-stup truncating).
             break_on_terminal (Optional[bool]): If true, breaks when a terminal is encountered. If false,
                 executes exactly 'num_timesteps' steps.
         """
@@ -171,7 +171,7 @@ class RayWorker(RayActor):
 
                 # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
                 reward = 0
-                for _ in range_(self.frameskip):
+                for _ in range_(self.worker_frameskip):
                     next_state, step_reward, terminal, info = self.environment.step(actions=action)
                     env_frames += 1
                     reward += step_reward
@@ -231,19 +231,16 @@ class RayWorker(RayActor):
                 # Agent act/observe throughput.
                 timesteps_executed=timesteps_executed,
                 ops_per_second=(timesteps_executed / total_time),
-                # Env frames including action repeats.
-                env_frames=env_frames,
-                env_frames_per_second=(env_frames / total_time)
             )
         )
 
     @ray.method(num_return_vals=2)
     def execute_and_get_with_count(
-            self,
-            num_timesteps,
-            max_timesteps_per_episode=0,
-            use_exploration=True,
-            break_on_terminal=False
+        self,
+        num_timesteps,
+        max_timesteps_per_episode=0,
+        use_exploration=True,
+        break_on_terminal=False
     ):
         sample = self.execute_and_get_timesteps(num_timesteps, max_timesteps_per_episode,
                                                 use_exploration, break_on_terminal)
@@ -259,6 +256,8 @@ class RayWorker(RayActor):
         Returns:
             dict: Performance metrics.
         """
+        # Adjust env frames for internal env frameskip:
+        adjusted_frames = [env_frames * self.env_frame_skip for env_frames in self.sample_env_frames]
         return dict(
             episode_timesteps=self.episode_timesteps,
             episode_rewards=self.episode_rewards,
@@ -269,7 +268,7 @@ class RayWorker(RayActor):
             episodes_executed=self.episodes_executed,
             worker_steps=self.total_worker_steps,
             mean_worker_ops_per_second=sum(self.sample_steps) / sum(self.sample_times),
-            mean_worker_env_frames_per_second=sum(self.sample_env_frames) / sum(self.sample_times)
+            mean_worker_env_frames_per_second=sum(adjusted_frames) / sum(self.sample_times)
         )
 
     def _process_sample_if_necessary(self, states, actions, rewards, next_states, terminals):

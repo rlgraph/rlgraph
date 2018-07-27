@@ -183,11 +183,10 @@ class RayExecutor(object):
         self.logger.info(worker_stats)
 
         return dict(
-            # Overall stats.
             runtime=total_time,
             timesteps_executed=timesteps_executed,
             ops_per_second=(timesteps_executed / total_time),
-            # Multiply sample throughput by this to get the through internal frame throughput.
+            # Multiply sample throughput by these env_frames = samples * env_internal * worker_frame_skip:
             env_internal_frame_skip=self.env_internal_frame_skip,
             worker_frame_skip=self.worker_frameskip,
             min_iteration_sample_throughput=np.min(self.sample_iteration_throughputs),
@@ -196,9 +195,10 @@ class RayExecutor(object):
             min_iteration_update_throughput=np.min(self.update_iteration_throughputs),
             max_iteration_update_throughput=np.max(self.update_iteration_throughputs),
             mean_iteration_update_throughput=np.mean(self.update_iteration_throughputs),
-            # Should be same as iteration throughput?
             # Worker stats.
             mean_worker_op_throughput=worker_stats["mean_worker_op_throughput"],
+            # N.b. these are already corrected.
+            mean_worker_env_frames_throughput=worker_stats["mean_worker_env_frame_throughput"],
             max_worker_op_throughput=worker_stats["max_worker_op_throughput"],
             min_worker_op_throughput=worker_stats["min_worker_op_throughput"],
             mean_worker_reward=worker_stats["mean_reward"],
