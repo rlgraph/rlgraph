@@ -88,6 +88,18 @@ class TestRayWorker(unittest.TestCase):
         # We do not break on terminal so there should be exactly 100 steps.
         self.assertEqual(len(observations['terminals']), 100)
 
+        # Test with count.
+        task = worker.execute_and_get_with_count.remote(100, break_on_terminal=False)
+        sleep(5)
+        # Retrieve result.
+        result, size = ray.get(task)
+        observations = result.get_batch()
+        print("Returned exact count: ")
+        print(size)
+
+        # We do not break on terminal so there should be exactly 100 steps.
+        self.assertEqual(len(observations['terminals']), size)
+
     def test_worker_weight_syncing(self):
         """
         Tests weight synchronization with a local agent and a remote worker.

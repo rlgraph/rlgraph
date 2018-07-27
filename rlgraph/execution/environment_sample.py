@@ -25,6 +25,7 @@ class EnvironmentSample(object):
     def __init__(
         self,
         sample_batch,
+        batch_size=None,
         metrics=None,
         **kwargs
     ):
@@ -34,6 +35,7 @@ class EnvironmentSample(object):
             **kwargs (dict): Any additional information relevant for processing the sample.
         """
         self.sample_batch = sample_batch
+        self.batch_size = batch_size
         self.metrics = metrics
         self.kwargs = kwargs
 

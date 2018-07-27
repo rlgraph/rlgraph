@@ -146,7 +146,7 @@ class ApexExecutor(RayExecutor):
             self.logger.info("Synced worker {} weights, initializing sample tasks.".format(
                 self.worker_ids[ray_worker]))
             for _ in range(self.env_interaction_task_depth):
-                self.env_sample_tasks.add_task(ray_worker, ray_worker.execute_and_get_timesteps.remote(
+                self.env_sample_tasks.add_task(ray_worker, ray_worker.execute_and_get_with_count.remote(
                     self.worker_sample_size,
                     break_on_terminal=False
                 ))
@@ -173,16 +173,19 @@ class ApexExecutor(RayExecutor):
         weights = None
 
         # 1. Fetch results from RayWorkers.
-        for ray_worker, env_sample in self.env_sample_tasks.get_completed():
+        completed_sample_tasks = list(self.env_sample_tasks.get_completed())
+        sample_batch_sizes = ray.get([task[1][1] for task in completed_sample_tasks])
+        for i, (ray_worker, (env_sample_obj_id, sample_size)) in enumerate(completed_sample_tasks):
             # Randomly add env sample to a local replay actor.
             random_memory = random.choice(self.ray_local_replay_memories)
 
-            # N.b. this is only accurate if samples always return exactly the required time steps
-            # and do not return early.
-            env_steps += self.worker_sample_size
-            random_memory.observe.remote(env_sample)
+            sample_steps = sample_batch_sizes[i]
+            env_steps += sample_steps
 
-            self.steps_since_weights_synced[ray_worker] += self.worker_sample_size
+            # This is an object id, not the actual result.
+            random_memory.observe.remote(env_sample_obj_id)
+
+            self.steps_since_weights_synced[ray_worker] += sample_steps
             if self.steps_since_weights_synced[ray_worker] >= self.weight_sync_steps:
                 if weights is None or self.update_worker.update_done:
                     self.update_worker.update_done = False
@@ -194,7 +197,7 @@ class ApexExecutor(RayExecutor):
                 self.steps_since_weights_synced[ray_worker] = 0
 
             # Reschedule environment samples.
-            self.env_sample_tasks.add_task(ray_worker, ray_worker.execute_and_get_timesteps.remote(
+            self.env_sample_tasks.add_task(ray_worker, ray_worker.execute_and_get_with_count.remote(
                 self.worker_sample_size,
                 break_on_terminal=False
             ))
@@ -217,7 +220,8 @@ class ApexExecutor(RayExecutor):
         while not self.update_output_queue.empty():
             ray_memory, indices, loss = self.update_output_queue.get()
             ray_memory.update_priorities.remote(indices, loss)
-            update_steps += self.replay_batch_size
+            # len of loss per item is update count.
+            update_steps += len(loss)
 
         return env_steps, update_steps
 

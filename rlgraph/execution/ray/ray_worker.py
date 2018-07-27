@@ -38,6 +38,7 @@ class RayWorker(RayActor):
     Ray wrapper for single threaded worker, provides further api methods to interact
     with the agent used in the worker.
     """
+
     def __init__(self, agent_config, env_spec, worker_spec, frameskip=1):
         """
         Creates agent and environment for Ray worker.
@@ -113,13 +114,13 @@ class RayWorker(RayActor):
 
         return RayExecutor.build_agent_from_config(agent_config)
 
+    @ray.method(num_return_vals=2)
     def execute_and_get_timesteps(
-        self,
-        num_timesteps,
-        max_timesteps_per_episode=0,
-        use_exploration=True,
-        return_exact_batch_size=True,
-        break_on_terminal=False
+            self,
+            num_timesteps,
+            max_timesteps_per_episode=0,
+            use_exploration=True,
+            break_on_terminal=False
     ):
         """
         Collects and returns timestep experience.
@@ -222,7 +223,10 @@ class RayWorker(RayActor):
 
         # Note that the controller already evaluates throughput so there is no need
         # for each worker to calculate expensive statistics now.
-        sample= EnvironmentSample(sample_batch=sample_batch, metrics=dict(
+        return EnvironmentSample(
+            sample_batch=sample_batch,
+            batch_size=batch_size,
+            metrics=dict(
                 runtime=total_time,
                 # Agent act/observe throughput.
                 timesteps_executed=timesteps_executed,
@@ -232,11 +236,18 @@ class RayWorker(RayActor):
                 env_frames_per_second=(env_frames / total_time)
             )
         )
-        if return_exact_batch_size:
-            # This is separate so it is captured by Ray separately.
-            return sample, batch_size
-        else:
-            return sample
+
+    @ray.method(num_return_vals=2)
+    def execute_and_get_with_count(
+            self,
+            num_timesteps,
+            max_timesteps_per_episode=0,
+            use_exploration=True,
+            break_on_terminal=False
+    ):
+        sample = self.execute_and_get_timesteps(num_timesteps, max_timesteps_per_episode,
+                                                use_exploration, break_on_terminal)
+        return sample, sample.batch_size
 
     def set_policy_weights(self, weights):
         self.agent.set_policy_weights(weights)
