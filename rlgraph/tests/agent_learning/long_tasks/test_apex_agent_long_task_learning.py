@@ -19,11 +19,12 @@ from __future__ import print_function
 
 import json
 import os
+import ray
 import unittest
 
 from rlgraph.agents import ApexAgent
 from rlgraph.environments import OpenAIGymEnv
-from rlgraph.execution.ray import ApexExecutor
+from rlgraph.execution.ray import ApexExecutor, RayWorker
 
 
 class TestApexAgentLongTaskLearning(unittest.TestCase):
@@ -68,6 +69,24 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
             agent_config=agent_config,
         )
         executor.test_worker_init()
+
+    def test_worker_update(self):
+        """
+        Tests if a worker can update from an external batch correct including all
+        corrections and postprocessing using the pong spec.
+
+        N.b. this test does not use Ray.
+        """
+        ray.init()
+        path = os.path.join(os.getcwd(), "../configs/ray_apex_for_pong.json")
+        with open(path, 'rt') as fp:
+            agent_config = json.load(fp)
+
+        worker_spec = agent_config["execution_spec"].pop("ray_spec")
+        worker = RayWorker.remote(agent_config, self.env_spec, worker_spec)
+        task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=True)
+        result = ray.get(task)
+        print(result.get_metrics())
 
     def test_initial_training_pong(self):
         """

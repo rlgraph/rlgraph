@@ -214,6 +214,7 @@ class RayWorker(RayActor):
         else:
             next_state = self.agent.preprocessed_state_space.force_batch(next_state)
             preprocessed_state = self.agent.preprocess_states(next_state)
+
         # This has a batch dim, so we can either do an append(np.squeeze), or extend.
         next_states.append(np.squeeze(preprocessed_state))
         sample_batch = self._process_sample_if_necessary(states, actions, rewards, next_states, terminals)

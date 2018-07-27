@@ -61,6 +61,4 @@ class TestApexExecutor(unittest.TestCase):
         print("Finished executing workload:")
         print(result)
 
-    # TODO this is long running, move to long running tess?
-
 
