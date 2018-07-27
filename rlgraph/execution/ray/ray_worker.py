@@ -50,8 +50,6 @@ class RayWorker(RayActor):
         """
         # Should be set.
         assert get_distributed_backend() == "ray"
-
-        # Ray cannot handle **kwargs in remote objects.
         self.environment = RayExecutor.build_env_from_config(env_spec)
 
         # Then update agent config.
@@ -219,20 +217,18 @@ class RayWorker(RayActor):
         next_states.append(np.squeeze(preprocessed_state))
         sample_batch = self._process_sample_if_necessary(states, actions, rewards, next_states, terminals)
 
+        # Note that the controller already evaluates throughput so there is no need
+        # for each worker to calculate expensive statistics now.
         return EnvironmentSample(
             sample_batch,
             metrics=dict(
-                break_on_terminal=break_on_terminal,
                 runtime=total_time,
                 # Agent act/observe throughput.
                 timesteps_executed=timesteps_executed,
                 ops_per_second=(timesteps_executed / total_time),
                 # Env frames including action repeats.
                 env_frames=env_frames,
-                env_frames_per_second=(env_frames / total_time),
-                episodes_executed=self.episodes_executed,
-                episodes_per_minute=(1 / (total_time / 60)),
-                episode_rewards=self.episode_rewards,
+                env_frames_per_second=(env_frames / total_time)
             )
         )
 

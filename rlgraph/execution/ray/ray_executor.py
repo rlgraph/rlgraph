@@ -39,21 +39,28 @@ class RayExecutor(object):
     A Ray executor implements a specific distributed learning semantic by delegating
     distributed state management and execution to the Ray execution engine.
     """
-    def __init__(self, executor_spec):
+    def __init__(self, executor_spec, environment_spec, worker_spec):
         """
         Args:
             executor_spec (dict): Contains all information necessary to set up and execute
                 agents on a Ray cluster.
+            environment_spec (dict): Environment spec. Each worker in the cluster will instantiate
+                an environment using this spec.
+            worker_spec (dict): Worker spec to read out for reporting.
         """
         self.logger = logging.getLogger(__name__)
 
         # Ray workers for remote data collection.
         self.ray_env_sample_workers = None
         self.executor_spec = executor_spec
+        self.environment_spec = environment_spec
 
         # Global performance metrics.
-        self.env_sample_iteration_throughputs = None
+        self.sample_iteration_throughputs = None
         self.update_iteration_throughputs = None
+        self.iteration_times = None
+        self.worker_frameskip = worker_spec.get("frame_skip", 1)
+        self.env_internal_frame_skip = environment_spec.get("frameskip", 1)
 
         # Map worker objects to host ids.
         self.worker_ids = dict()
@@ -118,13 +125,10 @@ class RayExecutor(object):
             workload (dict): Workload parameters, primarily 'num_timesteps' and 'report_interval'
                 to indicate how many steps to execute and how often to report results.
         """
-        self.env_sample_iteration_throughputs = list()
+        self.sample_iteration_throughputs = list()
         self.update_iteration_throughputs = list()
+        self.iteration_times = list()
         self.init_tasks()
-
-        # Init.
-        self.env_sample_iteration_throughputs = list()
-        self.update_iteration_throughputs = list()
 
         # Assume time step based initially.
         num_timesteps = workload["num_timesteps"]
@@ -132,9 +136,8 @@ class RayExecutor(object):
         # Performance reporting granularity.
         report_interval = workload["report_interval"]
         timesteps_executed = 0
-        iteration_times = []
-        iteration_time_steps = []
-        iteration_update_steps = []
+        iteration_time_steps = list()
+        iteration_update_steps = list()
 
         start = time.monotonic()
         # Call _execute_step as many times as required.
@@ -153,7 +156,7 @@ class RayExecutor(object):
             timesteps_executed += iteration_step
 
             # Append raw values, compute stats after experiment is done.
-            iteration_times.append(iteration_end)
+            self.iteration_times.append(iteration_end)
             iteration_update_steps.append(iteration_updates)
             iteration_time_steps.append(iteration_step)
 
@@ -162,8 +165,6 @@ class RayExecutor(object):
                 num_timesteps, (100 * timesteps_executed / num_timesteps)
             ))
 
-        # self.env_sample_throughputs.append(timesteps_executed)
-        # self.update_throughputs.append(update_steps)
         total_time = (time.monotonic() - start) or 1e-10
         self.logger.info("Time steps executed: {} ({} ops/s)".
                          format(timesteps_executed, timesteps_executed / total_time))
@@ -171,9 +172,10 @@ class RayExecutor(object):
         self.logger.info("Updates executed: {}, ({} updates/s)".format(
             all_updates, all_updates / total_time
         ))
-        for i in range_(len(iteration_times)):
-            it_time = iteration_times[i]
-            self.env_sample_iteration_throughputs.append(iteration_time_steps[i] / it_time)
+        for i in range_(len(self.iteration_times)):
+            it_time = self.iteration_times[i]
+            # Note: these are samples, not internal environment frames.
+            self.sample_iteration_throughputs.append(iteration_time_steps[i] / it_time)
             self.update_iteration_throughputs.append(iteration_update_steps[i] / it_time)
 
         worker_stats = self.get_aggregate_worker_results()
@@ -185,9 +187,12 @@ class RayExecutor(object):
             runtime=total_time,
             timesteps_executed=timesteps_executed,
             ops_per_second=(timesteps_executed / total_time),
-            min_iteration_sample_throughput=np.min(self.env_sample_iteration_throughputs),
-            max_iteration_sample_throughput=np.max(self.env_sample_iteration_throughputs),
-            mean_iteration_sample_throughput=np.mean(self.env_sample_iteration_throughputs),
+            # Multiply sample throughput by this to get the through internal frame throughput.
+            env_internal_frame_skip=self.env_internal_frame_skip,
+            worker_frame_skip=self.worker_frameskip,
+            min_iteration_sample_throughput=np.min(self.sample_iteration_throughputs),
+            max_iteration_sample_throughput=np.max(self.sample_iteration_throughputs),
+            mean_iteration_sample_throughput=np.mean(self.sample_iteration_throughputs),
             min_iteration_update_throughput=np.min(self.update_iteration_throughputs),
             max_iteration_update_throughput=np.max(self.update_iteration_throughputs),
             mean_iteration_update_throughput=np.mean(self.update_iteration_throughputs),
@@ -204,10 +209,13 @@ class RayExecutor(object):
         )
 
     def sample_metrics(self):
-        return self.env_sample_iteration_throughputs
+        return self.sample_iteration_throughputs
 
     def update_metrics(self):
         return self.update_iteration_throughputs
+
+    def get_iteration_times(self):
+        return self.iteration_times
 
     def _execute_step(self):
         """

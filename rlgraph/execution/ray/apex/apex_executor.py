@@ -47,17 +47,15 @@ class ApexExecutor(RayExecutor):
             agent_config (dict): Config dict containing agent and execution specs.
         """
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
-        super(ApexExecutor, self).__init__(executor_spec=ray_spec.pop("executor_spec"))
-
         self.apex_replay_spec = ray_spec.pop("apex_replay_spec")
         self.worker_spec = ray_spec.pop("worker_spec")
-
-        self.environment_spec = environment_spec
+        super(ApexExecutor, self).__init__(executor_spec=ray_spec.pop("executor_spec"),
+                                           environment_spec=environment_spec,
+                                           worker_spec=self.worker_spec)
 
         # Must specify an agent type.
         assert "type" in agent_config
         self.agent_config = agent_config
-        self.frameskip = self.worker_spec.get("frame_skip", 1)
 
         # These are the Ray remote tasks which sample batches from the replay memory
         # and pass them to the learner.
@@ -120,7 +118,7 @@ class ApexExecutor(RayExecutor):
         self.ray_env_sample_workers = self.create_remote_workers(
             RayWorker, self.num_sample_workers, self.agent_config,
             # *args
-            self.environment_spec, self.worker_spec, self.frameskip
+            self.environment_spec, self.worker_spec, self.worker_frameskip
         )
 
     def test_worker_init(self):
