@@ -79,3 +79,44 @@ class EnvironmentStepper(Component):
             initializer = [self.current_state, ]
             n_steps = tf.scan(fn=scan_func, elems=tf.range(num_steps), initializer=initializer)
             return n_steps
+
+
+def main():
+    from rlgraph.environments.openai_gym import OpenAIGymEnv
+    import tensorflow as tf
+    import numpy as np
+
+    num_steps = 3000
+
+    env = OpenAIGymEnv("Pong-v0")
+    state = env.reset()
+
+    def fake_policy(state):
+        return np.random.randint(0, 5)
+
+    # build the step-graph
+    def scan_func(accum, _):
+        states, actions, rewards, terminals = accum
+        # fake policy
+        a = fake_policy(states)
+        print("HERE")
+
+        s_, r, t, _ = env.step(a)
+        return s_, a, r, t
+
+    # Before the first step.
+    initializer = (state, np.array(0, dtype=np.int32), np.array(0.0, dtype=np.float32), np.array(False))
+
+    op = tf.scan(fn=scan_func, elems=tf.range(3000), initializer=initializer, parallel_iterations=1)
+
+    with tf.Session() as sess:
+        result = sess.run(op)
+
+    print(result)
+
+    # Compare with single step (1 session call per action) method.
+
+
+# toy program for testing purposes
+if __name__ == "__main__":
+    main()

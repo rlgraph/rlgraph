@@ -29,7 +29,7 @@ from rlgraph.spaces import *
 
 class OpenAIGymEnv(Environment):
     """
-    OpenAI Gym Integration: https://gym.openai.com/.
+    OpenAI Gym adapter for RLgraph: https://gym.openai.com/.
     """
     def __init__(self, gym_env, frameskip=None, monitor=None, monitor_safe=False, monitor_video=0, visualize=False):
         """

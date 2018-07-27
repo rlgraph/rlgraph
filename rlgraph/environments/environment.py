@@ -17,11 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph import Specifiable
+from rlgraph.utils.specifiable import Specifiable, SpaceInfoCarrier
 from rlgraph.spaces import Space
 
 
-class Environment(Specifiable):
+class Environment(Specifiable, SpaceInfoCarrier):
     """
     An Env class used to run experiment-based RL.
     """
@@ -90,6 +90,13 @@ class Environment(Specifiable):
         Clean up operation. May be implemented or not.
         """
         pass
+
+    def get_space_spec(self, method_name):
+        """
+        Returns Space information for different methods of this Environment (should support at least "reset", "step"
+        as method_names).
+        """
+        return None
 
     def __str__(self):
         raise NotImplementedError
