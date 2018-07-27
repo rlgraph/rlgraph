@@ -36,8 +36,11 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
     env_spec = dict(
         type="openai",
         gym_env="Pong-v0",
-        # The frameskip in the agent config will trigger.
-        frameskip=4
+        # The frameskip in the agent config will trigger worker skips, this
+        # is used for internal env.
+        frameskip=4,
+        max_num_noops=30,
+        random_start=True
     )
 
     def test_agent_compilation(self):

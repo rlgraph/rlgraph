@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from six.moves import xrange as range_
+
 import gym
 import numpy as np
 import time
@@ -31,12 +33,27 @@ class OpenAIGymEnv(Environment):
     """
     OpenAI Gym adapter for RLgraph: https://gym.openai.com/.
     """
-    def __init__(self, gym_env, frameskip=None, monitor=None, monitor_safe=False, monitor_video=0, visualize=False):
+    def __init__(
+        self,
+        gym_env,
+        frameskip=None,
+        max_num_noops=0,
+        random_start=False,
+        noop_action=0,
+        monitor=None,
+        monitor_safe=False,
+        monitor_video=0,
+        visualize=False,
+    ):
         """
         Args:
             gym_env (Union[str,gym.Env]): OpenAI Gym environment ID or actual gym.Env. See https://gym.openai.com/envs
             frameskip (Optional[Tuple[int,int],int]): How many frames should be skipped with (repeated action and
                 accumulated reward). Default: (2,5) -> Uniformly pull from set [2,3,4].
+            max_num_noops (Optional[int]): How many no-ops to maximally perform when resetting
+                the environment before returning the reset state.
+            random_start (Optional[bool]): If true, sample random actions instead of no-ops initially.
+            noop_action (Optional[bool]): The action representing no-op. 0 for Atari.
             monitor: Output directory. Setting this to None disables monitoring.
             monitor_safe: Setting this to True prevents existing log files to be overwritten. Default False.
             monitor_video: Save a video every monitor_video steps. Setting this to 0 disables recording of videos.
@@ -56,6 +73,11 @@ class OpenAIGymEnv(Environment):
         action_space = self.translate_space(self.gym_env.action_space)
         super(OpenAIGymEnv, self).__init__(observation_space, action_space)
 
+        # In Atari environments, 0 is no-op.
+        self.noop_action = noop_action
+        self.max_num_noops = max_num_noops
+        self.random_start = random_start
+
         self.visualize = visualize
         if monitor:
             if monitor_video == 0:
@@ -74,7 +96,19 @@ class OpenAIGymEnv(Environment):
     def reset(self):
         if isinstance(self.gym_env, gym.wrappers.Monitor):
             self.gym_env.stats_recorder.done = True
-        return self.gym_env.reset()
+        state = self.gym_env.reset()
+        if self.max_num_noops > 0:
+            num_noops = np.random.randint(low=1, high=self.max_num_noops + 1)
+            # Do a number of random actions or noops vary starting positions.
+            for _ in range_(num_noops):
+                if self.random_start:
+                    action = self.action_space.sample()
+                else:
+                    action = self.noop_action
+                state, reward, terminal, info = self.gym_env.step(action)
+                if terminal:
+                    state = self.gym_env.reset()
+        return state
 
     def terminate(self):
         self.gym_env.close()
