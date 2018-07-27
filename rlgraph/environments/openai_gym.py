@@ -40,6 +40,7 @@ class OpenAIGymEnv(Environment):
         max_num_noops=0,
         random_start=False,
         noop_action=0,
+        episodic_life=False,
         monitor=None,
         monitor_safe=False,
         monitor_video=0,
@@ -54,6 +55,9 @@ class OpenAIGymEnv(Environment):
                 the environment before returning the reset state.
             random_start (Optional[bool]): If true, sample random actions instead of no-ops initially.
             noop_action (Optional[bool]): The action representing no-op. 0 for Atari.
+            episodic_life (Optional[bool]): If true, losing a life will lead to episode end from the perspective
+                of the agent. Internally, th environment will keep stepping the game and manage the true
+                termination (end of game).
             monitor: Output directory. Setting this to None disables monitoring.
             monitor_safe: Setting this to True prevents existing log files to be overwritten. Default False.
             monitor_video: Save a video every monitor_video steps. Setting this to 0 disables recording of videos.
@@ -78,6 +82,11 @@ class OpenAIGymEnv(Environment):
         self.max_num_noops = max_num_noops
         self.random_start = random_start
 
+        # Manage life as episodes.
+        self.episodic_life = episodic_life
+        self.true_terminal = True
+        self.lives = 0
+
         self.visualize = visualize
         if monitor:
             if monitor_video == 0:
@@ -94,6 +103,22 @@ class OpenAIGymEnv(Environment):
         return seed
 
     def reset(self):
+        if self.episodic_life:
+            # If the last terminal was actually the end of the episode.
+            if self.true_terminal:
+                return self._reset()
+            else:
+                # If not, step.
+                state, _, _, _ = self.gym_env.step(self.noop_action)
+                self.lives = self.gym_env.unwrapped.ale.lives()
+                return state
+        else:
+            return self._reset()
+
+    def _reset(self):
+        """
+        Steps through reset and warm-start.
+        """
         if isinstance(self.gym_env, gym.wrappers.Monitor):
             self.gym_env.stats_recorder.done = True
         state = self.gym_env.reset()
@@ -118,6 +143,15 @@ class OpenAIGymEnv(Environment):
         if self.visualize:
             self.gym_env.render()
         state, reward, terminal, info = self.gym_env.step(actions)
+
+        # Manage lives if necessary.
+        if self.episodic_life:
+            self.true_terminal = terminal
+            lives = self.gym_env.unwrapped.ale.lives()
+            # lives < self.lives -> lost a life so show terminal = true to learner.
+            if self.lives > lives > 0:
+                terminal = True
+            self.lives = lives
         return state, reward, terminal, info
 
     def render(self):
