@@ -39,16 +39,22 @@ class RayTaskPool(object):
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.ray_tasks = dict()
+        self.ray_objects = dict()
 
-    def add_task(self, worker, ray_object_id):
+    def add_task(self, worker, ray_object_ids):
         """
         Adds a task to the task pool.
         Args:
             worker (any): Worker completing the task, must use the @ray.remote decorator.
-            ray_object_id (str): Ray object id. See ray documentation for how these are used.
+            ray_object_ids (Union[str, list]): Ray object id. See ray documentation for how these are used.
         """
         # Map which worker is responsible for completing the Ray task.
+        if isinstance(ray_object_ids, list):
+            ray_object_id = ray_object_ids[0]
+        else:
+            ray_object_id = ray_object_ids
         self.ray_tasks[ray_object_id] = worker
+        self.ray_tasks[ray_object_id] = ray_object_ids
 
     def get_completed(self):
         """
@@ -63,7 +69,7 @@ class RayTaskPool(object):
             # This ray function checks tasks and splits into ready and non-ready tasks.
             ready, not_ready = ray.wait(pending_tasks, num_returns=len(pending_tasks), timeout=10)
             for obj_id in ready:
-                yield (self.ray_tasks.pop(obj_id), obj_id)
+                yield (self.ray_tasks.pop(obj_id), self.ray_objects.pop(obj_id))
 
 
 def create_colocated_ray_actors(cls, config, num_agents, max_attempts=10):
