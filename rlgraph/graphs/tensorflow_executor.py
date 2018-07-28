@@ -81,17 +81,24 @@ class TensorFlowExecutor(GraphExecutor):
 
         self.graph_default_context = None
         self.local_device_protos = device_lib.list_local_devices()
-        self.available_devices = [x.name for x in self.local_device_protos]
+
+        # Just fetch CPUs. GPUs will be added when parsing the GPU configuration.
+        self.available_devices = [x.name for x in self.local_device_protos if x.device_type == 'CPU']
         self.device_strategy = None
         self.default_device = None
         self.device_map = None
 
         # Number of available GPUs and their names.
+        self.gpus_enabled = None
         self.gpu_names = None
+        self.max_usable_gpus = 0
         self.num_gpus = 0
 
         # Tf profiler.
         self.session_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+        # Local session config which needs to be updated with device options during setup.
+        self.tf_session_config = tf.ConfigProto(**self.session_config)
+
         self.run_metadata = tf.RunMetadata()
 
         # Tf Profiler config.
@@ -114,6 +121,9 @@ class TensorFlowExecutor(GraphExecutor):
         Initializes default device and loads available devices.
         """
         self.device_strategy = self.execution_spec["device_strategy"]
+        # Configures available GPUs.
+        self.init_gpus()
+
         if self.device_strategy == "default":
             if self.execution_spec["device_map"] is not None:
                 self.logger.warning(
@@ -121,12 +131,14 @@ class TensorFlowExecutor(GraphExecutor):
                     "device-strategy=`custom` together with a `device_map`."
                 )
             self.logger.info("Initializing graph executor with default device strategy. "
-                             "Backend will assign all devices.")
+                             "Backend will assign all visible devices.")
+            self.logger.info("GPUs enabled: {}. Usable GPUs: {}".format(self.gpus_enabled, self.gpu_names))
         elif self.device_strategy == 'multi_gpu_sync':
+            assert self.gpus_enabled, "ERROR: device_strategy is 'multi_gpu_sync' but GPUs are not enabled. Please" \
+                                      "check your gpu_spec and set gpus_enabled to True."
             # Default device is CPU, executor will create extra operations and assign all visible GPUs automatically.
             self.default_device = [x.name for x in self.local_device_protos if x.device_type == 'CPU'][0]
-            self.gpu_names = [x.name for x in self.local_device_protos if x.device_type == 'GPU']
-            self.num_gpus = len(self.gpu_names)
+
             self.logger.info("Initializing graph executor with synchronized multi-gpu device strategy. "
                              "Default device: {}. Available gpus are: {}.".format(self.default_device, self.gpu_names))
         elif self.device_strategy == "custom":
@@ -149,7 +161,7 @@ class TensorFlowExecutor(GraphExecutor):
             self.logger.info("Initializing graph executor with custom device strategy (default device: {}).".
                              format(self.default_device))
         else:
-            raise RLGraphError("Invalid device_strategy ('{}') for GraphExecutor!".format(self.device_strategy))
+            raise RLGraphError("Invalid device_strategy ('{}') for TensorFlowExecutor!".format(self.device_strategy))
 
     def build(self, input_spaces, optimizer=None):
         # Prepare for graph assembly.
@@ -277,7 +289,8 @@ class TensorFlowExecutor(GraphExecutor):
             job_name=self.distributed_spec["job"],
             task_index=self.distributed_spec["task_index"],
             protocol=self.distributed_spec["protocol"],
-            config=tf.ConfigProto(**self.session_config),
+            # TODO do we need other device settings here?
+            config=self.tf_session_config,
             start=True
         )
         if self.distributed_spec["job"] == "ps":
@@ -467,14 +480,12 @@ class TensorFlowExecutor(GraphExecutor):
         Args:
             hooks (list): A list of session hooks to use.
         """
-        session_config = tf.ConfigProto(**self.session_config)
-
         if self.execution_mode == "distributed":
             self.logger.info("Setting up distributed TensorFlow session.")
             session_creator = tf.train.ChiefSessionCreator(
                 scaffold=self.scaffold,
                 master=self.server.target,
-                config=session_config,
+                config=self.tf_session_config,
                 checkpoint_dir=None,
                 checkpoint_filename_with_path=None
             )
@@ -492,7 +503,7 @@ class TensorFlowExecutor(GraphExecutor):
                 hooks=hooks,
                 scaffold=self.scaffold,
                 master='',  # Default value.
-                config=session_config,
+                config=self.tf_session_config,
                 checkpoint_dir=None
             )
 
@@ -614,4 +625,74 @@ class TensorFlowExecutor(GraphExecutor):
                 ))
 
         # TODO check assignments for multi gpu strategy when implemented.
+
+    def init_gpus(self):
+        """
+        Parses GPU specs and initializes GPU devices by adjusting visible CUDA devices to
+        environment and setting memory allocation options.
+        """
+        gpu_spec = self.execution_spec.get("gpu_spec", None)
+
+        if gpu_spec is not None:
+            self.gpus_enabled = gpu_spec.get("gpus_enabled", False)
+            self.max_usable_gpus = gpu_spec.get("max_usable_gpus", 0)
+
+            if self.gpus_enabled:
+                assert self.max_usable_gpus > 0, "ERROR: GPUs are enabled but max_usable_gpus are not >0 but {}".\
+                    format(self.max_usable_gpus)
+                gpu_names = sorted([x.name for x in self.local_device_protos if x.device_type == 'GPU'])
+                cuda_visible_devices = gpu_spec.get("enable_cuda_devices", None)
+                if len(gpu_names) < self.max_usable_gpus:
+                    self.logger.warn("WARNING: max_usable_gpus is {} but only {} gpus are locally visible,"
+                                     "using all available GPUs.".format(self.max_usable_gpus, len(gpu_names)))
+
+                # Indicate specific CUDA devices to be used.
+                if cuda_visible_devices is not None:
+                    if isinstance(str, cuda_visible_devices):
+                        # Assume "0, 3".
+                        device_list = cuda_visible_devices.split(",")
+                        num_provided_cuda_devices = len(device_list)
+                        use_names = [gpu_names[int(device_id)] for device_id in device_list]
+                    elif isinstance(cuda_visible_devices, list):
+                        num_provided_cuda_devices = len(cuda_visible_devices)
+                        use_names = [gpu_names[int(device_id)] for device_id in cuda_visible_devices]
+                        cuda_visible_devices = str(cuda_visible_devices)
+                    else:
+                        raise ValueError("ERROR: 'cuda_devices' must be string or list of device index "
+                                         "values, e.g. [0, 1] or '0,1', but is: {}".format(type(cuda_visible_devices)))
+
+                    # Must match number of allowed GPUs.
+                    assert self.max_usable_gpus == num_provided_cuda_devices,\
+                        "ERROR: Provided CUDA {} devices: {}, but max_usable_gpus is {}. Must match!"
+
+                    # Expose these devices.
+                    self.logger.info("GPU strategy: exposing CUDA devices with ids: {}".format(cuda_visible_devices))
+                    os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
+                    self.gpu_names = use_names
+
+                else:
+                    # Assign as many as specified.
+                    visible_devices = []
+                    use_names = []
+                    for i, name in enumerate(gpu_names):
+                        if len(use_names) < self.max_usable_gpus:
+                            use_names.append(name)
+                            visible_devices.append(i)
+                    os.environ["CUDA_VISIBLE_DEVICES"] = str(visible_devices)
+                    self.logger.info("GPU strategy initialized with GPUs enabled: {}".format(use_names))
+                    self.gpu_names = use_names
+
+                self.num_gpus = len(self.gpu_names)
+                self.available_devices.extend(self.gpu_names)
+                per_process_gpu_memory_fraction = gpu_spec.get("per_process_gpu_memory_fraction", None)
+                if per_process_gpu_memory_fraction is not None:
+                    self.tf_session_config.gpu_options.per_process_gpu_memory_fraction = per_process_gpu_memory_fraction
+
+                self.tf_session_config.gpu_options.allow_growth = gpu_spec.get("allow_memory_growth", False)
+        else:
+            # Do not allow any GPUs to be used.
+            self.gpus_enabled = False
+            self.logger.info("gpu_spec is None, disabling GPUs.")
+
+
 
