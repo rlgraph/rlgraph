@@ -59,7 +59,7 @@ class DeepMindLab(Environment):
         """
         # Create the wrapped deepmind lab level object.
         self.level_id = level_id
-        self.observations_spec = force_list(observations)
+        observations = force_list(observations)
         self.level = deepmind_lab.Lab(
             level=level_id, observations=observations, config=config, renderer=renderer, level_cache=level_cache
         )
@@ -67,7 +67,8 @@ class DeepMindLab(Environment):
         # Dict mapping a discrete action (int) - we don't support continuous actions yet - into a
         # deepmind Lab action vector.
         self.action_list, action_space = self.define_actions(actions)
-        super(DeepMindLab, self).__init__(self.translate_observation_space(), action_space)
+        observation_space = self.define_observations(self.level.observation_spec())
+        super(DeepMindLab, self).__init__(observation_space, action_space)
 
         self.frameskip = frameskip
 
@@ -135,32 +136,35 @@ class DeepMindLab(Environment):
         # Return the lookup_list and the RLgraph action Space.
         return lookup_list, IntBox(len(actions_spec))
 
-    def translate_observation_space(self):
+    @staticmethod
+    def define_observations(observation_spec):
         """
         Creates a RLgraph Space for the given deepmind Lab's observation specifier.
 
         Args:
-            observations (str): The name of the deepmind Lab observation schema to use.
+            observation_spec (List[str]): A list with the name(s) of the deepmind Lab observation(s) to use.
 
         Returns:
             Space: The RLgraph equivalent observation Space.
         """
-        tuple_space = list()
+        dict_space = dict()
         space = None
-        for observation in self.observations_spec:
-            if observation.dtype == dtype("float", "np"):
-                space = FloatBox(shape=observation.shape)
-            elif observation.dtype == dtype("int", "np"):
-                space = IntBox(shape=observation.shape)
+        for observation_name in observation_spec:
+            # Find the observation_item in the observation_spec of the Env.
+            observation_item = [o for o in observation_spec if o["name"] == observation_name][0]
+            if observation_item.dtype == dtype("float", "np"):
+                space = FloatBox(shape=observation_item.shape)
+            elif observation_item.dtype == dtype("int", "np"):
+                space = IntBox(shape=observation_item.shape)
             else:
                 raise RLGraphError("Unknown Deepmind Lab Space class for state_space!")
 
-            tuple_space.append(space)
+            dict_space[observation_name] = space
 
-        if len(tuple_space) == 1:
+        if len(dict_space) == 1:
             return space
         else:
-            return Tuple(tuple_space)
+            return Dict(dict_space)
 
     def __str__(self):
         return "DeepMindLab({})".format(self.level_id)

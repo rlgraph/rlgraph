@@ -5,7 +5,7 @@ We currently have the following dockerfiles ready for download from dockerhub.
 To download our latest one-fits-all container, do:
 `docker pull rlgraph/rlgraph:latest`
 
-##### `rlgraph/rlgraph:latest`
+##### - `rlgraph/rlgraph:latest`
 This is our general purpose, one-fits-all container. It contains all the libraries
 and other dependencies needed to run any RLgraph experiment under python3.
 This includes (only major packages listed):
