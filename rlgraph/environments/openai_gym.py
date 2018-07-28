@@ -49,8 +49,9 @@ class OpenAIGymEnv(Environment):
         """
         Args:
             gym_env (Union[str,gym.Env]): OpenAI Gym environment ID or actual gym.Env. See https://gym.openai.com/envs
-            frameskip (Optional[Tuple[int,int],int]): How many frames should be skipped with (repeated action and
-                accumulated reward). Default: (2,5) -> Uniformly pull from set [2,3,4].
+            frameskip (Optional[Tuple[int,int],int]): Number of game frames that should be skipped with each action
+                (repeats given action for this number of game frames and accumulates reward).
+                Default: (2,5) -> Uniformly pull from set [2,3,4].
             max_num_noops (Optional[int]): How many no-ops to maximally perform when resetting
                 the environment before returning the reset state.
             random_start (Optional[bool]): If true, sample random actions instead of no-ops initially.
@@ -124,7 +125,7 @@ class OpenAIGymEnv(Environment):
         state = self.gym_env.reset()
         if self.max_num_noops > 0:
             num_noops = np.random.randint(low=1, high=self.max_num_noops + 1)
-            # Do a number of random actions or noops vary starting positions.
+            # Do a number of random actions or noops to vary starting positions.
             for _ in range_(num_noops):
                 if self.random_start:
                     action = self.action_space.sample()

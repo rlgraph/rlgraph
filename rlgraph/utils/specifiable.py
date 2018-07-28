@@ -220,21 +220,22 @@ class SpaceInfoCarrier(object):
 class SpecifiableServer(object):
     """
     A class that creates a separate python process ("server") which runs an arbitrary Specifiable object
-    (wrapped as a `SpecifiableWithSpace` object to ascertain an API to get Space- and dtype-specs for
+    (wrapped as a `SpaceInfoCarrier` object to ascertain an API to get Space- and dtype-specs for
     the Specifiable).
 
-    This is useful for example to run RLgraph Environments (which are Specifiables) in a highly parallelized and
-    in-graph fashion for Agent-Environment stepping.
+    This is useful - for example - to run RLgraph Environments (which are Specifiables) in a highly parallelized and
+    in-graph fashion for faster Agent-Environment stepping.
     """
 
-    COLLECTION = "rlgraph_proxy_processes"
+    COLLECTION = "rlgraph_specifiable_server"
 
     def __init__(self, spec, shutdown_method=None):
         """
         Args:
             spec (dict): The specification dict that will be used to construct the Specifiable.
-            shutdown_method (Optional[str]): An optional name of a shutdown method that will be called before
-                server shutdown to give the Specifiable a chance to clean up.
+            shutdown_method (Optional[str]): An optional name of a shutdown method that will be called on the
+                Specifiable object before "server" shutdown to give the Specifiable a chance to clean up.
+                The Specifiable must implement this method.
         """
         self.spec = spec
         self.shutdown_method = shutdown_method
@@ -371,10 +372,10 @@ class SpecifiableServer(object):
             in_pipe.send(e)
 
 
-class RLGraphProxyProcessHook(tf.train.SessionRunHook):
+class SpecifiableServerHook(tf.train.SessionRunHook):
     """
     A hook for a tf.MonitoredSession that takes care of automatically starting and stopping
-    RLGraphProxyProcess objects.
+    SpecifiableServer objects.
     """
     def begin(self):
         """
@@ -382,7 +383,7 @@ class RLGraphProxyProcessHook(tf.train.SessionRunHook):
         """
         tp = multiprocessing.pool.ThreadPool()
         tp.map(lambda rlgraph_proxy_process: rlgraph_proxy_process.start(),
-               tf.get_collection(RLGraphProxyProcess.COLLECTION))
+               tf.get_collection(SpecifiableServer.COLLECTION))
         tp.close()
         tp.join()
 
