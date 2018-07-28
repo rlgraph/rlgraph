@@ -124,7 +124,20 @@ def parse_execution_spec(execution_spec):
     default_spec = dict(
         mode="single",
         distributed_spec=None,
-
+        # Gpu settings.
+        gpu_spec=dict(
+            # Are GPUs allowed to be used if they are detected?
+            gpus_enabled=False,
+            # If yes, how many GPUs are to be used?
+            max_usable_gpus=0,
+            # Specify specific CUDA devices to be used, e.g. gpu 0 and 2 = [0, 2].
+            # If None, we use CUDA devices [0, max_usable_gpus - 1]
+            enable_cuda_devices=None,
+            # Fraction of the overall amount of memory that each visible GPU should be allocated.
+            per_process_gpu_memory_fraction=None,
+            # If True, not all memory will be allocated which is relevant on shared resources.
+            allow_memory_growth=False
+        ),
         # Device placement settings.
         device_strategy="default",
         default_device=None,
@@ -162,6 +175,8 @@ def parse_execution_spec(execution_spec):
         log_device_placement=False
     )
     execution_spec["session_config"] = default_dict(execution_spec.get("session_config"), default_session_config)
+
+    # TODO add default worker spec for ray worker?
 
     return execution_spec
 
