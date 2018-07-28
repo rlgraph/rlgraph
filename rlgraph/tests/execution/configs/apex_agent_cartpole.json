@@ -26,6 +26,9 @@
         "num_replay_workers": 1
       },
       "worker_spec": {
+        "execution_spec": {
+          "gpu_spec": { "gpus_enabled" : false}
+        },
         "n_step_adjustment": 0,
         "worker_computes_weights": true,
         "sample_exploration": true,

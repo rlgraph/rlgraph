@@ -114,6 +114,11 @@ class RayWorker(RayActor):
                 sampled_from = np.random.uniform(low=exploration_min_value, high=decay_from)
                 epsilon_spec["decay_spec"]["from"] = sampled_from
 
+        # Worker execution spec may differ from controller/learner.
+        worker_exec_spec = worker_spec.get("execution_spec", None)
+        if worker_exec_spec is not None:
+            agent_config.update(execution_spec=worker_exec_spec)
+
         return RayExecutor.build_agent_from_config(agent_config)
 
     def execute_and_get_timesteps(

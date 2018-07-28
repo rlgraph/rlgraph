@@ -76,6 +76,7 @@
     }
   },
   "execution_spec": {
+    "gpu_spec": { "gpus_enabled" : false},
     "ray_spec": {
       "executor_spec": {
         "redis_address": null,
@@ -90,6 +91,9 @@
         "num_replay_workers": 1
       },
       "worker_spec": {
+        "execution_spec": {
+          "gpu_spec": { "gpus_enabled" : false}
+        },
         "frame_skip": 1,
         "n_step_adjustment": 3,
         "worker_computes_weights": true,
