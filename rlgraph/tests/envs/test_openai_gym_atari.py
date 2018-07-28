@@ -40,6 +40,7 @@ class TestOpenAIAtariEnv(unittest.TestCase):
         for _ in range(100):
             s, r, t, _ = env.step(env.action_space.sample())
             assert isinstance(r, float)
+            assert isinstance(t, bool)
             self.assertGreaterEqual(np.mean(s), 0)
             self.assertLessEqual(np.mean(s), 255)
             accum_reward += r

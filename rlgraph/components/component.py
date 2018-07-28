@@ -444,8 +444,8 @@ class Component(Specifiable):
 
     def when_input_complete(self, input_spaces, action_space, device=None, summary_regexp=None):
         """
-        Wrapper that calls both `create_variables` and `assert_input_spaces` in sequence and passes the dict with
-        the input_spaces for each in-Socket (kay=Socket's name) as parameter.
+        Wrapper that calls both `self.check_input_spaces` and `self.create_variables` in sequence and passes
+        the dict with the input_spaces for each in-Socket (key=Socket's name) and the action_space as parameter.
 
         Args:
             input_spaces (Dict[str,Space]): A dict with Space/shape information.

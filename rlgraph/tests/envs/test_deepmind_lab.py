@@ -21,12 +21,12 @@ import numpy as np
 import unittest
 
 from rlgraph.environments import DeepmindLabEnv
-from rlgraph.tests.test_util import recursive_assert_almost_equal
+from rlgraph.spaces import IntBox
 
 
 class TestDeepmindLabEnv(unittest.TestCase):
     """
-    Tests creation, resetting and stepping through an openAI Atari Env.
+    Tests creation, resetting and stepping through a deepmind Lab Env.
     """
     def test_deepmind_lab_env(self):
         frameskip = 4
@@ -44,6 +44,8 @@ class TestDeepmindLabEnv(unittest.TestCase):
         for i in range(100):
             s, r, t, _ = env.step(env.action_space.sample())
             assert isinstance(r, float)
+            assert isinstance(t, bool)
+            # Assert we have pixels.
             self.assertGreaterEqual(np.mean(s["RGB_INTERLEAVED"]), 0)
             self.assertLessEqual(np.mean(s["RGB_INTERLEAVED"]), 255)
             # Assert the env-observed timestep counter.
