@@ -26,7 +26,7 @@ from rlgraph.spaces import *
 from rlgraph.utils.util import force_list, dtype
 
 
-class DeepMindLab(Environment):
+class DeepmindLabEnv(Environment):
     """
     Deepmind Lab Environment adapter for RLgraph:
     https://arxiv.org/abs/1612.03801
@@ -68,7 +68,7 @@ class DeepMindLab(Environment):
         # deepmind Lab action vector.
         self.action_list, action_space = self.define_actions(actions)
         observation_space = self.define_observations(self.level.observation_spec())
-        super(DeepMindLab, self).__init__(observation_space, action_space)
+        super(DeepmindLabEnv, self).__init__(observation_space, action_space)
 
         self.frameskip = frameskip
 
