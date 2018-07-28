@@ -37,7 +37,7 @@ RUN pip3 install numpy pydevd tensorflow cached-property gym scipy pyyaml gym[at
 # Write a correct bazel build config for python so that bazel finds the python and numpy headers.
 RUN echo 'cc_library(name = "python",hdrs = glob(["include/python3.6/**/*.h"]),' \
     'includes = ["include/python3.6", "include/python3.6/numpy"], visibility = ["//visibility:public"],)' > \
-    /lib/python.BUILD
+    python.BUILD
 
 # Bazel-build and install deepmind Lab.
 RUN bazel build -c opt python/pip_package:build_pip_package
