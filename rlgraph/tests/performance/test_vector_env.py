@@ -21,6 +21,7 @@ import time
 import unittest
 from copy import deepcopy
 
+from rlgraph.agents import Agent
 from six.moves import xrange as range_
 
 from rlgraph.environments import Environment, SequentialVectorEnv
@@ -39,18 +40,26 @@ class TestVectorEnv(unittest.TestCase):
         episodic_life=True
     )
 
-    samples = 100000
+    samples = 1000
     num_vector_envs = 4
 
     def test_individual_env(self):
         env = Environment.from_spec(self.env_spec)
-        action_space = env.action_space
+        agent = Agent.from_spec(
+            # Uses 2015 DQN parameters as closely as possible.
+            "configs/dqn_agent_for_pong.json",
+            state_space=env.state_space,
+            # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
+            action_space=env.action_space
+        )
 
-        env.reset()
+        state = env.reset()
         start = time.monotonic()
         ep_length = 0
         for _ in range_(self.samples):
-            state, reward, terminal, info = env.step(action_space.sample())
+            action = agent.get_action(state)
+            state, reward, terminal, info = env.step(action)
+
             ep_length += 1
             if terminal:
                 print("reset after {} states".format(ep_length))
@@ -72,18 +81,25 @@ class TestVectorEnv(unittest.TestCase):
             num_background_envs=2
         )
         env = Environment.from_spec(deepcopy(self.env_spec))
-        action_space = env.action_space
+        agent = Agent.from_spec(
+            # Uses 2015 DQN parameters as closely as possible.
+            "configs/dqn_agent_for_pong.json",
+            state_space=env.state_space,
+            # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
+            action_space=env.action_space
+        )
 
-        vector_env.reset_all()
+        states = vector_env.reset_all()
         start = time.monotonic()
         ep_lengths = [0 for _ in range_(self.num_vector_envs)]
 
         for _ in range_(self.samples):
             # Sample all envs at once.
-            states, rewards, terminals, infos = vector_env.step(action_space.sample(
-                size=self.num_vector_envs)
-            )
+            action_batch = agent.action_space.force_batch(states)
+            actions = agent.get_action(action_batch)
+            states, rewards, terminals, infos = vector_env.step(actions)
             ep_lengths = [ep_length + 1 for ep_length in ep_lengths]
+
             for i, terminal in enumerate(terminals):
                 if terminal:
                     print("reset env {} after {} states".format(i, ep_lengths[i]))

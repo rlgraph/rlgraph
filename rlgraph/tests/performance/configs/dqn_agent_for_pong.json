@@ -1,0 +1,102 @@
+{
+  "type": "dqn",
+
+  "discount": 0.99,
+
+  "memory_spec":
+  {
+    "type": "replay",
+    "capacity": 10000
+  },
+
+  "preprocessing_spec":
+  [
+    {
+      "type": "image_resize",
+      "width": 84,
+      "height": 84
+    },
+    {
+      "type": "grayscale",
+      "keep_rank": true
+    },
+    {
+      "type": "divide",
+      "divisor": 255
+    },
+    {
+      "type": "sequence",
+      "length": 4,
+      "add_rank": false
+    }
+  ],
+
+  "network_spec":
+  [
+    {
+        "type": "conv2d",
+        "filters": 32,
+        "kernel_size": 8,
+        "strides": 4,
+        "activation": "relu",
+        "scope": "conv1"
+    },
+    {
+        "type": "conv2d",
+        "filters": 64,
+        "kernel_size": 4,
+        "strides": 2,
+        "activation": "relu",
+        "scope": "conv2"
+    },
+    {
+        "type": "conv2d",
+        "filters": 64,
+        "kernel_size": 3,
+        "strides": 1,
+        "activation": "relu",
+        "scope": "conv3"
+    },
+    {
+        "type": "flatten"
+    },
+    {
+        "type": "dense",
+        "units": 512,
+        "activation": "relu"
+    }
+  ],
+
+  "exploration_spec":
+  {
+    "non_explore_behavior": "max-likelihood",
+    "epsilon_spec": {
+      "decay_spec": {
+        "type": "linear_decay",
+        "from": 1.0,
+        "to": 0.1,
+        "start_timestep": 50000,
+        "num_timesteps": 1000000
+      }
+    }
+  },
+
+  "observe_spec":
+  {
+    "buffer_size": 3000
+  },
+
+  "update_spec": {
+    "do_updates": true,
+    "update_interval": 4,
+    "steps_before_update": 50000,
+    "batch_size": 32,
+    "sync_interval": 10000
+  },
+
+  "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.0001,
+    "clip_grad_norm": 20
+  }
+}
