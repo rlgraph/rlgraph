@@ -158,8 +158,8 @@ class Component(Specifiable):
             name, method = (member[0], member[1])
             if name != "define_api_method" and name != "add_components" and name[0] != "_" and \
                     name not in self.switched_off_apis and util.get_method_type(method) == "api":
-                callable_anytime = False  # not util.does_method_call_graph_fns(method)
-                ret[name] = APIMethodRecord(method, component=self, callable_anytime=callable_anytime)
+                #callable_anytime = False  # not util.does_method_call_graph_fns(method)
+                ret[name] = APIMethodRecord(method, component=self)  #, callable_anytime=callable_anytime)
         return ret
 
     def call(self, method, *params, **kwargs):
