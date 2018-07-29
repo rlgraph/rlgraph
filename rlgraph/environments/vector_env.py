@@ -34,7 +34,7 @@ class VectorEnv(Environment):
             num_envs (int): Number of environments
             **kwargs (dict): Keyword args to create environment.
         """
-        self.num_envs = int
+        self.num_envs = num_envs
         self.environments = [Environment.from_spec(deepcopy(env_spec)) for _ in range_(num_envs)]
         super(VectorEnv, self).__init__(state_space=self.environments[0].state_space,
                                         action_space=self.environments[0].action_space)

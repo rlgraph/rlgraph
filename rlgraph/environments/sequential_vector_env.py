@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from copy import deepcopy
 from queue import Queue
 from threading import Thread
 
@@ -82,7 +83,7 @@ class ThreadedResetter(Thread):
 
         # Create a set of environments ready to use.
         for _ in range_(num_environments):
-            env = Environment.from_spec(env_spec)
+            env = Environment.from_spec(deepcopy(env_spec))
             state = env.reset()
             self.out_ready.put((state, env))
 
