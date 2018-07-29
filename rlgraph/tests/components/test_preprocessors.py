@@ -19,11 +19,12 @@ from __future__ import print_function
 
 import cv2
 import numpy as np
+import os
 from six.moves import xrange as range_
 import unittest
 
 from rlgraph.components.layers import GrayScale, Flatten, Multiply, PreprocessorStack, Sequence, Clip, \
-    ImageBinary, ImageResize
+    ImageBinary, ImageResize, ImageCrop
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 
@@ -257,6 +258,21 @@ class TestPreprocessors(unittest.TestCase):
 
         test.test("reset")
 
-        input_image = cv2.imread("images/16x16x3_image.bmp")
-        expected = cv2.imread("images/4x4x3_image_resized.bmp")
+        input_image = cv2.imread(os.path.join(os.path.dirname(__file__), "images/16x16x3_image.bmp"))
+        expected = cv2.imread(os.path.join(os.path.dirname(__file__), "images/4x4x3_image_resized.bmp"))
         test.test(("apply", input_image), expected_outputs=expected)
+
+    def test_image_crop(self):
+        image_crop = ImageCrop(x=7, y=1, width=8, height=12)
+
+        # Some image of 16x16x3 size.
+        test = ComponentTest(
+            component=image_crop, input_spaces=dict(apply=FloatBox(shape=(16, 16, 3), add_batch_rank=False))
+        )
+
+        test.test("reset")
+
+        input_image = cv2.imread(os.path.join(os.path.dirname(__file__), "images/16x16x3_image.bmp"))
+        expected = cv2.imread(os.path.join(os.path.dirname(__file__), "images/8x12x3_image_cropped_7-1.bmp"))
+
+        out = test.test(("apply", input_image), expected_outputs=expected)
