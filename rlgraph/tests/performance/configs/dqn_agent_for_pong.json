@@ -12,16 +12,9 @@
   "preprocessing_spec":
   [
     {
-      "type": "image_crop",
-      "x": 0,
-      "y": 25,
-      "width": 160,
-      "height": 160
-    },
-    {
       "type": "image_resize",
-      "width": 80,
-      "height": 80
+      "width": 84,
+      "height": 84
     },
     {
       "type": "grayscale",

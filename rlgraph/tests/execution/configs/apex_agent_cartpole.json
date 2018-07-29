@@ -26,6 +26,8 @@
         "num_replay_workers": 1
       },
       "worker_spec": {
+        "num_worker_environments": 1,
+        "num_background_envs": 1,
         "execution_spec": {
           "gpu_spec": { "gpus_enabled" : false}
         },
@@ -68,7 +70,7 @@
     "do_updates": true,
     "update_interval": 4,
     "batch_size": 24,
-    "synch_interval": 32
+    "sync_interval": 32
   },
   "optimizer_spec": {
     "type": "gradient_descent",
