@@ -21,6 +21,8 @@ from rlgraph.environments.environment import Environment
 from rlgraph.environments.grid_world import GridWorld
 from rlgraph.environments.openai_gym import OpenAIGymEnv
 from rlgraph.environments.random_env import RandomEnv
+from rlgraph.environments.vector_env import VectorEnv
+from rlgraph.environments.sequential_vector_env import SequentialVectorEnv
 
 
 Environment.__lookup_classes__ = dict(
@@ -29,7 +31,10 @@ Environment.__lookup_classes__ = dict(
     openaigymenv=OpenAIGymEnv,
     openaigym=OpenAIGymEnv,
     randomenv=RandomEnv,
-    random = RandomEnv,
+    random=RandomEnv,
+    sequentialvector=SequentialVectorEnv,
+    sequentialvectorenv=SequentialVectorEnv
 )
 
-__all__ = ["Environment", "GridWorld", "OpenAIGymEnv", "RandomEnv"]
+__all__ = ["Environment", "GridWorld", "OpenAIGymEnv", "RandomEnv",
+           "VectorEnv", "SequentialVectorEnv"]
