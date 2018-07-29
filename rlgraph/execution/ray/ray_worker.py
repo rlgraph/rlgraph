@@ -224,7 +224,7 @@ class RayWorker(RayActor):
                     if terminals[i] or (0 < max_timesteps_per_episode <= episode_timesteps[i]):
                         self.episode_rewards.append(episode_rewards[i])
                         self.episode_timesteps.append(episode_timesteps[i])
-                        episodes_executed += 1
+                        episodes_executed[i] += 1
                         self.episodes_executed += 1
                     # TODO Do we need to break here? While True is only broken when we are fully done atm, see below.
 
@@ -279,13 +279,13 @@ class RayWorker(RayActor):
 
         # Finally assemble next states full sample: [env_0_ep_next, env_0_final_next, env_1_ep_next, env_1_final_next]
         for i in range_(self.num_environments):
-            batch_next_states.extend(next_state_fragments[i])
-            #TODO maybe need to squeeze here
-            batch_next_states.extend(preprocessed_states[i])
+            batch_next_states.extend(next_state_fragments[i] + preprocessed_states[i])
+            next_fragment = self.agent.preprocessed_state_space.force_batch(preprocessed_states[i])
+            batch_next_states.extend(next_fragment)
 
         # This has a batch dim, so we can either do an append(np.squeeze), or extend.
         sample_batch, batch_size = self._process_sample_if_necessary(batch_states, batch_actions,
-            batch_rewards, next_states, batch_terminals)
+            batch_rewards, batch_next_states, batch_terminals)
 
         # Note that the controller already evaluates throughput so there is no need
         # for each worker to calculate expensive statistics now.
