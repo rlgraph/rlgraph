@@ -99,7 +99,7 @@ class GraphBuilder(Specifiable):
             for api_method_name in input_spaces.keys():
                 if api_method_name not in self.core_component.api_methods:
                     raise RLGraphError("ERROR: `input_spaces` contains API-method ('{}') that's not defined in "
-                                    "core-component '{}'!".format(api_method_name, self.core_component.name))
+                                       "core-component '{}'!".format(api_method_name, self.core_component.name))
 
         # Call all API methods of the core and thereby, create empty in-op columns that serve as placeholders
         # and bi-directional links for the build time.
@@ -116,7 +116,7 @@ class GraphBuilder(Specifiable):
             # Register core's interface.
             self.api[api_method_name] = (in_ops_records, api_method_rec.out_op_columns[0].op_records)
 
-            # Tag very last out-op-records with op="done", so we know in the build process that we are done.
+            # Tag very last out-op-records with is_terminal_op=True, so we know in the build process that we are done.
             for op_rec in api_method_rec.out_op_columns[0].op_records:
                 op_rec.is_terminal_op = True
 
