@@ -73,8 +73,8 @@ class RayWorker(RayActor):
         self.worker_frameskip = frameskip
 
         # Save these so they can be fetched after training if desired.
-        self.episode_rewards = []
-        self.episode_timesteps = []
+        self.episode_rewards = list()
+        self.episode_timesteps = list()
         self.total_worker_steps = 0
         self.episodes_executed = 0
 
@@ -154,7 +154,7 @@ class RayWorker(RayActor):
             sample_terminals[env_id] = list()
 
         break_loop = False
-        next_states = [np.zeros_like(self.last_state) for _ in range_(self.num_environments)]
+        next_states = [np.zeros_like(self.last_states) for _ in range_(self.num_environments)]
 
         while timesteps_executed < num_timesteps:
             # Reset envs and Agent either if finished an episode in current loop or if last state
@@ -241,6 +241,7 @@ class RayWorker(RayActor):
                 break
 
         self.last_terminals = terminals
+        self.last_states = env_states
         self.last_ep_rewards = episode_rewards
 
         total_time = (time.monotonic() - start) or 1e-10
