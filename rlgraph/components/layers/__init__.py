@@ -20,18 +20,11 @@ from __future__ import print_function
 from rlgraph.utils.util import default_dict
 
 # Basics.
-from rlgraph.components.layers.stack import Stack
 from rlgraph.components.layers.layer import Layer
-from rlgraph.components.layers.preprocessor_stack import PreprocessorStack
 # Preprocessing Layers.
 from rlgraph.components.layers.preprocessing import *
 # NN-Layers.
 from rlgraph.components.layers.nn import *
-
-# The Stacks.
-Stack.__lookup_classes__ = dict(
-    preprocessorstack=PreprocessorStack
-)
 
 # The Layers (Layers are also Stacks).
 Layer.__lookup_classes__ = dict(
@@ -43,6 +36,5 @@ default_dict(Layer.__lookup_classes__, NNLayer.__lookup_classes__)
 default_dict(Layer.__lookup_classes__, PreprocessLayer.__lookup_classes__)
 
 
-__all__ = ["Layer", "Stack", "PreprocessorStack"] + \
+__all__ = ["Layer"] + \
           list(set(map(lambda x: x.__name__, Layer.__lookup_classes__.values())))
-

@@ -51,7 +51,7 @@ class Flatten(PreprocessLayer):
         # The output spaces after preprocessing (per flat-key).
         self.output_spaces = None
 
-    def get_preprocessed_space(self, space):
+    def get_output_space(self, space):
         ret = dict()
         for key, value in space.flatten().items():
             flat_dim = value.flat_dim_with_categories if self.flatten_categories is True and value.__class__ == IntBox \
@@ -68,7 +68,7 @@ class Flatten(PreprocessLayer):
         in_space = input_spaces["apply"][0]  # type: Dict
 
         # Store the mapped output Spaces (per flat key).
-        self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
+        self.output_spaces = flatten_op(self.get_output_space(in_space))
 
         # Check whether we have to flatten the incoming categories of an IntBox into a FloatBox with additional
         # rank (categories rank). Store the dimension of this additional rank in the `self.num_categories` dict.

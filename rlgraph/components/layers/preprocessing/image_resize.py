@@ -42,7 +42,7 @@ class ImageResize(PreprocessLayer):
         # The output spaces after preprocessing (per flat-key).
         self.output_spaces = None
 
-    def get_preprocessed_space(self, space):
+    def get_output_space(self, space):
         ret = dict()
         for key, value in space.flatten().items():
             # Do some sanity checking.
@@ -61,7 +61,7 @@ class ImageResize(PreprocessLayer):
         super(ImageResize, self).check_input_spaces(input_spaces, action_space)
         in_space = input_spaces["apply"][0]
 
-        self.output_spaces = self.get_preprocessed_space(in_space)
+        self.output_spaces = self.get_output_space(in_space)
 
     def _graph_fn_apply(self, images):
         """

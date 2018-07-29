@@ -39,6 +39,18 @@ class Layer(Component):
             split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param
         )
 
+    def get_output_space(self, space):
+        """
+        Returns the Space obtained after pushing the space input through this layer.
+
+        Args:
+            space (Space): The incoming Space object.
+
+        Returns:
+            Space: The Space after preprocessing.
+        """
+        return space
+
     def _graph_fn_apply(self, *inputs):
         """
         This is where the graph-logic of this layer goes.

@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-import copy
 import tensorflow as tf
 
 from rlgraph.components.layers import Layer
@@ -39,18 +38,6 @@ class PreprocessLayer(Layer):
         super(PreprocessLayer, self).__init__(scope=scope, **kwargs)
 
         self.define_api_method("reset", self._graph_fn_reset)
-
-    def get_preprocessed_space(self, space):
-        """
-        Returns the Space obtained after pushing the space input through this layer.
-
-        Args:
-            space (Space): The incoming Space object.
-
-        Returns:
-            Space: The Space after preprocessing.
-        """
-        return space
 
     def _graph_fn_reset(self):
         """

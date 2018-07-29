@@ -21,7 +21,7 @@ from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.utils.util import default_dict
 
-from rlgraph.components.layers.stack import Stack
+from rlgraph.components.neural_networks.stack import Stack
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -81,5 +81,5 @@ class PreprocessorStack(Stack):
             Space: The Space after preprocessing.
         """
         for pp in self.sub_components.values():
-            space = pp.get_preprocessed_space(space)
+            space = pp.get_output_space(space)
         return space

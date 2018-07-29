@@ -58,6 +58,6 @@ class NNLayer(Layer):
             inputs (SingleDataOp): The single (non-container) input(s) to the layer.
 
         Returns:
-            The output(s) after having pushed the input(s) through the layer.
+            The output(s) after having pushed input(s) through the layer.
         """
         return self.layer.apply(*inputs)

@@ -17,9 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph.components.neural_networks.stack import Stack
+from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.neural_networks.policy import Policy
 from rlgraph.components.neural_networks.action_adapter import ActionAdapter
 
+# The Stacks.
+Stack.__lookup_classes__ = dict(
+    preprocessorstack=PreprocessorStack
+)
 
-__all__ = ["NeuralNetwork", "Policy", "ActionAdapter"]
+__all__ = ["Stack", "PreprocessorStack", "NeuralNetwork", "Policy", "ActionAdapter"]
+
