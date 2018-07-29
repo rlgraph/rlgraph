@@ -21,6 +21,8 @@ from six.moves import xrange as range_
 
 import tensorflow as tf
 
+from rlgraph import get_backend
+from rlgraph.spaces.space_utils import get_list_registry
 from rlgraph.utils.ops import FlattenedDataOp, unflatten_op
 from rlgraph.utils.util import get_rank, get_shape, force_list, get_batch_size
 from rlgraph.components.layers.preprocessing import PreprocessLayer
@@ -32,13 +34,15 @@ class Sequence(PreprocessLayer):
     problems to create the Markov property (velocity of game objects as they move across the screen).
     """
 
-    def __init__(self, length=2, add_rank=True, scope="sequence", **kwargs):
+    def __init__(self, length=2, capacity=1, add_rank=True, scope="sequence", **kwargs):
         """
         Args:
             length (int): The number of records to always concatenate together.
                 The very first record is simply repeated `length` times.
                 The second record will generate: Itself and `length`-1 times the very first record.
                 Etc..
+            capacity (Optional[int]): Max batch size of incoming records so multiple states can be passed through at once
+                along the correct concatenation dimensions.
             add_rank (bool): Whether to add another rank to the end of the input with dim=length-of-the-sequence.
                 If False, concatenates the sequence within the last rank.
                 Default: True.
@@ -46,7 +50,7 @@ class Sequence(PreprocessLayer):
         # Switch off split (it's switched on for all LayerComponents by default).
         # -> accept any Space -> flatten to OrderedDict -> input & return OrderedDict -> re-nest.
         super(Sequence, self).__init__(scope=scope, split_ops=False, **kwargs)
-
+        self.capacity = capacity
         self.length = length
         self.add_rank = add_rank
 
@@ -81,12 +85,17 @@ class Sequence(PreprocessLayer):
         in_space = input_spaces["apply"][0]
         self.first_rank_is_batch = in_space.has_batch_rank
 
-        # Cut the "batch rank" (always 1 anyway) and replace it with the "sequence-rank".
-        self.buffer = self.get_variable(name="buffer", trainable=False,
-                                        from_space=in_space, add_batch_rank=self.length,
-                                        flatten=True)
-        # Our index. Points to the slot where we insert next (-1 after reset).
-        self.index = self.get_variable(name="index", dtype="int", initializer=-1, trainable=False)
+        if self.backend == "python" or get_backend() == "python":
+            self.index = 0
+            in_space = in_space.shape + (self.length,)
+            self.buffer = get_list_registry(from_space=in_space, add_batch_rank=self.capacity)
+        elif get_backend() == "tf":
+            # Cut the "batch rank" (always 1 anyway) and replace it with the "sequence-rank".
+            self.buffer = self.get_variable(name="buffer", trainable=False,
+                                            from_space=in_space, add_batch_rank=self.length,
+                                            flatten=True)
+            # Our index. Points to the slot where we insert next (-1 after reset).
+            self.index = self.get_variable(name="index", dtype="int", initializer=-1, trainable=False)
 
     def _graph_fn_reset(self):
         return tf.variables_initializer([self.index])
@@ -105,59 +114,63 @@ class Sequence(PreprocessLayer):
             FlattenedDataOp: The FlattenedDataOp holding the sequenced SingleDataOps as values.
         """
         # A normal (index != -1) assign op.
-        def normal_assign():
-            assigns = list()
-            for key, value in inputs.items():
-                # [0]=skip batch (which must be len=1 anyway)
-                assigns.append(self.assign_variable(
-                    ref=self.buffer[key][self.index], value=value[0] if self.first_rank_is_batch else value)
-                )
-            return assigns
+        if self.backend == "python" or get_backend() == "python":
+            pass
+        elif get_backend() == "tf":
 
-        # If index is still -1 (after reset):
-        # Pre-fill the entire buffer with `self.length` x input_.
-        def after_reset_assign():
-            assigns = list()
-            for key, value in inputs.items():
-                multiples = (self.length,) + tuple([1] * (get_rank(value) - (1 if self.first_rank_is_batch else 0)))
-                in_ = value if self.first_rank_is_batch else tf.expand_dims(value, 0)
-                assigns.append(self.assign_variable(
-                    ref=self.buffer[key],
-                    value=tf.tile(input=in_, multiples=multiples)
-                ))
-            return assigns
+            def normal_assign():
+                assigns = list()
+                for key, value in inputs.items():
+                    # [0]=skip batch (which must be len=1 anyway)
+                    assigns.append(self.assign_variable(
+                        ref=self.buffer[key][self.index], value=value[0] if self.first_rank_is_batch else value)
+                    )
+                return assigns
 
-        # Insert the input at the correct index or fill empty buffer entirely with input.
-        insert_inputs = tf.cond(pred=(self.index >= 0), true_fn=normal_assign, false_fn=after_reset_assign)
+            # If index is still -1 (after reset):
+            # Pre-fill the entire buffer with `self.length` x input_.
+            def after_reset_assign():
+                assigns = list()
+                for key, value in inputs.items():
+                    multiples = (self.length,) + tuple([1] * (get_rank(value) - (1 if self.first_rank_is_batch else 0)))
+                    in_ = value if self.first_rank_is_batch else tf.expand_dims(value, 0)
+                    assigns.append(self.assign_variable(
+                        ref=self.buffer[key],
+                        value=tf.tile(input=in_, multiples=multiples)
+                    ))
+                return assigns
 
-        # Make sure the input has been inserted.
-        with tf.control_dependencies(control_inputs=force_list(insert_inputs)):
-            # Then increase index by 1.
-            index_plus_1 = self.assign_variable(ref=self.index, value=((self.index + 1) % self.length))
+            # Insert the input at the correct index or fill empty buffer entirely with input.
+            insert_inputs = tf.cond(pred=(self.index >= 0), true_fn=normal_assign, false_fn=after_reset_assign)
 
-        # Then gather the output.
-        with tf.control_dependencies(control_inputs=[index_plus_1]):
-            sequences = FlattenedDataOp()
-            # Collect the correct previous inputs from the buffer to form the output sequence.
-            for key in inputs.keys():
-                n_in = [self.buffer[key][(self.index + n) % self.length] for n in range_(self.length)]
+            # Make sure the input has been inserted.
+            with tf.control_dependencies(control_inputs=force_list(insert_inputs)):
+                # Then increase index by 1.
+                index_plus_1 = self.assign_variable(ref=self.index, value=((self.index + 1) % self.length))
 
-                # Add the sequence-rank to the end of our api_methods.
-                if self.add_rank:
-                    sequence = tf.stack(values=n_in, axis=-1)
-                # Concat the sequence items in the last rank.
-                else:
-                    sequence = tf.concat(values=n_in, axis=-1)
+            # Then gather the output.
+            with tf.control_dependencies(control_inputs=[index_plus_1]):
+                sequences = FlattenedDataOp()
+                # Collect the correct previous inputs from the buffer to form the output sequence.
+                for key in inputs.keys():
+                    n_in = [self.buffer[key][(self.index + n) % self.length] for n in range_(self.length)]
 
-                # Put batch rank back in (buffer does not have it).
-                if self.first_rank_is_batch:
-                    sequence = tf.expand_dims(input=sequence, axis=0, name="apply")
-                # Or not.
-                else:
-                    sequence = tf.identity(input=sequence, name="apply")
+                    # Add the sequence-rank to the end of our api_methods.
+                    if self.add_rank:
+                        sequence = tf.stack(values=n_in, axis=-1)
+                    # Concat the sequence items in the last rank.
+                    else:
+                        sequence = tf.concat(values=n_in, axis=-1)
 
-                # Must pass the sequence through a placeholder_with_default dummy to set back the
-                # batch rank to '?', instead of 1 (1 would confuse the auto Space inference).
-                sequences[key] = tf.placeholder_with_default(sequence, shape=(None,) + tuple(get_shape(sequence)[1:]))
+                    # Put batch rank back in (buffer does not have it).
+                    if self.first_rank_is_batch:
+                        sequence = tf.expand_dims(input=sequence, axis=0, name="apply")
+                    # Or not.
+                    else:
+                        sequence = tf.identity(input=sequence, name="apply")
 
-            return sequences
+                    # Must pass the sequence through a placeholder_with_default dummy to set back the
+                    # batch rank to '?', instead of 1 (1 would confuse the auto Space inference).
+                    sequences[key] = tf.placeholder_with_default(sequence, shape=(None,) + tuple(get_shape(sequence)[1:]))
+
+                return sequences
