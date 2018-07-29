@@ -40,7 +40,7 @@ class TestVectorEnv(unittest.TestCase):
         episodic_life=True
     )
 
-    samples = 1000
+    samples = 100000
     num_vector_envs = 4
 
     def test_individual_env(self):
@@ -93,7 +93,7 @@ class TestVectorEnv(unittest.TestCase):
         start = time.monotonic()
         ep_lengths = [0 for _ in range_(self.num_vector_envs)]
 
-        for _ in range_(self.samples):
+        for _ in range_(int(self.samples/ self.num_vector_envs)):
             # Sample all envs at once.
             action_batch = agent.action_space.force_batch(states)
             actions = agent.get_action(action_batch)
