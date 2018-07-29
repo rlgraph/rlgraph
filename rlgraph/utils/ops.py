@@ -114,7 +114,7 @@ class DataOpRecord(object):
         # An optional position (index) for this op inside `column`.
         self.position = position
         # The inferred Space of this op.
-        self.space = None
+        #self.space = None
 
         # Set of (op-col ID, slot) tuples that are connected from this one.
         self.next = set()
@@ -141,15 +141,18 @@ class DataOpRecordColumn(object):
     def __init__(self, op_records, component):
         self.id = self.get_id()
 
+        # Op-records already given: Add them to this column.
         if not isinstance(op_records, int):
             self.op_records = [op_records] if isinstance(op_records, DataOpRecord) else list(op_records)
             # For graph_fn and convenience reasons, give a pointer to the column to each op in it.
             for op_rec in self.op_records:
                 op_rec.column = self
+        # Generate n empty op-records.
         else:
             self.op_records = list()
             for i in range(op_records):
                 self.op_records.append(DataOpRecord(op=None, column=self, position=i))
+
         # For __str__ purposes.
         self.op_id_list = [o.id for o in self.op_records]
 
@@ -359,21 +362,22 @@ class DataOpRecordColumnFromAPIMethod(DataOpRecordColumn):
 
 
 class APIMethodRecord(object):
-    def __init__(self, method, component, must_be_complete=True, callable_anytime=False):
+    def __init__(self, method, component, must_be_complete=True):  #, callable_anytime=False):
         """
         Args:
             method (callable): The actual API-method (callable).
             component (Component): The Component this API-method belongs to.
             must_be_complete (bool): Whether the Component can only be input-complete if at least one
                 input op-record column is complete.
-            callable_anytime (bool): Whether this API-method can be called even before the Component is input-complete.
+            #callable_anytime (bool): Whether this API-method can be called even before the Component is input-complete.
         """
         self.method = method
         self.component = component
         self.must_be_complete = must_be_complete
-        self.callable_anytime = callable_anytime
+        #self.callable_anytime = callable_anytime
 
-        #self.spaces = None
+        self.in_spaces = None
+
         self.in_op_columns = list()
         self.out_op_columns = list()
 

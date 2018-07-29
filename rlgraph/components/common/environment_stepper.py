@@ -19,7 +19,8 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.component import Component
-from rlgraph.components.layers.preprocessor_stack import PreprocessorStack
+from rlgraph.environments.environment import Environment
+from rlgraph.utils.specifiable_server import SpecifiableServer
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -35,22 +36,26 @@ class EnvironmentStepper(Component):
             preprocessed_states, actions taken, action log-probabilities, rewards, terminals, discounts
     """
 
-    def __init__(self, environment, policy, preprocessor=None, **kwargs):
+    def __init__(self, environment_spec, policy, preprocessor=None, **kwargs):
         super(EnvironmentStepper, self).__init__(scope=kwargs.pop("scope", "env-stepper"), **kwargs)
 
-        self.environment = environment
-        self.policy = policy
+        self.environment_spec = environment_spec
         self.preprocessor = preprocessor
+        self.policy = policy
 
-        self.current_state = self.environment.reset()
+        # Create the SpecifiableServer with the given env spec.
+        self.environment_server = SpecifiableServer(Environment, environment_spec, "terminate")
+        self.environment_server.start()
+
+        #self.current_state = self.environment.reset()
 
         # Add the sub-components.
         self.add_components(self.preprocessor, self.policy)
 
         self.define_api_method("step", self._graph_fn_step)
 
-    def create_variables(self, input_spaces, action_space):
-        self.state_space = self.environment.state_space.with_batch_rank()
+    #def create_variables(self, input_spaces, action_space):
+    #    #self.state_space = self.environment.state_space.with_batch_rank()
 
     def _graph_fn_step(self, num_steps):
         """
@@ -67,13 +72,15 @@ class EnvironmentStepper(Component):
                 TODO: add more necessary stats here.
         """
 
-        def scan_func(accum, elems):
-            # TODO: preprocess state if self.preprocessor not None
-            # TODO: get_action
-            # TODO: state = env.step(action)
-            self.preprocessor._graph_fn_apply()
+        def scan_func(accum, _):
+            preprocessed_state, action, reward, terminal = accum
 
-            return accum
+            preprocessed_state = self.call(self.preprocessor.preprocess, state)
+            a = self.call(self.policy.get_action, preprocessed_state)
+
+            s_, r, t, _ = self.environment_server.call("step", a)
+
+            return s_, a, r, t
 
         if get_backend() == "tf":
             initializer = [self.current_state, ]
