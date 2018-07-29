@@ -57,8 +57,8 @@ class RandomEnv(Environment):
 
     def step(self, actions=None):
         if actions is not None:
-            assert self.action_space.contains(actions), "ERROR: Given action ({}) in step is not part of action " \
-                                                       "Space ({})!".format(actions, self.action_space)
+            assert self.action_space.contains(actions), \
+                "ERROR: Given action ({}) in step is not part of action Space ({})!".format(actions, self.action_space)
         return self.state_space.sample(), self.reward_space.sample(), \
             np.random.choice([True, False], p=[self.terminal_prob, 1.0 - self.terminal_prob]), None
 
