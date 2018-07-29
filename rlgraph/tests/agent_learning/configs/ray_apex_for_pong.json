@@ -118,7 +118,7 @@
     "update_interval": 4,
     "steps_before_update": 50000,
     "batch_size": 512,
-    "synch_interval": 500000
+    "sync_interval": 500000
   },
   "optimizer_spec": {
     "type": "adam",

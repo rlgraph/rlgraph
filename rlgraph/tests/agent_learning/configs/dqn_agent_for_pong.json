@@ -91,7 +91,7 @@
     "update_interval": 4,
     "steps_before_update": 50000,
     "batch_size": 32,
-    "synch_interval": 10000
+    "sync_interval": 10000
   },
 
   "optimizer_spec": {

@@ -38,7 +38,7 @@
     "do_updates": true,
     "update_interval": 4,
     "batch_size": 16,
-    "synch_interval": 32
+    "sync_interval": 32
   },
 
   "optimizer_spec": {
