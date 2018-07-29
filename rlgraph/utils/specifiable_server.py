@@ -52,12 +52,13 @@ class SpecifiableServer(object):
         """
         self.class_ = class_
         self.spec = spec
-        # If dict: Process possible specs so we don't have to do this during calls:
+        # If dict: Process possible specs so we don't have to do this during calls.
         if isinstance(output_spaces, dict):
             self.output_spaces = dict()
             for method_name, space_spec in output_spaces.items():
                 space_spec_list = force_list(space_spec)
-                self.output_spaces[method_name] = [Space.from_spec(spec) for spec in space_spec_list]
+                self.output_spaces[method_name] = [Space.from_spec(spec) if spec is not None else
+                                                   None for spec in space_spec_list]
         else:
             self.output_spaces = output_spaces
         self.shutdown_method = shutdown_method
@@ -81,9 +82,12 @@ class SpecifiableServer(object):
 
         Args:
             method_name (str): The method to call on the Specifiable.
+            #return_slots (Optional[List[int]]): An optional list of return slots to use. None for using all return
+            #    values.
 
         Returns:
-
+            callable: The callable to be executed when getting the given method name (of the Specifiable object
+                (running inside the SpecifiableServer).
         """
         def call(*args):
             if isinstance(self.output_spaces, dict):
@@ -95,8 +99,20 @@ class SpecifiableServer(object):
                 raise RLGraphError("No Space information received for method '{}:{}'".format(self.class_.__name__,
                                                                                              method_name))
 
-            dtypes = [space.dtype for space in specs]
-            shapes = [space.shape for space in specs]
+            dtypes = list()
+            shapes = list()
+            return_slots = list()
+            for i, space in enumerate(specs):
+                # Expecting an op (space 0).
+                if space == 0:
+                    dtypes.append(0)
+                    shapes.append(0)
+                    return_slots.append(i)
+                # Expecting a tensor.
+                elif space is not None:
+                    dtypes.append(space.dtype)
+                    shapes.append(space.shape)
+                    return_slots.append(i)
 
             if get_backend() == "tf":
                 # This function will send the method-call-comment via the out-pipe to the remote (server) Specifiable
@@ -105,29 +121,30 @@ class SpecifiableServer(object):
                     try:
                         self.out_pipe.send(args_)
                         result_ = self.out_pipe.recv()
+                        # If an error occurred, it'll be passed back through the pipe.
                         if isinstance(result_, Exception):
                             raise result_
-                        elif result_ is not None:
+                        # Regular result. Filter out the return values according to return_slots.
+                        elif isinstance(result_, tuple):  # is not None:
+                            return (r for i, r in enumerate(result_) if i in return_slots)
+                        else:  #elif result_ is not None:
                             return result_
                     except Exception as e:
                         if isinstance(e, IOError):
                             raise StopIteration()  # Clean exit.
                         else:
                             raise
-                result = tf.py_func(py_call, (method_name,) + tuple(args), dtypes, name=method_name)
-                # If we returned a tf op: Return it here.
-                # TODO: this should be supportive of a mix of many different op types including tensors.
-                if isinstance(result, tf.Operation):
-                    return result
+                results = tf.py_func(py_call, (method_name,) + tuple(args), dtypes, name=method_name)
 
-                # If tensors: Force shapes that we already know.
-                for tensor, shape in zip(result, shapes):
-                    tensor.set_shape(shape)
-
+                # Force known shapes on the returned tensors.
+                for result, shape in zip(results, shapes):
+                    # Not an op (which have shape=0).
+                    if shape != 0:
+                        result.set_shape(shape)
             else:
                 raise NotImplementedError
 
-            return result
+            return results
 
         return call
 
@@ -205,14 +222,14 @@ class SpecifiableServerHook(tf.train.SessionRunHook):
         Starts all registered RLGraphProxyProcess processes.
         """
         tp = multiprocessing.pool.ThreadPool()
-        tp.map(lambda rlgraph_proxy_process: rlgraph_proxy_process.start(),
+        tp.map(lambda server: server.start(),
                tf.get_collection(SpecifiableServer.COLLECTION))
         tp.close()
         tp.join()
 
     def end(self, session):
         tp = multiprocessing.pool.ThreadPool()
-        tp.map(lambda rlgraph_proxy_process: rlgraph_proxy_process.close(),
+        tp.map(lambda server: server.close(),
                tf.get_collection(SpecifiableServer.COLLECTION))
         tp.close()
         tp.join()

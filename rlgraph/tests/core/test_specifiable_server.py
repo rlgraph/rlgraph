@@ -21,6 +21,7 @@ import unittest
 
 from rlgraph.environments.environment import Environment
 from rlgraph.utils.specifiable_server import SpecifiableServer
+from rlgraph.utils.util import dtype
 from rlgraph.spaces import IntBox, FloatBox
 
 
@@ -32,11 +33,16 @@ class TestSpecifiableServer(unittest.TestCase):
         action_space = IntBox(2)
         state_space = FloatBox()
         env_spec = dict(type="random_env", state_space=state_space, action_space=action_space, deterministic=True)
-
-        specifiable_server = SpecifiableServer(Environment, env_spec, dict(step=[state_space, float, bool, None]),  # <- info?
+        specifiable_server = SpecifiableServer(Environment, env_spec, dict(step=[state_space, float, bool, None]),
                                                "terminate")
         specifiable_server.start()
 
         ret = specifiable_server.step(action_space.sample())
 
-        print(ret)
+        # Check all 3 outputs of the Env step (next state, reward, terminal).
+        self.assertEqual(ret[0].shape, ())
+        self.assertEqual(ret[0].dtype, dtype("float"))
+        self.assertEqual(ret[1].shape, ())
+        self.assertEqual(ret[1].dtype, dtype("float"))
+        self.assertEqual(ret[2].shape, ())
+        self.assertEqual(ret[2].dtype, dtype("bool"))
