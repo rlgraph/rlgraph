@@ -32,10 +32,14 @@ class TestVectorEnv(unittest.TestCase):
     """
     env_spec = dict(
         type="openai",
-        gym_env="Pong-v0"
+        gym_env="Pong-v0",
+        frameskip=4,
+        max_num_noops=30,
+        random_start=True,
+        episodic_life=True
     )
 
-    samples = 10000
+    samples = 100000
     num_vector_envs = 4
 
     def test_individual_env(self):
