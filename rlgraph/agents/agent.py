@@ -93,7 +93,7 @@ class Agent(Specifiable):
         # Construct the Preprocessor.
         self.preprocessor = PreprocessorStack.from_spec(preprocessing_spec)
         self.preprocessed_state_space = self.preprocessor.get_preprocessed_space(self.state_space)
-        self.preprocessing_required = preprocessing_spec is not None
+        self.preprocessing_required = preprocessing_spec is not None and len(preprocessing_spec) > 1
         if self.preprocessing_required:
             self.logger.info("Preprocessing required.")
             self.logger.info("Parsed preprocessed-state space definition: {}".format(self.preprocessed_state_space))
