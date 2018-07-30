@@ -90,6 +90,8 @@ class Sequence(PreprocessLayer):
             add_batch_rank=self.batch_size if in_space.has_batch_rank is not False else False,
             add_time_rank=self.sequence_length, time_major=True, flatten=True
         )
+        if self.backend == "python" or get_backend() == "python":
+            self.buffer = self.buffer[""]
 
     def _graph_fn_reset(self):
         if self.backend == "python" or get_backend() == "python":
@@ -112,33 +114,33 @@ class Sequence(PreprocessLayer):
         """
         # A normal (index != -1) assign op.
         if self.backend == "python" or get_backend() == "python":
-            for key_, value in inputs.items():
-                # Insert the input at the correct index or fill empty buffer entirely with input.
-                if self.index == -1:
-                    reps = (self.sequence_length,) + tuple([1] * get_rank(value))
-                    input_ = np.expand_dims(value, 0)
-                    self.buffer[key_] = np.tile(input_, reps=reps)
-                else:
-                    self.buffer[key_][self.index] = value
+            #for key_, value in inputs.items():
+            # Insert the input at the correct index or fill empty buffer entirely with input.
+            if self.index == -1:
+                reps = (self.sequence_length,) + tuple([1] * get_rank(inputs))
+                input_ = np.expand_dims(inputs, 0)
+                self.buffer = np.tile(input_, reps=reps)
+            else:
+                self.buffer[self.index] = inputs
 
             self.index = (self.index + 1) % self.sequence_length
 
-            sequences = FlattenedDataOp()
+            #sequences = FlattenedDataOp()
             # Collect the correct previous inputs from the buffer to form the output sequence.
-            for key in inputs.keys():
-                n_in = [self.buffer[key][(self.index + n) % self.sequence_length]
-                        for n in range_(self.sequence_length)]
+            #for key in inputs.keys():
+            n_in = [self.buffer[(self.index + n) % self.sequence_length]
+                    for n in range_(self.sequence_length)]
 
-                # Add the sequence-rank to the end of our inputs.
-                if self.add_rank:
-                    sequence = np.stack(n_in, axis=-1)
-                # Concat the sequence items in the last rank.
-                else:
-                    sequence = np.concatenate(n_in, axis=-1)
+            # Add the sequence-rank to the end of our inputs.
+            if self.add_rank:
+                sequence = np.stack(n_in, axis=-1)
+            # Concat the sequence items in the last rank.
+            else:
+                sequence = np.concatenate(n_in, axis=-1)
 
-                sequences[key] = sequence
+            #sequences[key] = sequence
 
-            return sequences
+            return sequence
 
         elif get_backend() == "tf":
             # Assigns the input_ into the buffer at the current time index.

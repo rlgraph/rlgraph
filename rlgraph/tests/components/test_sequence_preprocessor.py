@@ -61,8 +61,7 @@ class TestSequencePreprocessor(unittest.TestCase):
             index_value, buffer_value = test.get_variable_values(index, buffer)
             self.assertEqual(index_value, 1)
 
-    # TODO: Make it irrelevent whether we test a python or a tf Component (API and hahndling should be
-    # TODO: 100% identical)
+    # TODO: Make it irrelevent whether we test a python or a tf Component (API and handling should be 100% identical)
     def test_python_sequence_preprocessor(self):
         seq_len = 3
         space = FloatBox(shape=(1,), add_batch_rank=True)
@@ -74,29 +73,29 @@ class TestSequencePreprocessor(unittest.TestCase):
         for _ in range_(3):
             sequencer._graph_fn_reset()
             self.assertEqual(sequencer.index, -1)
-            input_ = {"": np.asarray([[1.0], [2.0], [3.0], [4.0]])}
+            input_ = np.asarray([[1.0], [2.0], [3.0], [4.0]])
             out = sequencer._graph_fn_apply(input_)
             self.assertEqual(sequencer.index, 0)
             recursive_assert_almost_equal(
-                out[""], np.asarray([[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]], [[3.0, 3.0, 3.0]], [[4.0, 4.0, 4.0]]])
+                out, np.asarray([[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]], [[3.0, 3.0, 3.0]], [[4.0, 4.0, 4.0]]])
             )
-            input_ = {"": np.asarray([[1.1], [2.2], [3.3], [4.4]])}
+            input_ = np.asarray([[1.1], [2.2], [3.3], [4.4]])
             out = sequencer._graph_fn_apply(input_)
             self.assertEqual(sequencer.index, 1)
             recursive_assert_almost_equal(
-                out[""], np.asarray([[[1.0, 1.0, 1.1]], [[2.0, 2.0, 2.2]], [[3.0, 3.0, 3.3]], [[4.0, 4.0, 4.4]]])
+                out, np.asarray([[[1.0, 1.0, 1.1]], [[2.0, 2.0, 2.2]], [[3.0, 3.0, 3.3]], [[4.0, 4.0, 4.4]]])
             )
-            input_ = {"": np.asarray([[1.11], [2.22], [3.33], [4.44]])}
+            input_ = np.asarray([[1.11], [2.22], [3.33], [4.44]])
             out = sequencer._graph_fn_apply(input_)
             self.assertEqual(sequencer.index, 2)
             recursive_assert_almost_equal(
-                out[""], np.asarray([[[1.0, 1.1, 1.11]], [[2.0, 2.2, 2.22]], [[3.0, 3.3, 3.33]], [[4.0, 4.4, 4.44]]])
+                out, np.asarray([[[1.0, 1.1, 1.11]], [[2.0, 2.2, 2.22]], [[3.0, 3.3, 3.33]], [[4.0, 4.4, 4.44]]])
             )
-            input_ = {"": np.asarray([[10], [20], [30], [40]])}
+            input_ = np.asarray([[10], [20], [30], [40]])
             out = sequencer._graph_fn_apply(input_)
             self.assertEqual(sequencer.index, 0)
             recursive_assert_almost_equal(
-                out[""], np.asarray([[[1.1, 1.11, 10]], [[2.2, 2.22, 20]], [[3.3, 3.33, 30]], [[4.4, 4.44, 40]]])
+                out, np.asarray([[[1.1, 1.11, 10]], [[2.2, 2.22, 20]], [[3.3, 3.33, 30]], [[4.4, 4.44, 40]]])
             )
 
     def test_sequence_preprocessor_with_batch(self):
