@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from collections import OrderedDict
+from six.moves import xrange as range_
 
 import copy
 import inspect
@@ -525,7 +526,7 @@ class Component(Specifiable):
             self.create_summary(summary_name, var)
 
     def get_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True,
-                     from_space=None, add_batch_rank=False, flatten=False):
+                     from_space=None, add_batch_rank=False, add_time_rank=False, time_major=False, flatten=False):
         """
         Generates or returns a variable to use in the selected backend.
         The generated variable is automatically registered in this component's (and all parent components')
@@ -540,8 +541,15 @@ class Component(Specifiable):
             from_space (Optional[Space,str]): Whether to create this variable from a Space object
                 (shape and dtype are not needed then). The Space object can be given directly or via the name
                 of the in-Socket holding the Space.
-            add_batch_rank (Optional[bool,int]): If from_space is given and is True, will add a 0th rank (None) to
+            add_batch_rank (Optional[bool,int]): If True and `from_space` is given, will add a 0th (1st) rank (None) to
                 the created variable. If it is an int, will add that int instead of None.
+                Default: False.
+            add_time_rank (Optional[bool,int]): If True and `from_space` is given, will add a 1st (0th) rank (None) to
+                the created variable. If it is an int, will add that int instead of None.
+                Default: False.
+            time_major (bool): Only relevant if both `add_batch_rank` and `add_time_rank` are True.
+                Will make the time-rank the 0th rank and the batch-rank the 1st rank.
+                Otherwise, batch-rank will be 0th and time-rank will be 1st.
                 Default: False.
             flatten (bool): Whether to produce a FlattenedDataOp with auto-keys.
 
@@ -564,12 +572,32 @@ class Component(Specifiable):
         if from_space is not None:
             # Variables should be returned in a flattened OrderedDict.
             if flatten:
-                var = from_space.flatten(mapping=lambda k, primitive: primitive.get_tensor_variable(
-                    name=name + k, add_batch_rank=add_batch_rank, trainable=trainable, initializer=initializer))
+                var = from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
+                    name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
+                    time_major=time_major, trainable=trainable, initializer=initializer,
+                    is_python=(self.backend == "python" or get_backend() == "python")))
             # Normal, nested Variables from a Space (container or primitive).
             else:
-                var = from_space.get_tensor_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable,
-                                                     initializer=initializer)
+                var = from_space.get_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable,
+                                              initializer=initializer,
+                                              is_python=(self.backend == "python" or get_backend() == "python"))
+
+        # TODO: Figure out complete concept for python/numpy based Components (including their handling of variables).
+        elif self.backend == "python" or get_backend() == "python":
+            if isinstance(add_batch_rank, int):
+                if isinstance(add_time_rank, int):
+                    if time_major:
+                        var = [[initializer for _ in range_(add_batch_rank)] for _ in range_(add_time_rank)]
+                    else:
+                        var = [[initializer for _ in range_(add_time_rank)] for _ in range_(add_batch_rank)]
+                else:
+                    var = [initializer for _ in range_(add_batch_rank)]
+            elif isinstance(add_time_rank, int):
+                var = [initializer for _ in range_(add_time_rank)]
+            else:
+                var = []
+            return var
+
         # Direct variable creation (using the backend).
         elif get_backend() == "tf":
             # Provide a shape, if initializer is not given or it is an actual Initializer object (rather than an array
@@ -591,6 +619,7 @@ class Component(Specifiable):
                 name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
             )
 
+        # TODO: what about python variables?
         # Registers the new variable with this Component.
         key = ((self.global_scope + "/") if self.global_scope else "") + name
         # Container-var: Save individual Variables.

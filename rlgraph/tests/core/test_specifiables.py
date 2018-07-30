@@ -94,9 +94,18 @@ class TestSpecifiables(unittest.TestCase):
             a=Tuple(int, IntBox(2), FloatBox(shape=(4, 2))),
             b=FloatBox(shape=(2, 2)),
             c=dict(type=float, shape=(4,)),
-            add_batch_rank=True
+            add_batch_rank=True,
+            add_time_rank=True
         )
         self.assertEqual(space.rank, ((0, 0, 2), 2, 1))
         self.assertEqual(space.shape, (((), (), (4, 2)), (2, 2), (4,)))
         self.assertEqual(space.get_shape(with_batch_rank=True), (((None,), (None,), (None, 4, 2)),
                                                                  (None, 2, 2), (None, 4)))
+        self.assertEqual(space.get_shape(with_time_rank=True), (((None,), (None,), (None, 4, 2)),
+                                                                (None, 2, 2), (None, 4)))
+        self.assertEqual(space.get_shape(with_batch_rank=True, with_time_rank=True),
+                         (((None, None), (None, None), (None, None, 4, 2)), (None, None, 2, 2), (None, None, 4)))
+        self.assertEqual(space.get_shape(with_batch_rank=True, with_time_rank=10, time_major=True),
+                         (((10, None), (10, None), (10, None, 4, 2)), (10, None, 2, 2), (10, None, 4)))
+        self.assertEqual(space.get_shape(with_batch_rank=5, with_time_rank=10, time_major=None),
+                         (((5, 10), (5, 10), (5, 10, 4, 2)), (5, 10, 2, 2), (5, 10, 4)))

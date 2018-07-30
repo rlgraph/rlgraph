@@ -21,7 +21,7 @@ import numpy as np
 import unittest
 
 from rlgraph.environments import DeepmindLabEnv
-from rlgraph.spaces import IntBox
+from rlgraph.spaces.int_box import IntBox
 
 
 class TestDeepmindLabEnv(unittest.TestCase):

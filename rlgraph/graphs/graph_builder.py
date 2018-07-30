@@ -364,7 +364,7 @@ class GraphBuilder(Specifiable):
         placeholder = None
         if get_backend() == "tf":
             with tf.device(device):
-                placeholder = space.get_tensor_variable(name=name, is_input_feed=True)
+                placeholder = space.get_variable(name=name, is_input_feed=True)
         return placeholder
 
     def get_all_components(self, component=None, list_=None, level_=0):

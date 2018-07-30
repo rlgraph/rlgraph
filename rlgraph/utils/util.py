@@ -92,10 +92,10 @@ def get_rank(tensor):
     Returns:
         int: The rank of the given tensor.
     """
-    if get_backend() == "tf":
-        return tensor.get_shape().ndims
-    elif get_backend() == "python":
+    if isinstance(tensor, np.ndarray) or get_backend() == "python":
         return tensor.ndim
+    elif get_backend() == "tf":
+        return tensor.get_shape().ndims
 
 
 def get_shape(op, flat=False, no_batch=False):
@@ -120,6 +120,8 @@ def get_shape(op, flat=False, no_batch=False):
     elif isinstance(op, tuple):
         shape = tuple([get_shape(i) for i in op])
     # primitive op (e.g. tensorflow)
+    elif isinstance(op, np.ndarray):
+        shape = op.shape
     else:
         op_shape = op.get_shape()
         # Unknown shape (e.g. a cond op).

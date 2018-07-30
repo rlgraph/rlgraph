@@ -48,7 +48,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=10),
             update_spec=dict(update_interval=4, batch_size=24, sync_interval=32),
-            optimizer_spec=dict(learning_rate=0.05),
+            optimizer_spec=dict(type="adam", learning_rate=0.05),
             store_last_q_table=True
         )
 
@@ -56,15 +56,14 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         worker = SingleThreadedWorker(environment=env, agent=agent)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
-        print("STATES:\n{}".format(agent.last_q_table["states"]))
-        print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
+        #print("STATES:\n{}".format(agent.last_q_table["states"]))
+        #print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        self.assertAlmostEqual(results["mean_episode_reward"], -2.92, places=2)
-        self.assertAlmostEqual(results["max_episode_reward"], 0.0)
-        self.assertAlmostEqual(results["final_episode_reward"], -1)
-        self.assertEqual(results["episodes_executed"], 328)
+        self.assertGreaterEqual(results["mean_episode_reward"], -3.5)
+        self.assertGreaterEqual(results["max_episode_reward"], 0.0)
+        self.assertLessEqual(results["episodes_executed"], 350)
 
     def test_double_dqn_on_2x2_grid_world(self):
         """
@@ -79,7 +78,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=10),
             update_spec=dict(update_interval=4, batch_size=24, sync_interval=32),
-            optimizer_spec=dict(learning_rate=0.05),
+            optimizer_spec=dict(type="adam", learning_rate=0.05),
             store_last_q_table=True
         )
 
@@ -89,10 +88,9 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        self.assertAlmostEqual(results["mean_episode_reward"], -4.160583941605839)
-        self.assertAlmostEqual(results["max_episode_reward"], 0.0)
-        self.assertAlmostEqual(results["final_episode_reward"], -1)
-        self.assertEqual(results["episodes_executed"], 137)
+        self.assertGreaterEqual(results["mean_episode_reward"], -4.5)
+        self.assertGreaterEqual(results["max_episode_reward"], 0.0)
+        self.assertLessEqual(results["episodes_executed"], 160)
 
     def test_double_dueling_dqn_on_4x4_grid_world(self):
         """
@@ -106,7 +104,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=10),
             update_spec=dict(update_interval=4, batch_size=32, sync_interval=32),
-            optimizer_spec=dict(learning_rate=0.1),
+            optimizer_spec=dict(type="adam", learning_rate=0.005),
             store_last_q_table=True
         )
 
@@ -114,15 +112,14 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         worker = SingleThreadedWorker(environment=env, agent=agent)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
-        print("STATES:\n{}".format(agent.last_q_table["states"]))
-        print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
+        #print("STATES:\n{}".format(agent.last_q_table["states"]))
+        #print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        self.assertAlmostEqual(results["mean_episode_reward"], -8, places=0)
-        self.assertAlmostEqual(results["max_episode_reward"], -4)
-        self.assertAlmostEqual(results["final_episode_reward"], -5)
-        self.assertEqual(results["episodes_executed"], 551)
+        self.assertGreaterEqual(results["mean_episode_reward"], -10)
+        self.assertGreaterEqual(results["max_episode_reward"], -4)
+        self.assertLessEqual(results["episodes_executed"], 700)
 
     def test_dqn_on_cart_pole(self):
         """
@@ -139,7 +136,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             observe_spec=dict(buffer_size=200),
             execution_spec=dict(seed=10),
             update_spec=dict(update_interval=4, batch_size=24, sync_interval=64),
-            optimizer_spec=dict(learning_rate=0.0002),
+            optimizer_spec=dict(type="adam", learning_rate=0.02),
             store_last_q_table=True
         )
 
@@ -152,10 +149,9 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        self.assertAlmostEqual(results["mean_episode_reward"], 87.71929824561404)
-        self.assertAlmostEqual(results["max_episode_reward"], 200.0)
-        self.assertAlmostEqual(results["final_episode_reward"], 49.0)
-        self.assertEqual(results["episodes_executed"], 57)
+        self.assertGreaterEqual(results["mean_episode_reward"], 20)
+        self.assertGreaterEqual(results["max_episode_reward"], 200.0)
+        self.assertLessEqual(results["episodes_executed"], 100)
 
     def test_double_dueling_dqn_on_cart_pole(self):
         """
@@ -180,13 +176,12 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         worker = SingleThreadedWorker(environment=env, agent=agent, render=True)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
-        print("STATES:\n{}".format(agent.last_q_table["states"]))
-        print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
+        #print("STATES:\n{}".format(agent.last_q_table["states"]))
+        #print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        self.assertAlmostEqual(results["mean_episode_reward"], 58.8235294117647)
-        self.assertAlmostEqual(results["max_episode_reward"], 200.0)
-        self.assertAlmostEqual(results["final_episode_reward"], 60.0)
-        self.assertEqual(results["episodes_executed"], 51)
+        self.assertGreaterEqual(results["mean_episode_reward"], 50)
+        self.assertGreaterEqual(results["max_episode_reward"], 200.0)
+        self.assertLessEqual(results["episodes_executed"], 70)
 

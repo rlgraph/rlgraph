@@ -98,9 +98,10 @@ class Dict(ContainerSpace, dict):
     def shape(self):
         return tuple([self[key].shape for key in sorted(self.keys())])
 
-    def get_shape(self, with_batch_rank=False, with_time_rank=False, with_category_rank=False):
+    def get_shape(self, with_batch_rank=False, with_time_rank=False, time_major=None, with_category_rank=False):
         return tuple([self[key].get_shape(
-            with_batch_rank=with_batch_rank, with_time_rank=with_time_rank, with_category_rank=with_category_rank
+            with_batch_rank=with_batch_rank, with_time_rank=with_time_rank, time_major=time_major,
+            with_category_rank=with_category_rank
         ) for key in sorted(self.keys())])
 
     @cached_property
@@ -115,8 +116,8 @@ class Dict(ContainerSpace, dict):
     def dtype(self):
         return DataOpDict([(key, subspace.dtype) for key, subspace in self.items()])
 
-    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None, **kwargs):
-        return DataOpDict([(key, subspace.get_tensor_variable(name + "/" + key, is_input_feed,
+    def get_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None, **kwargs):
+        return DataOpDict([(key, subspace.get_variable(name + "/" + key, is_input_feed,
                                                               add_batch_rank, add_time_rank, **kwargs))
                            for key, subspace in self.items()])
 
@@ -197,9 +198,10 @@ class Tuple(ContainerSpace, tuple):
     def shape(self):
         return tuple([c.shape for c in self])
 
-    def get_shape(self, with_batch_rank=False, with_time_rank=False, with_category_rank=False):
+    def get_shape(self, with_batch_rank=False, with_time_rank=False, time_major=None, with_category_rank=False):
         return tuple([c.get_shape(
-            with_batch_rank=with_batch_rank, with_time_rank=with_time_rank, with_category_rank=with_category_rank
+            with_batch_rank=with_batch_rank, with_time_rank=with_time_rank, time_major=time_major,
+            with_category_rank=with_category_rank
         ) for c in self])
 
     @cached_property
@@ -214,8 +216,8 @@ class Tuple(ContainerSpace, tuple):
     def dtype(self):
         return DataOpTuple([c.dtype for c in self])
 
-    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None, **kwargs):
-        return DataOpTuple([subspace.get_tensor_variable(name+"/"+str(i), is_input_feed,
+    def get_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None, **kwargs):
+        return DataOpTuple([subspace.get_variable(name+"/"+str(i), is_input_feed,
                                                          add_batch_rank, add_time_rank, **kwargs)
                             for i, subspace in enumerate(self)])
 

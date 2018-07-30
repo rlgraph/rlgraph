@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph import get_backend
 from rlgraph.components import Component
 from rlgraph.utils.util import force_tuple
 
@@ -68,8 +69,16 @@ class Stack(Component):
 
             def method(self_, *inputs):
                 result = inputs
-                for sub_component in self_.sub_components.values():
-                    result = self_.call(getattr(sub_component, components_api_method_name), *force_tuple(result))
+
+                # TODO: python-Components: For now, we call each preprocessor's graph_fn directly.
+                if self_.backend == "python" or get_backend() == "python":
+                    for sub_component in self_.sub_components.values():
+                        result = getattr(sub_component, "_graph_fn_"+components_api_method_name)(*force_tuple(result))
+
+                elif get_backend() == "tf":
+                    for sub_component in self_.sub_components.values():
+                        result = self_.call(getattr(sub_component, components_api_method_name), *force_tuple(result))
+
                 return result
 
             # Register `method` to this Component using the custom name given in `api_methods`.

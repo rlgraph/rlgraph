@@ -68,7 +68,7 @@ class DataOpDict(ContainerDataOp, dict):
     """
     A hashable dict that's used to make (possibly nested) dicts of SingleDataOps hashable, so that
     we can store them in sets and use them as lookup keys in other dicts.
-    Dict() Spaces produce DataOpDicts when methods like `get_tensor_variables` are called on them.
+    Dict() Spaces produce DataOpDicts when methods like `get_variable` are called on them.
     """
     def __hash__(self):
         """

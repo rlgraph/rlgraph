@@ -52,8 +52,14 @@ class IntBox(BoxSpace):
                                      add_time_rank=add_time_rank, dtype="int")
         self.num_categories = None if self.global_bounds is False else self.global_bounds[1]
 
-    def get_shape(self, with_batch_rank=False, with_time_rank=False, with_category_rank=False, **kwargs):
-        shape = super(IntBox, self).get_shape(with_batch_rank=with_batch_rank, with_time_rank=with_time_rank)
+    def get_shape(self, with_batch_rank=False, with_time_rank=False, **kwargs):
+        """
+        Keyword Args:
+            with_category_rank (bool): Whether to include a category rank for this IntBox (if all dims have equal
+                lower/upper bounds).
+        """
+        with_category_rank = kwargs.pop("with_category_rank", False)
+        shape = super(IntBox, self).get_shape(with_batch_rank=with_batch_rank, with_time_rank=with_time_rank, **kwargs)
         if with_category_rank is not False:
             return shape + ((self.num_categories,) if self.num_categories is not None else ())
         return shape

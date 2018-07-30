@@ -29,29 +29,32 @@ from rlgraph.spaces.float_box import FloatBox
 from rlgraph.spaces.containers import Dict, Tuple
 
 
-def get_list_registry(space, capacity=None, initializer=0, flatten=True):
+# TODO: replace completely by `Component.get_variable` (python-backend)
+def get_list_registry(from_space, capacity=None, initializer=0, flatten=True, add_batch_rank=False):
     """
     Creates a list storage for a space by providing an ordered dict mapping space names
     to empty lists.
 
     Args:
-        space: Space to create registry from.
+        from_space: Space to create registry from.
         capacity (Optional[int]): Optional capacity to initalize list.
         initializer (Optional(any)): Optional initializer for list if capacity is not None.
         flatten (bool): Whether to produce a FlattenedDataOp with auto-keys.
-
+        add_batch_rank (Optional[bool,int]): If from_space is given and is True, will add a 0th rank (None) to
+            the created variable. If it is an int, will add that int instead of None.
+            Default: False.
     Returns:
         dict: Container dict mapping spaces to empty lists.
     """
     if flatten:
         if capacity is not None:
-            var = space.flatten(
-                custom_scope_separator="-", scope_separator_at_start=False,
+            var = from_space.flatten(
+                custom_scope_separator="-", scope_separator_at_start=False, add_batch_rank=add_batch_rank,
                 mapping=lambda k, primitive: [initializer for _ in xrange(capacity)]
             )
         else:
-            var = space.flatten(
-                custom_scope_separator="-", scope_separator_at_start=False,
+            var = from_space.flatten(
+                custom_scope_separator="-", scope_separator_at_start=False, add_batch_rank=add_batch_rank,
                 mapping=lambda k, primitive: []
             )
     else:

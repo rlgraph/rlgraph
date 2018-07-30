@@ -127,20 +127,21 @@ class Space(Specifiable):
         """
         raise NotImplementedError
 
-    def get_shape(self, with_batch_rank=False, with_time_rank=False, **kwargs):
+    def get_shape(self, with_batch_rank=False, with_time_rank=False, time_major=None, **kwargs):
         """
         Returns the shape of this Space as a tuple with certain additional ranks at the front (batch) or the back
         (e.g. categories).
 
         Args:
             with_batch_rank (Union[bool,int]): Whether to include a possible batch-rank as `None` at 0th (or 1st)
-                position. If `with_batch_rank` is -1, the possible batch-rank is returned as -1 (instead of None) at
-                the 0th (or 1st) position.
+                position. If `with_batch_rank` is an int (e.g. -1), the possible batch-rank is returned as that number
+                (instead of None) at the 0th (or 1st if time_major is True) position.
                 Default: False.
             with_time_rank (Union[bool,int]): Whether to include a possible time-rank as `None` at 1st (or 0th)
-                position. If `with_time_rank` is -1, the possible time-rank is returned as -1 (instead of None) at
-                the 1st (or 0th) position.
+                position. If `with_time_rank` is an int, the possible time-rank is returned as that number
+                (instead of None) at the 1st (or 0th if time_major is True) position.
                 Default: False.
+            time_major (bool): Overwrites `self.time_major` if not None. Default: None (use `self.time_major`).
 
         Returns:
             tuple: The shape of this Space as a tuple.
@@ -174,7 +175,8 @@ class Space(Specifiable):
         """
         raise NotImplementedError
 
-    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None, **kwargs):
+    def get_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None,
+                     time_major=False, is_python=False, **kwargs):
         """
         Returns a backend-specific variable/placeholder that matches the space's shape.
 
@@ -190,6 +192,11 @@ class Space(Specifiable):
                 the created variable. If it is an int, will add that int (-1 means None).
                 If None, will use the Space's default value: `self.has_time_rank`.
                 Default: None.
+            time_major (bool): Only relevant if both `add_batch_rank` and `add_time_rank` are True.
+                Will make the time-rank the 0th rank and the batch-rank the 1st rank.
+                Otherwise, batch-rank will be 0th and time-rank will be 1st.
+                Default: False.
+            is_python (bool): Whether to create a python-based variable (list) or a backend-specific one.
 
         Keyword Args:
             To be passed on to backend-specific methods (e.g. trainable, initializer, etc..).

@@ -17,11 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from six.moves import xrange as range_
-import numpy as np
 from rlgraph import get_backend
 from rlgraph.utils.ops import unflatten_op
-
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 
 
@@ -29,23 +26,33 @@ if get_backend() == "tf":
     import tensorflow as tf
 
 
-class ImageResize(PreprocessLayer):
+class ImageCrop(PreprocessLayer):
     """
-    Resizes one or more images to a new size without touching the color channel.
+    Crops one or more images to a new size without touching the color channel.
     """
-    def __init__(self, width, height, scope="image-resize", **kwargs):
+    def __init__(self, x=0, y=0, width=0, height=0, scope="image-crop", **kwargs):
         """
         Args:
-            width (int): The new width.
-            height (int): The new height.
+            x (int): Start x coordinate.
+            y (int): Start y coordinate.
+            width (int): Width of resulting image.
+            height (int): Height of resulting image.
         """
-        super(ImageResize, self).__init__(scope=scope, **kwargs)
+        super(ImageCrop, self).__init__(scope=scope, **kwargs)
+        self.x = x
+        self.y = y
         self.width = width
         self.height = height
+
+        assert self.x >= 0
+        assert self.y >= 0
+        assert self.width > 0
+        assert self.height > 0
+
         # The output spaces after preprocessing (per flat-key).
         self.output_spaces = None
 
-    def get_output_space(self, space):
+    def get_preprocessed_space(self, space):
         ret = dict()
         for key, value in space.flatten().items():
             # Do some sanity checking.
@@ -61,25 +68,26 @@ class ImageResize(PreprocessLayer):
         return unflatten_op(ret)
 
     def check_input_spaces(self, input_spaces, action_space):
-        super(ImageResize, self).check_input_spaces(input_spaces, action_space)
+        super(ImageCrop, self).check_input_spaces(input_spaces, action_space)
         in_space = input_spaces["apply"][0]
 
-        self.output_spaces = self.get_output_space(in_space)
+        self.output_spaces = self.get_preprocessed_space(in_space)
 
     def _graph_fn_apply(self, images):
         """
         Images come in with either a batch dimension or not.
-        However, this
         """
         if self.backend == "python" or get_backend() == "python":
-            import cv2
             if images.ndim == 4:
-                resized = []
-                for i in range_(len(images)):
-                    resized.append(cv2.resize(images[i], dsize=(self.width, self.height)))
-                return np.asarray(resized)
+                # Preserve batch dimension
+                return images[:, self.y:self.y + self.height, self.x:self.x + self.width]
             else:
-                return cv2.resize(images, dsize=(self.width, self.height))
+                return images[self.y:self.y + self.height, self.x:self.x + self.width]
         elif get_backend() == "tf":
-            return tf.image.resize_images(images=images, size=(self.width, self.height))
-
+            return tf.image.crop_to_bounding_box(
+                image=images,
+                offset_height=self.y,
+                offset_width=self.x,
+                target_height=self.height,
+                target_width=self.width
+            )

@@ -42,7 +42,7 @@
   },
 
   "optimizer_spec": {
-    "type": "gradient_descent",
-    "learning_rate": 0.001
+    "type": "adam",
+    "learning_rate": 0.02
   }
 }

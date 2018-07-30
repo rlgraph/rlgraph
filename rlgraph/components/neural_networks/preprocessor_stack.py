@@ -20,7 +20,6 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.utils.util import default_dict
-
 from rlgraph.components.neural_networks.stack import Stack
 
 if get_backend() == "tf":
@@ -58,12 +57,18 @@ class PreprocessorStack(Stack):
                 format(preprocessor.name, self.name)
 
     def reset(self):
-        # Connect each pre-processor's "reset" output op via our graph_fn into one op.
-        resets = list()
-        for preprocessor in self.sub_components.values():  # type: PreprocessLayer
-            resets.append(self.call(preprocessor.reset))
-        reset_op = self.call(self._graph_fn_reset, *resets)
-        return reset_op
+        # TODO: python-Components: For now, we call each preprocessor's graph_fn directly.
+        if self.backend == "python" or get_backend() == "python":
+            for preprocessor in self.sub_components.values():  # type: PreprocessLayer
+                preprocessor._graph_fn_reset()
+
+        elif get_backend() == "tf":
+            # Connect each pre-processor's "reset" output op via our graph_fn into one op.
+            resets = list()
+            for preprocessor in self.sub_components.values():  # type: PreprocessLayer
+                resets.append(self.call(preprocessor.reset))
+            reset_op = self.call(self._graph_fn_reset, *resets)
+            return reset_op
 
     def _graph_fn_reset(self, *preprocessor_resets):
         if get_backend() == "tf":
@@ -81,5 +86,5 @@ class PreprocessorStack(Stack):
             Space: The Space after preprocessing.
         """
         for pp in self.sub_components.values():
-            space = pp.get_output_space(space)
+            space = pp.get_preprocessed_space(space)
         return space

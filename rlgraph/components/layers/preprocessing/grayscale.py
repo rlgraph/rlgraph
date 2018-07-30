@@ -88,7 +88,8 @@ class GrayScale(PreprocessLayer):
             format(images_shape, self.last_rank)
         weights_reshaped = np.reshape(a=self.weights,
                                       newshape=tuple([1] * (get_rank(images)-1)) + (self.last_rank,))
-
-        if get_backend() == "tf":
+        if self.backend == "python" or get_backend() == "python":
+            return np.sum(a=weights_reshaped * images, axis=-1, keepdims=self.keep_rank)
+        elif get_backend() == "tf":
             return tf.reduce_sum(input_tensor=weights_reshaped * images, axis=-1, keepdims=self.keep_rank)
 

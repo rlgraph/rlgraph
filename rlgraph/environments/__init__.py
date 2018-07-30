@@ -21,6 +21,8 @@ from rlgraph.environments.environment import Environment
 from rlgraph.environments.grid_world import GridWorld
 from rlgraph.environments.openai_gym import OpenAIGymEnv
 from rlgraph.environments.random_env import RandomEnv
+from rlgraph.environments.vector_env import VectorEnv
+from rlgraph.environments.sequential_vector_env import SequentialVectorEnv
 
 
 Environment.__lookup_classes__ = dict(
@@ -28,18 +30,25 @@ Environment.__lookup_classes__ = dict(
     openai=OpenAIGymEnv,
     openaigymenv=OpenAIGymEnv,
     openaigym=OpenAIGymEnv,
-    random = RandomEnv,
-    randomenv=RandomEnv
+    randomenv=RandomEnv,
+    random=RandomEnv,
+    sequentialvector=SequentialVectorEnv,
+    sequentialvectorenv=SequentialVectorEnv
 )
 
 try:
+    import deepmind_lab
+
+    # If import works: Can import our Adapter.
     from rlgraph.environments.deepmind_lab import DeepmindLabEnv
+
     Environment.__lookup_classes__.update(dict(
         deepmindlab=DeepmindLabEnv,
         deepmindlabenv=DeepmindLabEnv,
     ))
 except ModuleNotFoundError:
     pass
+
 
 __all__ = ["Environment"] + \
           list(set(map(lambda x: x.__name__, Environment.__lookup_classes__.values())))
