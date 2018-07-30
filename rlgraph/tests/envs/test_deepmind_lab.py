@@ -21,12 +21,13 @@ import numpy as np
 import unittest
 
 from rlgraph.environments import DeepmindLabEnv
-from rlgraph.tests.test_util import recursive_assert_almost_equal
+from rlgraph.spaces.int_box import IntBox
+#from rlgraph.tests.test_util import recursive_assert_almost_equal
 
 
 class TestDeepmindLabEnv(unittest.TestCase):
     """
-    Tests creation, resetting and stepping through an openAI Atari Env.
+    Tests creation, resetting and stepping through a deepmind Lab Env.
     """
     def test_deepmind_lab_env(self):
         frameskip = 4

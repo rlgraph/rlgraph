@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.environments.environment import Environment
-from rlgraph.environments.deepmind_lab import DeepmindLabEnv
 from rlgraph.environments.grid_world import GridWorld
 from rlgraph.environments.openai_gym import OpenAIGymEnv
 from rlgraph.environments.random_env import RandomEnv
@@ -27,8 +26,6 @@ from rlgraph.environments.sequential_vector_env import SequentialVectorEnv
 
 
 Environment.__lookup_classes__ = dict(
-    deepmindlab=DeepmindLabEnv,
-    deepmindlabenv=DeepmindLabEnv,
     gridworld=GridWorld,
     openai=OpenAIGymEnv,
     openaigymenv=OpenAIGymEnv,
@@ -38,6 +35,20 @@ Environment.__lookup_classes__ = dict(
     sequentialvector=SequentialVectorEnv,
     sequentialvectorenv=SequentialVectorEnv
 )
+
+try:
+    import deepmind_lab
+
+    # If import works: Can import our Adapter.
+    from rlgraph.environments.deepmind_lab import DeepmindLabEnv
+
+    Environment.__lookup_classes__.update(dict(
+        deepmindlab=DeepmindLabEnv,
+        deepmindlabenv=DeepmindLabEnv,
+    ))
+except ModuleNotFoundError:
+    pass
+
 
 __all__ = ["Environment"] + \
           list(set(map(lambda x: x.__name__, Environment.__lookup_classes__.values())))
