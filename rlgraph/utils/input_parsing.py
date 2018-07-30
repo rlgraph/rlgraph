@@ -75,7 +75,7 @@ def get_optimizer_from_device_strategy(optimizer_spec, device_strategy='default'
         return MultiGpuSyncOptimizer(local_optimizer=local_optimizer)
     else:
         raise RLGraphError("Device strategy {} is not allowed. Allowed strategies are 'default', 'custom',"
-                        "and 'multi_gpu_sync'".format(device_strategy))
+                           "and 'multi_gpu_sync'".format(device_strategy))
 
 
 def parse_summary_spec(summary_spec):

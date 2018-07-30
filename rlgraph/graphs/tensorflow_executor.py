@@ -151,7 +151,7 @@ class TensorFlowExecutor(GraphExecutor):
                 # Sanity check, whether given default device exists.
                 if self.default_device not in self.available_devices:
                     raise RLGraphError("Provided `default_device` ('{}') is not in `available_devices` ({})".
-                                    format(self.default_device, self.available_devices))
+                                       format(self.default_device, self.available_devices))
             self.device_map = dict()
             # Clean up device map so it only contains devices that are actually available (otherwise,
             # use the default device).

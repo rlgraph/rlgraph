@@ -77,8 +77,8 @@ class Flatten(PreprocessLayer):
                 if isinstance(space, IntBox):
                     # Must have global bounds (bounds valid for all axes).
                     if space.num_categories is False:
-                        raise RLGraphError("ERROR: Cannot flatten categories if one of the IntBox spaces ({}={}) does not "
-                                        "have global bounds (its `num_categories` is False)!".format(key, space))
+                        raise RLGraphError("ERROR: Cannot flatten categories if one of the IntBox spaces ({}={}) does "
+                                           "not have global bounds (its `num_categories` is False)!".format(key, space))
                     return space.num_categories
                 # No categories. Keep as is.
                 return 1

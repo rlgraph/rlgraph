@@ -139,7 +139,7 @@ class Specifiable(object):
                 constructor = getattr(module, function_name)
             else:
                 raise RLGraphError("ERROR: String specifier ({}) in from_spec must be a filename, a module+class, or "
-                                "a key into {}.__lookup_classes__!".format(type_, cls.__name__))
+                                   "a key into {}.__lookup_classes__!".format(type_, cls.__name__))
 
         if not constructor:
             raise RLGraphError("Invalid type: {}".format(type_))

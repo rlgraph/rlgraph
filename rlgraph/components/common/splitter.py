@@ -53,7 +53,7 @@ class Splitter(Component):
         for i, name in enumerate(self.output_order):
             if name not in in_space:
                 raise RLGraphError("Item {} in `output_order` of Splitter '{}' is not part of the input Space ({})!".
-                                format(i, self.global_scope, in_space))
+                                   format(i, self.global_scope, in_space))
 
     def _graph_fn_split(self, input_):
         """

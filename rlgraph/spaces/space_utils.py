@@ -202,25 +202,28 @@ def sanity_check_space(
 
     if must_have_categories is not None:
         if not isinstance(space, IntBox):
-            raise RLGraphError("ERROR: Space ({}) is not an IntBox. Only IntBox Spaces can have categories!".format(space))
+            raise RLGraphError("ERROR: Space ({}) is not an IntBox. Only IntBox Spaces can have categories!".
+                               format(space))
         elif space.global_bounds is False:
             raise RLGraphError("ERROR: Space ({}) must have categories (globally valid value bounds)!".format(space))
 
     if rank is not None:
         if isinstance(rank, int):
             if space.rank != rank:
-                raise RLGraphError("ERROR: Space ({}) has rank {}, but must have rank {}!".format(space, space.rank, rank))
+                raise RLGraphError("ERROR: Space ({}) has rank {}, but must have rank {}!".
+                                   format(space, space.rank, rank))
         elif not ((rank[0] or 0) <= space.rank <= (rank[1] or float("inf"))):
             raise RLGraphError("ERROR: Space ({}) has rank {}, but its rank must be between {} and "
-                            "{}!".format(space, space.rank, rank[0], rank[1]))
+                               "{}!".format(space, space.rank, rank[0], rank[1]))
 
     if num_categories is not None:
         if not isinstance(space, IntBox):
-            raise RLGraphError("ERROR: Space ({}) is not an IntBox. Only IntBox Spaces can have categories!".format(space))
+            raise RLGraphError("ERROR: Space ({}) is not an IntBox. Only IntBox Spaces can have "
+                               "categories!".format(space))
         elif isinstance(num_categories, int):
             if space.num_categories != num_categories:
                 raise RLGraphError("ERROR: Space ({}) has `num_categories` {}, but must have {}!".
-                                format(space, space.num_categories, num_categories))
+                                   format(space, space.num_categories, num_categories))
         elif not ((num_categories[0] or 0) <= space.num_categories <= (num_categories[1] or float("inf"))):
             raise RLGraphError("ERROR: Space ({}) has `num_categories` {}, but this value must be between {} and "
-                            "{}!".format(space, space.num_categories, num_categories[0], num_categories[1]))
+                               "{}!".format(space, space.num_categories, num_categories[0], num_categories[1]))

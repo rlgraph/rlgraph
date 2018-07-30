@@ -73,7 +73,7 @@ def set_distributed_backend(_distributed_backend):
         # Distributed backend must be compatible with backend.
         if distributed_backend not in distributed_compatible_backends[backend]:
            raise RLGraphError("Distributed backend {} not compatible with backend {}. Compatible backends"
-                           "are: {}".format(distributed_backend, backend, distributed_compatible_backends[backend]))
+                              "are: {}".format(distributed_backend, backend, distributed_compatible_backends[backend]))
 
         if distributed_backend == 'distributed_tf':
             assert backend == "tf"
@@ -81,8 +81,8 @@ def set_distributed_backend(_distributed_backend):
                 import tensorflow
             except ModuleNotFoundError as e:
                 raise RLGraphError("INIT ERROR: Cannot run distributed_tf without backend (tensorflow)! "
-                                "Please install tensorflow first via `pip install tensorflow` or "
-                                "`pip install tensorflow-gpu`.")
+                                   "Please install tensorflow first via `pip install tensorflow` or "
+                                   "`pip install tensorflow-gpu`.")
         elif distributed_backend == "horovod":
             try:
                 import horovod
@@ -114,8 +114,8 @@ def set_backend(backend_):
                 import tensorflow as tf
             except ModuleNotFoundError as e:
                 raise RLGraphError("INIT ERROR: Cannot run RLGraph without backend (tensorflow)! "
-                                "Please install tensorflow first via `pip install tensorflow` or "
-                                "`pip install tensorflow-gpu`.")
+                                   "Please install tensorflow first via `pip install tensorflow` or "
+                                   "`pip install tensorflow-gpu`.")
         # TODO: remove once pytorch done.
         elif backend == "pt":
             raise RLGraphError("INIT ERROR: Backend 'PyTorch' not supported in RLGraph prototype. Use 'tf' instead.")
@@ -128,5 +128,5 @@ def set_backend(backend_):
                 tf.enable_eager_execution()
             except AttributeError as e:
                 raise RLGraphError("INIT ERROR: Cannot run RLGraph in backend 'tf-eager'! "
-                                "Your version of tf ({}) does not support eager execution. Update with "
-                                "`pip install --upgrade tensorflow`.".format(tf.__version__))
+                                   "Your version of tf ({}) does not support eager execution. Update with "
+                                   "`pip install --upgrade tensorflow`.".format(tf.__version__))
