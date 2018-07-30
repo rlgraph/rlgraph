@@ -48,7 +48,7 @@ class TestGraphFns(unittest.TestCase):
             input_spaces=dict(run=[input1_space, input2_space])
         )
 
-        # Options: fsu=flat/split.
+        # Options: fsu=flat/split/un-flat.
         in1_fsu = dict(a=np.array(0.234), b=np.array([[0.0, 3.0]]))
         in2_fsu = dict(a=np.array(5.0), b=np.array(5.5))
         # Result of sending 'a' keys through graph_fn: (in1[a]+1.0=1.234, in1[a]+in2[a]=5.234)
@@ -68,7 +68,7 @@ class TestGraphFns(unittest.TestCase):
         component = FlattenSplitDummy()
         test = ComponentTest(component=component, input_spaces=dict(run=[input1_space, input2_space]))
 
-        # Options: fsu=flat/split.
+        # Options: fsu=flat/split/un-flat.
         in1_fsu = dict(a=np.array(0.234), b=np.array([[0.0, 3.0]]))
         in2_fsu = np.array([[2.0]])
         # Result of sending 'a' keys through graph_fn: (in1[a]+1.0=1.234, in1[a]+in2=2.234)

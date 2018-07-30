@@ -17,11 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import copy
 import numpy as np
 
-from rlgraph.utils.ops import FlattenedDataOp, DataOpRecord
-from rlgraph.utils.util import force_list
+from rlgraph.utils.ops import FlattenedDataOp
 from rlgraph.components import Component
 
 
@@ -158,6 +156,33 @@ class DummyWithVar(Component):
         return input_ - self.constant_variable
 
 
+class SimpleDummyWithVar(Component):
+    """
+    A simpler dummy component with only one variable and one  graph_fn.
+
+    API:
+        run(input_): input_ + `self.variable`(3.0)
+    """
+    def __init__(self, scope="simple-dummy-with-var", **kwargs):
+        """
+        Args:
+            constant_value (float): A constant to add to input in our graph_fn.
+        """
+        super(SimpleDummyWithVar, self).__init__(scope=scope, **kwargs)
+        self.constant_variable = None
+
+    def create_variables(self, input_spaces, action_space):
+        self.constant_variable = self.get_variable(name="constant-variable", initializer=3.0)
+
+    def run(self, input_):
+        # Explicit definition of an API-method using one of our graph_fn.
+        result = self.call(self._graph_fn_1, input_)
+        return result
+
+    def _graph_fn_1(self, input_):
+        return input_ + self.constant_variable
+
+
 class DummyWithSubComponents(Component):
     """
     A dummy component with a couple of sub-components that have their own API methods.
@@ -191,6 +216,39 @@ class DummyWithSubComponents(Component):
 
     def _graph_fn_apply(self, input_):
         return input_ + self.constant_value
+
+
+class DummyCallingSubComponentsAPIFromWithinGraphFn(Component):
+    """
+    A dummy component with one sub-component that has variables and an API-method.
+    This dummy calls the sub-componet's API-method from within its graph_fn.
+
+    API:
+        run(input_): Result of input_ + sub_comp.run(input_) + `self.constant_value`
+    """
+    def __init__(self, scope="dummy-calling-sub-components-api-from-within-graph-fn", constant_value=1.0, **kwargs):
+        """
+        Args:
+            constant_value (float): A constant to add to input in our graph_fn.
+        """
+        super(DummyCallingSubComponentsAPIFromWithinGraphFn, self).__init__(scope=scope, **kwargs)
+        self.constant_value = constant_value
+
+        # Create a sub-Component and add it.
+        self.sub_comp = SimpleDummyWithVar()
+        self.add_components(self.sub_comp)
+
+    def run(self, input_):
+        # Returns 2*input_ + 10.0.
+        sub_comp_result = self.call(self.sub_comp.run, input_)  # input_ + 3.0
+        self_result = self.call(self._graph_fn_apply, sub_comp_result)  # 2*(input_ + 3.0) + 4.0 = 2*input_ + 10.0
+        return self_result
+
+    def _graph_fn_apply(self, input_):
+        # Returns: input_ + [(input_ + 1.0) + 3.0] = 2*input_ + 4.0
+        intermediate_result = input_ + self.constant_value
+        after_api_call = self.call(self.sub_comp.run, intermediate_result)
+        return input_ + after_api_call
 
 
 class FlattenSplitDummy(Component):
