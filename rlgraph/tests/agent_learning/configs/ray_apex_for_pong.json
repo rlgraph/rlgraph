@@ -106,8 +106,8 @@
         "execution_spec": {
           "gpu_spec": { "gpus_enabled" : false}
         },
-        "num_worker_environments": 1,
-        "num_background_envs": 1,
+        "num_worker_environments": 4,
+        "num_background_envs": 2,
         "frame_skip": 1,
         "n_step_adjustment": 3,
         "worker_computes_weights": true,

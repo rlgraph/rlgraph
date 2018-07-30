@@ -123,8 +123,6 @@ class Sequence(PreprocessLayer):
                 input_ = np.expand_dims(inputs, 0)
                 self.buffer = np.tile(input_, reps=reps)
             else:
-                print('buffer = {} '.format(self.buffer))
-                print('index = {} '.format(self.index))
                 self.buffer[self.index] = inputs
 
             self.index = (self.index + 1) % self.sequence_length
