@@ -167,7 +167,8 @@ class TestPreprocessors(unittest.TestCase):
         # Construct the Component to test (PreprocessorStack).
         scale = Multiply(factor=2)
         gray = GrayScale(weights=(0.5, 0.5), keep_rank=False)
-        test = ComponentTest(component=PreprocessorStack(scale, gray), input_spaces=dict(preprocess=space))
+        stack = PreprocessorStack(scale, gray)
+        test = ComponentTest(component=stack, input_spaces=dict(preprocess=space))
 
         input_ = dict(
             a=np.array([[3.0, 5.0]]),
