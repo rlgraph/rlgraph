@@ -130,10 +130,11 @@ class Exploration(Component):
             DataOp: The DataOp representing the action. This will match the shape of self.action_space.
         """
         if get_backend() == "tf":
+            batch_size = tf.shape(input=sample_stochastic)[0]
             return tf.cond(
                 tf.logical_and(use_exploration, epsilon_decision),
-                # (1,) = Adding artificial batch rank.
-                true_fn=lambda: tf.random_uniform(shape=(1,) + self.action_space.shape,
+                # (batch_size,) = Adding artificial batch rank.
+                true_fn=lambda: tf.random_uniform(shape=(batch_size,) + self.action_space.shape,
                                                   maxval=self.action_space.num_categories,
                                                   dtype=dtype("int")),
                 false_fn=lambda: sample_deterministic if self.non_explore_behavior == "max-likelihood"

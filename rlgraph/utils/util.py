@@ -119,9 +119,10 @@ def get_shape(op, flat=False, no_batch=False):
     # tuple-op
     elif isinstance(op, tuple):
         shape = tuple([get_shape(i) for i in op])
-    # primitive op (e.g. tensorflow)
+    # Numpy array in case of python backend/eager execution.
     elif isinstance(op, np.ndarray):
         shape = op.shape
+    # primitive op (e.g. tensorflow)
     else:
         op_shape = op.get_shape()
         # Unknown shape (e.g. a cond op).
