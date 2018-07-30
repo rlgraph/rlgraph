@@ -148,3 +148,9 @@ class TestTwoSubComponents(unittest.TestCase):
         # Push both api_methods through graph to receive correct (single-op) output calculation.
         test.test(("run", [1.1, 0.5]), expected_outputs=5.6)
 
+    def test_calling_sub_components_api_from_within_graph_fn(self):
+        a = DummyCallingSubComponentsAPIFromWithinGraphFn(scope="A")
+        test = ComponentTest(component=a, input_spaces=dict(run=float))
+
+        # Expected: (1): 2*in + 10
+        test.test(("run", 1.1), expected_outputs=12.2, decimals=4)
