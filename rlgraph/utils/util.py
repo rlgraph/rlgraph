@@ -120,6 +120,8 @@ def get_shape(op, flat=False, no_batch=False):
     elif isinstance(op, tuple):
         shape = tuple([get_shape(i) for i in op])
     # primitive op (e.g. tensorflow)
+    elif isinstance(op, np.ndarray):
+        shape = op.shape
     else:
         op_shape = op.get_shape()
         # Unknown shape (e.g. a cond op).
