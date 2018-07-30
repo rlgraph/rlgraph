@@ -92,10 +92,10 @@ def get_rank(tensor):
     Returns:
         int: The rank of the given tensor.
     """
-    if get_backend() == "tf":
-        return tensor.get_shape().ndims
-    elif get_backend() == "python":
+    if isinstance(tensor, np.ndarray) or get_backend() == "python":
         return tensor.ndim
+    elif get_backend() == "tf":
+        return tensor.get_shape().ndims
 
 
 def get_shape(op, flat=False, no_batch=False):

@@ -17,15 +17,17 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
 from six.moves import xrange as range_
-
-import tensorflow as tf
 
 from rlgraph import get_backend
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.ops import FlattenedDataOp, unflatten_op
 from rlgraph.utils.util import get_rank, get_shape, force_list, get_batch_size
 from rlgraph.components.layers.preprocessing import PreprocessLayer
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class Sequence(PreprocessLayer):
@@ -82,14 +84,6 @@ class Sequence(PreprocessLayer):
     def create_variables(self, input_spaces, action_space):
         in_space = input_spaces["apply"][0]
 
-        # Create index: Points to the time slot where we insert next (-1 after reset).
-        # Create buffer: input_space + time-rank at pos=0 (time-major).
-        #if self.backend == "python" or get_backend() == "python":
-        #    self.index = -1
-        #    self.buffer = get_list_registry(
-        #        from_space=in_space, add_batch_rank=self.batch_size, add_time_rank=self.sequence_length
-        #    )
-        #elif get_backend() == "tf":
         self.index = self.get_variable(name="index", dtype="int", initializer=-1, trainable=False)
         self.buffer = self.get_variable(
             name="buffer", trainable=False, from_space=in_space,
@@ -98,7 +92,10 @@ class Sequence(PreprocessLayer):
         )
 
     def _graph_fn_reset(self):
-        return tf.variables_initializer([self.index])
+        if self.backend == "python" or get_backend() == "python":
+            self.index = -1
+        elif get_backend() == "tf":
+            return tf.variables_initializer([self.index])
 
     def _graph_fn_apply(self, inputs):
         """
@@ -115,7 +112,34 @@ class Sequence(PreprocessLayer):
         """
         # A normal (index != -1) assign op.
         if self.backend == "python" or get_backend() == "python":
-            pass
+            for key_, value in inputs.items():
+                # Insert the input at the correct index or fill empty buffer entirely with input.
+                if self.index == -1:
+                    reps = (self.sequence_length,) + tuple([1] * get_rank(value))
+                    input_ = np.expand_dims(value, 0)
+                    self.buffer[key_] = np.tile(input_, reps=reps)
+                else:
+                    self.buffer[key_][self.index] = value
+
+            self.index = (self.index + 1) % self.sequence_length
+
+            sequences = FlattenedDataOp()
+            # Collect the correct previous inputs from the buffer to form the output sequence.
+            for key in inputs.keys():
+                n_in = [self.buffer[key][(self.index + n) % self.sequence_length]
+                        for n in range_(self.sequence_length)]
+
+                # Add the sequence-rank to the end of our inputs.
+                if self.add_rank:
+                    sequence = np.stack(n_in, axis=-1)
+                # Concat the sequence items in the last rank.
+                else:
+                    sequence = np.concatenate(n_in, axis=-1)
+
+                sequences[key] = sequence
+
+            return sequences
+
         elif get_backend() == "tf":
             # Assigns the input_ into the buffer at the current time index.
             def normal_assign():
@@ -130,7 +154,7 @@ class Sequence(PreprocessLayer):
                 assigns = list()
                 for key_, value in inputs.items():
                     multiples = (self.sequence_length,) + tuple([1] * get_rank(value))
-                    input_ = tf.expand_dims(value, 0)  # if self.add_rank else value
+                    input_ = tf.expand_dims(value, 0)
                     assign_op = self.assign_variable(
                         ref=self.buffer[key_], value=tf.tile(input=input_, multiples=multiples)
                     )
@@ -153,7 +177,7 @@ class Sequence(PreprocessLayer):
                     n_in = [self.buffer[key][(self.index + n) % self.sequence_length]
                             for n in range_(self.sequence_length)]
 
-                    # Add the sequence-rank to the end of our api_methods.
+                    # Add the sequence-rank to the end of our inputs.
                     if self.add_rank:
                         sequence = tf.stack(values=n_in, axis=-1)
                     # Concat the sequence items in the last rank.
