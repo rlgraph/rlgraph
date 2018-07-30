@@ -24,7 +24,7 @@ import unittest
 
 from rlgraph.components.layers import GrayScale, Flatten, Multiply, Divide, Clip, ImageBinary, ImageResize, ImageCrop
 from rlgraph.spaces import *
-from rlgraph.tests import ComponentTest
+from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 
 
 class TestPreprocessors(unittest.TestCase):
@@ -164,10 +164,20 @@ class TestPreprocessors(unittest.TestCase):
         test.test("reset")
 
         input_image = cv2.imread(os.path.join(os.path.dirname(__file__), "images/16x16x3_image.bmp"))
-        expected = cv2.imread(os.path.join(os.path.dirname(__file__), "images/8x12x3_image_cropped_7-1.bmp"))
+        expected = cv2.imread(os.path.join(os.path.dirname(__file__), "images/8x12x3_image_cropped.bmp"))
         assert expected is not None
 
         test.test(("apply", input_image), expected_outputs=expected)
+
+    def test_python_image_crop(self):
+        image_crop = ImageCrop(x=7, y=1, width=8, height=12, backend="python")
+
+        input_image = cv2.imread(os.path.join(os.path.dirname(__file__), "images/16x16x3_image.bmp"))
+        expected = cv2.imread(os.path.join(os.path.dirname(__file__), "images/8x12x3_image_cropped.bmp"))
+        assert expected is not None
+
+        out = image_crop._graph_fn_apply(input_image)
+        recursive_assert_almost_equal(out, expected)
 
     def test_black_and_white(self):
         binary = ImageBinary()

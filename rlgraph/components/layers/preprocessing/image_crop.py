@@ -34,7 +34,7 @@ class ImageCrop(PreprocessLayer):
         """
         Args:
             x (int): Start x coordinate.
-            y (int): Start y cooredinate.
+            y (int): Start y coordinate.
             width (int): Width of resulting image.
             height (int): Height of resulting image.
         """
@@ -80,7 +80,7 @@ class ImageCrop(PreprocessLayer):
         if self.backend == "python" or get_backend() == "python":
             if images.ndim == 4:
                 # Preserve batch dimension
-                return images[:, self.y:self.y+self.height, self.x:self.x+self.width]
+                return images[:, self.y:self.y + self.height, self.x:self.x + self.width]
             else:
                 return images[self.y:self.y + self.height, self.x:self.x + self.width]
         elif get_backend() == "tf":
