@@ -21,7 +21,8 @@ import numpy as np
 from six.moves import xrange as range_
 import unittest
 
-from rlgraph.components.layers import GrayScale, Multiply, PreprocessorStack
+from rlgraph.components.layers import GrayScale, Multiply
+from rlgraph.components.neural_networks import PreprocessorStack
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 
