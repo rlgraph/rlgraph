@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph.components import PreprocessorStack
 from rlgraph.environments import VectorEnv, SequentialVectorEnv
 from six.moves import xrange as range_
 import numpy as np
@@ -50,7 +51,6 @@ class RayWorker(RayActor):
             worker_spec (dict): Worker parameters.
             frameskip (int): How often actions are repeated after retrieving them from the agent.
         """
-        # Should be set.
         assert get_distributed_backend() == "ray"
         # Internal frameskip of env.
         self.env_frame_skip = env_spec.get("frameskip", 1)
@@ -61,7 +61,7 @@ class RayWorker(RayActor):
         self.num_environments = worker_spec.pop("num_worker_environments", 1)
         num_background_envs = worker_spec.pop("num_background_envs", 1)
 
-        # TODO potentially switch with others.
+        # TODO from spec once we decided on vectorization.
         self.vector_env = SequentialVectorEnv(self.num_environments, env_spec, num_background_envs)
 
         # Then update agent config.
@@ -70,6 +70,10 @@ class RayWorker(RayActor):
 
         self.discount = agent_config.get("discount", 0.99)
         self.agent = self.setup_agent(agent_config, worker_spec)
+
+        # Python based preprocessor.
+        self.preprocessor = self.setup_preprocessor(agent_config.get("preprocessing_spec", None),
+                                                    self.vector_env.state_space)
         self.worker_frameskip = frameskip
 
         # Save these so they can be fetched after training if desired.
@@ -98,6 +102,20 @@ class RayWorker(RayActor):
         For debugging: fetch the last attribute. Will fail if constructor failed.
         """
         return not self.last_terminals[0]
+
+    def setup_preprocessor(self, preprocessing_spec, in_space):
+        if preprocessing_spec is not None:
+            # TODO move ingraph for python component assembly.
+            scopes = [ preprocessor["scope"] for preprocessor in preprocessing_spec]
+            processor_stack = PreprocessorStack(preprocessing_spec, backend="python")
+            for sub_comp_scope in scopes:
+                processor_stack.sub_components[sub_comp_scope].create_variables(input_spaces=dict(
+                    apply=[in_space]
+                ), action_space=None)
+
+            return processor_stack
+        else:
+            return None
 
     def setup_agent(self, agent_config, worker_spec):
         """
@@ -275,15 +293,15 @@ class RayWorker(RayActor):
 
         # TODO this is really inconvenient -> maybe should do in python.
         next_states = self.agent.preprocessed_state_space.force_batch(to_preprocess_list)
-        preprocessed_states = self.agent.preprocess_states(next_states)
+        if self.preprocessor is not None:
+            next_states = self.preprocessor.preprocess(next_states)
 
         # Finally assemble next states full sample: [env_0_ep_next, env_0_final_next, env_1_ep_next, env_1_final_next]
         for i in range_(self.num_environments):
-            batch_next_states.extend(next_state_fragments[i] + preprocessed_states[i])
-            next_fragment = self.agent.preprocessed_state_space.force_batch(preprocessed_states[i])
+            batch_next_states.extend(next_state_fragments[i])
+            next_fragment = self.agent.preprocessed_state_space.force_batch(next_states[i])
             batch_next_states.extend(next_fragment)
 
-        # This has a batch dim, so we can either do an append(np.squeeze), or extend.
         sample_batch, batch_size = self._process_sample_if_necessary(batch_states, batch_actions,
             batch_rewards, batch_next_states, batch_terminals)
 
@@ -370,7 +388,6 @@ class RayWorker(RayActor):
             for arr in [states, actions, rewards, next_states, terminals]:
                 del arr[new_len:]
 
-        # Convert for update.
         weights = np.ones_like(rewards)
 
         # Compute loss-per-item.
