@@ -17,10 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
+import tensorflow as tf
 import unittest
 
 from rlgraph.environments.environment import Environment
-from rlgraph.utils.specifiable_server import SpecifiableServer
+from rlgraph.utils.specifiable_server import SpecifiableServer, SpecifiableServerHook
 from rlgraph.utils.util import dtype
 from rlgraph.spaces import IntBox, FloatBox
 
@@ -33,16 +35,40 @@ class TestSpecifiableServer(unittest.TestCase):
         action_space = IntBox(2)
         state_space = FloatBox()
         env_spec = dict(type="random_env", state_space=state_space, action_space=action_space, deterministic=True)
+        # Create the server, but don't start it yet. This will be done fully automatically by the tf-Session.
         specifiable_server = SpecifiableServer(Environment, env_spec, dict(step=[state_space, float, bool, None]),
                                                "terminate")
-        specifiable_server.start()
 
-        ret = specifiable_server.step(action_space.sample())
+        # ret are ops now in the graph.
+        ret1 = specifiable_server.step(action_space.sample())
+        ret2 = specifiable_server.step(action_space.sample())
 
         # Check all 3 outputs of the Env step (next state, reward, terminal).
-        self.assertEqual(ret[0].shape, ())
-        self.assertEqual(ret[0].dtype, dtype("float"))
-        self.assertEqual(ret[1].shape, ())
-        self.assertEqual(ret[1].dtype, dtype("float"))
-        self.assertEqual(ret[2].shape, ())
-        self.assertEqual(ret[2].dtype, dtype("bool"))
+        self.assertEqual(ret1[0].shape, ())
+        self.assertEqual(ret1[0].dtype, dtype("float64"))
+        self.assertEqual(ret1[1].shape, ())
+        self.assertEqual(ret1[1].dtype, dtype("float64"))
+        self.assertEqual(ret1[2].shape, ())
+        self.assertEqual(ret1[2].dtype, dtype("bool"))
+        self.assertEqual(ret2[0].shape, ())
+        self.assertEqual(ret2[0].dtype, dtype("float64"))
+        self.assertEqual(ret2[1].shape, ())
+        self.assertEqual(ret2[1].dtype, dtype("float64"))
+        self.assertEqual(ret2[2].shape, ())
+        self.assertEqual(ret2[2].dtype, dtype("bool"))
+
+        # Start the session and run the op, then check its actual values.
+        with tf.train.SingularMonitoredSession(hooks=[SpecifiableServerHook()]) as sess:
+            out1 = sess.run(ret1)
+            out2 = sess.run(ret2)
+
+        # next state
+        self.assertAlmostEqual(out1[0], 0.7713, places=4)
+        self.assertAlmostEqual(out2[0], 0.7488, places=4)
+        # reward
+        self.assertAlmostEqual(out1[1], 0.0208, places=4)
+        self.assertAlmostEqual(out2[1], 0.4985, places=4)
+        # terminal
+        self.assertTrue(out1[2] is np.bool_(False))
+        self.assertTrue(out2[2] is np.bool_(False))
+

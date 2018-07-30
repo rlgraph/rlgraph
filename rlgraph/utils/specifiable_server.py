@@ -22,7 +22,7 @@ import tensorflow as tf
 
 from rlgraph import get_backend, RLGraphError
 from rlgraph.spaces.space import Space
-from rlgraph.utils.util import force_list
+from rlgraph.utils.util import force_list, dtype
 
 
 class SpecifiableServer(object):
@@ -110,7 +110,9 @@ class SpecifiableServer(object):
                     return_slots.append(i)
                 # Expecting a tensor.
                 elif space is not None:
-                    dtypes.append(space.dtype)
+                    # TODO: weird tf bug where floats coming from the py-func are interpreted as tf-doubles and then won't match the Tout types.
+                    dt = dtype(space.dtype)
+                    dtypes.append(dt if space.dtype != "float" else tf.float64)
                     shapes.append(space.shape)
                     return_slots.append(i)
 
@@ -126,8 +128,8 @@ class SpecifiableServer(object):
                             raise result_
                         # Regular result. Filter out the return values according to return_slots.
                         elif isinstance(result_, tuple):  # is not None:
-                            return (r for i, r in enumerate(result_) if i in return_slots)
-                        else:  #elif result_ is not None:
+                            return tuple(r for slot, r in enumerate(result_) if slot in return_slots)
+                        else:
                             return result_
                     except Exception as e:
                         if isinstance(e, IOError):
@@ -193,7 +195,7 @@ class SpecifiableServer(object):
                     return
 
                 # Call the method with the given args.
-                method_name = str(command[0])
+                method_name = command[0].decode()  # must decode here as method_name comes in as bytes
                 inputs = command[1:]
                 results = getattr(proxy_object, method_name)(*inputs)
 

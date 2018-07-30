@@ -100,28 +100,29 @@ def get_rank(tensor):
 
 def get_shape(op, flat=False, no_batch=False):
     """
-    Returns the (static) shape of the tensor as a tuple.
+    Returns the (static) shape of a given DataOp as a tuple.
 
     Args:
         op (DataOp): The input op.
         flat (bool): Whether to return the flattened shape (the product of all ints in the shape tuple).
             Default: False.
-        no_batch (bool): Whether to exclude a possible 0th batch rank (None) from the returned shape.
+        no_batch (bool): Whether to exclude a possible 0th batch rank from the returned shape.
             Default: False.
 
     Returns:
         tuple: The shape of the given op.
         int: The flattened dim of the given op (if flat=True).
     """
-    # dict
+    # Dict.
     if isinstance(op, dict):
         shape = tuple([get_shape(op[key]) for key in sorted(op.keys())])
-    # tuple-op
+    # Tuple-op.
     elif isinstance(op, tuple):
         shape = tuple([get_shape(i) for i in op])
-    # primitive op (e.g. tensorflow)
+    # Numpy ndarrays.
     elif isinstance(op, np.ndarray):
         shape = op.shape
+    # primitive op (e.g. tensorflow)
     else:
         op_shape = op.get_shape()
         # Unknown shape (e.g. a cond op).
@@ -133,6 +134,7 @@ def get_shape(op, flat=False, no_batch=False):
     if no_batch is True and shape[0] is None:
         shape = shape[1:]
 
+    # Return as-is or as flat shape?
     if flat is False:
         return shape
     else:
