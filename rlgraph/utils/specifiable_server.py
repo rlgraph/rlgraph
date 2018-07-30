@@ -18,18 +18,18 @@ from __future__ import division
 from __future__ import print_function
 
 import multiprocessing
-import tensorflow as tf
 
 from rlgraph import get_backend, RLGraphError
 from rlgraph.spaces.space import Space
 from rlgraph.utils.util import force_list, dtype
 
+if get_backend() == "tf":
+    import tensorflow as tf
+
 
 class SpecifiableServer(object):
     """
-    A class that creates a separate python process ("server") which runs an arbitrary Specifiable object
-    (wrapped as a `SpaceInfoCarrier` object to ascertain an API to get Space- and dtype-specs for
-    the Specifiable).
+    A class that creates a separate python process ("server") which runs an arbitrary Specifiable object.
 
     This is useful - for example - to run RLgraph Environments (which are Specifiables) in a highly parallelized and
     in-graph fashion for faster Agent-Environment stepping.
@@ -214,25 +214,26 @@ class SpecifiableServer(object):
             in_pipe.send(e)
 
 
-class SpecifiableServerHook(tf.train.SessionRunHook):
-    """
-    A hook for a tf.MonitoredSession that takes care of automatically starting and stopping
-    SpecifiableServer objects.
-    """
-    def begin(self):
+if get_backend() == "tf":
+    class SpecifiableServerHook(tf.train.SessionRunHook):
         """
-        Starts all registered RLGraphProxyProcess processes.
+        A hook for a tf.MonitoredSession that takes care of automatically starting and stopping
+        SpecifiableServer objects.
         """
-        tp = multiprocessing.pool.ThreadPool()
-        tp.map(lambda server: server.start(),
-               tf.get_collection(SpecifiableServer.COLLECTION))
-        tp.close()
-        tp.join()
+        def begin(self):
+            """
+            Starts all registered RLGraphProxyProcess processes.
+            """
+            tp = multiprocessing.pool.ThreadPool()
+            tp.map(lambda server: server.start(),
+                   tf.get_collection(SpecifiableServer.COLLECTION))
+            tp.close()
+            tp.join()
 
-    def end(self, session):
-        tp = multiprocessing.pool.ThreadPool()
-        tp.map(lambda server: server.close(),
-               tf.get_collection(SpecifiableServer.COLLECTION))
-        tp.close()
-        tp.join()
+        def end(self, session):
+            tp = multiprocessing.pool.ThreadPool()
+            tp.map(lambda server: server.close(),
+                   tf.get_collection(SpecifiableServer.COLLECTION))
+            tp.close()
+            tp.join()
 

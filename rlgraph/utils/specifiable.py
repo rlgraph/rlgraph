@@ -197,22 +197,3 @@ class Specifiable(object):
             raise RLGraphError('Invalid input to `from_mixed`: {}'.format(mixed))
 
 
-#class SpaceInfoCarrier(object):
-#    """
-#    A mix-in placeholder class whose children must implement the get_space_spec method.
-#    """
-#    def get_space_spec(self, method_name):
-#        """
-#        Returns a tuple of Space objects for a given method_name. This method, when called, must return values
-#        that are members of the specified Spaces.
-
-#        Args:
-#            method_name (str): The method name (member of `self`) for which we would like output Space
-#                information.
-
-#        Returns:
-#            Tuple[Space]: A tuple of Space objects matching the return values when calling the given method.
-#        """
-#        raise NotImplementedError
-
-
