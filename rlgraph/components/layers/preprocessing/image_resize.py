@@ -17,8 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from six.moves import xrange as range_
+
 from rlgraph import get_backend
-from rlgraph.utils.ops import flatten_op, unflatten_op
+from rlgraph.utils.ops import unflatten_op
+
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 
 
@@ -70,7 +73,12 @@ class ImageResize(PreprocessLayer):
         """
         if self.backend == "python" or get_backend() == "python":
             import cv2
-            return cv2.resize(images, dsize=(self.width, self.height))  # interpolation=cv2.BILINEAR
+            if images.ndim == 4:
+                for i in range_(len(images)):
+                    images[i] = cv2.resize(images[i], dsize=(self.width, self.height))
+                return images
+            else:
+                return cv2.resize(images, dsize=(self.width, self.height))
         elif get_backend() == "tf":
             return tf.image.resize_images(images=images, size=(self.width, self.height))
 
