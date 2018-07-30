@@ -91,6 +91,8 @@ class Sequence(PreprocessLayer):
             add_time_rank=self.sequence_length, time_major=True, flatten=True
         )
         if self.backend == "python" or get_backend() == "python":
+            # TODO get variable does not return an int for python
+            self.index = -1
             self.buffer = self.buffer[""]
 
     def _graph_fn_reset(self):
@@ -121,6 +123,8 @@ class Sequence(PreprocessLayer):
                 input_ = np.expand_dims(inputs, 0)
                 self.buffer = np.tile(input_, reps=reps)
             else:
+                print('buffer = {} '.format(self.buffer))
+                print('index = {} '.format(self.index))
                 self.buffer[self.index] = inputs
 
             self.index = (self.index + 1) % self.sequence_length
