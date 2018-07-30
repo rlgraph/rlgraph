@@ -33,8 +33,8 @@ Environment.__lookup_classes__ = dict(
     openai=OpenAIGymEnv,
     openaigymenv=OpenAIGymEnv,
     openaigym=OpenAIGymEnv,
+    randomenv = RandomEnv,
     random=RandomEnv,
-    randomenv=RandomEnv,
     sequentialvector=SequentialVectorEnv,
     sequentialvectorenv=SequentialVectorEnv
 )

@@ -20,7 +20,6 @@ from __future__ import print_function
 import cv2
 import numpy as np
 import os
-from six.moves import xrange as range_
 import unittest
 
 from rlgraph.components.layers import GrayScale, Flatten, Multiply, PreprocessorStack, Sequence, Clip, \
@@ -187,68 +186,6 @@ class TestPreprocessors(unittest.TestCase):
         test.test("reset")
         test.test(("preprocess", input_), expected_outputs=expected)
 
-    def test_sequence_preprocessor(self):
-        space = FloatBox(shape=(1,), add_batch_rank=True)
-        component_to_test = Sequence(length=3, add_rank=True)
-        test = ComponentTest(component=component_to_test, input_spaces=dict(apply=space))
-
-        vars = component_to_test.get_variables("index", "buffer", global_scope=False)
-        index, buffer = vars["index"], vars["buffer"]
-
-        for _ in range_(3):
-            test.test("reset")
-            index_value, buffer_value = test.get_variable_values(index, buffer)
-            self.assertEqual(index_value, -1)
-            test.test(("apply", np.array([[0.1]])),
-                      expected_outputs=np.array([[[0.1, 0.1, 0.1]]]))
-            index_value, buffer_value = test.get_variable_values(index, buffer)
-            self.assertEqual(index_value, 0)
-            test.test(("apply", np.array([[0.2]])),
-                      expected_outputs=np.array([[[0.1, 0.1, 0.2]]]))
-            index_value, buffer_value = test.get_variable_values(index, buffer)
-            self.assertEqual(index_value, 1)
-            test.test(("apply", np.array([[0.3]])),
-                      expected_outputs=np.array([[[0.1, 0.2, 0.3]]]))
-            index_value, buffer_value = test.get_variable_values(index, buffer)
-            self.assertEqual(index_value, 2)
-            test.test(("apply", np.array([[0.4]])),
-                      expected_outputs=np.array([[[0.2, 0.3, 0.4]]]))
-            index_value, buffer_value = test.get_variable_values(index, buffer)
-            self.assertEqual(index_value, 0)
-            test.test(("apply", np.array([[0.5]])),
-                      expected_outputs=np.array([[[0.3, 0.4, 0.5]]]))
-            index_value, buffer_value = test.get_variable_values(index, buffer)
-            self.assertEqual(index_value, 1)
-
-            ## TODO: Insert more than one sample.
-            #test.test(("apply", np.array([[0.6], [0.7]])),
-            #          expected_outputs=np.array([[[0.5, 0.6, 0.7]]]))
-            #index_value, buffer_value = test.get_variable_values(index, buffer)
-            #self.assertEqual(index_value, 0)
-
-    def test_sequence_preprocessor_with_container_space(self):
-        # Test with no batch rank.
-        space = Tuple(FloatBox(shape=(1,)), FloatBox(shape=(2, 2)), add_batch_rank=False)
-
-        component_to_test = Sequence(length=4, add_rank=False)
-        test = ComponentTest(component=component_to_test, input_spaces=dict(apply=space))
-
-        for i in range_(3):
-            test.test("reset")
-            test.test(("apply", np.array([np.array([0.5]), np.array([[0.6, 0.7], [0.8, 0.9]])])),
-                      expected_outputs=(np.array([0.5, 0.5, 0.5, 0.5]), np.array([[0.6, 0.7] * 4,
-                                                                                  [0.8, 0.9] * 4])))
-            test.test(("apply", np.array([np.array([0.6]), np.array([[1.1, 1.1], [1.1, 1.1]])])),
-                      expected_outputs=(np.array([0.5, 0.5, 0.5, 0.6]), np.array([[0.6, 0.7, 0.6, 0.7,
-                                                                                   0.6, 0.7, 1.1, 1.1],
-                                                                                  [0.8, 0.9, 0.8, 0.9,
-                                                                                   0.8, 0.9, 1.1, 1.1]])))
-            test.test(("apply", np.array([np.array([0.7]), np.array([[2.0, 2.1], [2.2, 2.3]])])),
-                      expected_outputs=(np.array([0.5, 0.5, 0.6, 0.7]), np.array([[0.6, 0.7, 0.6, 0.7,
-                                                                                   1.1, 1.1, 2.0, 2.1],
-                                                                                  [0.8, 0.9, 0.8, 0.9,
-                                                                                   1.1, 1.1, 2.2, 2.3]])))
-
     def test_image_resize(self):
         image_resize = ImageResize(width=4, height=4)
         # Some image of 16x16x3 size.
@@ -275,4 +212,4 @@ class TestPreprocessors(unittest.TestCase):
         input_image = cv2.imread(os.path.join(os.path.dirname(__file__), "images/16x16x3_image.bmp"))
         expected = cv2.imread(os.path.join(os.path.dirname(__file__), "images/8x12x3_image_cropped_7-1.bmp"))
 
-        out = test.test(("apply", input_image), expected_outputs=expected)
+        test.test(("apply", input_image), expected_outputs=expected)
