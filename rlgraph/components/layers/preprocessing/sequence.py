@@ -61,7 +61,7 @@ class Sequence(PreprocessLayer):
         # The output spaces after preprocessing (per flat-key).
         self.output_spaces = None
 
-    def get_output_space(self, space):
+    def get_preprocessed_space(self, space):
         ret = dict()
         for key, value in space.flatten().items():
             shape = list(value.shape)
@@ -79,7 +79,7 @@ class Sequence(PreprocessLayer):
         # Require inputs to not have time rank (batch rank doesn't matter).
         sanity_check_space(in_space, must_have_time_rank=False)
 
-        self.output_spaces = self.get_output_space(in_space)
+        self.output_spaces = self.get_preprocessed_space(in_space)
 
     def create_variables(self, input_spaces, action_space):
         in_space = input_spaces["apply"][0]
