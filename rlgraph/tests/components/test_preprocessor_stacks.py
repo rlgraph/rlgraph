@@ -18,11 +18,12 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+from six.moves import xrange as range_
 import unittest
 
 from rlgraph.components.layers import GrayScale, Multiply, PreprocessorStack
 from rlgraph.spaces import *
-from rlgraph.tests import ComponentTest
+from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 
 
 class TestPreprocessorStacks(unittest.TestCase):
@@ -35,13 +36,30 @@ class TestPreprocessorStacks(unittest.TestCase):
         test.test("reset")
         test.test(("preprocess", 2.0), expected_outputs=1.0)
 
+    # TODO: Make it irrelevent whether we test a python or a tf Component (API and handling should be 100% identical)
     def test_simple_python_preprocessor_stack(self):
-        stack = PreprocessorStack(dict(type="multiply", factor=0.5))
+        space = FloatBox(shape=(2,), add_batch_rank=True)
+        # python PreprocessorStack
+        multiply = dict(type="multiply", factor=0.5, scope="m")
+        divide = dict(type="divide", divisor=0.5, scope="d")
+        stack = PreprocessorStack(multiply, divide, backend="python")
+        for sub_comp_scope in ["m", "d"]:
+            stack.sub_components[sub_comp_scope].create_variables(input_spaces=dict(
+                apply=[space]
+            ), action_space=None)
 
-        test = ComponentTest(component=stack, input_spaces=dict(preprocess=float))
+        #test = ComponentTest(component=stack, input_spaces=dict(preprocess=float))
 
-        test.test("reset")
-        test.test(("preprocess", 2.0), expected_outputs=1.0)
+        for _ in range_(3):
+            # Call fake API-method directly (ok for PreprocessorStack).
+            stack.reset()
+            input_ = np.asarray([[1.0], [2.0], [3.0], [4.0]])
+            out = stack.preprocess(input_)
+            recursive_assert_almost_equal(out, input_)
+
+            input_ = space.sample()
+            out = stack.preprocess(input_)
+            recursive_assert_almost_equal(out, input_)
 
     def test_preprocessor_from_list_spec(self):
         space = FloatBox(shape=(2,))
