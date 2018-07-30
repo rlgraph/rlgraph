@@ -29,6 +29,7 @@ from rlgraph.spaces.float_box import FloatBox
 from rlgraph.spaces.containers import Dict, Tuple
 
 
+# TODO: replace completely by `Component.get_variable` (python-backend)
 def get_list_registry(from_space, capacity=None, initializer=0, flatten=True, add_batch_rank=False):
     """
     Creates a list storage for a space by providing an ordered dict mapping space names

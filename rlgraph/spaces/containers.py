@@ -115,8 +115,8 @@ class Dict(ContainerSpace, dict):
     def dtype(self):
         return DataOpDict([(key, subspace.dtype) for key, subspace in self.items()])
 
-    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None, **kwargs):
-        return DataOpDict([(key, subspace.get_tensor_variable(name + "/" + key, is_input_feed,
+    def get_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None, **kwargs):
+        return DataOpDict([(key, subspace.get_variable(name + "/" + key, is_input_feed,
                                                               add_batch_rank, add_time_rank, **kwargs))
                            for key, subspace in self.items()])
 
@@ -214,8 +214,8 @@ class Tuple(ContainerSpace, tuple):
     def dtype(self):
         return DataOpTuple([c.dtype for c in self])
 
-    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None, **kwargs):
-        return DataOpTuple([subspace.get_tensor_variable(name+"/"+str(i), is_input_feed,
+    def get_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None, **kwargs):
+        return DataOpTuple([subspace.get_variable(name+"/"+str(i), is_input_feed,
                                                          add_batch_rank, add_time_rank, **kwargs)
                             for i, subspace in enumerate(self)])
 

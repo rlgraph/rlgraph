@@ -174,7 +174,8 @@ class Space(Specifiable):
         """
         raise NotImplementedError
 
-    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None, **kwargs):
+    def get_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None,
+                     time_major=False, is_python=False, **kwargs):
         """
         Returns a backend-specific variable/placeholder that matches the space's shape.
 
@@ -190,6 +191,11 @@ class Space(Specifiable):
                 the created variable. If it is an int, will add that int (-1 means None).
                 If None, will use the Space's default value: `self.has_time_rank`.
                 Default: None.
+            time_major (bool): Only relevant if both `add_batch_rank` and `add_time_rank` are True.
+                Will make the time-rank the 0th rank and the batch-rank the 1st rank.
+                Otherwise, batch-rank will be 0th and time-rank will be 1st.
+                Default: False.
+            is_python (bool): Whether to create a python-based variable (list) or a backend-specific one.
 
         Keyword Args:
             To be passed on to backend-specific methods (e.g. trainable, initializer, etc..).

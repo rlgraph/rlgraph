@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from cached_property import cached_property
 import numpy as np
+from six.moves import xrange as range_
 import re
 
 from rlgraph import get_backend, RLGraphError
@@ -137,19 +138,37 @@ class BoxSpace(Space):
         """
         return self._global_bounds
 
-    def get_tensor_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None, **kwargs):
+    def get_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None,
+                     time_major=None, is_python=False, **kwargs):
         add_batch_rank = self.has_batch_rank if add_batch_rank is None else add_batch_rank
         batch_rank = () if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,)
 
         add_time_rank = self.has_time_rank if add_time_rank is None else add_time_rank
         time_rank = () if add_time_rank is False else (None,) if add_time_rank is True else (add_time_rank,)
 
-        if self.time_major is False:
+        time_major = self.time_major if time_major is None else time_major
+
+        if time_major is False:
             shape = batch_rank + time_rank + self.shape
         else:
             shape = time_rank + batch_rank + self.shape
 
-        if get_backend() == "tf":
+        if is_python is True or get_backend() == "python":
+            if isinstance(add_batch_rank, int):
+                if isinstance(add_time_rank, int):
+                    if time_major:
+                        var = [[0 for _ in range_(add_batch_rank)] for _ in range_(add_time_rank)]
+                    else:
+                        var = [[0 for _ in range_(add_time_rank)] for _ in range_(add_batch_rank)]
+                else:
+                    var = [0 for _ in range_(add_batch_rank)]
+            elif isinstance(add_time_rank, int):
+                var = [0 for _ in range_(add_time_rank)]
+            else:
+                var = []
+            return var
+
+        elif get_backend() == "tf":
             import tensorflow as tf
             # TODO: re-evaluate the cutting of a leading '/_?' (tf doesn't like it)
             name = re.sub(r'^/_?', "", name)
