@@ -33,7 +33,7 @@
     },
     {
       "type": "sequence",
-      "length": 4,
+      "sequence_length": 4,
       "add_rank": false
     }
   ],

@@ -106,8 +106,8 @@ class RayWorker(RayActor):
     def setup_preprocessor(self, preprocessing_spec, in_space):
         if preprocessing_spec is not None:
             # TODO move ingraph for python component assembly.
-            scopes = [ preprocessor["scope"] for preprocessor in preprocessing_spec]
-            processor_stack = PreprocessorStack(preprocessing_spec, backend="python")
+            scopes = [preprocessor["scope"] for preprocessor in preprocessing_spec]
+            processor_stack = PreprocessorStack(*preprocessing_spec, backend="python")
             for sub_comp_scope in scopes:
                 processor_stack.sub_components[sub_comp_scope].create_variables(input_spaces=dict(
                     apply=[in_space]
