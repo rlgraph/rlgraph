@@ -98,7 +98,7 @@ class BoxSpace(Space):
     def shape(self):
         return self._shape
 
-    def get_shape(self, with_batch_rank=False, with_time_rank=False, **kwargs):
+    def get_shape(self, with_batch_rank=False, with_time_rank=False, time_major=None, **kwargs):
         if with_batch_rank is not False:
             batch_rank = (((None,) if with_batch_rank is True else (with_batch_rank,))
                           if self.has_batch_rank else ())
@@ -111,7 +111,8 @@ class BoxSpace(Space):
         else:
             time_rank = ()
 
-        if self.time_major is False:
+        time_major = self.time_major if time_major is None else time_major
+        if time_major is False:
             return batch_rank + time_rank + self.shape
         else:
             return time_rank + batch_rank + self.shape

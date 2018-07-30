@@ -98,9 +98,10 @@ class Dict(ContainerSpace, dict):
     def shape(self):
         return tuple([self[key].shape for key in sorted(self.keys())])
 
-    def get_shape(self, with_batch_rank=False, with_time_rank=False, with_category_rank=False):
+    def get_shape(self, with_batch_rank=False, with_time_rank=False, time_major=None, with_category_rank=False):
         return tuple([self[key].get_shape(
-            with_batch_rank=with_batch_rank, with_time_rank=with_time_rank, with_category_rank=with_category_rank
+            with_batch_rank=with_batch_rank, with_time_rank=with_time_rank, time_major=time_major,
+            with_category_rank=with_category_rank
         ) for key in sorted(self.keys())])
 
     @cached_property
@@ -197,9 +198,10 @@ class Tuple(ContainerSpace, tuple):
     def shape(self):
         return tuple([c.shape for c in self])
 
-    def get_shape(self, with_batch_rank=False, with_time_rank=False, with_category_rank=False):
+    def get_shape(self, with_batch_rank=False, with_time_rank=False, time_major=None, with_category_rank=False):
         return tuple([c.get_shape(
-            with_batch_rank=with_batch_rank, with_time_rank=with_time_rank, with_category_rank=with_category_rank
+            with_batch_rank=with_batch_rank, with_time_rank=with_time_rank, time_major=time_major,
+            with_category_rank=with_category_rank
         ) for c in self])
 
     @cached_property

@@ -127,20 +127,21 @@ class Space(Specifiable):
         """
         raise NotImplementedError
 
-    def get_shape(self, with_batch_rank=False, with_time_rank=False, **kwargs):
+    def get_shape(self, with_batch_rank=False, with_time_rank=False, time_major=None, **kwargs):
         """
         Returns the shape of this Space as a tuple with certain additional ranks at the front (batch) or the back
         (e.g. categories).
 
         Args:
             with_batch_rank (Union[bool,int]): Whether to include a possible batch-rank as `None` at 0th (or 1st)
-                position. If `with_batch_rank` is -1, the possible batch-rank is returned as -1 (instead of None) at
-                the 0th (or 1st) position.
+                position. If `with_batch_rank` is an int (e.g. -1), the possible batch-rank is returned as that number
+                (instead of None) at the 0th (or 1st if time_major is True) position.
                 Default: False.
             with_time_rank (Union[bool,int]): Whether to include a possible time-rank as `None` at 1st (or 0th)
-                position. If `with_time_rank` is -1, the possible time-rank is returned as -1 (instead of None) at
-                the 1st (or 0th) position.
+                position. If `with_time_rank` is an int, the possible time-rank is returned as that number
+                (instead of None) at the 1st (or 0th if time_major is True) position.
                 Default: False.
+            time_major (bool): Overwrites `self.time_major` if not None. Default: None (use `self.time_major`).
 
         Returns:
             tuple: The shape of this Space as a tuple.
