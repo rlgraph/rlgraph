@@ -51,9 +51,11 @@ class FixedLoop(Component):
         if not self.graph_fn_to_call:
             raise RLGraphError("ERROR: GraphFn '{}' not found in Component '{}'!".
                                format(graph_fn_name, call_component.global_scope))
+
         # TODO: Do we sum up, append to list, ...?
         #self.define_inputs("inputs")
         # self.define_outputs("fixed_loop_result")
+
         self.add_components(call_component)
         self.define_api_method(
             name="call_loop",
