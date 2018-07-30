@@ -212,7 +212,7 @@ class Component(Specifiable):
             if method_owner is self and ok_to_call_own_api is False:
                 parent_caller = inspect.stack()[1][3]
                 raise RLGraphError("'{}' Component's API-method ('{}') cannot `call` another API-method ('{}') of the "
-                                "same Component!".format(self.name, parent_caller, method.__name__))
+                                   "same Component!".format(self.name, parent_caller, method.__name__))
             return self.call_api(method, method_owner, *params)
 
         # Method is a graph_fn.
@@ -256,7 +256,7 @@ class Component(Specifiable):
         # directly).
         if method_owner is not self:
             raise RLGraphError("Graph_fn '{}' may only be sent to `call` by its owner ({})! However, '{}' is "
-                            "calling it.".format(method.__name__, method_owner.scope, self.scope))
+                               "calling it.".format(method.__name__, method_owner.scope, self.scope))
 
         # Sanity check number of actual graph_fn input values against len(params).
         actual_params = list(inspect.signature(method).parameters.values())
@@ -273,10 +273,11 @@ class Component(Specifiable):
                     [p.default is inspect.Parameter.empty for p in actual_params]):
                 pass
             else:
-                raise RLGraphError("ERROR: Graph_fn '{}/{}' has {} input-parameters, but {} ({}) were being provided in "
-                                "the `Component.call` method!".
-                                format(self.name, method.__name__, len(inspect.signature(method).parameters),
-                                       len(params), params))
+                raise RLGraphError(
+                    "ERROR: Graph_fn '{}/{}' has {} input-parameters, but {} ({}) were being provided in the "
+                    "`Component.call` method!".format(self.name, method.__name__,
+                                                      len(inspect.signature(method).parameters), len(params), params)
+                )
 
         # Store a  graph_fn record in this component for better in/out-op-record-column reference.
         if method.__name__ not in self.graph_fns:
@@ -351,7 +352,11 @@ class Component(Specifiable):
         in_op_column = DataOpRecordColumnIntoAPIMethod(op_records=len(params_no_none),
                                                        component=self,
                                                        api_method_rec=api_method_rec)
+        # Add the column to the API-method record.
         api_method_rec.in_op_columns.append(in_op_column)
+        # Add None-Space placeholders in case in_spaces is not setup as a list yet.
+        if api_method_rec.in_spaces is None:
+            api_method_rec.in_spaces = [None] * len(params_no_none)
 
         # Link from in_op_recs into the new column.
         for i, op_rec in enumerate(params_no_none):
@@ -393,7 +398,7 @@ class Component(Specifiable):
         """
         Checks whether this Component is "input-complete" and stores the result in self.input_complete.
         Input-completeness is reached (only once and then it stays that way) if all API-methods of this component
-        (whose `must_be_complete` field is not set to False) have at least one op-rec-column completed.
+        (whose `must_be_complete` field is not set to False) have all their input Spaces defined.
 
         Returns:
             Optional[dict]: A space-dict if the Component is input-complete, None otherwise.
@@ -405,22 +410,17 @@ class Component(Specifiable):
         # Loop through all API methods.
         for method_name, api_method_rec in self.api_methods.items():
             # This API method doesn't have to be completed, ignore and don't add it to space_dict.
-            if api_method_rec.must_be_complete is False:
+            if api_method_rec.must_be_complete is False or len(api_method_rec.in_op_columns) == 0:
                 continue
 
-            # Get the spaces of each op-record in the columns.
-            # If one of the columns is complete, Component is complete.
-            for in_op_col in api_method_rec.in_op_columns:
-                spaces = [op_rec.space for op_rec in in_op_col.op_records]
-                # All Spaces are defined -> Store list of Spaces (for this column) in return dict.
-                if all(s is not None for s in spaces):
-                    space_dict[method_name] = spaces
-                    break
-            # None of the columns is complete. Return as "incomplete".
+            # Get the Spaces of each op-record in the columns.
+            # All Spaces must be defined (not None), then the API-method is complete.
+            if api_method_rec.in_spaces is not None and all(s is not None for s in api_method_rec.in_spaces):
+                space_dict[method_name] = api_method_rec.in_spaces
+            # At least one Space is not defined yet -> Component is not input-complete.
             else:
-                if len(api_method_rec.in_op_columns) > 0:
-                    self.input_complete = False
-                    return None
+                self.input_complete = False
+                return None
 
         return space_dict
 

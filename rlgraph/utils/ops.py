@@ -114,7 +114,7 @@ class DataOpRecord(object):
         # An optional position (index) for this op inside `column`.
         self.position = position
         # The inferred Space of this op.
-        #self.space = None
+        self.space = None
 
         # Set of (op-col ID, slot) tuples that are connected from this one.
         self.next = set()
@@ -372,6 +372,7 @@ class APIMethodRecord(object):
             #callable_anytime (bool): Whether this API-method can be called even before the Component is input-complete.
         """
         self.method = method
+        self.name = self.method.__name__
         self.component = component
         self.must_be_complete = must_be_complete
         #self.callable_anytime = callable_anytime

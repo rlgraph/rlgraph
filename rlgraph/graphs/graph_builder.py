@@ -28,7 +28,8 @@ from rlgraph.spaces import Space, Dict
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.util import force_list, force_tuple, get_shape
-from rlgraph.utils.ops import DataOpTuple, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn
+from rlgraph.utils.ops import DataOpTuple, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
+    DataOpRecordColumnIntoAPIMethod
 from rlgraph.utils.component_printout import component_print_out
 
 if get_backend() == "tf":
@@ -149,9 +150,9 @@ class GraphBuilder(Specifiable):
             if len(in_sock.incoming_connections) == 0 and \
                     in_sock.name not in component.unconnected_sockets_in_meta_graph:
                 raise RLGraphError("Component '{}' has in-Socket ({}) without any incoming connections! If this is "
-                                "intended before the build process, you have to add the Socket's name to the "
-                                "Component's `unconnected_sockets_in_meta_graph` set. Then this error will be "
-                                "suppressed for this Component.".format(component.name, in_sock.name))
+                                   "intended before the build process, you have to add the Socket's name to the "
+                                   "Component's `unconnected_sockets_in_meta_graph` set. Then this error will be "
+                                   "suppressed for this Component.".format(component.name, in_sock.name))
 
         # Check all the component's graph_fns for input-completeness.
         for graph_fn in component.graph_fns:  # type: GraphFunction
@@ -160,7 +161,7 @@ class GraphBuilder(Specifiable):
                 if len(in_sock.incoming_connections) == 0 and \
                         in_sock.name not in component.unconnected_sockets_in_meta_graph:
                     raise RLGraphError("GraphFn {}/{} has in-Socket ({}) without any incoming "
-                                    "connections!".format(component.name, graph_fn.name, in_sock_rec["socket"].name))
+                                       "connections!".format(component.name, graph_fn.name, in_sock_rec["socket"].name))
 
         # Recursively call this method on all the sub-component's sub-components.
         for sub_component in component.sub_components.values():
@@ -228,6 +229,19 @@ class GraphBuilder(Specifiable):
                         # Push op and Space into next op-record.
                         next_op_rec.op = op_rec.op
                         next_op_rec.space = op_rec.space
+                        # Also push Space into possible API-method record if slot's Space is still None.
+                        if isinstance(next_op_rec.column, DataOpRecordColumnIntoAPIMethod):
+                            in_spaces = next_op_rec.column.api_method_rec.in_spaces
+                            # Place Space into API-method rec's Space list (valid for all op-rec columns of this
+                            # API-method record).
+                            if in_spaces[next_op_rec.position] is None:
+                                in_spaces[next_op_rec.position] = op_rec.space
+                            # Sanity check, whether Spaces are the same.
+                            else:
+                                assert in_spaces[next_op_rec.position] == next_op_rec.space, \
+                                    "ERROR: op-rec '{}' has Space '{}', but API-method record already has Space '{}' " \
+                                    "at same position!".format(next_op_rec, next_op_rec.space,
+                                                               in_spaces[next_op_rec.position])
 
                         # Did we enter a new Component? If yes, check input-completeness and
                         # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
@@ -259,9 +273,9 @@ class GraphBuilder(Specifiable):
             # Sanity check, whether we are stuck.
             new_op_records_list = sorted(new_op_records_to_process, key=lambda rec: rec.id)
             if op_records_list == new_op_records_list:
-                raise RLGraphError("Build procedure is deadlocked. Most likely, you are having a "
-                                "circularly dependent Component in your meta-graph. The current op-records to process "
-                                "are: {}".format(new_op_records_list))
+                raise RLGraphError("Build procedure is deadlocked. Most likely, you are having a circularly dependent "
+                                   "Component in your meta-graph. The current op-records to process "
+                                   "are: {}".format(new_op_records_list))
 
             op_records_list = new_op_records_list
 
@@ -591,7 +605,7 @@ class GraphBuilder(Specifiable):
                         ops[key] = force_tuple(op_rec_column.graph_fn(*params))
                         if num_return_values >= 0 and num_return_values != len(ops[key]):
                             raise RLGraphError("Different split-runs through {} do not return the same number of "
-                                            "values!".format(op_rec_column.graph_fn.__name__))
+                                               "values!".format(op_rec_column.graph_fn.__name__))
                         num_return_values = len(ops[key])
                     # Un-split the results dict into a tuple of `num_return_values` slots.
                     un_split_ops = list()
@@ -698,8 +712,8 @@ class GraphBuilder(Specifiable):
                     if len(in_sock_record["socket"].op_records) == 0 and \
                             in_sock_name not in component.unconnected_sockets_in_meta_graph:
                         raise RLGraphError("in-Socket '{}' of GraphFunction '{}' of Component '{}' does not have "
-                                        "any incoming ops!".format(in_sock_name, graph_fn.name,
-                                                                   component.global_scope))
+                                           "any incoming ops!".format(in_sock_name, graph_fn.name,
+                                                                      component.global_scope))
 
         # Check component's sub-components for input-completeness (recursively).
         for sub_component in component.sub_components.values():  # type: Component
@@ -708,8 +722,8 @@ class GraphBuilder(Specifiable):
                 for in_sock in sub_component.input_sockets:
                     if in_sock.space is None:
                         raise RLGraphError("Component '{}' is not input-complete. In-Socket '{}' does not " \
-                                        "have any incoming connections.".
-                                        format(sub_component.global_scope, in_sock.name))
+                                           "have any incoming connections.".
+                                           format(sub_component.global_scope, in_sock.name))
 
             # Recursively call this method on all the sub-component's sub-components.
             self.sanity_check_build(sub_component)
@@ -749,7 +763,7 @@ class GraphBuilder(Specifiable):
             for i, param in enumerate(params):
                 if len(self.api[api_method][0]) <= i:
                     raise RLGraphError("API-method with name '{}' only has {} input parameters! You passed in "
-                                    "{}.".format(api_method, len(self.api[api_method][0]), len(params)))
+                                       "{}.".format(api_method, len(self.api[api_method][0]), len(params)))
                 placeholder = self.api[api_method][0][i].op  # 0=input op-recs; i=ith input op-rec
                 if isinstance(placeholder, DataOpTuple):
                     for ph, p in zip(placeholder, param):
