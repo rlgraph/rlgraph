@@ -61,7 +61,7 @@ class RayWorker(RayActor):
         self.num_environments = worker_spec.pop("num_worker_environments", 1)
         num_background_envs = worker_spec.pop("num_background_envs", 1)
 
-        # TODO from spec once we decided on vectorization.
+        # TODO from spec once we decided on generic vectorization.
         self.vector_env = SequentialVectorEnv(self.num_environments, env_spec, num_background_envs)
 
         # Then update agent config.
@@ -245,6 +245,7 @@ class RayWorker(RayActor):
                     self.episodes_executed += 1
                     # Reset this environment.
                     env_states[i] = self.vector_env.reset(i)
+                    episode_rewards[i] = 0
 
             if 0 < num_timesteps <= timesteps_executed or (break_on_terminal and np.any(terminals)):
                 self.total_worker_steps += timesteps_executed
