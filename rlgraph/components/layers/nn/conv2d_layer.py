@@ -30,7 +30,7 @@ class Conv2DLayer(NNLayer):
     """
     A Conv2D NN-layer.
     """
-    def __init__(self, filters, kernel_size, strides, padding="same", data_format="channels_last",
+    def __init__(self, filters, kernel_size, strides, padding="valid", data_format="channels_last",
                  kernel_spec=None, biases_spec=None, **kwargs):
         """
         Args:
@@ -39,7 +39,7 @@ class Conv2DLayer(NNLayer):
                 sliding window.
             strides (Union[int,Tuple[int]]): Kernel stride size along height and width axis (or one value
                 for both directions).
-            padding (str): One of 'valid' or 'same'. Default: 'same'.
+            padding (str): One of 'valid' or 'same'. Default: 'valid'.
             data_format (str): One of 'channels_last' (default) or 'channels_first'. Specifies which rank (first or
                 last) is the color-channel. If the input Space is with batch, the batch always has the first rank.
             kernel_spec (any): A specifier for the kernel-weights initializer. Use None for the default initializer.
