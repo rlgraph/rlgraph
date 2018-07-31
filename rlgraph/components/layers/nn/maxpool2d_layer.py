@@ -28,7 +28,7 @@ if get_backend() == "tf":
 
 class MaxPool2DLayer(NNLayer):
     """
-    A Conv2D NN-layer.
+    A max-pooling 2D layer.
     """
     def __init__(self, pool_size, strides, padding="valid", data_format="channels_last", **kwargs):
         """

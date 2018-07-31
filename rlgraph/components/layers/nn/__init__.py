@@ -22,6 +22,7 @@ from rlgraph.components.layers.nn.concat_layer import ConcatLayer
 from rlgraph.components.layers.nn.conv2d_layer import Conv2DLayer
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.nn.dueling_layer import DuelingLayer
+from rlgraph.components.layers.nn.embedding_lookup_layer import EmbeddingLookupLayer
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 from rlgraph.components.layers.nn.maxpool2d_layer import MaxPool2DLayer
 
@@ -29,6 +30,8 @@ NNLayer.__lookup_classes__ = dict(
     concat=ConcatLayer,
     conv2d=Conv2DLayer,
     dense=DenseLayer,
+    embedding=EmbeddingLookupLayer,
+    embeddinglookup=EmbeddingLookupLayer,
     fc=DenseLayer,  # alias
     dueling=DuelingLayer,
     lstm=LSTMLayer,
