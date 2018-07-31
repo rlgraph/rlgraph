@@ -30,13 +30,13 @@ if get_backend() == "tf":
 
 class Flatten(PreprocessLayer):
     """
-    Flattens the input by reshaping it, excluding the batch-rank (if there is one).
-    e.g. input FloatBox(shape=(None, 2, 3, 4)) -> flatten -> FloatBox(shape=(None, 24))
+    Flattens the input by reshaping it, excluding the batch- or the time-rank (if there are any).
+    e.g. input FloatBox(shape=(None, 2, 3, 4)) -> flatten -> FloatBox(shape=(None, 24)).
+    If both batch-rank and time-rank are given, will fold the time rank into the batch rank (0th rank).
 
     If the input is an IntBox, will (optionally) flatten for categories as well.
     e.g. input Space=IntBox(4) -> flatten -> FloatBox(shape=(4,)).
     """
-
     def __init__(self, flatten_categories=True, scope="flatten", **kwargs):
         """
         Args:
@@ -56,9 +56,8 @@ class Flatten(PreprocessLayer):
         for key, value in space.flatten().items():
             flat_dim = value.flat_dim_with_categories if self.flatten_categories is True and value.__class__ == IntBox \
                 else value.flat_dim
-            ret[key] = FloatBox(
-                shape=(flat_dim,), add_batch_rank=value.has_batch_rank, add_time_rank=value.has_time_rank
-            )
+            add_batch_rank = (value.has_batch_rank is not False or value.has_time_rank is not False)
+            ret[key] = FloatBox(shape=(flat_dim,), add_batch_rank=add_batch_rank)
         return unflatten_op(ret)
 
     def check_input_spaces(self, input_spaces, action_space):
@@ -91,15 +90,16 @@ class Flatten(PreprocessLayer):
             # Create a one-hot axis for the categories at the end?
             if self.num_categories[key] > 1:
                 input_ = one_hot(input_, depth=self.num_categories[key])
-            reshaped = np.reshape(a=input_, newshape=self.output_spaces[key].get_shape(with_batch_rank=-1,
-                                                                                       with_time_rank=-1))
+            with_batch_rank = self.output_spaces[key].has_batch_rank
+            reshaped = np.reshape(input_, newshape=self.output_spaces[key].get_shape(with_batch_rank=with_batch_rank))
             return reshaped
 
         elif get_backend() == "tf":
             # Create a one-hot axis for the categories at the end?
             if self.num_categories[key] > 1:
                 input_ = tf.one_hot(indices=input_, depth=self.num_categories[key], axis=-1)
-            reshaped = tf.reshape(tensor=input_, shape=self.output_spaces[key].get_shape(with_batch_rank=-1,
-                                                                                         with_time_rank=-1))
-            return tf.identity(reshaped, name="flattened")
+            with_batch_rank = self.output_spaces[key].has_batch_rank
+            reshaped = tf.reshape(input_, shape=self.output_spaces[key].get_shape(with_batch_rank=with_batch_rank),
+                                  name = "flattened")
+            return reshaped
 
