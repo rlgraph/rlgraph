@@ -116,7 +116,7 @@ class RayWorker(RayActor):
                 processor_stack.sub_components[sub_comp_scope].create_variables(input_spaces=dict(
                     apply=[in_space]
                 ), action_space=None)
-
+            processor_stack.reset()
             return processor_stack
         else:
             return None
@@ -283,10 +283,11 @@ class RayWorker(RayActor):
             batch_rewards.extend(sample_rewards[env_id])
             batch_terminals.extend(sample_terminals[env_id])
 
-        # TODO this is really inconvenient -> maybe should do in python.
         next_states = self.agent.preprocessed_state_space.force_batch(to_preprocess_list)
         if self.preprocessor is not None:
             next_states = self.preprocessor.preprocess(next_states)
+            # TODO reset every time here?
+            self.preprocessor.reset()
 
         # Finally assemble next states full sample: [env_0_ep_next, env_0_final_next, env_1_ep_next, env_1_final_next]
         for i in range_(self.num_environments):
