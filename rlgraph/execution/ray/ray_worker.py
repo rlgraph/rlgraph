@@ -189,8 +189,6 @@ class RayWorker(RayActor):
                 else:
                     is_reset = True
                 # The reward accumulated over one episode.
-                self.last_ep_rewards[i] = 0
-                self.episode_timesteps[i] = 0
                 # print("Restart env {} episode from reward {} and step {}".format(env_id, self.last_ep_rewards[i],
                 #                                                            self.last_ep_timesteps[i]))
                 episode_rewards.append(0)
@@ -242,8 +240,8 @@ class RayWorker(RayActor):
 
                 # Terminate and reset episode for that environment.
                 if terminals[i] or (0 < max_timesteps_per_episode <= episode_timesteps[i]):
-                    print("terminated episode with reward : {} and timestep {}".format(
-                        episode_rewards[i], episode_timesteps[i]))
+                    # print("terminated episode with reward : {} and timestep {}".format(
+                    #     episode_rewards[i], episode_timesteps[i]))
                     self.episode_rewards.append(episode_rewards[i])
                     self.episode_timesteps.append(episode_timesteps[i])
                     episodes_executed[i] += 1
