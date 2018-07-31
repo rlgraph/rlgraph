@@ -22,7 +22,8 @@ import numpy as np
 import os
 import unittest
 
-from rlgraph.components.layers import GrayScale, Flatten, Multiply, Divide, Clip, ImageBinary, ImageResize, ImageCrop
+from rlgraph.components.layers import GrayScale, Flatten, Multiply, Divide, Clip, ImageBinary, ImageResize, ImageCrop, \
+    ReShape
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 
@@ -67,6 +68,16 @@ class TestPreprocessors(unittest.TestCase):
             [[0.0005, 0.00000009], [1.0, 1.0]]
         ])
         test.test(("apply", input_images), expected_outputs=expected)
+
+    def test_reshape(self):
+        reshape = ReShape(new_shapes=(-1, 3, 2))
+        test = ComponentTest(component=reshape, input_spaces=dict(apply=FloatBox(shape=(6,), add_batch_rank=True)))
+
+        test.test("reset")
+        # Batch=2
+        inputs = np.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]])
+        expected = np.array([[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]])
+        test.test(("apply", inputs), expected_outputs=expected)
 
     def test_split_inputs_on_grayscale(self):
         # last rank is always the color rank (its dim must match len(grayscale-weights))
