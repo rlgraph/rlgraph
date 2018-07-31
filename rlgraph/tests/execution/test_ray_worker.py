@@ -21,6 +21,7 @@ import json
 import os
 import unittest
 from time import sleep
+from rlgraph.tests.test_util import recursive_assert_almost_equal
 import numpy as np
 
 from rlgraph import get_distributed_backend, spaces
@@ -99,11 +100,37 @@ class TestRayWorker(unittest.TestCase):
         # We do not break on terminal so there should be exactly 100 steps.
         self.assertEqual(len(observations["terminals"]), size)
 
-        # Test get all worker metrics.
+    def test_metrics(self):
+        """
+        Tests metric collection for 1 and multiple environments.
+        """
+        path = os.path.join(os.getcwd(), "configs/apex_agent_cartpole.json")
+        with open(path, 'rt') as fp:
+            agent_config = json.load(fp)
+
+        worker_spec = agent_config["execution_spec"].pop("ray_spec")
+        worker = RayWorker.remote(agent_config, self.env_spec, worker_spec)
+
+        # Run for a while:
+        task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=False)
+        sleep(1)
+        # Include a transition between calls.
+        task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=False)
+        sleep(1)
+        # Retrieve result.
+        result = ray.get(task)
+        print('Task results:')
+        print(result.get_metrics())
+
+        # Get worker metrics.
         task = worker.get_workload_statistics.remote()
         result = ray.get(task)
         print("Worker statistics:")
-        print(result)
+
+        # In cartpole, num timesteps = reward -> must be the same.
+        print("Cartpole episode rewards: {}".format(result["episode_rewards"]))
+        print("Cartpole episode timesteps: {}".format(result["episode_timesteps"]))
+        recursive_assert_almost_equal(result["episode_rewards"], result["episode_timesteps"])
 
     def test_worker_weight_syncing(self):
         """
@@ -142,3 +169,4 @@ class TestRayWorker(unittest.TestCase):
         print(weights)
         worker.set_policy_weights.remote(weights)
         print('Object store weight sync successful.')
+

@@ -180,7 +180,7 @@ class RayWorker(RayActor):
             sample_rewards[env_id] = list()
             sample_terminals[env_id] = list()
 
-            if self.last_terminals[i] is True or episodes_executed[i] > 0:
+            if self.last_terminals[i] is True:
                 # Reset this environment.
                 env_states.append(self.vector_env.reset(i))
 
@@ -190,11 +190,14 @@ class RayWorker(RayActor):
                     is_reset = True
                 # The reward accumulated over one episode.
                 self.last_ep_rewards[i] = 0
+                self.episode_timesteps[i] = 0
                 episode_rewards.append(0)
                 episode_timesteps.append(0)
             else:
                 # Continue training between calls.
                 env_states.append(self.last_states[i])
+                # print("Continue env {} episode from reward {} and step {}".format(env_id, self.last_ep_rewards[i],
+                #                                                            self.last_ep_timesteps[i]))
                 episode_rewards.append(self.last_ep_rewards[i])
                 episode_timesteps.append(self.last_ep_timesteps[i])
 
@@ -237,13 +240,16 @@ class RayWorker(RayActor):
 
                 # Terminate and reset episode for that environment.
                 if terminals[i] or (0 < max_timesteps_per_episode <= episode_timesteps[i]):
+                    print("terminated episode with reward : {}".format(episode_rewards[i]))
                     self.episode_rewards.append(episode_rewards[i])
                     self.episode_timesteps.append(episode_timesteps[i])
                     episodes_executed[i] += 1
                     self.episodes_executed += 1
+
                     # Reset this environment.
                     env_states[i] = self.vector_env.reset(i)
                     episode_rewards[i] = 0
+                    episode_timesteps[i] = 0
 
             if 0 < num_timesteps <= timesteps_executed or (break_on_terminal and np.any(terminals)):
                 self.total_worker_steps += timesteps_executed
@@ -252,6 +258,7 @@ class RayWorker(RayActor):
         self.last_terminals = terminals
         self.last_states = env_states
         self.last_ep_rewards = episode_rewards
+        self.last_ep_timesteps = episode_timesteps
 
         total_time = (time.monotonic() - start) or 1e-10
         self.sample_steps.append(timesteps_executed)
@@ -338,7 +345,7 @@ class RayWorker(RayActor):
             min_episode_reward = np.min(self.episode_rewards)
             max_episode_reward = np.max(self.episode_rewards)
             mean_episode_reward = np.mean(self.episode_rewards)
-            final_episode_reward=self.episode_rewards[-1]
+            final_episode_reward = self.episode_rewards[-1]
         else:
             # Will be aggregated in executor.
             min_episode_reward = None
