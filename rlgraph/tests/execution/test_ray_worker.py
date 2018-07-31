@@ -90,7 +90,6 @@ class TestRayWorker(unittest.TestCase):
 
         # Test with count.
         task = worker.execute_and_get_with_count.remote(100, break_on_terminal=False)
-        sleep(5)
         # Retrieve result.
         result, size = ray.get(task)
         observations = result.get_batch()
@@ -98,7 +97,13 @@ class TestRayWorker(unittest.TestCase):
         print(size)
 
         # We do not break on terminal so there should be exactly 100 steps.
-        self.assertEqual(len(observations['terminals']), size)
+        self.assertEqual(len(observations["terminals"]), size)
+
+        # Test get all worker metrics.
+        task = worker.get_workload_statistics.remote()
+        result = ray.get(task)
+        print("Worker statistics:")
+        print(result)
 
     def test_worker_weight_syncing(self):
         """

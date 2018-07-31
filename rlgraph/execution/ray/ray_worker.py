@@ -336,13 +336,24 @@ class RayWorker(RayActor):
         """
         # Adjust env frames for internal env frameskip:
         adjusted_frames = [env_frames * self.env_frame_skip for env_frames in self.sample_env_frames]
+        if len(self.episode_rewards) > 0:
+            min_episode_reward = np.min(self.episode_rewards)
+            max_episode_reward = np.max(self.episode_rewards)
+            mean_episode_reward = np.mean(self.episode_rewards)
+            final_episode_reward=self.episode_rewards[-1]
+        else:
+            # Will be aggregated in executor
+            min_episode_reward = None
+            max_episode_reward = None
+            mean_episode_reward = None
+            final_episode_reward = None
         return dict(
             episode_timesteps=self.episode_timesteps,
             episode_rewards=self.episode_rewards,
-            min_episode_reward=np.min(self.episode_rewards),
-            max_episode_reward=np.max(self.episode_rewards),
-            mean_episode_reward=np.mean(self.episode_rewards),
-            final_episode_reward=self.episode_rewards[-1],
+            min_episode_reward=min_episode_reward,
+            max_episode_reward=max_episode_reward,
+            mean_episode_reward=mean_episode_reward,
+            final_episode_reward=final_episode_reward,
             episodes_executed=self.episodes_executed,
             worker_steps=self.total_worker_steps,
             mean_worker_ops_per_second=sum(self.sample_steps) / sum(self.sample_times),
