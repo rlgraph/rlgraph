@@ -317,12 +317,16 @@ class RayExecutor(object):
             )
             task = ray_worker.get_workload_statistics.remote()
             metrics = ray.get(task)
-            min_rewards.append(metrics["min_episode_reward"])
-            max_rewards.append(metrics["max_episode_reward"])
-            mean_rewards.append(metrics["mean_episode_reward"])
+            if metrics["mean_episode_reward"] is not None:
+                min_rewards.append(metrics["min_episode_reward"])
+                max_rewards.append(metrics["max_episode_reward"])
+                mean_rewards.append(metrics["mean_episode_reward"])
+                final_rewards.append(metrics["final_episode_reward"])
+            else:
+                self.logger.warning("Warning: No episode rewards available for worker {}. Steps executed: {}".
+                                    format(self.worker_ids[ray_worker], metrics["episodes_executed"]))
             episodes_executed.append(metrics["episodes_executed"])
             steps_executed += metrics["worker_steps"]
-            final_rewards.append(metrics["final_episode_reward"])
             worker_op_throughputs.append(metrics["mean_worker_ops_per_second"])
             worker_env_frame_throughputs.append(metrics["mean_worker_env_frames_per_second"])
 

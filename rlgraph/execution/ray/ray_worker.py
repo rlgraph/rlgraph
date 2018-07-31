@@ -342,11 +342,12 @@ class RayWorker(RayActor):
             mean_episode_reward = np.mean(self.episode_rewards)
             final_episode_reward=self.episode_rewards[-1]
         else:
-            # Will be aggregated in executor
+            # Will be aggregated in executor.
             min_episode_reward = None
             max_episode_reward = None
             mean_episode_reward = None
             final_episode_reward = None
+
         return dict(
             episode_timesteps=self.episode_timesteps,
             episode_rewards=self.episode_rewards,
