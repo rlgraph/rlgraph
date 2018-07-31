@@ -40,7 +40,7 @@ class TestVectorEnv(unittest.TestCase):
         episodic_life=True
     )
 
-    samples = 100000
+    samples = 50000
     num_vector_envs = 4
 
     def test_individual_env(self):
@@ -89,17 +89,12 @@ class TestVectorEnv(unittest.TestCase):
         )
 
         states = vector_env.reset_all()
-
-        print("Input state shape:")
-        print(np.asarray(states).shape)
-
         start = time.monotonic()
         ep_lengths = [0 for _ in range_(self.num_vector_envs)]
 
         for _ in range_(int(self.samples/ self.num_vector_envs)):
             # Sample all envs at once.
             actions, preprocessed_states = agent.get_action(states, extra_returns="preprocessed_states")
-            print("Action state shape: {}.".format(np.asarray(actions).shape))
             states, rewards, terminals, infos = vector_env.step(actions)
             ep_lengths = [ep_length + 1 for ep_length in ep_lengths]
 
@@ -112,7 +107,7 @@ class TestVectorEnv(unittest.TestCase):
         runtime = time.monotonic() - start
         tp = self.samples / runtime
 
-        print('Testing individual env {} performance:'.format(self.env_spec["gym_env"]))
+        print('Testing vector env {} performance:'.format(self.env_spec["gym_env"]))
         print('Ran {} steps, throughput: {} states/s, total time: {} s'.format(
             self.samples, tp, runtime
         ))

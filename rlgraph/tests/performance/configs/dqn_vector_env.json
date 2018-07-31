@@ -8,7 +8,6 @@
     "type": "replay",
     "capacity": 10000
   },
-
   "preprocessing_spec": [
     {
       "type": "image_crop",

@@ -158,7 +158,7 @@ class Sequence(PreprocessLayer):
                 assigns = list()
                 for key_, value in inputs.items():
                     multiples = (self.sequence_length,) + tuple([1] * get_rank(value))
-                    input_ = tf.expand_dims(value, 0)
+                    input_ = tf.expand_dims(input=value, axis=0)
                     assign_op = self.assign_variable(
                         ref=self.buffer[key_], value=tf.tile(input=input_, multiples=multiples)
                     )

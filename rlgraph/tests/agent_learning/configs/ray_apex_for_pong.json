@@ -33,7 +33,8 @@
     },
     {
       "type": "sequence",
-        "sequence_length": 4,
+      "sequence_length": 4,
+      "batch_size": 4,
       "add_rank": false,
       "scope": "sequence"
     }
