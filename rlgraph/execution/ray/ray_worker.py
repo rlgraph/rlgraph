@@ -84,8 +84,8 @@ class RayWorker(RayActor):
 
         # Step time and steps done per call to execute_and_get to measure throughput of this worker.
         self.sample_times = list()
-        self.sample_steps =  list()
-        self.sample_env_frames =  list()
+        self.sample_steps = list()
+        self.sample_env_frames = list()
 
         # To continue running through multiple exec calls.
         self.last_states = self.vector_env.reset_all()
