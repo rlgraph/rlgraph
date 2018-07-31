@@ -324,7 +324,7 @@ class RayExecutor(object):
                 final_rewards.append(metrics["final_episode_reward"])
             else:
                 self.logger.warning("Warning: No episode rewards available for worker {}. Steps executed: {}".
-                                    format(self.worker_ids[ray_worker], metrics["episodes_executed"]))
+                                    format(self.worker_ids[ray_worker], metrics["worker_steps"]))
             episodes_executed.append(metrics["episodes_executed"])
             steps_executed += metrics["worker_steps"]
             worker_op_throughputs.append(metrics["mean_worker_ops_per_second"])

@@ -167,21 +167,19 @@ class RayWorker(RayActor):
         episodes_executed = [0 for _ in range_(self.num_environments)]
         env_frames = 0
 
-        # Dict of env_index -> trajectory for that environment during this call.
         sample_states, sample_actions, sample_rewards, sample_terminals = dict(), dict(), dict(), dict()
-        for env_id in self.env_ids:
+        env_states, episode_rewards, episode_timesteps = list(), list(), list()
+        next_states = [np.zeros_like(self.last_states) for _ in range_(self.num_environments)]
+        is_reset = False
+
+        # Reset envs and Agent either if finished an episode in current loop or if last state
+        # from previous execution was terminal for that environment.
+        for i, env_id in enumerate(self.env_ids):
             sample_states[env_id] = list()
             sample_actions[env_id] = list()
             sample_rewards[env_id] = list()
             sample_terminals[env_id] = list()
 
-        next_states = [np.zeros_like(self.last_states) for _ in range_(self.num_environments)]
-        env_states, episode_rewards, episode_timesteps = list(), list(), list()
-        is_reset = False
-
-        # Reset envs and Agent either if finished an episode in current loop or if last state
-        # from previous execution was terminal for that environment.
-        for i in range_(self.num_environments):
             if self.last_terminals[i] is True or episodes_executed[i] > 0:
                 # Reset this environment.
                 env_states.append(self.vector_env.reset(i))
