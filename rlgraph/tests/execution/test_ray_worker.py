@@ -111,6 +111,7 @@ class TestRayWorker(unittest.TestCase):
         worker_spec = agent_config["execution_spec"].pop("ray_spec")
         worker = RayWorker.remote(agent_config, self.env_spec, worker_spec)
 
+        print("Testing statistics for 1 environment:")
         # Run for a while:
         task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=False)
         sleep(1)
@@ -128,6 +129,25 @@ class TestRayWorker(unittest.TestCase):
         print("Worker statistics:")
 
         # In cartpole, num timesteps = reward -> must be the same.
+        print("Cartpole episode rewards: {}".format(result["episode_rewards"]))
+        print("Cartpole episode timesteps: {}".format(result["episode_timesteps"]))
+        recursive_assert_almost_equal(result["episode_rewards"], result["episode_timesteps"])
+
+        # Now repeat this but for multiple environments.
+        print("Testing statistics for 4 environments:")
+        worker_spec["num_worker_environments"] = 4
+        worker_spec["num_background_environments"] = 2
+        worker = RayWorker.remote(agent_config, self.env_spec, worker_spec)
+
+        task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=False)
+        sleep(1)
+        result = ray.get(task)
+        task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=False)
+        sleep(1)
+        result = ray.get(task)
+        task = worker.get_workload_statistics.remote()
+        result = ray.get(task)
+        print("Multi-env statistics:")
         print("Cartpole episode rewards: {}".format(result["episode_rewards"]))
         print("Cartpole episode timesteps: {}".format(result["episode_timesteps"]))
         recursive_assert_almost_equal(result["episode_rewards"], result["episode_timesteps"])

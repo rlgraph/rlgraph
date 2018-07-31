@@ -92,7 +92,7 @@ class RayWorker(RayActor):
         self.agent.reset()
 
         # Was the last state a terminal state so env should be reset in next call?
-        self.env_ids = ["env_".format(i) for i in range_(self.num_environments)]
+        self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
         self.last_ep_timesteps = [0 for _ in range_(self.num_environments)]
         self.last_ep_rewards = [0 for _ in range_(self.num_environments)]
         self.last_terminals = [False for _ in range_(self.num_environments)]
@@ -191,6 +191,8 @@ class RayWorker(RayActor):
                 # The reward accumulated over one episode.
                 self.last_ep_rewards[i] = 0
                 self.episode_timesteps[i] = 0
+                # print("Restart env {} episode from reward {} and step {}".format(env_id, self.last_ep_rewards[i],
+                #                                                            self.last_ep_timesteps[i]))
                 episode_rewards.append(0)
                 episode_timesteps.append(0)
             else:
@@ -240,7 +242,8 @@ class RayWorker(RayActor):
 
                 # Terminate and reset episode for that environment.
                 if terminals[i] or (0 < max_timesteps_per_episode <= episode_timesteps[i]):
-                    print("terminated episode with reward : {}".format(episode_rewards[i]))
+                    print("terminated episode with reward : {} and timestep {}".format(
+                        episode_rewards[i], episode_timesteps[i]))
                     self.episode_rewards.append(episode_rewards[i])
                     self.episode_timesteps.append(episode_timesteps[i])
                     episodes_executed[i] += 1
