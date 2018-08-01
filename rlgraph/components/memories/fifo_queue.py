@@ -38,9 +38,9 @@ class FIFOQueue(Memory):
 
         self.define_api_method("get_size", self._graph_fn_get_size)
 
-    def create_variables(self, input_spaces, action_space):
+    def create_variables(self, input_spaces, action_space=None):
         # Overwrite parent version as we don't need a custom registry.
-        in_space = input_spaces["insert_records"][0]
+        in_space = input_spaces["records"]
 
         # Make sure all input-records have a batch rank and determine the shapes and dtypes.
         shapes = list()

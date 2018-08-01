@@ -66,7 +66,7 @@ class TestSequencePreprocessor(unittest.TestCase):
         seq_len = 3
         space = FloatBox(shape=(1,), add_batch_rank=True)
         sequencer = Sequence(sequence_length=seq_len, batch_size=4, add_rank=True, backend="python")
-        sequencer.create_variables(input_spaces=dict(apply=[space]), action_space=None)
+        sequencer.create_variables(input_spaces=dict(inputs=space))
 
         #test = ComponentTest(component=sequencer, input_spaces=dict(apply=space))
 

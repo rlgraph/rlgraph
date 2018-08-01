@@ -62,7 +62,8 @@ class IMPALALossFunction(LossFunction):
 
         self.action_space = None
 
-    def check_input_spaces(self, input_spaces, action_space):
+    def check_input_spaces(self, input_spaces, action_space=None):
+        assert action_space is not None
         self.action_space = action_space
         # Check for IntBox and num_categories.
         sanity_check_space(

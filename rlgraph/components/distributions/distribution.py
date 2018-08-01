@@ -79,12 +79,13 @@ class Distribution(Component):
         other_distribution = self.call(self._graph_fn_get_distribution, other_parameters)
         return self.call(self._graph_fn_kl_divergence, distribution, other_distribution)
 
-    def check_input_spaces(self, input_spaces, action_space):
-        # The first arg of all API-methods is always the distribution parameters. Check them for ContainerSpaces.
-        for key in ["sample_stochastic", "sample_deterministic", "draw",
-                    "entropy", "log_prob", "kl_divergence"]:
+    def check_input_spaces(self, input_spaces, action_space=None):
+        ## The first arg of all API-methods is always the distribution parameters. Check them for ContainerSpaces.
+        #for key in ["sample_stochastic", "sample_deterministic", "draw",
+        #            "entropy", "log_prob", "kl_divergence"]:
+        for key in ["distribution", "distribution_b"]:
             if key in input_spaces:
-                parameter_space = input_spaces[key][0]
+                parameter_space = input_spaces[key]
                 # Must not be ContainerSpace (not supported yet for Distributions, doesn't seem to make sense).
                 assert not isinstance(parameter_space, ContainerSpace),\
                     "ERROR: Cannot handle container parameter Spaces in distribution '{}' " \
@@ -181,13 +182,13 @@ class Distribution(Component):
         """
         return distribution.entropy()
 
-    def _graph_fn_kl_divergence(self, distribution_a, distribution_b):
+    def _graph_fn_kl_divergence(self, distribution, distribution_b):
         """
         Kullback-Leibler divergence between two distribution objects.
 
         Args:
-            distribution_a (tf.Distribution): A Distribution object.
-            distribution_b (tf.Distribution): A distribution object.
+            distribution (tf.Distribution): The (already parameterized) backend-specific distribution 1.
+            distribution_b (tf.Distribution): The other distribution object.
 
         Returns:
             DataOp: (batch-wise) KL-divergence between the two distributions.

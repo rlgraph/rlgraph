@@ -79,8 +79,8 @@ class LSTMLayer(NNLayer):
 
         self.lstm_cell = None
 
-    def create_variables(self, input_spaces, action_space):
-        in_space = input_spaces["apply"][0]
+    def create_variables(self, input_spaces, action_space=None):
+        in_space = input_spaces["inputs"]
 
         # Create one weight matrix: [input nodes + internal state nodes, 4 (4 internal layers) * internal state nodes]
         # weights_shape = (in_space.shape[0] + self.units, 4 * self.units)  # [0]=one past batch rank
@@ -110,7 +110,7 @@ class LSTMLayer(NNLayer):
             # Register the generated variables with our registry.
             self.register_variables(*self.lstm_cell.variables)
 
-    def _graph_fn_apply(self, input_, initial_c_state=None, initial_h_state=None):
+    def _graph_fn_apply(self, inputs, initial_c_state=None, initial_h_state=None):
         if get_backend() == "tf":
             # Run the input (and initial state) through a dynamic LSTM and return unrolled outputs and final
             # internal states.
@@ -120,7 +120,7 @@ class LSTMLayer(NNLayer):
                 initial_states = (initial_c_state, initial_h_state)
 
             lstm_out, lstm_state_tuple = tf.nn.dynamic_rnn(
-                cell=self.lstm_cell, inputs=input_, sequence_length=self.sequence_length, initial_state=initial_states,
+                cell=self.lstm_cell, inputs=inputs, sequence_length=self.sequence_length, initial_state=initial_states,
                 parallel_iterations=self.parallel_iterations, swap_memory=self.swap_memory, time_major=self.time_major,
                 dtype="float" #self.dtype
             )

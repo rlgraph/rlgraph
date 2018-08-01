@@ -82,7 +82,7 @@ class MultiGpuSyncOptimizer(Optimizer):
         """
         self.gpu_devices = gpu_devices
 
-    def create_variables(self, input_spaces, action_space):
+    def create_variables(self, input_spaces, action_space=None):
         super(MultiGpuSyncOptimizer, self).create_variables(input_spaces, action_space)
 
         # Create device copies and variables

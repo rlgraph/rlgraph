@@ -48,7 +48,7 @@ class ReplayMemory(Memory):
         self.size = None
         self.states = None
 
-    def create_variables(self, input_spaces, action_space):
+    def create_variables(self, input_spaces, action_space=None):
         super(ReplayMemory, self).create_variables(input_spaces, action_space)
 
         # Record space must contain 'terminals' for a replay memory.

@@ -88,7 +88,7 @@ class Dummy0to1(Component):
 
         self.define_api_method("run", self._graph_fn_0to1)
 
-    def create_variables(self, input_spaces, action_space):
+    def create_variables(self, input_spaces, action_space=None):
         self.var = self.get_variable(initializer=self.var_value)
 
     def _graph_fn_0to1(self):
@@ -141,7 +141,7 @@ class DummyWithVar(Component):
         # Automatically generate an API-method around one of our graph_fn.
         self.define_api_method("run_minus", self._graph_fn_2)
 
-    def create_variables(self, input_spaces, action_space):
+    def create_variables(self, input_spaces, action_space=None):
         self.constant_variable = self.get_variable(name="constant-variable", initializer=2.0)
 
     def run_plus(self, input_):
@@ -171,7 +171,7 @@ class SimpleDummyWithVar(Component):
         super(SimpleDummyWithVar, self).__init__(scope=scope, **kwargs)
         self.constant_variable = None
 
-    def create_variables(self, input_spaces, action_space):
+    def create_variables(self, input_spaces, action_space=None):
         self.constant_variable = self.get_variable(name="constant-variable", initializer=3.0)
 
     def run(self, input_):

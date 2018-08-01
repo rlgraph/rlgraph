@@ -34,9 +34,9 @@ class Beta(Distribution):
         # Do not flatten incoming DataOps as we need more than one parameter in our parameterize graph_fn.
         super(Beta, self).__init__(scope=scope, **kwargs)
 
-    def check_input_spaces(self, input_spaces, action_space):
+    def check_input_spaces(self, input_spaces, action_space=None):
         # Must be a Tuple of len 2 (loc and scale).
-        in_space = input_spaces["parameters"]
+        in_space = input_spaces["concentration_parameters"]
         assert isinstance(in_space, Tuple) and len(in_space) == 2,\
             "ERROR: {} (Distribution) ({}) needs an incoming Tuple with len=2!".format(type(self).__name__,
                                                                                        self.name)

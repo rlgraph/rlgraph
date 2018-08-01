@@ -114,7 +114,7 @@ class RayWorker(RayActor):
             processor_stack = PreprocessorStack(*preprocessing_spec, backend="python")
             for sub_comp_scope in scopes:
                 processor_stack.sub_components[sub_comp_scope].create_variables(input_spaces=dict(
-                    apply=[in_space]
+                    inputs=in_space
                 ), action_space=None)
 
             return processor_stack

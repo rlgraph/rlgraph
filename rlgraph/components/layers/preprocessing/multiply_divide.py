@@ -32,17 +32,17 @@ class Multiply(PreprocessLayer):
         super(Multiply, self).__init__(scope=scope, **kwargs)
         self.factor = factor
 
-    def _graph_fn_apply(self, tensor):
+    def _graph_fn_apply(self, inputs):
         """
         Multiplies the input with our factor.
 
         Args:
-            tensor (tensor): The input to be scaled.
+            inputs (tensor): The input to be scaled.
 
         Returns:
             op: The op to scale the input.
         """
-        return tensor * self.factor
+        return inputs * self.factor
 
 
 class Divide(PreprocessLayer):
@@ -57,14 +57,14 @@ class Divide(PreprocessLayer):
         super(Divide, self).__init__(scope=scope, **kwargs)
         self.divisor = divisor
 
-    def _graph_fn_apply(self, tensor):
+    def _graph_fn_apply(self, inputs):
         """
         Divides the input by with our divisor.
 
         Args:
-            tensor (tensor): The input to be divided.
+            inputs (tensor): The input to be divided.
 
         Returns:
             DataOp: The op to divide the input.
         """
-        return tensor / self.divisor
+        return inputs / self.divisor

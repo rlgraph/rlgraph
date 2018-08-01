@@ -37,16 +37,16 @@ class Normalize(PreprocessLayer):
         super(Normalize, self).__init__(scope=scope, **kwargs)
         self.axes = None
 
-    def check_input_spaces(self, input_spaces, action_space):
+    def check_input_spaces(self, input_spaces, action_space=None):
         super(Normalize, self).check_input_spaces(input_spaces, action_space)
 
-        in_space = input_spaces["input"]  # type: Space
+        in_space = input_spaces["inputs"]  # type: Space
         # A list of all axes over which to normalize (exclude batch rank).
         self.axes = list(range(1 if in_space.has_batch_rank else 0, len(in_space.get_shape(with_batch_rank=False))))
 
-    def _graph_fn_apply(self, input_):
-        min_value = input_
-        max_value = input_
+    def _graph_fn_apply(self, inputs):
+        min_value = inputs
+        max_value = inputs
 
         if get_backend() == "tf":
             import tensorflow as tf
@@ -56,5 +56,5 @@ class Normalize(PreprocessLayer):
                 max_value = tf.reduce_max(input_tensor=max_value, axis=axis, keep_dims=True)
 
         # Add some small constant to never let the range be zero.
-        return (input_ - min_value) / (max_value - min_value + SMALL_NUMBER)
+        return (inputs - min_value) / (max_value - min_value + SMALL_NUMBER)
 

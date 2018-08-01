@@ -44,8 +44,8 @@ class Splitter(Component):
 
         self.define_api_method(name="split", func=self._graph_fn_split)
 
-    def check_input_spaces(self, input_spaces, action_space):
-        in_space = input_spaces["split"][0]
+    def check_input_spaces(self, input_spaces, action_space=None):
+        in_space = input_spaces["inputs"]
         # Make sure input is a Dict (unsorted).
         assert isinstance(in_space, Dict), "ERROR: Input Space for Splitter ({}) must be Dict (but is {})!".\
             format(self.global_scope, in_space)
@@ -55,7 +55,7 @@ class Splitter(Component):
                 raise RLGraphError("Item {} in `output_order` of Splitter '{}' is not part of the input Space ({})!".
                                    format(i, self.global_scope, in_space))
 
-    def _graph_fn_split(self, input_):
+    def _graph_fn_split(self, inputs):
         """
         Splits the input_ at flat-key level `self.level` into the Spaces at that level.
 
@@ -66,7 +66,7 @@ class Splitter(Component):
             tuple: The tuple of the primary Spaces (may still be Containers) sorted by `self.output_order`.
         """
         ret = [None] * len(self.output_order)
-        for key, value in input_.items():
+        for key, value in inputs.items():
             ret[self.output_order.index(key)] = value
 
         return tuple(ret)

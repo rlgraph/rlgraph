@@ -49,9 +49,9 @@ class MemPrioritizedReplay(Specifiable):
         self.default_new_weight = np.power(self.max_priority, self.alpha)
 
     # TODO this needs manual calling atm
-    def create_variables(self, input_spaces, action_space):
+    def create_variables(self, input_spaces, action_space=None):
         # Store our record-space for convenience.
-        self.record_space = input_spaces["insert_records"][0]
+        self.record_space = input_spaces["records"]
         self.record_space_flat = Dict(self.record_space.flatten(custom_scope_separator="-",
                                                                 scope_separator_at_start=False),
                                       add_batch_rank=True)

@@ -49,7 +49,7 @@ class RingBuffer(Memory):
             # Extend our interface ("get_episodes").
             self.define_api_method(name="get_episodes", func=self._graph_fn_get_episodes)
 
-    def create_variables(self, input_spaces, action_space):
+    def create_variables(self, input_spaces, action_space=None):
         super(RingBuffer, self).create_variables(input_spaces, action_space)
 
         # Record space must contain 'terminals' for a replay memory.

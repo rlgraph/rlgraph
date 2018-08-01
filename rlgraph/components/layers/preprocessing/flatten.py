@@ -60,11 +60,11 @@ class Flatten(PreprocessLayer):
             ret[key] = FloatBox(shape=(flat_dim,), add_batch_rank=add_batch_rank)
         return unflatten_op(ret)
 
-    def check_input_spaces(self, input_spaces, action_space):
+    def check_input_spaces(self, input_spaces, action_space=None):
         super(Flatten, self).check_input_spaces(input_spaces, action_space)
 
         # Check whether our input space has-batch or not and store this information here.
-        in_space = input_spaces["apply"][0]  # type: Dict
+        in_space = input_spaces["inputs"]  # type: Dict
 
         # Store the mapped output Spaces (per flat key).
         self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
@@ -83,23 +83,23 @@ class Flatten(PreprocessLayer):
                 return 1
             self.num_categories = in_space.flatten(mapping=mapping_func)
 
-    def _graph_fn_apply(self, key, input_):
+    def _graph_fn_apply(self, key, inputs):
         if self.backend == "python" or get_backend() == "python":
             from rlgraph.utils.numpy import one_hot
 
             # Create a one-hot axis for the categories at the end?
             if self.num_categories[key] > 1:
-                input_ = one_hot(input_, depth=self.num_categories[key])
+                inputs = one_hot(inputs, depth=self.num_categories[key])
             with_batch_rank = self.output_spaces[key].has_batch_rank
-            reshaped = np.reshape(input_, newshape=self.output_spaces[key].get_shape(with_batch_rank=with_batch_rank))
+            reshaped = np.reshape(inputs, newshape=self.output_spaces[key].get_shape(with_batch_rank=with_batch_rank))
             return reshaped
 
         elif get_backend() == "tf":
             # Create a one-hot axis for the categories at the end?
             if self.num_categories[key] > 1:
-                input_ = tf.one_hot(indices=input_, depth=self.num_categories[key], axis=-1)
+                inputs = tf.one_hot(indices=inputs, depth=self.num_categories[key], axis=-1)
             with_batch_rank = self.output_spaces[key].has_batch_rank
-            reshaped = tf.reshape(input_, shape=self.output_spaces[key].get_shape(with_batch_rank=with_batch_rank),
+            reshaped = tf.reshape(inputs, shape=self.output_spaces[key].get_shape(with_batch_rank=with_batch_rank),
                                   name = "flattened")
             return reshaped
 

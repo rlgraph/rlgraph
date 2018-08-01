@@ -64,10 +64,11 @@ class DQNLossFunction(LossFunction):
         self.action_space = None
         self.ranks_to_reduce = 0  # How many ranks do we have to reduce to get down to the final loss per batch item?
 
-    def check_input_spaces(self, input_spaces, action_space):
+    def check_input_spaces(self, input_spaces, action_space=None):
         """
         Do some sanity checking on the incoming Spaces:
         """
+        assert action_space is not None
         self.action_space = action_space
         # Check for IntBox and num_categories.
         sanity_check_space(

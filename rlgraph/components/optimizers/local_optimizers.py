@@ -59,7 +59,7 @@ class LocalOptimizer(Optimizer):
 
         self.define_api_method("step", step)
 
-    def create_variables(self, input_spaces, action_space):
+    def create_variables(self, input_spaces, action_space=None):
         # TODO: problem dont exist here
         # Must register the Optimizer's variables with the Component.
         # self.register_variables(*self.optimizer.variables())

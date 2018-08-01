@@ -125,7 +125,7 @@ class ActionAdapter(Component):
 
             self.define_api_method("get_logits_parameters_log_probs", get_logits_parameters_log_probs)
 
-    def check_input_spaces(self, input_spaces, action_space):
+    def check_input_spaces(self, input_spaces, action_space=None):
         # Check the input Space.
         if "get_logits_parameters_log_probs" in input_spaces:
             last_nn_layer_space = input_spaces["get_logits_parameters_log_probs"][0]  # type: Space

@@ -51,8 +51,8 @@ class DenseLayer(NNLayer):
         # Number of nodes in this layer.
         self.units = units
 
-    def create_variables(self, input_spaces, action_space):
-        in_space = input_spaces["apply"][0]
+    def create_variables(self, input_spaces, action_space=None):
+        in_space = input_spaces["inputs"]
 
         # Create weights.
         weights_shape = (in_space.shape[0], self.units)  # [0] b/c Space.shape never includes batch-rank

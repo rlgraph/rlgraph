@@ -45,9 +45,7 @@ class TestPreprocessorStacks(unittest.TestCase):
         divide = dict(type="divide", divisor=0.5, scope="d")
         stack = PreprocessorStack(multiply, divide, backend="python")
         for sub_comp_scope in ["m", "d"]:
-            stack.sub_components[sub_comp_scope].create_variables(input_spaces=dict(
-                apply=[space]
-            ), action_space=None)
+            stack.sub_components[sub_comp_scope].create_variables(input_spaces=dict(inputs=space))
 
         #test = ComponentTest(component=stack, input_spaces=dict(preprocess=float))
 

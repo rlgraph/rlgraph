@@ -34,9 +34,9 @@ class Normal(Distribution):
         # Do not flatten incoming DataOps as we need more than one parameter in our parameterize graph_fn.
         super(Normal, self).__init__(scope=scope, **kwargs)
 
-    def check_input_spaces(self, input_spaces, action_space):
+    def check_input_spaces(self, input_spaces, action_space=None):
         # Must be a Tuple of len 2 (loc and scale).
-        parameter_space = input_spaces["sample_stochastic"][0]
+        parameter_space = input_spaces["distribution"]
         assert isinstance(parameter_space, Tuple) and len(parameter_space) == 2,\
             "ERROR: API-method `get_distribution` of '{}' (type '') needs parameter arg to be a Tuple with " \
             "len=2!".format(self.name, type(self).__name__)

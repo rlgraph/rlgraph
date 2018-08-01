@@ -377,7 +377,9 @@ class APIMethodRecord(object):
         self.must_be_complete = must_be_complete
         #self.callable_anytime = callable_anytime
 
-        self.in_spaces = None
+        # List of the input-parameter names (str) of this API-method.
+        self.input_names = None
+        #self.in_spaces = None
 
         self.in_op_columns = list()
         self.out_op_columns = list()

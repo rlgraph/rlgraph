@@ -50,8 +50,8 @@ class Merger(Component):
 
         self.define_api_method(name="merge", func=self._graph_fn_merge)
 
-    def check_input_spaces(self, input_spaces, action_space):
-        spaces = input_spaces["merge"]
+    def check_input_spaces(self, input_spaces, action_space=None):
+        spaces = input_spaces["inputs"]
 
         assert len(spaces) == len(self.input_names),\
             "ERROR: Number of incoming Spaces ({}) does not match number of given `input_names` in Merger Component " \

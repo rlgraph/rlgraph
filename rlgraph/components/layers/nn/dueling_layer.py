@@ -43,18 +43,18 @@ class DuelingLayer(NNLayer):
         self.num_advantage_values = None
         self.target_space = None
 
-    def check_input_spaces(self, input_spaces, action_space):
+    def check_input_spaces(self, input_spaces, action_space=None):
         super(DuelingLayer, self).check_input_spaces(input_spaces, action_space)
-        in_space = input_spaces["apply"][0]
+        in_space = input_spaces["inputs"]
         # Last rank is the [value + advantage-values] rank, store the number of advantage values here.
         self.num_advantage_values = in_space.get_shape(with_batch_rank=True)[-1] - 1
 
         self.target_space = action_space.with_batch_rank()
 
-    def _graph_fn_apply(self, flat_input):
+    def _graph_fn_apply(self, inputs):
         """
         Args:
-            flat_input (SingleDataOp): The flattened api_methods to this layer. These must include the single node
+            inputs (SingleDataOp): The flattened api_methods to this layer. These must include the single node
                 for the state-value.
 
         Returns:
@@ -69,7 +69,7 @@ class DuelingLayer(NNLayer):
         if get_backend() == "tf":
             # Separate out the single state-value node.
             state_value, advantages = tf.split(
-                value=flat_input, num_or_size_splits=(1, self.num_advantage_values), axis=-1
+                value=inputs, num_or_size_splits=(1, self.num_advantage_values), axis=-1
             )
             # Now we have to reshape the advantages according to our action space.
             shape = list(self.target_space.get_shape(with_batch_rank=-1, with_category_rank=True))

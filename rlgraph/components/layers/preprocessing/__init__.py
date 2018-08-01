@@ -27,6 +27,7 @@ from rlgraph.components.layers.preprocessing.image_crop import ImageCrop
 from rlgraph.components.layers.preprocessing.image_resize import ImageResize
 from rlgraph.components.layers.preprocessing.normalize import Normalize
 from rlgraph.components.layers.preprocessing.multiply_divide import Multiply, Divide
+from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.layers.preprocessing.sequence import Sequence
 
 PreprocessLayer.__lookup_classes__ = dict(
@@ -39,11 +40,10 @@ PreprocessLayer.__lookup_classes__ = dict(
     imageresize=ImageResize,
     multiply=Multiply,
     normalize=Normalize,
+    reshape=ReShape,
     sequence=Sequence
 )
 
-__all__ = [
-    "PreprocessLayer",
-    "Clip", "Divide", "Flatten", "GrayScale", "ImageBinary", "ImageCrop", "ImageResize", "Multiply",
-    "Normalize", "Sequence"
-]
+
+__all__ = ["PreprocessLayer"] + \
+          list(set(map(lambda x: x.__name__, PreprocessLayer.__lookup_classes__.values())))

@@ -62,8 +62,8 @@ class DecayComponent(Component):
 
         self.define_api_method(name="decayed_value", func=self._graph_fn_decayed_value)
 
-    def check_input_spaces(self, input_spaces, action_space):
-        time_step_space = input_spaces["decayed_value"][0]  # type: Space
+    def check_input_spaces(self, input_spaces, action_space=None):
+        time_step_space = input_spaces["time_step"]  # type: Space
         sanity_check_space(time_step_space, allowed_types=[IntBox], must_have_batch_rank=False,
                            must_have_categories=False, rank=0)
 

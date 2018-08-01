@@ -55,9 +55,10 @@ class VTraceFunction(Component):
         # graph_fn can be called anytime from within another graph_fn.
         self.define_api_method("calc_v_trace_values", self._graph_fn_calc_v_trace_values)
 
-    def check_input_spaces(self, input_spaces, action_space):
-        in_spaces = input_spaces["calc_v_trace_values"]
-        log_is_weight_space, discounts_space, rewards_space, values_space, bootstrap_value_space = in_spaces
+    def check_input_spaces(self, input_spaces, action_space=None):
+        log_is_weight_space, discounts_space, rewards_space, values_space, bootstrap_value_space = \
+            input_spaces["log_is_weights"], input_spaces["discounts"], input_spaces["rewards"], \
+            input_spaces["values"], input_spaces["bootstrapped_v"]
 
         sanity_check_space(log_is_weight_space, must_have_batch_rank=True)
         log_is_weight_rank = log_is_weight_space.rank

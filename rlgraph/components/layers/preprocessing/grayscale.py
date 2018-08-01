@@ -63,12 +63,12 @@ class GrayScale(PreprocessLayer):
             ret[key] = value.__class__(shape=tuple(shape), add_batch_rank=value.has_batch_rank)
         return unflatten_op(ret)
 
-    def check_input_spaces(self, input_spaces, action_space):
+    def check_input_spaces(self, input_spaces, action_space=None):
         super(GrayScale, self).check_input_spaces(input_spaces, action_space)
-        in_space = input_spaces["apply"][0]
+        in_space = input_spaces["inputs"]
         self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
 
-    def _graph_fn_apply(self, images):
+    def _graph_fn_apply(self, inputs):
         """
         Gray-scales images of arbitrary rank.
         Normally, the images' rank is 3 (width/height/colors), but can also be: batch/width/height/colors, or any other.
@@ -82,14 +82,14 @@ class GrayScale(PreprocessLayer):
             DataOp: The op for processing the images.
         """
         # The reshaped weights used for the grayscale operation.
-        images_shape = get_shape(images)
+        images_shape = get_shape(inputs)
         assert images_shape[-1] == self.last_rank,\
             "ERROR: Given image's shape ({}) does not match number of weights (last rank must be {})!".\
             format(images_shape, self.last_rank)
         weights_reshaped = np.reshape(a=self.weights,
-                                      newshape=tuple([1] * (get_rank(images)-1)) + (self.last_rank,))
+                                      newshape=tuple([1] * (get_rank(inputs)-1)) + (self.last_rank,))
         if self.backend == "python" or get_backend() == "python":
-            return np.sum(a=weights_reshaped * images, axis=-1, keepdims=self.keep_rank)
+            return np.sum(a=weights_reshaped * inputs, axis=-1, keepdims=self.keep_rank)
         elif get_backend() == "tf":
-            return tf.reduce_sum(input_tensor=weights_reshaped * images, axis=-1, keepdims=self.keep_rank)
+            return tf.reduce_sum(input_tensor=weights_reshaped * inputs, axis=-1, keepdims=self.keep_rank)
 

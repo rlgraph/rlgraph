@@ -55,11 +55,12 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
 
     input_spaces = dict(
         # insert: records
-        insert_records=[record_space],
+        records=record_space,
         # get_records: num_records
-        get_records=[int],
+        num_records=int,
         # update_records: indices, update
-        update_records=[IntBox(shape=(), add_batch_rank=True), FloatBox(shape=(), add_batch_rank=True)]
+        indices=IntBox(add_batch_rank=True),
+        update=FloatBox(add_batch_rank=True)
     )
 
     def test_insert(self):
@@ -72,7 +73,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
             alpha=self.alpha,
             beta=self.beta
         )
-        memory.create_variables(self.input_spaces, None)
+        memory.create_variables(self.input_spaces)
 
         observation = memory.record_space_flat.sample(size=1)
         memory.insert_records(observation)
@@ -104,7 +105,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
             capacity=self.capacity,
             next_states=True
         )
-        memory.create_variables(self.input_spaces, None)
+        memory.create_variables(self.input_spaces)
 
         # Insert a few Elements.
         observation = memory.record_space_flat.sample(size=2)
@@ -153,7 +154,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
             alpha=self.alpha,
             beta=self.beta
         )
-        memory.create_variables(self.input_spaces, None)
+        memory.create_variables(self.input_spaces)
 
         priority_capacity = 1
         while priority_capacity < self.capacity:

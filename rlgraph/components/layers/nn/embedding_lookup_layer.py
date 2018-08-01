@@ -52,7 +52,7 @@ class EmbeddingLookupLayer(NNLayer):
         # Our embedding matrix variable.
         self.embedding_matrix = None
 
-    def create_variables(self, input_spaces, action_space):
+    def create_variables(self, input_spaces, action_space=None):
         # TODO: For IMPALA, neither partitioner, nor initializer are needed. Do these later.
         self.embedding_matrix = self.get_variable(shape=(self.vocab_size, self.embed_dim), dtype=dtype("float"),
                                                   #initializer=self.initializers,

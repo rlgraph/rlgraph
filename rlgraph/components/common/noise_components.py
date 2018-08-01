@@ -76,7 +76,8 @@ class GaussianNoise(NoiseComponent):
 
         self.action_space = None
 
-    def check_input_spaces(self, input_spaces, action_space):
+    def check_input_spaces(self, input_spaces, action_space=None):
+        assert action_space is not None
         self.action_space = action_space
 
     def _graph_fn_get_noise(self):
@@ -109,7 +110,8 @@ class OrnsteinUhlenbeckNoise(NoiseComponent):
         self.ou_state = None
         self.action_space = None
 
-    def create_variables(self, input_spaces, action_space):
+    def create_variables(self, input_spaces, action_space=None):
+        assert action_space is not None
         self.action_space = action_space
 
         self.ou_state = self.get_variable(

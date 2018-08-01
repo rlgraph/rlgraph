@@ -99,7 +99,8 @@ class Exploration(Component):
 
         self.define_api_method("get_action", get_action)
 
-    def check_input_spaces(self, input_spaces, action_space):
+    def check_input_spaces(self, input_spaces, action_space=None):
+        assert action_space is not None
         self.action_space = action_space.with_batch_rank()
         assert self.action_space.has_batch_rank, "ERROR: `self.action_space` does not have batch rank!"
 

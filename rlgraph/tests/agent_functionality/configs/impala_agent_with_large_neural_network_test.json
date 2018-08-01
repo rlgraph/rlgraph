@@ -1,0 +1,31 @@
+{
+  "type": "impala",
+
+  "memory_spec":
+  {
+    "type": "fifo_queue",
+    "capacity": 10000
+  },
+
+  "preprocessing_spec":
+  [
+    {
+      "type": "divide",
+      "divisor": 255
+    }
+  ],
+
+  "exploration_spec":
+  {
+    "non_explore_behavior": "max-likelihood",
+    "epsilon_spec": {
+      "decay_spec": {
+        "type": "linear_decay",
+        "from": 1.0,
+        "to": 0.1,
+        "start_timestep": 0,
+        "num_timesteps": 100
+      }
+    }
+  }
+}

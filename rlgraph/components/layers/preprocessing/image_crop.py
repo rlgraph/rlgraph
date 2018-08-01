@@ -67,25 +67,25 @@ class ImageCrop(PreprocessLayer):
             ret[key] = value.__class__(shape=tuple(shape), add_batch_rank=value.has_batch_rank)
         return unflatten_op(ret)
 
-    def check_input_spaces(self, input_spaces, action_space):
+    def check_input_spaces(self, input_spaces, action_space=None):
         super(ImageCrop, self).check_input_spaces(input_spaces, action_space)
-        in_space = input_spaces["apply"][0]
+        in_space = input_spaces["inputs"]
 
         self.output_spaces = self.get_preprocessed_space(in_space)
 
-    def _graph_fn_apply(self, images):
+    def _graph_fn_apply(self, inputs):
         """
         Images come in with either a batch dimension or not.
         """
         if self.backend == "python" or get_backend() == "python":
-            if images.ndim == 4:
+            if inputs.ndim == 4:
                 # Preserve batch dimension
-                return images[:, self.y:self.y + self.height, self.x:self.x + self.width]
+                return inputs[:, self.y:self.y + self.height, self.x:self.x + self.width]
             else:
-                return images[self.y:self.y + self.height, self.x:self.x + self.width]
+                return inputs[self.y:self.y + self.height, self.x:self.x + self.width]
         elif get_backend() == "tf":
             return tf.image.crop_to_bounding_box(
-                image=images,
+                image=inputs,
                 offset_height=self.y,
                 offset_width=self.x,
                 target_height=self.height,
