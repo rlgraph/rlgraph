@@ -45,7 +45,7 @@ class TestGraphFns(unittest.TestCase):
         component = FlattenSplitDummy()
         test = ComponentTest(
             component=component,
-            input_spaces=dict(run=[input1_space, input2_space])
+            input_spaces=dict(input1=input1_space, input2=input2_space)
         )
 
         # Options: fsu=flat/split/un-flat.
@@ -66,7 +66,7 @@ class TestGraphFns(unittest.TestCase):
         input2_space = spaces.FloatBox(shape=(1,1))
 
         component = FlattenSplitDummy()
-        test = ComponentTest(component=component, input_spaces=dict(run=[input1_space, input2_space]))
+        test = ComponentTest(component=component, input_spaces=dict(input1=input1_space, input2=input2_space))
 
         # Options: fsu=flat/split/un-flat.
         in1_fsu = dict(a=np.array(0.234), b=np.array([[0.0, 3.0]]))
@@ -86,7 +86,7 @@ class TestGraphFns(unittest.TestCase):
         input2_space = spaces.Dict(c=bool, d=int)
 
         component = NoFlattenNoSplitDummy()
-        test = ComponentTest(component=component, input_spaces=dict(run=[input1_space, input2_space]))
+        test = ComponentTest(component=component, input_spaces=dict(input1=input1_space, input2=input2_space))
 
         # Options: fsu=flat/split.
         in1 = dict(a=5, b=True)
@@ -105,7 +105,7 @@ class TestGraphFns(unittest.TestCase):
         input2_space = spaces.FloatBox(shape=(1,))
 
         component = OnlyFlattenDummy(constant_value=5.0)
-        test = ComponentTest(component=component, input_spaces=dict(run=[input1_space, input2_space]))
+        test = ComponentTest(component=component, input_spaces=dict(input1=input1_space, input2=input2_space))
 
         # Options: only flatten_ops=True.
         in1 = dict(a=5.4, b=3.4, c=tuple([3.2]))

@@ -56,7 +56,7 @@ class TestTwoSubComponents(unittest.TestCase):
 
         core.define_api_method("run", run)
 
-        test = ComponentTest(component=core, input_spaces=dict(run=float))
+        test = ComponentTest(component=core, input_spaces=dict(input_=float))
 
         # Expected output: input + 1.0 + 1.0
         test.test(("run", 1.1), expected_outputs=3.1)
@@ -77,7 +77,7 @@ class TestTwoSubComponents(unittest.TestCase):
 
         core.define_api_method("run", run)
 
-        test = ComponentTest(component=core, input_spaces=dict(run=float))
+        test = ComponentTest(component=core, input_spaces=dict(input_=float))
 
         # Expected output: input + (input + 1.0)
         test.test(("run", 100.9), expected_outputs=np.float32(202.8))
@@ -99,7 +99,7 @@ class TestTwoSubComponents(unittest.TestCase):
 
         core.define_api_method("run", run)
 
-        test = ComponentTest(component=core, input_spaces=dict(run=float))
+        test = ComponentTest(component=core, input_spaces=dict(input_=float))
 
         # Expected output: (input + 1.0) + 1.1
         test.test(("run", 78.4), expected_outputs=80.5)
@@ -143,14 +143,14 @@ class TestTwoSubComponents(unittest.TestCase):
 
         container.define_api_method("run", container_run)
 
-        test = ComponentTest(component=container, input_spaces=dict(run=(float, float)))
+        test = ComponentTest(component=container, input_spaces=dict(input1=float, input2=float))
 
         # Push both api_methods through graph to receive correct (single-op) output calculation.
         test.test(("run", [1.1, 0.5]), expected_outputs=5.6)
 
     def test_calling_sub_components_api_from_within_graph_fn(self):
         a = DummyCallingSubComponentsAPIFromWithinGraphFn(scope="A")
-        test = ComponentTest(component=a, input_spaces=dict(run=float))
+        test = ComponentTest(component=a, input_spaces=dict(input_=float))
 
         # Expected: (1): 2*in + 10
         test.test(("run", 1.1), expected_outputs=12.2, decimals=4)

@@ -37,7 +37,7 @@ class TestDevicePlacements(unittest.TestCase):
         Place the entire Component on its own device.
         """
         a = Dummy1To1(scope="A", device="/device:CPU:0")
-        test = ComponentTest(component=a, input_spaces=dict(run=float))
+        test = ComponentTest(component=a, input_spaces=dict(input_=float))
         # Actually check the device of the ops in a.
         self.assertEqual(a.api_methods["run"].in_op_columns[0].op_records[0].op.device, "/device:CPU:0")
         self.assertEqual(a.api_methods["run"].out_op_columns[0].op_records[0].op.device, "/device:CPU:0")

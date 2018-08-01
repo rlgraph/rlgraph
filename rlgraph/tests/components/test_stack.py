@@ -32,7 +32,7 @@ class TestStack(unittest.TestCase):
     """
     def test_one_sub_component(self):
         stack = Stack(Dummy1To1(constant_value=3.0), api_methods={"run"})
-        test = ComponentTest(component=stack, input_spaces=dict(run=FloatBox()))
+        test = ComponentTest(component=stack, input_spaces=dict(input_=FloatBox()))
 
         test.test(("run", 4.6), expected_outputs=7.6)
 
@@ -40,7 +40,7 @@ class TestStack(unittest.TestCase):
         stack = Stack(Dummy1To1(scope="A", constant_value=3.0),
                       Dummy1To1(scope="B", constant_value=1.0),
                       api_methods={"run"})
-        test = ComponentTest(component=stack, input_spaces=dict(run=FloatBox()))
+        test = ComponentTest(component=stack, input_spaces=dict(input_=FloatBox()))
 
         test.test(("run", 4.6), expected_outputs=np.array(8.6, dtype=np.float32))
 
@@ -48,7 +48,7 @@ class TestStack(unittest.TestCase):
         stack = Stack(Dummy1To2(scope="A", constant_value=1.5),
                       Dummy2To1(scope="B"),
                       api_methods={"run"})
-        test = ComponentTest(component=stack, input_spaces=dict(run=FloatBox()))
+        test = ComponentTest(component=stack, input_spaces=dict(input_=FloatBox()))
 
         # Expect: (in + 1.5, in * 1.5) -> (1.5, 0.0) -> (1.5 + 0.0) = 1.5
         test.test(("run", 0.0), expected_outputs=np.array(1.5, dtype=np.float32))
@@ -57,7 +57,7 @@ class TestStack(unittest.TestCase):
         stack = Stack(Dummy2To1(scope="A"),
                       Dummy1To2(scope="B", constant_value=2.3),
                       api_methods={"run"})
-        test = ComponentTest(component=stack, input_spaces=dict(run=(FloatBox(), float)))
+        test = ComponentTest(component=stack, input_spaces=dict(input1=FloatBox(), input2=float))
 
         # Expect: (in1 + in2) -> 0.1 -> (0.1 + 2.3, 0.1 * 2.3)
         test.test(("run", [0.0, 0.1]), expected_outputs=(2.4, 0.23))
