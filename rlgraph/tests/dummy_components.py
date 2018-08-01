@@ -218,6 +218,39 @@ class DummyWithSubComponents(Component):
         return input_ + self.constant_value
 
 
+class DummyCallingSubCompAPIFromWithinGraphFn(Component):
+    """
+    A dummy component with one sub-component that has variables and an API-method.
+    This dummy calls the sub-componet's API-method from within its graph_fn.
+
+    API:
+        run(input_): Result of input_ + sub_comp.run(input_) + `self.constant_value`
+    """
+    def __init__(self, scope="dummy-calling-sub-components-api-from-within-graph-fn", constant_value=1.0, **kwargs):
+        """
+        Args:
+            constant_value (float): A constant to add to input in our graph_fn.
+        """
+        super(DummyCallingSubCompAPIFromWithinGraphFn, self).__init__(scope=scope, **kwargs)
+        self.constant_value = constant_value
+
+        # Create a sub-Component and add it.
+        self.sub_comp = SimpleDummyWithVar()
+        self.add_components(self.sub_comp)
+
+    def run(self, input_):
+        # Returns 2*input_ + 10.0.
+        sub_comp_result = self.call(self.sub_comp.run, input_)  # input_ + 3.0
+        self_result = self.call(self._graph_fn_apply, sub_comp_result)  # 2*(input_ + 3.0) + 4.0 = 2*input_ + 10.0
+        return self_result
+
+    def _graph_fn_apply(self, input_):
+        # Returns: input_ + [(input_ + 1.0) + 3.0] = 2*input_ + 4.0
+        intermediate_result = input_ + self.constant_value
+        after_api_call = self.call(self.sub_comp.run, intermediate_result)
+        return input_ + after_api_call
+
+
 class DummyCallingSubComponentsAPIFromWithinGraphFn(Component):
     """
     A dummy component with one sub-component that has variables and an API-method.

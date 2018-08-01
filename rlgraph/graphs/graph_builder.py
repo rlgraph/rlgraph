@@ -17,19 +17,18 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections import OrderedDict
 import logging
 import re
 import time
 
 from rlgraph import RLGraphError, Specifiable, get_backend
-from rlgraph.components import Component
+from rlgraph.components.component import Component
 from rlgraph.spaces import Space, Dict
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.util import force_list, force_tuple, get_shape
 from rlgraph.utils.ops import DataOpTuple, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
-    DataOpRecordColumnIntoAPIMethod
+    DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn
 from rlgraph.utils.component_printout import component_print_out
 
 if get_backend() == "tf":
@@ -60,10 +59,17 @@ class GraphBuilder(Specifiable):
         # All components assigned to each device, for debugging and analysis.
         self.device_component_assignments = dict()
         self.available_devices = None
+
         # Device specifications.
         self.device_strategy = None
         self.default_device = None
         self.device_map = None
+
+        # Build status/phase. Can take values
+        # None: Build has not started yet.
+        # "assembly": meta-graph is being assembled.
+        # "building": actual graph is being built from meta-graph.
+        self.build_phase = None
 
         # Some build stats:
         # Number of meta op-records.
@@ -81,8 +87,9 @@ class GraphBuilder(Specifiable):
 
         # Dict of unprocessed (and complete) op-record columns by key=op-column ID.
         # Columns that have been forwarded will be erased again from this collection.
-        self.unprocessed_in_op_columns = OrderedDict()
-        self.unprocessed_complete_in_op_columns = OrderedDict()
+        # NOT NEEDED SO FAR.
+        # self.unprocessed_in_op_columns = OrderedDict()
+        # self.unprocessed_complete_in_op_columns = OrderedDict()
 
     def build_meta_graph(self, input_spaces=None):
         """
@@ -95,22 +102,24 @@ class GraphBuilder(Specifiable):
         # Time the meta-graph build:
         time_start = time.monotonic()
 
+        # Set the build phase to `assembly`.
+        self.build_phase = "assembly"
+
         # Sanity check input_spaces dict.
         if input_spaces is not None:
-            for api_method_name in input_spaces.keys():
-                if api_method_name not in self.core_component.api_methods:
-                    raise RLGraphError("ERROR: `input_spaces` contains API-method ('{}') that's not defined in "
-                                       "core-component '{}'!".format(api_method_name, self.core_component.name))
+            for input_param_name in input_spaces.keys():
+                if input_param_name not in self.core_component.api_method_inputs:
+                    raise RLGraphError(
+                        "ERROR: `input_spaces` contains input-paramater-name ('{}') that's not defined in any of "
+                        "the core-component's ('{}') API-methods!".format(input_param_name, self.core_component.name)
+                    )
 
         # Call all API methods of the core and thereby, create empty in-op columns that serve as placeholders
         # and bi-directional links for the build time.
         for api_method_name, api_method_rec in self.core_component.api_methods.items():
             self.logger.debug("Building meta-graph of API-method '{}'.".format(api_method_name))
             # Create an new in column and map it to the resulting out column.
-            in_ops_records = list()
-            if input_spaces is not None and api_method_name in input_spaces:
-                for i in range(len(force_list(input_spaces[api_method_name]))):
-                    in_ops_records.append(DataOpRecord(position=i))
+            in_ops_records = [DataOpRecord(position=i) for i, param in enumerate(api_method_rec.input_names)]
             # Do the actual core API-method call (thereby assembling the meta-graph).
             self.core_component.call(api_method_rec.method, *in_ops_records, ok_to_call_own_api=True)
 
@@ -127,50 +136,6 @@ class GraphBuilder(Specifiable):
         # Get some stats on the graph and report.
         self.num_meta_ops = DataOpRecord._ID + 1
         self.logger.info("\tMeta-graph op-records generated: {}".format(self.num_meta_ops))
-
-    def sanity_check_meta_graph(self, component=None):
-        """
-        TODO: Rewrite this method according to new API-method design.
-
-        Checks whether all the `component`'s and its sub-components' in-Sockets are simply connected in the
-        meta-graph and raises detailed error messages if not. A connection to an in-Socket is ok if ...
-        a) it's coming from another Socket or
-        b) it's coming from a Space object
-
-        Args:
-            component (Component): The Component to analyze for incoming connections.
-        """
-        component = component or self.core_component
-
-        if self.logger.level <= logging.INFO:
-            component_print_out(component)
-
-        # Check all the Component's in-Sockets for being connected from a Space/Socket.
-        for in_sock in component.input_sockets:  # type: Socket
-            if len(in_sock.incoming_connections) == 0 and \
-                    in_sock.name not in component.unconnected_sockets_in_meta_graph:
-                raise RLGraphError("Component '{}' has in-Socket ({}) without any incoming connections! If this is "
-                                   "intended before the build process, you have to add the Socket's name to the "
-                                   "Component's `unconnected_sockets_in_meta_graph` set. Then this error will be "
-                                   "suppressed for this Component.".format(component.name, in_sock.name))
-
-        # Check all the component's graph_fns for input-completeness.
-        for graph_fn in component.graph_fns:  # type: GraphFunction
-            for in_sock_rec in graph_fn.input_sockets.values():
-                in_sock = in_sock_rec["socket"]
-                if len(in_sock.incoming_connections) == 0 and \
-                        in_sock.name not in component.unconnected_sockets_in_meta_graph:
-                    raise RLGraphError("GraphFn {}/{} has in-Socket ({}) without any incoming "
-                                       "connections!".format(component.name, graph_fn.name, in_sock_rec["socket"].name))
-
-        # Recursively call this method on all the sub-component's sub-components.
-        for sub_component in component.sub_components.values():
-            #self.build_steps += 1
-            #if self.build_steps >= self.MAX_ITERATIVE_LOOPS:
-            #    raise RLGraphError("Error sanity checking graph, reached max recursion steps: {}".format(
-            #        self.MAX_ITERATIVE_LOOPS
-            #    ))
-            self.sanity_check_meta_graph(sub_component)
 
     def build_graph(self, input_spaces, available_devices,
                     device_strategy="default", default_device=None, device_map=None):
@@ -194,6 +159,9 @@ class GraphBuilder(Specifiable):
         # Time the build procedure.
         time_start = time.monotonic()
 
+        # Set the build phase to `building`.
+        self.build_phase = "building"
+
         # Set devices usable for this graph.
         self.available_devices = available_devices
         self.device_strategy = device_strategy
@@ -207,6 +175,7 @@ class GraphBuilder(Specifiable):
         # Collect all components and add those op-recs to the set that are constant.
         components = self.get_all_components()
         for component in components:
+            component.graph_builder = self  # point to us.
             op_records_to_process.update(component.constant_op_records)
             # Check whether the Component is input-complete (and build already if it is).
             self.build_component_when_input_complete(component, op_records_to_process)
@@ -222,6 +191,8 @@ class GraphBuilder(Specifiable):
                 if len(op_rec.next) > 0:
                     # Push the op-record forward one step.
                     for next_op_rec in sorted(op_rec.next, key=lambda rec: rec.id):  # type: DataOpRecord
+                        next_component = next_op_rec.column.component
+
                         # If not last op in this API-method -> continue.
                         if next_op_rec.is_terminal_op is False:
                             assert next_op_rec.op is None
@@ -229,26 +200,26 @@ class GraphBuilder(Specifiable):
                         # Push op and Space into next op-record.
                         next_op_rec.op = op_rec.op
                         next_op_rec.space = op_rec.space
+
                         # Also push Space into possible API-method record if slot's Space is still None.
-                        if isinstance(next_op_rec.column, DataOpRecordColumnIntoAPIMethod):
-                            in_spaces = next_op_rec.column.api_method_rec.in_spaces
-                            # Place Space into API-method rec's Space list (valid for all op-rec columns of this
-                            # API-method record).
-                            if in_spaces[next_op_rec.position] is None:
-                                in_spaces[next_op_rec.position] = op_rec.space
+                        if isinstance(op_rec.column, DataOpRecordColumnIntoAPIMethod):
+                            param_name = op_rec.column.api_method_rec.input_names[next_op_rec.position]
+                            # Place Space for this input-param name (valid for all input params of same name even of
+                            # different API-method of the same Component).
+                            if next_component.api_method_inputs[param_name] is None:
+                                next_component.api_method_inputs[param_name] = next_op_rec.space
                             # Sanity check, whether Spaces are the same.
                             else:
-                                assert in_spaces[next_op_rec.position] == next_op_rec.space, \
-                                    "ERROR: op-rec '{}' has Space '{}', but API-method record already has Space '{}' " \
-                                    "at same position!".format(next_op_rec, next_op_rec.space,
-                                                               in_spaces[next_op_rec.position])
+                                assert next_component.api_method_inputs[param_name] == next_op_rec.space, \
+                                    "ERROR: op-rec '{}' has Space '{}', but input-param '{}' already has Space '{}'!".\
+                                    format(next_op_rec, next_op_rec.space, param_name,
+                                           next_component.api_method_inputs[param_name])
 
                         # Did we enter a new Component? If yes, check input-completeness and
                         # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
                         # placeholder).
-                        if op_rec.column is None or op_rec.column.component is not next_op_rec.column.component:
-                            self.build_component_when_input_complete(next_op_rec.column.component,
-                                                                     new_op_records_to_process)
+                        if op_rec.column is None or op_rec.column.component is not next_component:
+                            self.build_component_when_input_complete(next_component, new_op_records_to_process)
 
                 # No next records:
                 # - Op belongs to a column going into a graph_fn.
@@ -334,8 +305,8 @@ class GraphBuilder(Specifiable):
         op_records_to_process_later = set()
 
         for api_method_name, (in_op_records, _) in self.api.items():
-            spaces = force_list(input_spaces[api_method_name]) if input_spaces is not None and \
-                                                                  api_method_name in input_spaces else list()
+            api_method_rec = self.core_component.api_methods[api_method_name]
+            spaces = [input_spaces[param] for param in api_method_rec.input_names]
             assert len(spaces) == len(in_op_records)
 
             # Create the placeholder and store it in the given DataOpRecords.
@@ -389,6 +360,7 @@ class GraphBuilder(Specifiable):
         Args:
             component (Optional[Component]): The Component to look through. None for the core-Component.
             list_ (Optional[List[Component]])): A list of already collected components to append to.
+            level_ (int): The slot indicating the Component level depth in `list_` at which we are currently.
 
         Returns:
             List[Component]: A list with all the components in `component`.
@@ -413,13 +385,13 @@ class GraphBuilder(Specifiable):
     def build_component_when_input_complete(self, component, op_records_to_process):
         # Not input complete yet -> Check now.
         if component.input_complete is False:
-            spaces_dict = component.check_input_completeness()
-            # call `when_input_complete` once on that Component.
-            if spaces_dict is not None:
-                self.logger.debug("Component {} is input-complete; spaces_dict={}".
-                                  format(component.name, spaces_dict))
+            component.check_input_completeness()
+            # Call `when_input_complete` once on that Component.
+            if component.input_complete is True:
+                self.logger.debug("Component {} is input-complete; Spaces per API-method input parameter are: {}".
+                                  format(component.name, component.api_method_inputs))
                 device = self.get_device(component, variables=True)
-                component.when_input_complete(spaces_dict, self.action_space, device)
+                component.when_input_complete(input_spaces=None, action_space=self.action_space, device=device)
                 # Call all no-input graph_fns of the new Component.
                 for no_in_col in component.no_input_graph_fn_columns:
                     # Do not call _variables (only later, when Component is also variable-complete).
@@ -442,7 +414,7 @@ class GraphBuilder(Specifiable):
                     # Keep working with the generated output ops.
                     op_records_to_process.update(graph_fn_rec.out_op_columns[i].op_records)
 
-    def run_through_graph_fn_with_device_and_scope(self, op_rec_column):
+    def run_through_graph_fn_with_device_and_scope(self, op_rec_column, create_new_out_column=False):
         """
         Runs through a graph_fn with the given ops and thereby assigns a device (Component's device or GraphBuilder's
         default) to the ops generated by a graph_fn.
@@ -450,6 +422,10 @@ class GraphBuilder(Specifiable):
         Args:
             op_rec_column (DataOpRecordColumnIntoGraphFn): The column of DataOpRecords to be fed through the
                 graph_fn.
+            create_new_out_column (bool): Whether to produce the out op-record column (or use the one already in
+                the meta-graph). If True and the `op_rec_column` already links to an out op-rec column, raises
+                an error.
+                Default: False.
         """
         # Get the device for the ops generated in the graph_fn (None for custom device-definitions within the graph_fn).
         device = self.get_device(op_rec_column.component, variables=False)
@@ -464,7 +440,10 @@ class GraphBuilder(Specifiable):
                         "Assigning device '{}' to graph_fn '{}' (scope '{}').".
                         format(device, op_rec_column.graph_fn.__name__, op_rec_column.component.global_scope)
                     )
-                    self.run_through_graph_fn(op_rec_column)
+                    out_op_rec_column = self.run_through_graph_fn(
+                        op_rec_column, create_new_out_column=create_new_out_column
+                    )
+                    op_rec_column.out_graph_fn_column = out_op_rec_column
 
         # Tag column as already sent through graph_fn.
         op_rec_column.already_sent = True
@@ -475,6 +454,8 @@ class GraphBuilder(Specifiable):
                 self.device_component_assignments[device] = [str(op_rec_column.graph_fn.__name__)]
             else:
                 self.device_component_assignments[device].append(str(op_rec_column.graph_fn.__name__))
+
+        return op_rec_column.out_graph_fn_column
 
     def get_device(self, component, variables=False):
         """
@@ -575,7 +556,7 @@ class GraphBuilder(Specifiable):
         return subgraph_container
 
     @staticmethod
-    def run_through_graph_fn(op_rec_column):
+    def run_through_graph_fn(op_rec_column, create_new_out_column=False):
         """
         Pushes all ops in the column through the respective graph_fn (graph_fn-spec and call-options are part of
         the column).
@@ -586,6 +567,15 @@ class GraphBuilder(Specifiable):
         Args:
             op_rec_column (DataOpRecordColumnIntoGraphFn): The column of DataOpRecords to be fed through the
                 graph_fn.
+            create_new_out_column (bool): Whether to produce the out op-record column (or use the one already in
+                the meta-graph). If True and the `op_rec_column` already links to an out op-rec column, raises
+                an error.
+                Default: False.
+
+        Returns:
+            DataOpRecordColumnFromGraphFn: The op-record column coming out of the graph_fn. This column may have
+                already existed in the meta-graph before the graph_fn call or may have been generated during this
+                call (if `create_new_out_column` is True).
         """
         in_ops = [r.op for r in op_rec_column.op_records]
         assert all(op is not None for op in in_ops)  # just make sure
@@ -632,30 +622,34 @@ class GraphBuilder(Specifiable):
         # with '/' keys in them, which is not allowed.
         ops = op_rec_column.unflatten_output_ops(*ops)
 
-        out_graph_fn_column = op_rec_column.out_graph_fn_column
-
-        # Make sure the number of returned ops matches the number of op-records in the next column.
-        assert len(ops) == len(out_graph_fn_column.op_records),\
-            "ERROR: Number of returned values of graph_fn '{}/{}' ({}) does not match the number of op-records ({}) " \
-            "reserved for the return values of the method!".format(
-                op_rec_column.component.name, op_rec_column.graph_fn.__name__, len(ops),
-                len(out_graph_fn_column.op_records)
+        # Should we create a new out op-rec column?
+        if create_new_out_column is True:
+            # Assert that we don't have an out column already (wouldn't make sense).
+            assert op_rec_column.out_graph_fn_column is None
+            out_graph_fn_column = DataOpRecordColumnFromGraphFn(
+                len(ops), component=op_rec_column.component, graph_fn_name=op_rec_column.graph_fn.__name__,
+                in_graph_fn_column=op_rec_column
             )
+        else:
+            out_graph_fn_column = op_rec_column.out_graph_fn_column
+            # Make sure the number of returned ops matches the number of op-records in the next column.
+            assert len(ops) == len(out_graph_fn_column.op_records), \
+                "ERROR: Number of returned values of graph_fn '{}/{}' ({}) does not match the number of op-records " \
+                "({}) reserved for the return values of the method!".format(
+                    op_rec_column.component.name, op_rec_column.graph_fn.__name__, len(ops),
+                    len(out_graph_fn_column.op_records)
+                )
+
         # Determine the Spaces for each out op and then move it into the respective op and Space slot of the
         # out_graph_fn_column.
         for i, op in enumerate(ops):
             space = get_space_from_op(op)
-            # TODO: get already existing parallel column from the component's graph_fn records and
-            # compare Spaces with these for match (error if not).
-            #if socket.space is not None:
-            #    assert space == socket.space,\
-            #        "ERROR: Newly calculated output op of graph_fn '{}' has different Space than the Socket that " \
-            #        "this op will go into ({} vs {})!".format(graph_fn.name, space, socket.space)
-            #else:
             # Make sure the receiving op-record is still empty.
             assert out_graph_fn_column.op_records[i].op is None
             out_graph_fn_column.op_records[i].op = op
             out_graph_fn_column.op_records[i].space = space
+
+        return out_graph_fn_column
 
     @staticmethod
     def count_trainable_parameters():
