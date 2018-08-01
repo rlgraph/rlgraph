@@ -35,7 +35,7 @@ class TestPolicies(unittest.TestCase):
         # action_space (5 possible actions).
         action_space = IntBox(5, add_batch_rank=True)
 
-        policy = Policy(neural_network="configs/test_simple_nn.json", action_space=action_space)
+        policy = Policy(neural_network="../configs/test_simple_nn.json", action_space=action_space)
         test = ComponentTest(
             component=policy,
             input_spaces=dict(
@@ -94,7 +94,7 @@ class TestPolicies(unittest.TestCase):
 
         # Policy with additional dueling layer.
         policy = Policy(
-            neural_network="configs/test_lrelu_nn.json",
+            neural_network="../configs/test_lrelu_nn.json",
             action_adapter_spec=dict(add_dueling_layer=True, action_space=action_space),
             switched_off_apis={"get_q_values"}
         )

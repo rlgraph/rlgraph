@@ -21,7 +21,6 @@ import numpy as np
 import unittest
 
 from rlgraph.environments import OpenAIGymEnv
-from rlgraph.tests.test_util import recursive_assert_almost_equal
 
 
 class TestOpenAIAtariEnv(unittest.TestCase):

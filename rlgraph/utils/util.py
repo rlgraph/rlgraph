@@ -122,7 +122,7 @@ def get_shape(op, flat=False, no_batch=False):
     # Numpy ndarrays.
     elif isinstance(op, np.ndarray):
         shape = op.shape
-    # primitive op (e.g. tensorflow)
+    # Primitive op (e.g. tensorflow)
     else:
         op_shape = op.get_shape()
         # Unknown shape (e.g. a cond op).
