@@ -27,6 +27,15 @@ from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 
 
 class TestPreprocessorStacks(unittest.TestCase):
+    """
+    Tests preprocessor stacks using different backends.
+    """
+    def test_backend_equivalence(self):
+        """
+        Tests if Python and TensorFlow backend return the same output
+        for a standard DQN-style preprocessing stack.
+        """
+
 
     def test_simple_preprocessor_stack_with_one_preprocess_layer(self):
         stack = PreprocessorStack(dict(type="multiply", factor=0.5))
@@ -38,6 +47,9 @@ class TestPreprocessorStacks(unittest.TestCase):
 
     # TODO: Make it irrelevent whether we test a python or a tf Component (API and handling should be 100% identical)
     def test_simple_python_preprocessor_stack(self):
+        """
+        Tests a pure python preprocessor stack.
+        """
         space = FloatBox(shape=(2,), add_batch_rank=True)
         # python PreprocessorStack
         multiply = dict(type="multiply", factor=0.5, scope="m")

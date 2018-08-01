@@ -47,7 +47,7 @@ class TestVectorEnv(unittest.TestCase):
         env = Environment.from_spec(self.env_spec)
         agent = Agent.from_spec(
             # Uses 2015 DQN parameters as closely as possible.
-            "configs/dqn_agent_for_pong.json",
+            "../configs/dqn_agent_for_pong.json",
             state_space=env.state_space,
             # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
             action_space=env.action_space
@@ -82,7 +82,7 @@ class TestVectorEnv(unittest.TestCase):
         )
         agent = Agent.from_spec(
             # Uses 2015 DQN parameters as closely as possible.
-            "configs/dqn_vector_env.json",
+            "../configs/dqn_vector_env.json",
             state_space=vector_env.state_space,
             # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
             action_space=vector_env.action_space

@@ -39,7 +39,7 @@ class TestApexExecutor(unittest.TestCase):
         Tests if apex can learn a simple environment using a single worker, thus replicating
         dqn.
         """
-        path = os.path.join(os.getcwd(), "configs/apex_agent_cartpole.json")
+        path = os.path.join(os.getcwd(), "../configs/apex_agent_cartpole.json")
         with open(path, 'rt') as fp:
             agent_config = json.load(fp)
 
@@ -60,5 +60,3 @@ class TestApexExecutor(unittest.TestCase):
         result = executor.execute_workload(workload=dict(num_timesteps=10000, report_interval=1000))
         print("Finished executing workload:")
         print(result)
-
-

@@ -35,7 +35,7 @@ class TestNeuralNetworks(unittest.TestCase):
         space = FloatBox(shape=(3,), add_batch_rank=True)
 
         # Create a simple neural net from json.
-        neural_net = NeuralNetwork.from_file("configs/test_simple_nn.json")  # type: NeuralNetwork
+        neural_net = NeuralNetwork.from_file("../configs/test_simple_nn.json")  # type: NeuralNetwork
 
         # Do not seed, we calculate expectations manually.
         test = ComponentTest(component=neural_net, input_spaces=dict(apply=space), seed=None)

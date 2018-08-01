@@ -48,7 +48,7 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         """
         Tests agent compilation without Ray to ease debugging on Windows.
         """
-        path = os.path.join(os.getcwd(), "../configs/ray_apex_for_pong.json")
+        path = os.path.join(os.getcwd(), "../../configs/ray_apex_for_pong.json")
         with open(path, 'rt') as fp:
             agent_config = json.load(fp)
             # Remove.
@@ -64,7 +64,7 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         """
         Tests if workers initialize without problems for the pong config.
         """
-        path = os.path.join(os.getcwd(), "../configs/ray_apex_for_pong.json")
+        path = os.path.join(os.getcwd(), "../../configs/ray_apex_for_pong.json")
         with open(path, 'rt') as fp:
             agent_config = json.load(fp)
 
@@ -82,7 +82,7 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         N.b. this test does not use Ray.
         """
         ray.init()
-        path = os.path.join(os.getcwd(), "../configs/ray_apex_for_pong.json")
+        path = os.path.join(os.getcwd(), "../../configs/ray_apex_for_pong.json")
         with open(path, 'rt') as fp:
             agent_config = json.load(fp)
 
@@ -96,7 +96,7 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         """
         Tests if Apex can start learning pong effectively on ray.
         """
-        path = os.path.join(os.getcwd(), "../configs/ray_apex_for_pong.json")
+        path = os.path.join(os.getcwd(), "../../configs/ray_apex_for_pong.json")
         with open(path, 'rt') as fp:
             agent_config = json.load(fp)
 

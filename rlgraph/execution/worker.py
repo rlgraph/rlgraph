@@ -160,7 +160,10 @@ class Worker(Specifiable):
                 loss = 0
                 for _ in range_(self.update_steps):
                     ret = self.agent.update()
-                    loss += ret[0]
+                    if isinstance(ret, tuple):
+                        loss += ret[0]
+                    else:
+                        loss += ret
                 return loss
 
         return None
