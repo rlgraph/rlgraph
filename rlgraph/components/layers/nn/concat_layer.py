@@ -41,22 +41,23 @@ class ConcatLayer(NNLayer):
         super(ConcatLayer, self).__init__(scope=kwargs.pop("scope", "concat-layer"), **kwargs)
         self.axis = axis
 
-    def check_input_spaces(self, input_spaces, action_space):
+    def check_input_spaces(self, input_spaces, action_space=None):
         super(ConcatLayer, self).check_input_spaces(input_spaces, action_space)
-        in_space_0 = input_spaces["apply"][0]
+        in_space_0 = input_spaces["inputs"]
         # Make sure all api_methods have the same shape except for the last rank.
         for i, in_space in enumerate(input_spaces["apply"]):
             assert in_space_0.shape[:-1] == in_space.shape[:-1], \
                 "ERROR: Input spaces to ConcatLayer must have same shape except for last rank. {}st input's shape is {}, but " \
                 "1st input's shape is {}.".format(i, in_space.shape, in_space_0.shape)
 
-    def create_variables(self, input_spaces, action_space):
-        super(ConcatLayer, self).create_variables(input_spaces, action_space)
+    def create_variables(self, input_spaces, action_space=None):
+        super(ConcatLayer, self).create_variables(input_spaces, action_space=None)
 
         # Wrapper for backend.
         if get_backend() == "tf":
             self.layer = tf.keras.layers.Concatenate(axis=self.axis)
 
+    # TODO: needs to be tested properly with test-case.
     def _graph_fn_apply(self, *inputs):
         return self.layer.apply(force_list(inputs))
 

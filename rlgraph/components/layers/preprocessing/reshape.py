@@ -46,14 +46,27 @@ class ReShape(PreprocessLayer):
         # The new shape specifications.
         self.new_shapes = new_shapes
 
+        # The output spaces after preprocessing (per flat-key).
+        self.output_spaces = None
+
     def get_preprocessed_space(self, space):
         ret = dict()
         for key, value in space.flatten().items():
             if isinstance(self.new_shapes, dict):
-                ret[key] = self.new_shapes[key]
+                #TODO: continue here!
+                ret[key] = FloatBox(shape=self.new_shapes[key], add_batch_rank=value.has_batch_rank)
             else:
                 ret[key] = self.new_shapes
         return unflatten_op(ret)
+
+    def check_input_spaces(self, input_spaces, action_space=None):
+        super(ReShape, self).check_input_spaces(input_spaces, action_space)
+
+        # Check whether our input space has-batch or not and store this information here.
+        in_space = input_spaces["inputs"]  # type: Dict
+
+        # Store the mapped output Spaces (per flat key).
+        self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
 
     def _graph_fn_apply(self, key, input_):
         """
@@ -65,10 +78,11 @@ class ReShape(PreprocessLayer):
         Returns:
             SingleDataOp: The reshaped input.
         """
+        new_shape = self.new_shapes[key] if isinstance(self.new_shapes, dict) else self.new_shapes
         if self.backend == "python" or get_backend() == "python":
-            reshaped = np.reshape(input_, newshape=self.new_shapes[key])
+            reshaped = np.reshape(input_, newshape=new_shape)
             return reshaped
 
         elif get_backend() == "tf":
-            return tf.reshape(input_, shape=self.new_shapes[key], name="reshaped")
+            return tf.reshape(input_, shape=new_shape, name="reshaped")
 

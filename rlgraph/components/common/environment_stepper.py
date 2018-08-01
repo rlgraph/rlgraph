@@ -45,16 +45,13 @@ class EnvironmentStepper(Component):
 
         # Create the SpecifiableServer with the given env spec.
         self.environment_server = SpecifiableServer(Environment, environment_spec, "terminate")
-        self.environment_server.start()
-
-        #self.current_state = self.environment.reset()
 
         # Add the sub-components.
         self.add_components(self.preprocessor, self.policy)
 
         self.define_api_method("step", self._graph_fn_step)
 
-    #def create_variables(self, input_spaces, action_space):
+    #def create_variables(self, input_spaces, action_space=None):
     #    #self.state_space = self.environment.state_space.with_batch_rank()
 
     def _graph_fn_step(self, num_steps):
