@@ -23,9 +23,9 @@ import numpy as np
 from six.moves import xrange as range_
 import unittest
 
-from rlgraph.agents import Agent, ApexAgent
+from rlgraph.agents import ApexAgent, DQNAgent
 from rlgraph.components.layers import GrayScale, Multiply, PreprocessorStack
-from rlgraph.environments import Environment, SequentialVectorEnv
+from rlgraph.environments import SequentialVectorEnv
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 from rlgraph.tests.test_util import agent_config_from_path
@@ -38,6 +38,51 @@ class TestPreprocessorStacks(unittest.TestCase):
 
     # TODO: Make tests backend independent so we can use the same tests for everything.
     def test_backend_equivalence(self):
+        """
+        Tests if Python and TensorFlow backend return the same output
+        for a standard DQN-style preprocessing stack.
+        """
+        env_spec = dict(
+            type="openai",
+            gym_env="Pong-v0",
+            frameskip=4,
+            max_num_noops=30,
+            random_start=True,
+            episodic_life=True
+        )
+        env = SequentialVectorEnv(num_envs=1, env_spec=env_spec, num_background_envs=2)
+        in_space = env.state_space
+
+        agent_config = agent_config_from_path("../configs/dqn_agent_for_pong.json")
+        preprocessing_spec = deepcopy(agent_config["preprocessing_spec"])
+
+        # Set up python preprocessor.
+        scopes = [preprocessor["scope"] for preprocessor in preprocessing_spec]
+        # Set backend to python.
+        for spec in preprocessing_spec:
+            spec["backend"] = "python"
+        python_processor = PreprocessorStack(*preprocessing_spec, backend="python")
+        for sub_comp_scope in scopes:
+            python_processor.sub_components[sub_comp_scope].create_variables(input_spaces=dict(
+                apply=[in_space]
+            ), action_space=None)
+        python_processor.reset()
+
+        # To have the use case we considered so far, use agent interface for TF backend.
+        agent_config.pop("type")
+        agent = DQNAgent(state_space=env.state_space, action_space=env.action_space, **agent_config)
+
+        # Generate a few states from random set points. Test if preprocessed states are almost equal
+        states = np.asarray(env.reset_all())
+        actions, agent_preprocessed_states = agent.get_action(
+            states=states, use_exploration=False, extra_returns="preprocessed_states")
+        python_preprocessed_states = python_processor.preprocess(states)
+
+        print("Asserting (almost) equal values:")
+        for tf_state, python_state in zip(agent_preprocessed_states, python_preprocessed_states):
+            recursive_assert_almost_equal(tf_state, python_state, decimals=4)
+
+    def test_batched_backend_equivalence(self):
         """
         Tests if Python and TensorFlow backend return the same output
         for a standard DQN-style preprocessing stack.
