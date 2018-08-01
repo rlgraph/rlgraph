@@ -25,6 +25,7 @@ import unittest
 from rlgraph.agents import ApexAgent
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.execution.ray import ApexExecutor, RayWorker
+from rlgraph.tests.test_util import agent_config_from_path
 
 
 class TestApexAgentLongTaskLearning(unittest.TestCase):
@@ -48,11 +49,8 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         """
         Tests agent compilation without Ray to ease debugging on Windows.
         """
-        path = os.path.join(os.getcwd(), "../../configs/ray_apex_for_pong.json")
-        with open(path, 'rt') as fp:
-            agent_config = json.load(fp)
-            # Remove.
-            agent_config["execution_spec"].pop("ray_spec")
+        agent_config = agent_config_from_path("../../configs/ray_apex_for_pong.json")
+        agent_config["execution_spec"].pop("ray_spec")
         environment = OpenAIGymEnv("Pong-v0", frameskip=4 )
 
         agent = ApexAgent.from_spec(
@@ -64,10 +62,7 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         """
         Tests if workers initialize without problems for the pong config.
         """
-        path = os.path.join(os.getcwd(), "../../configs/ray_apex_for_pong.json")
-        with open(path, 'rt') as fp:
-            agent_config = json.load(fp)
-
+        agent_config = agent_config_from_path("../../configs/ray_apex_for_pong.json")
         executor = ApexExecutor(
             environment_spec=self.env_spec,
             agent_config=agent_config,
@@ -82,10 +77,7 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         N.b. this test does not use Ray.
         """
         ray.init()
-        path = os.path.join(os.getcwd(), "../../configs/ray_apex_for_pong.json")
-        with open(path, 'rt') as fp:
-            agent_config = json.load(fp)
-
+        agent_config = agent_config_from_path("../../configs/ray_apex_for_pong.json")
         worker_spec = agent_config["execution_spec"].pop("ray_spec")
         worker = RayWorker.remote(agent_config, self.env_spec, worker_spec)
         task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=True)
@@ -96,10 +88,7 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         """
         Tests if Apex can start learning pong effectively on ray.
         """
-        path = os.path.join(os.getcwd(), "../../configs/ray_apex_for_pong.json")
-        with open(path, 'rt') as fp:
-            agent_config = json.load(fp)
-
+        agent_config = agent_config_from_path("../../configs/ray_apex_for_pong.json")
         executor = ApexExecutor(
             environment_spec=self.env_spec,
             agent_config=agent_config,

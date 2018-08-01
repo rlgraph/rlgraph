@@ -21,7 +21,7 @@ import json
 import os
 import unittest
 from time import sleep
-from rlgraph.tests.test_util import recursive_assert_almost_equal
+from rlgraph.tests.test_util import recursive_assert_almost_equal, agent_config_from_path
 import numpy as np
 
 from rlgraph import get_distributed_backend, spaces
@@ -50,9 +50,7 @@ class TestRayWorker(unittest.TestCase):
         """
         Simply tests if time-step execution loop works and returns the samples.
         """
-        path = os.path.join(os.getcwd(), "configs/apex_agent_cartpole.json")
-        with open(path, 'rt') as fp:
-            agent_config = json.load(fp)
+        agent_config = agent_config_from_path("../configs/apex_agent_cartpole.json")
 
         worker_spec = agent_config["execution_spec"].pop("ray_spec")
         worker = RayWorker.remote(agent_config, self.env_spec, worker_spec)
@@ -104,9 +102,7 @@ class TestRayWorker(unittest.TestCase):
         """
         Tests metric collection for 1 and multiple environments.
         """
-        path = os.path.join(os.getcwd(), "configs/apex_agent_cartpole.json")
-        with open(path, 'rt') as fp:
-            agent_config = json.load(fp)
+        agent_config = agent_config_from_path("../configs/apex_agent_cartpole.json")
 
         worker_spec = agent_config["execution_spec"].pop("ray_spec")
         worker = RayWorker.remote(agent_config, self.env_spec, worker_spec)
@@ -158,9 +154,7 @@ class TestRayWorker(unittest.TestCase):
         """
         # First, create a local agent
         env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
-        path = os.path.join(os.getcwd(), "configs/apex_agent_cartpole.json")
-        with open(path, 'rt') as fp:
-            agent_config = json.load(fp)
+        agent_config = agent_config_from_path("../configs/apex_agent_cartpole.json")
 
         # Remove unneeded apex params.
         if "apex_replay_spec" in agent_config:
