@@ -17,11 +17,12 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-import tensorflow as tf
-
 from rlgraph import get_backend
 from rlgraph.components.layers import Layer
 from rlgraph.utils.util import default_dict
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class PreprocessLayer(Layer):
@@ -51,3 +52,5 @@ class PreprocessLayer(Layer):
         if get_backend() == "tf":
             return tf.no_op(name="reset-op")  # Not mandatory.
 
+        # TODO: fix for python backend.
+        return
