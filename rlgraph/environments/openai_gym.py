@@ -166,7 +166,7 @@ class OpenAIGymEnv(Environment):
                 if terminal:
                     break
 
-            max_frame = self.frameskip.max(axis=0)
+            max_frame = self.state_buffer.max(axis=0)
 
             return max_frame, step_reward, terminal, info
 
