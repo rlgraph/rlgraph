@@ -75,7 +75,8 @@ class DQNAgent(Agent):
         weight_space = FloatBox(add_batch_rank=True)
         self.input_spaces.update(dict(
             # state, time-step, use_exploration, apply preprocessing.
-            get_preprocessed_state_and_action=[state_space, int, bool, bool],
+            action_from_preprocessed_state=[preprocessed_state_space, int, bool],
+            get_preprocessed_state_and_action=[state_space, int, bool],
             insert_records=[preprocessed_state_space, action_space, reward_space, terminal_space],
             update_from_external_batch=[preprocessed_state_space, action_space, reward_space,
                                         terminal_space, preprocessed_state_space, weight_space]
@@ -122,13 +123,19 @@ class DQNAgent(Agent):
 
             self.core_component.define_api_method("reset_preprocessor", reset_preprocessor)
 
-        # State (from environment) to action.
-        def get_preprocessed_state_and_action(self_, states, time_step, use_exploration=True, apply_preprocessing=True):
-            if apply_preprocessing:
-                preprocessed_states = self_.call(preprocessor.preprocess, states)
-            else:
-                # If external preprocessing has already been applied.
-                preprocessed_states = states
+        # Act from preprocessed states.
+        def action_from_preprocessed_state(self_, preprocessed_states, time_step, use_exploration=True):
+            sample_deterministic = self_.call(policy.sample_deterministic, preprocessed_states)
+            sample_stochastic = self_.call(policy.sample_stochastic, preprocessed_states)
+            actions = self_.call(exploration.get_action, sample_deterministic, sample_stochastic,
+                                 time_step, use_exploration)
+            return preprocessed_states, actions
+
+        self.core_component.define_api_method("action_from_preprocessed_state", action_from_preprocessed_state)
+
+        # State (from environment) to action with preprocessing.
+        def get_preprocessed_state_and_action(self_, states, time_step, use_exploration=True):
+            preprocessed_states = self_.call(preprocessor.preprocess, states)
             sample_deterministic = self_.call(policy.sample_deterministic, preprocessed_states)
             sample_stochastic = self_.call(policy.sample_stochastic, preprocessed_states)
             actions = self_.call(exploration.get_action, sample_deterministic, sample_stochastic,
@@ -236,8 +243,13 @@ class DQNAgent(Agent):
                 - the preprocessed states
         """
         extra_returns = {extra_returns} if isinstance(extra_returns, str) else (extra_returns or set())
-
-        batched_states = self.state_space.force_batch(states)
+        # States come in without prepreocessing -> use state space.
+        if apply_preprocessing:
+            call_method = "get_preprocessed_state_and_action"
+            batched_states = self.state_space.force_batch(states)
+        else:
+            call_method = "action_from_preprocessed_state"
+            batched_states = self.preprocessed_state_space.force_batch(states)
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
 
         # Increase timesteps by the batch size (number of states in batch).
@@ -246,8 +258,8 @@ class DQNAgent(Agent):
         # Control, which return value to "pull" (depending on `additional_returns`).
         return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
         ret = self.graph_executor.execute((
-            "get_preprocessed_state_and_action",
-            [batched_states, self.timesteps, use_exploration, apply_preprocessing],
+            call_method,
+            [batched_states, self.timesteps, use_exploration],
             # 0=preprocessed_states, 1=action
             return_ops
         ))
