@@ -84,7 +84,9 @@ class ImageResize(PreprocessLayer):
                 for i in range_(len(images)):
                     resized.append(cv2.resize(images[i], dsize=(self.width, self.height),
                                               interpolation=self.cv2_interpolation))
-                return np.asarray(resized)
+                resized = np.asarray(resized)
+                resized = resized[:, :, :, np.newaxis]
+                return resized
             else:
                 return cv2.resize(images, dsize=(self.width, self.height), interpolation=self.cv2_interpolation)
         elif get_backend() == "tf":

@@ -100,7 +100,8 @@ class GrayScale(PreprocessLayer):
                 scaled_images = np.asarray(grayscaled)
 
                 # Keep last dim.
-                scaled_images = scaled_images[:, :, :, np.newaxis]
+                if self.keep_rank:
+                    scaled_images = scaled_images[:, :, :, np.newaxis]
                 return scaled_images
         elif get_backend() == "tf":
             weights_reshaped = np.reshape(a=self.weights,
