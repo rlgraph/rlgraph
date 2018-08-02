@@ -179,7 +179,6 @@ class RayWorker(RayActor):
 
         # Reset envs and Agent either if finished an episode in current loop or if last state
         # from previous execution was terminal for that environment.
-        print(' env ids = {}'.format(self.env_ids))
         for i, env_id in enumerate(self.env_ids):
             sample_states[env_id] = list()
             sample_actions[env_id] = list()
