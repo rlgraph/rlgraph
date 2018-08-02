@@ -36,14 +36,14 @@ class Normal(Distribution):
 
     def check_input_spaces(self, input_spaces, action_space=None):
         # Must be a Tuple of len 2 (loc and scale).
-        parameter_space = input_spaces["distribution"]
+        parameter_space = input_spaces["parameters"]
         assert isinstance(parameter_space, Tuple) and len(parameter_space) == 2,\
             "ERROR: API-method `get_distribution` of '{}' (type '') needs parameter arg to be a Tuple with " \
             "len=2!".format(self.name, type(self).__name__)
 
-    def _graph_fn_get_distribution(self, loc_and_scale):
+    def _graph_fn_get_distribution(self, parameters):
         if get_backend() == "tf":
-            return tf.distributions.Normal(loc=loc_and_scale[0], scale=loc_and_scale[1])
+            return tf.distributions.Normal(loc=parameters[0], scale=parameters[1])
 
     def _graph_fn_sample_deterministic(self, distribution):
         return distribution.mean()

@@ -42,7 +42,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
         )
         # Define the output-order.
         splitter = Splitter("g", "a", "b", "c", "d", "e", "f")
-        test = ComponentTest(component=splitter, input_spaces=dict(split=space))
+        test = ComponentTest(component=splitter, input_spaces=dict(inputs=space))
 
         # Get a batch of samples.
         input_ = space.sample(size=3)
@@ -69,7 +69,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
         )
         # Define the output-order.
         splitter = Splitter("b", "c", "d", "a", "f", "e")
-        test = ComponentTest(component=splitter, input_spaces=dict(split=space))
+        test = ComponentTest(component=splitter, input_spaces=dict(inputs=space))
 
         # Single sample (no batch rank).
         input_ = space.sample()
@@ -96,7 +96,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
             add_batch_rank=False
         )
         merger = Merger("1", "2", "3", "test", "5", "6", "7")
-        test = ComponentTest(component=merger, input_spaces=dict(merge=list(space)))
+        test = ComponentTest(component=merger, input_spaces=dict(inputs=list(space)))
 
         # Get a single sample.
         sample = space.sample()

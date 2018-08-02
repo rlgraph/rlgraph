@@ -41,11 +41,11 @@ class Beta(Distribution):
             "ERROR: {} (Distribution) ({}) needs an incoming Tuple with len=2!".format(type(self).__name__,
                                                                                        self.name)
 
-    def _graph_fn_get_distribution(self, concentration_parameters):
+    def _graph_fn_get_distribution(self, parameters):
         if get_backend() == "tf":
             return tf.distributions.Beta(
-                concentration0=concentration_parameters[0],
-                concentration1=concentration_parameters[1]
+                concentration0=parameters[0],
+                concentration1=parameters[1]
             )
 
     def _graph_fn_sample_deterministic(self, distribution):

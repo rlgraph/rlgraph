@@ -44,7 +44,7 @@ class TestComponentCopy(unittest.TestCase):
             return self_.call(self_.sub_components["B"].apply, input_)
         container.define_api_method("flatten1", flatten1)
         container.define_api_method("flatten2", flatten2)
-        test = ComponentTest(component=container, input_spaces=dict(flatten1=space, flatten2=space))
+        test = ComponentTest(component=container, input_spaces=dict(input_=space))
 
         input_ = dict(
             input1=np.array([[0.5, 2.0], [1.0, 2.0]]),

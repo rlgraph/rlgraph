@@ -34,8 +34,11 @@ class TestVTraceFunctions(unittest.TestCase):
         batch_space = FloatBox(add_batch_rank=True, add_time_rank=False)
         input_spaces = dict(
             # Log rhos, discounts, rewards, values, bootstrapped_value.
-            calc_v_trace_values=[batch_x_time_space, batch_x_time_space, batch_x_time_space, batch_x_time_space,
-                                 batch_space]
+            log_is_weights=batch_x_time_space,
+            discounts=batch_x_time_space,
+            rewards=batch_x_time_space,
+            values=batch_x_time_space,
+            bootstrapped_v=batch_space
         )
 
         test = ComponentTest(component=v_trace_function, input_spaces=input_spaces)

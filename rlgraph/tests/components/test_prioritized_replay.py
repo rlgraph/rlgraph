@@ -47,11 +47,12 @@ class TestPrioritizedReplay(unittest.TestCase):
 
     input_spaces = dict(
         # insert: records
-        insert_records=record_space,
+        records=record_space,
         # get_records: num_records
-        get_records=int,
+        num_records=int,
         # update_records: indices, update
-        update_records=[IntBox(shape=(), add_batch_rank=True), FloatBox(shape=(), add_batch_rank=True)]
+        indices=IntBox(add_batch_rank=True),
+        update=FloatBox(add_batch_rank=True)
     )
 
     def test_insert(self):

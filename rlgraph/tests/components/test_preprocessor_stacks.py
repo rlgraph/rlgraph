@@ -63,9 +63,7 @@ class TestPreprocessorStacks(unittest.TestCase):
             spec["backend"] = "python"
         python_processor = PreprocessorStack(*preprocessing_spec, backend="python")
         for sub_comp_scope in scopes:
-            python_processor.sub_components[sub_comp_scope].create_variables(input_spaces=dict(
-                apply=[in_space]
-            ), action_space=None)
+            python_processor.sub_components[sub_comp_scope].create_variables(input_spaces=dict(inputs=in_space))
         python_processor.reset()
 
         # To have the use case we considered so far, use agent interface for TF backend.
@@ -109,9 +107,7 @@ class TestPreprocessorStacks(unittest.TestCase):
             spec["backend"] = "python"
         python_processor = PreprocessorStack(*preprocessing_spec, backend="python")
         for sub_comp_scope in scopes:
-            python_processor.sub_components[sub_comp_scope].create_variables(input_spaces=dict(
-                apply=[in_space]
-            ), action_space=None)
+            python_processor.sub_components[sub_comp_scope].create_variables(input_spaces=dict(inputs=in_space))
         python_processor.reset()
 
         # To have the use case we considered so far, use agent interface for TF backend.
@@ -144,7 +140,7 @@ class TestPreprocessorStacks(unittest.TestCase):
     def test_simple_preprocessor_stack_with_one_preprocess_layer(self):
         stack = PreprocessorStack(dict(type="multiply", factor=0.5))
 
-        test = ComponentTest(component=stack, input_spaces=dict(preprocess=float))
+        test = ComponentTest(component=stack, input_spaces=dict(inputs=float))
 
         test.test("reset")
         test.test(("preprocess", 2.0), expected_outputs=1.0)
@@ -162,7 +158,7 @@ class TestPreprocessorStacks(unittest.TestCase):
         for sub_comp_scope in ["m", "d"]:
             stack.sub_components[sub_comp_scope].create_variables(input_spaces=dict(inputs=space))
 
-        #test = ComponentTest(component=stack, input_spaces=dict(preprocess=float))
+        #test = ComponentTest(component=stack, input_spaces=dict(inputs=float))
 
         for _ in range_(3):
             # Call fake API-method directly (ok for PreprocessorStack).
@@ -181,7 +177,7 @@ class TestPreprocessorStacks(unittest.TestCase):
             dict(type="grayscale", keep_rank=False, weights=(0.5, 0.5)),
             dict(type="divide", divisor=2),
         ])
-        test = ComponentTest(component=stack, input_spaces=dict(preprocess=space))
+        test = ComponentTest(component=stack, input_spaces=dict(inputs=space))
 
         # Run the test.
         input_ = np.array([3.0, 5.0])
@@ -200,7 +196,7 @@ class TestPreprocessorStacks(unittest.TestCase):
         scale = Multiply(factor=2)
         gray = GrayScale(weights=(0.5, 0.5), keep_rank=False)
         stack = PreprocessorStack(scale, gray)
-        test = ComponentTest(component=stack, input_spaces=dict(preprocess=space))
+        test = ComponentTest(component=stack, input_spaces=dict(inputs=space))
 
         input_ = dict(
             a=np.array([[3.0, 5.0]]),

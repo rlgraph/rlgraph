@@ -41,9 +41,13 @@ class TestDQNLossFunctions(unittest.TestCase):
         test = ComponentTest(
             component=dqn_loss_function,
             input_spaces=dict(
-                loss_per_item=[q_values_space, action_space, self.reward_space, self.terminal_space, q_values_space],
-                loss_average=self.loss_per_item_space,
-                loss=[q_values_space, action_space, self.reward_space, self.terminal_space, q_values_space]
+                q_values_s=q_values_space,
+                actions=action_space,
+                rewards=self.reward_space,
+                terminals=self.terminal_space,
+                qt_values_sp=q_values_space,
+                q_values_sp=q_values_space,
+                loss_per_item=self.loss_per_item_space
             ),
             action_space=action_space
         )

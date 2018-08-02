@@ -74,10 +74,15 @@ class DQNAgent(Agent):
         terminal_space = BoolBox(add_batch_rank=True)
         weight_space = FloatBox(add_batch_rank=True)
         self.input_spaces.update(dict(
-            get_preprocessed_state_and_action=[state_space, int, bool],  # state, time-step, use_exploration
-            insert_records=[preprocessed_state_space, action_space, reward_space, terminal_space],
-            update_from_external_batch=[preprocessed_state_space, action_space, reward_space,
-                                        terminal_space, preprocessed_state_space, weight_space]
+            states=state_space,
+            time_step=int,
+            use_exploration=bool,
+            preprocessed_states=preprocessed_state_space,
+            actions=action_space,
+            rewards=reward_space,
+            terminals=terminal_space,
+            preprocessed_s_prime=preprocessed_state_space,
+            importance_weights=weight_space
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.
@@ -191,10 +196,10 @@ class DQNAgent(Agent):
         self.core_component.define_api_method("update_from_memory", update_from_memory)
 
         # Learn from an external batch.
-        def update_from_external_batch(self_, preprocessed_s, actions, rewards, terminals,
+        def update_from_external_batch(self_, preprocessed_states, actions, rewards, terminals,
                                        preprocessed_s_prime, importance_weights):
             # Get the different Q-values.
-            q_values_s = self_.call(policy.get_q_values, preprocessed_s)
+            q_values_s = self_.call(policy.get_q_values, preprocessed_states)
             qt_values_sp = self_.call(target_policy.get_q_values, preprocessed_s_prime)
             q_values_sp = None
             if self.double_q:

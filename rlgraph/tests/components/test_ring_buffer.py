@@ -49,13 +49,13 @@ class TestRingBufferMemory(unittest.TestCase):
     capacity = 10
 
     input_spaces = dict(
-        insert_records=record_space,
-        get_records=int,
-        get_episodes=int
+        records=record_space,
+        num_records=int,
+        num_episodes=int
     )
     input_spaces_no_episodes = dict(
-        insert_records=record_space,
-        get_records=int,
+        records=record_space,
+        num_records=int,
     )
 
     def test_insert_no_episodes(self):

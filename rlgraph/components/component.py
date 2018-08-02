@@ -874,10 +874,13 @@ class Component(Specifiable):
 
         # Update the api_method_inputs dict (with empty Spaces if not defined yet).
         # Note: Skip first param of graph_func's input param list if add-auto-key option is True (1st param would be
-        # the auto-key then).
-        param_list = list(map(lambda x: x.name, list(
-            inspect.signature(func).parameters.values()
-        )[(1 if func_type == "graph_fn" and kwargs.get("add_auto_key_as_first_param") is True else 0):]))
+        # the auto-key then). Also skip if api_method is an unbound function (then 1st param is usually `self_`).
+        if (func_type == "graph_fn" and kwargs.get("add_auto_key_as_first_param") is True) or \
+                (func_type == "api" and type(api_method).__name__ == "function"):
+            skip_1st_arg = 1
+        else:
+            skip_1st_arg = 0
+        param_list = list(map(lambda x: x.name, list(inspect.signature(func).parameters.values())[skip_1st_arg:]))
         self.api_methods[name].input_names = param_list
         for param in param_list:
             if param not in self.api_method_inputs:

@@ -31,7 +31,7 @@ class TestSequencePreprocessor(unittest.TestCase):
     def test_sequence_preprocessor(self):
         space = FloatBox(shape=(1,), add_batch_rank=True)
         sequencer = Sequence(sequence_length=3, add_rank=True)
-        test = ComponentTest(component=sequencer, input_spaces=dict(apply=space))
+        test = ComponentTest(component=sequencer, input_spaces=dict(inputs=space))
 
         vars = sequencer.get_variables("index", "buffer", global_scope=False)
         index, buffer = vars["index"], vars["buffer"]
@@ -101,7 +101,7 @@ class TestSequencePreprocessor(unittest.TestCase):
     def test_sequence_preprocessor_with_batch(self):
         space = FloatBox(shape=(2,), add_batch_rank=True)
         sequencer = Sequence(sequence_length=2, batch_size=3, add_rank=True)
-        test = ComponentTest(component=sequencer, input_spaces=dict(apply=space))
+        test = ComponentTest(component=sequencer, input_spaces=dict(inputs=space))
 
         vars = sequencer.get_variables("index", "buffer", global_scope=False)
         index, buffer = vars["index"], vars["buffer"]
@@ -152,7 +152,7 @@ class TestSequencePreprocessor(unittest.TestCase):
         space = Tuple(FloatBox(shape=(1,)), FloatBox(shape=(2, 2)), add_batch_rank=False)
 
         component_to_test = Sequence(sequence_length=4, add_rank=False)
-        test = ComponentTest(component=component_to_test, input_spaces=dict(apply=space))
+        test = ComponentTest(component=component_to_test, input_spaces=dict(inputs=space))
 
         for i in range_(3):
             test.test("reset")

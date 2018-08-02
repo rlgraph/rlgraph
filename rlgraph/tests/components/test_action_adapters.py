@@ -37,10 +37,9 @@ class TestActionAdapters(unittest.TestCase):
 
         action_adapter = ActionAdapter(action_space=action_space, weights_spec=1.0, biases_spec=False,
                                        activation="relu")
-        test = ComponentTest(component=action_adapter, input_spaces=dict(
-            get_action_layer_output=last_nn_layer_space,
-            get_logits_parameters_log_probs=last_nn_layer_space
-        ), action_space=action_space)
+        test = ComponentTest(
+            component=action_adapter, input_spaces=dict(nn_output=last_nn_layer_space), action_space=action_space
+        )
 
         # Batch of 2 samples.
         inputs = np.array([
@@ -70,11 +69,9 @@ class TestActionAdapters(unittest.TestCase):
 
         action_adapter = ActionAdapter(action_space=action_space, weights_spec=2.0, biases_spec=0.5,
                                        activation="linear", add_dueling_layer=True)
-        test = ComponentTest(component=action_adapter, input_spaces=dict(
-            get_action_layer_output=last_nn_layer_space,
-            get_dueling_output=last_nn_layer_space,
-            get_logits_parameters_log_probs=last_nn_layer_space
-        ), action_space=action_space)
+        test = ComponentTest(
+            component=action_adapter, input_spaces=dict(nn_output=last_nn_layer_space), action_space=action_space
+        )
 
         # Batch of 2 samples.
         inputs = np.array([[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6], [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6]])

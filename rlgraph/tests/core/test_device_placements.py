@@ -51,7 +51,7 @@ class TestDevicePlacements(unittest.TestCase):
         var_device = "/device:CPU:0"
         op_device = "/device:GPU:0"
         a = DummyWithVar(scope="A", device=dict(variables=var_device, ops=op_device))
-        test = ComponentTest(component=a, input_spaces=dict(run_plus=float, run_minus=float))
+        test = ComponentTest(component=a, input_spaces=dict(input_=float))
 
         # Actually check the device of the variables and ops in a.
         actual_op_device = "/device:GPU:0" if "/device:GPU:0" in test.graph_builder.available_devices else ""
@@ -70,7 +70,7 @@ class TestDevicePlacements(unittest.TestCase):
         a = DummyWithSubComponents(scope="A")
         comp_device = "/device:GPU:0"
         sub_comp_device = "/device:CPU:0"
-        test = ComponentTest(component=a, input_spaces=dict(run1=float, run2=float),
+        test = ComponentTest(component=a, input_spaces=dict(input_=float),
                              device_strategy="custom",
                              device_map=dict({"A/dummy-with-var": sub_comp_device, "A": comp_device}))
         # Actually check the device of the variables and ops in a.

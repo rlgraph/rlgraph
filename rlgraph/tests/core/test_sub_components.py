@@ -34,7 +34,7 @@ class TestTwoSubComponents(unittest.TestCase):
 
     def test_component_with_sub_component(self):
         a = DummyWithSubComponents(scope="A")
-        test = ComponentTest(component=a, input_spaces=dict(run1=float, run2=float))
+        test = ComponentTest(component=a, input_spaces=dict(input_=float))
 
         # Expected: (1): in + 2.0  (2): [result of (1)] + 1.0
         test.test(("run1", 1.1), expected_outputs=[3.1, 4.1], decimals=4)

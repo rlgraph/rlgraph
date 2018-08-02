@@ -40,8 +40,8 @@ class TestReplayMemory(unittest.TestCase):
     capacity = 10
 
     input_spaces = dict(
-        insert_records=record_space,
-        get_records=int
+        records=record_space,
+        num_records=int
     )
 
     def test_insert(self):

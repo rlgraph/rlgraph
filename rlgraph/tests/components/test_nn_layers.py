@@ -36,7 +36,7 @@ class TestNNLayer(unittest.TestCase):
 
         # - fixed 1.0 weights, no biases
         dense_layer = DenseLayer(units=2, weights_spec=1.0, biases_spec=False)
-        test = ComponentTest(component=dense_layer, input_spaces=dict(apply=space))
+        test = ComponentTest(component=dense_layer, input_spaces=dict(inputs=space))
 
         # Batch of size=1 (can increase this to any larger number).
         input_ = np.array([[0.5, 2.0]])
@@ -47,7 +47,7 @@ class TestNNLayer(unittest.TestCase):
         input_space = FloatBox(shape=(3,), add_batch_rank=True)
 
         dense_layer = DenseLayer(units=4, weights_spec=2.0, biases_spec=0.5, activation="lrelu")
-        test = ComponentTest(component=dense_layer, input_spaces=dict(apply=input_space))
+        test = ComponentTest(component=dense_layer, input_spaces=dict(inputs=input_space))
 
         # Batch of size=1 (can increase this to any larger number).
         input_ = np.array([[0.5, 2.0, 1.5], [-1.0, -2.0, -1.5]])
@@ -61,7 +61,7 @@ class TestNNLayer(unittest.TestCase):
 
         conv2d_layer = Conv2DLayer(filters=4, kernel_size=2, strides=1, padding="valid",
                                    kernel_spec=0.5, biases_spec=False)
-        test = ComponentTest(component=conv2d_layer, input_spaces=dict(apply=space))
+        test = ComponentTest(component=conv2d_layer, input_spaces=dict(inputs=space))
 
         # Batch of 2 samples.
         input_ = np.array([[[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],  # sample 1 (2x2x3)
@@ -81,7 +81,7 @@ class TestNNLayer(unittest.TestCase):
         space2 = FloatBox(shape=(2, 2), add_batch_rank=True)
 
         concat_layer = ConcatLayer()
-        test = ComponentTest(component=concat_layer, input_spaces=dict(apply=[space0, space1, space2]))
+        test = ComponentTest(component=concat_layer, input_spaces=dict(inputs=[space0, space1, space2]))
 
         # Batch of 2 samples to concatenate.
         inputs = [
@@ -102,7 +102,7 @@ class TestNNLayer(unittest.TestCase):
         action_space = IntBox(3, shape=(4, 2))
 
         dueling_layer = DuelingLayer()
-        test = ComponentTest(component=dueling_layer, input_spaces=dict(apply=input_space), action_space=action_space)
+        test = ComponentTest(component=dueling_layer, input_spaces=dict(inputs=input_space), action_space=action_space)
 
         # Batch of 1 sample.
         inputs = np.array(
@@ -131,7 +131,7 @@ class TestNNLayer(unittest.TestCase):
         action_space = IntBox(2, shape=(2, 2))
 
         lstm_layer = LSTMLayer(units=5)
-        test = ComponentTest(component=lstm_layer, input_spaces=dict(apply=input_space), action_space=action_space)
+        test = ComponentTest(component=lstm_layer, input_spaces=dict(inputs=input_space), action_space=action_space)
 
         # Batch of n samples.
         inputs = np.ones(shape=(batch_size, sequence_length, 3))

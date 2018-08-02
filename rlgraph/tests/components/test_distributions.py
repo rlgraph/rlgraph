@@ -35,10 +35,8 @@ class TestDistributions(unittest.TestCase):
         # The Component to test.
         bernoulli = Bernoulli(switched_off_apis={"entropy", "log_prob", "kl_divergence"})
         input_spaces = dict(
-            get_distribution=param_space,
-            sample_stochastic=param_space,
-            sample_deterministic=param_space,
-            draw=[param_space, bool],
+            parameters=param_space,
+            max_likelihood=bool,
         )
         test = ComponentTest(component=bernoulli, input_spaces=input_spaces)
 
@@ -59,7 +57,7 @@ class TestDistributions(unittest.TestCase):
             False
         ]
         # Try the same on the sample_stochastic out-Socket without the max_likelihood input..
-        expected = np.array([[False, True, False, True, False], [True, True, True, False, True]])
+        expected = np.array([[False, True, True, True, False], [True, True, True, False, True]])
         test.test(("sample_stochastic", input_[0]), expected_outputs=expected)
 
     def test_categorical(self):
@@ -69,10 +67,8 @@ class TestDistributions(unittest.TestCase):
         # The Component to test.
         categorical = Categorical(switched_off_apis={"entropy", "log_prob", "kl_divergence"})
         input_spaces = dict(
-            get_distribution=param_space,
-            sample_stochastic=param_space,
-            sample_deterministic=param_space,
-            draw=[param_space, bool],
+            parameters=param_space,
+            max_likelihood=bool,
         )
         test = ComponentTest(component=categorical, input_spaces=input_spaces)
 
@@ -108,19 +104,17 @@ class TestDistributions(unittest.TestCase):
                       ]),
             False
         ]
-        expected = np.array([[2, 0, 2, 0, 0], [0, 2, 1, 0, 2]])
+        expected = np.array([[0, 0, 1, 1, 1], [2, 2, 0, 0, 0]])
         test.test(("draw", input_), expected_outputs=expected)
-        expected = np.array([[1, 0, 1, 1, 2], [0, 2, 1, 0, 2]])
+        expected = np.array([[1, 0, 1, 1, 0], [0, 2, 0, 0, 1]])
         test.test(("sample_stochastic", input_[0]), expected_outputs=expected)
 
     def test_categorical_on_different_space(self):
         # Create 5 categorical distributions of 2 categories each.
         param_space = FloatBox(shape=(5, 2), add_batch_rank=True)
         input_spaces = dict(
-            get_distribution=param_space,
-            sample_stochastic=param_space,
-            sample_deterministic=param_space,
-            draw=[param_space, bool],
+            parameters=param_space,
+            max_likelihood=bool
         )
 
         # The Component to test.
@@ -152,17 +146,15 @@ class TestDistributions(unittest.TestCase):
                             [0.333, 0.667]
                             ]
                            ])
-        expected = np.array([[1, 0, 0, 1, 1], [0, 1, 1, 0, 1]])
+        expected = np.array([[1, 0, 0, 1, 0], [0, 1, 0, 0, 1]])
         test.test(("sample_stochastic", input_), expected_outputs=expected)
 
     def test_normal(self):
         # Create 5 normal distributions (2 parameters (mean and stddev) each).
         param_space = Tuple(FloatBox(shape=(5,)), FloatBox(shape=(5,)), add_batch_rank=True)
         input_spaces = dict(
-            get_distribution=param_space,
-            sample_stochastic=param_space,
-            sample_deterministic=param_space,
-            draw=[param_space, bool],
+            parameters=param_space,
+            max_likelihood=bool,
         )
 
         # The Component to test.
@@ -191,7 +183,7 @@ class TestDistributions(unittest.TestCase):
             ]),
             False
         ]
-        expected = np.array([[2.1588295, 1.0059931, 44.69817, 150.37675, 30.661076]], dtype=np.float32)
+        expected = np.array([[3.3263674, 0.9853691, 44.54286, 150.6718, -4.2711906]], dtype=np.float32)
         test.test(("draw", input_), expected_outputs=expected)
-        expected = np.array([[-0.6715696, 0.9988091, 44.73782, 150.38652, 14.133482]], dtype=np.float32)
+        expected = np.array([[0.417, 1.014, 45.2043, 150.8022, -16.7299]], dtype=np.float32)
         test.test(("sample_stochastic", input_[0]), expected_outputs=expected, decimals=4)

@@ -100,7 +100,7 @@ class TestSingleComponents(unittest.TestCase):
         graph_fn is already blocked by the component.
         """
         component = Dummy2To1(scope="dummy")
-        test = ComponentTest(component=component, input_spaces=dict(intpu1=int, input2=int))
+        test = ComponentTest(component=component, input_spaces=dict(input1=int, input2=int))
 
         # Expected output: in1 + (const 1.0)
         test.test(("run", [4, 5]), expected_outputs=9)

@@ -32,18 +32,13 @@ class Bernoulli(Distribution):
     def __init__(self, scope="bernoulli", **kwargs):
         super(Bernoulli, self).__init__(scope=scope, **kwargs)
 
-    def _graph_fn_get_distribution(self, prob):
+    def _graph_fn_get_distribution(self, parameters):
         """
         Args:
-            prob (DataOp): The p value (probability that distribution returns True).
+            parameters (DataOp): The p value (probability that distribution returns True).
         """
-        # TODO: Move this into some sort of NN-output-cleanup component. This is repetitive stuff.
-        ## Clip raw_input between 0 and 1 to make it interpretable as a probability.
-        #p = tf.sigmoid(x=flat_input)
-        ## Clip to avoid 0.0 or 1.0 probabilities (adds numerical stability).
-        #p = tf.clip_by_value(p, clip_value_min=SMALL_NUMBER, clip_value_max=(1.0 - SMALL_NUMBER))
         if get_backend() == "tf":
-            return tf.distributions.Bernoulli(probs=prob, dtype=util.dtype("bool"))
+            return tf.distributions.Bernoulli(probs=parameters, dtype=util.dtype("bool"))
 
     def _graph_fn_sample_deterministic(self, distribution):
         return distribution.prob(True) >= 0.5

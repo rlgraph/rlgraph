@@ -36,7 +36,7 @@ class TestExplorations(unittest.TestCase):
         # The Component(s) to test.
         decay_component = LinearDecay(from_=1.0, to_=0.0, start_timestep=0, num_timesteps=1000)
         epsilon_component = EpsilonExploration(decay_spec=decay_component)
-        test = ComponentTest(component=epsilon_component, input_spaces=dict(do_explore=time_step_space))
+        test = ComponentTest(component=epsilon_component, input_spaces=dict(time_step=time_step_space))
 
         # Values to pass as single items.
         input_ = np.array([0, 1, 2, 25, 50, 100, 110, 112, 120, 130, 150, 180, 190, 195, 200, 201, 210, 250, 386,
@@ -77,7 +77,7 @@ class TestExplorations(unittest.TestCase):
         exploration_pipeline.define_api_method("get_action", get_action)
 
         test = ComponentTest(component=exploration_pipeline,
-                             input_spaces=dict(get_action=[nn_output_space, int]),
+                             input_spaces=dict(nn_output=nn_output_space, time_step=int),
                              action_space=action_space)
 
         # fake output from last NN layer (shape=(13,))
@@ -127,7 +127,7 @@ class TestExplorations(unittest.TestCase):
         exploration_pipeline.define_api_method("get_noise", get_noise)
 
         test = ComponentTest(component=exploration_pipeline,
-                             input_spaces=dict(get_action=nn_output_space),
+                             input_spaces=dict(nn_output=nn_output_space),
                              action_space=action_space)
 
         # Collect outputs in `collected` list to compare moments.

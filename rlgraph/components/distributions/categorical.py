@@ -33,9 +33,9 @@ class Categorical(Distribution):
     def __init__(self, scope="categorical", **kwargs):
         super(Categorical, self).__init__(scope=scope, **kwargs)
 
-    def _graph_fn_get_distribution(self, probs):
+    def _graph_fn_get_distribution(self, parameters):
         if get_backend() == "tf":
-            return tf.distributions.Categorical(probs=probs, dtype=util.dtype("int"))
+            return tf.distributions.Categorical(probs=parameters, dtype=util.dtype("int"))
 
     def _graph_fn_sample_deterministic(self, distribution):
         if get_backend() == "tf":

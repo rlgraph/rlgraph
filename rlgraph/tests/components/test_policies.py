@@ -38,15 +38,7 @@ class TestPolicies(unittest.TestCase):
         policy = Policy(neural_network="../configs/test_simple_nn.json", action_space=action_space)
         test = ComponentTest(
             component=policy,
-            input_spaces=dict(
-                get_nn_output=state_space,
-                get_action_layer_output=state_space,
-                get_entropy=state_space,
-                get_logits_parameters_log_probs=state_space,
-                get_q_values=state_space,
-                sample_deterministic=state_space,
-                sample_stochastic=state_space
-            ),
+            input_spaces=dict(nn_input=state_space),
             action_space=action_space
         )
         policy_params = test.graph_executor.read_variable_values(policy.variables)
@@ -100,16 +92,7 @@ class TestPolicies(unittest.TestCase):
         )
         test = ComponentTest(
             component=policy,
-            input_spaces=dict(
-                get_nn_output=state_space,
-                get_action_layer_output=state_space,
-                get_entropy=state_space,
-                get_dueling_output=state_space,
-                get_logits_parameters_log_probs=state_space,
-                #get_q_values=state_space,
-                sample_deterministic=state_space,
-                sample_stochastic=state_space
-            ),
+            input_spaces=dict(nn_input=state_space),
             action_space=action_space
         )
         policy_params = test.graph_executor.read_variable_values(policy.variables)

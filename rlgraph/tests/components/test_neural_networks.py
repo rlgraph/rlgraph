@@ -38,7 +38,7 @@ class TestNeuralNetworks(unittest.TestCase):
         neural_net = NeuralNetwork.from_file("../configs/test_simple_nn.json")  # type: NeuralNetwork
 
         # Do not seed, we calculate expectations manually.
-        test = ComponentTest(component=neural_net, input_spaces=dict(apply=space), seed=None)
+        test = ComponentTest(component=neural_net, input_spaces=dict(inputs=space), seed=None)
 
         # Batch of size=3.
         input_ = np.array([[0.1, 0.2, 0.3], [1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])

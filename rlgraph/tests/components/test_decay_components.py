@@ -35,7 +35,7 @@ class TestDecayComponents(unittest.TestCase):
 
     def test_linear_decay(self):
         decay_component = LinearDecay(from_=1.0, to_=0.0, start_timestep=100, num_timesteps=100)
-        test = ComponentTest(component=decay_component, input_spaces=dict(decayed_value=self.time_step_space))
+        test = ComponentTest(component=decay_component, input_spaces=dict(time_step=self.time_step_space))
 
         # Values to pass as single items.
         input_ = np.array([0, 1, 2, 25, 50, 100, 110, 112, 120, 130, 150, 180, 190, 195, 200, 201, 210, 250, 1000])
@@ -46,7 +46,7 @@ class TestDecayComponents(unittest.TestCase):
 
     def test_exponential_decay(self):
         decay_component = ExponentialDecay(from_=1.0, to_=0.0, start_timestep=0, num_timesteps=100, half_life=50)
-        test = ComponentTest(component=decay_component, input_spaces=dict(decayed_value=self.time_step_space))
+        test = ComponentTest(component=decay_component, input_spaces=dict(time_step=self.time_step_space))
 
         # Values to pass as single items.
         input_ = np.array([0, 1, 2, 25, 50, 75, 80, 90, 99, 100])
