@@ -17,11 +17,12 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-import copy
-import tensorflow as tf
-
+from rlgraph import get_backend
 from rlgraph.components.layers import Layer
 from rlgraph.utils.util import default_dict
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class PreprocessLayer(Layer):
@@ -60,5 +61,8 @@ class PreprocessLayer(Layer):
             This could be useful if the preprocessor stores certain episode-sequence information
             to do the processing and this information has to be reset after the episode terminates.
         """
-        return tf.no_op(name="reset-op")  # Not mandatory.
+        if get_backend() == "tf":
+            return tf.no_op(name="reset-op")  # Not mandatory.
+        # TODO: fix for python backend.
+        return
 
