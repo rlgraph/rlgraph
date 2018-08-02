@@ -197,7 +197,7 @@ class Agent(Specifiable):
         """
         self.graph_executor.build(input_spaces, *args)
 
-    def get_action(self, states, internals=None, use_exploration=True, extra_returns=None):
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
         Returns action(s) for the passed state(s). If `states` is a single state, returns a single action, otherwise,
         returns a batch of actions, where batch-size = number of states passed in.
@@ -207,6 +207,8 @@ class Agent(Specifiable):
             internals (Union[dict,np.ndarray]): Internal states dict/tuple or numpy array.
             use_exploration (bool): If False, no exploration or sampling may be applied
                 when retrieving an action.
+            apply_preprocessing (bool): If True, apply any state preprocessors configured to the action. Set to
+                false if all pre-processing is handled externally both for acting and updating.
             extra_returns (Optional[Set[str]]): Optional set of Agent-specific strings for additional return
                 values (besides the actions). All Agents must support "preprocessed_states".
 

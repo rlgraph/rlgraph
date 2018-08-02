@@ -749,7 +749,7 @@ class GraphBuilder(Specifiable):
             for i, param in enumerate(params):
                 if len(self.api[api_method][0]) <= i:
                     raise RLGraphError("API-method with name '{}' only has {} input parameters! You passed in "
-                                    "{}.".format(api_method, len(self.api[api_method][0]), len(params)))
+                                       "{}.".format(api_method, len(self.api[api_method][0]), len(params)))
                 placeholder = self.api[api_method][0][i].op  # 0=input op-recs; i=ith input op-rec
                 if isinstance(placeholder, DataOpTuple):
                     for ph, p in zip(placeholder, param):

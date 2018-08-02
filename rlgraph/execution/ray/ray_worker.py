@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from copy import deepcopy
+
 from rlgraph.components import PreprocessorStack
 from rlgraph.environments import VectorEnv, SequentialVectorEnv
 from six.moves import xrange as range_
@@ -69,11 +71,10 @@ class RayWorker(RayActor):
         agent_config['action_space'] = self.vector_env.action_space
 
         self.discount = agent_config.get("discount", 0.99)
-        self.agent = self.setup_agent(agent_config, worker_spec)
-
-        # Python based preprocessor.
+        # Python based preprocessor as image resizing is broken in TF.
         self.preprocessor = self.setup_preprocessor(agent_config.get("preprocessing_spec", None),
                                                     self.vector_env.state_space)
+        self.agent = self.setup_agent(agent_config, worker_spec)
         self.worker_frameskip = frameskip
 
         # Save these so they can be fetched after training if desired.
@@ -105,7 +106,9 @@ class RayWorker(RayActor):
 
     def setup_preprocessor(self, preprocessing_spec, in_space):
         if preprocessing_spec is not None:
+            # TODO remove once discussed.
             # TODO move ingraph for python component assembly.
+            preprocessing_spec = deepcopy(preprocessing_spec)
             # Set scopes.
             scopes = [preprocessor["scope"] for preprocessor in preprocessing_spec]
             # Set backend to python.
@@ -205,8 +208,9 @@ class RayWorker(RayActor):
         terminals = [False for _ in range_(self.num_environments)]
         while timesteps_executed < num_timesteps:
             state_batch = self.agent.state_space.force_batch(env_states)
-            actions, preprocessed_states = self.agent.get_action(
-                states=state_batch, use_exploration=use_exploration, extra_returns="preprocessed_states")
+            preprocessed_states = self.preprocessor.preprocess(state_batch)
+            actions = self.agent.get_action(states=preprocessed_states,
+                                            use_exploration=use_exploration, apply_preprocessing=False)
 
             rewards = dict()
             for i, env_id in enumerate(self.env_ids):

@@ -74,7 +74,8 @@ class DQNAgent(Agent):
         terminal_space = BoolBox(add_batch_rank=True)
         weight_space = FloatBox(add_batch_rank=True)
         self.input_spaces.update(dict(
-            get_preprocessed_state_and_action=[state_space, int, bool],  # state, time-step, use_exploration
+            # state, time-step, use_exploration, apply preprocessing.
+            get_preprocessed_state_and_action=[state_space, int, bool, bool],
             insert_records=[preprocessed_state_space, action_space, reward_space, terminal_space],
             update_from_external_batch=[preprocessed_state_space, action_space, reward_space,
                                         terminal_space, preprocessed_state_space, weight_space]
@@ -122,12 +123,17 @@ class DQNAgent(Agent):
             self.core_component.define_api_method("reset_preprocessor", reset_preprocessor)
 
         # State (from environment) to action.
-        def get_preprocessed_state_and_action(self_, states, time_step, use_exploration=True):
-            preprocessed_states = self_.call(preprocessor.preprocess, states)
+        def get_preprocessed_state_and_action(self_, states, time_step, use_exploration=True, apply_preprocessing=True):
+            if apply_preprocessing:
+                preprocessed_states = self_.call(preprocessor.preprocess, states)
+            else:
+                # If external preprocessing has already been applied.
+                preprocessed_states = states
             sample_deterministic = self_.call(policy.sample_deterministic, preprocessed_states)
             sample_stochastic = self_.call(policy.sample_stochastic, preprocessed_states)
             actions = self_.call(exploration.get_action, sample_deterministic, sample_stochastic,
                                  time_step, use_exploration)
+
             # TODO: Alternatively, move exploration (especially epsilon-based) into python.
             # TODO: return internal states as well and maybe the exploration decision
             return preprocessed_states, actions
@@ -214,7 +220,7 @@ class DQNAgent(Agent):
 
         self.core_component.define_api_method("update_from_external_batch", update_from_external_batch)
 
-    def get_action(self, states, internals=None, use_exploration=True, extra_returns=None):
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
         Args:
             extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return
@@ -241,7 +247,7 @@ class DQNAgent(Agent):
         return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
         ret = self.graph_executor.execute((
             "get_preprocessed_state_and_action",
-            [batched_states, self.timesteps, use_exploration],
+            [batched_states, self.timesteps, use_exploration, apply_preprocessing],
             # 0=preprocessed_states, 1=action
             return_ops
         ))
