@@ -84,6 +84,8 @@ class GrayScale(PreprocessLayer):
             DataOp: The op for processing the images.
         """
         # The reshaped weights used for the grayscale operation.
+        if isinstance(images, list):
+            images = np.asarray(images)
         images_shape = get_shape(images)
         assert images_shape[-1] == self.last_rank,\
             "ERROR: Given image's shape ({}) does not match number of weights (last rank must be {})!".\
@@ -93,8 +95,13 @@ class GrayScale(PreprocessLayer):
             if images.ndim == 4:
                 grayscaled = []
                 for i in range_(len(images)):
-                    grayscaled.append(cv2.cvtColor(images[i], cv2.COLOR_RGB2GRAY))
-                return np.asarray(grayscaled)
+                    scaled = cv2.cvtColor(images[i], cv2.COLOR_RGB2GRAY)
+                    grayscaled.append(scaled)
+                scaled_images = np.asarray(grayscaled)
+
+                # Keep last dim.
+                scaled_images = scaled_images[:, :, :, np.newaxis]
+                return scaled_images
         elif get_backend() == "tf":
             weights_reshaped = np.reshape(a=self.weights,
                                           newshape=tuple([1] * (get_rank(images) - 1)) + (self.last_rank,))
