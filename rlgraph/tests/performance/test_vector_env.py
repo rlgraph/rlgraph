@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import time
 import unittest
-from copy import deepcopy
+import numpy as np
 
 from rlgraph.agents import Agent
 from six.moves import xrange as range_
@@ -40,14 +40,14 @@ class TestVectorEnv(unittest.TestCase):
         episodic_life=True
     )
 
-    samples = 100000
+    samples = 50000
     num_vector_envs = 4
 
     def test_individual_env(self):
         env = Environment.from_spec(self.env_spec)
         agent = Agent.from_spec(
             # Uses 2015 DQN parameters as closely as possible.
-            "configs/dqn_agent_for_pong.json",
+            "../configs/dqn_agent_for_pong.json",
             state_space=env.state_space,
             # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
             action_space=env.action_space
@@ -80,13 +80,12 @@ class TestVectorEnv(unittest.TestCase):
             env_spec=self.env_spec,
             num_background_envs=2
         )
-        env = Environment.from_spec(deepcopy(self.env_spec))
         agent = Agent.from_spec(
             # Uses 2015 DQN parameters as closely as possible.
-            "configs/dqn_agent_for_pong.json",
-            state_space=env.state_space,
+            "../configs/dqn_vector_env.json",
+            state_space=vector_env.state_space,
             # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
-            action_space=env.action_space
+            action_space=vector_env.action_space
         )
 
         states = vector_env.reset_all()
@@ -95,8 +94,7 @@ class TestVectorEnv(unittest.TestCase):
 
         for _ in range_(int(self.samples/ self.num_vector_envs)):
             # Sample all envs at once.
-            action_batch = agent.action_space.force_batch(states)
-            actions = agent.get_action(action_batch)
+            actions, preprocessed_states = agent.get_action(states, extra_returns="preprocessed_states")
             states, rewards, terminals, infos = vector_env.step(actions)
             ep_lengths = [ep_length + 1 for ep_length in ep_lengths]
 
@@ -109,7 +107,7 @@ class TestVectorEnv(unittest.TestCase):
         runtime = time.monotonic() - start
         tp = self.samples / runtime
 
-        print('Testing individual env {} performance:'.format(self.env_spec["gym_env"]))
+        print('Testing vector env {} performance:'.format(self.env_spec["gym_env"]))
         print('Ran {} steps, throughput: {} states/s, total time: {} s'.format(
             self.samples, tp, runtime
         ))

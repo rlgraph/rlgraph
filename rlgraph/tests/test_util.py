@@ -17,8 +17,24 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
+import json
 import numpy as np
 
+
+def agent_config_from_path(path):
+    """
+    Generates an agent config from path
+
+    Args:
+        path (str): Path to config, e.g. json file.
+
+    Returns:
+        dict: Agent config dict.
+    """
+    path = os.path.join(path)
+    with open(path, 'rt') as fp:
+        return json.load(fp)
 
 def non_terminal_records(record_space, num_samples):
     """

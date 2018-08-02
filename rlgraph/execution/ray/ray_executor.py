@@ -302,13 +302,13 @@ class RayExecutor(object):
         Returns:
             dict: Aggregate worker statistics.
         """
-        min_rewards = []
-        max_rewards = []
-        mean_rewards = []
-        final_rewards = []
-        worker_op_throughputs = []
-        worker_env_frame_throughputs = []
-        episodes_executed = 0
+        min_rewards = list()
+        max_rewards = list()
+        mean_rewards = list()
+        final_rewards = list()
+        worker_op_throughputs = list()
+        worker_env_frame_throughputs = list()
+        episodes_executed = list()
         steps_executed = 0
 
         for ray_worker in self.ray_env_sample_workers:
@@ -317,12 +317,16 @@ class RayExecutor(object):
             )
             task = ray_worker.get_workload_statistics.remote()
             metrics = ray.get(task)
-            min_rewards.append(metrics["min_episode_reward"])
-            max_rewards.append(metrics["max_episode_reward"])
-            mean_rewards.append(metrics["mean_episode_reward"])
-            episodes_executed += metrics["episodes_executed"]
+            if metrics["mean_episode_reward"] is not None:
+                min_rewards.append(metrics["min_episode_reward"])
+                max_rewards.append(metrics["max_episode_reward"])
+                mean_rewards.append(metrics["mean_episode_reward"])
+                final_rewards.append(metrics["final_episode_reward"])
+            else:
+                self.logger.warning("Warning: No episode rewards available for worker {}. Steps executed: {}".
+                                    format(self.worker_ids[ray_worker], metrics["worker_steps"]))
+            episodes_executed.append(metrics["episodes_executed"])
             steps_executed += metrics["worker_steps"]
-            final_rewards.append(metrics["final_episode_reward"])
             worker_op_throughputs.append(metrics["mean_worker_ops_per_second"])
             worker_env_frame_throughputs.append(metrics["mean_worker_env_frames_per_second"])
 
@@ -331,7 +335,10 @@ class RayExecutor(object):
             max_reward=np.max(max_rewards),
             mean_reward=np.mean(mean_rewards),
             mean_final_reward=np.mean(final_rewards),
-            episodes_executed=episodes_executed,
+            min_worker_episodes=np.min(episodes_executed),
+            max_worker_episodes=np.max(episodes_executed),
+            mean_worker_episodes=np.mean(episodes_executed),
+            total_episodes_executed=np.sum(episodes_executed),
             steps_executed=steps_executed,
             # Identify potential straggling workers.
             mean_worker_op_throughput=np.mean(worker_op_throughputs),

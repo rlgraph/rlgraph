@@ -61,7 +61,7 @@ class RayWorker(RayActor):
         self.num_environments = worker_spec.pop("num_worker_environments", 1)
         num_background_envs = worker_spec.pop("num_background_envs", 1)
 
-        # TODO from spec once we decided on vectorization.
+        # TODO from spec once we decided on generic vectorization.
         self.vector_env = SequentialVectorEnv(self.num_environments, env_spec, num_background_envs)
 
         # Then update agent config.
@@ -84,15 +84,15 @@ class RayWorker(RayActor):
 
         # Step time and steps done per call to execute_and_get to measure throughput of this worker.
         self.sample_times = list()
-        self.sample_steps =  list()
-        self.sample_env_frames =  list()
+        self.sample_steps = list()
+        self.sample_env_frames = list()
 
         # To continue running through multiple exec calls.
         self.last_states = self.vector_env.reset_all()
         self.agent.reset()
 
         # Was the last state a terminal state so env should be reset in next call?
-        self.env_ids = ["env_".format(i) for i in range_(self.num_environments)]
+        self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
         self.last_ep_timesteps = [0 for _ in range_(self.num_environments)]
         self.last_ep_rewards = [0 for _ in range_(self.num_environments)]
         self.last_terminals = [False for _ in range_(self.num_environments)]
@@ -116,7 +116,7 @@ class RayWorker(RayActor):
                 processor_stack.sub_components[sub_comp_scope].create_variables(input_spaces=dict(
                     apply=[in_space]
                 ), action_space=None)
-
+            processor_stack.reset()
             return processor_stack
         else:
             return None
@@ -167,104 +167,99 @@ class RayWorker(RayActor):
         episodes_executed = [0 for _ in range_(self.num_environments)]
         env_frames = 0
 
-        # Dict of env_index -> trajectory for that environment during this call.
         sample_states, sample_actions, sample_rewards, sample_terminals = dict(), dict(), dict(), dict()
-        for env_id in self.env_ids:
+        env_states, episode_rewards, episode_timesteps = list(), list(), list()
+        next_states = [np.zeros_like(self.last_states) for _ in range_(self.num_environments)]
+        is_reset = False
+
+        # Reset envs and Agent either if finished an episode in current loop or if last state
+        # from previous execution was terminal for that environment.
+        for i, env_id in enumerate(self.env_ids):
             sample_states[env_id] = list()
             sample_actions[env_id] = list()
             sample_rewards[env_id] = list()
             sample_terminals[env_id] = list()
 
-        break_loop = False
-        next_states = [np.zeros_like(self.last_states) for _ in range_(self.num_environments)]
+            if self.last_terminals[i] is True:
+                # Reset this environment.
+                env_states.append(self.vector_env.reset(i))
 
-        while timesteps_executed < num_timesteps:
-            # Reset envs and Agent either if finished an episode in current loop or if last state
-            # from previous execution was terminal for that environment.
-            env_states, episode_rewards, episode_timesteps = list(), list(), list()
-            is_reset = False
-
-            # Check continuation of episodes between calls.
-            for i in range_(self.num_environments):
-                if self.last_terminals[i] is True or episodes_executed[i] > 0:
-                    # Reset this environment.
-                    env_states.append(self.vector_env.reset(i))
-
-                    if not is_reset:
-                        self.agent.reset()
-                    else:
-                        is_reset = True
-                    # The reward accumulated over one episode.
-                    self.last_ep_rewards[i] = 0
-                    episode_rewards.append(0)
-                    episode_timesteps.append(0)
+                if not is_reset:
+                    self.agent.reset()
                 else:
-                    # Continue training between calls.
-                    env_states.append(self.last_states[i])
-                    episode_rewards.append(self.last_ep_rewards[i])
-                    episode_timesteps.append(self.last_ep_timesteps[i])
+                    is_reset = True
+                # The reward accumulated over one episode.
+                # print("Restart env {} episode from reward {} and step {}".format(env_id, self.last_ep_rewards[i],
+                #                                                            self.last_ep_timesteps[i]))
+                episode_rewards.append(0)
+                episode_timesteps.append(0)
+            else:
+                # Continue training between calls.
+                env_states.append(self.last_states[i])
+                # print("Continue env {} episode from reward {} and step {}".format(env_id, self.last_ep_rewards[i],
+                #                                                            self.last_ep_timesteps[i]))
+                episode_rewards.append(self.last_ep_rewards[i])
+                episode_timesteps.append(self.last_ep_timesteps[i])
 
-            # Whether the episode in each env has terminated.
-            terminals = [False for _ in range_(self.num_environments)]
-            while True:
-                state_batch = self.agent.state_space.force_batch(env_states)
-                actions, preprocessed_states = self.agent.get_action(
-                    states=state_batch, use_exploration=use_exploration, extra_returns="preprocessed_states")
+        # Whether the episode in each env has terminated.
+        terminals = [False for _ in range_(self.num_environments)]
+        while timesteps_executed < num_timesteps:
+            state_batch = self.agent.state_space.force_batch(env_states)
+            actions, preprocessed_states = self.agent.get_action(
+                states=state_batch, use_exploration=use_exploration, extra_returns="preprocessed_states")
 
-                rewards = dict()
+            rewards = dict()
+            for i, env_id in enumerate(self.env_ids):
+                sample_states[env_id].append(preprocessed_states[i])
+                sample_actions[env_id].append(actions[i])
+                # Also init step rewards here for frame skip accumulation.
+                rewards[env_id] = 0
+
+            # Accumulate the reward over n env-steps and envs (equals one action pick). n=self.frameskip.
+            for _ in range_(self.worker_frameskip):
+                next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
+                env_frames += 1
+
                 for i, env_id in enumerate(self.env_ids):
-                    sample_states[env_id].append(preprocessed_states[i])
-                    sample_actions[env_id].append(actions[i])
-                    # Also init step rewards here for frame skip accumulation.
-                    rewards[env_id] = 0
+                    rewards[env_id] += step_rewards[i]
+                # TODO Break when all or any are terminal?
+                if np.any(terminals):
+                    break
 
-                # Accumulate the reward over n env-steps and envs (equals one action pick). n=self.frameskip.
-                for _ in range_(self.worker_frameskip):
-                    next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
-                    env_frames += 1
+            timesteps_executed += self.num_environments
+            env_states = next_states
 
-                    for i, env_id in enumerate(self.env_ids):
-                        rewards[env_id] += step_rewards[i]
-                    # TODO Break when all or any are terminal?
-                    if np.any(terminals):
-                        break
-
-                timesteps_executed += self.num_environments
+            # Do accounting for each environment.
+            for i, env_id in enumerate(self.env_ids):
                 # Update samples.
-                for i, env_id in enumerate(self.env_ids):
-                    episode_timesteps[i] += 1
-                    # Each position is the running episode reward of that episosde. Add step reward.
-                    episode_rewards[i] += rewards[env_id]
-                    sample_rewards[env_id].append(rewards[env_id])
-                    sample_terminals[env_id].append(terminals[i])
+                episode_timesteps[i] += 1
+                # Each position is the running episode reward of that episosde. Add step reward.
+                episode_rewards[i] += rewards[env_id]
+                sample_rewards[env_id].append(rewards[env_id])
+                sample_terminals[env_id].append(terminals[i])
 
-                env_states = next_states
+                # Terminate and reset episode for that environment.
+                if terminals[i] or (0 < max_timesteps_per_episode <= episode_timesteps[i]):
+                    # print("terminated episode with reward : {} and timestep {}".format(
+                    #     episode_rewards[i], episode_timesteps[i]))
+                    self.episode_rewards.append(episode_rewards[i])
+                    self.episode_timesteps.append(episode_timesteps[i])
+                    episodes_executed[i] += 1
+                    self.episodes_executed += 1
 
-                # Account for all finished episodes.
-                for i, env_id in enumerate(self.env_ids):
-                    # Conclude episode for that worker
-                    if terminals[i] or (0 < max_timesteps_per_episode <= episode_timesteps[i]):
-                        self.episode_rewards.append(episode_rewards[i])
-                        self.episode_timesteps.append(episode_timesteps[i])
-                        episodes_executed[i] += 1
-                        self.episodes_executed += 1
-                    # TODO Do we need to break here? While True is only broken when we are fully done atm, see below.
+                    # Reset this environment.
+                    env_states[i] = self.vector_env.reset(i)
+                    episode_rewards[i] = 0
+                    episode_timesteps[i] = 0
 
-                if 0 < num_timesteps <= timesteps_executed:
-                    self.total_worker_steps += timesteps_executed
-                    break
-
-                # If any episode finished, stop rollout.
-                if np.any(terminals) and break_on_terminal:
-                    break_loop = True
-                    break
-
-            if break_loop:
+            if 0 < num_timesteps <= timesteps_executed or (break_on_terminal and np.any(terminals)):
+                self.total_worker_steps += timesteps_executed
                 break
 
         self.last_terminals = terminals
         self.last_states = env_states
         self.last_ep_rewards = episode_rewards
+        self.last_ep_timesteps = episode_timesteps
 
         total_time = (time.monotonic() - start) or 1e-10
         self.sample_steps.append(timesteps_executed)
@@ -295,10 +290,11 @@ class RayWorker(RayActor):
             batch_rewards.extend(sample_rewards[env_id])
             batch_terminals.extend(sample_terminals[env_id])
 
-        # TODO this is really inconvenient -> maybe should do in python.
         next_states = self.agent.preprocessed_state_space.force_batch(to_preprocess_list)
         if self.preprocessor is not None:
             next_states = self.preprocessor.preprocess(next_states)
+            # TODO reset every time here?
+            self.preprocessor.reset()
 
         # Finally assemble next states full sample: [env_0_ep_next, env_0_final_next, env_1_ep_next, env_1_final_next]
         for i in range_(self.num_environments):
@@ -346,13 +342,25 @@ class RayWorker(RayActor):
         """
         # Adjust env frames for internal env frameskip:
         adjusted_frames = [env_frames * self.env_frame_skip for env_frames in self.sample_env_frames]
+        if len(self.episode_rewards) > 0:
+            min_episode_reward = np.min(self.episode_rewards)
+            max_episode_reward = np.max(self.episode_rewards)
+            mean_episode_reward = np.mean(self.episode_rewards)
+            final_episode_reward = self.episode_rewards[-1]
+        else:
+            # Will be aggregated in executor.
+            min_episode_reward = None
+            max_episode_reward = None
+            mean_episode_reward = None
+            final_episode_reward = None
+
         return dict(
             episode_timesteps=self.episode_timesteps,
             episode_rewards=self.episode_rewards,
-            min_episode_reward=np.min(self.episode_rewards),
-            max_episode_reward=np.max(self.episode_rewards),
-            mean_episode_reward=np.mean(self.episode_rewards),
-            final_episode_reward=self.episode_rewards[-1],
+            min_episode_reward=min_episode_reward,
+            max_episode_reward=max_episode_reward,
+            mean_episode_reward=mean_episode_reward,
+            final_episode_reward=final_episode_reward,
             episodes_executed=self.episodes_executed,
             worker_steps=self.total_worker_steps,
             mean_worker_ops_per_second=sum(self.sample_steps) / sum(self.sample_times),

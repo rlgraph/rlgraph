@@ -21,6 +21,7 @@ import json
 import os
 import unittest
 from time import sleep
+from rlgraph.tests.test_util import recursive_assert_almost_equal, agent_config_from_path
 import numpy as np
 
 from rlgraph import get_distributed_backend, spaces
@@ -49,9 +50,7 @@ class TestRayWorker(unittest.TestCase):
         """
         Simply tests if time-step execution loop works and returns the samples.
         """
-        path = os.path.join(os.getcwd(), "configs/apex_agent_cartpole.json")
-        with open(path, 'rt') as fp:
-            agent_config = json.load(fp)
+        agent_config = agent_config_from_path("../configs/apex_agent_cartpole.json")
 
         worker_spec = agent_config["execution_spec"].pop("ray_spec")
         worker = RayWorker.remote(agent_config, self.env_spec, worker_spec)
@@ -90,7 +89,6 @@ class TestRayWorker(unittest.TestCase):
 
         # Test with count.
         task = worker.execute_and_get_with_count.remote(100, break_on_terminal=False)
-        sleep(5)
         # Retrieve result.
         result, size = ray.get(task)
         observations = result.get_batch()
@@ -98,7 +96,57 @@ class TestRayWorker(unittest.TestCase):
         print(size)
 
         # We do not break on terminal so there should be exactly 100 steps.
-        self.assertEqual(len(observations['terminals']), size)
+        self.assertEqual(len(observations["terminals"]), size)
+
+    def test_metrics(self):
+        """
+        Tests metric collection for 1 and multiple environments.
+        """
+        agent_config = agent_config_from_path("../configs/apex_agent_cartpole.json")
+
+        worker_spec = agent_config["execution_spec"].pop("ray_spec")
+        worker = RayWorker.remote(agent_config, self.env_spec, worker_spec)
+
+        print("Testing statistics for 1 environment:")
+        # Run for a while:
+        task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=False)
+        sleep(1)
+        # Include a transition between calls.
+        task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=False)
+        sleep(1)
+        # Retrieve result.
+        result = ray.get(task)
+        print('Task results:')
+        print(result.get_metrics())
+
+        # Get worker metrics.
+        task = worker.get_workload_statistics.remote()
+        result = ray.get(task)
+        print("Worker statistics:")
+
+        # In cartpole, num timesteps = reward -> must be the same.
+        print("Cartpole episode rewards: {}".format(result["episode_rewards"]))
+        print("Cartpole episode timesteps: {}".format(result["episode_timesteps"]))
+        recursive_assert_almost_equal(result["episode_rewards"], result["episode_timesteps"])
+
+        # Now repeat this but for multiple environments.
+        print("Testing statistics for 4 environments:")
+        worker_spec["num_worker_environments"] = 4
+        worker_spec["num_background_environments"] = 2
+        worker = RayWorker.remote(agent_config, self.env_spec, worker_spec)
+
+        task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=False)
+        sleep(1)
+        result = ray.get(task)
+        task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=False)
+        sleep(1)
+        result = ray.get(task)
+        task = worker.get_workload_statistics.remote()
+        result = ray.get(task)
+        print("Multi-env statistics:")
+        print("Cartpole episode rewards: {}".format(result["episode_rewards"]))
+        print("Cartpole episode timesteps: {}".format(result["episode_timesteps"]))
+        recursive_assert_almost_equal(result["episode_rewards"], result["episode_timesteps"])
 
     def test_worker_weight_syncing(self):
         """
@@ -106,9 +154,7 @@ class TestRayWorker(unittest.TestCase):
         """
         # First, create a local agent
         env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
-        path = os.path.join(os.getcwd(), "configs/apex_agent_cartpole.json")
-        with open(path, 'rt') as fp:
-            agent_config = json.load(fp)
+        agent_config = agent_config_from_path("../configs/apex_agent_cartpole.json")
 
         # Remove unneeded apex params.
         if "apex_replay_spec" in agent_config:
@@ -137,3 +183,4 @@ class TestRayWorker(unittest.TestCase):
         print(weights)
         worker.set_policy_weights.remote(weights)
         print('Object store weight sync successful.')
+

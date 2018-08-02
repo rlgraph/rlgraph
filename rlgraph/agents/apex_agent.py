@@ -50,6 +50,7 @@ class ApexAgent(DQNAgent):
             sync_call = "sync_target_qnet"
 
         return_ops = [0, 1]
+        self.train_time_steps += 1
         if batch is None:
             # Add some additional return-ops to pull (left out normally for performance reasons).
             ret = self.graph_executor.execute(("update_from_memory", None, return_ops), sync_call)
@@ -57,6 +58,8 @@ class ApexAgent(DQNAgent):
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
                 ret = ret["update_from_memory"]
+
+            return ret[1]
         else:
             # Add some additional return-ops to pull (left out normally for performance reasons).
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
@@ -66,10 +69,8 @@ class ApexAgent(DQNAgent):
             if isinstance(ret, dict):
                 ret = ret["update_from_external_batch"]
 
-        self.train_time_steps += 1
-
-        # Return [1]=total loss, [2]=loss-per-item (skip [0]=update noop).
-        return ret[1], ret[2]
+            # Return [1]=total loss, [2]=loss-per-item (skip [0]=update noop).
+            return ret[1], ret[2]
 
     def __repr__(self):
         return "ApexAgent"
