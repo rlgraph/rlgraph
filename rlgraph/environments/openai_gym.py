@@ -71,8 +71,15 @@ class OpenAIGymEnv(Environment):
             self.gym_env = gym_env
 
         # Manually set the frameskip property.
+        self.frameskip = None
         if frameskip is not None:
-            self.gym_env.env.frameskip = frameskip
+            # Skip externally.
+            if "NoFrameskip" in gym_env:
+                self.state_buffer = np.zeros((2,) + self.gym_env.observation_space.shape, dtype=np.uint8)
+                self.frameskip = frameskip
+            else:
+                # Set gym property.
+                self.gym_env.env.frameskip = frameskip
 
         observation_space = self.translate_space(self.gym_env.observation_space)
         action_space = self.translate_space(self.gym_env.action_space)
@@ -141,6 +148,29 @@ class OpenAIGymEnv(Environment):
         self.gym_env = None
 
     def step(self, actions):
+        if self.frameskip is None:
+            # Frames kipping is unset or set as env property.
+            return self._step(actions)
+        else:
+            # Do frameskip loop in our wrapper class.
+            step_reward = 0.0
+            terminal = None
+            info = None
+            for i in range_(self.frameskip):
+                state, reward, terminal, info = self._step(actions)
+                if i == self.frameskip - 2:
+                    self.state_buffer[0] = state
+                if i == self.frameskip - 1:
+                    self.state_buffer[1] = state
+                    step_reward += reward
+                if terminal:
+                    break
+
+            max_frame = self.frameskip.max(axis=0)
+
+            return max_frame, step_reward, terminal, info
+
+    def _step(self, actions):
         if self.visualize:
             self.gym_env.render()
         state, reward, terminal, info = self.gym_env.step(actions)
