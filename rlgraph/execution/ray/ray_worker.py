@@ -210,9 +210,7 @@ class RayWorker(RayActor):
         terminals = [False for _ in range_(self.num_environments)]
         while timesteps_executed < num_timesteps:
             # state_batch = self.agent.state_space.force_batch(env_states)
-            print("Input states shape: {}".format(np.asarray(env_states).shape))
             preprocessed_states = self.preprocessor.preprocess(env_states)
-            print("Processed states shape: {}".format(np.asarray(preprocessed_states).shape))
             actions = self.agent.get_action(states=preprocessed_states,
                                             use_exploration=use_exploration, apply_preprocessing=False)
 
