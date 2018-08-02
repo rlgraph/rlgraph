@@ -77,6 +77,8 @@ class ImageResize(PreprocessLayer):
         However, this
         """
         if self.backend == "python" or get_backend() == "python":
+            if isinstance(images, list):
+                images = np.asarray(images)
             if images.ndim == 4:
                 resized = []
                 for i in range_(len(images)):

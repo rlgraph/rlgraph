@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.utils.ops import unflatten_op
 from rlgraph.components.layers.preprocessing import PreprocessLayer
@@ -78,8 +80,10 @@ class ImageCrop(PreprocessLayer):
         Images come in with either a batch dimension or not.
         """
         if self.backend == "python" or get_backend() == "python":
+            if isinstance(images, list):
+                images = np.asarray(images)
             if images.ndim == 4:
-                # Preserve batch dimension
+                # Preserve batch dimension.
                 return images[:, self.y:self.y + self.height, self.x:self.x + self.width]
             else:
                 return images[self.y:self.y + self.height, self.x:self.x + self.width]
