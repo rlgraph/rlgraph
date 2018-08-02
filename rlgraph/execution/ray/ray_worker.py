@@ -20,7 +20,7 @@ from __future__ import print_function
 from copy import deepcopy
 
 from rlgraph.components import PreprocessorStack
-from rlgraph.environments import VectorEnv, SequentialVectorEnv
+from rlgraph.environments import SequentialVectorEnv
 from six.moves import xrange as range_
 import numpy as np
 import time
@@ -56,8 +56,8 @@ class RayWorker(RayActor):
         assert get_distributed_backend() == "ray"
         # Internal frameskip of env.
         self.env_frame_skip = env_spec.get("frameskip", 1)
-
         # Worker computes weights for prioritized sampling.
+        worker_spec = deepcopy(worker_spec)
         self.worker_computes_weights = worker_spec.pop("worker_computes_weights", True)
         self.n_step_adjustment = worker_spec.pop("n_step_adjustment", 1)
         self.num_environments = worker_spec.pop("num_worker_environments", 1)
@@ -115,10 +115,12 @@ class RayWorker(RayActor):
             for spec in preprocessing_spec:
                 spec["backend"] = "python"
             processor_stack = PreprocessorStack(*preprocessing_spec, backend="python")
+            build_space = in_space
             for sub_comp_scope in scopes:
                 processor_stack.sub_components[sub_comp_scope].create_variables(input_spaces=dict(
-                    apply=[in_space]
+                    apply=[build_space]
                 ), action_space=None)
+                build_space = processor_stack.sub_components[sub_comp_scope].get_preprocessed_space(build_space)
             processor_stack.reset()
             return processor_stack
         else:
@@ -177,6 +179,7 @@ class RayWorker(RayActor):
 
         # Reset envs and Agent either if finished an episode in current loop or if last state
         # from previous execution was terminal for that environment.
+        print(' env ids = {}'.format(self.env_ids))
         for i, env_id in enumerate(self.env_ids):
             sample_states[env_id] = list()
             sample_actions[env_id] = list()
@@ -186,7 +189,6 @@ class RayWorker(RayActor):
             if self.last_terminals[i] is True:
                 # Reset this environment.
                 env_states.append(self.vector_env.reset(i))
-
                 if not is_reset:
                     self.agent.reset()
                 else:
@@ -207,8 +209,10 @@ class RayWorker(RayActor):
         # Whether the episode in each env has terminated.
         terminals = [False for _ in range_(self.num_environments)]
         while timesteps_executed < num_timesteps:
-            state_batch = self.agent.state_space.force_batch(env_states)
-            preprocessed_states = self.preprocessor.preprocess(state_batch)
+            # state_batch = self.agent.state_space.force_batch(env_states)
+            print("Input states shape: {}".format(np.asarray(env_states).shape))
+            preprocessed_states = self.preprocessor.preprocess(env_states)
+            print("Processed states shape: {}".format(np.asarray(preprocessed_states).shape))
             actions = self.agent.get_action(states=preprocessed_states,
                                             use_exploration=use_exploration, apply_preprocessing=False)
 

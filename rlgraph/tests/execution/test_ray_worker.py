@@ -51,9 +51,8 @@ class TestRayWorker(unittest.TestCase):
         Simply tests if time-step execution loop works and returns the samples.
         """
         agent_config = agent_config_from_path("../configs/apex_agent_cartpole.json")
-
-        worker_spec = agent_config["execution_spec"].pop("ray_spec")
-        worker = RayWorker.remote(agent_config, self.env_spec, worker_spec)
+        ray_spec = agent_config["execution_spec"].pop("ray_spec")
+        worker = RayWorker.remote(agent_config, self.env_spec, ray_spec["worker_spec"])
 
         # Test when breaking on terminal.
         # Init remote task.
@@ -104,7 +103,8 @@ class TestRayWorker(unittest.TestCase):
         """
         agent_config = agent_config_from_path("../configs/apex_agent_cartpole.json")
 
-        worker_spec = agent_config["execution_spec"].pop("ray_spec")
+        ray_spec = agent_config["execution_spec"].pop("ray_spec")
+        worker_spec = ray_spec["worker_spec"]
         worker = RayWorker.remote(agent_config, self.env_spec, worker_spec)
 
         print("Testing statistics for 1 environment:")
@@ -160,7 +160,8 @@ class TestRayWorker(unittest.TestCase):
         if "apex_replay_spec" in agent_config:
             agent_config.pop("apex_replay_spec")
 
-        worker_spec = agent_config["execution_spec"].pop("ray_spec")
+        ray_spec = agent_config["execution_spec"].pop("ray_spec")
+        worker_spec = ray_spec["worker_spec"]
         local_agent = Agent.from_spec(
             agent_config,
             state_space=env.state_space,

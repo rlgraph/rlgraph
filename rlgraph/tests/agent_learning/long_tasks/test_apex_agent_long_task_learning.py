@@ -49,7 +49,7 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         """
         agent_config = agent_config_from_path("../../configs/ray_apex_for_pong.json")
         agent_config["execution_spec"].pop("ray_spec")
-        environment = OpenAIGymEnv("Pong-v0", frameskip=4 )
+        environment = OpenAIGymEnv("Pong-v0", frameskip=4)
 
         agent = ApexAgent.from_spec(
             agent_config, state_space=environment.state_space, action_space=environment.action_space
@@ -76,8 +76,8 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         """
         ray.init()
         agent_config = agent_config_from_path("../../configs/ray_apex_for_pong.json")
-        worker_spec = agent_config["execution_spec"].pop("ray_spec")
-        worker = RayWorker.remote(agent_config, self.env_spec, worker_spec)
+        ray_spec = agent_config["execution_spec"].pop("ray_spec")
+        worker = RayWorker.remote(agent_config, self.env_spec, ray_spec["worker_spec"])
         task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=True)
         result = ray.get(task)
         print(result.get_metrics())
