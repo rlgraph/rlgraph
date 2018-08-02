@@ -20,10 +20,11 @@ from __future__ import print_function
 from six.moves import xrange as range_
 import numpy as np
 from rlgraph import get_backend
+import cv2
 from rlgraph.utils.ops import unflatten_op
 
 from rlgraph.components.layers.preprocessing import PreprocessLayer
-
+from tensorflow.python.ops.image_ops_impl import ResizeMethod
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -42,6 +43,10 @@ class ImageResize(PreprocessLayer):
         super(ImageResize, self).__init__(scope=scope, **kwargs)
         self.width = width
         self.height = height
+
+        # TODO potentially make configurable
+        self.cv2_interpolation = cv2.INTER_AREA
+        self.tf_interpolation = ResizeMethod.AREA
         # The output spaces after preprocessing (per flat-key).
         self.output_spaces = None
 
@@ -72,14 +77,14 @@ class ImageResize(PreprocessLayer):
         However, this
         """
         if self.backend == "python" or get_backend() == "python":
-            import cv2
             if images.ndim == 4:
                 resized = []
                 for i in range_(len(images)):
-                    resized.append(cv2.resize(images[i], dsize=(self.width, self.height)))
+                    resized.append(cv2.resize(images[i], dsize=(self.width, self.height),
+                                              interpolation=self.cv2_interpolation))
                 return np.asarray(resized)
             else:
-                return cv2.resize(images, dsize=(self.width, self.height))
+                return cv2.resize(images, dsize=(self.width, self.height), interpolation=self.cv2_interpolation)
         elif get_backend() == "tf":
-            return tf.image.resize_images(images=images, size=(self.width, self.height))
+            return tf.image.resize_images(images=images, size=(self.width, self.height), method=self.tf_interpolation)
 

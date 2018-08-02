@@ -92,6 +92,7 @@ class TestPreprocessorStacks(unittest.TestCase):
         # Regression test: Incrementally add preprocessors.
         to_use = []
         for i in range_(2):
+            agent_config_copy = deepcopy(agent_config)
             to_use.append(i)
             incremental_spec = []
             incremental_scopes = []
@@ -100,7 +101,7 @@ class TestPreprocessorStacks(unittest.TestCase):
                 incremental_scopes.append(self.preprocessing_spec[index]["scope"])
 
             print("Comparing incremental spec: {}".format(incremental_scopes))
-            agent_config.update(preprocessing_spec=deepcopy(incremental_spec))
+            agent_config_copy.update(preprocessing_spec=deepcopy(incremental_spec))
 
             # Set up python preprocessor.
             # Set backend to python.
@@ -117,8 +118,8 @@ class TestPreprocessorStacks(unittest.TestCase):
             python_processor.reset()
 
             # To have the use case we considered so far, use agent interface for TF backend.
-            agent_config.pop("type")
-            agent = DQNAgent(state_space=env.state_space, action_space=env.action_space, **agent_config)
+            agent_config_copy.pop("type")
+            agent = DQNAgent(state_space=env.state_space, action_space=env.action_space, **agent_config_copy)
 
             # Generate a few states from random set points. Test if preprocessed states are almost equal
             states = np.asarray(env.reset_all())
@@ -129,6 +130,7 @@ class TestPreprocessorStacks(unittest.TestCase):
             print("Asserting (almost) equal values:")
             for tf_state, python_state in zip(agent_preprocessed_states, python_preprocessed_states):
                 recursive_assert_almost_equal(tf_state, python_state, decimals=4)
+                print("Success comparing: {}".format(incremental_scopes))
 
     def test_batched_backend_equivalence(self):
         """
