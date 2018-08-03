@@ -38,7 +38,7 @@ class ApexMemory(Specifiable):
         self.max_priority = 1.0
         self.alpha = alpha
         self.beta = beta
-        self.nstep = n_step_adjustment
+        self.n_step = n_step_adjustment
 
         self.default_new_weight = np.power(self.max_priority, self.alpha)
         self.priority_capacity = 1
@@ -103,8 +103,8 @@ class ApexMemory(Specifiable):
                 next_states.append(next_state)
             else:
                 # Otherwise advance until correct next state or terminal.
-                for i in range_(self.nstep):
-                    next_index = (index + i) % self.capacity
+                for i in range_(self.n_step):
+                    next_index = (index + i) % self.size
                     record = self.memory_values[next_index]
                     next_state, _, _, terminal, _ = record
                     if terminal:
@@ -121,7 +121,9 @@ class ApexMemory(Specifiable):
 
     def get_records(self, num_records):
         indices = []
-        prob_sum = self.merged_segment_tree.sum_segment_tree.get_sum(0, self.size - 1)
+        # Ensure we always have n-next states.
+        # TODO potentially block this if size - 1 - nstep < 1?
+        prob_sum = self.merged_segment_tree.sum_segment_tree.get_sum(0, self.size - 1 - self.n_step)
         samples = np.random.random(size=(num_records,)) * prob_sum
         for sample in samples:
             indices.append(self.merged_segment_tree.sum_segment_tree.index_of_prefixsum(prefix_sum=sample))
