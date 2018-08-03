@@ -66,15 +66,15 @@ class TestPolicies(unittest.TestCase):
         ], decimals=5)
 
         # Stochastic sample.
-        expected_actions = np.array([0, 4])
+        expected_actions = np.array([4, 1])
         test.test(("sample_stochastic", states), expected_outputs=expected_actions)
 
         # Deterministic sample.
-        expected_actions = np.array([2, 4])
+        expected_actions = np.array([4, 0])
         test.test(("sample_deterministic", states), expected_outputs=expected_actions)
 
         # Distribution's entropy.
-        expected_h = np.array([1.5822479, 0.0047392])
+        expected_h = np.array([1.557964, 1.5383724])
         test.test(("get_entropy", states), expected_outputs=expected_h)
 
     def test_policy_for_discrete_action_space_with_dueling_layer(self):

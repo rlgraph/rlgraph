@@ -114,10 +114,12 @@ class Component(Specifiable):
         # `self.api_methods`: Dict holding information about which op-record-tuples go via which API
         # methods into this Component and come out of it.
         # keys=API method name; values=APIMethodRecord
+        self.api_methods = dict()
         # `self.api_method_inputs`: Registry for all unique API-method input parameter names and their Spaces.
         # Two API-methods may share the same input if their input parameters have the same names.
         # keys=input parameter name; values=Space that goes into that parameter
-        self.api_methods, self.api_method_inputs = self.get_api_methods()
+        self.api_method_inputs = dict()
+        self.get_api_methods()
 
         # Registry for graph_fn records (only populated at build time when the graph_fns are actually called).
         self.graph_fns = dict()
@@ -154,29 +156,31 @@ class Component(Specifiable):
     def get_api_methods(self):
         """
         Detects all methods of the Component that should be registered as API-methods for
-        this Component.
-
-        Returns:
-            Two dicts:
-                - Dict[str,APIMethodRecord]: Dict of key=API-method name (str); values=APIMethodRecord.
-                - Dict[str,Space]: Dict of key=API-method input parameter name (str); values=Space.
+        this Component and complements `self.api_methods` and `self.api_method_inputs`.
+        #Returns:
+        #    Two dicts:
+        #        - Dict[str,APIMethodRecord]: Dict of key=API-method name (str); values=APIMethodRecord.
+        #        - Dict[str,Space]: Dict of key=API-method input parameter name (str); values=Space.
         """
-        api_method_records = dict()
-        api_method_inputs = dict()
+        #api_method_records = dict()
+        #api_method_inputs = dict()
         # Look for all our API methods (those that use the `call` method).
         for member in inspect.getmembers(self):
             name, method = (member[0], member[1])
             if name != "define_api_method" and name != "add_components" and name[0] != "_" and \
                     name not in self.switched_off_apis and util.get_method_type(method) == "api":
                 # callable_anytime = False  # not util.does_method_call_graph_fns(method)
-                api_method_records[name] = APIMethodRecord(method, component=self)  #, callable_anytime=callable_anytime)
+                self.api_methods[name] = APIMethodRecord(method, component=self)  #, callable_anytime=callable_anytime)
                 # Store the input-parameter names and map them to None records (Space not defined yet).
-                param_names = list(map(lambda x: x.name, inspect.signature(method).parameters.values()))
-                api_method_records[name].input_names = param_names
-                for param in param_names:
-                    if param not in api_method_inputs:
-                        api_method_inputs[param] = None
-        return api_method_records, api_method_inputs
+                param_list = inspect.signature(method).parameters.values()
+                self._complement_api_method_registries(name, param_list)
+
+                # api_method_records[name].input_names = [p.name for p in params]
+                # for param in params:
+                #    if param.name not in api_method_inputs:
+                #        TODO: write function for this block and the corresponding one in `define_api_method`.
+                #        api_method_inputs[param.name] = None
+        # return api_method_records, api_method_inputs
 
     def call(self, method, *params, **kwargs):
         """
@@ -400,6 +404,17 @@ class Component(Specifiable):
         in_op_column = DataOpRecordColumnIntoAPIMethod(op_records=len(params_no_none),
                                                        component=self,
                                                        api_method_rec=api_method_rec)
+
+        # Update component's api_method_inputs with *inputs[0]=None, *inputs[1]=None records
+        # (to be filled with Spaces at build time).
+        for i, input_name in enumerate(api_method_rec.input_names):
+            if method_owner.api_method_inputs[input_name] == "*flex":
+                for j in range(len(params_no_none) - i):
+                    key = input_name+"[{}]".format(j)
+                    if key not in method_owner.api_method_inputs:
+                        method_owner.api_method_inputs[key] = None
+                break
+
         # Add the column to the API-method record.
         api_method_rec.in_op_columns.append(in_op_column)
 
@@ -470,7 +485,7 @@ class Component(Specifiable):
             if api_method_rec.must_be_complete is False or len(api_method_rec.in_op_columns) == 0:
                 continue
 
-            # Loop through all of this API-method's input paramater names and check, whether they
+            # Loop through all of this API-method's input parameter names and check, whether they
             # all have a Space  defined.
             for input_name in api_method_rec.input_names:
                 assert input_name in self.api_method_inputs
@@ -478,7 +493,25 @@ class Component(Specifiable):
                 if self.api_method_inputs[input_name] is None:
                     self.input_complete = False
                     return False
-
+                # OR: API-method has a var-positional parameter: Check whether it has been called at least once (in
+                # which case we have Space information stored under "*args[0]").
+                elif self.api_method_inputs[input_name] == "*flex":
+                    # Check all keys "input_name[n]" for any None. If one None found -> input incomplete.
+                    idx = 0
+                    while True:
+                        key = input_name+"["+str(idx)+"]"
+                        if key not in self.api_method_inputs:
+                            # We require at least one input.
+                            if idx > 0:
+                                break
+                            # No input defined (has not been called) -> Not input complete.
+                            else:
+                                self.input_complete = False
+                                return False
+                        elif self.api_method_inputs[key] is None:
+                            self.input_complete = False
+                            return False
+                        idx += 1
         return True
 
     def check_variable_completeness(self):
@@ -880,11 +913,31 @@ class Component(Specifiable):
             skip_1st_arg = 1
         else:
             skip_1st_arg = 0
-        param_list = list(map(lambda x: x.name, list(inspect.signature(func).parameters.values())[skip_1st_arg:]))
-        self.api_methods[name].input_names = param_list
+        param_list = list(inspect.signature(func).parameters.values())[skip_1st_arg:]
+        self._complement_api_method_registries(name, param_list)
+
+    def _complement_api_method_registries(self, api_method_name, param_list):
+        self.api_methods[api_method_name].input_names = list()
         for param in param_list:
-            if param not in self.api_method_inputs:
-                self.api_method_inputs[param] = None
+            self.api_methods[api_method_name].input_names.append(param.name)
+            if param.name not in self.api_method_inputs:
+                # This param has a default value.
+                if param.default != inspect.Parameter.empty:
+                    # Default is None. Set to "flex" (to signal that this Space is not needed for input-completeness)
+                    # and wait for first call using this parameter (only then set it to that Space).
+                    if param.default is None:
+                        self.api_method_inputs[param.name] = "flex"
+                    # Default is some python value (e.g. a bool). Use that are the assigned Space.
+                    else:
+                        space = get_space_from_op(param.default)
+                        self.api_method_inputs[param.name] = space
+                # This param is an *args param. Store are "*flex". Then with upcoming API calls, we determine the Spaces
+                # for the single items in *args and set them under "param[0]", "param[1]", etc..
+                elif param.kind == inspect.Parameter.VAR_POSITIONAL:
+                    self.api_method_inputs[param.name] = "*flex"
+                # Normal POSITIONAL_ONLY parameter. Store as None (needed) for now.
+                else:
+                    self.api_method_inputs[param.name] = None
 
     def add_components(self, *components, **kwargs):
         """

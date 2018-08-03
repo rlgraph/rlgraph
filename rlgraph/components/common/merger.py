@@ -20,7 +20,6 @@ from __future__ import print_function
 import re
 
 from rlgraph.components import Component
-from rlgraph.spaces import ContainerSpace
 from rlgraph.utils.ops import DataOpDict
 
 
@@ -51,7 +50,14 @@ class Merger(Component):
         self.define_api_method(name="merge", func=self._graph_fn_merge)
 
     def check_input_spaces(self, input_spaces, action_space=None):
-        spaces = input_spaces["inputs"]
+        spaces = list()
+        idx = 0
+        while True:
+            key = "inputs[{}]".format(idx)
+            if key not in input_spaces:
+                break
+            spaces.append(input_spaces[key])
+            idx += 1
 
         assert len(spaces) == len(self.input_names),\
             "ERROR: Number of incoming Spaces ({}) does not match number of given `input_names` in Merger Component " \

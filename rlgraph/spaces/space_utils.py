@@ -108,6 +108,9 @@ def get_space_from_op(op):
             value = op.constant_value
             if isinstance(value, np.ndarray):
                 return BoxSpace.from_spec(spec=dtype(str(value.dtype), "np"), shape=value.shape)
+        # Op itself is a single value, simple python type.
+        elif isinstance(op, (bool, int, float)):
+            return BoxSpace.from_spec(spec=type(op), shape=())
         # No Space: e.g. the tf.no_op, a distribution (anything that's not a tensor).
         elif hasattr(op, "dtype") is False or not hasattr(op, "get_shape"):
             return 0

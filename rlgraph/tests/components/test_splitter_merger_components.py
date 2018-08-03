@@ -96,7 +96,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
             add_batch_rank=False
         )
         merger = Merger("1", "2", "3", "test", "5", "6", "7")
-        test = ComponentTest(component=merger, input_spaces=dict(inputs=list(space)))
+        test = ComponentTest(component=merger, input_spaces=dict(inputs=[s for s in space]))
 
         # Get a single sample.
         sample = space.sample()

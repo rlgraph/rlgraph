@@ -31,7 +31,7 @@ class TestNNLayer(unittest.TestCase):
     Tests for the different NNLayer Components. Each layer is tested separately.
     """
     def test_dense_layer(self):
-        # Space must contain batch dimension (otherwise, NNlayer will complain).
+        # Space must contain batch dimension (otherwise, NNLayer will complain).
         space = FloatBox(shape=(2,), add_batch_rank=True)
 
         # - fixed 1.0 weights, no biases

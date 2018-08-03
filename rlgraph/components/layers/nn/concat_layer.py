@@ -43,12 +43,18 @@ class ConcatLayer(NNLayer):
 
     def check_input_spaces(self, input_spaces, action_space=None):
         super(ConcatLayer, self).check_input_spaces(input_spaces, action_space)
-        in_space_0 = input_spaces["inputs"]
-        # Make sure all api_methods have the same shape except for the last rank.
-        for i, in_space in enumerate(input_spaces["apply"]):
-            assert in_space_0.shape[:-1] == in_space.shape[:-1], \
-                "ERROR: Input spaces to ConcatLayer must have same shape except for last rank. {}st input's shape is {}, but " \
-                "1st input's shape is {}.".format(i, in_space.shape, in_space_0.shape)
+        # Make sure all inputs have the same shape except for the last rank.
+        in_space_0 = input_spaces["inputs[0]"]
+        idx = 0
+        while True:
+            key = "inputs[{}]".format(idx)
+            if key not in input_spaces:
+                break
+            assert in_space_0.shape[:-1] == input_spaces[key].shape[:-1], \
+                "ERROR: Input spaces to ConcatLayer must have same shape except for last rank. " \
+                "{}st input's shape is {}, but 1st input's shape is {}.".format(idx, input_spaces[key].shape,
+                                                                                in_space_0.shape)
+            idx += 1
 
     def create_variables(self, input_spaces, action_space=None):
         super(ConcatLayer, self).create_variables(input_spaces, action_space=None)

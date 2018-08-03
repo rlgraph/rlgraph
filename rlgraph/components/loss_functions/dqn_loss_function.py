@@ -48,9 +48,7 @@ class DQNLossFunction(LossFunction):
         """
         self.double_q = double_q
         self.huber_loss = huber_loss
-        assert n_step >= 1, "Number of steps for n-step learning must be >= 1, is {}".format(
-            n_step
-        )
+        assert n_step >= 1, "Number of steps for n-step learning must be >= 1, is {}".format(n_step)
         # TODO reward must be preprocessed to work correctly for n-step.
         # For Apex, this is done in the worker - do we want to move this as an in-graph option too?
         self.n_step = n_step
@@ -76,6 +74,21 @@ class DQNLossFunction(LossFunction):
         )
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 
+    def loss(self, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None, importance_weights=None):
+        """
+        API-method that calculates the total loss (average over per-batch-item loss) from the original input to
+        per-item-loss.
+
+        Args: see `self._graph_fn_loss_per_item`.
+
+        Returns:
+            SingleDataOp: The tensor specifying the final loss (over the entire batch).
+        """
+        loss_per_item = self.call(self._graph_fn_loss_per_item, q_values_s, actions, rewards, terminals, qt_values_sp,
+                                  q_values_sp, importance_weights)
+        total_loss = self.call(self._graph_fn_loss_average, loss_per_item)
+        return total_loss, loss_per_item
+
     def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, terminals,
                                 qt_values_sp, q_values_sp=None, importance_weights=None):
         """
@@ -93,6 +106,7 @@ class DQNLossFunction(LossFunction):
                 different actions a'.
             importance_weights (Optional[SingleDataOp]): If 'self.importance_weights' is True: The batch of weights to
                 apply to the losses.
+
         Returns:
             SingleDataOp: The loss values vector (one single value for each batch item).
         """

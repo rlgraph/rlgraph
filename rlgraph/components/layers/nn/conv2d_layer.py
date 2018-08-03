@@ -65,7 +65,7 @@ class Conv2DLayer(NNLayer):
         self.biases_init = None
 
     def create_variables(self, input_spaces, action_space=None):
-        in_space = input_spaces["inputs"]
+        in_space = input_spaces["inputs[0]"]
 
         # Create kernel and biases initializers.
         self.kernel_init = Initializer.from_spec(shape=self.kernel_size, specification=self.kernel_spec)

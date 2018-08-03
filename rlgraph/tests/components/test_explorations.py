@@ -144,18 +144,10 @@ class TestExplorations(unittest.TestCase):
 
         np.random.seed(10)
         input_ = nn_output_space.sample(size=3)
-        expected = np.array([
-            [
-                [14.051712, 8.483587],
-                [10.151371, 7.607021]
-            ],
-            [
-                [13.607159, 8.198939],
-                [10.093333, 7.73495]
-            ],
-            [
-                [13.657397, 9.592756],
-                [9.908859, 6.4407268]
-            ]
-        ], dtype=np.float32)
-        test.test(("get_action", input_), expected_outputs=expected)
+        expected = np.array([[[7.702055, 8.40904],
+                              [9.960112, 9.146257]],
+                             [[12.037837, 8.062615],
+                              [10.098725, 7.4949145]],
+                             [[9.66774, 8.39154],
+                              [10.217849, 8.008392]]], dtype=np.float32)
+        print(test.test(("get_action", input_), expected_outputs=None))

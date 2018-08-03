@@ -30,8 +30,7 @@ class LossFunction(Component):
 
     API:
         loss_per_item(*inputs) -> The loss value vector holding single loss values (one per item in a batch).
-        loss_average(loss_per_item) -> The average value of the input `loss_per_item.
-        loss(*inputs) -> The average loss value (over all single items in a batch).
+        loss_average(loss_per_item) -> The average value of the input `loss_per_item`.
     """
     def __init__(self, discount=0.98, **kwargs):
         """
@@ -45,21 +44,6 @@ class LossFunction(Component):
         # Define our API.
         self.define_api_method(name="loss_per_item", func=self._graph_fn_loss_per_item)
         self.define_api_method(name="loss_average", func=self._graph_fn_loss_average)
-
-    def loss(self, *inputs):
-        """
-        API-method that calculates the total loss (average over per-batch-item loss) from the original input to
-        per-item-loss.
-
-        Args:
-            *inputs (DataOpTuple): The various data that this function needs to calculate the loss.
-
-        Returns:
-            SingleDataOp: The tensor specifying the final loss (over the entire batch).
-        """
-        loss_per_item = self.call(self._graph_fn_loss_per_item, *inputs)
-        total_loss = self.call(self._graph_fn_loss_average, loss_per_item)
-        return total_loss, loss_per_item
 
     def _graph_fn_loss_per_item(self, *inputs):
         """

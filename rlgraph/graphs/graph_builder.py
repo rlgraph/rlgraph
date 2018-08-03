@@ -110,7 +110,7 @@ class GraphBuilder(Specifiable):
             for input_param_name in input_spaces.keys():
                 if input_param_name not in self.core_component.api_method_inputs:
                     raise RLGraphError(
-                        "ERROR: `input_spaces` contains input-paramater-name ('{}') that's not defined in any of "
+                        "ERROR: `input_spaces` contains an input-parameter-name ('{}') that's not defined in any of "
                         "the core-component's ('{}') API-methods!".format(input_param_name, self.core_component.name)
                     )
 
@@ -118,8 +118,21 @@ class GraphBuilder(Specifiable):
         # and bi-directional links for the build time.
         for api_method_name, api_method_rec in self.core_component.api_methods.items():
             self.logger.debug("Building meta-graph of API-method '{}'.".format(api_method_name))
+            # Double check whether number of given input Spaces match number of params of the method.
+            num_records = 0
+            for param_name in api_method_rec.input_names:
+                if self.core_component.api_method_inputs[param_name] == "flex":
+                    if param_name in input_spaces:
+                        num_records += 1
+                else:
+                    assert param_name in input_spaces
+                    # A var-positional param.
+                    if self.core_component.api_method_inputs[param_name] == "*flex":
+                        num_records += len(force_list(input_spaces[param_name]))
+                    else:
+                        num_records += 1
             # Create an new in column and map it to the resulting out column.
-            in_ops_records = [DataOpRecord(position=i) for i, param in enumerate(api_method_rec.input_names)]
+            in_ops_records = [DataOpRecord(position=i) for i in range(num_records)]
             # Do the actual core API-method call (thereby assembling the meta-graph).
             self.core_component.call(api_method_rec.method, *in_ops_records, ok_to_call_own_api=True)
 
@@ -203,10 +216,15 @@ class GraphBuilder(Specifiable):
 
                         # Also push Space into possible API-method record if slot's Space is still None.
                         if isinstance(op_rec.column, DataOpRecordColumnIntoAPIMethod):
-                            param_name = op_rec.column.api_method_rec.input_names[next_op_rec.position]
+                            # If last name in list if a var-positional (*args), construct param_name manually.
+                            if next_component.api_method_inputs[op_rec.column.api_method_rec.input_names[-1]] == "*flex":
+                                param_name = op_rec.column.api_method_rec.input_names[-1] + "[" + str(op_rec.position) + "]"
+                            else:
+                                param_name = op_rec.column.api_method_rec.input_names[op_rec.position]
                             # Place Space for this input-param name (valid for all input params of same name even of
                             # different API-method of the same Component).
-                            if next_component.api_method_inputs[param_name] is None:
+                            if next_component.api_method_inputs[param_name] is None or \
+                                    next_component.api_method_inputs[param_name] == "flex":
                                 next_component.api_method_inputs[param_name] = next_op_rec.space
                             # Sanity check, whether Spaces are the same.
                             else:
@@ -306,7 +324,16 @@ class GraphBuilder(Specifiable):
 
         for api_method_name, (in_op_records, _) in self.api.items():
             api_method_rec = self.core_component.api_methods[api_method_name]
-            spaces = [input_spaces[param] for param in api_method_rec.input_names]
+            spaces = list()
+            for param in api_method_rec.input_names:
+                if self.core_component.api_method_inputs[param] == "flex":
+                    if param in input_spaces:
+                        spaces.append(input_spaces[param])
+                else:
+                    if self.core_component.api_method_inputs[param] == "*flex":
+                        spaces.extend(force_list(input_spaces[param]))
+                    else:
+                        spaces.append(input_spaces[param])
             assert len(spaces) == len(in_op_records)
 
             # Create the placeholder and store it in the given DataOpRecords.

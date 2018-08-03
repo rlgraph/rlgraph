@@ -91,8 +91,6 @@ class Policy(Component):
                 logits, _, _ = self_.call(self_.action_adapter.get_logits_parameters_log_probs, nn_output)
                 return logits
 
-        self.define_api_method("get_q_values", get_q_values)
-
         # Figure out our Distribution.
         if isinstance(action_space, IntBox):
             self.distribution = Categorical()
@@ -101,13 +99,22 @@ class Policy(Component):
             self.distribution = Normal()
         else:
             raise RLGraphError("ERROR: `action_space` is of type {} and not allowed in {} Component!".
-                            format(type(action_space).__name__, self.name))
+                               format(type(action_space).__name__, self.name))
 
         self.add_components(self.neural_network, self.action_adapter, self.distribution)
 
         # Add Synchronizable API to ours.
         if self.writable:
             self.add_components(Synchronizable(), expose_apis="sync")
+
+        # TEST
+        # self.define_api_method("get_q_values", get_q_values)
+        # self.define_api_method("get_nn_output")
+        # self.define_api_method("get_action_layer_output")
+        # self.define_api_method("get_logits_parameters_log_probs")
+        # self.define_api_method("get_entropy")
+        # self.define_api_method("sample_stochastic")
+        # self.define_api_method("sample_deterministic")
 
     # Define our interface.
     def get_nn_output(self, nn_input):
