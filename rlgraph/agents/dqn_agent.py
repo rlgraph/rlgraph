@@ -249,7 +249,7 @@ class DQNAgent(Agent):
             batched_states = self.state_space.force_batch(states)
         else:
             call_method = "action_from_preprocessed_state"
-            batched_states = self.preprocessed_state_space.force_batch(states)
+            batched_states = states
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
 
         # Increase timesteps by the batch size (number of states in batch).

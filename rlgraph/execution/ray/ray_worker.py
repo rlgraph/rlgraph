@@ -25,6 +25,7 @@ from six.moves import xrange as range_
 import numpy as np
 import time
 
+from rlgraph.utils import dtype
 from rlgraph import SMALL_NUMBER
 from rlgraph.backend_system import get_distributed_backend
 from rlgraph.execution.environment_sample import EnvironmentSample
@@ -96,10 +97,12 @@ class RayWorker(RayActor):
         # To continue running through multiple exec calls.
         self.last_states = self.vector_env.reset_all()
         self.agent.reset()
-
-        # Was the last state a terminal state so env should be reset in next call?
+        self.env_states_buffer = np.zeros(shape=(self.num_environments, )
+                                          + self.agent.preprocessed_state_space.shape,
+                                          dtype=dtype(self.agent.preprocessed_state_space.dtype, to="np"))
         self.last_ep_timesteps = [0 for _ in range_(self.num_environments)]
         self.last_ep_rewards = [0 for _ in range_(self.num_environments)]
+        # Was the last state a terminal state so env should be reset in next call?
         self.last_terminals = [False for _ in range_(self.num_environments)]
 
     def get_constructor_success(self):
@@ -214,18 +217,15 @@ class RayWorker(RayActor):
         terminals = [False for _ in range_(self.num_environments)]
         while timesteps_executed < num_timesteps:
             # state_batch = self.agent.state_space.force_batch(env_states)
-            preprocessed_states = list()
             for i, env_id in enumerate(self.env_ids):
                 state = self.agent.state_space.force_batch(env_states[i])
-                preprocessed_state = self.preprocessors[env_id].preprocess(state)
-                preprocessed_states.append(preprocessed_state)
+                self.env_states_buffer[i] = self.preprocessors[env_id].preprocess(state)
 
-            actions = self.agent.get_action(states=np.squeeze(preprocessed_states),
+            actions = self.agent.get_action(states=self.env_states_buffer,
                                             use_exploration=use_exploration, apply_preprocessing=False)
-
             rewards = dict()
             for i, env_id in enumerate(self.env_ids):
-                sample_states[env_id].append(preprocessed_states[i])
+                sample_states[env_id].append(self.env_states_buffer[i])
                 sample_actions[env_id].append(actions[i])
                 # Also init step rewards here for frame skip accumulation.
                 rewards[env_id] = 0
@@ -286,8 +286,6 @@ class RayWorker(RayActor):
         batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals = list(), list(), list(),\
             list(), list()
 
-        to_preprocess_list = list()
-        next_state_fragments = list()
         for i, env_id in enumerate(self.env_ids):
             env_sample_states = np.squeeze(sample_states[env_id])
 
