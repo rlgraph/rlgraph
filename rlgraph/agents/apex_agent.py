@@ -65,8 +65,8 @@ class ApexAgent(DQNAgent):
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
                            batch["next_states"], batch["importance_weights"]]
             import numpy as np
-            print(np.asarray(batch["states"]).shape)
-            print(np.asarray(batch["next_states"]).shape)
+            # print(np.asarray(batch["states"]).shape)
+            # print(np.asarray(batch["next_states"]).shape)
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input), sync_call)
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
