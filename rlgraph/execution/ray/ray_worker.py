@@ -219,8 +219,12 @@ class RayWorker(RayActor):
             # state_batch = self.agent.state_space.force_batch(env_states)
             for i, env_id in enumerate(self.env_ids):
                 state = self.agent.state_space.force_batch(env_states[i])
-                self.env_states_buffer[i] = self.preprocessors[env_id].preprocess(state)
+                if self.preprocessors[env_id] is not None:
+                    self.env_states_buffer[i] = self.preprocessors[env_id].preprocess(state)
+                else:
+                    self.env_states_buffer[i] = env_states[i]
 
+            # print('states buffer before act: {}'.format(self.env_states_buffer.shape))
             actions = self.agent.get_action(states=self.env_states_buffer,
                                             use_exploration=use_exploration, apply_preprocessing=False)
             rewards = dict()
@@ -264,7 +268,8 @@ class RayWorker(RayActor):
 
                     # Reset this environment and its preprocecssor stack.
                     env_states[i] = self.vector_env.reset(i)
-                    self.preprocessors[env_id].reset()
+                    if self.preprocessors[env_id] is not None:
+                        self.preprocessors[env_id].reset()
                     episode_rewards[i] = 0
                     episode_timesteps[i] = 0
 
@@ -296,10 +301,12 @@ class RayWorker(RayActor):
                 next_state = np.zeros_like(next_states[0])
             else:
                 next_state = next_states[i]
+
+            next_state = self.agent.state_space.force_batch(next_state)
             if self.preprocessors[env_id] is not None:
-                next_state = self.agent.state_space.force_batch(next_state)
                 next_state = self.preprocessors[env_id].preprocess(next_state)
 
+            # print('next state shape append: {}'.format(next_state.shape))
             batch_next_states.extend(env_sample_next_states)
             #  next_state = self.agent.preprocessed_state_space.force_batch(next_state)
             batch_next_states.extend(next_state)

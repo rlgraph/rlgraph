@@ -135,6 +135,7 @@ class RayExecutor(object):
 
         # Performance reporting granularity.
         report_interval = workload["report_interval"]
+        report_interval_min_seconds = workload["report_interval_min_seconds"]
         timesteps_executed = 0
         iteration_time_steps = list()
         iteration_update_steps = list()
@@ -147,7 +148,8 @@ class RayExecutor(object):
             iteration_start = time.monotonic()
 
             # Record sampling and learning throughput every interval.
-            while iteration_step < report_interval:
+            while (iteration_step < report_interval) or\
+                    time.monotonic() - iteration_start < report_interval_min_seconds:
                 worker_steps_executed, update_steps = self._execute_step()
                 iteration_step += worker_steps_executed
                 iteration_updates += update_steps
