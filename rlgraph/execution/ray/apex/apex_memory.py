@@ -96,9 +96,15 @@ class ApexMemory(Specifiable):
             actions.append(action)
             rewards.append(reward)
             terminals.append(terminal)
-            next_index = (index + self.nstep) % self.capacity
 
-            next_state = self.memory_values[next_index][0]
+            next_state = None
+            for i in range_(self.nstep):
+                next_index = (index + i) % self.capacity
+                record = self.memory_values[next_index]
+                next_state, _, _, terminal, _ = record
+                if terminal:
+                    break
+
             next_states.append(next_state)
 
         return dict(
