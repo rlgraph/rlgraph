@@ -97,15 +97,19 @@ class ApexMemory(Specifiable):
             rewards.append(reward)
             terminals.append(terminal)
 
-            next_state = None
-            for i in range_(self.nstep):
-                next_index = (index + i) % self.capacity
-                record = self.memory_values[next_index]
-                next_state, _, _, terminal, _ = record
-                if terminal:
-                    break
-
-            next_states.append(next_state)
+            next_state = state
+            # If terminal -> just use same state
+            if terminal:
+                next_states.append(next_state)
+            else:
+                # Otherwise advance until correct next state or terminal.
+                for i in range_(self.nstep):
+                    next_index = (index + i) % self.capacity
+                    record = self.memory_values[next_index]
+                    next_state, _, _, terminal, _ = record
+                    if terminal:
+                        break
+                next_states.append(next_state)
 
         return dict(
             states=[ray_decompress(state) for state in states],

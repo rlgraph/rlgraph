@@ -400,7 +400,7 @@ class RayWorker(RayActor):
                 if terminals[i]:
                     continue
                 for j in range_(1, self.n_step_adjustment):
-                    states[i] = states[i + j]
+                    next_states[i] = next_states[i + j]
                     rewards[i] += self.discount ** j * rewards[i + j]
 
                     # Set remaining reward to 0.
