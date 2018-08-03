@@ -147,17 +147,17 @@ class OpenAIGymEnv(Environment):
         self.gym_env.close()
         self.gym_env = None
 
-    def step(self, actions):
+    def _step_and_skip(self, actions):
         if self.frameskip is None:
             # Frames kipping is unset or set as env property.
-            return self._step(actions)
+            return self.gym_env.step(actions)
         else:
             # Do frameskip loop in our wrapper class.
             step_reward = 0.0
             terminal = None
             info = None
             for i in range_(self.frameskip):
-                state, reward, terminal, info = self._step(actions)
+                state, reward, terminal, info = self.gym_env.step(actions)
                 if i == self.frameskip - 2:
                     self.state_buffer[0] = state
                 if i == self.frameskip - 1:
@@ -170,10 +170,10 @@ class OpenAIGymEnv(Environment):
 
             return max_frame, step_reward, terminal, info
 
-    def _step(self, actions):
+    def step(self, actions):
         if self.visualize:
             self.gym_env.render()
-        state, reward, terminal, info = self.gym_env.step(actions)
+        state, reward, terminal, info = self._step_and_skip(actions)
 
         # Manage lives if necessary.
         if self.episodic_life:
