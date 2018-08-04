@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import multiprocessing
+import numpy as np
 
 from rlgraph import get_backend, RLGraphError
 from rlgraph.spaces.space import Space
@@ -91,6 +92,8 @@ class SpecifiableServer(object):
         """
         def call(*args):
             if isinstance(self.output_spaces, dict):
+                assert method_name in self.output_spaces, "ERROR: Method '{}' not specified in output_spaces: {}!".\
+                    format(method_name, self.output_spaces)
                 specs = self.output_spaces[method_name]
             else:
                 specs = self.output_spaces(method_name)
@@ -112,7 +115,7 @@ class SpecifiableServer(object):
                 elif space is not None:
                     # TODO: weird tf bug where floats coming from the py-func are interpreted as tf-doubles and then won't match the Tout types.
                     dt = dtype(space.dtype)
-                    dtypes.append(dt if space.dtype != "float" else tf.float64)
+                    dtypes.append(dt)  # if space.dtype != "float" else tf.float64)
                     shapes.append(space.shape)
                     return_slots.append(i)
 
@@ -120,6 +123,7 @@ class SpecifiableServer(object):
                 # This function will send the method-call-comment via the out-pipe to the remote (server) Specifiable
                 # object - all in-graph - and return the results to be used further by other graph ops.
                 def py_call(*args_):
+                    print("in py_call")
                     try:
                         self.out_pipe.send(args_)
                         result_ = self.out_pipe.recv()
@@ -128,7 +132,7 @@ class SpecifiableServer(object):
                             raise result_
                         # Regular result. Filter out the return values according to return_slots.
                         elif isinstance(result_, tuple):  # is not None:
-                            return tuple(r for slot, r in enumerate(result_) if slot in return_slots)
+                            return tuple((np.asarray(r, dtype=np.float32, order="C") if type(r) == float else r) for slot, r in enumerate(result_) if slot in return_slots)
                         else:
                             return result_
                     except Exception as e:
@@ -139,10 +143,11 @@ class SpecifiableServer(object):
                 results = tf.py_func(py_call, (method_name,) + tuple(args), dtypes, name=method_name)
 
                 # Force known shapes on the returned tensors.
-                for result, shape in zip(results, shapes):
+                for i, (result, shape) in enumerate(zip(results, shapes)):
                     # Not an op (which have shape=0).
                     if shape != 0:
                         result.set_shape(shape)
+                        #result = tf.cast(result, tf.float32)
             else:
                 raise NotImplementedError
 

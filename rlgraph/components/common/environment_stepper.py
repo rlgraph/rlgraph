@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.component import Component
+from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.environments.environment import Environment
 from rlgraph.utils.specifiable_server import SpecifiableServer
 
@@ -36,29 +37,44 @@ class EnvironmentStepper(Component):
             preprocessed_states, actions taken, action log-probabilities, rewards, terminals, discounts
     """
 
-    def __init__(self, environment_spec, policy, preprocessor=None, **kwargs):
+    def __init__(self, environment_spec, actor_component_spec, state_space=None, **kwargs):
+        """
+        Args:
+            environment_spec (dict): A specification dict for constructing an Environment object that will be run
+                inside a SpecifiableServer for in-graph stepping.
+            actor_component_spec (Union[ActorComponent,dict]): A specification dict to construct this EnvStepper's
+                ActionComponent (to generate actions) or an already constructed ActionComponent object.
+            state_space (Optional[Space]): The state Space of the Environment. If None, will construct a dummy
+                environment to get the state  Space from there.
+        """
         super(EnvironmentStepper, self).__init__(scope=kwargs.pop("scope", "env-stepper"), **kwargs)
 
-        self.environment_spec = environment_spec
-        self.preprocessor = preprocessor
-        self.policy = policy
-
         # Create the SpecifiableServer with the given env spec.
-        self.environment_server = SpecifiableServer(Environment, environment_spec, "terminate")
+        if state_space is None:
+            dummy_env = Environment.from_spec(environment_spec)
+            state_space = dummy_env.state_space
+
+        self.environment_spec = environment_spec
+        self.environment_server = SpecifiableServer(
+            Environment, environment_spec, dict(step=[state_space, float, bool, None]), "terminate"
+        )
 
         # Add the sub-components.
-        self.add_components(self.preprocessor, self.policy)
+        self.actor_component = ActorComponent.from_spec(actor_component_spec)
+        self.add_components(self.actor_component)
 
+        # Define our API methods.
         self.define_api_method("step", self._graph_fn_step)
 
-    #def create_variables(self, input_spaces, action_space=None):
-    #    #self.state_space = self.environment.state_space.with_batch_rank()
-
-    def _graph_fn_step(self, num_steps):
+    def _graph_fn_step(self, num_steps, previous_state=None, was_terminal=True):
         """
+        Performs n steps through the environment starting with the current state of the environment and returning
+        accumulated tensors for the n steps.
 
         Args:
             num_steps (int): The number of steps to perform in the environment.
+            previous_state (any): The previously returned state, which is usually the last observed state (next state)
+                of the environment (after the last step). If None:
 
         Returns:
             tuple:
@@ -69,58 +85,27 @@ class EnvironmentStepper(Component):
                 TODO: add more necessary stats here.
         """
 
-        def scan_func(accum, _):
-            preprocessed_state, action, reward, terminal = accum
-
-            preprocessed_state = self.call(self.preprocessor.preprocess, state)
-            a = self.call(self.policy.get_action, preprocessed_state)
-
-            s_, r, t, _ = self.environment_server.call("step", a)
-
-            return s_, a, r, t
+        """
+        Timeline:
+        1) Session starts -> server is started: Env is created on server.
+        2) Call step(3, None)
+        3) 
+        """
 
         if get_backend() == "tf":
-            initializer = [self.current_state, ]
+            def scan_func(accum, _):
+                state, action, reward, terminal = accum
+
+                # Do an API-method call here to get the next action,
+                # making sure that the previous step has been completed.
+                tensor_state = tf.convert_to_tensor(state)
+                #with tf.control_dependencies([tensor_state]):
+                preprocessed_s, a = self.call(self.actor_component.get_preprocessed_state_and_action, tensor_state)
+                # Step through the Env.
+                s_, r, t, _ = self.environment_server.step(a)
+                # Accumulate return values.
+                return s_, a, r, t
+
+            initializer = []
             n_steps = tf.scan(fn=scan_func, elems=tf.range(num_steps), initializer=initializer)
             return n_steps
-
-
-def main():
-    from rlgraph.environments.openai_gym import OpenAIGymEnv
-    import tensorflow as tf
-    import numpy as np
-
-    num_steps = 3000
-
-    env = OpenAIGymEnv("Pong-v0")
-    state = env.reset()
-
-    def fake_policy(state):
-        return np.random.randint(0, 5)
-
-    # build the step-graph
-    def scan_func(accum, _):
-        states, actions, rewards, terminals = accum
-        # fake policy
-        a = fake_policy(states)
-        print("HERE")
-
-        s_, r, t, _ = env.step(a)
-        return s_, a, r, t
-
-    # Before the first step.
-    initializer = (state, np.array(0, dtype=np.int32), np.array(0.0, dtype=np.float32), np.array(False))
-
-    op = tf.scan(fn=scan_func, elems=tf.range(3000), initializer=initializer, parallel_iterations=1)
-
-    with tf.Session() as sess:
-        result = sess.run(op)
-
-    print(result)
-
-    # Compare with single step (1 session call per action) method.
-
-
-# toy program for testing purposes
-if __name__ == "__main__":
-    main()

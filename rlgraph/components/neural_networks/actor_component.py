@@ -32,6 +32,12 @@ class ActorComponent(Component):
         get_preprocessed_state_and_action(state, time_step, use_exploration) ->
     """
     def __init__(self, preprocessor_spec, policy_spec, exploration_spec, **kwargs):
+        """
+        Args:
+            preprocessor_spec ():
+            policy_spec ():
+            exploration_spec ():
+        """
         super(ActorComponent, self).__init__(scope=kwargs.pop("scope", "actor-component"), **kwargs)
 
         self.preprocessor = PreprocessorStack.from_spec(preprocessor_spec)
