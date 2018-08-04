@@ -49,8 +49,21 @@ class Distribution(Component):
         self.seed = kwargs.pop("seed", None)
         super(Distribution, self).__init__(scope=scope, **kwargs)
 
-        # Define our API-method to get a distribution object:
+        # Define our interface.
         self.define_api_method(name="get_distribution", func=self._graph_fn_get_distribution)
+
+        def log_prob(self_, parameters, values):
+            distribution = self_.call(self_._graph_fn_get_distribution, parameters)
+            return self_.call(self_._graph_fn_log_prob, distribution, values)
+
+        self.define_api_method("log_prob", log_prob, must_be_complete=False)
+
+        def kl_divergence(self_, parameters, other_parameters):
+            distribution = self_.call(self_._graph_fn_get_distribution, parameters)
+            other_distribution = self_.call(self_._graph_fn_get_distribution, other_parameters)
+            return self_.call(self_._graph_fn_kl_divergence, distribution, other_distribution)
+
+        self.define_api_method("kl_divergence", kl_divergence, must_be_complete=False)
 
     # Now use that API-method to get the distribution object to implement all other API-methods.
     def sample_stochastic(self, parameters):
@@ -61,22 +74,13 @@ class Distribution(Component):
         distribution = self.call(self._graph_fn_get_distribution, parameters)
         return self.call(self._graph_fn_sample_deterministic, distribution)
 
-    def draw(self, parameters, max_likelihood):
+    def draw(self, parameters, max_likelihood=True):
         distribution = self.call(self._graph_fn_get_distribution, parameters)
         return self.call(self._graph_fn_draw, distribution, max_likelihood)
 
     def entropy(self, parameters):
         distribution = self.call(self._graph_fn_get_distribution, parameters)
         return self.call(self._graph_fn_entropy, distribution)
-
-    def log_prob(self, parameters, values):
-        distribution = self.call(self._graph_fn_get_distribution, parameters)
-        return self.call(self._graph_fn_log_prob, distribution, values)
-
-    def kl_divergence(self, parameters, other_parameters):
-        distribution = self.call(self._graph_fn_get_distribution, parameters)
-        other_distribution = self.call(self._graph_fn_get_distribution, other_parameters)
-        return self.call(self._graph_fn_kl_divergence, distribution, other_distribution)
 
     def check_input_spaces(self, input_spaces, action_space=None):
         ## The first arg of all API-methods is always the distribution parameters. Check them for ContainerSpaces.
