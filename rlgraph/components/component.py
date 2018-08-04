@@ -325,6 +325,8 @@ class Component(Specifiable):
             # Assert input-completeness of Component (if not already, then after this graph_fn/Space update).
             if self.input_complete is False:
                 assert self.check_input_completeness()
+                # Check Spaces and create variables.
+                self.when_input_complete()
             # Call the graph_fn.
             out_graph_fn_column = self.graph_builder.run_through_graph_fn_with_device_and_scope(
                 in_graph_fn_column, create_new_out_column=True
@@ -405,34 +407,47 @@ class Component(Specifiable):
                                                        component=self,
                                                        api_method_rec=api_method_rec)
 
-        # Update component's api_method_inputs with *inputs[0]=None, *inputs[1]=None records
-        # (to be filled with Spaces at build time).
-        for i, input_name in enumerate(api_method_rec.input_names):
-            if method_owner.api_method_inputs[input_name] == "*flex":
-                for j in range(len(params_no_none) - i):
-                    key = input_name+"[{}]".format(j)
-                    if key not in method_owner.api_method_inputs:
-                        method_owner.api_method_inputs[key] = None
-                break
-
         # Add the column to the API-method record.
         api_method_rec.in_op_columns.append(in_op_column)
 
         # Link from incoming op_recs into the new column or populate new column with ops/Spaces (this happens
         # if this call was made from within a graph_fn such that ops and Spaces are already known).
+        flex = None
         for i, op_rec in enumerate(params_no_none):
-            # Coming from graph_fn call (op_rec is actual DataOp (e.g. tensor)).
+            input_name = api_method_rec.input_names[i]
+            if method_owner.api_method_inputs[input_name] == "*flex":
+                if flex is None:
+                    flex = i
+                key = input_name+"[{}]".format(i - flex)
+            else:
+                key = input_name
+
+            # We are already in building phase (params may be coming from inside graph_fn).
             if self.graph_builder is not None and self.graph_builder.build_phase == "building":
-                in_op_column.op_records[i].op = op_rec
-                in_op_column.op_records[i].space = get_space_from_op(op_rec)
+                # Params are op-records -> link AND pass on actual ops/Spaces.
+                if isinstance(op_rec, DataOpRecord):
+                    in_op_column.op_records[i].op = op_rec.op
+                    in_op_column.op_records[i].space = method_owner.api_method_inputs[key] = \
+                        get_space_from_op(op_rec.op)
+                    op_rec.next.add(in_op_column.op_records[i])
+                    in_op_column.op_records[i].previous = op_rec
+                # Params are actual ops: Pass them (and Space) on to in-column records.
+                else:
+                    in_op_column.op_records[i].op = op_rec
+                    in_op_column.op_records[i].space = method_owner.api_method_inputs[key] = \
+                        get_space_from_op(op_rec)
             # A DataOpRecord from the meta-graph.
             elif isinstance(op_rec, DataOpRecord):
                 op_rec.next.add(in_op_column.op_records[i])
                 in_op_column.op_records[i].previous = op_rec
+                if key not in method_owner.api_method_inputs:
+                    method_owner.api_method_inputs[key] = None
             # Fixed value (instead of op-record): Store the fixed value directly in the op.
             else:
                 in_op_column.op_records[i].op = np.array(op_rec)
                 in_op_column.op_records[i].space = 0
+                if key not in method_owner.api_method_inputs or method_owner.api_method_inputs[key] is None:
+                    method_owner.api_method_inputs[key] = 0
                 self.constant_op_records.add(in_op_column.op_records[i])
 
         # Now actually call the API method with that column and
@@ -482,7 +497,7 @@ class Component(Specifiable):
         # Loop through all API methods.
         for method_name, api_method_rec in self.api_methods.items():
             # This API method doesn't have to be completed, ignore and don't add it to space_dict.
-            if api_method_rec.must_be_complete is False or len(api_method_rec.in_op_columns) == 0:
+            if api_method_rec.must_be_complete is False:
                 continue
 
             # Loop through all of this API-method's input parameter names and check, whether they

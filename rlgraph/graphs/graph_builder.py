@@ -121,9 +121,14 @@ class GraphBuilder(Specifiable):
             # Double check whether number of given input Spaces match number of params of the method.
             num_records = 0
             for param_name in api_method_rec.input_names:
+                # Arg has a default of None (flex). If in input_spaces, arg will be provided.
                 if self.core_component.api_method_inputs[param_name] == "flex":
                     if param_name in input_spaces:
                         num_records += 1
+                # Already defined (per default arg value (e.g. bool)).
+                elif isinstance(self.core_component.api_method_inputs[param_name], Space):
+                    num_records += 1
+                # No default values -> Must be provided in `input_spaces`.
                 else:
                     assert param_name in input_spaces
                     # A var-positional param.
@@ -325,15 +330,18 @@ class GraphBuilder(Specifiable):
         for api_method_name, (in_op_records, _) in self.api.items():
             api_method_rec = self.core_component.api_methods[api_method_name]
             spaces = list()
-            for param in api_method_rec.input_names:
-                if self.core_component.api_method_inputs[param] == "flex":
-                    if param in input_spaces:
-                        spaces.append(input_spaces[param])
+            for param_name in api_method_rec.input_names:
+                if self.core_component.api_method_inputs[param_name] == "flex":
+                    if param_name in input_spaces:
+                        spaces.append(input_spaces[param_name])
+                elif isinstance(self.core_component.api_method_inputs[param_name], Space):
+                    spaces.append(self.core_component.api_method_inputs[param_name])
                 else:
-                    if self.core_component.api_method_inputs[param] == "*flex":
-                        spaces.extend(force_list(input_spaces[param]))
+                    assert param_name in input_spaces
+                    if self.core_component.api_method_inputs[param_name] == "*flex":
+                        spaces.extend(force_list(input_spaces[param_name]))
                     else:
-                        spaces.append(input_spaces[param])
+                        spaces.append(input_spaces[param_name])
             assert len(spaces) == len(in_op_records)
 
             # Create the placeholder and store it in the given DataOpRecords.
