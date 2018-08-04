@@ -113,7 +113,7 @@ class Policy(Component):
             self.add_components(Synchronizable(), expose_apis="sync")
 
     # Define our interface.
-    def get_action(self, nn_input, max_likelihood):
+    def get_action(self, nn_input, max_likelihood=True):
         nn_output = self.call(self.neural_network.apply, nn_input)
         _, parameters, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
         sample = self.call(self.distribution.draw, parameters, max_likelihood)
