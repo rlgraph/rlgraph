@@ -59,7 +59,7 @@ class EnvironmentStepper(Component):
         self.state_space = state_space
         self.environment_spec = environment_spec
         self.environment_server = SpecifiableServer(
-            Environment, environment_spec, dict(step=[state_space, float, bool, None]), "terminate"
+            Environment, environment_spec, dict(step=[state_space, float, bool, None], reset=state_space), "terminate"
         )
         self.action_space = None
 
@@ -106,18 +106,19 @@ class EnvironmentStepper(Component):
             with tf.control_dependencies(assigns):
                 return tf.no_op()
 
-    def _graph_fn_step(self, num_steps):
+    def _graph_fn_step(self, num_steps, time_step=0):
         """
         Performs n steps through the environment starting with the current state of the environment and returning
         accumulated tensors for the n steps.
 
         Args:
             num_steps (int): The number of steps to perform in the environment.
-            previous_state (any): The previously returned state, which is usually the last observed state (next state)
-                of the environment (after the last step). If None:
+            time_step (int): The time_step at which we start stepping.
 
         Returns:
-            tuple:
+            Tuple[SingleDataOp,List[SingleDataOp]]:
+                1) The step-op to be pulled to execute the stepping.
+                2) The step results folded into a list of:
                 - preprocessed_previous_states: Starting with the initial state of the environment and ending with
                     the one state before the last element in `next_states` (see below).
                 - actions: The actions actually picked by our policy.
@@ -140,7 +141,7 @@ class EnvironmentStepper(Component):
         """
 
         if get_backend() == "tf":
-            def scan_func(accum, _):
+            def scan_func(accum, time_delta):
                 _, _, _, episode_return, t, s = accum  # preprocessed-previous-state, prev-action, prev-r not needed
 
                 # Add control dependency to make sure we don't step parallelly through the Env.
@@ -153,9 +154,9 @@ class EnvironmentStepper(Component):
                         true_fn=lambda: self.environment_server.reset(),
                         false_fn=lambda: tf.convert_to_tensor(s, dtype=tf.float32)
                     )
-
                     # Get action and preprocessed state.
-                    preprocessed_s, a = self.call(self.actor_component.get_preprocessed_state_and_action, s)
+                    preprocessed_s, a = self.call(self.actor_component.get_preprocessed_state_and_action, s,
+                                                  time_step + time_delta)
 
                     # Step through the Env and collect next state, reward, etc..
                     s_, r, t_, _ = self.environment_server.step(a)

@@ -36,15 +36,21 @@ class TestEnvironmentStepper(unittest.TestCase):
         preprocessor_spec = None
         neural_network_spec = "../configs/test_simple_nn.json"
         exploration_spec = None
-        actor_component = ActorComponent(preprocessor_spec, neural_network_spec, exploration_spec)
+        actor_component = ActorComponent(
+            preprocessor_spec, dict(neural_network=neural_network_spec, action_space=action_space), exploration_spec
+        )
         environment_stepper = EnvironmentStepper(
-            environment_spec=dict(type="random_env", state_space=state_space, action_space=action_space,
-                                  deterministic=True),
+            environment_spec=dict(
+                type="random_env", state_space=state_space, action_space=action_space, deterministic=True
+            ),
             actor_component_spec=actor_component,
             state_space=state_space
         )
 
-        test = ComponentTest(component=environment_stepper, input_spaces=dict(num_steps=int))
+        test = ComponentTest(component=environment_stepper, input_spaces=dict(num_steps=int), action_space=action_space)
+
+        # Reset the stepper.
+        test.test("reset")
 
         # Step 3 times through the Env and collect results.
         expected = None
@@ -108,8 +114,4 @@ def main():
 
     # Compare with single step (1 session call per action) method.
 
-
-# toy program for testing purposes
-if __name__ == "__main__":
-    main()
 
