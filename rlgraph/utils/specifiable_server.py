@@ -123,7 +123,6 @@ class SpecifiableServer(object):
                 # This function will send the method-call-comment via the out-pipe to the remote (server) Specifiable
                 # object - all in-graph - and return the results to be used further by other graph ops.
                 def py_call(*args_):
-                    print("in py_call")
                     try:
                         self.out_pipe.send(args_)
                         result_ = self.out_pipe.recv()
@@ -201,6 +200,7 @@ class SpecifiableServer(object):
 
                 # Call the method with the given args.
                 method_name = command[0].decode()  # must decode here as method_name comes in as bytes
+                print(method_name + " is called on Server.")
                 inputs = command[1:]
                 results = getattr(proxy_object, method_name)(*inputs)
 

@@ -60,12 +60,12 @@ def main():
     import tensorflow as tf
     import numpy as np
 
-    num_steps = 3000
+    num_steps = 10
 
     state_space = FloatBox()
     action_space = IntBox(2)
     env_spec = {"type": "random_env", "deterministic": True, "state_space": state_space, "action_space": action_space}
-    dummy_env = Environment.from_spec(env_spec)
+    #dummy_env = Environment.from_spec(env_spec)
     env_server = SpecifiableServer(
         Environment, env_spec, dict(step=[state_space, FloatBox(), BoolBox(), None], reset=[state_space])
     )
@@ -88,8 +88,6 @@ def main():
 
             # Get a tf action.
             a = fake_tf_policy(tensor_state)
-
-            print("HERE")
 
             # Push the action to the env server.
             s_, r, t = env_server.step(a)

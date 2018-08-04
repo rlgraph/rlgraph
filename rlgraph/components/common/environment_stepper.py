@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.components.neural_networks.actor_component import ActorComponent
@@ -51,22 +53,60 @@ class EnvironmentStepper(Component):
 
         # Create the SpecifiableServer with the given env spec.
         if state_space is None:
-            dummy_env = Environment.from_spec(environment_spec)
+            dummy_env = Environment.from_spec(environment_spec)  # type: Environment
             state_space = dummy_env.state_space
 
+        self.state_space = state_space
         self.environment_spec = environment_spec
         self.environment_server = SpecifiableServer(
             Environment, environment_spec, dict(step=[state_space, float, bool, None]), "terminate"
         )
+        self.action_space = None
 
         # Add the sub-components.
-        self.actor_component = ActorComponent.from_spec(actor_component_spec)
+        self.actor_component = ActorComponent.from_spec(actor_component_spec)  # type: ActorComponent
+        self.preprocessed_state_space = self.actor_component.preprocessor.get_preprocessed_space(self.state_space)
         self.add_components(self.actor_component)
 
+        # Variables that hold information of last step through Env.
+        #self.preprocessed_previous_state = None
+        self.episode_return = None
+        self.current_terminal = None
+        self.current_state = None
+
         # Define our API methods.
+        self.define_api_method("reset", self._graph_fn_reset)
         self.define_api_method("step", self._graph_fn_step)
 
-    def _graph_fn_step(self, num_steps, previous_state=None, was_terminal=True):
+    def create_variables(self, input_spaces, action_space=None):
+        #self.preprocessed_previous_state = self.get_variable(name="preprocessed-previous-state",
+        #                                                     from_space=self.preprocessed_state_space)
+        self.episode_return = self.get_variable(name="episode-return", initializer=0.0)
+        self.current_terminal = self.get_variable(name="current-terminal", dtype="bool", initializer=False)
+        self.current_state = self.get_variable(name="current-state", from_space=self.state_space)
+
+        assert action_space is not None
+        self.action_space = action_space
+
+    def _graph_fn_reset(self):
+        """
+        Resets the EnvStepper and stores the state after resetting in `self.current_state`.
+        This is only necessary at the very beginning as the step method itself will take care of resetting the Env
+        in between or during stepping runs (depending on terminal signals from the Env).
+
+        Returns:
+            SingleDataOp: The assign op that stores the state after the Env reset in `last_state` variable.
+        """
+        if get_backend() == "tf":
+            state_after_reset = self.environment_server.reset()
+            assigns = [
+                self.assign_variable(self.current_state, state_after_reset),
+                tf.variables_initializer([self.episode_return, self.current_terminal])
+            ]
+            with tf.control_dependencies(assigns):
+                return tf.no_op()
+
+    def _graph_fn_step(self, num_steps):
         """
         Performs n steps through the environment starting with the current state of the environment and returning
         accumulated tensors for the n steps.
@@ -78,34 +118,71 @@ class EnvironmentStepper(Component):
 
         Returns:
             tuple:
-                - preprocessed_states: Starting with the initial state of the environment and ending with the last state
-                    reached.
-                - actions_taken: The actions actually picked by our policy.
+                - preprocessed_previous_states: Starting with the initial state of the environment and ending with
+                    the one state before the last element in `next_states` (see below).
+                - actions: The actions actually picked by our policy.
                 - action_log_probs: The log-probabilities of all actions per step.
-                TODO: add more necessary stats here.
+                - returns: The accumulated reward values for the ongoing episode up to after taking an action.
+                TODO: discounting?
+                - rewards: The rewards actually observed during stepping.
+                - terminals: The terminal signals from the env. Values refere to whether the states in `next_states`
+                    (see below) are terminal or not.
+                - next_states: The (non-preprocessed) next states.
         """
 
         """
         Timeline:
         1) Session starts -> server is started: Env is created on server.
-        2) Call step(3, None)
-        3) 
+        2) reset is called: state (or preprocessed state??) is stored in var.
+        3) Call step(3) -> takes values for initializer state, return-this-episode, terminal from the variable.
+        4) get action + step + get_action + step + get_action + step
+        5) return 
         """
 
         if get_backend() == "tf":
             def scan_func(accum, _):
-                state, action, reward, terminal = accum
+                _, _, _, episode_return, t, s = accum  # preprocessed-previous-state, prev-action, prev-r not needed
 
-                # Do an API-method call here to get the next action,
-                # making sure that the previous step has been completed.
-                tensor_state = tf.convert_to_tensor(state)
-                #with tf.control_dependencies([tensor_state]):
-                preprocessed_s, a = self.call(self.actor_component.get_preprocessed_state_and_action, tensor_state)
-                # Step through the Env.
-                s_, r, t, _ = self.environment_server.step(a)
+                # Add control dependency to make sure we don't step parallelly through the Env.
+                t = tf.convert_to_tensor(t)
+                with tf.control_dependencies([t]):
+                    # If state (s) was terminal, reset the env (in this case, we will never need s (or a preprocessed
+                    # version thereof for any NN runs (q-values, probs, values, etc..) as no actions are taken from s).
+                    s = tf.cond(
+                        t,
+                        true_fn=lambda: self.environment_server.reset(),
+                        false_fn=lambda: tf.convert_to_tensor(s, dtype=tf.float32)
+                    )
+
+                    # Get action and preprocessed state.
+                    preprocessed_s, a = self.call(self.actor_component.get_preprocessed_state_and_action, s)
+
+                    # Step through the Env and collect next state, reward, etc..
+                    s_, r, t_, _ = self.environment_server.step(a)
+
+                    # Add up return (if s was not terminal).
+                    new_episode_return = tf.where(t, x=r, y=(r + episode_return))
+
                 # Accumulate return values.
-                return s_, a, r, t
+                return preprocessed_s, a, r, new_episode_return, t_, s_
 
-            initializer = []
-            n_steps = tf.scan(fn=scan_func, elems=tf.range(num_steps), initializer=initializer)
-            return n_steps
+            # Initialize the tf.scan run.
+            initializer = [np.zeros(shape=self.preprocessed_state_space.shape),  # zero previous preprocessed state
+                           np.zeros(shape=self.action_space.shape),  # zero previous action (doesn't matter)
+                           0.0,  # zero previous reward (doesn't matter)
+                           self.episode_return,  # return so far
+                           self.current_terminal,  # whether the current state is terminal
+                           self.current_state  # current (raw) state
+                           ]
+            step_results = tf.scan(fn=scan_func, elems=tf.range(num_steps), initializer=initializer)
+
+            # Store the return so far, current terminal and current state.
+            assigns = [
+                self.assign_variable(self.episode_return, step_results[3][-1]),
+                self.assign_variable(self.current_terminal, step_results[4][-1]),
+                self.assign_variable(self.current_state, step_results[5][-1])
+            ]
+            with tf.control_dependencies(assigns):
+                step_op = tf.no_op()
+
+            return step_op, step_results
