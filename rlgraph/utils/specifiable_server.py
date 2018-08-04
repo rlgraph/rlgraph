@@ -57,9 +57,11 @@ class SpecifiableServer(object):
         if isinstance(output_spaces, dict):
             self.output_spaces = dict()
             for method_name, space_spec in output_spaces.items():
-                space_spec_list = force_list(space_spec)
-                self.output_spaces[method_name] = [Space.from_spec(spec) if spec is not None else
-                                                   None for spec in space_spec_list]
+                if isinstance(space_spec, (tuple, list)):
+                    self.output_spaces[method_name] = [Space.from_spec(spec) if spec is not None else
+                                                       None for spec in space_spec]
+                else:
+                    self.output_spaces[method_name] = Space.from_spec(space_spec) if space_spec is not None else None
         else:
             self.output_spaces = output_spaces
         self.shutdown_method = shutdown_method
@@ -105,7 +107,7 @@ class SpecifiableServer(object):
             dtypes = list()
             shapes = list()
             return_slots = list()
-            for i, space in enumerate(specs):
+            for i, space in enumerate(force_list(specs)):
                 # Expecting an op (space 0).
                 if space == 0:
                     dtypes.append(0)
@@ -150,7 +152,7 @@ class SpecifiableServer(object):
             else:
                 raise NotImplementedError
 
-            return results
+            return results[0] if len(dtypes) == 1 else results
 
         return call
 
