@@ -34,9 +34,8 @@ class Distribution(Component):
         get_distribution(parameters): The backend-specific distribution object.
         sample_stochastic(parameters): Returns a stochastic sample from the distribution.
         sample_deterministic(parameters): Returns the max-likelihood value (deterministic) from the distribution.
-        draw(parameters): Draws a sample from the distribution (if max_likelihood is True, this is will be
-            a deterministic draw, otherwise a stochastic sample). This Socket is optional and can be switched on via
-            the constructor parameter: "expose_draw"=True. By default, this Socket is not exposed.
+        draw(parameters, max_likelihood): Draws a sample from the distribution (if `max_likelihood` is True,
+            this is will be a deterministic draw, otherwise a stochastic sample).
         entropy(parameters): The entropy value of the distribution.
         log_prob(parameters): The log probabilities for given values.
         kl_divergence(parameters, other_parameters): The Kullback-Leibler Divergence between a Distribution and

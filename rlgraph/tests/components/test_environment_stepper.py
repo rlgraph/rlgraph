@@ -29,7 +29,9 @@ class TestEnvironmentStepper(unittest.TestCase):
     Tests for the EnvironmentStepper Component using a simple RandomEnv.
     """
     def test_environment_stepper(self):
-        environment_stepper = EnvironmentStepper(environment_spec=dict(type="random_env", deterministic=True), )
+        environment_stepper = EnvironmentStepper(
+            environment_spec=dict(type="random_env", deterministic=True),
+        )
         test = ComponentTest(component=environment_stepper, input_spaces=dict(step=int))
 
         # Step 3 times through the Env and collect results.

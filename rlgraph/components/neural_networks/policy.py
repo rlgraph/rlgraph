@@ -33,6 +33,9 @@ class Policy(Component):
     NN-output but also query actions (stochastically or deterministically) from the distribution.
 
     API:
+        get_action(nn_input, max_likelihood): Returns a single action based on the neural network input AND
+            max_likelihood. If True, returns a deterministic (max_likelihood) sample, if False, returns a stochastic
+            sample.
         get_nn_output(nn_input): The raw output of the neural network (before it's cleaned-up and passed through
             our ActionAdapter).
         get_action_layer_output(nn_input) (SingleDataOp): The flat output of the action layer of the ActionAdapter.
@@ -91,6 +94,8 @@ class Policy(Component):
                 logits, _, _ = self_.call(self_.action_adapter.get_logits_parameters_log_probs, nn_output)
                 return logits
 
+        self.define_api_method("get_q_values", get_q_values)
+
         # Figure out our Distribution.
         if isinstance(action_space, IntBox):
             self.distribution = Categorical()
@@ -107,16 +112,13 @@ class Policy(Component):
         if self.writable:
             self.add_components(Synchronizable(), expose_apis="sync")
 
-        # TEST
-        # self.define_api_method("get_q_values", get_q_values)
-        # self.define_api_method("get_nn_output")
-        # self.define_api_method("get_action_layer_output")
-        # self.define_api_method("get_logits_parameters_log_probs")
-        # self.define_api_method("get_entropy")
-        # self.define_api_method("sample_stochastic")
-        # self.define_api_method("sample_deterministic")
-
     # Define our interface.
+    def get_action(self, nn_input, max_likelihood):
+        nn_output = self.call(self.neural_network.apply, nn_input)
+        _, parameters, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
+        sample = self.call(self.distribution.draw, parameters, max_likelihood)
+        return sample
+
     def get_nn_output(self, nn_input):
         nn_output = self.call(self.neural_network.apply, nn_input)
         return nn_output

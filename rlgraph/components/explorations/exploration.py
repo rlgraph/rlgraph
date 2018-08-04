@@ -117,7 +117,7 @@ class Exploration(Component):
     def _graph_fn_pick(self, use_exploration, epsilon_decision, sample_deterministic, sample_stochastic):
         """
         Exploration for discrete action spaces.
-        Either pick a random action (if `use_exploration` and `epsilon_decision` is True),
+        Either pick a random action (if `use_exploration` and `epsilon_decision` are True),
             or return non-explorative action.
 
         Args:
