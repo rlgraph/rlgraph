@@ -217,6 +217,9 @@ class Component(Specifiable):
             ok_to_call_own_api (bool): Whether an Error should be suppressed if a Component `call`s an API-method
                 of itself. This is usually not allowed due to introducing circular dependencies.
                 Default: False.
+            return_ops (bool): Whether to return actual ops rather than op-records. This is done automatically
+                (regardless of this value), if the direct parent caller of this method is a `_graph_fn_`-method.
+                Default: False.
 
         Returns:
             Tuple[DataOpRecord]: The returned tuple of DataOpRecords coming from the called API-method or graph_fn.
@@ -228,17 +231,18 @@ class Component(Specifiable):
             method_owner.graph_builder = self.graph_builder
 
         ok_to_call_own_api = kwargs.pop("ok_to_call_own_api", False)
+        return_ops = kwargs.pop("return_ops", False)
 
         # Method is an API method.
         if method.__name__ in method_owner.api_methods:
-            parent_caller = inspect.stack()[1][3]
+            stack = inspect.stack()
             if method_owner is self and ok_to_call_own_api is False:
                 raise RLGraphError("'{}' Component's API-method ('{}') cannot `call` another API-method ('{}') of the "
-                                   "same Component!".format(self.name, parent_caller, method.__name__))
+                                   "same Component!".format(self.name, stack[1][3], method.__name__))
             # Do we need to return the raw ops or the op-recs?
             op_recs = self.call_api(method, method_owner, *params)
-            # Parent caller is graph_fn: Return raw ops.
-            if re.match(r'^_graph_fn_.+$', parent_caller):
+            # Direct parent caller is a `_graph_fn_...`: Return raw ops.
+            if return_ops is True or re.match(r'^_graph_fn_.+$', stack[1][3]):
                 return (o.op for o in op_recs) if isinstance(op_recs, tuple) else op_recs.op
             # Parent caller is non-graph_fn: Return op-recs.
             else:
@@ -480,7 +484,7 @@ class Component(Specifiable):
         if len(out_op_column.op_records) == 1:
             return out_op_column.op_records[0]
         else:
-            return out_op_column.op_records
+            return tuple(out_op_column.op_records)
 
     def check_input_completeness(self):
         """
