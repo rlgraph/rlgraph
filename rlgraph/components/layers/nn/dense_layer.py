@@ -53,11 +53,11 @@ class DenseLayer(NNLayer):
 
     def create_variables(self, input_spaces, action_space=None):
         in_space = input_spaces["inputs[0]"]
+        assert in_space.rank > 0, "ERROR: Must have input Space ({}) with rank larger 0!".format(in_space)
 
-        # Create weights.
-        weights_shape = (in_space.shape[0], self.units)  # [0] b/c Space.shape never includes batch-rank
+        # Create weights matrix and (maybe) biases vector.
+        weights_shape = (in_space.shape[0], self.units)
         self.weights_init = Initializer.from_spec(shape=weights_shape, specification=self.weights_spec)
-        # And maybe biases.
         biases_shape = (self.units,)
         self.biases_init = Initializer.from_spec(shape=biases_shape, specification=self.biases_spec)
 
