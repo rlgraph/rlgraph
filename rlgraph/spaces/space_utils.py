@@ -232,7 +232,7 @@ def sanity_check_space(
                                "{}!".format(space, space.num_categories, num_categories[0], num_categories[1]))
 
 
-def equivalent_spaces(space1, space2):
+def check_space_equivalence(space1, space2):
     """
     Compares the two input Spaces for equivalence and returns the more generic Space of the two.
     The more generic  Space  is the one that has the properties has_batch_rank and/or has _time_rank set (instead of

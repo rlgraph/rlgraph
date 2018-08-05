@@ -24,7 +24,7 @@ import time
 from rlgraph import RLGraphError, Specifiable, get_backend
 from rlgraph.components.component import Component
 from rlgraph.spaces import Space, Dict
-from rlgraph.spaces.space_utils import get_space_from_op, equivalent_spaces
+from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalence
 from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.util import force_list, force_tuple, get_shape
 from rlgraph.utils.ops import DataOpTuple, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
@@ -205,7 +205,13 @@ class GraphBuilder(Specifiable):
         # Re-iterate until our bag of op-recs to process is empty.
         loop_counter = 0
         while len(op_records_list) > 0:
+            # Collect op-recs to process in the next iteration.
             new_op_records_to_process = set()
+
+            # Set of Components that have been tried last to get input-complete. If build gets stuck, it'll be because
+            # of the Components in this set.
+            non_complete_components = set()
+
             for op_rec in op_records_list:  # type: DataOpRecord
                 # There are next records:
                 if len(op_rec.next) > 0:
@@ -223,9 +229,13 @@ class GraphBuilder(Specifiable):
 
                         # Also push Space into possible API-method record if slot's Space is still None.
                         if isinstance(op_rec.column, DataOpRecordColumnIntoAPIMethod):
-                            # If last name in list if a var-positional (*args), construct param_name manually.
-                            if next_component.api_method_inputs[op_rec.column.api_method_rec.input_names[-1]] == "*flex":
-                                param_name = op_rec.column.api_method_rec.input_names[-1] + "[" + str(op_rec.position) + "]"
+                            # Get param-name for var-positional arg: "[param_name][idx]".
+                            if next_component.api_method_inputs[op_rec.column.api_method_rec.input_names[-1]] == \
+                                    "*flex" and op_rec.position >= len(op_rec.column.api_method_rec.input_names) - 1:
+                                param_name = "{}[{}]".format(
+                                    op_rec.column.api_method_rec.input_names[-1], str(op_rec.position - (
+                                            len(op_rec.column.api_method_rec.input_names) - 1))
+                                )
                             else:
                                 param_name = op_rec.column.api_method_rec.input_names[op_rec.position]
                             # Place Space for this input-param name (valid for all input params of same name even of
@@ -235,8 +245,8 @@ class GraphBuilder(Specifiable):
                                 next_component.api_method_inputs[param_name] = next_op_rec.space
                             # Sanity check, whether Spaces are equivalent.
                             else:
-                                generic_space = equivalent_spaces(next_component.api_method_inputs[param_name],
-                                                                  next_op_rec.space)
+                                generic_space = check_space_equivalence(next_component.api_method_inputs[param_name],
+                                                                        next_op_rec.space)
                                 # Spaces are not equivalent.
                                 if generic_space is False:
                                     raise RLGraphError(
@@ -253,6 +263,8 @@ class GraphBuilder(Specifiable):
                         # placeholder).
                         if op_rec.column is None or op_rec.column.component is not next_component:
                             self.build_component_when_input_complete(next_component, new_op_records_to_process)
+                            if next_component.input_complete is False:
+                                non_complete_components.add(next_component.global_scope)
 
                 # No next records:
                 # - Op belongs to a column going into a graph_fn.
@@ -269,6 +281,8 @@ class GraphBuilder(Specifiable):
                         else:
                             self.build_component_when_input_complete(op_rec.column.component, new_op_records_to_process)
                             new_op_records_to_process.add(op_rec)
+                            if op_rec.column.component.input_complete is False:
+                                non_complete_components.add(op_rec.column.component.global_scope)
                     # - Op column is not complete yet: Discard this one (as others will keep coming in anyway).
                     # - Op column has already been sent (sibling ops may have arrive in same iteration).
                 # - Op belongs to a column coming from a graph_fn or an API-method, but the op is no longer used.
@@ -277,10 +291,9 @@ class GraphBuilder(Specifiable):
             # Sanity check, whether we are stuck.
             new_op_records_list = sorted(new_op_records_to_process, key=lambda rec: rec.id)
             if op_records_list == new_op_records_list:
-                # TODO: add all Components to error message that are not input-complete yet.
                 raise RLGraphError("Build procedure is deadlocked. Most likely, you are having a circularly dependent "
-                                   "Component in your meta-graph. The current op-records to process "
-                                   "are: {}".format(new_op_records_list))
+                                   "Component in your meta-graph. The following Components are still "
+                                   "input-incomplete:\n{}".format(non_complete_components))
 
             op_records_list = new_op_records_list
 

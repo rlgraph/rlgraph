@@ -43,7 +43,7 @@ class LossFunction(Component):
 
         # Define our API.
         self.define_api_method(name="loss_per_item", func=self._graph_fn_loss_per_item)
-        self.define_api_method(name="loss_average", func=self._graph_fn_loss_average)
+        self.define_api_method(name="loss_average", func=self._graph_fn_loss_average, must_be_complete=False)
 
     def _graph_fn_loss_per_item(self, *inputs):
         """

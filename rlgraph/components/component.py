@@ -522,8 +522,8 @@ class Component(Specifiable):
                     while True:
                         key = input_name+"["+str(idx)+"]"
                         if key not in self.api_method_inputs:
-                            # We require at least one input.
-                            if idx > 0:
+                            # We require at least one param if the flex param is the only param. Otherwise, none are ok.
+                            if idx > (0 if len(api_method_rec.input_names) == 1 else -1):
                                 break
                             # No input defined (has not been called) -> Not input complete.
                             else:
