@@ -53,8 +53,17 @@ class TestEnvironmentStepper(unittest.TestCase):
         test.test("reset")
 
         # Step 3 times through the Env and collect results.
-        expected = None
-        print(test.test(("step", 3), expected_outputs=expected))
+        # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
+        # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
+        expected = (None, (
+            np.array([[0.77132064], [0.74880385], [0.19806287]]),  # p(s)
+            np.array([0, 0, 0]),  # a
+            np.array([0.49850702, 0.7605307, 0.68535984]),  # r
+            np.array([0.49850702, 1.2590377, 1.9443976]),  # episode's accumulated returns
+            np.array([False, False, False]),
+            np.array([[0.74880385], [0.19806287], [0.08833981]]),  # s' (raw)
+        ))
+        test.test(("step", 3), expected_outputs=expected)
 
     def test_environment_stepper_on_pong(self):
         pass
