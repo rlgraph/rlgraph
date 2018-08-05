@@ -45,15 +45,15 @@ class TestSpecifiableServer(unittest.TestCase):
 
         # Check all 3 outputs of the Env step (next state, reward, terminal).
         self.assertEqual(ret1[0].shape, ())
-        self.assertEqual(ret1[0].dtype, dtype("float64"))
+        self.assertEqual(ret1[0].dtype, dtype("float32"))
         self.assertEqual(ret1[1].shape, ())
-        self.assertEqual(ret1[1].dtype, dtype("float64"))
+        self.assertEqual(ret1[1].dtype, dtype("float32"))
         self.assertEqual(ret1[2].shape, ())
         self.assertEqual(ret1[2].dtype, dtype("bool"))
         self.assertEqual(ret2[0].shape, ())
-        self.assertEqual(ret2[0].dtype, dtype("float64"))
+        self.assertEqual(ret2[0].dtype, dtype("float32"))
         self.assertEqual(ret2[1].shape, ())
-        self.assertEqual(ret2[1].dtype, dtype("float64"))
+        self.assertEqual(ret2[1].dtype, dtype("float32"))
         self.assertEqual(ret2[2].shape, ())
         self.assertEqual(ret2[2].dtype, dtype("bool"))
 

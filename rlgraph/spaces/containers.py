@@ -21,7 +21,7 @@ from cached_property import cached_property
 import numpy as np
 import re
 
-from rlgraph import RLGraphError
+from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.utils.ops import DataOpDict, DataOpTuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE
 from rlgraph.spaces.space import Space
 

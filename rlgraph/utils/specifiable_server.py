@@ -20,7 +20,8 @@ from __future__ import print_function
 import multiprocessing
 import numpy as np
 
-from rlgraph import get_backend, RLGraphError
+from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.backend_system import get_backend
 from rlgraph.spaces.space import Space
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.util import force_list, dtype
@@ -36,6 +37,8 @@ class SpecifiableServer(Specifiable):
     This is useful - for example - to run RLgraph Environments (which are Specifiables) in a highly parallelized and
     in-graph fashion for faster Agent-Environment stepping.
     """
+
+    INSTANCES = list()
 
     def __init__(self, class_, spec, output_spaces, shutdown_method=None):
         """
@@ -73,6 +76,9 @@ class SpecifiableServer(Specifiable):
         self.out_pipe = None
         # The in-pipe to receive "ready" signal from the server process.
         self.in_pipe = None
+
+        # Register this object with the class.
+        #self.INSTANCES.append(self)
 
     def __getattr__(self, method_name):
         """
@@ -228,15 +234,13 @@ if get_backend() == "tf":
             Starts all registered RLGraphProxyProcess processes.
             """
             tp = multiprocessing.pool.ThreadPool()
-            tp.map(lambda server: server.start(),
-                   tf.get_collection(SpecifiableServer.COLLECTION))
+            tp.map(lambda server: server.start(), SpecifiableServer.INSTANCES)
             tp.close()
             tp.join()
 
         def end(self, session):
             tp = multiprocessing.pool.ThreadPool()
-            tp.map(lambda server: server.close(),
-                   tf.get_collection(SpecifiableServer.COLLECTION))
+            tp.map(lambda server: server.close(), SpecifiableServer.INSTANCES)
             tp.close()
             tp.join()
 

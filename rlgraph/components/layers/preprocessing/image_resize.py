@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import cv2
 import numpy as np
 from six.moves import xrange as range_
 
@@ -76,7 +77,6 @@ class ImageResize(PreprocessLayer):
         However, this
         """
         if self.backend == "python" or get_backend() == "python":
-            import cv2
             if isinstance(inputs, list):
                 inputs = np.asarray(inputs)
             if inputs.ndim == 4:

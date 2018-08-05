@@ -20,9 +20,8 @@ from __future__ import print_function
 from cached_property import cached_property
 import numpy as np
 
-from rlgraph import LARGE_INTEGER
 from rlgraph.spaces.box_space import BoxSpace
-from rlgraph.utils.util import dtype
+from rlgraph.utils.util import dtype, LARGE_INTEGER
 
 
 class IntBox(BoxSpace):

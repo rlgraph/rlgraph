@@ -66,16 +66,16 @@ class TestPolicies(unittest.TestCase):
         ], decimals=5)
 
         # Stochastic sample.
-        expected_actions = np.array([4, 1])
+        expected_actions = np.array([1, 4])
         test.test(("sample_stochastic", states), expected_outputs=expected_actions)
 
         # Deterministic sample.
-        expected_actions = np.array([4, 0])
+        expected_actions = np.array([1, 4])
         test.test(("sample_deterministic", states), expected_outputs=expected_actions)
 
         # Distribution's entropy.
-        expected_h = np.array([1.557964, 1.5383724])
-        test.test(("get_entropy", states), expected_outputs=expected_h)
+        expected_h = np.array([1.5738281, 1.0164685])
+        test.test(("get_entropy", states), expected_outputs=expected_h, decimals=3)
 
     def test_policy_for_discrete_action_space_with_dueling_layer(self):
         # state_space (NN is a simple single fc-layer relu network (2 units), random biases, random weights).
@@ -137,7 +137,7 @@ class TestPolicies(unittest.TestCase):
         print("Probs: {}".format(expected_probabilities_output))
 
         # Stochastic sample.
-        expected_actions = np.array([0, 0, 1])
+        expected_actions = np.array([1, 1, 0])
         test.test(("sample_stochastic", states), expected_outputs=expected_actions)
 
         # Deterministic sample.
@@ -146,4 +146,4 @@ class TestPolicies(unittest.TestCase):
 
         # Distribution's entropy.
         expected_h = np.array([0.6931462, 0.6925241, 0.6931312])
-        test.test(("get_entropy", states), expected_outputs=expected_h)
+        test.test(("get_entropy", states), expected_outputs=expected_h, decimals=3)

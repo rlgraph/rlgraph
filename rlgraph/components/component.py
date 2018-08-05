@@ -420,7 +420,7 @@ class Component(Specifiable):
         # if this call was made from within a graph_fn such that ops and Spaces are already known).
         flex = None
         for i, op_rec in enumerate(params_no_none):
-            input_name = api_method_rec.input_names[i]
+            input_name = api_method_rec.input_names[i if flex is None else flex]
             if method_owner.api_method_inputs[input_name] == "*flex":
                 if flex is None:
                     flex = i
