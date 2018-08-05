@@ -78,7 +78,7 @@ class SpecifiableServer(Specifiable):
         self.in_pipe = None
 
         # Register this object with the class.
-        #self.INSTANCES.append(self)
+        self.INSTANCES.append(self)
 
     def __getattr__(self, method_name):
         """
@@ -134,9 +134,11 @@ class SpecifiableServer(Specifiable):
                         if isinstance(result_, Exception):
                             raise result_
                         # Regular result. Filter out the return values according to return_slots.
-                        elif isinstance(result_, tuple):  # is not None:
-                            return tuple((np.asarray(r, dtype=np.float32, order="C") if type(r) == float else r) for slot, r in enumerate(result_) if slot in return_slots)
+                        elif isinstance(result_, tuple):
+                            #return tuple((np.asarray(r, dtype=np.float32, order="C") if type(r) == float else r) for slot, r in enumerate(result_) if slot in return_slots)
+                            return tuple(r for slot, r in enumerate(result_) if slot in return_slots)
                         else:
+                            #return np.asarray(result_, dtype=np.float32, order="C") if type(result_) == float else result_
                             return result_
                     except Exception as e:
                         if isinstance(e, IOError):

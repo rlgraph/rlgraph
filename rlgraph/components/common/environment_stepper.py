@@ -107,7 +107,7 @@ class EnvironmentStepper(Component):
             with tf.control_dependencies(assigns):
                 return tf.no_op()
 
-    def _graph_fn_step(self, num_steps, time_step=0):
+    def _graph_fn_step(self, num_steps=1, time_step=0):
         """
         Performs n steps through the environment starting with the current state of the environment and returning
         accumulated tensors for the n steps.

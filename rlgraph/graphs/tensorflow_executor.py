@@ -65,7 +65,6 @@ class TensorFlowExecutor(GraphExecutor):
 
         # Summary settings.
         self.summary_writer = None
-        # self.summary_configuration_op = None
 
         # The merged summary op to be used by the session to write the summaries.
         self.summary_op = None
@@ -477,6 +476,8 @@ class TensorFlowExecutor(GraphExecutor):
     @staticmethod
     def setup_specifiable_servers(hooks):
         # Add the hook only if there have been SpecifiableServer objects created.
+        # TODO: Change this registry to a tf collections based one. Problem: EnvStepper is created before the Graph,
+        # TODO: So when the Graph gets entered, the registry (with the SpecifiableServer in it) is gone.
         if len(util.SpecifiableServer.INSTANCES) > 0:
             hooks.append(util.SpecifiableServerHook())
 

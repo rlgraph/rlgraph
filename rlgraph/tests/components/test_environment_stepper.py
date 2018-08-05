@@ -47,7 +47,7 @@ class TestEnvironmentStepper(unittest.TestCase):
             state_space=state_space
         )
 
-        test = ComponentTest(component=environment_stepper, input_spaces=dict(num_steps=int), action_space=action_space)
+        test = ComponentTest(component=environment_stepper, action_space=action_space)
 
         # Reset the stepper.
         test.test("reset")
