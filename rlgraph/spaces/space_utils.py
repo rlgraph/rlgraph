@@ -133,10 +133,10 @@ def get_space_from_op(op):
                 add_batch_rank = True
 
             # a FloatBox
-            if op.dtype.base_dtype == dtype("float"):
+            if op.dtype.base_dtype == dtype("float") or op.dtype.base_dtype == dtype("float64"):
                 return FloatBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
             # an IntBox
-            elif op.dtype.base_dtype == dtype("int"):
+            elif op.dtype.base_dtype == dtype("int") or op.dtype.base_dtype == dtype("int64"):
                 return IntBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
             # a BoolBox
             elif op.dtype.base_dtype == dtype("bool"):

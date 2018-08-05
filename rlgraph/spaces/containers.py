@@ -144,6 +144,9 @@ class Dict(ContainerSpace, dict):
     def contains(self, sample):
         return isinstance(sample, dict) and all(self[key].contains(sample[key]) for key in self.keys())
 
+    def zeros(self):
+        return DataOpDict([(key, subspace.zeros()) for key, subspace in self.items()])
+
 
 class Tuple(ContainerSpace, tuple):
     """
@@ -244,3 +247,6 @@ class Tuple(ContainerSpace, tuple):
     def contains(self, sample):
         return isinstance(sample, (tuple, list, np.ndarray)) and len(self) == len(sample) and \
                all(c.contains(xi) for c, xi in zip(self, sample))
+
+    def zeros(self):
+        return tuple([c.zeros() for i, c in enumerate(self)])

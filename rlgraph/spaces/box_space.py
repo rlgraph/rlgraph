@@ -207,3 +207,6 @@ class BoxSpace(Space):
             if sample.shape != self.shape:
                 return False
             return (sample >= self.low).all() and (sample <= self.high).all()
+
+    def zeros(self):
+        return np.zeros(shape=self.shape, dtype=util.dtype(self.dtype, "np"))

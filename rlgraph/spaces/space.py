@@ -318,3 +318,10 @@ class Space(Specifiable):
             bool: Whether sample is a valid member of this space.
         """
         raise NotImplementedError
+
+    def zeros(self):
+        """
+        Returns:
+            np.ndarray: A zero sample where all values are zero and have the correct type.
+        """
+        raise NotImplementedError
