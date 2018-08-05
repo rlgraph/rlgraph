@@ -24,7 +24,7 @@ import time
 from rlgraph import RLGraphError, Specifiable, get_backend
 from rlgraph.components.component import Component
 from rlgraph.spaces import Space, Dict
-from rlgraph.spaces.space_utils import get_space_from_op
+from rlgraph.spaces.space_utils import get_space_from_op, equivalent_spaces
 from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.util import force_list, force_tuple, get_shape
 from rlgraph.utils.ops import DataOpTuple, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
@@ -233,12 +233,20 @@ class GraphBuilder(Specifiable):
                             if next_component.api_method_inputs[param_name] is None or \
                                     next_component.api_method_inputs[param_name] == "flex":
                                 next_component.api_method_inputs[param_name] = next_op_rec.space
-                            # Sanity check, whether Spaces are the same.
+                            # Sanity check, whether Spaces are equivalent.
                             else:
-                                assert next_component.api_method_inputs[param_name] == next_op_rec.space, \
-                                    "ERROR: op-rec '{}' has Space '{}', but input-param '{}' already has Space '{}'!".\
-                                    format(next_op_rec, next_op_rec.space, param_name,
-                                           next_component.api_method_inputs[param_name])
+                                generic_space = equivalent_spaces(next_component.api_method_inputs[param_name],
+                                                                  next_op_rec.space)
+                                # Spaces are not equivalent.
+                                if generic_space is False:
+                                    raise RLGraphError(
+                                        "ERROR: op-rec '{}' has Space '{}', but input-param '{}' already has Space "
+                                        "'{}'!".format(next_op_rec, next_op_rec.space, param_name,
+                                                       next_component.api_method_inputs[param_name])
+                                    )
+                                # Overwrite both entries with the more generic Space.
+                                else:
+                                    next_op_rec.space = next_component.api_method_inputs[param_name] = generic_space
 
                         # Did we enter a new Component? If yes, check input-completeness and
                         # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
@@ -269,6 +277,7 @@ class GraphBuilder(Specifiable):
             # Sanity check, whether we are stuck.
             new_op_records_list = sorted(new_op_records_to_process, key=lambda rec: rec.id)
             if op_records_list == new_op_records_list:
+                # TODO: add all Components to error message that are not input-complete yet.
                 raise RLGraphError("Build procedure is deadlocked. Most likely, you are having a circularly dependent "
                                    "Component in your meta-graph. The current op-records to process "
                                    "are: {}".format(new_op_records_list))

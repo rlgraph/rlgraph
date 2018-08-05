@@ -230,3 +230,34 @@ def sanity_check_space(
         elif not ((num_categories[0] or 0) <= space.num_categories <= (num_categories[1] or float("inf"))):
             raise RLGraphError("ERROR: Space ({}) has `num_categories` {}, but this value must be between {} and "
                                "{}!".format(space, space.num_categories, num_categories[0], num_categories[1]))
+
+
+def equivalent_spaces(space1, space2):
+    """
+    Compares the two input Spaces for equivalence and returns the more generic Space of the two.
+    The more generic  Space  is the one that has the properties has_batch_rank and/or has _time_rank set (instead of
+    hard values in these ranks).
+    E.g.: FloatBox((64,)) is equivalent with FloatBox((), +batch-rank). The latter will be returned.
+
+    NOTE: FloatBox((2,)) and FloatBox((3,)) are NOT equivalent.
+
+    Args:
+        space1 (Space): The 1st Space to compare.
+        space2 (Space): The 2nd Space to compare.
+
+    Returns:
+        Union[Space,False]: False is the two spaces are not equivalent. The more generic Space of the two if they are
+            equivalent.
+    """
+    # Spaces are the same: Return one of them.
+    if space1 == space2:
+        return space1
+    # One has batch-rank, the other doesn't, but has one more rank.
+    elif space1.has_batch_rank and not space2.has_batch_rank and space1.rank == space2.rank - 1:
+        return space1
+    elif space2.has_batch_rank and not space1.has_batch_rank and space2.rank == space1.rank - 1:
+        return space2
+
+    # TODO: time rank?
+
+    return False
