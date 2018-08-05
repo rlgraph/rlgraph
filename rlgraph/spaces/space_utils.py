@@ -140,7 +140,7 @@ def get_space_from_op(op):
                 return IntBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
             # a BoolBox
             elif op.dtype.base_dtype == dtype("bool"):
-                return BoolBox(add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
+                return BoolBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
 
     raise RLGraphError("ERROR: Cannot derive Space from op '{}' (unknown type?)!".format(op))
 
