@@ -30,7 +30,15 @@ class ApexMemory(Specifiable):
     """
     Apex prioritized replay implementing compression.
     """
-    def __init__(self, capacity=1000, alpha=1.0, beta=0.0, n_step=1):
+    def __init__(self, capacity=1000, alpha=1.0, beta=1.0, n_step_adjustment=1):
+        """
+        TODO: documentation.
+        Args:
+            capacity ():
+            alpha ():
+            beta ():
+            n_step_adjustment ():
+        """
         super(ApexMemory, self).__init__()
 
         self.memory_values = []
@@ -40,7 +48,7 @@ class ApexMemory(Specifiable):
         self.max_priority = 1.0
         self.alpha = alpha
         self.beta = beta
-        self.nstep = n_step
+        self.n_step_adjustment = n_step_adjustment
 
         self.default_new_weight = np.power(self.max_priority, self.alpha)
         self.priority_capacity = 1
@@ -98,10 +106,20 @@ class ApexMemory(Specifiable):
             actions.append(action)
             rewards.append(reward)
             terminals.append(terminal)
-            next_index = (index + self.nstep) % self.capacity
 
-            next_state = self.memory_values[next_index][0]
-            next_states.append(next_state)
+            next_state = state
+            # If terminal -> just use same state
+            if terminal:
+                next_states.append(next_state)
+            else:
+                # Otherwise advance until correct next state or terminal.
+                for i in range_(self.n_step_adjustment):
+                    next_index = (index + i) % self.size
+                    record = self.memory_values[next_index]
+                    next_state, _, _, terminal, _ = record
+                    if terminal:
+                        break
+                next_states.append(next_state)
 
         return dict(
             states=[ray_decompress(state) for state in states],
@@ -113,7 +131,9 @@ class ApexMemory(Specifiable):
 
     def get_records(self, num_records):
         indices = []
-        prob_sum = self.merged_segment_tree.sum_segment_tree.get_sum(0, self.size - 1)
+        # Ensure we always have n-next states.
+        # TODO potentially block this if size - 1 - nstep < 1?
+        prob_sum = self.merged_segment_tree.sum_segment_tree.get_sum(0, self.size - 1 - self.n_step_adjustment)
         samples = np.random.random(size=(num_records,)) * prob_sum
         for sample in samples:
             indices.append(self.merged_segment_tree.sum_segment_tree.index_of_prefixsum(prefix_sum=sample))

@@ -18,6 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+from six.moves import xrange as range_
+import cv2
 
 from rlgraph.backend_system import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
@@ -82,6 +84,8 @@ class GrayScale(PreprocessLayer):
             DataOp: The op for processing the images.
         """
         # The reshaped weights used for the grayscale operation.
+        if isinstance(inputs, list):
+            images = np.asarray(inputs)
         images_shape = get_shape(inputs)
         assert images_shape[-1] == self.last_rank,\
             "ERROR: Given image's shape ({}) does not match number of weights (last rank must be {})!".\
@@ -89,7 +93,19 @@ class GrayScale(PreprocessLayer):
         weights_reshaped = np.reshape(a=self.weights,
                                       newshape=tuple([1] * (get_rank(inputs)-1)) + (self.last_rank,))
         if self.backend == "python" or get_backend() == "python":
-            return np.sum(a=weights_reshaped * inputs, axis=-1, keepdims=self.keep_rank)
+            if inputs.ndim == 4:
+                grayscaled = []
+                for i in range_(len(inputs)):
+                    scaled = cv2.cvtColor(inputs[i], cv2.COLOR_RGB2GRAY)
+                    grayscaled.append(scaled)
+                scaled_images = np.asarray(grayscaled)
+
+                # Keep last dim.
+                if self.keep_rank:
+                    scaled_images = scaled_images[:, :, :, np.newaxis]
+                return scaled_images
         elif get_backend() == "tf":
+            weights_reshaped = np.reshape(a=self.weights,
+                                          newshape=tuple([1] * (get_rank(inputs) - 1)) + (self.last_rank,))
             return tf.reduce_sum(input_tensor=weights_reshaped * inputs, axis=-1, keepdims=self.keep_rank)
 

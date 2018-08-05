@@ -17,14 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components import PreprocessorStack
-from rlgraph.environments import VectorEnv, SequentialVectorEnv
-from six.moves import xrange as range_
+from copy import deepcopy
 import numpy as np
+from six.moves import xrange as range_
 import time
 
+from rlgraph.utils import dtype
 from rlgraph import SMALL_NUMBER
 from rlgraph.backend_system import get_distributed_backend
+from rlgraph.components import PreprocessorStack
+from rlgraph.environments import SequentialVectorEnv
 from rlgraph.execution.environment_sample import EnvironmentSample
 from rlgraph.execution.ray import RayExecutor
 from rlgraph.execution.ray.ray_actor import RayActor
@@ -54,11 +56,12 @@ class RayWorker(RayActor):
         assert get_distributed_backend() == "ray"
         # Internal frameskip of env.
         self.env_frame_skip = env_spec.get("frameskip", 1)
-
         # Worker computes weights for prioritized sampling.
+        worker_spec = deepcopy(worker_spec)
         self.worker_computes_weights = worker_spec.pop("worker_computes_weights", True)
         self.n_step_adjustment = worker_spec.pop("n_step_adjustment", 1)
         self.num_environments = worker_spec.pop("num_worker_environments", 1)
+        self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
         num_background_envs = worker_spec.pop("num_background_envs", 1)
 
         # TODO from spec once we decided on generic vectorization.
@@ -69,11 +72,14 @@ class RayWorker(RayActor):
         agent_config['action_space'] = self.vector_env.action_space
 
         self.discount = agent_config.get("discount", 0.99)
-        self.agent = self.setup_agent(agent_config, worker_spec)
+        # Python based preprocessor as image resizing is broken in TF.
 
-        # Python based preprocessor.
-        self.preprocessor = self.setup_preprocessor(agent_config.get("preprocessing_spec", None),
-                                                    self.vector_env.state_space)
+        self.preprocessors = dict()
+        preprocessing_spec = agent_config.get("preprocessing_spec", None)
+        for env_id in self.env_ids:
+            self.preprocessors[env_id] = self.setup_preprocessor(preprocessing_spec,
+                                                                 self.vector_env.state_space)
+        self.agent = self.setup_agent(agent_config, worker_spec)
         self.worker_frameskip = frameskip
 
         # Save these so they can be fetched after training if desired.
@@ -90,11 +96,12 @@ class RayWorker(RayActor):
         # To continue running through multiple exec calls.
         self.last_states = self.vector_env.reset_all()
         self.agent.reset()
-
-        # Was the last state a terminal state so env should be reset in next call?
-        self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
+        self.env_states_buffer = np.zeros(shape=(self.num_environments, )
+                                          + self.agent.preprocessed_state_space.shape,
+                                          dtype=dtype(self.agent.preprocessed_state_space.dtype, to="np"))
         self.last_ep_timesteps = [0 for _ in range_(self.num_environments)]
         self.last_ep_rewards = [0 for _ in range_(self.num_environments)]
+        # Was the last state a terminal state so env should be reset in next call?
         self.last_terminals = [False for _ in range_(self.num_environments)]
 
     def get_constructor_success(self):
@@ -105,17 +112,22 @@ class RayWorker(RayActor):
 
     def setup_preprocessor(self, preprocessing_spec, in_space):
         if preprocessing_spec is not None:
+            # TODO remove once discussed.
             # TODO move ingraph for python component assembly.
+            preprocessing_spec = deepcopy(preprocessing_spec)
+            in_space = deepcopy(in_space)
             # Set scopes.
             scopes = [preprocessor["scope"] for preprocessor in preprocessing_spec]
             # Set backend to python.
             for spec in preprocessing_spec:
                 spec["backend"] = "python"
             processor_stack = PreprocessorStack(*preprocessing_spec, backend="python")
+            build_space = in_space
             for sub_comp_scope in scopes:
                 processor_stack.sub_components[sub_comp_scope].create_variables(input_spaces=dict(
-                    inputs=in_space
+                    apply=[build_space]
                 ), action_space=None)
+                build_space = processor_stack.sub_components[sub_comp_scope].get_preprocessed_space(build_space)
             processor_stack.reset()
             return processor_stack
         else:
@@ -183,7 +195,6 @@ class RayWorker(RayActor):
             if self.last_terminals[i] is True:
                 # Reset this environment.
                 env_states.append(self.vector_env.reset(i))
-
                 if not is_reset:
                     self.agent.reset()
                 else:
@@ -204,13 +215,20 @@ class RayWorker(RayActor):
         # Whether the episode in each env has terminated.
         terminals = [False for _ in range_(self.num_environments)]
         while timesteps_executed < num_timesteps:
-            state_batch = self.agent.state_space.force_batch(env_states)
-            actions, preprocessed_states = self.agent.get_action(
-                states=state_batch, use_exploration=use_exploration, extra_returns="preprocessed_states")
+            # state_batch = self.agent.state_space.force_batch(env_states)
+            for i, env_id in enumerate(self.env_ids):
+                state = self.agent.state_space.force_batch(env_states[i])
+                if self.preprocessors[env_id] is not None:
+                    self.env_states_buffer[i] = self.preprocessors[env_id].preprocess(state)
+                else:
+                    self.env_states_buffer[i] = env_states[i]
 
+            # print('states buffer before act: {}'.format(self.env_states_buffer.shape))
+            actions = self.agent.get_action(states=self.env_states_buffer,
+                                            use_exploration=use_exploration, apply_preprocessing=False)
             rewards = dict()
             for i, env_id in enumerate(self.env_ids):
-                sample_states[env_id].append(preprocessed_states[i])
+                sample_states[env_id].append(self.env_states_buffer[i])
                 sample_actions[env_id].append(actions[i])
                 # Also init step rewards here for frame skip accumulation.
                 rewards[env_id] = 0
@@ -247,8 +265,10 @@ class RayWorker(RayActor):
                     episodes_executed[i] += 1
                     self.episodes_executed += 1
 
-                    # Reset this environment.
+                    # Reset this environment and its preprocecssor stack.
                     env_states[i] = self.vector_env.reset(i)
+                    if self.preprocessors[env_id] is not None:
+                        self.preprocessors[env_id].reset()
                     episode_rewards[i] = 0
                     episode_timesteps[i] = 0
 
@@ -270,37 +290,28 @@ class RayWorker(RayActor):
         batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals = list(), list(), list(),\
             list(), list()
 
-        to_preprocess_list = list()
-        next_state_fragments = list()
         for i, env_id in enumerate(self.env_ids):
-            env_sample_states = sample_states[env_id]
+            env_sample_states = np.squeeze(sample_states[env_id])
 
             # Get next states for this environment's trajectory.
             env_sample_next_states = env_sample_states[1:]
             batch_states.extend(env_sample_states)
             if terminals[i]:
-                to_preprocess = np.zeros_like(next_states[0])
+                next_state = np.zeros_like(next_states[0])
             else:
-                to_preprocess = next_states[i]
+                next_state = next_states[i]
 
-            # Append this state so we can preprocess all with one session call.
-            to_preprocess_list.append(to_preprocess)
-            next_state_fragments.append(env_sample_next_states)
+            next_state = self.agent.state_space.force_batch(next_state)
+            if self.preprocessors[env_id] is not None:
+                next_state = self.preprocessors[env_id].preprocess(next_state)
+
+            # print('next state shape append: {}'.format(next_state.shape))
+            batch_next_states.extend(env_sample_next_states)
+            #  next_state = self.agent.preprocessed_state_space.force_batch(next_state)
+            batch_next_states.extend(next_state)
             batch_actions.extend(sample_actions[env_id])
             batch_rewards.extend(sample_rewards[env_id])
             batch_terminals.extend(sample_terminals[env_id])
-
-        next_states = self.agent.preprocessed_state_space.force_batch(to_preprocess_list)
-        if self.preprocessor is not None:
-            next_states = self.preprocessor.preprocess(next_states)
-            # TODO reset every time here?
-            self.preprocessor.reset()
-
-        # Finally assemble next states full sample: [env_0_ep_next, env_0_final_next, env_1_ep_next, env_1_final_next]
-        for i in range_(self.num_environments):
-            batch_next_states.extend(next_state_fragments[i])
-            next_fragment = self.agent.preprocessed_state_space.force_batch(next_states[i])
-            batch_next_states.extend(next_fragment)
 
         sample_batch, batch_size = self._process_sample_if_necessary(batch_states, batch_actions,
             batch_rewards, batch_next_states, batch_terminals)
@@ -388,7 +399,7 @@ class RayWorker(RayActor):
                 if terminals[i]:
                     continue
                 for j in range_(1, self.n_step_adjustment):
-                    states[i] = states[i + j]
+                    next_states[i] = next_states[i + j]
                     rewards[i] += self.discount ** j * rewards[i + j]
 
                     # Set remaining reward to 0.

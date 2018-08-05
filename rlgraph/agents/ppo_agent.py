@@ -58,7 +58,10 @@ class PPOAgent(Agent):
         self.loss_function = PPOLossFunction(clip_ratio=clip_ratio, discount=self.discount)
 
         self.define_api_methods()
-        self.build_graph()
+        if self.auto_build:
+            self._build_graph()
+            self.graph_built = True
+
 
     def _assemble_meta_graph(self, core, *params):
         # Define our interface.

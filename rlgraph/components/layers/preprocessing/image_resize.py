@@ -17,16 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from six.moves import xrange as range_
 import numpy as np
+from six.moves import xrange as range_
+
 from rlgraph import get_backend
 from rlgraph.utils.ops import unflatten_op
-
 from rlgraph.components.layers.preprocessing import PreprocessLayer
-
 
 if get_backend() == "tf":
     import tensorflow as tf
+    from tensorflow.python.ops.image_ops_impl import ResizeMethod
 
 
 class ImageResize(PreprocessLayer):
@@ -42,6 +42,10 @@ class ImageResize(PreprocessLayer):
         super(ImageResize, self).__init__(scope=scope, **kwargs)
         self.width = width
         self.height = height
+
+        # TODO potentially make configurable
+        self.cv2_interpolation = cv2.INTER_AREA
+        self.tf_interpolation = ResizeMethod.AREA
         # The output spaces after preprocessing (per flat-key).
         self.output_spaces = None
 
@@ -73,13 +77,18 @@ class ImageResize(PreprocessLayer):
         """
         if self.backend == "python" or get_backend() == "python":
             import cv2
+            if isinstance(inputs, list):
+                inputs = np.asarray(inputs)
             if inputs.ndim == 4:
                 resized = []
                 for i in range_(len(inputs)):
-                    resized.append(cv2.resize(inputs[i], dsize=(self.width, self.height)))
-                return np.asarray(resized)
+                    resized.append(cv2.resize(inputs[i], dsize=(self.width, self.height),
+                                              interpolation=self.cv2_interpolation))
+                resized = np.asarray(resized)
+                resized = resized[:, :, :, np.newaxis]
+                return resized
             else:
-                return cv2.resize(inputs, dsize=(self.width, self.height))
+                return cv2.resize(inputs, dsize=(self.width, self.height), interpolation=self.cv2_interpolation)
         elif get_backend() == "tf":
-            return tf.image.resize_images(images=inputs, size=(self.width, self.height))
+            return tf.image.resize_images(images=inputs, size=(self.width, self.height), method=self.tf_interpolation)
 

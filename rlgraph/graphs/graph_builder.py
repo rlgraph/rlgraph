@@ -551,7 +551,7 @@ class GraphBuilder(Specifiable):
         # For every api method, trace forward from inputs until all relevant components identified.
         for api_method in api_methods:
             # Start with the input set for this method.
-            api_input_records = self.core_component[api_method].in_op_columns[0].op_records
+            api_input_records = self.core_component.api_methods[api_method].in_op_columns[0].op_records
             # OBSOLETE: use "is_terminal_op is True" (in DataOpRecord).
             # out_columns = self.core_component[api_method].out_op_columns
             # for column in out_columns:

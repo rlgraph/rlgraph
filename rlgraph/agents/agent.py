@@ -48,6 +48,7 @@ class Agent(Specifiable):
         update_spec=None,
         summary_spec=None,
         saver_spec=None,
+        auto_build=True,
         name="agent"
     ):
         """
@@ -67,11 +68,17 @@ class Agent(Specifiable):
             observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
             update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
+            saver_spec (Optional[dict]): Spec-dict to specify saver settings.
+            auto_build (Optional[bool]): If True (default), immediately builds the graph using the agent's
+                graph builder. If false, users must separately call agent.build(). Useful for debugging or analyzing
+                components before building.
             name (str): Some name for this Agent object.
         """
         super(Agent, self).__init__()
 
         self.name = name
+        self.auto_build = auto_build
+        self.graph_built = False
         self.logger = logging.getLogger(__name__)
 
         self.state_space = Space.from_spec(state_space).with_batch_rank(False)
@@ -193,13 +200,23 @@ class Agent(Specifiable):
 
         self.core_component.define_api_method("preprocess_states", preprocess_states)
 
-    def build_graph(self, input_spaces, *args):
+    def _build_graph(self, input_spaces, *args):
         """
-        Asks our GraphExecutor to actually build the Graph from the RLGraph meta-graph.
+        Builds the internal graph from the RLGraph meta-graph via the graph executor..
         """
         self.graph_executor.build(input_spaces, *args)
 
-    def get_action(self, states, internals=None, use_exploration=True, extra_returns=None):
+    def build(self):
+        """
+        Builds this agent. This method call only be called if the agent parameter "auto_build"
+        was set to False.
+        """
+        assert not self.graph_built, "ERROR: Attempting to build agent which has already been built. Ensure" \
+                                     "auto_build parameter is set to False (was {}), and" \
+                                     "method has not been called twice".format(self.auto_build)
+        self._build_graph(self.input_spaces, self.optimizer)
+
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
         Returns action(s) for the passed state(s). If `states` is a single state, returns a single action, otherwise,
         returns a batch of actions, where batch-size = number of states passed in.
@@ -209,6 +226,8 @@ class Agent(Specifiable):
             internals (Union[dict,np.ndarray]): Internal states dict/tuple or numpy array.
             use_exploration (bool): If False, no exploration or sampling may be applied
                 when retrieving an action.
+            apply_preprocessing (bool): If True, apply any state preprocessors configured to the action. Set to
+                false if all pre-processing is handled externally both for acting and updating.
             extra_returns (Optional[Set[str]]): Optional set of Agent-specific strings for additional return
                 values (besides the actions). All Agents must support "preprocessed_states".
 

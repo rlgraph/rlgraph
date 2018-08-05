@@ -41,15 +41,9 @@ class RayMemoryActor(RayActor):
         # used for the agent. We hence do not use from_spec but just read the relevant
         # args.
         self.min_sample_memory_size = apex_replay_spec["min_sample_memory_size"]
-        memory_spec = apex_replay_spec["memory_spec"]
         self.clip_rewards = apex_replay_spec.get("clip_rewards", True)
 
-        self.memory = ApexMemory(
-            capacity=memory_spec["capacity"],
-            alpha=memory_spec.get("alpha", 1.0),
-            beta=memory_spec.get("beta", 1.0),
-            n_step=memory_spec.get("n_step_adjustment", 1)
-        )
+        self.memory = ApexMemory(**apex_replay_spec["memory_spec"])
 
     def get_batch(self, batch_size):
         """
