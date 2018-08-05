@@ -31,7 +31,7 @@ class TestSubGraphFetching(unittest.TestCase):
     Tests if the graph builder can correctly return subgraphs leading to
     a given input.
     """
-    root_logger.setLevel(level=logging.INFO)
+    root_logger.setLevel(level=logging.DEBUG)
 
     def test_subgraph_components(self):
         # Create agent.
@@ -53,7 +53,10 @@ class TestSubGraphFetching(unittest.TestCase):
         agent.graph_builder.build_meta_graph(agent.input_spaces)
 
         sub_graph = agent.graph_builder.get_subgraph("update_from_external_batch")
-        print(sub_graph)
+        print("Sub graph components:")
+        print(sub_graph.sub_components)
+        print("Sub graph API: ")
+        print(sub_graph.api_methods)
 
-        # TODO which components are needed.
+        # TODO assert which components are needed.
 

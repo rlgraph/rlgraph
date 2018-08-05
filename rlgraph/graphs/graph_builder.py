@@ -544,6 +544,9 @@ class GraphBuilder(Specifiable):
                             # Did we enter a new Component? If yes, add current component.
                             # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
                             # placeholder).
+                            self.logger.debug("Subgraph component: current op record component: {}, next: {}".format(
+                                op_rec.column.component, next_op_rec.column.component
+                            ))
                             if op_rec.column is None or op_rec.column.component is not next_op_rec.column.component:
                                 # Add this component to the sub-graph.
                                 if op_rec.column.component not in subgraph_components:
