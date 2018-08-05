@@ -48,6 +48,7 @@ class Agent(Specifiable):
         update_spec=None,
         summary_spec=None,
         saver_spec=None,
+        auto_build=True,
         name="agent"
     ):
         """
@@ -67,9 +68,15 @@ class Agent(Specifiable):
             observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
             update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
+            saver_spec (Optional[dict]): Spec-dict to specify saver settings.
+            auto_build (Optional[bool]): If True (default), immediately builds the graph using the agent's
+                graph builder. If false, users must separately call agent.build(). Useful for debugging or analyzing
+                components before building.
             name (str): Some name for this Agent object.
         """
         self.name = name
+        self.auto_build = auto_build
+        self.graph_built = False
         self.logger = logging.getLogger(__name__)
 
         self.state_space = Space.from_spec(state_space).with_batch_rank(False)
@@ -191,11 +198,21 @@ class Agent(Specifiable):
 
         self.core_component.define_api_method("preprocess_states", preprocess_states)
 
-    def build_graph(self, input_spaces, *args):
+    def _build_graph(self, input_spaces, *args):
         """
-        Asks our GraphExecutor to actually build the Graph from the RLGraph meta-graph.
+        Builds the internal graph from the RLGraph meta-graph via the graph executor..
         """
         self.graph_executor.build(input_spaces, *args)
+
+    def build(self):
+        """
+        Builds this agent. This method call only be called if the agent parameter "auto_build"
+        was set to False.
+        """
+        assert not self.graph_built, "ERROR: Attempting to build agent which has already been built. Ensure" \
+                                     "auto_build parameter is set to False (was {}), and" \
+                                     "method has not been called twice".format(self.auto_build)
+        self._build_graph(self.input_spaces, self.optimizer)
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """

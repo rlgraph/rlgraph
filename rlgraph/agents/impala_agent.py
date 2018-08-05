@@ -89,7 +89,9 @@ class IMPALAAgent(Agent):
 
         # markup = get_graph_markup(self.graph_builder.core_component)
         # print(markup)
-        self.build_graph(self.input_spaces, self.optimizer)
+        if self.auto_build:
+            self._build_graph(self.input_spaces, self.optimizer)
+            self.graph_built = True
 
     def define_api_methods(self, *sub_components):
         super(IMPALAAgent, self).define_api_methods()

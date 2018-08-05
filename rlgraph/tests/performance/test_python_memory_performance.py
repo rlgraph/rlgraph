@@ -358,32 +358,3 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         print('Ran {} combined ops, throughput: {} combined ops/s, total time: {} s'.format(
             len(records), tp, end
         ))
-
-    # def test_python_ops(self):
-    #     """
-    #     Test performance of some python ops to optimize memory.
-    #     """
-    #     import numpy as np
-    #
-    #     tasks = np.random.randint(0, 1000000, size=10000000)
-    #     sum = 0
-    #     start = time.monotonic()
-    #     for task in tasks:
-    #         if (task % 2) == 1:
-    #             sum += task
-    #     end = time.monotonic() - start
-    #     tp = len(tasks) / end
-    #     print('Modulo performance: throughput: {} ops/s, total time: {} s'.format(tp, end))
-    #     print(sum)
-    #
-    #     sum = 0
-    #     start = time.monotonic()
-    #     for task in tasks:
-    #         if task & 1:
-    #             sum += task
-    #     end = time.monotonic() - start
-    #     tp = len(tasks) / end
-    #     print('Bit & performance: throughput: {} ops/s, total time: {} s'.format(tp, end))
-    #     print(sum)
-    #
-    #
