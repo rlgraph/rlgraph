@@ -74,7 +74,7 @@ class RayExecutor(object):
             self.logger.info("{}: {}".format(spec_key, value))
 
         # Avoiding accidentally starting local redis clusters.
-        if 'redis_host' not in self.executor_spec:
+        if 'redis_address' not in self.executor_spec:
             self.logger.warning("Warning: No redis address provided, starting local redis server.")
         ray.init(
             redis_address=self.executor_spec.get('redis_address', None),
