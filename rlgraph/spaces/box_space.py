@@ -23,7 +23,7 @@ from six.moves import xrange as range_
 import re
 
 from rlgraph import get_backend, RLGraphError
-import rlgraph.utils.util as util
+from rlgraph.utils.util import dtype
 from rlgraph.utils.initializer import Initializer
 from rlgraph.spaces.space import Space
 
@@ -174,14 +174,14 @@ class BoxSpace(Space):
             # TODO: re-evaluate the cutting of a leading '/_?' (tf doesn't like it)
             name = re.sub(r'^/_?', "", name)
             if is_input_feed:
-                return tf.placeholder(dtype=util.dtype(self.dtype), shape=shape, name=name)
+                return tf.placeholder(dtype=dtype(self.dtype), shape=shape, name=name)
             else:
                 init_spec = kwargs.pop("initializer", None)
                 # Bools should be initializable via 0 or not 0.
                 if self.dtype == "bool" and isinstance(init_spec, (int, float)):
                     init_spec = (init_spec != 0)
                 rlgraph_initializer = Initializer.from_spec(shape=shape, specification=init_spec)
-                return tf.get_variable(name, shape=shape, dtype=util.dtype(self.dtype),
+                return tf.get_variable(name, shape=shape, dtype=dtype(self.dtype),
                                        initializer=rlgraph_initializer.initializer,
                                        **kwargs)
         else:
@@ -209,4 +209,4 @@ class BoxSpace(Space):
             return (sample >= self.low).all() and (sample <= self.high).all()
 
     def zeros(self):
-        return np.zeros(shape=self.shape, dtype=util.dtype(self.dtype, "np"))
+        return np.zeros(shape=self.shape, dtype=dtype(self.dtype, "np"))

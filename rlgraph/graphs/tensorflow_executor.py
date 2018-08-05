@@ -340,6 +340,7 @@ class TensorFlowExecutor(GraphExecutor):
         self.setup_saver(hooks)
         self.setup_summaries(hooks)
         self.setup_scaffold()
+        self.setup_specifiable_servers(hooks)
 
         # Finalize our graph, create and enter the session.
         self.setup_session(hooks)
@@ -472,6 +473,12 @@ class TensorFlowExecutor(GraphExecutor):
             saver=self.saver,
             copy_from_scaffold=None
         )
+
+    @staticmethod
+    def setup_specifiable_servers(hooks):
+        # Add the hook only if there have been SpecifiableServer objects created.
+        if len(tf.get_collection(util.SpecifiableServer.COLLECTION)) > 0:
+            hooks.append(util.SpecifiableServerHook())
 
     def setup_session(self, hooks):
         """

@@ -24,11 +24,12 @@ from rlgraph.utils.util import dtype, get_shape, get_rank, force_tuple, force_li
     tf_logger, print_logging_handler, root_logger, logging_formatter
 from rlgraph.utils.numpy import softmax, relu, one_hot
 from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.specifiable_server import SpecifiableServer, SpecifiableServerHook
 
 
 __all__ = [
     "RLGraphError",
-    "Initializer", "Specifiable",
+    "Initializer", "Specifiable", "SpecifiableServer", "SpecifiableServerHook",
     "dtype", "get_shape", "get_rank", "force_tuple", "force_list",
     "logging_formatter", "root_logger", "tf_logger", "print_logging_handler", "softmax", "relu", "one_hot",
     "DataOp", "SingleDataOp", "DataOpDict", "DataOpTuple", "ContainerDataOp", "FlattenedDataOp",

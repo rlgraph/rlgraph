@@ -23,6 +23,7 @@ from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.environments.environment import Environment
+from rlgraph.utils.ops import DataOpTuple
 from rlgraph.utils.specifiable_server import SpecifiableServer
 
 if get_backend() == "tf":
@@ -154,28 +155,32 @@ class EnvironmentStepper(Component):
                         true_fn=lambda: self.environment_server.reset(),
                         false_fn=lambda: tf.convert_to_tensor(s, dtype=tf.float32)
                     )
-                    # Get action and preprocessed state.
+                    # Add a simple (size 1) batch rank to the state so it'll pass through the NN.
+                    s = tf.expand_dims(s, axis=0)
+                    # Make None so it'll be recognized as batch-rank by the auto-Space detector.
+                    s = tf.placeholder_with_default(s, shape=(None,) + self.state_space.shape)
+                    # Get action and preprocessed state (as batch-size 1).
                     preprocessed_s, a = self.call(self.actor_component.get_preprocessed_state_and_action, s,
-                                                  time_step + time_delta)
+                                                  time_step + time_delta, return_ops=True)
 
-                    # Step through the Env and collect next state, reward, etc..
-                    s_, r, t_, _ = self.environment_server.step(a)
+                    # Step through the Env and collect next state, reward and terminal as single values (not batched).
+                    s_, r, t_ = self.environment_server.step(a)
 
                     # Add up return (if s was not terminal).
                     new_episode_return = tf.where(t, x=r, y=(r + episode_return))
 
-                # Accumulate return values.
-                return preprocessed_s, a, r, new_episode_return, t_, s_
+                # Accumulate return values (remove batch again from preprocessed_s and a).
+                return preprocessed_s[0], a[0], r, new_episode_return, t_, s_
 
-            # Initialize the tf.scan run.
-            initializer = [np.zeros(shape=self.preprocessed_state_space.shape),  # zero previous preprocessed state
-                           np.zeros(shape=self.action_space.shape),  # zero previous action (doesn't matter)
-                           0.0,  # zero previous reward (doesn't matter)
+            # Initialize the tf.scan run and make sure nothing is float64.
+            initializer = (self.preprocessed_state_space.zeros(),
+                           self.action_space.zeros(),  # zero previous action (doesn't matter)
+                           np.asarray(0.0, dtype=np.float32),  # zero previous reward (doesn't matter)
                            self.episode_return,  # return so far
                            self.current_terminal,  # whether the current state is terminal
                            self.current_state  # current (raw) state
-                           ]
-            step_results = tf.scan(fn=scan_func, elems=tf.range(num_steps), initializer=initializer)
+                           )
+            step_results = DataOpTuple(tf.scan(fn=scan_func, elems=tf.range(num_steps), initializer=initializer))
 
             # Store the return so far, current terminal and current state.
             assigns = [

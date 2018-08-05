@@ -19,10 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 
-from rlgraph.utils.initializer import Initializer
 from rlgraph.components.layers.nn.nn_layer import NNLayer
-from rlgraph.components.layers.nn.activation_functions import get_activation_function
-import rlgraph.utils.util as utils
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -75,7 +72,6 @@ class LSTMLayer(NNLayer):
         self.parallel_iterations = parallel_iterations
         self.swap_memory = swap_memory
         self.time_major = time_major
-        # self.dtype = utils.dtype(dtype)
 
         self.lstm_cell = None
 

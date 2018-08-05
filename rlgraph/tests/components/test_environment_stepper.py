@@ -31,7 +31,7 @@ class TestEnvironmentStepper(unittest.TestCase):
     Tests for the EnvironmentStepper Component using a simple RandomEnv.
     """
     def test_environment_stepper_on_random_env(self):
-        state_space = FloatBox()
+        state_space = FloatBox(shape=(1,))
         action_space = IntBox(2)
         preprocessor_spec = None
         neural_network_spec = "../configs/test_simple_nn.json"
