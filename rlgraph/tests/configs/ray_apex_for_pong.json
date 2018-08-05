@@ -69,7 +69,7 @@
       "decay_spec": {
         "type": "linear_decay",
         "from": 1.0,
-        "to": 0.1,
+        "to": 0.02,
         "start_timestep": 50000,
         "num_timesteps": 1000000
       }
@@ -126,6 +126,7 @@
   },
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0001
+    "learning_rate": 0.0001,
+    "clip_grad_norm": 40
   }
 }
