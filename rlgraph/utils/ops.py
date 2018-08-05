@@ -385,7 +385,7 @@ class APIMethodRecord(object):
         self.out_op_columns = list()
 
     def __str__(self):
-        return "APIMethodRecord({} {})".format(self.name, self.input_names)
+        return "APIMethodRecord({} {} called {}x)".format(self.name, self.input_names, len(self.in_op_columns))
 
 
 class GraphFnRecord(object):

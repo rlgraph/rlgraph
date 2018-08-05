@@ -40,7 +40,7 @@ class BoxSpace(Space):
             low (any): The lower bound (see Valid Inputs for more information).
             high (any): The upper bound (see Valid Inputs for more information).
             shape (tuple): The shape of this space.
-            dtype (str): The data type (as string) for this Space.
+            dtype (str): The data type (as string) for this Space. Allowed are: "float", "float64", "int", "bool".
 
         Valid api_methods:
             BoxSpace(0.0, 1.0) # low and high are given as scalars and shape is assumed to be ()
@@ -51,6 +51,7 @@ class BoxSpace(Space):
                 (no shape given!) -> nD array where each dimension has different bounds.
         """
         super(BoxSpace, self).__init__(add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
+        assert dtype in ["float", "float64", "int", "bool"], "ERROR: BoxSpace does not allow dtype '{}'!".format(dtype)
         self._dtype = dtype
 
         # Determine the shape.
