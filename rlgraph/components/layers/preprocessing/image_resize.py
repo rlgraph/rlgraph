@@ -34,19 +34,25 @@ class ImageResize(PreprocessLayer):
     """
     Resizes one or more images to a new size without touching the color channel.
     """
-    def __init__(self, width, height, scope="image-resize", **kwargs):
+    def __init__(self, width, height, interpolation="bilinear", scope="image-resize", **kwargs):
         """
         Args:
             width (int): The new width.
             height (int): The new height.
+            interpolation (str): One of "bilinear", "area". Default: "bilinear" (which is also the default for both
+                cv2 and tf).
         """
         super(ImageResize, self).__init__(scope=scope, **kwargs)
         self.width = width
         self.height = height
+        
+        if interpolation == "bilinear":
+            self.cv2_interpolation = cv2.INTER_LINEAR
+            self.tf_interpolation = ResizeMethod.BILINEAR
+        else:
+            self.cv2_interpolation = cv2.INTER_AREA
+            self.tf_interpolation = ResizeMethod.AREA
 
-        # TODO potentially make configurable
-        self.cv2_interpolation = cv2.INTER_AREA
-        self.tf_interpolation = ResizeMethod.AREA
         # The output spaces after preprocessing (per flat-key).
         self.output_spaces = None
 
@@ -77,6 +83,7 @@ class ImageResize(PreprocessLayer):
         However, this
         """
         if self.backend == "python" or get_backend() == "python":
+            import cv2
             if isinstance(inputs, list):
                 inputs = np.asarray(inputs)
             if inputs.ndim == 4:
