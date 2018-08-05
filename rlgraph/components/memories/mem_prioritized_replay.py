@@ -35,6 +35,8 @@ class MemPrioritizedReplay(Specifiable):
         update_records(indices, update) -> Updates the given indices with the given priority scores.
     """
     def __init__(self, capacity=1000, next_states=True, alpha=1.0, beta=0.0):
+        super(MemPrioritizedReplay, self).__init__()
+
         self.memory_values = []
         self.index = 0
         self.capacity = capacity

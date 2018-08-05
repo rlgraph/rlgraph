@@ -24,13 +24,10 @@ import os
 import re
 import yaml
 import logging
+import weakref
 
-from rlgraph.backend_system import get_backend
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.utils.util import default_dict
-
-if get_backend() == "tf":
-    import tensorflow as tf
 
 
 class Specifiable(object):
@@ -45,6 +42,12 @@ class Specifiable(object):
     __default_constructor__ = None
 
     logger = logging.getLogger(__name__)
+
+    # Analogous to: http://effbot.org/pyfaq/how-do-i-get-a-list-of-all-instances-of-a-given-class.htm
+    _instances = list()
+
+    def __init__(self):
+        self._instances.append(weakref.ref(self))
 
     @classmethod
     def from_spec(cls, spec=None, **kwargs):
@@ -196,4 +199,20 @@ class Specifiable(object):
         else:
             raise RLGraphError('Invalid input to `from_mixed`: {}'.format(mixed))
 
+    @classmethod
+    def get_instances(cls):
+        """
+        Generator that can be used to iterate over all instances of a particular class (if called with that class,
+        e.g. `Environment.get_instances()`).
+
+        From: http://effbot.org/pyfaq/how-do-i-get-a-list-of-all-instances-of-a-given-class.htm
+        """
+        #dead = set()
+        for ref in cls._instances:
+            obj = ref()
+            if obj is not None:
+                yield obj
+            #else:
+            #    dead.add(ref)
+        #cls._instances -= dead
 

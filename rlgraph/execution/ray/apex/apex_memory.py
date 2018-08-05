@@ -31,6 +31,8 @@ class ApexMemory(Specifiable):
     Apex prioritized replay implementing compression.
     """
     def __init__(self, capacity=1000, alpha=1.0, beta=0.0, n_step=1):
+        super(ApexMemory, self).__init__()
+
         self.memory_values = []
         self.index = 0
         self.capacity = capacity

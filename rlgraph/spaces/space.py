@@ -38,6 +38,8 @@ class Space(Specifiable):
             time_major (bool): Whether the time rank should come before the batch rank. Not important if one
                 of these ranks (or both) does not exist.
         """
+        super(Space, self).__init__()
+
         self._shape = None
 
         self.has_batch_rank = None

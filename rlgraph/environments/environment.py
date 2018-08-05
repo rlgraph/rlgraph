@@ -36,6 +36,8 @@ class Environment(Specifiable):
             #    to restrict all rewards produced by the Environment to be in a certain range.
             #    None for no clipping. Single float for clipping between -`reward_clipping` and +`reward_clipping`.
         """
+        super(Environment, self).__init__()
+
         self.state_space = Space.from_spec(state_space)
         self.action_space = Space.from_spec(action_space)
         # self.reward_clipping = reward_clipping

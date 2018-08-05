@@ -81,6 +81,8 @@ class Component(Specifiable):
             backend (str): The custom backend that this Component obliges to. None to use the RLGraph global backend.
                 Default: None.
         """
+        super(Component, self).__init__()
+
         # Scope if used to create scope hierarchies inside the Graph.
         # self.logger = logging.getLogger(__name__)
         self.scope = kwargs.pop("scope", "")

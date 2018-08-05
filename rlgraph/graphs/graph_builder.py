@@ -50,6 +50,8 @@ class GraphBuilder(Specifiable):
             summary_spec (Optional[dict]): A specification dict that defines, which summaries we would like to
                 create in the graph and register with each Component.
         """
+        super(GraphBuilder, self).__init__()
+
         # The name of this model. Our core Component gets this name.
         self.logger = logging.getLogger(__name__)
         self.name = name

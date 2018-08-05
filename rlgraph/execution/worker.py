@@ -35,6 +35,8 @@ class Worker(Specifiable):
             frameskip (int): How often actions are repeated after retrieving them from the agent.
                 This setting can be overwritten in the single calls to the different `execute_..` methods.
         """
+        super(Worker, self).__init__()
+
         self.logger = logging.getLogger(__name__)
         self.environment = environment
         self.agent = agent

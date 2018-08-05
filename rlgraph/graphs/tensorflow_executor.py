@@ -477,7 +477,7 @@ class TensorFlowExecutor(GraphExecutor):
     @staticmethod
     def setup_specifiable_servers(hooks):
         # Add the hook only if there have been SpecifiableServer objects created.
-        if len(tf.get_collection(util.SpecifiableServer.COLLECTION)) > 0:
+        if len(list(util.SpecifiableServer.get_instances())) > 0:
             hooks.append(util.SpecifiableServerHook())
 
     def setup_session(self, hooks):

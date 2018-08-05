@@ -22,21 +22,20 @@ import numpy as np
 
 from rlgraph import get_backend, RLGraphError
 from rlgraph.spaces.space import Space
+from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.util import force_list, dtype
 
 if get_backend() == "tf":
     import tensorflow as tf
 
 
-class SpecifiableServer(object):
+class SpecifiableServer(Specifiable):
     """
     A class that creates a separate python process ("server") which runs an arbitrary Specifiable object.
 
     This is useful - for example - to run RLgraph Environments (which are Specifiables) in a highly parallelized and
     in-graph fashion for faster Agent-Environment stepping.
     """
-
-    COLLECTION = "rlgraph_specifiable_server"
 
     def __init__(self, class_, spec, output_spaces, shutdown_method=None):
         """
@@ -51,6 +50,8 @@ class SpecifiableServer(object):
                 Specifiable object before "server" shutdown to give the Specifiable a chance to clean up.
                 The Specifiable must implement this method.
         """
+        super(SpecifiableServer, self).__init__()
+
         self.class_ = class_
         self.spec = spec
         # If dict: Process possible specs so we don't have to do this during calls.
@@ -72,11 +73,6 @@ class SpecifiableServer(object):
         self.out_pipe = None
         # The in-pipe to receive "ready" signal from the server process.
         self.in_pipe = None
-
-        # Register this process in a special collection so we can shut it down once the tf.Session ends
-        # (via session hook).
-        if get_backend() == "tf":
-            tf.add_to_collection(SpecifiableServer.COLLECTION, self)
 
     def __getattr__(self, method_name):
         """

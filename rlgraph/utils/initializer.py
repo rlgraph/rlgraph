@@ -35,6 +35,8 @@ class Initializer(Specifiable):
         Raises:
             RLGraphError: If a fixed shape in `specification` does not match `shape`.
         """
+        super(Initializer, self).__init__()
+
         # The shape of the variable to be initialized.
         self.shape = shape
         # The actual underlying initializer object.

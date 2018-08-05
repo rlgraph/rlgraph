@@ -47,6 +47,8 @@ class GraphExecutor(Specifiable):
                 True: Use the latest checkpoint saved in `self.saver_spec["directory"]`.
                 str: Use the given path/filename to load from.
         """
+        super(GraphExecutor, self).__init__()
+
         self.logger = logging.getLogger(__name__)
 
         self.graph_builder = graph_builder

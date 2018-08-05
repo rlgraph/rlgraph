@@ -69,6 +69,8 @@ class Agent(Specifiable):
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
             name (str): Some name for this Agent object.
         """
+        super(Agent, self).__init__()
+
         self.name = name
         self.logger = logging.getLogger(__name__)
 
