@@ -22,9 +22,9 @@ import re
 import time
 
 from rlgraph import RLGraphError, Specifiable, get_backend
+from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalence
 from rlgraph.components.component import Component
 from rlgraph.spaces import Space, Dict
-from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalence
 from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.util import force_list, force_tuple, get_shape
 from rlgraph.utils.ops import DataOpTuple, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
