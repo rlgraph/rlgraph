@@ -262,7 +262,6 @@ class UpdateWorker(Thread):
             memory_actor, sample_batch, indices = self.input_queue.get()
             if sample_batch is not None:
                 loss, loss_per_item = self.agent.update(batch=sample_batch)
-
                 # Just pass back indices for updating.
                 self.output_queue.put((memory_actor, indices, loss_per_item))
                 self.update_done = True

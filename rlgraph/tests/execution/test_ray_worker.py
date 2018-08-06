@@ -18,13 +18,14 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
+from copy import deepcopy
 from time import sleep
 from rlgraph.tests.test_util import recursive_assert_almost_equal, agent_config_from_path
 import numpy as np
 
 from rlgraph import get_distributed_backend, spaces
 from rlgraph.agents import Agent
-from rlgraph.environments import RandomEnv
+from rlgraph.environments import RandomEnv, Environment
 from rlgraph.execution.ray import RayWorker
 
 if get_distributed_backend() == "ray":
@@ -151,8 +152,18 @@ class TestRayWorker(unittest.TestCase):
         Tests weight synchronization with a local agent and a remote worker.
         """
         # First, create a local agent
-        env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
-        agent_config = agent_config_from_path("../configs/apex_agent_cartpole.json")
+        env_spec = dict(
+            type="openai",
+            gym_env="PongNoFrameskip-v4",
+            # The frameskip in the agent config will trigger worker skips, this
+            # is used for internal env.
+            frameskip=4,
+            max_num_noops=30,
+            random_start=True,
+            episodic_life=True
+        )
+        env = Environment.from_spec(deepcopy(env_spec))
+        agent_config = agent_config_from_path("../configs/ray_apex_for_pong.json")
 
         # Remove unneeded apex params.
         if "apex_replay_spec" in agent_config:
@@ -161,18 +172,18 @@ class TestRayWorker(unittest.TestCase):
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         worker_spec = ray_spec["worker_spec"]
         local_agent = Agent.from_spec(
-            agent_config,
+            deepcopy(agent_config),
             state_space=env.state_space,
             action_space=env.action_space
         )
 
         # Create a remote worker with the same agent config.
-        worker = RayWorker.remote(self.env_spec, agent_config, worker_spec, auto_build=True)
+        worker = RayWorker.remote(agent_config, env_spec, worker_spec, auto_build=True)
 
         # This imitates the initial executor sync without ray.put
         weights = local_agent.get_policy_weights()
         print('Weight type in init sync = {}'.format(type(weights)))
-        print(weights)
+        #print(weights)
         worker.set_policy_weights.remote(weights)
         print('Init weight sync successful.')
 
