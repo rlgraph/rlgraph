@@ -230,6 +230,8 @@ class GraphBuilder(Specifiable):
                         # Also push Space into possible API-method record if slot's Space is still None.
                         if isinstance(op_rec.column, DataOpRecordColumnIntoAPIMethod):
                             # Get param-name for var-positional arg: "[param_name][idx]".
+                            if op_rec.column.api_method_rec.input_names[-1] not in next_component.api_method_inputs:
+                                print("test")
                             if next_component.api_method_inputs[op_rec.column.api_method_rec.input_names[-1]] == \
                                     "*flex" and op_rec.position >= len(op_rec.column.api_method_rec.input_names) - 1:
                                 param_name = "{}[{}]".format(
