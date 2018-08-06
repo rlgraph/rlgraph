@@ -26,7 +26,6 @@ from rlgraph.spaces.float_box import FloatBox
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.spaces.containers import ContainerSpace, Dict, Tuple
-from rlgraph.spaces.space_utils import sanity_check_space, check_space_equivalence
 
 
 Space.__lookup_classes__ = dict({
@@ -58,6 +57,5 @@ Space.__default_constructor__ = partial(FloatBox, 1.0)
 
 
 __all__ = ["Space", "BoxSpace", "FloatBox", "IntBox", "BoolBox",
-           "ContainerSpace", "Dict", "Tuple",
-           "sanity_check_space", "check_space_equivalence"]
+           "ContainerSpace", "Dict", "Tuple"]
 
