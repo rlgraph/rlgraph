@@ -96,10 +96,23 @@ class RayExecutor(object):
             list: Remote Ray actors.
         """
         workers = []
+        init_tasks = []
+
+        # Create remote objects and schedule init tasks.
         for i in range_(num_actors):
             worker = cls.remote(deepcopy(agent_config), *args)
             self.worker_ids[worker] = "worker_{}".format(i)
             workers.append(worker)
+            build_result = worker.init_agent.remote()
+            init_tasks.append(build_result)
+
+        ready, not_ready = ray.wait(init_tasks, num_returns=len(init_tasks))
+
+        for i, res in enumerate(ready):
+            result = ray.get(res)
+            if result:
+                self.logger.info("Successfully built agent num {}.".format(i))
+
         return workers
 
     def setup_execution(self):

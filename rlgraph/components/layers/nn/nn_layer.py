@@ -18,7 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.layers.layer import Layer
-from rlgraph.spaces import FloatBox, sanity_check_space
+from rlgraph.spaces import FloatBox
+from rlgraph.spaces.space_utils import sanity_check_space
 
 
 class NNLayer(Layer):

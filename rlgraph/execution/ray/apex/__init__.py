@@ -16,3 +16,9 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
+from rlgraph.execution.ray.apex.apex_executor import ApexExecutor
+from rlgraph.execution.ray.apex.apex_memory import ApexMemory
+from rlgraph.execution.ray.apex.ray_memory_actor import RayMemoryActor
+
+__all__ = ["ApexExecutor", "ApexMemory", "RayMemoryActor"]

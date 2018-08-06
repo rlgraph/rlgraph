@@ -21,7 +21,8 @@ import numpy as np
 from rlgraph import get_backend
 from rlgraph.utils.util import get_rank
 from rlgraph.components.loss_functions import LossFunction
-from rlgraph.spaces import IntBox, sanity_check_space
+from rlgraph.spaces import IntBox
+from rlgraph.spaces.space_utils import sanity_check_space
 
 if get_backend() == "tf":
     import tensorflow as tf

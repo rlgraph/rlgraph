@@ -17,11 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import json
-import os
 import unittest
 
-from rlgraph.execution.ray import ApexExecutor
+from rlgraph.execution.ray.apex import ApexExecutor
 from rlgraph.tests.test_util import agent_config_from_path
 
 

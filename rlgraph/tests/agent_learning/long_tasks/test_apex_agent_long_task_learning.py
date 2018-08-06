@@ -22,7 +22,8 @@ import unittest
 
 from rlgraph.agents import ApexAgent
 from rlgraph.environments import OpenAIGymEnv
-from rlgraph.execution.ray import ApexExecutor, RayWorker
+from rlgraph.execution.ray.apex import ApexExecutor
+from rlgraph.execution.ray import RayWorker
 from rlgraph.tests.test_util import agent_config_from_path
 
 
@@ -78,6 +79,10 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         agent_config = agent_config_from_path("../../configs/ray_apex_for_pong.json")
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         worker = RayWorker.remote(agent_config, self.env_spec, ray_spec["worker_spec"])
+        build_result = worker.init_agent.remote()
+        ready, not_ready = ray.wait([build_result], num_returns=1)
+        result = ray.get(ready)
+        print(result)
         task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=True)
         result = ray.get(task)
         print(result.get_metrics())

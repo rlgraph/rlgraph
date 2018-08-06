@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.utils.util import default_dict
 # Core.
 from rlgraph.components.component import Component
 # Component child-classes.
@@ -30,7 +29,9 @@ from rlgraph.components.memories import *
 from rlgraph.components.neural_networks import *
 from rlgraph.components.optimizers import *
 
+from rlgraph.utils.util import default_dict
 Component.__lookup_classes__ = dict()
+
 # Add all specific sub-classes to this one.
 default_dict(Component.__lookup_classes__, Distribution.__lookup_classes__)
 default_dict(Component.__lookup_classes__, Layer.__lookup_classes__)

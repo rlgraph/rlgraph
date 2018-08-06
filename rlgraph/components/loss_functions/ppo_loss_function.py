@@ -20,7 +20,8 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components import Categorical
 from rlgraph.components.loss_functions import LossFunction
-from rlgraph.spaces import IntBox, sanity_check_space, FloatBox
+from rlgraph.spaces import IntBox, FloatBox
+from rlgraph.spaces.space_utils import sanity_check_space
 
 if get_backend() == "tf":
     import tensorflow as tf

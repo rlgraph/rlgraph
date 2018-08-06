@@ -17,8 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import json
-import os
 import unittest
 from time import sleep
 from rlgraph.tests.test_util import recursive_assert_almost_equal, agent_config_from_path

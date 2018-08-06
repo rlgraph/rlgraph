@@ -22,7 +22,8 @@ from math import log
 from rlgraph import get_backend, SMALL_NUMBER
 from rlgraph.components import Component
 from rlgraph.components.layers.nn import DenseLayer, DuelingLayer
-from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace, sanity_check_space
+from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
+from rlgraph.spaces.space_utils import sanity_check_space
 
 if get_backend() == "tf":
     import tensorflow as tf
