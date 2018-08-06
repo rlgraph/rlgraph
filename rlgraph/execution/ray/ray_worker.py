@@ -22,11 +22,10 @@ import numpy as np
 from six.moves import xrange as range_
 import time
 
-from rlgraph.utils import dtype
 from rlgraph import SMALL_NUMBER
 from rlgraph.backend_system import get_distributed_backend
-from rlgraph.components import PreprocessorStack
-from rlgraph.environments import SequentialVectorEnv
+from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
+from rlgraph.environments.sequential_vector_env import SequentialVectorEnv
 from rlgraph.execution.environment_sample import EnvironmentSample
 from rlgraph.execution.ray import RayExecutor
 from rlgraph.execution.ray.ray_actor import RayActor
