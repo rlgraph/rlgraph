@@ -25,7 +25,7 @@ class Environment(Specifiable):
     """
     An Env class used to run experiment-based RL.
     """
-    def __init__(self, state_space, action_space):
+    def __init__(self, state_space, action_space, seed=None):
         """
         Args:
             state_space (Union[dict,Space]): The spec-dict for generating the state Space or the state Space object
@@ -41,6 +41,10 @@ class Environment(Specifiable):
         self.state_space = Space.from_spec(state_space)
         self.action_space = Space.from_spec(action_space)
         # self.reward_clipping = reward_clipping
+
+        # Add some seeding to the created Env.
+        if seed is not None:
+            self.seed(seed)
 
     def seed(self, seed=None):
         """

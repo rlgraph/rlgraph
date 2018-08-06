@@ -27,6 +27,7 @@ from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.spaces import FloatBox, IntBox
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import agent_config_from_path
+from rlgraph.utils.ops import DataOpTuple
 
 
 class TestEnvironmentStepper(unittest.TestCase):
@@ -59,18 +60,31 @@ class TestEnvironmentStepper(unittest.TestCase):
         # Step 3 times through the Env and collect results.
         # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
         # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
+        expected_r = np.array([0.49850702, 0.7605307, 0.68535984])
         expected = (None, (
             np.array([[0.77132064], [0.74880385], [0.19806287]]),  # p(s)
             np.array([0, 0, 0]),  # a
-            np.array([0.49850702, 0.7605307, 0.68535984]),  # r
-            np.array([0.49850702, 1.2590377, 1.9443976]),  # episode's accumulated returns
+            expected_r,  # r
+            np.array([expected_r[:1].sum(), expected_r[:2].sum(), expected_r[:3].sum()]),  # episode's accumulated returns
             np.array([False, False, False]),
             np.array([[0.74880385], [0.19806287], [0.08833981]]),  # s' (raw)
         ))
         test.test(("step", 3), expected_outputs=expected)
 
+        # Step again, check whether stitching of states/etc.. works.
+        expected_r2 = np.array([0.51219225, 0.7217553, 0.71457577])
+        expected = (None, (
+            np.array([[0.08833981], [0.00394827], [0.61252606]]),  # p(s)
+            np.array([0, 0, 0]),  # a
+            expected_r2,  # r
+            np.array([expected_r.sum() + expected_r2[0], expected_r.sum() + expected_r2[:2].sum(), expected_r.sum() + expected_r2[:3].sum()]),
+            np.array([False, False, False]),
+            np.array([[0.00394827], [0.61252606], [0.91777414]]),  # s' (raw)
+        ))
+        test.test(("step", 3), expected_outputs=expected)
+
     def test_environment_stepper_on_pong(self):
-        environment_spec = dict(type="openai_gym", gym_env="Pong-v0", frameskip=4)
+        environment_spec = dict(type="openai_gym", gym_env="Pong-v0", frameskip=4, seed=10)
         dummy_env = Environment.from_spec(copy.deepcopy(environment_spec))
         state_space = dummy_env.state_space
         action_space = dummy_env.action_space
@@ -95,14 +109,30 @@ class TestEnvironmentStepper(unittest.TestCase):
         # Step 30 times through the Env and collect results.
         # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
         # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
-        # TODO: Fill in values for certain frames.
-        #expected = (None, (
-        #    np.array([[0.77132064], [0.74880385], [0.19806287]]),  # p(s)
-        #    np.array([0, 0, 0]),  # a
-        #    np.array([0.49850702, 0.7605307, 0.68535984]),  # r
-        #    np.array([0.49850702, 1.2590377, 1.9443976]),  # episode's accumulated returns
-        #    np.array([False, False, False]),
-        #    np.array([[0.74880385], [0.19806287], [0.08833981]]),  # s' (raw)
-        #))
+        time_steps = 2000
+        out = test.test(("step", [time_steps, 0]), expected_outputs=None)
 
-        test.test(("step", [3, 0]), expected_outputs=None)
+        # Check types of outputs.
+        self.assertTrue(out[0] is None)
+        self.assertTrue(isinstance(out[1], DataOpTuple))
+
+        # Check types of single data.
+        self.assertTrue(out[1][0].dtype == np.float32)
+        self.assertTrue(out[1][0].min() >= 0.0)  # make sure we have pixels / 255
+        self.assertTrue(out[1][0].max() <= 1.0)
+        self.assertTrue(out[1][1].dtype == np.int32)
+        self.assertTrue(out[1][2].dtype == np.float64)
+        self.assertTrue(out[1][3].dtype == np.float64)
+        self.assertTrue(out[1][4].dtype == np.bool_)
+        self.assertTrue(out[1][5].dtype == np.uint8)
+        self.assertTrue(out[1][5].min() >= 0)  # make sure we have pixels
+        self.assertTrue(out[1][5].max() <= 255)
+
+        # Check whether episode returns match single rewards (including terminal signals).
+        episode_returns = 0.0
+        for i in range(time_steps):
+            episode_returns += out[1][2][i]
+            self.assertAlmostEqual(episode_returns, out[1][3][i])
+            # Terminal: Reset for next step.
+            if out[1][4][i] is np.bool_(True):
+                episode_returns = 0.0

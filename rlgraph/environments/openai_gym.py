@@ -35,7 +35,7 @@ class OpenAIGymEnv(Environment):
     """
     def __init__(
         self, gym_env, frameskip=None, max_num_noops=0, random_start=False, noop_action=0, episodic_life=False,
-        monitor=None, monitor_safe=False, monitor_video=0, visualize=False,
+        monitor=None, monitor_safe=False, monitor_video=0, visualize=False, **kwargs
     ):
         """
         Args:
@@ -74,7 +74,7 @@ class OpenAIGymEnv(Environment):
 
         observation_space = self.translate_space(self.gym_env.observation_space)
         action_space = self.translate_space(self.gym_env.action_space)
-        super(OpenAIGymEnv, self).__init__(observation_space, action_space)
+        super(OpenAIGymEnv, self).__init__(observation_space, action_space, **kwargs)
 
         # In Atari environments, 0 is no-op.
         self.noop_action = noop_action
