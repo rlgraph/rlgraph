@@ -39,7 +39,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         """
         env = RandomEnv(state_space=spaces.FloatBox(shape=(2,)), action_space=spaces.IntBox(2), deterministic=True)
         agent = Agent.from_spec(
-            "configs/impala_agent_for_random_env.json",
+            "../configs/impala_agent_for_random_env.json",
             state_space=env.state_space,
             action_space=env.action_space
         )
