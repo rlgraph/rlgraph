@@ -23,7 +23,7 @@ from six.moves import xrange as range_
 from rlgraph import get_backend
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.ops import FlattenedDataOp, unflatten_op
-from rlgraph.utils.util import get_rank, get_shape, force_list, get_batch_size
+from rlgraph.utils.util import get_rank, get_shape, force_list
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 
 if get_backend() == "tf":
@@ -74,15 +74,15 @@ class Sequence(PreprocessLayer):
 
     def check_input_spaces(self, input_spaces, action_space=None):
         super(Sequence, self).check_input_spaces(input_spaces, action_space)
-        in_space = input_spaces["inputs"]
+        in_space = input_spaces["preprocessing_inputs"]
 
-        # Require inputs to not have time rank (batch rank doesn't matter).
+        # Require preprocessing_inputs to not have time rank (batch rank doesn't matter).
         sanity_check_space(in_space, must_have_time_rank=False)
 
         self.output_spaces = self.get_preprocessed_space(in_space)
 
     def create_variables(self, input_spaces, action_space=None):
-        in_space = input_spaces["inputs"]
+        in_space = input_spaces["preprocessing_inputs"]
 
         self.index = self.get_variable(name="index", dtype="int", initializer=-1, trainable=False)
         self.buffer = self.get_variable(
@@ -101,14 +101,14 @@ class Sequence(PreprocessLayer):
         elif get_backend() == "tf":
             return tf.variables_initializer([self.index])
 
-    def _graph_fn_apply(self, inputs):
+    def _graph_fn_apply(self, preprocessing_inputs):
         """
         Sequences (stitches) together the incoming inputs by using our buffer (with stored older records).
         Sequencing happens within the last rank if `self.add_rank` is False, otherwise a new rank is added at the end
         for the sequencing.
 
         Args:
-            inputs (FlattenedDataOp): The FlattenedDataOp to be sequenced.
+            preprocessing_inputs (FlattenedDataOp): The FlattenedDataOp to be sequenced.
                 One sequence is generated separately for each SingleDataOp in api_methods.
 
         Returns:
@@ -119,11 +119,11 @@ class Sequence(PreprocessLayer):
             #for key_, value in inputs.items():
             # Insert the input at the correct index or fill empty buffer entirely with input.
             if self.index == -1:
-                reps = (self.sequence_length,) + tuple([1] * get_rank(inputs))
-                input_ = np.expand_dims(inputs, 0)
+                reps = (self.sequence_length,) + tuple([1] * get_rank(preprocessing_inputs))
+                input_ = np.expand_dims(preprocessing_inputs, 0)
                 self.buffer = np.tile(input_, reps=reps)
             else:
-                self.buffer[self.index] = inputs
+                self.buffer[self.index] = preprocessing_inputs
 
             self.index = (self.index + 1) % self.sequence_length
 
@@ -148,7 +148,7 @@ class Sequence(PreprocessLayer):
             # Assigns the input_ into the buffer at the current time index.
             def normal_assign():
                 assigns = list()
-                for key_, value in inputs.items():
+                for key_, value in preprocessing_inputs.items():
                     assign_op = self.assign_variable(ref=self.buffer[key_][self.index], value=value)
                     assigns.append(assign_op)
                 return assigns
@@ -156,7 +156,7 @@ class Sequence(PreprocessLayer):
             # After a reset (time index is -1), fill the entire buffer with `self.sequence_length` x input_.
             def after_reset_assign():
                 assigns = list()
-                for key_, value in inputs.items():
+                for key_, value in preprocessing_inputs.items():
                     multiples = (self.sequence_length,) + tuple([1] * get_rank(value))
                     input_ = tf.expand_dims(input=value, axis=0)
                     assign_op = self.assign_variable(
@@ -177,7 +177,7 @@ class Sequence(PreprocessLayer):
             with tf.control_dependencies(control_inputs=[index_plus_1]):
                 sequences = FlattenedDataOp()
                 # Collect the correct previous inputs from the buffer to form the output sequence.
-                for key in inputs.keys():
+                for key in preprocessing_inputs.keys():
                     n_in = [self.buffer[key][(self.index + n) % self.sequence_length]
                             for n in range_(self.sequence_length)]
 

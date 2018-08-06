@@ -42,17 +42,17 @@ class Multiply(PreprocessLayer):
                                 add_time_rank=value.has_time_rank)
         return unflatten_op(ret)
 
-    def _graph_fn_apply(self, inputs):
+    def _graph_fn_apply(self, preprocessing_inputs):
         """
         Multiplies the input with our factor.
 
         Args:
-            inputs (tensor): The input to be scaled.
+            preprocessing_inputs (tensor): The input to be scaled.
 
         Returns:
             op: The op to scale the input.
         """
-        return inputs * self.factor
+        return preprocessing_inputs * self.factor
 
 
 class Divide(PreprocessLayer):

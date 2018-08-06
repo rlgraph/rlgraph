@@ -71,25 +71,25 @@ class ImageCrop(PreprocessLayer):
 
     def check_input_spaces(self, input_spaces, action_space=None):
         super(ImageCrop, self).check_input_spaces(input_spaces, action_space)
-        in_space = input_spaces["inputs"]
+        in_space = input_spaces["preprocessing_inputs"]
 
         self.output_spaces = self.get_preprocessed_space(in_space)
 
-    def _graph_fn_apply(self, inputs):
+    def _graph_fn_apply(self, preprocessing_inputs):
         """
         Images come in with either a batch dimension or not.
         """
         if self.backend == "python" or get_backend() == "python":
-            if isinstance(inputs, list):
-                inputs = np.asarray(inputs)
-            if inputs.ndim == 4:
+            if isinstance(preprocessing_inputs, list):
+                preprocessing_inputs = np.asarray(preprocessing_inputs)
+            if preprocessing_inputs.ndim == 4:
                 # Preserve batch dimension.
-                return inputs[:, self.y:self.y + self.height, self.x:self.x + self.width]
+                return preprocessing_inputs[:, self.y:self.y + self.height, self.x:self.x + self.width]
             else:
-                return inputs[self.y:self.y + self.height, self.x:self.x + self.width]
+                return preprocessing_inputs[self.y:self.y + self.height, self.x:self.x + self.width]
         elif get_backend() == "tf":
             return tf.image.crop_to_bounding_box(
-                image=inputs,
+                image=preprocessing_inputs,
                 offset_height=self.y,
                 offset_width=self.x,
                 target_height=self.height,

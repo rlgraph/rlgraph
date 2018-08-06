@@ -67,35 +67,35 @@ class GrayScale(PreprocessLayer):
 
     def check_input_spaces(self, input_spaces, action_space=None):
         super(GrayScale, self).check_input_spaces(input_spaces, action_space)
-        in_space = input_spaces["inputs"]
+        in_space = input_spaces["preprocessing_inputs"]
         self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
 
-    def _graph_fn_apply(self, inputs):
+    def _graph_fn_apply(self, preprocessing_inputs):
         """
         Gray-scales images of arbitrary rank.
         Normally, the images' rank is 3 (width/height/colors), but can also be: batch/width/height/colors, or any other.
         However, the last rank must be of size: len(self.weights).
 
         Args:
-            images (tensor): Single image or a batch of images to be gray-scaled (last rank=n colors, where
+            preprocessing_inputs (tensor): Single image or a batch of images to be gray-scaled (last rank=n colors, where
                 n=len(self.weights)).
 
         Returns:
             DataOp: The op for processing the images.
         """
         # The reshaped weights used for the grayscale operation.
-        if isinstance(inputs, list):
-            inputs = np.asarray(inputs)
-        images_shape = get_shape(inputs)
+        if isinstance(preprocessing_inputs, list):
+            preprocessing_inputs = np.asarray(preprocessing_inputs)
+        images_shape = get_shape(preprocessing_inputs)
         assert images_shape[-1] == self.last_rank,\
             "ERROR: Given image's shape ({}) does not match number of weights (last rank must be {})!".\
             format(images_shape, self.last_rank)
 
         if self.backend == "python" or get_backend() == "python":
-            if inputs.ndim == 4:
+            if preprocessing_inputs.ndim == 4:
                 grayscaled = []
-                for i in range_(len(inputs)):
-                    scaled = cv2.cvtColor(inputs[i], cv2.COLOR_RGB2GRAY)
+                for i in range_(len(preprocessing_inputs)):
+                    scaled = cv2.cvtColor(preprocessing_inputs[i], cv2.COLOR_RGB2GRAY)
                     grayscaled.append(scaled)
                 scaled_images = np.asarray(grayscaled)
 
@@ -105,6 +105,7 @@ class GrayScale(PreprocessLayer):
                 return scaled_images
         elif get_backend() == "tf":
             weights_reshaped = np.reshape(a=self.weights,
-                                          newshape=tuple([1] * (get_rank(inputs) - 1)) + (self.last_rank,))
-            return tf.reduce_sum(input_tensor=weights_reshaped * inputs, axis=-1, keepdims=self.keep_rank)
+                                          newshape=tuple([1] * (get_rank(preprocessing_inputs) - 1))
+                                                   + (self.last_rank,))
+            return tf.reduce_sum(input_tensor=weights_reshaped * preprocessing_inputs, axis=-1, keepdims=self.keep_rank)
 

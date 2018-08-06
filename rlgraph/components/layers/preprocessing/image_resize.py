@@ -73,29 +73,30 @@ class ImageResize(PreprocessLayer):
 
     def check_input_spaces(self, input_spaces, action_space=None):
         super(ImageResize, self).check_input_spaces(input_spaces, action_space)
-        in_space = input_spaces["inputs"]
+        in_space = input_spaces["preprocessing_inputs"]
 
         self.output_spaces = self.get_preprocessed_space(in_space)
 
-    def _graph_fn_apply(self, inputs):
+    def _graph_fn_apply(self, preprocessing_inputs):
         """
         Images come in with either a batch dimension or not.
-        However, this
         """
         if self.backend == "python" or get_backend() == "python":
             import cv2
-            if isinstance(inputs, list):
-                inputs = np.asarray(inputs)
-            if inputs.ndim == 4:
+            if isinstance(preprocessing_inputs, list):
+                preprocessing_inputs = np.asarray(preprocessing_inputs)
+            if preprocessing_inputs.ndim == 4:
                 resized = []
-                for i in range_(len(inputs)):
-                    resized.append(cv2.resize(inputs[i], dsize=(self.width, self.height),
+                for i in range_(len(preprocessing_inputs)):
+                    resized.append(cv2.resize(preprocessing_inputs[i], dsize=(self.width, self.height),
                                               interpolation=self.cv2_interpolation))
                 resized = np.asarray(resized)
                 resized = resized[:, :, :, np.newaxis]
                 return resized
             else:
-                return cv2.resize(inputs, dsize=(self.width, self.height), interpolation=self.cv2_interpolation)
+                return cv2.resize(preprocessing_inputs, dsize=(self.width, self.height),
+                                  interpolation=self.cv2_interpolation)
         elif get_backend() == "tf":
-            return tf.image.resize_images(images=inputs, size=(self.width, self.height), method=self.tf_interpolation)
+            return tf.image.resize_images(images=preprocessing_inputs, size=(self.width, self.height),
+                                          method=self.tf_interpolation)
 

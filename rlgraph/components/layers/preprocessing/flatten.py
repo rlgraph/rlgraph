@@ -64,7 +64,7 @@ class Flatten(PreprocessLayer):
         super(Flatten, self).check_input_spaces(input_spaces, action_space)
 
         # Check whether our input space has-batch or not and store this information here.
-        in_space = input_spaces["inputs"]  # type: Dict
+        in_space = input_spaces["preprocessing_inputs"]  # type: Dict
 
         # Store the mapped output Spaces (per flat key).
         self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
@@ -83,23 +83,24 @@ class Flatten(PreprocessLayer):
                 return 1
             self.num_categories = in_space.flatten(mapping=mapping_func)
 
-    def _graph_fn_apply(self, key, inputs):
+    def _graph_fn_apply(self, key, preprocessing_inputs):
         if self.backend == "python" or get_backend() == "python":
             from rlgraph.utils.numpy import one_hot
 
             # Create a one-hot axis for the categories at the end?
             if self.num_categories[key] > 1:
-                inputs = one_hot(inputs, depth=self.num_categories[key])
+                preprocessing_inputs = one_hot(preprocessing_inputs, depth=self.num_categories[key])
             with_batch_rank = self.output_spaces[key].has_batch_rank
-            reshaped = np.reshape(inputs, newshape=self.output_spaces[key].get_shape(with_batch_rank=with_batch_rank))
+            reshaped = np.reshape(preprocessing_inputs, newshape=self.output_spaces[key].get_shape(with_batch_rank=with_batch_rank))
             return reshaped
 
         elif get_backend() == "tf":
             # Create a one-hot axis for the categories at the end?
             if self.num_categories[key] > 1:
-                inputs = tf.one_hot(indices=inputs, depth=self.num_categories[key], axis=-1)
+                preprocessing_inputs = tf.one_hot(indices=preprocessing_inputs, depth=self.num_categories[key], axis=-1)
             with_batch_rank = (-1 if self.output_spaces[key].has_batch_rank is True else False)
-            reshaped = tf.reshape(inputs, shape=self.output_spaces[key].get_shape(with_batch_rank=with_batch_rank),
+            reshaped = tf.reshape(tensor=preprocessing_inputs,
+                                  shape=self.output_spaces[key].get_shape(with_batch_rank=with_batch_rank),
                                   name="flattened")
             return reshaped
 
