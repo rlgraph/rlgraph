@@ -31,7 +31,7 @@ class TestSequencePreprocessor(unittest.TestCase):
     def test_sequence_preprocessor(self):
         space = FloatBox(shape=(1,), add_batch_rank=True)
         sequencer = Sequence(sequence_length=3, add_rank=True)
-        test = ComponentTest(component=sequencer, input_spaces=dict(inputs=space))
+        test = ComponentTest(component=sequencer, input_spaces=dict(preprocessing_inputs=space))
 
         vars = sequencer.get_variables("index", "buffer", global_scope=False)
         index, buffer = vars["index"], vars["buffer"]
@@ -66,7 +66,7 @@ class TestSequencePreprocessor(unittest.TestCase):
         seq_len = 3
         space = FloatBox(shape=(1,), add_batch_rank=True)
         sequencer = Sequence(sequence_length=seq_len, batch_size=4, add_rank=True, backend="python")
-        sequencer.create_variables(input_spaces=dict(inputs=space))
+        sequencer.create_variables(input_spaces=dict(preprocessing_inputs=space))
 
         #test = ComponentTest(component=sequencer, input_spaces=dict(apply=space))
 
@@ -101,7 +101,7 @@ class TestSequencePreprocessor(unittest.TestCase):
     def test_sequence_preprocessor_with_batch(self):
         space = FloatBox(shape=(2,), add_batch_rank=True)
         sequencer = Sequence(sequence_length=2, batch_size=3, add_rank=True)
-        test = ComponentTest(component=sequencer, input_spaces=dict(inputs=space))
+        test = ComponentTest(component=sequencer, input_spaces=dict(preprocessing_inputs=space))
 
         vars = sequencer.get_variables("index", "buffer", global_scope=False)
         index, buffer = vars["index"], vars["buffer"]
@@ -152,7 +152,7 @@ class TestSequencePreprocessor(unittest.TestCase):
         space = Tuple(FloatBox(shape=(1,)), FloatBox(shape=(2, 2)), add_batch_rank=False)
 
         component_to_test = Sequence(sequence_length=4, add_rank=False)
-        test = ComponentTest(component=component_to_test, input_spaces=dict(inputs=space))
+        test = ComponentTest(component=component_to_test, input_spaces=dict(preprocessing_inputs=space))
 
         for i in range_(3):
             test.test("reset")
