@@ -21,6 +21,7 @@ from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.ops import FlattenedDataOp
+from rlgraph.utils.util import dtype as dtype_
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -49,7 +50,7 @@ class FIFOQueue(Memory):
         for key, value in in_space.flatten().items():
             sanity_check_space(value, must_have_batch_rank=True)
             shapes.append(value.shape)
-            dtypes.append(value.dtype)
+            dtypes.append(dtype_(value.dtype))
             names.append(key)
 
         # Construct the wrapped FIFOQueue object.

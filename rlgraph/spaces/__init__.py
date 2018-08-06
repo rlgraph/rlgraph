@@ -40,9 +40,11 @@ Space.__lookup_classes__ = dict({
     "multidiscrete": IntBox,
     "continuous": FloatBox,
     "float": FloatBox,
+    "float32": FloatBox,
     float: FloatBox,
     np.float32: FloatBox,
-    np.float64: FloatBox,
+    np.float64: partial(FloatBox, dtype=np.float64),
+    "float64": partial(FloatBox, dtype=np.float64),
     "list": Tuple,
     "tuple": Tuple,
     # "sequence" action type for nlp use cases and combinatorial optimisation.

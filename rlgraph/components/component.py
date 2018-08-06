@@ -332,7 +332,7 @@ class Component(Specifiable):
             if self.input_complete is False:
                 assert self.check_input_completeness()
                 # Check Spaces and create variables.
-                self.when_input_complete()
+                self.when_input_complete(action_space=self.graph_builder.action_space)
             # Call the graph_fn.
             out_graph_fn_column = self.graph_builder.run_through_graph_fn_with_device_and_scope(
                 in_graph_fn_column, create_new_out_column=True
@@ -719,8 +719,10 @@ class Component(Specifiable):
             if initializer is None or isinstance(initializer, tf.keras.initializers.Initializer):
                 shape = tuple((() if add_batch_rank is False else
                                (None,) if add_batch_rank is True else (add_batch_rank,)) + (shape or ()))
+            # Numpyize initializer and give it correct dtype.
             else:
                 shape = None
+                initializer = np.asarray(initializer, dtype=util.dtype(dtype, "np"))
 
             var = tf.get_variable(
                 name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable

@@ -132,14 +132,18 @@ def get_space_from_op(op):
                     shape = shape[1:]
                 add_batch_rank = True
 
-            # a FloatBox
-            if op.dtype.base_dtype == dtype("float") or op.dtype.base_dtype == dtype("float64"):
-                return FloatBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
-            # an IntBox
-            elif op.dtype.base_dtype == dtype("int") or op.dtype.base_dtype == dtype("int64"):
-                return IntBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
+            base_dtype_str = str(op.dtype.base_dtype)
+
+            # FloatBox
+            if "float" in base_dtype_str:
+                return FloatBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
+                                dtype=dtype(op.dtype.base_dtype, "np"))
+            # IntBox
+            elif "int" in base_dtype_str:
+                return IntBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
+                              dtype=dtype(op.dtype.base_dtype, "np"))
             # a BoolBox
-            elif op.dtype.base_dtype == dtype("bool"):
+            elif "bool" in base_dtype_str:
                 return BoolBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
 
     raise RLGraphError("ERROR: Cannot derive Space from op '{}' (unknown type?)!".format(op))

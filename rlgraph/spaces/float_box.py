@@ -19,12 +19,12 @@ from __future__ import print_function
 
 import numpy as np
 
+from rlgraph.utils.util import dtype as dtype_
 from rlgraph.spaces.box_space import BoxSpace
 
 
 class FloatBox(BoxSpace):
-    def __init__(self, low=None, high=None, shape=None, add_batch_rank=False, add_time_rank=False, dtype="float"):
-        assert dtype in ["float", "float64"], "ERROR: FloatBox does not allow dtype '{}'!".format(dtype)
+    def __init__(self, low=None, high=None, shape=None, add_batch_rank=False, add_time_rank=False, dtype="float32"):
         if low is None:
             assert high is None, "ERROR: If `low` is None, `high` must be None as well!"
             low = float("-inf")
@@ -37,6 +37,9 @@ class FloatBox(BoxSpace):
                 high = low
                 low = 0.0
 
+        dtype = dtype_(dtype, "np")
+        assert dtype in [np.float16, np.float32, np.float64], "ERROR: FloatBox does not allow dtype '{}'!".format(dtype)
+
         super(FloatBox, self).__init__(low=low, high=high, shape=shape, add_batch_rank=add_batch_rank,
                                        add_time_rank=add_time_rank, dtype=dtype)
 
@@ -48,7 +51,4 @@ class FloatBox(BoxSpace):
             ret = np.random.uniform(low=self.low, high=self.high, size=shape)
 
         # Make sure return values have the right dtype (float64 is np.random's default).
-        if self.dtype == "float":
-            return np.asarray(ret, dtype=np.float32)
-        else:
-            return ret
+        return np.asarray(ret, dtype=self.dtype)

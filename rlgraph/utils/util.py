@@ -56,20 +56,21 @@ def dtype(dtype_, to="tf"):
     Args:
         dtype_ (any): String describing a numerical type (e.g. 'float'), numpy data type, tf dtype,
             pytorch data-type, or python numerical type.
-        to (str): Either one of 'tf' (tensorflow), 'pt' (pytorch), or 'np' (numpy). Default="tf".
+        to (str): Either one of 'tf' (tensorflow), 'pt' (pytorch), 'np' (numpy), 'str' (string).
+            Default="tf".
 
     Returns:
-        TensorFlow or Numpy data type (depending on `to` parameter).
+        TensorFlow, Numpy, pytorch or string, representing a data type (depending on `to` parameter).
     """
-    # bool: tensorflow
+    # Bool: tensorflow.
     if get_backend() == "tf":
         if dtype_ in ["bool", bool, np.bool_, be.bool]:
             return np.bool_ if to == "np" else be.bool
-    # bool: pytorch backend (not supported)
+    # Bool: All others.
     elif dtype_ in ["bool", bool, np.bool_]:
         return np.bool_ if to == "np" else tf.bool
 
-    # generic backend
+    # Generic backend.
     if dtype_ in ["float", "float32", float, np.float32, be.float32]:
         return np.float32 if to == "np" else tf.float32
     if dtype_ in ["float64", np.float64, be.float64]:
@@ -78,6 +79,8 @@ def dtype(dtype_, to="tf"):
         return np.int32 if to == "np" else tf.int32
     elif dtype_ in ["int64", np.int64]:
         return np.int64 if to == "np" else tf.int64
+    elif dtype_ in ["uint8", np.uint8]:
+        return np.uint8 if to == "np" else tf.uint8
 
     raise RLGraphError("Error: Type conversion to '{}' for type '{}' not supported.".format(to, str(dtype_)))
 

@@ -34,13 +34,14 @@ class BoxSpace(Space):
     A box in R^n with a shape tuple of len n. Each dimension may be bounded.
     """
 
-    def __init__(self, low, high, shape=None, add_batch_rank=False, add_time_rank=False, dtype="float"):
+    def __init__(self, low, high, shape=None, add_batch_rank=False, add_time_rank=False, dtype=np.float32):
         """
         Args:
             low (any): The lower bound (see Valid Inputs for more information).
             high (any): The upper bound (see Valid Inputs for more information).
             shape (tuple): The shape of this space.
-            dtype (str): The data type (as string) for this Space. Allowed are: "float", "float64", "int", "bool".
+            dtype (np.type): The data type (as numpy type) for this Space.
+                Allowed are: np.int8,16,32,64, np.float16,32,64 and np.bool_.
 
         Valid api_methods:
             BoxSpace(0.0, 1.0) # low and high are given as scalars and shape is assumed to be ()
@@ -51,7 +52,9 @@ class BoxSpace(Space):
                 (no shape given!) -> nD array where each dimension has different bounds.
         """
         super(BoxSpace, self).__init__(add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
-        assert dtype in ["float", "float64", "int", "bool"], "ERROR: BoxSpace does not allow dtype '{}'!".format(dtype)
+
+        #assert dtype in [np.float16, np.float32, np.float64, np.int8, np.int16, np.int32, np.int64, np.bool_], \
+        #    "ERROR: BoxSpace does not allow dtype '{}'!".format(dtype)
         self._dtype = dtype
 
         # Determine the shape.
@@ -180,7 +183,7 @@ class BoxSpace(Space):
             else:
                 init_spec = kwargs.pop("initializer", None)
                 # Bools should be initializable via 0 or not 0.
-                if self.dtype == "bool" and isinstance(init_spec, (int, float)):
+                if self.dtype == np.bool_ and isinstance(init_spec, (int, float)):
                     init_spec = (init_spec != 0)
                 rlgraph_initializer = Initializer.from_spec(shape=shape, specification=init_spec)
                 return tf.get_variable(name, shape=shape, dtype=dtype(self.dtype),
@@ -190,8 +193,10 @@ class BoxSpace(Space):
             raise RLGraphError("ERROR: Pytorch not supported yet!")
 
     def __repr__(self):
-        return "{}({}{}{})".format(type(self).__name__.title(), self.shape, "; +batch" if self.has_batch_rank else "",
-                                   "; +time" if self.has_time_rank else "")
+        return "{}({} {} {}{})".format(
+            type(self).__name__.title(), self.shape, str(self.dtype), "; +batch" if self.has_batch_rank else
+            "", "; +time" if self.has_time_rank else ""
+        )
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and \
@@ -211,4 +216,4 @@ class BoxSpace(Space):
             return (sample >= self.low).all() and (sample <= self.high).all()
 
     def zeros(self):
-        return np.zeros(shape=self.shape, dtype=dtype(self.dtype, "np"))
+        return np.zeros(shape=self.shape, dtype=self.dtype)

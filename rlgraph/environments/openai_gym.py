@@ -34,17 +34,8 @@ class OpenAIGymEnv(Environment):
     OpenAI Gym adapter for RLgraph: https://gym.openai.com/.
     """
     def __init__(
-        self,
-        gym_env,
-        frameskip=None,
-        max_num_noops=0,
-        random_start=False,
-        noop_action=0,
-        episodic_life=False,
-        monitor=None,
-        monitor_safe=False,
-        monitor_video=0,
-        visualize=False,
+        self, gym_env, frameskip=None, max_num_noops=0, random_start=False, noop_action=0, episodic_life=False,
+        monitor=None, monitor_safe=False, monitor_video=0, visualize=False,
     ):
         """
         Args:
@@ -206,13 +197,19 @@ class OpenAIGymEnv(Environment):
         elif isinstance(space, gym.spaces.MultiDiscrete):
             return IntBox(low=np.zeros((space.nvec.ndim,), dtype("uint8", "np")), high=space.nvec)
         elif isinstance(space, gym.spaces.Box):
-            return FloatBox(low=space.low, high=space.high)
+            # Decide by dtype:
+            if "int" in str(space.dtype):
+                return IntBox(low=space.low, high=space.high, dtype=str(space.dtype))
+            elif "float" in str(space.dtype):
+                return FloatBox(low=space.low, high=space.high, dtype=str(space.dtype))
+            elif "bool" in str(space.dtype):
+                return BoolBox(shape=space.shape)
         elif isinstance(space, gym.spaces.Tuple):
             return Tuple(*[OpenAIGymEnv.translate_space(s) for s in space.spaces])
         elif isinstance(space, gym.spaces.Dict):
             return Dict({key: OpenAIGymEnv.translate_space(value) for key, value in space.spaces.items()})
-        else:
-            raise RLGraphError("Unknown openAI gym Space class for state_space!")
+
+        raise RLGraphError("Unknown openAI gym Space class ({}) for state_space!".format(space))
 
     def __str__(self):
         return "OpenAIGym({})".format(self.gym_env)

@@ -153,9 +153,9 @@ class DeepmindLabEnv(Environment):
             # Find the observation_item in the observation_spec of the Env.
             observation_item = [o for o in observation_spec if o["name"] == observation_name][0]
             if observation_item.dtype == dtype("float", "np"):
-                space = FloatBox(shape=observation_item.shape)
+                space = FloatBox(shape=observation_item.shape, dtype=observation_item.dtype)
             elif observation_item.dtype == dtype("int", "np"):
-                space = IntBox(shape=observation_item.shape)
+                space = IntBox(shape=observation_item.shape, dtype=observation_item.dtype)
             else:
                 raise RLGraphError("Unknown Deepmind Lab Space class for state_space!")
 

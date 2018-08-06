@@ -117,9 +117,7 @@ class SpecifiableServer(Specifiable):
                     return_slots.append(i)
                 # Expecting a tensor.
                 elif space is not None:
-                    # TODO: weird tf bug where floats coming from the py-func are interpreted as tf-doubles and then won't match the Tout types.
-                    dt = dtype(space.dtype)
-                    dtypes.append(dt)  # if space.dtype != "float" else tf.float64)
+                    dtypes.append(dtype(space.dtype))
                     shapes.append(space.shape)
                     return_slots.append(i)
 
@@ -152,7 +150,6 @@ class SpecifiableServer(Specifiable):
                     # Not an op (which have shape=0).
                     if shape != 0:
                         result.set_shape(shape)
-                        #result = tf.cast(result, tf.float32)
             else:
                 raise NotImplementedError
 

@@ -98,7 +98,7 @@ class RayWorker(RayActor):
         self.agent.reset()
         self.env_states_buffer = np.zeros(shape=(self.num_environments, )
                                           + self.agent.preprocessed_state_space.shape,
-                                          dtype=dtype(self.agent.preprocessed_state_space.dtype, to="np"))
+                                          dtype=self.agent.preprocessed_state_space.dtype)
         self.last_ep_timesteps = [0 for _ in range_(self.num_environments)]
         self.last_ep_rewards = [0 for _ in range_(self.num_environments)]
         # Was the last state a terminal state so env should be reset in next call?

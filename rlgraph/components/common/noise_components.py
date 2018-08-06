@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components import Component
+from rlgraph.utils.util import dtype
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -86,7 +87,7 @@ class GaussianNoise(NoiseComponent):
                 shape=(1,) + self.action_space.shape,
                 mean=self.mean,
                 stddev=self.sd,
-                dtype=self.action_space.dtype
+                dtype=dtype(self.action_space.dtype)
             )
 
 
@@ -123,7 +124,7 @@ class OrnsteinUhlenbeckNoise(NoiseComponent):
 
     def _graph_fn_get_noise(self):
         drift = self.theta * (self.mu - self.ou_state)
-        diffusion = self.sigma * tf.random_normal(shape=self.action_space.shape, dtype=self.action_space.dtype)
+        diffusion = self.sigma * tf.random_normal(shape=self.action_space.shape, dtype=dtype(self.action_space.dtype))
 
         delta = drift + diffusion
         if get_backend() == "tf":

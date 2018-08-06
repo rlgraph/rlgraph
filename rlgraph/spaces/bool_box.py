@@ -26,7 +26,7 @@ from rlgraph.spaces.box_space import BoxSpace
 class BoolBox(BoxSpace):
     def __init__(self, shape=None, add_batch_rank=False, add_time_rank=False):
         super(BoolBox, self).__init__(low=False, high=True, shape=shape, add_batch_rank=add_batch_rank,
-                                      add_time_rank=add_time_rank, dtype="bool")
+                                      add_time_rank=add_time_rank, dtype=np.bool_)
 
     def sample(self, size=None):
         shape = self._get_np_shape(num_samples=size)

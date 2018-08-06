@@ -171,9 +171,8 @@ class Space(Specifiable):
     def dtype(self):
         """
         Returns:
-            str: The dtype (as string) of this Space.
-                Can be converted to tf/np/python dtypes via the utils.dtype function. Tf seems to understand
-                strings as well, though.
+            np.dtype: The dtype (as numpy dtype) of this Space. Can be converted to tf/np/python dtypes via the
+            utils.dtype function. Tf seems to understand strings as well, though.
         """
         raise NotImplementedError
 
