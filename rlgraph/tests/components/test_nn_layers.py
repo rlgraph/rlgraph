@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 import numpy as np
 
-from rlgraph.components.layers import DenseLayer, Conv2DLayer, ConcatLayer, DuelingLayer, LSTMLayer
+from rlgraph.components.layers.nn import DenseLayer, Conv2DLayer, ConcatLayer, DuelingLayer, LSTMLayer, ResidualLayer
 from rlgraph.spaces import FloatBox, IntBox
 from rlgraph.tests import ComponentTest
 from rlgraph.utils.numpy import sigmoid
@@ -122,6 +122,34 @@ class TestNNLayer(unittest.TestCase):
                                     expected_advantage_values,
                                     expected_q_values],
                   decimals=5)
+
+    def test_residual_layer(self):
+        # Input space to residual layer (with 2-repeat [simple Conv2D layer]-residual-unit).
+        input_space = FloatBox(shape=(2, 2, 3), add_batch_rank=True)
+
+        residual_unit = Conv2DLayer(filters=3, kernel_size=1, strides=1, padding="same", kernel_spec=0.5,
+                                    biases_spec=1.0)
+        residual_layer = ResidualLayer(residual_unit=residual_unit, repeats=2)
+        test = ComponentTest(component=residual_layer, input_spaces=dict(inputs=input_space))
+
+        # Batch of 2 samples.
+        inputs = np.array(
+            [
+                [[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]], [[0.7, 0.8, 0.9], [1.1, 1.2, 1.3]]],
+                [[[1.1, 1.2, 1.3], [2.4, 2.5, 2.6]], [[-0.7, -0.8, -0.9], [3.1, 3.2, 3.3]]]
+            ]
+        )
+
+        """
+        Calculation:
+        1st_conv2d = sum-over-last-axis(input) * 0.5 + 1.0 -> tile last axis 3x
+        2nd_conv2d = sum-over-last-axis(2nd_conv2d) * 0.5 + 1.0 -> tile last axis 3x
+        output: 2nd_conv2d + input
+        """
+        conv2d_1 = np.tile(np.sum(inputs, axis=3, keepdims=True) * 0.5 + 1.0, (1, 1, 1, 3))
+        conv2d_2 = np.tile(np.sum(conv2d_1, axis=3, keepdims=True) * 0.5 + 1.0, (1, 1, 1, 3))
+        expected = conv2d_2 + inputs
+        test.test(("apply", inputs), expected_outputs=expected, decimals=5)
 
     def test_lstm_layer(self):
         # 0th rank=batch-rank; 1st rank=time/sequence-rank; 2nd-nth rank=data.

@@ -25,6 +25,7 @@ from rlgraph.components.layers.nn.dueling_layer import DuelingLayer
 from rlgraph.components.layers.nn.embedding_lookup_layer import EmbeddingLookupLayer
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 from rlgraph.components.layers.nn.maxpool2d_layer import MaxPool2DLayer
+from rlgraph.components.layers.nn.residual_layer import ResidualLayer
 
 NNLayer.__lookup_classes__ = dict(
     concat=ConcatLayer,
@@ -35,7 +36,8 @@ NNLayer.__lookup_classes__ = dict(
     fc=DenseLayer,  # alias
     dueling=DuelingLayer,
     lstm=LSTMLayer,
-    maxpool2d=MaxPool2DLayer
+    maxpool2d=MaxPool2DLayer,
+    residual=ResidualLayer
 )
 
 __all__ = ["NNLayer"] + list(set(map(lambda x: x.__name__, NNLayer.__lookup_classes__.values())))

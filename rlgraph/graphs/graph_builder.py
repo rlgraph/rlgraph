@@ -293,9 +293,11 @@ class GraphBuilder(Specifiable):
             # Sanity check, whether we are stuck.
             new_op_records_list = sorted(new_op_records_to_process, key=lambda rec: rec.id)
             if op_records_list == new_op_records_list:
-                raise RLGraphError("Build procedure is deadlocked. Most likely, you are having a circularly dependent "
-                                   "Component in your meta-graph. The following Components are still "
-                                   "input-incomplete:\n{}".format(non_complete_components))
+                # Ok for some
+                if loop_counter > 10000:
+                    raise RLGraphError("Build procedure is deadlocked. Most likely, you are having a circularly "
+                                       "dependent Component in your meta-graph. The following Components are still "
+                                       "input-incomplete:\n{}".format(non_complete_components))
 
             op_records_list = new_op_records_list
 

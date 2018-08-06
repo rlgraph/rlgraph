@@ -45,8 +45,11 @@ class ResidualLayer(NNLayer):
         """
         super(ResidualLayer, self).__init__(scope=scope, **kwargs)
 
-        self.residual_unit = residual_unit
         self.repeats = repeats
+        self.residual_units = [residual_unit] + [
+            residual_unit.copy(scope=residual_unit.scope+"-rep"+str(i+1)) for i in range(repeats - 1)
+        ]
+        self.add_components(*self.residual_units)
 
     def _graph_fn_apply(self, inputs):
         """
@@ -56,14 +59,17 @@ class ResidualLayer(NNLayer):
         Returns:
             SingleDataOp: The output after passing the input through n times the residual function, then the
                 activation function.
-
         """
         if get_backend() == "tf":
             results = inputs
             # Apply the residual unit n times to the input.
             for i in range(self.repeats):
-                results = self.call(self.residual_unit.apply, results)
+                results = self.call(self.residual_units[i].apply, results)
 
             # Then activate and add up.
             added_with_input = results + inputs
-            return self.activation(added_with_input, self.activation_params)
+            activation_function = get_activation_function(self.activation, self.activation_params)
+            if activation_function is not None:
+                return activation_function(added_with_input)
+            else:
+                return added_with_input
