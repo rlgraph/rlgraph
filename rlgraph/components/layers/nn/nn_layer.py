@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.layers.layer import Layer
-from rlgraph.spaces import FloatBox
+from rlgraph.spaces import FloatBox, IntBox
 from rlgraph.spaces.space_utils import sanity_check_space
 
 
@@ -46,7 +46,7 @@ class NNLayer(Layer):
             key = "inputs[{}]".format(idx)
             if key not in input_spaces:
                 break
-            sanity_check_space(input_spaces[key], allowed_types=[FloatBox], must_have_batch_rank=True)
+            sanity_check_space(input_spaces[key], allowed_types=[FloatBox, IntBox], must_have_batch_rank=True)
             idx += 1
 
         #for api_method_name, in_spaces in input_spaces.items():
