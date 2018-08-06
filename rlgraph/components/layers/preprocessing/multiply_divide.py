@@ -18,6 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.layers.preprocessing import PreprocessLayer
+from rlgraph.spaces.float_box import FloatBox
+from rlgraph.utils.ops import unflatten_op
 
 
 class Multiply(PreprocessLayer):
@@ -31,6 +33,14 @@ class Multiply(PreprocessLayer):
         """
         super(Multiply, self).__init__(scope=scope, **kwargs)
         self.factor = factor
+
+    def get_preprocessed_space(self, space):
+        # Translate to corresponding FloatBoxes.
+        ret = dict()
+        for key, value in space.flatten().items():
+            ret[key] = FloatBox(shape=value.shape, add_batch_rank=value.has_batch_rank,
+                                add_time_rank=value.has_time_rank)
+        return unflatten_op(ret)
 
     def _graph_fn_apply(self, inputs):
         """
@@ -56,6 +66,14 @@ class Divide(PreprocessLayer):
         """
         super(Divide, self).__init__(scope=scope, **kwargs)
         self.divisor = divisor
+
+    def get_preprocessed_space(self, space):
+        # Translate to corresponding FloatBoxes.
+        ret = dict()
+        for key, value in space.flatten().items():
+            ret[key] = FloatBox(shape=value.shape, add_batch_rank=value.has_batch_rank,
+                                add_time_rank=value.has_time_rank)
+        return unflatten_op(ret)
 
     def _graph_fn_apply(self, inputs):
         """

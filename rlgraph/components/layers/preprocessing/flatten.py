@@ -100,6 +100,6 @@ class Flatten(PreprocessLayer):
                 inputs = tf.one_hot(indices=inputs, depth=self.num_categories[key], axis=-1)
             with_batch_rank = (-1 if self.output_spaces[key].has_batch_rank is True else False)
             reshaped = tf.reshape(inputs, shape=self.output_spaces[key].get_shape(with_batch_rank=with_batch_rank),
-                                  name = "flattened")
+                                  name="flattened")
             return reshaped
 
