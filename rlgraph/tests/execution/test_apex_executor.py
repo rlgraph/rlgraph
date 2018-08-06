@@ -55,6 +55,6 @@ class TestApexExecutor(unittest.TestCase):
 
         # Executes actual workload.
         result = executor.execute_workload(workload=dict(num_timesteps=10000, report_interval=1000,
-                                                         report_interval_min_seconds=15))
+                                                         report_interval_min_seconds=t))
         print("Finished executing workload:")
         print(result)

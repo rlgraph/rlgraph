@@ -50,7 +50,7 @@ class TestRayWorker(unittest.TestCase):
         """
         agent_config = agent_config_from_path("../configs/apex_agent_cartpole.json")
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
-        worker = RayWorker.remote(agent_config, self.env_spec, ray_spec["worker_spec"])
+        worker = RayWorker.remote(agent_config, self.env_spec, ray_spec["worker_spec"], auto_build=True)
 
         # Test when breaking on terminal.
         # Init remote task.
@@ -103,7 +103,7 @@ class TestRayWorker(unittest.TestCase):
 
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         worker_spec = ray_spec["worker_spec"]
-        worker = RayWorker.remote(agent_config, self.env_spec, worker_spec)
+        worker = RayWorker.remote(agent_config, self.env_spec, worker_spec, auto_build=True)
 
         print("Testing statistics for 1 environment:")
         # Run for a while:
@@ -167,7 +167,7 @@ class TestRayWorker(unittest.TestCase):
         )
 
         # Create a remote worker with the same agent config.
-        worker = RayWorker.remote(self.env_spec, agent_config, worker_spec)
+        worker = RayWorker.remote(self.env_spec, agent_config, worker_spec, auto_build=True)
 
         # This imitates the initial executor sync without ray.put
         weights = local_agent.get_policy_weights()
