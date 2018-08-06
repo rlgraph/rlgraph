@@ -217,8 +217,6 @@ class GraphBuilder(Specifiable):
                 if len(op_rec.next) > 0:
                     # Push the op-record forward one step.
                     for next_op_rec in sorted(op_rec.next, key=lambda rec: rec.id):  # type: DataOpRecord
-                        next_component = next_op_rec.column.component
-
                         # If not last op in this API-method -> continue.
                         if next_op_rec.is_terminal_op is False:
                             assert next_op_rec.op is None
@@ -229,8 +227,9 @@ class GraphBuilder(Specifiable):
 
                         # Also push Space into possible API-method record if slot's Space is still None.
                         if isinstance(op_rec.column, DataOpRecordColumnIntoAPIMethod):
+                            api_method_component = op_rec.column.api_method_rec.component
                             # Get param-name for var-positional arg: "[param_name][idx]".
-                            if next_component.api_method_inputs[op_rec.column.api_method_rec.input_names[-1]] == \
+                            if api_method_component.api_method_inputs[op_rec.column.api_method_rec.input_names[-1]] == \
                                     "*flex" and op_rec.position >= len(op_rec.column.api_method_rec.input_names) - 1:
                                 param_name = "{}[{}]".format(
                                     op_rec.column.api_method_rec.input_names[-1], str(op_rec.position - (
@@ -240,27 +239,30 @@ class GraphBuilder(Specifiable):
                                 param_name = op_rec.column.api_method_rec.input_names[op_rec.position]
                             # Place Space for this input-param name (valid for all input params of same name even of
                             # different API-method of the same Component).
-                            if next_component.api_method_inputs[param_name] is None or \
-                                    next_component.api_method_inputs[param_name] == "flex":
-                                next_component.api_method_inputs[param_name] = next_op_rec.space
+                            if api_method_component.api_method_inputs[param_name] is None or \
+                                    api_method_component.api_method_inputs[param_name] == "flex":
+                                api_method_component.api_method_inputs[param_name] = next_op_rec.space
                             # Sanity check, whether Spaces are equivalent.
                             else:
-                                generic_space = check_space_equivalence(next_component.api_method_inputs[param_name],
-                                                                        next_op_rec.space)
+                                generic_space = check_space_equivalence(
+                                    api_method_component.api_method_inputs[param_name], next_op_rec.space
+                                )
                                 # Spaces are not equivalent.
                                 if generic_space is False:
                                     raise RLGraphError(
                                         "ERROR: op-rec '{}' has Space '{}', but input-param '{}' already has Space "
                                         "'{}'!".format(next_op_rec, next_op_rec.space, param_name,
-                                                       next_component.api_method_inputs[param_name])
+                                                       api_method_component.api_method_inputs[param_name])
                                     )
                                 # Overwrite both entries with the more generic Space.
                                 else:
-                                    next_op_rec.space = next_component.api_method_inputs[param_name] = generic_space
+                                    next_op_rec.space = api_method_component.api_method_inputs[param_name] = \
+                                        generic_space
 
                         # Did we enter a new Component? If yes, check input-completeness and
                         # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
                         # placeholder).
+                        next_component = next_op_rec.column.component
                         if op_rec.column is None or op_rec.column.component is not next_component:
                             self.build_component_when_input_complete(next_component, new_op_records_to_process)
                             if next_component.input_complete is False:
