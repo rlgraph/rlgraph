@@ -19,6 +19,10 @@
       "scope": "image_resize"
     },
     {
+      "type": "convert_type",
+      "to_dtype": "float"
+    },
+    {
       "type": "sequence",
       "sequence_length": 4,
       "batch_size": 1,

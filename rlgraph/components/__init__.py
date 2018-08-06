@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph.utils.util import default_dict
 
 # Core.
 from rlgraph.components.component import Component
