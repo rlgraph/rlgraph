@@ -42,7 +42,7 @@ class RayWorker(RayActor):
     with the agent used in the worker.
     """
 
-    def __init__(self, agent_config, env_spec, worker_spec, frameskip=1):
+    def __init__(self, agent_config, env_spec, worker_spec, frameskip=1, auto_build=False):
         """
         Creates agent and environment for Ray worker.
 
@@ -61,6 +61,7 @@ class RayWorker(RayActor):
         self.n_step_adjustment = worker_spec.pop("n_step_adjustment", 1)
         self.num_environments = worker_spec.pop("num_worker_environments", 1)
         self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
+        self.auto_build = auto_build
         num_background_envs = worker_spec.pop("num_background_envs", 1)
 
         # TODO from spec once we decided on generic vectorization.
@@ -108,6 +109,14 @@ class RayWorker(RayActor):
         For debugging: fetch the last attribute. Will fail if constructor failed.
         """
         return not self.last_terminals[0]
+
+    def init_agent(self):
+        """
+        Builds the agent. This is done as a separate task because meta graph
+        generation can take long.
+        """
+        self.agent.build()
+        return True
 
     def setup_preprocessor(self, preprocessing_spec, in_space):
         if preprocessing_spec is not None:
@@ -157,6 +166,8 @@ class RayWorker(RayActor):
         if worker_exec_spec is not None:
             agent_config.update(execution_spec=worker_exec_spec)
 
+        # Build lazily per default.
+        agent_config.update(auto_build=self.auto_build)
         return RayExecutor.build_agent_from_config(agent_config)
 
     def execute_and_get_timesteps(

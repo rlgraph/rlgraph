@@ -99,6 +99,13 @@ class RayExecutor(object):
         for i in range_(num_actors):
             worker = cls.remote(deepcopy(agent_config), *args)
             self.worker_ids[worker] = "worker_{}".format(i)
+
+            build_result = worker.init_agent.remote()
+            ready, not_ready = ray.wait([build_result], num_returns=1)
+            result = ray.get(ready)
+            if result:
+                self.logger.info("Successfully built agent num {} of {}.".format(i, num_actors - 1))
+
             workers.append(worker)
         return workers
 
