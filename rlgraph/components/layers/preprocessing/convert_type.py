@@ -21,7 +21,7 @@ import numpy as np
 
 from rlgraph import get_backend, RLGraphError
 from rlgraph.components.layers.preprocessing import PreprocessLayer
-from rlgraph.spaces import IntBox, FloatBox, BoolBox
+from rlgraph.spaces import IntBox, FloatBox, BoolBox, ContainerSpace
 from rlgraph.utils import util
 
 if get_backend() == "tf":
@@ -39,6 +39,9 @@ class ConvertType(PreprocessLayer):
         """
         super(ConvertType, self).__init__(scope=scope, **kwargs)
         self.to_dtype = to_dtype
+
+    def check_input_spaces(self, input_spaces, action_space=None):
+        assert not isinstance(input_spaces, ContainerSpace)
 
     def get_preprocessed_space(self, space):
         # TODO map of allowed conversions in utils?

@@ -20,7 +20,8 @@
     },
     {
       "type": "convert_type",
-      "to_dtype": "float"
+      "to_dtype": "float",
+      "scope": "convert_type"
     },
     {
       "type": "sequence",
