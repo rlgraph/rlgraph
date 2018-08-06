@@ -22,7 +22,8 @@ import unittest
 
 from rlgraph.agents import ApexAgent
 from rlgraph.environments import OpenAIGymEnv
-from rlgraph.execution.ray import ApexExecutor, RayWorker
+from rlgraph.execution.ray.apex import ApexExecutor
+from rlgraph.execution.ray import RayWorker
 from rlgraph.tests.test_util import agent_config_from_path
 
 
