@@ -45,6 +45,7 @@ class RayMemoryActor(RayActor):
 
         self.memory = ApexMemory(**apex_replay_spec["memory_spec"])
 
+    @ray.method(num_return_vals=2)
     def get_batch(self, batch_size):
         """
         Samples a batch from the replay memory.
