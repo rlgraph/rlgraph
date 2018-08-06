@@ -60,13 +60,26 @@ class TestEnvironmentStepper(unittest.TestCase):
         # Step 3 times through the Env and collect results.
         # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
         # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
+        expected_r = np.array([0.49850702, 0.7605307, 0.68535984])
         expected = (None, (
             np.array([[0.77132064], [0.74880385], [0.19806287]]),  # p(s)
             np.array([0, 0, 0]),  # a
-            np.array([0.49850702, 0.7605307, 0.68535984]),  # r
-            np.array([0.49850702, 1.2590377, 1.9443976]),  # episode's accumulated returns
+            expected_r,  # r
+            np.array([expected_r[:1].sum(), expected_r[:2].sum(), expected_r[:3].sum()]),  # episode's accumulated returns
             np.array([False, False, False]),
             np.array([[0.74880385], [0.19806287], [0.08833981]]),  # s' (raw)
+        ))
+        test.test(("step", 3), expected_outputs=expected)
+
+        # Step again, check whether stitching of states/etc.. works.
+        expected_r2 = np.array([0.51219225, 0.7217553, 0.71457577])
+        expected = (None, (
+            np.array([[0.08833981], [0.00394827], [0.61252606]]),  # p(s)
+            np.array([0, 0, 0]),  # a
+            expected_r2,  # r
+            np.array([expected_r.sum() + expected_r2[0], expected_r.sum() + expected_r2[:2].sum(), expected_r.sum() + expected_r2[:3].sum()]),
+            np.array([False, False, False]),
+            np.array([[0.00394827], [0.61252606], [0.91777414]]),  # s' (raw)
         ))
         test.test(("step", 3), expected_outputs=expected)
 
