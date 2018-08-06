@@ -40,7 +40,7 @@ class ImageCrop(PreprocessLayer):
             width (int): Width of resulting image.
             height (int): Height of resulting image.
         """
-        super(ImageCrop, self).__init__(scope=scope, **kwargs)
+        super(ImageCrop, self).__init__(scope=scope, add_auto_key_as_first_param=True, **kwargs)
         self.x = x
         self.y = y
         self.width = width
@@ -75,15 +75,15 @@ class ImageCrop(PreprocessLayer):
 
         self.output_spaces = self.get_preprocessed_space(in_space)
 
-    def _graph_fn_apply(self, preprocessing_inputs):
+    def _graph_fn_apply(self, key, preprocessing_inputs):
         """
         Images come in with either a batch dimension or not.
         """
         if self.backend == "python" or get_backend() == "python":
             if isinstance(preprocessing_inputs, list):
                 preprocessing_inputs = np.asarray(preprocessing_inputs)
-            if preprocessing_inputs.ndim == 4:
-                # Preserve batch dimension.
+            # Preserve batch dimension.
+            if self.output_spaces[key].has_batch_rank is True:
                 return preprocessing_inputs[:, self.y:self.y + self.height, self.x:self.x + self.width]
             else:
                 return preprocessing_inputs[self.y:self.y + self.height, self.x:self.x + self.width]
