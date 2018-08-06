@@ -75,14 +75,14 @@ class Divide(PreprocessLayer):
                                 add_time_rank=value.has_time_rank)
         return unflatten_op(ret)
 
-    def _graph_fn_apply(self, inputs):
+    def _graph_fn_apply(self, preprocessing_inputs):
         """
         Divides the input by with our divisor.
 
         Args:
-            inputs (tensor): The input to be divided.
+            preprocessing_inputs (tensor): The input to be divided.
 
         Returns:
             DataOp: The op to divide the input.
         """
-        return inputs / self.divisor
+        return preprocessing_inputs / self.divisor

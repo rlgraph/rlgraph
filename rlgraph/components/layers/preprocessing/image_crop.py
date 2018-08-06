@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph import get_backend
-from rlgraph.utils.ops import unflatten_op
+from rlgraph.utils.ops import flatten_op, unflatten_op
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 
 
@@ -73,7 +73,7 @@ class ImageCrop(PreprocessLayer):
         super(ImageCrop, self).check_input_spaces(input_spaces, action_space)
         in_space = input_spaces["preprocessing_inputs"]
 
-        self.output_spaces = self.get_preprocessed_space(in_space)
+        self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
 
     def _graph_fn_apply(self, key, preprocessing_inputs):
         """
