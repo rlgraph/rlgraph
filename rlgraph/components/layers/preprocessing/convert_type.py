@@ -78,7 +78,7 @@ class ConvertType(PreprocessLayer):
 
     def _graph_fn_apply(self, preprocessing_inputs):
         if self.backend == "python" or get_backend() == "python":
-            if isinstance(list, preprocessing_inputs):
+            if isinstance(preprocessing_inputs, list):
                 preprocessing_inputs = np.asarray(preprocessing_inputs)
             return preprocessing_inputs.astype(dtype=util.dtype(self.to_dtype, to="np"))
         elif get_backend() == "tf":
