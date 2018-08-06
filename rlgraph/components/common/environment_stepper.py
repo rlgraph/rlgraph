@@ -107,7 +107,7 @@ class EnvironmentStepper(Component):
             state_after_reset = self.environment_server.reset()
             assigns = [
                 self.assign_variable(self.current_state, state_after_reset),
-                tf.variables_initializer([self.episode_return, self.current_terminal])
+                tf.variables_initializer(var_list=[self.episode_return, self.current_terminal])
             ]
             with tf.control_dependencies(assigns):
                 return tf.no_op()
@@ -148,31 +148,32 @@ class EnvironmentStepper(Component):
 
         if get_backend() == "tf":
             def scan_func(accum, time_delta):
-                _, _, _, episode_return, t, s = accum  # preprocessed-previous-state, prev-action, prev-r not needed
+                # preprocessed-previous-state, prev-action, prev-r not needed
+                _, _, _, episode_return, terminal, state = accum
 
                 # Add control dependency to make sure we don't step parallelly through the Env.
-                t = tf.convert_to_tensor(t)
-                with tf.control_dependencies([t]):
+                terminal = tf.convert_to_tensor(value=terminal)
+                with tf.control_dependencies(control_inputs=[terminal]):
                     # If state (s) was terminal, reset the env (in this case, we will never need s (or a preprocessed
                     # version thereof for any NN runs (q-values, probs, values, etc..) as no actions are taken from s).
-                    s = tf.cond(
-                        t,
+                    state = tf.cond(
+                        pred=terminal,
                         true_fn=lambda: self.environment_server.reset(),
-                        false_fn=lambda: tf.convert_to_tensor(s)
+                        false_fn=lambda: tf.convert_to_tensor(state)
                     )
                     # Add a simple (size 1) batch rank to the state so it'll pass through the NN.
-                    s = tf.expand_dims(s, axis=0)
+                    state = tf.expand_dims(input=state, axis=0)
                     # Make None so it'll be recognized as batch-rank by the auto-Space detector.
-                    s = tf.placeholder_with_default(s, shape=(None,) + self.state_space.shape)
+                    state = tf.placeholder_with_default(input=state, shape=(None,) + self.state_space.shape)
                     # Get action and preprocessed state (as batch-size 1).
-                    preprocessed_s, a = self.call(self.actor_component.get_preprocessed_state_and_action, s,
+                    preprocessed_s, a = self.call(self.actor_component.get_preprocessed_state_and_action, state,
                                                   time_step + time_delta, return_ops=True)
 
                     # Step through the Env and collect next state, reward and terminal as single values (not batched).
                     s_, r, t_ = self.environment_server.step(a)
 
                     # Add up return (if s was not terminal).
-                    new_episode_return = tf.where(t, x=r, y=(r + episode_return))
+                    new_episode_return = tf.where(condition=terminal, x=r, y=(r + episode_return))
 
                 # Accumulate return values (remove batch again from preprocessed_s and a).
                 return preprocessed_s[0], a[0], r, new_episode_return, t_, s_
@@ -193,7 +194,7 @@ class EnvironmentStepper(Component):
                 self.assign_variable(self.current_terminal, step_results[4][-1]),
                 self.assign_variable(self.current_state, step_results[5][-1])
             ]
-            with tf.control_dependencies(assigns):
+            with tf.control_dependencies(control_inputs=assigns):
                 step_op = tf.no_op()
 
             return step_op, step_results
