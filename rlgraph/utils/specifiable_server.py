@@ -78,7 +78,7 @@ class SpecifiableServer(Specifiable):
         self.in_pipe = None
 
         # Register this object with the class.
-        self.INSTANCES.append(self)
+        #self.INSTANCES.append(self)
 
     def __getattr__(self, method_name):
         """
