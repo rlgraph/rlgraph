@@ -17,13 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import unittest
+import copy
 import numpy as np
+import unittest
 
+from rlgraph.environments.environment import Environment
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
-from rlgraph.spaces import FloatBox, IntBox, BoolBox
+from rlgraph.spaces import FloatBox, IntBox
 from rlgraph.tests import ComponentTest
+from rlgraph.tests.test_util import agent_config_from_path
 
 
 class TestEnvironmentStepper(unittest.TestCase):
@@ -44,7 +47,8 @@ class TestEnvironmentStepper(unittest.TestCase):
                 type="random_env", state_space=state_space, action_space=action_space, deterministic=True
             ),
             actor_component_spec=actor_component,
-            state_space=state_space
+            state_space=state_space,
+            reward_space="float32"
         )
 
         test = ComponentTest(component=environment_stepper, action_space=action_space)
@@ -66,61 +70,39 @@ class TestEnvironmentStepper(unittest.TestCase):
         test.test(("step", 3), expected_outputs=expected)
 
     def test_environment_stepper_on_pong(self):
-        pass
+        environment_spec = dict(type="openai_gym", gym_env="Pong-v0", frameskip=4)
+        dummy_env = Environment.from_spec(copy.deepcopy(environment_spec))
+        state_space = dummy_env.state_space
+        action_space = dummy_env.action_space
+        agent_config = agent_config_from_path("../configs/dqn_agent_for_pong.json")
+        actor_component = ActorComponent(
+            agent_config["preprocessing_spec"],
+            dict(neural_network=agent_config["network_spec"], action_space=action_space),
+            agent_config["exploration_spec"]
+        )
+        environment_stepper = EnvironmentStepper(
+            environment_spec=environment_spec,
+            actor_component_spec=actor_component,
+            state_space=state_space,
+            reward_space="float64"
+        )
 
+        test = ComponentTest(component=environment_stepper, action_space=action_space)
 
-def main():
-    from rlgraph.environments.environment import Environment
-    from rlgraph.utils.specifiable_server import SpecifiableServer, SpecifiableServerHook
-    import tensorflow as tf
-    import numpy as np
+        # Reset the stepper.
+        test.test("reset")
 
-    num_steps = 10
+        # Step 30 times through the Env and collect results.
+        # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
+        # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
+        # TODO: Fill in values for certain frames.
+        #expected = (None, (
+        #    np.array([[0.77132064], [0.74880385], [0.19806287]]),  # p(s)
+        #    np.array([0, 0, 0]),  # a
+        #    np.array([0.49850702, 0.7605307, 0.68535984]),  # r
+        #    np.array([0.49850702, 1.2590377, 1.9443976]),  # episode's accumulated returns
+        #    np.array([False, False, False]),
+        #    np.array([[0.74880385], [0.19806287], [0.08833981]]),  # s' (raw)
+        #))
 
-    state_space = FloatBox()
-    action_space = IntBox(2)
-    env_spec = {"type": "random_env", "deterministic": True, "state_space": state_space, "action_space": action_space}
-    #dummy_env = Environment.from_spec(env_spec)
-    env_server = SpecifiableServer(
-        Environment, env_spec, dict(step=[state_space, FloatBox(), BoolBox(), None], reset=[state_space])
-    )
-
-    def fake_tf_policy(state):
-        return tf.random_uniform((), 0, 2, dtype=tf.int32)
-
-    # build the step-graph
-    def scan_func(accum, _):
-        states, actions, rewards, terminal = accum
-
-        # Check whether we were terminal -> if yes, reset and keep working with state after reset
-        tensor_terminal = tf.convert_to_tensor(terminal)
-        with tf.control_dependencies([tensor_terminal]):
-            tensor_state = tf.cond(
-                tensor_terminal,
-                true_fn=lambda: env_server.reset(),
-                false_fn=lambda: tf.convert_to_tensor(states, dtype=tf.float32)
-            )
-
-            # Get a tf action.
-            a = fake_tf_policy(tensor_state)
-
-            # Push the action to the env server.
-            s_, r, t = env_server.step(a)
-
-        # Accumulate.
-        return s_, a, r, t
-
-    # Before the first step.
-    initializer = (np.array(0.0, dtype=np.float32), np.array(0, dtype=np.int32), np.array(0.0, dtype=np.float32),
-                   np.array(True))
-
-    op = tf.scan(fn=scan_func, elems=tf.range(num_steps), initializer=initializer)
-
-    with tf.train.SingularMonitoredSession(hooks=[SpecifiableServerHook()]) as sess:
-        result = sess.run(op)
-
-    print(result)
-
-    # Compare with single step (1 session call per action) method.
-
-
+        test.test(("step", [3, 0]), expected_outputs=None)

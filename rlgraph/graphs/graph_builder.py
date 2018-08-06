@@ -817,6 +817,7 @@ class GraphBuilder(Specifiable):
                 fetch_dict[api_method] = [self.api[api_method][1][i].op for i in return_ops]
 
             for i, param in enumerate(params):
+                # TODO: What if len(params) < len(self.api[api_method][0])? Need to handle default API-method params also for the core-component (this one).
                 if len(self.api[api_method][0]) <= i:
                     raise RLGraphError("API-method with name '{}' only has {} input parameters! You passed in "
                                        "{}.".format(api_method, len(self.api[api_method][0]), len(params)))

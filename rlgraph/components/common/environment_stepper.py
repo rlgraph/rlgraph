@@ -25,6 +25,7 @@ from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.environments.environment import Environment
 from rlgraph.utils.ops import DataOpTuple
 from rlgraph.utils.specifiable_server import SpecifiableServer
+from rlgraph.utils.util import dtype as dtype_
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -40,7 +41,7 @@ class EnvironmentStepper(Component):
             preprocessed_states, actions taken, action log-probabilities, rewards, terminals, discounts
     """
 
-    def __init__(self, environment_spec, actor_component_spec, state_space=None, **kwargs):
+    def __init__(self, environment_spec, actor_component_spec, state_space=None, reward_space=None, **kwargs):
         """
         Args:
             environment_spec (dict): A specification dict for constructing an Environment object that will be run
@@ -48,19 +49,26 @@ class EnvironmentStepper(Component):
             actor_component_spec (Union[ActorComponent,dict]): A specification dict to construct this EnvStepper's
                 ActionComponent (to generate actions) or an already constructed ActionComponent object.
             state_space (Optional[Space]): The state Space of the Environment. If None, will construct a dummy
-                environment to get the state  Space from there.
+                environment to get the state Space from there.
+            reward_space (Optional[Space]): The reward Space of the Environment. If None, will construct a dummy
+                environment to get the reward Space from there.
         """
         super(EnvironmentStepper, self).__init__(scope=kwargs.pop("scope", "env-stepper"), **kwargs)
 
         # Create the SpecifiableServer with the given env spec.
-        if state_space is None:
+        if state_space is None or reward_space is None:
             dummy_env = Environment.from_spec(environment_spec)  # type: Environment
             state_space = dummy_env.state_space
+            if reward_space is None:
+                _, reward, _, _ = dummy_env.step(dummy_env.action_space.sample())
+                reward_space = "float64" if type(reward) == float else float
 
         self.state_space = state_space
+        self.reward_space = reward_space
         self.environment_spec = environment_spec
         self.environment_server = SpecifiableServer(
-            Environment, environment_spec, dict(step=[state_space, float, bool, None], reset=state_space), "terminate"
+            Environment, environment_spec, dict(step=[self.state_space, self.reward_space, bool, None],
+                                                reset=self.state_space), "terminate"
         )
         self.action_space = None
 
@@ -70,7 +78,6 @@ class EnvironmentStepper(Component):
         self.add_components(self.actor_component)
 
         # Variables that hold information of last step through Env.
-        #self.preprocessed_previous_state = None
         self.episode_return = None
         self.current_terminal = None
         self.current_state = None
@@ -80,9 +87,7 @@ class EnvironmentStepper(Component):
         self.define_api_method("step", self._graph_fn_step)
 
     def create_variables(self, input_spaces, action_space=None):
-        #self.preprocessed_previous_state = self.get_variable(name="preprocessed-previous-state",
-        #                                                     from_space=self.preprocessed_state_space)
-        self.episode_return = self.get_variable(name="episode-return", initializer=0.0)
+        self.episode_return = self.get_variable(name="episode-return", initializer=0.0, dtype=self.reward_space)
         self.current_terminal = self.get_variable(name="current-terminal", dtype="bool", initializer=False)
         self.current_state = self.get_variable(name="current-state", from_space=self.state_space)
 
@@ -153,7 +158,7 @@ class EnvironmentStepper(Component):
                     s = tf.cond(
                         t,
                         true_fn=lambda: self.environment_server.reset(),
-                        false_fn=lambda: tf.convert_to_tensor(s, dtype=tf.float32)
+                        false_fn=lambda: tf.convert_to_tensor(s)
                     )
                     # Add a simple (size 1) batch rank to the state so it'll pass through the NN.
                     s = tf.expand_dims(s, axis=0)
@@ -175,7 +180,7 @@ class EnvironmentStepper(Component):
             # Initialize the tf.scan run and make sure nothing is float64.
             initializer = (self.preprocessed_state_space.zeros(),
                            self.action_space.zeros(),  # zero previous action (doesn't matter)
-                           np.asarray(0.0, dtype=np.float32),  # zero previous reward (doesn't matter)
+                           np.asarray(0.0, dtype=dtype_(self.reward_space, "np")),  # zero previous reward (doesn't matter)
                            self.episode_return,  # return so far
                            self.current_terminal,  # whether the current state is terminal
                            self.current_state  # current (raw) state
