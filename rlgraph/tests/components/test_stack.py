@@ -21,7 +21,8 @@ import unittest
 import numpy as np
 
 from rlgraph.components.neural_networks import Stack
-from rlgraph.tests.dummy_components import Dummy1To1, Dummy2To1, Dummy1To2
+from rlgraph.components.common import RepeaterStack
+from rlgraph.tests.dummy_components import Dummy1To1, Dummy2To1, Dummy1To2, Dummy2To2
 from rlgraph.spaces import FloatBox
 from rlgraph.tests import ComponentTest
 
@@ -61,3 +62,13 @@ class TestStack(unittest.TestCase):
 
         # Expect: (in1 + in2) -> 0.1 -> (0.1 + 2.3, 0.1 * 2.3)
         test.test(("run", [0.0, 0.1]), expected_outputs=(2.4, 0.23))
+
+    def test_repeater_stack_with_n_sub_components(self):
+        repeater_stack = RepeaterStack(sub_component=Dummy2To2(scope="2To2", constant_value=0.5), repeats=10,
+                                       api_methods={("some_crazy_new_api_method_name", "run")})
+        test = ComponentTest(component=repeater_stack, input_spaces=dict(inputs=[FloatBox(), float]))
+
+        # 1st return value: 10 times add 0.5 (to initially 0.0).
+        # 2nd return value: 10 times multiply with 0.5 (to initially 2048)
+        expected_outputs = (5.0, 2.0)
+        test.test(("some_crazy_new_api_method_name", [0.0, 2048]), expected_outputs=expected_outputs)
