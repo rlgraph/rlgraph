@@ -34,5 +34,5 @@ class StringLayer(Layer):
         Do some sanity checking on the incoming Space:
         Must be string type.
         """
-        sanity_check_space(input_spaces["inputs[0]"], allowed_types=[TextBox], must_have_batch_rank=True)
+        sanity_check_space(input_spaces["text_inputs"], allowed_types=[TextBox], must_have_batch_rank=True)
 

@@ -23,7 +23,8 @@ from rlgraph.components.layers.strings.string_to_hash_bucket import StringToHash
 
 StringLayer.__lookup_classes__ = dict(
     embedding=EmbeddingLookup,
-    embeddinglookup=EmbeddingLookup
+    embeddinglookup=EmbeddingLookup,
+    stringtohashbucket=StringToHashBucket
 )
 
 __all__ = ["StringLayer", "EmbeddingLookup", "StringToHashBucket"]

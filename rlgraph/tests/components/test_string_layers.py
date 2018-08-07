@@ -65,7 +65,7 @@ class TestStringLayers(unittest.TestCase):
         input_space = TextBox(add_batch_rank=True)
 
         string_to_hash_bucket = StringToHashBucket(num_hash_buckets=10)
-        test = ComponentTest(component=string_to_hash_bucket, input_spaces=dict(text_input=input_space))
+        test = ComponentTest(component=string_to_hash_bucket, input_spaces=dict(text_inputs=input_space))
 
         # Send a batch of 4 strings through the hash-bucket generator.
         inputs = np.array(

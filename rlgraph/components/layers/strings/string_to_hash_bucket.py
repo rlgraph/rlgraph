@@ -18,15 +18,14 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.util import dtype
-from rlgraph.components.layers.layer import Layer
+from rlgraph.components.layers.strings.string_layer import StringLayer
 from rlgraph.spaces.space_utils import sanity_check_space
 
 if get_backend() == "tf":
     import tensorflow as tf
 
 
-class StringToHashBucket(Layer):
+class StringToHashBucket(StringLayer):
     """
     A string to hash-bucket converter Component that takes a batch of string inputs (e.g.
     ["this is string A", "this is string B"]) and creates a lookup table out of it that can be used instead of a
@@ -34,7 +33,7 @@ class StringToHashBucket(Layer):
     (strings) in the input batch) and m columns (m=max number of words in any of the input strings).
     The int numbers in the created lookup table can range from 0 to H (with H being the `num_hash_buckets` parameter).
     """
-    # TODO: add options: delimiter (split), etc...
+    # TODO: add options: delimiter (split), hash_bucket_dtype, etc..
     def __init__(self, num_hash_buckets=1000, scope="str-to-hash-bucket", **kwargs):
         """
         Args:
@@ -49,24 +48,24 @@ class StringToHashBucket(Layer):
 
         # Make sure there is only a batch rank (single text items).
         # tf.string_split does not support more complex shapes.
-        sanity_check_space(input_spaces["text_input"], must_have_batch_rank=True, rank=0)
+        sanity_check_space(input_spaces["text_inputs"], must_have_batch_rank=True, rank=0)
 
-    def _graph_fn_apply(self, text_input):
+    def _graph_fn_apply(self, text_inputs):
         """
         Args:
-            text_input (SingleDataOp): The Text input to generate a hash bucket for.
+            text_inputs (SingleDataOp): The Text input to generate a hash bucket for.
 
         Returns:
             tuple:
-                - SingleDataOp: The hash lookup table that can be used as input to embedding-lookups.
+                - SingleDataOp: The hash lookup table (int64) that can be used as input to embedding-lookups.
                 - SingleDataOp: The length (number of words) of the longest string in the `text_input` batch.
         """
         if get_backend() == "tf":
             # Split the input string.
-            split_text_input = tf.string_split(text_input)
-            dense = tf.sparse_tensor_to_dense(split_text_input, default_value="")
-            length = tf.reduce_sum(tf.to_int32(tf.not_equal(dense, "")), axis=-1)
+            split_text_inputs = tf.string_split(text_inputs)
+            dense = tf.sparse_tensor_to_dense(split_text_inputs, default_value="")
 
-            # To int64 hash buckets. Small risk of having collisions. Alternatively, a
-            # vocabulary can be used.
-            return tf.string_to_hash_bucket_fast(dense, self.num_hash_buckets), length
+            length = tf.reduce_sum(tf.to_int32(tf.not_equal(dense, "")), axis=-1)
+            hash_bucket = tf.string_to_hash_bucket_fast(dense, self.num_hash_buckets)
+
+            return hash_bucket, length
