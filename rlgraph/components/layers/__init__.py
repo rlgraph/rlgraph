@@ -25,6 +25,8 @@ from rlgraph.components.layers.layer import Layer
 from rlgraph.components.layers.preprocessing import *
 # NN-Layers.
 from rlgraph.components.layers.nn import *
+# String Layers.
+from rlgraph.components.layers.strings import *
 
 # The Layers (Layers are also Stacks).
 Layer.__lookup_classes__ = dict(
@@ -34,6 +36,7 @@ Layer.__lookup_classes__ = dict(
 # Add all specific Layer sub-classes to this one.
 default_dict(Layer.__lookup_classes__, NNLayer.__lookup_classes__)
 default_dict(Layer.__lookup_classes__, PreprocessLayer.__lookup_classes__)
+default_dict(Layer.__lookup_classes__, StringLayer.__lookup_classes__)
 
 
 __all__ = ["Layer"] + \
