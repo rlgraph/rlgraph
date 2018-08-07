@@ -82,6 +82,7 @@
   },
   "execution_spec": {
     "gpu_spec": { "gpus_enabled" : false},
+    "disable_monitoring": true,
     "ray_spec": {
       "executor_spec": {
         "redis_address": null,
@@ -97,7 +98,8 @@
       },
       "worker_spec": {
         "execution_spec": {
-          "gpu_spec": { "gpus_enabled" : false}
+          "gpu_spec": { "gpus_enabled" : false},
+          "disable_monitoring": true
         },
         "num_worker_environments": 4,
         "num_background_envs": 2,

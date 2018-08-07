@@ -460,18 +460,19 @@ class TensorFlowExecutor(GraphExecutor):
             if file is not None:
                 scaffold.saver.restore(sess=session, save_path=file)
 
-        # Create the tf.train.Scaffold object.
-        self.scaffold = tf.train.Scaffold(
-            init_op=init_op,
-            init_feed_dict=None,
-            init_fn=init_fn if self.load_from_file else None,
-            ready_op=ready_op,
-            ready_for_local_init_op=None,
-            local_init_op=None,
-            summary_op=self.summary_op,
-            saver=self.saver,
-            copy_from_scaffold=None
-        )
+        # Create the tf.train.Scaffold object. Monitoring cannot be disabled for this.
+        if not self.disable_monitoring:
+            self.scaffold = tf.train.Scaffold(
+                init_op=init_op,
+                init_feed_dict=None,
+                init_fn=init_fn if self.load_from_file else None,
+                ready_op=ready_op,
+                ready_for_local_init_op=None,
+                local_init_op=None,
+                summary_op=self.summary_op,
+                saver=self.saver,
+                copy_from_scaffold=None
+            )
 
     @staticmethod
     def setup_specifiable_servers(hooks):
@@ -503,29 +504,39 @@ class TensorFlowExecutor(GraphExecutor):
                 stop_grace_period_secs=120  # Default value.
             )
         else:
-            self.logger.info("Setting up singular monitored session for non-distributed mode.")
             self.global_training_timestep = tf.get_variable(
                 name="global-timestep", dtype=util.dtype("int"), trainable=False, initializer=0,
                 collections=["global-timestep", tf.GraphKeys.GLOBAL_STEP])
-            self.monitored_session = tf.train.SingularMonitoredSession(
-                hooks=hooks,
-                scaffold=self.scaffold,
-                master='',  # Default value.
-                config=self.tf_session_config,
-                checkpoint_dir=None
-            )
+
+            # If monitoring is disabled,
+            if self.disable_monitoring:
+                self.logger.info("Setting up default session for non-distributed mode.")
+                self.monitored_session = tf.Session(config=self.tf_session_config)
+            else:
+                self.logger.info("Setting up singular monitored session for non-distributed mode.")
+                self.monitored_session = tf.train.SingularMonitoredSession(
+                    hooks=hooks,
+                    scaffold=self.scaffold,
+                    master='',  # Default value.
+                    config=self.tf_session_config,
+                    checkpoint_dir=None
+                )
 
         # Exit the graph-context and finalize the graph.
         if self.graph_default_context is not None:
             self.graph_default_context.__exit__(None, None, None)
         self.graph.finalize()
 
-        # Enter the session to be ready for acting/learning.
-        self.monitored_session.__enter__()
-        self.session = self.monitored_session._tf_sess()
+        if self.disable_monitoring:
+            # If no monitoring, both just end up being simple sessions.
+            self.session = self.monitored_session
+        else:
+            # Enter the session to be ready for acting/learning.
+            self.monitored_session.__enter__()
+            self.session = self.monitored_session._tf_sess()
 
         # Setup the tf Profiler.
-        if self.profiling_enabled:
+        if self.profiling_enabled and not self.disable_monitoring:
             self.profiler = tf.profiler.Profiler(graph=self.session.graph)
 
     def load_model(self, path=None):

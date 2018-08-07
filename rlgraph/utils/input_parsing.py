@@ -124,6 +124,8 @@ def parse_execution_spec(execution_spec):
     default_spec = dict(
         mode="single",
         distributed_spec=None,
+        # Using a monitored session enabling summaries and hooks per default.
+        disable_monitoring=False,
         # Gpu settings.
         gpu_spec=dict(
             # Are GPUs allowed to be used if they are detected?

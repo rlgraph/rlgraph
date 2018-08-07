@@ -62,6 +62,11 @@ class GraphExecutor(Specifiable):
 
         # Default single-process execution.
         self.execution_mode = self.execution_spec.get("mode", "single")
+
+        # Warning: If this is set to True, no automatic checkpointing or summary writing will be
+        # performed because we will use a simple TensorFlow session instead of a monitored session.
+        self.disable_monitoring = self.execution_spec.get("disable_monitoring", False)
+
         self.session_config = self.execution_spec["session_config"]
         self.distributed_spec = self.execution_spec.get("distributed_spec")
 

@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import ray
 import unittest
-
+import time
 from rlgraph.agents import ApexAgent
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.execution.ray.apex import ApexExecutor
@@ -62,10 +62,17 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         Tests if workers initialize without problems for the pong config.
         """
         agent_config = agent_config_from_path("../../configs/ray_apex_for_pong.json")
+
+        # Long initialization times can lead to Ray crashes.
+        start = time.monotonic()
         executor = ApexExecutor(
             environment_spec=self.env_spec,
             agent_config=agent_config,
         )
+        end = time.monotonic() - start
+        print("Iinitialized {} workers in {} s.".format(
+            executor.num_sample_workers, end
+        ))
         executor.test_worker_init()
 
     def test_worker_update(self):
