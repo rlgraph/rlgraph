@@ -18,13 +18,24 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.layers.layer import Layer
+from rlgraph.components.layers.nn.activation_functions import get_activation_function
 from rlgraph.spaces import FloatBox, IntBox
 from rlgraph.spaces.space_utils import sanity_check_space
 
 
 class NNLayer(Layer):
     """
-    A generic NN-layer object.
+    A generic NN-layer object implementing the `apply` graph_fn and offering additional activation function support.
+    Can be used in the following ways:
+    - Thin wrapper around a backend-specific layer object (normal use case):
+        Create the backend layer in the `create_variables` method and store it under `self.layer`. Then register
+        the backend layer's variables with the RLgraph Component.
+    - Custom layer (with custom computation):
+        Create necessary variables in `create_variables` (e.g. matrices), then override `_graph_fn_apply`, leaving
+        `self.layer` as None.
+    - Single Activation Function:
+        Leave `self.layer` as None and do not override `_graph_fn_apply`. It will then only apply the activation
+        function.
     """
     def __init__(self, **kwargs):
         # Most NN layers have an activation function (some with parameters e.g. leaky ReLU).
@@ -49,15 +60,6 @@ class NNLayer(Layer):
             sanity_check_space(input_spaces[key], allowed_types=[FloatBox, IntBox], must_have_batch_rank=True)
             idx += 1
 
-        #for api_method_name, in_spaces in input_spaces.items():
-        #    assert api_method_name == "apply" or api_method_name == "_variables", \
-        #        "ERROR: API for NN-Layer must be `apply|_variables`! No other API-methods allowed."
-        #    if api_method_name == "apply":
-        #        for in_space in in_spaces:
-                    # - NNLayers always need FloatBoxes as input (later, add Container Spaces containing only
-                    # FloatBoxes).
-                    # - Must have batch rank.
-
     def _graph_fn_apply(self, *inputs):
         """
         The actual calculation on one or more input Ops.
@@ -68,4 +70,15 @@ class NNLayer(Layer):
         Returns:
             The output(s) after having pushed input(s) through the layer.
         """
-        return self.layer.apply(*inputs)
+        # `self.layer` is not given: Only apply the activation function.
+        if self.layer is None:
+            # No activation function.
+            if self.activation is None:
+                return tuple(inputs)
+            # Pass inputs through activation function.
+            else:
+                activation_function = get_activation_function(self.activation, self.activation_params)
+                return activation_function(*inputs)
+        # `self.layer` already includes activation function details.
+        else:
+            return self.layer.apply(*inputs)
