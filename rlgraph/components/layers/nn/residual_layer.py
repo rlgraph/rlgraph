@@ -20,10 +20,6 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.layers.nn.activation_functions import get_activation_function
 from rlgraph.components.layers.nn.nn_layer import NNLayer
-from rlgraph.utils.util import get_rank
-
-if get_backend() == "tf":
-    import tensorflow as tf
 
 
 class ResidualLayer(NNLayer):
@@ -45,9 +41,12 @@ class ResidualLayer(NNLayer):
         """
         super(ResidualLayer, self).__init__(scope=scope, **kwargs)
 
+        self.residual_unit = residual_unit
         self.repeats = repeats
-        self.residual_units = [residual_unit] + [
-            residual_unit.copy(scope=residual_unit.scope+"-rep"+str(i+1)) for i in range(repeats - 1)
+
+        # Deep copy the repeat_units n times and add them to this Component.
+        self.residual_units = [self.residual_unit] + [
+            self.residual_unit.copy(scope=self.residual_unit.scope+"-rep"+str(i+1)) for i in range(repeats - 1)
         ]
         self.add_components(*self.residual_units)
 
