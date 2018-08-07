@@ -74,6 +74,25 @@ class TestNNLayer(unittest.TestCase):
                              ])
         test.test(("apply", input_), expected_outputs=expected)
 
+    def test_maxpool2d_layer(self):
+        space = FloatBox(shape=(2, 2, 3), add_batch_rank=True)  # e.g. a simple 3-color image
+
+        # NOTE: use a crazy strides number as it shouldn't matter anyway.
+        maxpool2d_layer = MaxPool2DLayer(pool_size=2, strides=500, padding="valid")
+        test = ComponentTest(component=maxpool2d_layer, input_spaces=dict(inputs=space))
+
+        # Batch of 2 samples.
+        input_ = np.array([[[[10.05, 2.0, 3.0], [4.0, 55.0, 6.0]],  # sample 1 (2x2x3)
+                            [[7.0, 84.0, 9.0], [10.0, 11.0, 12.0]]],
+                           [[[0.1, 1.2, 0.3], [0.4, 1.5, 0.6]],  # sample 2 (2x2x3)
+                            [[0.7, 1.8, 0.9], [1.00, 1.10, 1.25]]]
+                           ])
+        expected = np.array([
+            [[[10.05, 84.0, 12.0]]],  # output 1 (1x1x3)
+            [[[1.0, 1.8, 1.25]]],  # output 2 (1x1x3)
+        ], dtype=np.float32)
+        test.test(("apply", input_), expected_outputs=expected)
+
     def test_concat_layer(self):
         # Spaces must contain batch dimension (otherwise, NNlayer will complain).
         space0 = FloatBox(shape=(2, 3), add_batch_rank=True)
