@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import math
 import numpy as np
 
 from rlgraph.backend_system import get_backend
@@ -24,9 +25,12 @@ from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.util import dtype
 
+if get_backend() == "tf":
+    import tensorflow as tf
+
 
 class Initializer(Specifiable):
-    def __init__(self, shape, specification=None):
+    def __init__(self, shape, specification=None, **kwargs):
         """
         Args:
             shape (tuple): The shape of the Variables to initialize.
@@ -42,9 +46,17 @@ class Initializer(Specifiable):
         # The actual underlying initializer object.
         self.initializer = None
 
+        # Truncated Normal.
+        if specification == "truncated_normal":
+            if get_backend() == "tf":
+                # Use the first dimension (num_rows or batch rank) to figure out the stddev.
+                stddev = 1 / math.sqrt(shape[0] if isinstance(shape, (tuple, list)) and len(shape) > 0 else 1.0)
+                self.initializer = tf.truncated_normal_initializer(stddev=stddev)
+
         # No spec -> Leave initializer as None (will then use default; e.g. for tf weights: Xavier uniform).
-        if specification is None or specification is False:
+        elif specification is None or specification is False:
             pass
+
         # Fixed values spec -> Use them, just do sanity checking.
         else:
             # Constant value across the variable.
@@ -55,17 +67,16 @@ class Initializer(Specifiable):
                 array = np.asarray(specification, dtype=dtype("float32", "np"))
                 if array.shape != self.shape:
                     raise RLGraphError("ERROR: Number/shape of given items ({}) not identical with shape ({})!".
-                                    format(array.shape, self.shape))
+                                       format(array.shape, self.shape))
             # A nD initializer (numpy-array).
             elif isinstance(specification, np.ndarray):
                 if specification.shape != self.shape:
                     raise RLGraphError("ERROR: Shape of given items ({}) not identical with shape ({})!".
-                                    format(specification.shape, self.shape))
+                                       format(specification.shape, self.shape))
             # Unknown type.
             else:
                 raise RLGraphError("ERROR: Bad specification given ({}) for Initializer object!".format(specification))
 
             # Create the backend initializer object.
             if get_backend() == "tf":
-                import tensorflow as tf
                 self.initializer = tf.constant_initializer(value=specification, dtype=dtype("float32"))
