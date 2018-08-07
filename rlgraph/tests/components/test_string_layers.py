@@ -21,9 +21,8 @@ import unittest
 import numpy as np
 
 from rlgraph.components.layers.strings import *
-from rlgraph.spaces import FloatBox, IntBox
+from rlgraph.spaces import IntBox, TextBox
 from rlgraph.tests import ComponentTest
-from rlgraph.utils.numpy import sigmoid
 
 
 class TestStringLayers(unittest.TestCase):
@@ -60,3 +59,24 @@ class TestStringLayers(unittest.TestCase):
             ]
         ])
         test.test(("apply", inputs), expected_outputs=expected, decimals=5)
+
+    def test_string_to_hash_bucket_layer(self):
+        # Input space: Batch of strings.
+        input_space = TextBox(add_batch_rank=True)
+
+        string_to_hash_bucket = StringToHashBucket(num_hash_buckets=10)
+        test = ComponentTest(component=string_to_hash_bucket, input_spaces=dict(text_input=input_space))
+
+        # Send a batch of 4 strings through the hash-bucket generator.
+        inputs = np.array(
+            ["text A", "test B", "text C  D and E"]
+        )
+
+        # NOTE that some different words occupy the same hash bucket (e.g. 'C' and 'and' OR 'text' and [empty]).
+        expected_hash_bucket = np.array([
+            [3, 4, 3, 3, 3],  # text A .  .  .
+            [6, 8, 3, 3, 3],  # test B .  .  .
+            [3, 7, 5, 7, 2],  # text C D and E
+        ])
+        expected_lengths = np.array([2, 2, 5])
+        test.test(("apply", inputs), expected_outputs=(expected_hash_bucket, expected_lengths))

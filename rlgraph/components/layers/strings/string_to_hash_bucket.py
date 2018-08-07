@@ -28,12 +28,17 @@ if get_backend() == "tf":
 
 class StringToHashBucket(Layer):
     """
-    A string to hash-bucket converter. TODO: add documentation.
+    A string to hash-bucket converter Component that takes a batch of string inputs (e.g.
+    ["this is string A", "this is string B"]) and creates a lookup table out of it that can be used instead of a
+    static vocabulary list for embedding lookups. The created lookup table contains n rows (n = number of items
+    (strings) in the input batch) and m columns (m=max number of words in any of the input strings).
+    The int numbers in the created lookup table can range from 0 to H (with H being the `num_hash_buckets` parameter).
     """
+    # TODO: add options: delimiter (split), etc...
     def __init__(self, num_hash_buckets=1000, scope="str-to-hash-bucket", **kwargs):
         """
         Args:
-            num_hash_buckets (int): The maximum value for
+            num_hash_buckets (int): The maximum value in the created lookup table.
         """
         super(StringToHashBucket, self).__init__(scope=scope, **kwargs)
 
@@ -53,7 +58,8 @@ class StringToHashBucket(Layer):
 
         Returns:
             tuple:
-                - SingleDataOp:
+                - SingleDataOp: The hash lookup table that can be used as input to embedding-lookups.
+                - SingleDataOp: The length (number of words) of the longest string in the `text_input` batch.
         """
         if get_backend() == "tf":
             # Split the input string.
@@ -63,5 +69,4 @@ class StringToHashBucket(Layer):
 
             # To int64 hash buckets. Small risk of having collisions. Alternatively, a
             # vocabulary can be used.
-            return tf.string_to_hash_bucket_fast(dense, self.num_hash_buckets)
-
+            return tf.string_to_hash_bucket_fast(dense, self.num_hash_buckets), length
