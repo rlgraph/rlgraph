@@ -35,10 +35,9 @@ class DenseLayer(NNLayer):
         """
         Args:
             units (int): The number of nodes in this layer.
-            weights_spec (any): A specifier for a weights initializer.
-                If None, use the default initializer.
-            biases_spec (any): A specifier for a biases initializer.
-                If False, use no biases. If None, use the default initializer (0.0).
+            weights_spec (any): A specifier for a weights initializer. If None, use the default initializer.
+            biases_spec (any): A specifier for a biases initializer. If False, use no biases. If None,
+                use the default initializer (0.0).
         """
         super(DenseLayer, self).__init__(scope=kwargs.pop("scope", "dense-layer"), **kwargs)
 
