@@ -53,6 +53,8 @@ class RayExecutor(object):
         # Ray workers for remote data collection.
         self.ray_env_sample_workers = None
         self.executor_spec = executor_spec
+        self.num_cpus_per_worker = executor_spec.get("num_cpus_per_worker", 1)
+        self.num_gpus_per_worker = executor_spec.get("num_gpus_per_worker", 0)
         self.environment_spec = environment_spec
 
         # Global performance metrics.
@@ -98,9 +100,10 @@ class RayExecutor(object):
         workers = []
         init_tasks = []
 
+        cls_as_remote = cls.as_remote(num_cpus=self.num_cpus_per_worker,num_gpus=self.num_gpus_per_worker).remote
         # Create remote objects and schedule init tasks.
         for i in range_(num_actors):
-            worker = cls.remote(deepcopy(agent_config), *args)
+            worker = cls_as_remote(deepcopy(agent_config), *args)
             self.worker_ids[worker] = "worker_{}".format(i)
             workers.append(worker)
             build_result = worker.init_agent.remote()

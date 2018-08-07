@@ -35,7 +35,6 @@ if get_distributed_backend() == "ray":
     import ray
 
 
-@ray.remote
 class RayWorker(RayActor):
     """
     Ray wrapper for single threaded worker, provides further api methods to interact
@@ -109,6 +108,10 @@ class RayWorker(RayActor):
         For debugging: fetch the last attribute. Will fail if constructor failed.
         """
         return not self.last_terminals[0]
+
+    @classmethod
+    def as_remote(cls, num_cpus=None, num_gpus=None):
+        return ray.remote(num_cpus=num_cpus, num_gpus=num_gpus)(cls)
 
     def init_agent(self):
         """

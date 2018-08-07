@@ -93,6 +93,8 @@
         "env_interaction_task_depth": 4,
         "num_worker_samples": 50,
         "learn_queue_size": 16,
+        "num_cpus_per_worker": 1,
+        "num_gpus_per_worker": 0,
         "num_sample_workers": 8,
         "num_replay_workers": 1
       },
