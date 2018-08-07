@@ -81,6 +81,8 @@ def dtype(dtype_, to="tf"):
         return np.int64 if to == "np" else tf.int64
     elif dtype_ in ["uint8", np.uint8]:
         return np.uint8 if to == "np" else tf.uint8
+    elif dtype_ in ["str", np.str_]:
+        return np.unicode_ if to == "np" else tf.string
 
     raise RLGraphError("Error: Type conversion to '{}' for type '{}' not supported.".format(to, str(dtype_)))
 
