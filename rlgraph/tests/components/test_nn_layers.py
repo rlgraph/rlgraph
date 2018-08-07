@@ -243,7 +243,3 @@ class TestNNLayer(unittest.TestCase):
         expected = [unrolled_outputs, c_states, h_states]
         test.test(("apply", inputs), expected_outputs=expected)
 
-        #test.assert_equal(c_states, ret[1])
-        #test.assert_equal(h_states, ret[2])
-        #test.assert_equal(unrolled_outputs, ret[0])
-
