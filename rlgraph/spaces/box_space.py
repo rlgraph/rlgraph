@@ -75,21 +75,15 @@ class BoxSpace(Space):
         if self._shape == ():
             assert isinstance(low, (int, float, bool))
             self.global_bounds = (low, high)
-            #self.low = low
-            #self.high = high
         # nD Space (n > 0). Bounds can be single number or individual bounds.
         else:
             # Low/high values are given individually per item.
             if isinstance(low, (list, tuple, np.ndarray)):
                 self.global_bounds = False
-                #self.low = np.array(low)
-                #self.high = np.array(high)
             # Only one low/high value. Use these as generic bounds for all values.
             else:
                 assert np.isscalar(low) and np.isscalar(high)
                 self.global_bounds = (low, high)
-                #self.low = low  # + np.zeros(self.shape)
-                #self.high = high  # + np.zeros(self.shape)
 
         self.low = np.array(low)
         self.high = np.array(high)

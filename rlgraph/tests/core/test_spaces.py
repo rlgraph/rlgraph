@@ -37,7 +37,7 @@ class TestSpaces(unittest.TestCase):
             for add_batch_rank in [False, True]:
                 # TODO: Test time-rank more thoroughly.
                 for add_time_rank in [False, True]:
-                    if class_ != BoolBox:
+                    if class_ != BoolBox and class_ != TextBox:
                         for low, high in [(None, None), (-1.0, 10.0), ((1.0, 2.0), (3.0, 4.0)),
                                           (((1.0, 2.0, 3.0), (4.0, 5.0, 6.0)), ((7.0, 8.0, 9.0), (10.0, 11.0, 12.0)))]:
                             space = class_(low=low, high=high, add_batch_rank=add_batch_rank,
