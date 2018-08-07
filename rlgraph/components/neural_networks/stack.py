@@ -59,8 +59,8 @@ class Stack(Component):
 
         super(Stack, self).__init__(*sub_components, **kwargs)
 
-        # For each api-method in the given set, create our own API-method connecting
-        # all sub-Component's API-method "through".
+        # For each api-method in the given set, create our own API-method connecting through
+        # all sub-Component's API-methods.
         for api_method_name in api_methods:
             if isinstance(api_method_name, tuple):
                 stack_api_method_name, components_api_method_name = api_method_name[0], api_method_name[1]

@@ -17,13 +17,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components.common.splitter import Splitter
-from rlgraph.components.common.merger import Merger
-from rlgraph.components.common.synchronizable import Synchronizable
 from rlgraph.components.common.decay_components import *
-from rlgraph.components.common.noise_components import *
+from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.common.fixed_loop import FixedLoop
+from rlgraph.components.common.merger import Merger
+from rlgraph.components.common.noise_components import *
+from rlgraph.components.common.repeater_stack import RepeaterStack
 from rlgraph.components.common.sampler import Sampler
+from rlgraph.components.common.splitter import Splitter
+from rlgraph.components.common.synchronizable import Synchronizable
 
 
 DecayComponent.__lookup_classes__ = dict(
@@ -46,5 +48,4 @@ __all__ = ["Splitter", "Merger",
            "Synchronizable",
            "DecayComponent", "LinearDecay", "PolynomialDecay", "ExponentialDecay",
            "NoiseComponent", "ConstantNoise", "GaussianNoise", "OrnsteinUhlenbeckNoise",
-           "FixedLoop", "Sampler"]
-
+           "FixedLoop", "Sampler", "RepeaterStack", "EnvironmentStepper"]
