@@ -432,12 +432,12 @@ class TensorFlowExecutor(GraphExecutor):
             # TODO let graph builder do this
             if self.optimizer is not None:
                 var_list.extend(self.optimizer.optimizer.variables())
-            init_op = tf.variables_initializer(var_list=var_list)
-            ready_op = tf.report_uninitialized_variables(var_list=var_list)
+            self.init_op = tf.variables_initializer(var_list=var_list)
+            self.ready_op = tf.report_uninitialized_variables(var_list=var_list)
         else:
             # TODO: Distributed tf scaffold.
-            init_op = None
-            ready_op = None
+            self.init_op = None
+            self.ready_op = None
 
         def init_fn(scaffold, session):
             # NOTE: `self.load_from_file` is either True or a string value.
@@ -463,10 +463,10 @@ class TensorFlowExecutor(GraphExecutor):
         # Create the tf.train.Scaffold object. Monitoring cannot be disabled for this.
         if not self.disable_monitoring:
             self.scaffold = tf.train.Scaffold(
-                init_op=init_op,
+                init_op=self.init_op,
                 init_feed_dict=None,
                 init_fn=init_fn if self.load_from_file else None,
-                ready_op=ready_op,
+                ready_op=self.ready_op,
                 ready_for_local_init_op=None,
                 local_init_op=None,
                 summary_op=self.summary_op,
@@ -530,6 +530,7 @@ class TensorFlowExecutor(GraphExecutor):
         if self.disable_monitoring:
             # If no monitoring, both just end up being simple sessions.
             self.session = self.monitored_session
+            self.session.run(self.init_op)
         else:
             # Enter the session to be ready for acting/learning.
             self.monitored_session.__enter__()
