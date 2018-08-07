@@ -60,5 +60,5 @@ Space.__lookup_classes__ = dict({
 # Default Space: A float from 0.0 to 1.0.
 Space.__default_constructor__ = partial(FloatBox, 1.0)
 
-__all__ = ["Space"] + \
-          list(set(map(lambda x: x.__name__, Space.__lookup_classes__.values())))
+__all__ = ["Space", "BoxSpace", "FloatBox", "IntBox", "BoolBox", "TextBox",
+           "ContainerSpace", "Dict", "Tuple"]

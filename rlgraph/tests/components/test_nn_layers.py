@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 import numpy as np
 
-from rlgraph.components.layers.nn import DenseLayer, Conv2DLayer, ConcatLayer, DuelingLayer, LSTMLayer, ResidualLayer
+from rlgraph.components.layers.nn import *
 from rlgraph.spaces import FloatBox, IntBox
 from rlgraph.tests import ComponentTest
 from rlgraph.utils.numpy import sigmoid
