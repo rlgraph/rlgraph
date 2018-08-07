@@ -65,27 +65,35 @@ class BoxSpace(Space):
             assert isinstance(shape, tuple), "ERROR: `shape` must be None or a tuple."
             self._shape = shape
 
+        # False if bounds are individualized (each dimension has its own lower and upper bounds and we can get
+        # the single values from self.low and self.high), or a tuple of the globally valid low/high values that apply
+        # to all values in all dimensions.
+        self.global_bounds = None
+
         # Determine the bounds.
         # 0D Space.
         if self._shape == ():
             assert isinstance(low, (int, float, bool))
-            self._global_bounds = (low, high)
-            self.low = low
-            self.high = high
+            self.global_bounds = (low, high)
+            #self.low = low
+            #self.high = high
         # nD Space (n > 0). Bounds can be single number or individual bounds.
         else:
             # Low/high values are given individually per item.
             if isinstance(low, (list, tuple, np.ndarray)):
-                self._global_bounds = False
-                self.low = np.array(low)
-                self.high = np.array(high)
-                assert self.low.shape == self.high.shape
+                self.global_bounds = False
+                #self.low = np.array(low)
+                #self.high = np.array(high)
             # Only one low/high value. Use these as generic bounds for all values.
             else:
                 assert np.isscalar(low) and np.isscalar(high)
-                self._global_bounds = (low, high)
-                self.low = low + np.zeros(self.shape)
-                self.high = high + np.zeros(self.shape)
+                self.global_bounds = (low, high)
+                #self.low = low  # + np.zeros(self.shape)
+                #self.high = high  # + np.zeros(self.shape)
+
+        self.low = np.array(low)
+        self.high = np.array(high)
+        assert self.low.shape == self.high.shape
 
     def force_batch(self, samples):
         assert self.has_time_rank is False, "ERROR: Cannot force a batch rank if Space `has_time_rank` is True!"
@@ -131,16 +139,6 @@ class BoxSpace(Space):
     @cached_property
     def bounds(self):
         return self.low, self.high
-
-    @cached_property
-    def global_bounds(self):
-        """
-        Returns:
-            False if bounds are individualized (each dimension has its own lower and upper bounds and we can get
-            the single values from self.low and self.high), or a tuple of the globally valid low/high values that apply
-            to all dimensions.
-        """
-        return self._global_bounds
 
     def get_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None,
                      time_major=None, is_python=False, **kwargs):
@@ -206,12 +204,10 @@ class BoxSpace(Space):
         return hash((tuple(self.low), tuple(self.high)))
 
     def contains(self, sample):
-        if self.shape == ():
-            return self.low <= sample <= self.high
-        else:
-            if sample.shape != self.shape:
-                return False
-            return (sample >= self.low).all() and (sample <= self.high).all()
+        sample_shape = sample.shape if not isinstance(sample, int) else ()
+        if sample_shape != self.shape:
+            return False
+        return (sample >= self.low).all() and (sample <= self.high).all()
 
     def zeros(self):
         return np.zeros(shape=self.shape, dtype=self.dtype)
