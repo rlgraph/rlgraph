@@ -33,7 +33,7 @@ class TestSpaces(unittest.TestCase):
         Tests all BoxSpaces via sample/contains loop. With and without batch-rank,
         different batch sizes, and different los/high combinations (including no bounds).
         """
-        for class_ in [FloatBox, IntBox, BoolBox]:
+        for class_ in [FloatBox, IntBox, BoolBox, TextBox]:
             for add_batch_rank in [False, True]:
                 # TODO: Test time-rank more thoroughly.
                 for add_time_rank in [False, True]:
