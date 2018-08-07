@@ -23,13 +23,44 @@ import numpy as np
 from rlgraph.components.layers.nn import *
 from rlgraph.spaces import FloatBox, IntBox
 from rlgraph.tests import ComponentTest
-from rlgraph.utils.numpy import sigmoid
+from rlgraph.utils.numpy import sigmoid, relu
 
 
 class TestNNLayer(unittest.TestCase):
     """
     Tests for the different NNLayer Components. Each layer is tested separately.
     """
+    def test_dummy_nn_layer(self):
+        # Tests simple pass through (no activation, no layer (graph_fn) computation).
+        space = FloatBox(shape=(3,), add_batch_rank=True)
+
+        # - fixed 1.0 weights, no biases
+        dummy_layer = NNLayer(activation=None)
+        test = ComponentTest(component=dummy_layer, input_spaces=dict(inputs=space))
+
+        input_ = space.sample(size=5)
+        test.test(("apply", input_), expected_outputs=input_)
+
+    def test_activation_functions(self):
+        # Test single activation functions (no other custom computations in layer).
+        space = FloatBox(shape=(3,), add_batch_rank=True)
+
+        # ReLU.
+        relu_layer = NNLayer(activation="relu")
+        test = ComponentTest(component=relu_layer, input_spaces=dict(inputs=space))
+
+        input_ = space.sample(size=5)
+        expected = relu(input_)
+        test.test(("apply", input_), expected_outputs=expected)
+
+        # Sigmoid.
+        sigmoid_layer = NNLayer(activation="sigmoid")
+        test = ComponentTest(component=sigmoid_layer, input_spaces=dict(inputs=space))
+
+        input_ = space.sample(size=10)
+        expected = sigmoid(input_)
+        test.test(("apply", input_), expected_outputs=expected)
+
     def test_dense_layer(self):
         # Space must contain batch dimension (otherwise, NNLayer will complain).
         space = FloatBox(shape=(2,), add_batch_rank=True)
