@@ -120,7 +120,6 @@ class RayWorker(RayActor):
 
     def setup_preprocessor(self, preprocessing_spec, in_space):
         if preprocessing_spec is not None:
-            # TODO remove once discussed.
             # TODO move ingraph for python component assembly.
             preprocessing_spec = deepcopy(preprocessing_spec)
             in_space = deepcopy(in_space)

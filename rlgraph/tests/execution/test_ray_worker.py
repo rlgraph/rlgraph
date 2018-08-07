@@ -18,14 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
-from copy import deepcopy
 from time import sleep
 from rlgraph.tests.test_util import recursive_assert_almost_equal, agent_config_from_path
 import numpy as np
 
-from rlgraph import get_distributed_backend, spaces
+from rlgraph import get_distributed_backend
 from rlgraph.agents import Agent
-from rlgraph.environments import RandomEnv, Environment
+from rlgraph.environments import Environment
 from rlgraph.execution.ray import RayWorker
 
 if get_distributed_backend() == "ray":
@@ -162,7 +161,7 @@ class TestRayWorker(unittest.TestCase):
             random_start=True,
             episodic_life=True
         )
-        env = Environment.from_spec(deepcopy(env_spec))
+        env = Environment.from_spec(env_spec)
         agent_config = agent_config_from_path("../configs/ray_apex_for_pong.json")
 
         # Remove unneeded apex params.
@@ -172,7 +171,7 @@ class TestRayWorker(unittest.TestCase):
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         worker_spec = ray_spec["worker_spec"]
         local_agent = Agent.from_spec(
-            deepcopy(agent_config),
+            agent_config,
             state_space=env.state_space,
             action_space=env.action_space
         )

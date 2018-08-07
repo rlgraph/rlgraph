@@ -40,7 +40,7 @@ class VectorEnv(Environment):
         # TODO list comprehension caused error here where type was missing. Investigate later.
         # [Environment.from_spec(deepcopy(env_spec)) for _ in range_(num_envs)]
         for _ in range_(num_envs):
-            env = Environment.from_spec(deepcopy(env_spec))
+            env = Environment.from_spec(env_spec)
             self.environments.append(env)
         super(VectorEnv, self).__init__(state_space=self.environments[0].state_space,
                                         action_space=self.environments[0].action_space)

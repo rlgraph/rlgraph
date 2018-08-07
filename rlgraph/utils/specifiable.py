@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from copy import deepcopy
 from functools import partial
 import importlib
 import json
@@ -89,6 +90,8 @@ class Specifiable(object):
         # `type_`: Indicator for the Specifiable's constructor.
         # `ctor_args`: *args arguments for the constructor.
         # `ctor_kwargs`: **kwargs arguments for the constructor.
+        # Copy so caller can reuse safely.
+        spec = deepcopy(spec)
         if isinstance(spec, dict):
             if "type" in spec:
                 type_ = spec.pop("type", None)
@@ -193,6 +196,8 @@ class Specifiable(object):
         Returns: Object
 
         """
+        # Copy so caller can reuse safely.
+        mixed = deepcopy(mixed)
         if isinstance(mixed, dict):
             return cls.from_spec(spec=mixed)
         elif isinstance(mixed, str):

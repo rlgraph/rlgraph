@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import copy
 import numpy as np
 import unittest
 
@@ -85,7 +84,7 @@ class TestEnvironmentStepper(unittest.TestCase):
 
     def test_environment_stepper_on_pong(self):
         environment_spec = dict(type="openai_gym", gym_env="Pong-v0", frameskip=4, seed=10)
-        dummy_env = Environment.from_spec(copy.deepcopy(environment_spec))
+        dummy_env = Environment.from_spec(environment_spec)
         state_space = dummy_env.state_space
         action_space = dummy_env.action_space
         agent_config = agent_config_from_path("../configs/dqn_agent_for_pong.json")
