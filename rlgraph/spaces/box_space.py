@@ -43,7 +43,7 @@ class BoxSpace(Space):
             dtype (np.type): The data type (as numpy type) for this Space.
                 Allowed are: np.int8,16,32,64, np.float16,32,64 and np.bool_.
 
-        Valid api_methods:
+        Valid inputs:
             BoxSpace(0.0, 1.0) # low and high are given as scalars and shape is assumed to be ()
                 -> single scalar between low and high.
             BoxSpace(-1.0, 1.0, (3,4)) # low and high are scalars, and shape is provided -> nD array
@@ -53,8 +53,6 @@ class BoxSpace(Space):
         """
         super(BoxSpace, self).__init__(add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
 
-        #assert dtype in [np.float16, np.float32, np.float64, np.int8, np.int16, np.int32, np.int64, np.bool_], \
-        #    "ERROR: BoxSpace does not allow dtype '{}'!".format(dtype)
         self._dtype = dtype
 
         # Determine the shape.

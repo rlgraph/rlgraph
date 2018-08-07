@@ -25,6 +25,7 @@ from rlgraph.spaces.box_space import BoxSpace
 from rlgraph.spaces.float_box import FloatBox
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.bool_box import BoolBox
+from rlgraph.spaces.text_box import TextBox
 from rlgraph.spaces.containers import ContainerSpace, Dict, Tuple
 
 
@@ -49,13 +50,15 @@ Space.__lookup_classes__ = dict({
     # "sequence" action type for nlp use cases and combinatorial optimisation.
     "sequence": Tuple,
     dict: Dict,
-    "dict": Dict
+    "dict": Dict,
+    str: TextBox,
+    "str": TextBox,
+    "text": TextBox,
+    "textbox": TextBox
 })
 
 # Default Space: A float from 0.0 to 1.0.
 Space.__default_constructor__ = partial(FloatBox, 1.0)
 
-
-__all__ = ["Space", "BoxSpace", "FloatBox", "IntBox", "BoolBox",
-           "ContainerSpace", "Dict", "Tuple"]
-
+__all__ = ["Space"] + \
+          list(set(map(lambda x: x.__name__, Space.__lookup_classes__.values())))
