@@ -18,7 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components import Component, DecayComponent, PolynomialDecay, Bernoulli
+from rlgraph.components.component import Component
+from rlgraph.components.common.decay_components import DecayComponent
 from rlgraph.components.distributions import Bernoulli
 
 if get_backend() == "tf":

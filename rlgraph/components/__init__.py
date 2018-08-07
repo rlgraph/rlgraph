@@ -20,14 +20,14 @@ from __future__ import print_function
 # Core.
 from rlgraph.components.component import Component
 # Component child-classes.
-from rlgraph.components.common import *
 from rlgraph.components.distributions import *
-from rlgraph.components.explorations import *
+from rlgraph.components.explorations import Exploration, EpsilonExploration
 from rlgraph.components.layers import *
 from rlgraph.components.loss_functions import *
 from rlgraph.components.memories import *
 from rlgraph.components.neural_networks import *
 from rlgraph.components.optimizers import *
+from rlgraph.components.common import *
 
 from rlgraph.utils.util import default_dict
 Component.__lookup_classes__ = dict()
