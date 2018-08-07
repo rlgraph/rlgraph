@@ -19,11 +19,11 @@ from __future__ import print_function
 
 from rlgraph import get_backend, RLGraphError
 from rlgraph.utils.util import dtype
-from rlgraph.components import Component
+from rlgraph.components.component import Component
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.components.explorations.epsilon_exploration import EpsilonExploration
-from rlgraph.components.common import NoiseComponent
+from rlgraph.components.common.noise_components import NoiseComponent
 
 if get_backend() == "tf":
     import tensorflow as tf

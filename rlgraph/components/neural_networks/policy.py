@@ -19,7 +19,8 @@ from __future__ import print_function
 
 from rlgraph import RLGraphError
 from rlgraph.spaces import IntBox, FloatBox
-from rlgraph.components import Component, Synchronizable
+from rlgraph.components.component import Component
+from rlgraph.components.common.synchronizable import Synchronizable
 from rlgraph.components.distributions import Normal, Categorical
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.neural_networks.action_adapter import ActionAdapter
