@@ -41,8 +41,8 @@ class LSTMLayer(NNLayer):
                 Default: False.
             cell_clip (Optional[float]): If provided, the cell state is clipped by this value prior to the cell
                 output activation. Default: None.
-            # weights_spec: A specifier for the weight-matrices' initializers.
-            #    If None, use the default initializers.
+            #weights_spec: A specifier for the weight-matrices' initializers.
+            #If None, use the default initializers.
             forget_bias (float): The forget gate bias to use. Default: 1.0.
             sequence_length (Optional[np.ndarray]): An int vector mapping each batch item to a sequence length
                 such that the remaining time slots for each batch item are filled with zeros.
@@ -54,7 +54,7 @@ class LSTMLayer(NNLayer):
                 Default: False.
             time_major (bool): Whether the time rank is the first rank (vs the batch rank).
                 Default: False.
-            # dtype (str): The dtype of this LSTM. Default: "float".
+            #dtype (str): The dtype of this LSTM. Default: "float".
         """
         super(LSTMLayer, self).__init__(
             graph_fn_num_outputs=dict(_graph_fn_apply=3),  # LSTMs: unrolled output, final c_state, final h_state

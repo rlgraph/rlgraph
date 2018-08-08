@@ -31,14 +31,14 @@ class ConcatLayer(NNLayer):
     A simple concatenation layer wrapper. The ConcatLayer is a Layer without sub-components but with n
     api_methods and 1 output, where the in-Sockets's data are concatenated into one out-Socket by its GraphFunction.
     """
-    def __init__(self, axis=-1, scope="concat-layer", num_graph_fn_inputs=2, **kwargs):
+    def __init__(self, axis=-1, scope="concat-layer", **kwargs):
         """
         Args:
             axis (int): The axis along which to concatenate. Use negative numbers to count from end.
                 All api_methods to this layer must have the same shape, except for the `axis` rank.
                 Default: -1.
         """
-        super(ConcatLayer, self).__init__(scope=kwargs.pop("scope", "concat-layer"), **kwargs)
+        super(ConcatLayer, self).__init__(scope=scope, **kwargs)
         self.axis = axis
 
     def check_input_spaces(self, input_spaces, action_space=None):
@@ -63,7 +63,6 @@ class ConcatLayer(NNLayer):
         if get_backend() == "tf":
             self.layer = tf.keras.layers.Concatenate(axis=self.axis)
 
-    # TODO: needs to be tested properly with test-case.
     def _graph_fn_apply(self, *inputs):
         return self.layer.apply(force_list(inputs))
 

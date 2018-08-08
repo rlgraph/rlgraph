@@ -53,6 +53,11 @@ class TestNNLayer(unittest.TestCase):
         expected = relu(input_)
         test.test(("apply", input_), expected_outputs=expected)
 
+        # Again manually in case util numpy-relu is broken.
+        input_ = np.array([[1.0, 2.0, -5.0], [-10.0, -100.1, 4.5]])
+        expected = np.array([[1.0, 2.0, 0.0], [0.0, 0.0, 4.5]])
+        test.test(("apply", input_), expected_outputs=expected)
+
         # Sigmoid.
         sigmoid_layer = NNLayer(activation="sigmoid")
         test = ComponentTest(component=sigmoid_layer, input_spaces=dict(inputs=space))
@@ -134,15 +139,15 @@ class TestNNLayer(unittest.TestCase):
         test = ComponentTest(component=concat_layer, input_spaces=dict(inputs=[space0, space1, space2]))
 
         # Batch of 2 samples to concatenate.
-        inputs = [
+        inputs = (
             np.array([[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], [[1.1, 2.1, 3.1], [4.1, 5.1, 6.1]]]),
             np.array([[[1.0], [2.0]], [[3.0], [4.0]]]),
             np.array([[[1.2, 2.2], [3.2, 4.2]], [[1.3, 2.3], [3.3, 4.3]]])
-        ]
+        )
         expected = np.array([[[1.0, 2.0, 3.0, 1.0, 1.2, 2.2],
-                       [4.0, 5.0, 6.0, 2.0, 3.2, 4.2]],
-                      [[1.1, 2.1, 3.1, 3.0, 1.3, 2.3],
-                       [4.1, 5.1, 6.1, 4.0, 3.3, 4.3]]], dtype=np.float32)
+                              [4.0, 5.0, 6.0, 2.0, 3.2, 4.2]],
+                             [[1.1, 2.1, 3.1, 3.0, 1.3, 2.3],
+                              [4.1, 5.1, 6.1, 4.0, 3.3, 4.3]]], dtype=np.float32)
         test.test(("apply", inputs), expected_outputs=expected)
 
     def test_dueling_layer(self):

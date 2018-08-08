@@ -30,9 +30,9 @@ class Splitter(Component):
         """
         Args:
             *output_order (str): List of 0th level keys by which the return values of `split` must be sorted.
-            Example: output_order=["B", "C", "A"]
-            -> split(Dict(B=1, A=2, C=10))
-            -> return: list(1, 10, 2), where 1, 10, and 2 are ops
+                Example: output_order=["B", "C", "A"]
+                -> split(Dict(B=1, A=2, C=10))
+                -> return: list(1, 10, 2), where 1, 10, and 2 are ops
         """
         self.output_order = output_order
 
