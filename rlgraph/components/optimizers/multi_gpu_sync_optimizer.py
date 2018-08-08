@@ -49,9 +49,9 @@ class MultiGpuSyncOptimizer(Optimizer):
 
         # Graph replicas holding the sub-graph copies.
         self.device_graphs = None
-        self.device_gradients = None
-        self.device_vars = None
-        self.device_losses = None
+        self.device_gradients = list()
+        self.device_vars = list()
+        self.device_losses = list()
 
         def step(self_):
             grads_and_vars = self_.call(self_._graph_fn_calculate_gradients)
@@ -59,17 +59,23 @@ class MultiGpuSyncOptimizer(Optimizer):
 
         self.define_api_method("step", step)
 
-    def set_replicas(self, replicas):
+    def set_replicas(self, component_graphs, loss_component):
         """
         Provides the optimizer with a list of sub-graphs to use for splitting batches over GPUs.
 
         Args:
-            replicas (list): List of sub graphs.
+            component_graphs (list): List of component graphs.
+            loss_component (str):
         """
-        self.replica_graphs = replicas
-        for graph in replicas:
+        self.replica_graphs = component_graphs
+        for graph in component_graphs:
             # Store replica vars and gradients.
+            # TODO do we want all these?
             self.device_vars.append(graph.variables.values())
+
+            # Get loss by fetching the loss component from each subgraph.
+            loss_component = graph.sub_component_by_name(loss_component)
+            self.device_losses.append(loss_component.loss)
 
     def set_devices(self, gpu_devices):
         """
@@ -115,16 +121,16 @@ class MultiGpuSyncOptimizer(Optimizer):
         for device in self.gpu_devices:
             all_grads_and_vars.append(self.local_optimizer._graph_fn_calculate_gradients(
                 variables=self.device_vars[device],
-                # TODO where to get these?
                 loss=self.device_losses[device]
             ))
         return self._average_gradients(all_grads_and_vars)
 
     def _graph_fn_apply_gradients(self, grads_and_vars):
         """
-
+        These should be the averaged gradients across devices. From the perspective of the
+        user of this wrapped optimizer, the API does not change.
         """
-        pass
+        self.local_optimizer._graph_fn_apply_gradients(grads_and_vars=grads_and_vars)
 
     @staticmethod
     def _average_gradients(gpu_gradients):

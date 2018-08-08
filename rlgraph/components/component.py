@@ -1165,5 +1165,22 @@ class Component(Specifiable):
         variables_dict = self.get_variables(custom_scope_separator="-")
         return DataOpDict(variables_dict)
 
+    def sub_component_by_name(self, scope_name):
+        """
+        Returns a subcomponent of this component by its name.
+        Args:
+            scope_name (str): Name of the component. This is typically its scope.
+
+        Returns:
+            Component: Subcomponent if it exists.
+
+        Raises:
+            ValueError: Error if no subcomponent with this name exists.
+        """
+        if scope_name not in self.sub_components:
+            raise RLGraphError("Name {} is not a valid subcomponent name for component {}. Subcomponents "
+                               "are: {}".format(scope_name, self.__str__(), self.sub_components.keys()))
+        return self.sub_components[scope_name]
+
     def __str__(self):
         return "{}('{}' api={})".format(type(self).__name__, self.name, str(list(self.api_methods.keys())))

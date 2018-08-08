@@ -618,9 +618,9 @@ class TensorFlowExecutor(GraphExecutor):
             # 3. Wrap local optimizer (e.g. Adam) with multi-gpu optimizer.
             self.optimizer = MultiGpuSyncOptimizer(local_optimizer=self.optimizer)
 
-            # 4. Pass the graph copies to the multi gpu optimizer.
+            # 4. Pass the graph copies and the name of the loss component to the multi gpu optimizer.
             # TODO do they need to be subcomponents?
-            optimizer.set_replicas(subgraphs)
+            optimizer.set_replicas(subgraphs, loss_component=loss_name)
 
             # 5. Pass device info to optimizer.
             optimizer.set_devices(self.gpu_names)
