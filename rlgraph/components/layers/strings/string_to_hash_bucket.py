@@ -29,17 +29,16 @@ if get_backend() == "tf":
 class StringToHashBucket(StringLayer):
     """
     A string to hash-bucket converter Component that takes a batch of string inputs (e.g.
-    ["this is string A", "this is string B"] <- batch size==2) and creates a lookup table out of it that can be
-    used instead of a static vocabulary list for embedding lookups. The created lookup table contains
+    ["this is string A", "this is string B"] <- batch size==2) and creates a table of indices out of it that can be
+    used instead of a static vocabulary list for embedding lookups. The created indices table contains
     n rows (n = number of items (strings) in the input batch) and m columns (m=max number of words in any of the
-    input strings).
-    The int numbers in the created lookup table can range from 0 to H (with H being the `num_hash_buckets` parameter).
-    The entire hash bucket can now be fed through an embedding, producing - for each item in the batch - a m x e
-    tensor, where m is the number of words in the batch item (sentence) (corresponds to an LSTM sequence length) and
+    input strings) of customizable int type.
+    The int numbers in the created table can range from 0 to H (with H being the `num_hash_buckets` parameter).
+    The entire hash bucket can now be fed through an embedding, producing - for each item in the batch - an m x e
+    matrix, where m is the number of words in the batch item (sentence) (corresponds to an LSTM sequence length) and
     e is the embedding size. The embedding output can then be fed - e.g. - into an LSTM with m being the time rank
     (n still the batch rank).
     """
-    # TODO: add options: delimiter (split), hash_bucket_dtype, etc.., hash algo
     def __init__(self, delimiter=" ", dtype="int64", num_hash_buckets=1000, hash_function="fast",
                  scope="str-to-hash-bucket", **kwargs):
         """
