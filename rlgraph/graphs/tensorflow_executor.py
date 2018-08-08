@@ -598,47 +598,34 @@ class TensorFlowExecutor(GraphExecutor):
         self.optimizer = optimizer
 
         if self.device_strategy == 'multi_gpu_sync':
-            # Assert we have more than one gpu.
+            # 0. Assert we have more than one gpu.
             assert self.num_gpus > 1
             assert isinstance(optimizer, MultiGpuSyncOptimizer)
 
-            # Workflow: Swap in multi gpu optimizer by expanding meta graph,
-            # and building the necessary ops.
+            # 1. Get the original component used by the agent to define its model.
+            master_component = self.graph_builder.core_component()
 
-            # TODO Copy entire agent graph initially, even if we only need
-            # update from external batch -> this is because from the perspective of the subgraph,
-            # all updates are external.
-
+            # TODO this copies everything, what we need is:
+            # 2. Get a copy of the core component  which only contains the sub-components necessary
+            # for the API method.
+            # sub_graph = self.graph_builder.get_subgraph("update_from_external_batch")
             subgraphs = []
-            core = self.graph_builder.core_component()
-
-            # TODO what we actually mean/need is: Get a copy of the core component
-            # which only contains the sub-components necessary for the API method.
-            sub_graph = self.graph_builder.get_subgraph("update_from_external_batch")
-            subgraphs.append(sub_graph)
             for device in range(self.num_gpus - 1):
-                subgraphs.append(sub_graph.copy())
+                subgraphs.append(master_component.copy())
 
-            # TODO swap in multi gpu optimizer in the core component.
-            # After copying, replace the optimizer in the main component.
-            # Wrap local optimizer (e.g. Adam) with multi-gpu optimizer.
-            # opt = get_optimizer_from_device_strategy(
-            #     optimizer_spec=optimizer_spec,
-            #     device_strategy=self.execution_spec.get("device_strategy", 'default')
-            # )
+            # 3. Wrap local optimizer (e.g. Adam) with multi-gpu optimizer.
+            self.optimizer = MultiGpuSyncOptimizer(local_optimizer=self.optimizer)
 
+            # 4. Pass the graph copies to the multi gpu optimizer.
+            # TODO do they need to be subcomponents?
+            optimizer.set_replicas(subgraphs)
+
+            # 5. Pass device info to optimizer.
+            optimizer.set_devices(self.gpu_names)
 
             # TODO Create connections/ops
             # With all graphs and subgraphs in place, we need to connect
             # the inputs to the subgraphs and create the multi gpu ops
-
-
-            # Add to core.
-            core.add_components(subgraphs)
-            optimizer.set_replicas(subgraphs)
-
-            # Pass device and replicas
-            optimizer.set_devices(self.gpu_names)
 
             # TODO create splitter
             splitter = None
@@ -647,7 +634,7 @@ class TensorFlowExecutor(GraphExecutor):
             def update_devices():
                 pass
 
-            core.define_api_method("update_devices", update_devices)
+            master_component.define_api_method("update_devices", update_devices)
 
     def _sanity_check_devices(self):
         """

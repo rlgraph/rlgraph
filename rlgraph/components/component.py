@@ -1055,8 +1055,7 @@ class Component(Specifiable):
         Copies this component and returns a new component with possibly another name and another scope.
         The new component has its own variables (they are not shared with the variables of this component as they
         will be created after this copy anyway, during the build phase).
-        and is initially not connected to any other component. However, the Sockets of this component and their names
-        are being copied (but without their connections).
+        and is initially not connected to any other component.
 
         Args:
             name (str): The name of the new Component. If None, use the value of scope.

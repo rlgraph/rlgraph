@@ -64,10 +64,9 @@ class MultiGpuSyncOptimizer(Optimizer):
         Provides the optimizer with a list of sub-graphs to use for splitting batches over GPUs.
 
         Args:
-            replicas (list): List of subgraphs.
+            replicas (list): List of sub graphs.
         """
         self.replica_graphs = replicas
-
         for graph in replicas:
             # Store replica vars and gradients.
             self.device_vars.append(graph.variables.values())
