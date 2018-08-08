@@ -67,16 +67,48 @@ class TestStringLayers(unittest.TestCase):
         string_to_hash_bucket = StringToHashBucket(num_hash_buckets=10)
         test = ComponentTest(component=string_to_hash_bucket, input_spaces=dict(text_inputs=input_space))
 
-        # Send a batch of 4 strings through the hash-bucket generator.
-        inputs = np.array(
-            ["text A", "test B", "text C  D and E"]
-        )
+        # Send a batch of 3 strings through the hash-bucket generator.
+        inputs = np.array([
+            "text A",
+            "test B",
+            "text C  D and E"
+        ])
 
         # NOTE that some different words occupy the same hash bucket (e.g. 'C' and 'and' OR 'text' and [empty]).
+        # This can be avoided by 1) picking a larger `num_hash_buckets` or 2) using the "strong" hash function.
         expected_hash_bucket = np.array([
             [3, 4, 3, 3, 3],  # text A .  .  .
             [6, 8, 3, 3, 3],  # test B .  .  .
             [3, 7, 5, 7, 2],  # text C D and E
         ])
         expected_lengths = np.array([2, 2, 5])
+        test.test(("apply", inputs), expected_outputs=(expected_hash_bucket, expected_lengths))
+
+    def test_string_to_hash_bucket_layer_with_different_ctor_params(self):
+        # Input space: Batch of strings.
+        input_space = TextBox(add_batch_rank=True)
+
+        # Construct a strong hash bucket with different delimiter, larger number of buckets, string algo and
+        # int16 dtype.
+        string_to_hash_bucket = StringToHashBucket(delimiter="-", num_hash_buckets=20, hash_function="strong",
+                                                   dtype="int16")
+        test = ComponentTest(component=string_to_hash_bucket, input_spaces=dict(text_inputs=input_space))
+
+        # Send a batch of 5 strings through the hash-bucket generator.
+        inputs = np.array([
+            "text-A",
+            "test-B",
+            "text-C--D-and-E",
+            "bla bla-D"
+        ])
+
+        # NOTE that some different words occupy the same hash bucket (e.g. 'C' and 'and' OR 'text' and [empty]).
+        # This can be avoided by 1) picking a larger `num_hash_buckets` or 2) using the "strong" hash function.
+        expected_hash_bucket = np.array([
+            [2, 6, 18, 18, 18],    # text    A .  .  .
+            [12, 7, 18, 18, 18],   # test    B .  .  .
+            [2, 6, 13, 19, 15],    # text    C D and E
+            [13, 13, 18, 18, 18],  # bla bla D .  .  .  <- Note that "bla bla" and "D" still have the same bucket (13)
+        ])
+        expected_lengths = np.array([2, 2, 5, 2])
         test.test(("apply", inputs), expected_outputs=(expected_hash_bucket, expected_lengths))
