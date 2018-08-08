@@ -48,7 +48,7 @@ class IntBox(BoxSpace):
             low = 0
 
         dtype = dtype_(dtype, "np")
-        assert dtype in [np.int32, np.int64, np.uint8], \
+        assert dtype in [np.int16, np.int32, np.int64, np.uint8], \
             "ERROR: IntBox does not allow dtype '{}'!".format(dtype)
 
         super(IntBox, self).__init__(low=low, high=high, shape=shape, add_batch_rank=add_batch_rank,
