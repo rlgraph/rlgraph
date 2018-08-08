@@ -113,7 +113,7 @@ class DQNAgent(Agent):
         # markup = get_graph_markup(self.graph_builder.core_component)
         # print(markup)
         if self.auto_build:
-            self._build_graph(self.input_spaces, self.optimizer)
+            self._build_graph(self.input_spaces, self.optimizer, self.loss_function.name)
             self.graph_built = True
 
     def define_api_methods(self, preprocessor, merger, memory, splitter, policy, target_policy, exploration,

@@ -163,7 +163,7 @@ class TensorFlowExecutor(GraphExecutor):
         else:
             raise RLGraphError("Invalid device_strategy ('{}') for TensorFlowExecutor!".format(self.device_strategy))
 
-    def build(self, input_spaces, optimizer=None):
+    def build(self, input_spaces, optimizer=None, loss_name=None):
         # Prepare for graph assembly.
         self.init_execution()
         self.setup_graph()
@@ -171,7 +171,7 @@ class TensorFlowExecutor(GraphExecutor):
         # Build the meta-graph (generating empty op-record columns around API methods
         # and graph_fns).
         self.graph_builder.build_meta_graph(input_spaces)
-        self._build_device_strategy(optimizer)
+        self._build_device_strategy(optimizer, loss_name)
 
         # Build actual TensorFlow graph from meta graph.
         self.graph_builder.build_graph(
@@ -579,7 +579,7 @@ class TensorFlowExecutor(GraphExecutor):
         # Note that this can only assign components which have been declared synchronizable.
         self.execute(("sync", weights))
 
-    def _build_device_strategy(self, optimizer):
+    def _build_device_strategy(self, optimizer, loss_name=None):
         """
         When using multiple GPUs or other special devices, additional graph components
         may be required to split up incoming data, load it to device memories, and aggregate
@@ -593,7 +593,9 @@ class TensorFlowExecutor(GraphExecutor):
         This method expands the meta graph according to the given device strategy if necessary.
 
         Args:
-            optimizer:
+            optimizer (Optimizer): Optimizer object.
+            loss_name Optional([str]): Name of loss component. Needed by some device strategies
+                to fetch the less on graph replicas.
         """
         self.optimizer = optimizer
 

@@ -115,6 +115,12 @@ class Agent(Specifiable):
             self.neural_network = NeuralNetwork.from_spec(network_spec)
         self.action_adapter_spec = action_adapter_spec
 
+        # An object implementing the loss function interface is only strictly needed
+        # if automatic device strategies like multi-gpu are enabled. This is because
+        # the device strategy needs to know the name of the loss function to infer the appropriate
+        # operations.
+        self.loss_function = None
+
         # The behavioral policy of the algorithm. Also the one that gets updated.
         action_adapter_dict = dict(action_space=self.action_space)
         if self.action_adapter_spec is None:
@@ -210,7 +216,7 @@ class Agent(Specifiable):
         assert not self.graph_built, "ERROR: Attempting to build agent which has already been built. Ensure" \
                                      "auto_build parameter is set to False (was {}), and" \
                                      "method has not been called twice".format(self.auto_build)
-        self._build_graph(self.input_spaces, self.optimizer)
+        self._build_graph(self.input_spaces, self.optimizer, self.loss_function.name)
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
