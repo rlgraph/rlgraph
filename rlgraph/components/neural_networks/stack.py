@@ -41,7 +41,8 @@ class Stack(Component):
     def __init__(self, *sub_components, **kwargs):
         """
         Args:
-            sub_components (Component): The sub-components to add to the Stack and connect to each other.
+            sub_components (Union[Component,List[Component]]): The sub-components to add to the Stack and connect
+                to each other.
 
         Keyword Args:
             api_methods (Optional[Set[str]]): A set of names of API-methods to connect through the stack.

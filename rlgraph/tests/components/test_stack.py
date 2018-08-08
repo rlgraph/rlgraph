@@ -55,9 +55,8 @@ class TestStack(unittest.TestCase):
         test.test(("run", 0.0), expected_outputs=np.array(1.5, dtype=np.float32))
 
     def test_two_sub_components_2to1_1to2(self):
-        stack = Stack(Dummy2To1(scope="A"),
-                      Dummy1To2(scope="B", constant_value=2.3),
-                      api_methods={"run"})
+        # Try different ctor with list as first item.
+        stack = Stack([Dummy2To1(scope="A"), Dummy1To2(scope="B", constant_value=2.3)], api_methods={"run"})
         test = ComponentTest(component=stack, input_spaces=dict(inputs=[FloatBox(), float]))
 
         # Expect: (in1 + in2) -> 0.1 -> (0.1 + 2.3, 0.1 * 2.3)

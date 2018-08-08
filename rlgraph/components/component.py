@@ -150,6 +150,8 @@ class Component(Specifiable):
         self.summary_regexp = None
 
         # Now add all sub-Components.
+        sub_components = sub_components[0] if len(sub_components) > 0 and \
+                                              isinstance(sub_components[0], (list, tuple)) else sub_components
         self.add_components(*sub_components)
 
         # Define the "_variables" API-method that each Component automatically has.
