@@ -26,6 +26,7 @@ from rlgraph.components import MultiGpuSyncOptimizer
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.backend_system import get_distributed_backend
 import rlgraph.utils as util
+from rlgraph.utils.input_parsing import get_optimizer_from_device_strategy
 
 
 class TensorFlowExecutor(GraphExecutor):
@@ -601,15 +602,36 @@ class TensorFlowExecutor(GraphExecutor):
             assert self.num_gpus > 1
             assert isinstance(optimizer, MultiGpuSyncOptimizer)
 
-            # Save optimizer which will return the necessary ops.
+            # Workflow: Swap in multi gpu optimizer by expanding meta graph,
+            # and building the necessary ops.
+
+            # TODO Copy entire agent graph initially, even if we only need
+            # update from external batch -> this is because from the perspective of the subgraph,
+            # all updates are external.
+
             subgraphs = []
             core = self.graph_builder.core_component()
 
-            # Identify the sub-graph relevant for device management.
+            # TODO what we actually mean/need is: Get a copy of the core component
+            # which only contains the sub-components necessary for the API method.
             sub_graph = self.graph_builder.get_subgraph("update_from_external_batch")
             subgraphs.append(sub_graph)
             for device in range(self.num_gpus - 1):
                 subgraphs.append(sub_graph.copy())
+
+            # TODO swap in multi gpu optimizer in the core component.
+            # After copying, replace the optimizer in the main component.
+            # Wrap local optimizer (e.g. Adam) with multi-gpu optimizer.
+            # opt = get_optimizer_from_device_strategy(
+            #     optimizer_spec=optimizer_spec,
+            #     device_strategy=self.execution_spec.get("device_strategy", 'default')
+            # )
+
+
+            # TODO Create connections/ops
+            # With all graphs and subgraphs in place, we need to connect
+            # the inputs to the subgraphs and create the multi gpu ops
+
 
             # Add to core.
             core.add_components(subgraphs)

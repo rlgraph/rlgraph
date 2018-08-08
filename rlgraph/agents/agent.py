@@ -19,9 +19,9 @@ from __future__ import print_function
 
 from rlgraph import Specifiable, get_backend
 from rlgraph.graphs.graph_executor import GraphExecutor
-from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec,\
-    get_optimizer_from_device_strategy
-from rlgraph.components import Component, Exploration, PreprocessorStack, NeuralNetwork, Synchronizable, Policy
+from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
+from rlgraph.components import Component, Exploration, PreprocessorStack, NeuralNetwork, Synchronizable, Policy, \
+    Optimizer
 from rlgraph.graphs import GraphBuilder
 from rlgraph.spaces import Space
 
@@ -144,11 +144,7 @@ class Agent(Specifiable):
         self.timesteps = 0
 
         # Create the Agent's optimizer based on optimizer_spec and execution strategy.
-        self.optimizer = get_optimizer_from_device_strategy(
-            optimizer_spec=optimizer_spec,
-            device_strategy=self.execution_spec.get("device_strategy", 'default')
-        )
-
+        self.optimizer = Optimizer.from_spec(optimizer_spec)
         # Update-spec dict tells the Agent how to update (e.g. memory batch size).
         self.update_spec = parse_update_spec(update_spec)
 
