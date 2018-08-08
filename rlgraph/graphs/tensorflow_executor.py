@@ -164,16 +164,18 @@ class TensorFlowExecutor(GraphExecutor):
             raise RLGraphError("Invalid device_strategy ('{}') for TensorFlowExecutor!".format(self.device_strategy))
 
     def build(self, input_spaces, optimizer=None, loss_name=None):
-        # Prepare for graph assembly.
+        # 0. Build phase: Component construction. Components can still be modified and re-arranged -> init
         self.init_execution()
         self.setup_graph()
+        self._build_device_strategy(optimizer, loss_name)
 
+        # 1. Build phase: Meta graph construction -> API methods
         # Build the meta-graph (generating empty op-record columns around API methods
         # and graph_fns).
         self.graph_builder.build_meta_graph(input_spaces)
-        self._build_device_strategy(optimizer, loss_name)
 
-        # Build actual TensorFlow graph from meta graph.
+        # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
+        # -> Inputs/Operations/variables
         self.graph_builder.build_graph(
             input_spaces=input_spaces, available_devices=self.available_devices,
             device_strategy=self.device_strategy, default_device=self.default_device, device_map=self.device_map
