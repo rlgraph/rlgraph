@@ -141,7 +141,7 @@ class GraphBuilder(Specifiable):
             # Create an new in column and map it to the resulting out column.
             in_ops_records = [DataOpRecord(position=i) for i in range(num_records)]
             # Do the actual core API-method call (thereby assembling the meta-graph).
-            self.core_component.call(api_method_rec.method, *in_ops_records, ok_to_call_own_api=True)
+            self.core_component.call(api_method_rec.method, *in_ops_records)  # ok_to_call_own_api=True
 
             # Register core's interface.
             self.api[api_method_name] = (in_ops_records, api_method_rec.out_op_columns[0].op_records)
