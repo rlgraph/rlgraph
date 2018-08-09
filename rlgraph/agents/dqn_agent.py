@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, Policy, Merger, Splitter
+from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, Merger, Splitter
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils.util import strip_list
 
@@ -172,7 +172,6 @@ class DQNAgent(Agent):
         def update_from_memory(self_):
             # PRs also return updated weights and their indices.
             sample_indices = None
-            importance_weights = None
             if isinstance(memory, PrioritizedReplay):
                 records, sample_indices, importance_weights = self_.call(
                     memory.get_records, self.update_spec["batch_size"]
@@ -235,7 +234,7 @@ class DQNAgent(Agent):
                 - the preprocessed states
         """
         extra_returns = {extra_returns} if isinstance(extra_returns, str) else (extra_returns or set())
-        # States come in without prepreocessing -> use state space.
+        # States come in without preprocessing -> use state space.
         if apply_preprocessing:
             call_method = "get_preprocessed_state_and_action"
             batched_states = self.state_space.force_batch(states)

@@ -21,7 +21,7 @@ import copy
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Synchronizable, Merger, Splitter,\
+from rlgraph.components import Merger, Splitter,\
     Memory, PPOLossFunction, Policy
 from rlgraph.spaces import Dict, IntBox, FloatBox, BoolBox
 
@@ -61,7 +61,6 @@ class PPOAgent(Agent):
         if self.auto_build:
             self._build_graph()
             self.graph_built = True
-
 
     def _assemble_meta_graph(self, core, *params):
         # Define our interface.
