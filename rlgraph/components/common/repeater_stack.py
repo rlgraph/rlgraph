@@ -40,5 +40,5 @@ class RepeaterStack(Stack):
         sub_components = [sub_component] + [
             sub_component.copy(scope=sub_component.scope+"-rep"+str(i+1)) for i in range(self.repeats - 1)
         ]
-        # Call the Stack ctor to handle sub-componentn adding API-method creation.
+        # Call the Stack ctor to handle sub-component adding API-method creation.
         super(RepeaterStack, self).__init__(*sub_components, scope=scope, **kwargs)

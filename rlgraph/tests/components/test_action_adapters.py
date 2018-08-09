@@ -21,6 +21,7 @@ import unittest
 import numpy as np
 
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
+from rlgraph.components.action_adapters.baseline_action_adapter import BaselineActionAdapter
 from rlgraph.components.action_adapters.dueling_action_adapter import DuelingActionAdapter
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
@@ -88,4 +89,39 @@ class TestActionAdapters(unittest.TestCase):
         test.test(("get_dueling_output", inputs), expected_outputs=(
             expected_state_values, expected_advantage_values, expected_q_values
         ))
+
+    def test_baseline_action_adapter(self):
+        # Last NN layer.
+        last_nn_layer_space = FloatBox(shape=(8,), add_batch_rank=True)
+        # Action Space.
+        action_space = IntBox(2, shape=(2, 2))
+
+        action_adapter = BaselineActionAdapter(action_space=action_space, activation="linear")
+        test = ComponentTest(
+            component=action_adapter, input_spaces=dict(nn_output=last_nn_layer_space), action_space=action_space
+        )
+
+        # Read out weights and bias. Should have been initialized randomly.
+        action_layer_vars = test.read_variable_values(action_adapter.action_layer.variables)
+
+        # Batch of 3 samples (9 nodes each: 1 for state-value node AND 2x2x2 for actions).
+        nn_output = np.array([
+            [0.5, 0.6, 0.7, 0.8, 0.1, 0.2, 0.3, 0.4],
+            [0.1, 1.6, 1.7, 1.8, 1.1, 1.2, 1.3, 1.4],
+            [0.52, 0.62, 0.72, 0.82, 0.98, 0.3, 0.4, 0.5],
+        ])
+
+        # Raw action layer output.
+        expected_action_layer_output = np.matmul(
+            nn_output, action_layer_vars["baseline-action-adapter/action-layer/dense/kernel"]
+        ) + action_layer_vars["baseline-action-adapter/action-layer/dense/bias"]
+
+        test.test(("get_action_layer_output", nn_output), expected_outputs=expected_action_layer_output, decimals=5)
+
+        expected_state_values = expected_action_layer_output[:, 0]
+        expected_action_logits = np.reshape(expected_action_layer_output[:, 1:], newshape=(-1, 2, 2, 2))
+
+        test.test(("get_state_values_and_logits", nn_output), expected_outputs=(
+            expected_state_values, expected_action_logits
+        ), decimals=5)
 

@@ -29,7 +29,7 @@ class BaselineActionAdapter(ActionAdapter):
     An ActionAdapter that adds 1 node to its action layer for an additional state-value output per batch item.
 
     API:
-        get_state_value_and_logits(nn_output) (Tuple[SingleDataOp x 2]): The state-value and action logits (reshaped).
+        get_state_values_and_logits(nn_output) (Tuple[SingleDataOp x 2]): The state-value and action logits (reshaped).
     """
     def __init__(self, scope="baseline-action-adapter", **kwargs):
         # Change the number of units in the action layer (+1 for the extra Value function node).
@@ -39,10 +39,10 @@ class BaselineActionAdapter(ActionAdapter):
         """
         Override get_logits_parameters_log_probs API-method to not use the state-value, which must be sliced.
         """
-        _, logits = self.call(self.get_state_value_and_logits, nn_output)  # ok_to_call_own_api=True
+        _, logits = self.call(self.get_state_values_and_logits, nn_output)  # ok_to_call_own_api=True
         return (logits,) + tuple(self.call(self._graph_fn_get_parameters_log_probs, logits))
 
-    def get_state_value_and_logits(self, nn_output):
+    def get_state_values_and_logits(self, nn_output):
         """
         API-method. Returns separated V, A, and Q-values from the DuelingLayer.
 
@@ -57,10 +57,10 @@ class BaselineActionAdapter(ActionAdapter):
         # Run through the action layer.
         action_layer_output = self.call(self.action_layer.apply, nn_output)
         # Slice away the first node for the state value and reshape the rest to yield the action logits.
-        state_value, logits = self.call(self._graph_fn_get_state_value_and_logits, action_layer_output)
+        state_value, logits = self.call(self._graph_fn_get_state_values_and_logits, action_layer_output)
         return state_value, logits
 
-    def _graph_fn_get_state_value_and_logits(self, action_layer_output):
+    def _graph_fn_get_state_values_and_logits(self, action_layer_output):
         """
         Slices away the state-value node from the raw action_layer_output (dense) and returns the single state-value
         and the remaining (reshaped) action-logits.
