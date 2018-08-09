@@ -95,7 +95,17 @@ class TensorFlowExecutor(GraphExecutor):
         self.num_gpus = 0
 
         # Tf profiler.
-        self.session_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+        trace_enabled = self.execution_spec.get('trace_enabled', True)
+
+        if self.disable_monitoring and trace_enabled:
+            self.logger.warning("Tensorflow tracing is set to be enabled (execution_spec.trace_enabled = True), " +
+                                "but monitoring is disabled. Tracing will not be enabled.")
+
+        if trace_enabled and not self.disable_monitoring:
+            self.session_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+        else:
+            self.session_options = None
+
         # Local session config which needs to be updated with device options during setup.
         self.tf_session_config = tf.ConfigProto(**self.session_config)
 
