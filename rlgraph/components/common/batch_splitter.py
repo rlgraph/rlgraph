@@ -43,7 +43,7 @@ class BatchSplitter(Component):
         for input_elem in inputs:
             shard_list = []
             for i in range(self.num_shards):
-                shard_list.append(input_elem[i * shard_size: i + 1 * shard_size])
+                shard_list.append(input_elem[i * shard_size: (i + 1) * shard_size])
 
             ret.append(DataOpTuple(shard_list))
         return ret
