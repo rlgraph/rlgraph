@@ -57,10 +57,10 @@ class Splitter(Component):
 
     def _graph_fn_split(self, inputs):
         """
-        Splits the input_ at flat-key level `self.level` into the Spaces at that level.
+        Splits the inputs at flat-key level `self.level` into the Spaces at that level.
 
         Args:
-            input_ (DataOpDict): The input Dict to be split by its primary keys.
+            inputs (DataOpDict): The input Dict to be split by its primary keys.
 
         Returns:
             tuple: The tuple of the primary Spaces (may still be Containers) sorted by `self.output_order`.

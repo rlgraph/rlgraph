@@ -26,6 +26,7 @@ from rlgraph.components.common.noise_components import NoiseComponent, ConstantN
 from rlgraph.components.common.fixed_loop import FixedLoop
 from rlgraph.components.common.sampler import Sampler
 from rlgraph.components.common.repeater_stack import RepeaterStack
+from rlgraph.components.common.batch_splitter import BatchSplitter
 #from rlgraph.components.common.environment_stepper import EnvironmentStepper
 
 
@@ -49,5 +50,5 @@ __all__ = ["Splitter", "Merger",
            "Synchronizable", "RepeaterStack",
            "DecayComponent", "LinearDecay", "PolynomialDecay", "ExponentialDecay",
            "NoiseComponent", "ConstantNoise", "GaussianNoise", "OrnsteinUhlenbeckNoise",
-           "FixedLoop", "Sampler"]
+           "FixedLoop", "Sampler", "BatchSplitter"]
 
