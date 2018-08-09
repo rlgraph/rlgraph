@@ -724,7 +724,6 @@ class GraphBuilder(Specifiable):
         num_trainable_parameters = 0
         if get_backend() == "tf":
             for variable in tf.trainable_variables():
-                # shape is an array of tf.Dimension
                 num_trainable_parameters += get_shape(variable, flat=True)
 
         return num_trainable_parameters
@@ -732,8 +731,7 @@ class GraphBuilder(Specifiable):
     @staticmethod
     def count_ops():
         """
-        Counts the number of all backend-specific ops present in the graph.
-        This includes variables and placeholders.
+        Counts the number of all backend-specific ops present in the graph. This includes variables and placeholders.
 
         Returns:
             int: The number of backend-specific ops in the graph.

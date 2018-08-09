@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018 The YARL-Project, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,15 +17,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components.neural_networks.stack import Stack
-from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
-from rlgraph.components.neural_networks.neural_network import NeuralNetwork
-from rlgraph.components.neural_networks.policy import Policy
+from rlgraph.components.action_adapters.action_adapter import ActionAdapter
+from rlgraph.components.action_adapters.dueling_action_adapter import DuelingActionAdapter
 
-# The Stacks.
-Stack.__lookup_classes__ = dict(
-    preprocessorstack=PreprocessorStack
+
+ActionAdapter.__lookup_classes__ = dict(
+    actionadapter=ActionAdapter,
+    duelingactionadapter=DuelingActionAdapter,
+
 )
 
-__all__ = ["Stack", "PreprocessorStack", "NeuralNetwork", "Policy"]
-
+__all__ = ["ActionAdapter"]

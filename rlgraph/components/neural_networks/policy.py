@@ -23,7 +23,8 @@ from rlgraph.components.component import Component
 from rlgraph.components.common.synchronizable import Synchronizable
 from rlgraph.components.distributions import Normal, Categorical
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
-from rlgraph.components.neural_networks.action_adapter import ActionAdapter
+from rlgraph.components.action_adapters.action_adapter import ActionAdapter
+from rlgraph.components.action_adapters.dueling_action_adapter import DuelingActionAdapter
 
 
 class Policy(Component):
@@ -78,7 +79,7 @@ class Policy(Component):
         self.action_space = action_space
 
         # Add API-method to get dueling output (if we use a dueling layer).
-        if self.action_adapter.add_dueling_layer:
+        if isinstance(self.action_adapter, DuelingActionAdapter):
             def get_dueling_output(self_, nn_input):
                 nn_output = self_.call(self_.neural_network.apply, nn_input)
                 return self_.call(self_.action_adapter.get_dueling_output, nn_output)

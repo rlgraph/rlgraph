@@ -51,7 +51,9 @@ class DQNAgent(Agent):
         """
         # Fix action-adapter before passing it to the super constructor.
         action_adapter_spec = kwargs.pop("action_adapter_spec", dict())
-        action_adapter_spec.update(dict(add_dueling_layer=dueling_q))
+        # Use a DuelingActionAdapter (instead of a basic ActionAdapter) if option is set.
+        if dueling_q is True:
+            action_adapter_spec["type"] = "dueling_action_adapter"
         super(DQNAgent, self).__init__(
             action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "dqn-agent"), **kwargs
         )
