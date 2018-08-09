@@ -37,7 +37,15 @@ class DuelingActionAdapter(ActionAdapter):
         self.dueling_layer = DuelingLayer()
         self.add_components(self.dueling_layer)
 
-    def get_dueling_output(self_, nn_output):
+    def get_logits_parameters_log_probs(self, nn_output):
+        """
+        Override get_logits_parameters_log_probs API-method to use (A minus V) Q-values, instead of raw logits from
+        network.
+        """
+        _, _, q_values = self.call(self.get_dueling_output, nn_output, ok_to_call_own_api=True)
+        return (q_values,) + tuple(self.call(self._graph_fn_get_parameters_log_probs, q_values))
+
+    def get_dueling_output(self, nn_output):
         """
         API-method. Returns separated V, A, and Q-values from the DuelingLayer.
 
@@ -48,16 +56,9 @@ class DuelingActionAdapter(ActionAdapter):
             tuple (3x DataOpRecord):
                 - The single state value (V).
                 - The advantage values for the different actions.
-                - The Q-values for the different actions (calculated as Q=A-V, where V is broadcast to match A's shape)
+                - The Q-values for the different actions (calculated as Q=V+A-mean(A), where V and mean(A) are
+                broadcast to match A's shape)
         """
-        action_layer_output = self_.call(self_.action_layer.apply, nn_output)
-        state_value, advantage_values, q_values = self_.call(self_.dueling_layer.apply, action_layer_output)
+        action_layer_output = self.call(self.action_layer.apply, nn_output)
+        state_value, advantage_values, q_values = self.call(self.dueling_layer.apply, action_layer_output)
         return state_value, advantage_values, q_values
-
-    def get_logits_parameters_log_probs(self, nn_output):
-        """
-        Override get_logits_parameters_log_probs API-method to use (A minus V) Q-values, instead of raw logits from
-        network.
-        """
-        _, _, q_values = self.call(self.get_dueling_output, nn_output, ok_to_call_own_api=True)
-        return (q_values,) + tuple(self.call(self._graph_fn_get_parameters_log_probs, q_values))

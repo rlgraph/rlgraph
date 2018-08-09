@@ -47,7 +47,7 @@ class DuelingLayer(NNLayer):
         super(DuelingLayer, self).check_input_spaces(input_spaces, action_space)
         in_space = input_spaces["inputs"]
         # Last rank is the [value + advantage-values] rank, store the number of advantage values here.
-        self.num_advantage_values = in_space.get_shape(with_batch_rank=True)[-1] - 1
+        self.num_advantage_values = in_space.shape[-1] - 1
 
         self.target_space = action_space.with_batch_rank()
 
@@ -62,7 +62,6 @@ class DuelingLayer(NNLayer):
                 - state_value (SingleDataOp): The single state-value (not dependent on actions).
                 - advantage_values (SingleDataOp): The already reshaped advantage values per action.
                 - q_values (SingleDataOp): The already reshaped state-action (q) values per action.
-
         """
         # Use the very first node as value function output.
         # Use all following nodes as advantage function output.
