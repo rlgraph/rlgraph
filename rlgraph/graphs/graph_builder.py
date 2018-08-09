@@ -144,18 +144,38 @@ class GraphBuilder(Specifiable):
             self.core_component.call(api_method_rec.method, *in_ops_records)  # ok_to_call_own_api=True
 
             # Register core's interface.
-            self.api[api_method_name] = (in_ops_records, api_method_rec.out_op_columns[0].op_records)
+            self.api[api_method_name] = (in_ops_records, api_method_rec.out_op_columns[-1].op_records)
 
             # Tag very last out-op-records with is_terminal_op=True, so we know in the build process that we are done.
-            for op_rec in api_method_rec.out_op_columns[0].op_records:
+            for op_rec in api_method_rec.out_op_columns[-1].op_records:
                 op_rec.is_terminal_op = True
 
         time_build = time.monotonic() - time_start
         self.logger.info("Meta-graph build completed in {} s.".format(time_build))
 
+        # Sanity check the meta-graph.
+        #self.sanity_check_meta_graph()
+
         # Get some stats on the graph and report.
         self.num_meta_ops = DataOpRecord._ID + 1
         self.logger.info("\tMeta-graph op-records generated: {}".format(self.num_meta_ops))
+
+    def sanity_check_meta_graph(self):
+        """
+        Checks the constructed meta-graph after calling `self.build_meta_graph`.
+        - Whether all entries in any op-record's `next` set point back to the original op-record.
+
+        Raises:
+              RLGraphError: If sanity of the meta-graph could not be confirmed.
+        """
+        #def check_single_op_rec(op_rec):
+        #    for next_ in op_rec.next:
+        #        if next_.previous is not op_rec:
+        #            raise RLGraphError("")
+
+        #for api_method_name, (inputs, _) in self.api.items():
+        #    for input_ in inputs:
+        pass
 
     def build_graph(self, input_spaces, available_devices,
                     device_strategy="default", default_device=None, device_map=None):
@@ -215,8 +235,12 @@ class GraphBuilder(Specifiable):
             for op_rec in op_records_list:  # type: DataOpRecord
                 # There are next records:
                 if len(op_rec.next) > 0:
-                    # Push the op-record forward one step.
+                    # Push actual op and Space forward one op-rec at a time.
                     for next_op_rec in sorted(op_rec.next, key=lambda rec: rec.id):  # type: DataOpRecord
+                        # Assert that next-record's `previous` field points back to op_rec.
+                        assert next_op_rec.previous is op_rec,\
+                            "ERROR: Op-rec {} in meta-graph has {} as next, but {}'s previous field points to {}!".\
+                            format(op_rec, next_op_rec, next_op_rec, next_op_rec.previous)
                         # If not last op in this API-method -> continue.
                         if next_op_rec.is_terminal_op is False:
                             assert next_op_rec.op is None
