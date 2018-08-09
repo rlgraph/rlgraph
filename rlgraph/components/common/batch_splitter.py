@@ -42,16 +42,19 @@ class BatchSplitter(Component):
             List: List of DataOpTuples containing the input shards.
         """
         if get_backend() == "tf":
-            batch_size = tf.shape(inputs[0])[0]
-            shard_size = int(batch_size / self.num_shards)
+            batch_size = tf.shape(next(iter(inputs[0].values())))[0]
+            shard_size = tf.cast(batch_size / self.num_shards, dtype=tf.int32)
             shards = list()
 
             # E.g. 203 elems in batch dim, 4 shards -> want 4 x 50
             usable_size = shard_size * batch_size
-            for input_elem in inputs:
-                # Must be evenly divisible so we slice out an evenly divisibl tensor.
-                usable_input_tensor = input_elem[0:usable_size]
-                shards.append(tf.split(value=usable_input_tensor, num_or_size_splits=self.num_shards, axis=0))
+            for input_arg_data in inputs:
+                shard_dict = FlattenedDataOp()  # TODO: <- continue here.
+                for flat_key, data in input_arg_data.items():
+                    # Must be evenly divisible so we slice out an evenly divisibl tensor.
+                    usable_input_tensor = data[0:usable_size]
+                    shard_dict[flat_key] = tf.split(value=usable_input_tensor, num_or_size_splits=self.num_shards, axis=0)
+                shards.append(shard_dict)
 
             # shards now has: 0th dim=input-arg; 1st dim=shards for this input-arg
             # The following is simply to flip the list so that it has:

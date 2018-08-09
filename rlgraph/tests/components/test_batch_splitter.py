@@ -34,7 +34,7 @@ class TestBatchSplitter(unittest.TestCase):
         space = Dict(
             states=dict(state1=float, state2=float),
             actions=dict(action1=float),
-            reward=float,
+            rewards=float,
             terminals=BoolBox(),
             add_batch_rank=True
         )
@@ -43,7 +43,9 @@ class TestBatchSplitter(unittest.TestCase):
 
         test_inputs = [elem for elem in sample.values()]
         splitter = BatchSplitter(num_shards=num_shards)
-        test = ComponentTest(component=splitter, input_spaces=dict(inputs=space))
+        test = ComponentTest(component=splitter, input_spaces=dict(
+            inputs=[space["states"], space["actions"], space["rewards"], space["terminals"]]
+        ))
 
         shards = test.test(("split_batch", test_inputs))
         print(shards)
