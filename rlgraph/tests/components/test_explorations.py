@@ -21,7 +21,10 @@ import numpy as np
 from six.moves import xrange as range_
 import unittest
 
-from rlgraph.components import Component, ActionAdapter, Exploration, EpsilonExploration, LinearDecay
+from rlgraph.components.component import Component
+from rlgraph.components.action_adapters.action_adapter import ActionAdapter
+from rlgraph.components.explorations.exploration import Exploration, EpsilonExploration
+from rlgraph.components.common.decay_components import LinearDecay
 from rlgraph.components.distributions import Categorical, Normal
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
@@ -150,4 +153,4 @@ class TestExplorations(unittest.TestCase):
                               [10.098725, 7.4949145]],
                              [[9.66774, 8.39154],
                               [10.217849, 8.008392]]], dtype=np.float32)
-        print(test.test(("get_action", input_), expected_outputs=None))
+        test.test(("get_action", input_), expected_outputs=expected)

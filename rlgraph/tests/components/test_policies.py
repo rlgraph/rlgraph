@@ -87,7 +87,7 @@ class TestPolicies(unittest.TestCase):
         # Policy with additional dueling layer.
         policy = Policy(
             neural_network="../configs/test_lrelu_nn.json",
-            action_adapter_spec=dict(add_dueling_layer=True, action_space=action_space),
+            action_adapter_spec=dict(type="dueling_action_adapter", action_space=action_space),
             switched_off_apis={"get_q_values"}
         )
         test = ComponentTest(
@@ -106,7 +106,7 @@ class TestPolicies(unittest.TestCase):
 
         # Raw action layer output; Expected shape=(3,3): 3=batch, 2=action categories + 1 state value
         expected_action_layer_output = np.matmul(
-            expected_nn_output, policy_params["policy/action-adapter/action-layer/dense/kernel"]
+            expected_nn_output, policy_params["policy/dueling-action-adapter/action-layer/dense/kernel"]
         )
         expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(3, 3))
         test.test(("get_action_layer_output", states), expected_outputs=expected_action_layer_output)
