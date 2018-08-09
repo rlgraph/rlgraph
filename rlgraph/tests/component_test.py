@@ -125,10 +125,10 @@ class ComponentTest(object):
             variables (any): Any structure that contains variables.
             expected_values (any): Matching structure with the expected values for the given variables.
         """
-        values = self.get_variable_values(variables)
+        values = self.read_variable_values(variables)
         self.assert_equal(values, expected_values)
 
-    def get_variable_values(self, *variables):
+    def read_variable_values(self, *variables):
         """
         Executes a session to retrieve the values of the provided variables.
 

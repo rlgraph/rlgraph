@@ -220,7 +220,7 @@ class TestNNLayer(unittest.TestCase):
         inputs = np.ones(shape=(batch_size, sequence_length, 3))
 
         # First matmul the inputs times the LSTM matrix:
-        var_values = test.get_variable_values(lstm_layer.variables)
+        var_values = test.read_variable_values(lstm_layer.variables)
         lstm_matrix = var_values["lstm-layer/lstm-cell/kernel"]
         lstm_biases = var_values["lstm-layer/lstm-cell/bias"]
         h_states = np.zeros(shape=(batch_size, 5))

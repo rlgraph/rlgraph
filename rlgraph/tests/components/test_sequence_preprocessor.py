@@ -38,27 +38,27 @@ class TestSequencePreprocessor(unittest.TestCase):
 
         for _ in range_(3):
             test.test("reset")
-            index_value, buffer_value = test.get_variable_values(index, buffer)
+            index_value, buffer_value = test.read_variable_values(index, buffer)
             self.assertEqual(index_value, -1)
             test.test(("apply", np.array([[0.1]])),
                       expected_outputs=np.array([[[0.1, 0.1, 0.1]]]))
-            index_value, buffer_value = test.get_variable_values(index, buffer)
+            index_value, buffer_value = test.read_variable_values(index, buffer)
             self.assertEqual(index_value, 0)
             test.test(("apply", np.array([[0.2]])),
                       expected_outputs=np.array([[[0.1, 0.1, 0.2]]]))
-            index_value, buffer_value = test.get_variable_values(index, buffer)
+            index_value, buffer_value = test.read_variable_values(index, buffer)
             self.assertEqual(index_value, 1)
             test.test(("apply", np.array([[0.3]])),
                       expected_outputs=np.array([[[0.1, 0.2, 0.3]]]))
-            index_value, buffer_value = test.get_variable_values(index, buffer)
+            index_value, buffer_value = test.read_variable_values(index, buffer)
             self.assertEqual(index_value, 2)
             test.test(("apply", np.array([[0.4]])),
                       expected_outputs=np.array([[[0.2, 0.3, 0.4]]]))
-            index_value, buffer_value = test.get_variable_values(index, buffer)
+            index_value, buffer_value = test.read_variable_values(index, buffer)
             self.assertEqual(index_value, 0)
             test.test(("apply", np.array([[0.5]])),
                       expected_outputs=np.array([[[0.3, 0.4, 0.5]]]))
-            index_value, buffer_value = test.get_variable_values(index, buffer)
+            index_value, buffer_value = test.read_variable_values(index, buffer)
             self.assertEqual(index_value, 1)
 
     # TODO: Make it irrelevent whether we test a python or a tf Component (API and handling should be 100% identical)
@@ -108,7 +108,7 @@ class TestSequencePreprocessor(unittest.TestCase):
 
         for _ in range_(3):
             test.test("reset")
-            index_value, buffer_value = test.get_variable_values(index, buffer)
+            index_value, buffer_value = test.read_variable_values(index, buffer)
             self.assertEqual(index_value, -1)
 
             test.test(("apply", np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])),
@@ -117,7 +117,7 @@ class TestSequencePreprocessor(unittest.TestCase):
                           [[3.0, 3.0], [4.0, 4.0]],
                           [[5.0, 5.0], [6.0, 6.0]]
                       ]))
-            index_value, buffer_value = test.get_variable_values(index, buffer)
+            index_value, buffer_value = test.read_variable_values(index, buffer)
             self.assertEqual(index_value, 0)
 
             test.test(("apply", np.array([[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]])),
@@ -126,7 +126,7 @@ class TestSequencePreprocessor(unittest.TestCase):
                           [[3.0, 0.3], [4.0, 0.4]],
                           [[5.0, 0.5], [6.0, 0.6]]
                       ]))
-            index_value, buffer_value = test.get_variable_values(index, buffer)
+            index_value, buffer_value = test.read_variable_values(index, buffer)
             self.assertEqual(index_value, 1)
 
             test.test(("apply", np.array([[10.0, 20.0], [30.0, 40.0], [50.0, 60.0]])),
@@ -135,7 +135,7 @@ class TestSequencePreprocessor(unittest.TestCase):
                           [[0.3, 30.0], [0.4, 40.0]],
                           [[0.5, 50.0], [0.6, 60.0]]
                       ]))
-            index_value, buffer_value = test.get_variable_values(index, buffer)
+            index_value, buffer_value = test.read_variable_values(index, buffer)
             self.assertEqual(index_value, 0)
 
             test.test(("apply", np.array([[100.0, 200.0], [300.0, 400.0], [500.0, 600.0]])),
@@ -144,7 +144,7 @@ class TestSequencePreprocessor(unittest.TestCase):
                           [[30.0, 300.0], [40.0, 400.0]],
                           [[50.0, 500.0], [60.0, 600.0]]
                       ]))
-            index_value, buffer_value = test.get_variable_values(index, buffer)
+            index_value, buffer_value = test.read_variable_values(index, buffer)
             self.assertEqual(index_value, 1)
 
     def test_sequence_preprocessor_with_container_space(self):

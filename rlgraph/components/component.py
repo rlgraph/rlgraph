@@ -218,7 +218,7 @@ class Component(Specifiable):
                         The key can now be used to index into variables equally structured as B.
                 Has no effect if `split_ops` is False.
                 (default: False).
-            #ok_to_call_own_api (bool): Whether an Error should be suppressed if a Component `call`s an API-method
+            # ok_to_call_own_api (bool): Whether an error should be suppressed if a Component `call`s an API-method
             #    of itself. This is usually not allowed due to introducing circular dependencies.
             #    Default: False.
             return_ops (bool): Whether to return actual ops rather than op-records. This is done automatically
