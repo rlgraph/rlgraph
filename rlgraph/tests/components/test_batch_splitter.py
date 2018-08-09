@@ -40,8 +40,10 @@ class TestBatchSplitter(unittest.TestCase):
         )
 
         sample = space.sample(size=21)
+
+        test_inputs = [elem for elem in sample.values()]
         splitter = BatchSplitter(num_shards=num_shards)
         test = ComponentTest(component=splitter, input_spaces=dict(inputs=space))
 
-        shards = test.test(("split_batch", sample))
+        shards = test.test(("split_batch", test_inputs))
         print(shards)
