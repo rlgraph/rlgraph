@@ -175,7 +175,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
 
     def test_rlgraph_apex_insert(self):
         """
-        Tests Yarl's python memory performance.
+        Tests RLgraph's python memory performance.
         """
         memory = ApexMemory(
             capacity=self.capacity,
@@ -226,7 +226,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
 
     def test_rlgraph_sampling(self):
         """
-        Tests Yarl's sampling performance.
+        Tests RLgraph's sampling performance.
         """
         memory = ApexMemory(
             capacity=self.capacity,
