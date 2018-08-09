@@ -30,7 +30,7 @@ class BatchSplitter(Component):
             graph_fn_num_outputs=dict(_graph_fn_split_batch=num_shards),
             **kwargs
         )
-        self.define_api_method(name="split_batch", func=self._graph_fn_split_batch)
+        self.define_api_method(name="split_batch", func=self._graph_fn_split_batch, flatten_ops=True)
 
     def _graph_fn_split_batch(self, *inputs):
         """
