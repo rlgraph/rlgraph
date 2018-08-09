@@ -287,26 +287,31 @@ class Space(Specifiable):
 
     def _get_np_shape(self, num_samples=None):
         """
-        TODO: what about the time rank?
         Helper to determine, which shape one should pass to the numpy random funcs for sampling from a Space.
-        Depends on num_samples, the shape of this Space and the `self.has_batch_rank` setting.
+        Depends on `num_samples`, the `shape` of this Space and the `self.has_batch_rank/has_time_rank` settings.
 
         Args:
-            num_samples (Optional[int]): Number of samples to pull. If None or 0, pull 1 sample, but without batch rank
-                (no matter what the value of `self.has_batch_rank` is).
+            num_samples (Optional[int,Tuple[int,int]]): Number of samples to pull. If None or 0, pull 1 sample, but
+                without batch/time rank (no matter what the value of `self.has_batch_rank` is).
+                If tuple given, use the given values as time/batch ranks.
 
         Returns:
             Tuple[int]: Shape to use for numpy random sampling.
         """
-        # No batch rank.
-        if not num_samples or (num_samples == 1 and not self.has_batch_rank):
+        # No extra batch/time rank.
+        if num_samples is None or (num_samples == 1 and not self.has_batch_rank and not self.has_time_rank):
             if len(self.shape) == 0:
                 return None
             else:
                 return self.shape
-        # With batch rank.
+        # With one extra rank.
+        elif isinstance(num_samples, int):
+            return (num_samples,) + self.shape
+        # With two extra ranks (given as list or tuple).
         else:
-            return tuple((num_samples,) + self.shape)
+            assert isinstance(num_samples, (tuple, list)) and len(num_samples) == 2,\
+                "ERROR: num_samples must be int or tuple/list of two ints, but is '{}'!".format(num_samples)
+            return tuple(num_samples) + self.shape
 
     def contains(self, sample):
         """

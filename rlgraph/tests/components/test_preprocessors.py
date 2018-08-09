@@ -70,13 +70,30 @@ class TestPreprocessors(unittest.TestCase):
         test.test(("apply", input_images), expected_outputs=expected)
 
     def test_reshape(self):
-        reshape = ReShape(new_shapes=(-1, 3, 2))
-        test = ComponentTest(component=reshape, input_spaces=dict(preprocessing_inputs=FloatBox(shape=(6,), add_batch_rank=True)))
+        reshape = ReShape(new_shape=(-1, 3, 2))
+        test = ComponentTest(component=reshape, input_spaces=dict(
+            preprocessing_inputs=FloatBox(shape=(6,), add_batch_rank=True)
+        ))
 
         test.test("reset")
         # Batch=2
         inputs = np.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]])
         expected = np.array([[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]])
+        test.test(("apply", inputs), expected_outputs=expected)
+
+    def test_reshape_with_batch_and_time_rank(self):
+        # Test folding a time rank into a batch rank for faster non-LSTM processing of sequential data.
+        in_space = FloatBox(shape=(4,), add_batch_rank=True, add_time_rank=True)
+        reshape = ReShape(new_shape=(-1, 4))
+        # NOTE: time-major not important in this test case.
+        test = ComponentTest(component=reshape, input_spaces=dict(
+            preprocessing_inputs=in_space
+        ))
+
+        test.test("reset")
+        # seq-length (time rank)=3, batch=2
+        inputs = in_space.sample(size=(3, 2))
+        expected = np.reshape(inputs, newshape=(-1, 4))
         test.test(("apply", inputs), expected_outputs=expected)
 
     def test_split_inputs_on_grayscale(self):
