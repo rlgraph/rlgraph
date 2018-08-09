@@ -21,6 +21,7 @@ import numpy as np
 
 from rlgraph.backend_system import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
+from rlgraph.spaces import FloatBox
 from rlgraph.utils.ops import flatten_op, unflatten_op
 from rlgraph.utils.util import get_rank, get_shape
 
@@ -30,13 +31,13 @@ if get_backend() == "tf":
 
 class ReShape(PreprocessLayer):
     """
-    A simple reshape preprocessor that takes an input and reshapes it into a new shape. Use -1 in at most one
-    rank to mark the flexible dimension.
+    A simple reshape preprocessor that takes an input and reshapes it into a new shape. Use the value -1 in (at most)
+    one of the new-shape's rank to mark a flexible dimension.
     """
-    def __init__(self, new_shapes, scope="reshape", **kwargs):
+    def __init__(self, new_shape, scope="reshape", **kwargs):
         """
         Args:
-            new_shapes (Optional[Dict[str,Tuple[int]],Tuple[int]]): A dict of str/tuples or a single tuple
+            new_shape (Optional[Dict[str,Tuple[int]],Tuple[int]]): A dict of str/tuples or a single tuple
                 specifying the new-shape(s) to use (for each auto key in case of a Container input Space).
                 At most one of the ranks in any new_shape may be -1 to indicate flexibility in that dimension
                 (e.g. the batch rank).
@@ -44,7 +45,7 @@ class ReShape(PreprocessLayer):
         super(ReShape, self).__init__(scope=scope, add_auto_key_as_first_param=True, **kwargs)
 
         # The new shape specifications.
-        self.new_shapes = new_shapes
+        self.new_shape = new_shape
 
         # The output spaces after preprocessing (per flat-key).
         self.output_spaces = None
@@ -52,11 +53,10 @@ class ReShape(PreprocessLayer):
     def get_preprocessed_space(self, space):
         ret = dict()
         for key, value in space.flatten().items():
-            if isinstance(self.new_shapes, dict):
-                #TODO: continue here!
-                ret[key] = FloatBox(shape=self.new_shapes[key], add_batch_rank=value.has_batch_rank)
+            if isinstance(self.new_shape, dict):
+                ret[key] = FloatBox(shape=self.new_shape[key], add_batch_rank=value.has_batch_rank)
             else:
-                ret[key] = self.new_shapes
+                ret[key] = self.new_shape
         return unflatten_op(ret)
 
     def check_input_spaces(self, input_spaces, action_space=None):
@@ -78,11 +78,9 @@ class ReShape(PreprocessLayer):
         Returns:
             SingleDataOp: The reshaped input.
         """
-        new_shape = self.new_shapes[key] if isinstance(self.new_shapes, dict) else self.new_shapes
+        new_shape = self.new_shape[key] if isinstance(self.new_shape, dict) else self.new_shape
         if self.backend == "python" or get_backend() == "python":
-            reshaped = np.reshape(preprocessing_inputs, newshape=new_shape)
-            return reshaped
+            return np.reshape(preprocessing_inputs, newshape=new_shape)
 
         elif get_backend() == "tf":
             return tf.reshape(preprocessing_inputs, shape=new_shape, name="reshaped")
-
