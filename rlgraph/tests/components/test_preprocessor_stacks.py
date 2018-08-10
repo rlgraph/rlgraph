@@ -158,7 +158,7 @@ class TestPreprocessorStacks(unittest.TestCase):
             spec["backend"] = "python"
         python_processor = PreprocessorStack(*preprocessing_spec, backend="python")
         for sub_comp_scope in scopes:
-            python_processor.sub_components[sub_comp_scope].create_variables(input_spaces=dict(inputs=in_space))
+            python_processor.sub_components[sub_comp_scope].create_variables(dict(preprocessing_inputs=in_space))
         python_processor.reset()
 
         # To have the use case we considered so far, use agent interface for TF backend.

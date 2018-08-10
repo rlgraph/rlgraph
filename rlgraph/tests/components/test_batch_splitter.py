@@ -20,7 +20,6 @@ from __future__ import print_function
 import unittest
 
 from rlgraph.components import BatchSplitter
-from rlgraph.components.common import Splitter, Merger
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 
@@ -41,11 +40,20 @@ class TestBatchSplitter(unittest.TestCase):
 
         sample = space.sample(size=21)
 
-        test_inputs = [elem for elem in sample.values()]
+        test_inputs = [sample["states"], sample["actions"], sample["rewards"], sample["terminals"]]
         splitter = BatchSplitter(num_shards=num_shards)
         test = ComponentTest(component=splitter, input_spaces=dict(
             inputs=[space["states"], space["actions"], space["rewards"], space["terminals"]]
         ))
 
-        shards = test.test(("split_batch", test_inputs))
-        print(shards)
+        # Expect 4 shards.
+        expected = tuple(
+            (
+                dict(state1=sample["states"]["state1"][start:stop], state2=sample["states"]["state2"][start:stop]),
+                dict(action1=sample["actions"]["action1"][start:stop]),
+                sample["rewards"][start:stop],
+                sample["terminals"][start:stop]
+            ) for start, stop in [(0, 5), (5, 10), (10, 15), (15, 20)]
+        )
+
+        test.test(("split_batch", test_inputs), expected_outputs=expected)
