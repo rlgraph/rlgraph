@@ -26,6 +26,7 @@ from rlgraph.utils.ops import SingleDataOp
 from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.float_box import FloatBox
+from rlgraph.spaces.text_box import TextBox
 from rlgraph.spaces.containers import Dict, Tuple
 
 
@@ -145,6 +146,9 @@ def get_space_from_op(op):
             # a BoolBox
             elif "bool" in base_dtype_str:
                 return BoolBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
+            # a TextBox
+            elif "string" in base_dtype_str:
+                return TextBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
 
     raise RLGraphError("ERROR: Cannot derive Space from op '{}' (unknown type?)!".format(op))
 
