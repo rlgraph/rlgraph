@@ -72,7 +72,7 @@ class StringToHashBucket(StringLayer):
 
         # Make sure there is only a batch rank (single text items).
         # tf.string_split does not support more complex shapes.
-        sanity_check_space(input_spaces["text_inputs"], must_have_batch_rank=True, rank=0)
+        sanity_check_space(input_spaces["text_inputs"], must_have_batch_rank=True, must_have_time_rank=False, rank=0)
 
     def _graph_fn_apply(self, text_inputs):
         """
