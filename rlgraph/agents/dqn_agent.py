@@ -215,6 +215,18 @@ class DQNAgent(Agent):
 
         self.core_component.define_api_method("update_from_external_batch", update_from_external_batch)
 
+        # Generic optimization method which we can replace for device strategies.
+        # This method should receive as inputs everything the loss function and optimizer need.
+        def optimize(self_, *loss_inputs):
+            loss, loss_per_item = self_.call(loss_function.loss, *loss_inputs)
+
+            policy_vars = self_.call(policy._variables)
+            grads_and_vars = self_.call(optimizer.calculate_gradients, policy_vars, loss)
+            step_op = self_.call(optimizer.apply_gradients, grads_and_vars)
+            return step_op, loss, loss_per_item
+
+        # self.core_component.define_api_method("optimize", optimize)
+
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
         Args:
