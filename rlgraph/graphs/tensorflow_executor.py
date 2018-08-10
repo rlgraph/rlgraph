@@ -643,23 +643,17 @@ class TensorFlowExecutor(GraphExecutor):
             # - Sync new weights to subgraphs.
             # We simply swap this update method in place to enable multi-gpu processing on any agent.
             def optimize_subgraphs(self_, *inputs):
-                input_batches = self_.call_(batch_splitter.split_batch, *inputs)
-                all_grads_and_vars = list()
 
                 # TODO missing init device op.
-                optimizer.call("init_towers")
+                init_op = optimizer.call("init_towers")
 
-                for i, shard in enumerate(input_batches):
-                    device_inputs = self_.call(splitter.split(shard))
+                input_batches = self_.call_(batch_splitter.split_batch, *inputs)
 
-                    # Fetch optimizer for this subgraph.
-                    sub_graph_opt = subgraphs[i].sub_component_by_name("optimizer")
+                # Multi gpu optimizer passes shards to the respective subgraphs.
+                averaged_grads = self_.call(optimizer._graph_fn_calculate_gradients(input_batches))
 
-                    # Obtain gradients for this shard.
-                    tower_grads = self_.call(sub_graph_opt.calculate_gradients, *device_inputs)
-                    all_grads_and_vars.append(tower_grads)
-
-                update_op = optimizer._graph_fn_apply_gradients(all_grads_and_vars)
+                # Apply averaged grads to main policy.
+                update_op = optimizer._graph_fn_apply_gradients(averaged_grads)
 
                 # Get master weights
                 weights = self_.call("get_policy_weights")

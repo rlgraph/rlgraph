@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components.common.batch_splitter import BatchSplitter
 from rlgraph.components.optimizers.optimizer import Optimizer
 
 
@@ -47,18 +46,10 @@ class MultiGpuSyncOptimizer(Optimizer):
         self.add_components(self.local_optimizer)
 
         # Function handle used to create replicas.
-        self.replica_graphs = None
+        self.subgraphs = None
 
         # Device names.
         self.gpu_devices = None
-
-        # Graph replicas holding the sub-graph copies.
-        self.device_graphs = None
-        self.device_gradients = list()
-        self.device_vars = list()
-        self.device_losses = list()
-
-
 
         def step(self_):
             grads_and_vars = self_.call(self_._graph_fn_calculate_gradients)
@@ -66,23 +57,17 @@ class MultiGpuSyncOptimizer(Optimizer):
 
         self.define_api_method("step", step)
 
-    def set_replicas(self, component_graphs, loss_component):
+    def set_replicas(self, component_graphs, splitter):
         """
         Provides the optimizer with a list of sub-graphs to use for splitting batches over GPUs.
 
         Args:
             component_graphs (list): List of component graphs.
-            loss_component (str):
+            splitter (Splitter): Splitter object containing the keys needed to split an input batch into
+                the shards for each device.
         """
-        self.replica_graphs = component_graphs
-        for graph in component_graphs:
-            # Store replica vars and gradients.
-            # TODO do we want all these?
-            self.device_vars.append(graph.variables.values())
-
-            # Get loss by fetching the loss component from each subgraph.
-            loss_component = graph.sub_component_by_name(loss_component)
-            self.device_losses.append(loss_component.loss)
+        self.subgraphs = component_graphs
+        self.splitter = splitter
 
     def create_variables(self, input_spaces, action_space=None):
         super(MultiGpuSyncOptimizer, self).create_variables(input_spaces, action_space)
@@ -109,17 +94,27 @@ class MultiGpuSyncOptimizer(Optimizer):
         # TODO generate ops to load to device memory
         pass
 
-    def _graph_fn_calculate_gradients(self):
+    def _graph_fn_calculate_gradients(self, input_batches):
         """
         The multi-gpu-sync optimizer calculates gradients by averaging them across
         replicas.
+
+        Args:
+            input_batches(list): List of FlattenedDataOps containing input batch shard per item.
         """
-        all_grads_and_vars = []
-        for device in self.gpu_devices:
-            all_grads_and_vars.append(self.local_optimizer._graph_fn_calculate_gradients(
-                variables=self.device_vars[device],
-                loss=self.device_losses[device]
-            ))
+        all_grads_and_vars = list()
+        assert len(input_batches) == self.num_gpus
+        for i, shard in enumerate(input_batches):
+            device_inputs = self.splitter.call("split", shard)
+
+            # Fetch optimizer for this subgraph.
+            sub_graph_opt = self.subgraphs[i].sub_component_by_name("optimizer")
+
+            # Obtain gradients for this shard.
+            tower_grads = self.call(sub_graph_opt.calculate_gradients, *device_inputs)
+            all_grads_and_vars.append(tower_grads)
+
+        # Return averaged gradients.
         return self._average_gradients(all_grads_and_vars)
 
     def _graph_fn_apply_gradients(self, grads_and_vars):
