@@ -641,21 +641,46 @@ class TensorFlowExecutor(GraphExecutor):
             splitter = master_component.subcomponents["splitter"]
             master_component.add_components(batch_splitter)
 
+            # def optimize(self_, *loss_inputs):
+            #     loss, loss_per_item = self_.call(loss_function.loss, *loss_inputs)
+            #
+            #     policy_vars = self_.call(policy._variables)
+            #     grads_and_vars = self_.call(optimizer.calculate_gradients, policy_vars, loss)
+            #     step_op = self_.call(optimizer.apply_gradients, grads_and_vars)
+            #     return step_op, loss, loss_per_item
 
             # With all graphs and subgraphs in place, we need to connect
             # the inputs to the subgraphs and create the multi gpu ops.
 
-            def update_subgraphs(self_, *inputs):
+            def optimize_subgraphs(self_, *inputs):
                 input_batches = self_.call_(batch_splitter.split_batch, *inputs)
-                grads_and_var_outputs = list()
+                all_grads_and_vars = list()
+
+                # TODO missing init device op.
+                optimizer.call("init_towers")
+
                 for i, shard in enumerate(input_batches):
                     device_inputs = self_.call(splitter.split(shard))
-                    # This is wrong because it returns losses, not gradients
-                    result_from_tower = self_.call(subgraphs[i].update_from_external_batch, *device_inputs)
-                    grads_and_var_outputs.append(result_from_tower)
+
+                    # Fetch optimizer for this subgraph.
+                    sub_graph_opt = subgraphs[i].subcomponents["optimizer"]
+
+                    # Obtain gradientsfor this shard.
+                    tower_grads = self_.call(sub_graph_opt.calculate_gradients, *device_inputs)
+                    all_grads_and_vars.append(tower_grads)
+
+                update_op = optimizer._graph_fn_apply_gradients(all_grads_and_vars)
+
+                # Get master weights
+                weights = self_.call("get_policy_weights")
+                for i, shard in enumerate(subgraphs):
+                    # Sync weights to shards
+                    subgraphs[i].call("set_policy_weights", weights)
+
+                return update_op
 
             # Swap update method in place.
-            master_component.define_api_method("update_from_external_batch", update_subgraphs)
+            # master_component.define_api_method("optimize", optimize_subgraphs)
 
     def _sanity_check_devices(self):
         """
