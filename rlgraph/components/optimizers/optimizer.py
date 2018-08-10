@@ -50,8 +50,10 @@ class Optimizer(Component):
 
         self.learning_rate = learning_rate
 
-        # Define our interface.
+        # TODO we need to decide if the optimizer should always be called with these to enable
+        # complex device strategies.
         self.define_api_method(name="calculate_gradients", func=self._graph_fn_calculate_gradients)
+        self.define_api_method(name="apply_gradients", func=self._graph_fn_apply_gradients, must_be_complete=False)
 
     def _graph_fn_calculate_gradients(self, *inputs):
         """
