@@ -18,6 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+# import random
+# import string
 
 from rlgraph.spaces.box_space import BoxSpace
 
@@ -27,23 +29,26 @@ class TextBox(BoxSpace):
     A text box in TXT^n where the shape means the number of text chunks in each dimension.
     """
 
-    def __init__(self, shape=(), add_batch_rank=False, add_time_rank=False):
+    def __init__(self, shape=(), **kwargs):
         """
         Args:
             shape (tuple): The shape of this space.
         """
-        # TODO: low/high got to be handled somehow (not needed for text spaces).
-        super(TextBox, self).__init__(low=0, high=0, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
+        # Set both low/high to 0 (make no sense for text).
+        super(TextBox, self).__init__(low=0, high=0, **kwargs)
 
+        # Set dtype to numpy's unicode type.
         self._dtype = np.unicode_
 
         assert isinstance(shape, tuple), "ERROR: `shape` must be a tuple."
         self._shape = shape
 
     def sample(self, size=None):
-        # TODO: Make it such that it doesn't only produce number strings.
         shape = self._get_np_shape(num_samples=size)
+
+        # TODO: Make it such that it doesn't only produce number strings (using `petname` module?).
         sample_ = np.random.randint(low=32, high=127, size=shape)
+
         if shape == () or shape is None:
             return str(sample_)
         else:
