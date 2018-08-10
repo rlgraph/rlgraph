@@ -26,7 +26,7 @@ from rlgraph.tests.dummy_components import *
 __all__ = [
     "recursive_assert_almost_equal",
     "ComponentTest",
-    "Dummy0to1", "Dummy1To1", "Dummy1To2", "Dummy2To1", "Dummy2GraphFns1To1",
+    "Dummy0To1", "Dummy1To1", "Dummy1To2", "Dummy2To1", "Dummy2GraphFns1To1",
     "DummyWithVar", "SimpleDummyWithVar",
     "DummyWithSubComponents", "DummyCallingSubComponentsAPIFromWithinGraphFn",
     "FlattenSplitDummy", "NoFlattenNoSplitDummy",  "OnlyFlattenDummy"

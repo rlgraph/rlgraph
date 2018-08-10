@@ -78,7 +78,7 @@ class TestSingleComponents(unittest.TestCase):
         """
         Adds a single component with 0-to-1 graph_fn to the core and passes a value through it.
         """
-        component = Dummy0to1(scope="dummy", var_value=5.0)
+        component = Dummy0To1(scope="dummy", var_value=5.0)
         test = ComponentTest(component=component, input_spaces=None)
 
         # Expected outputs: `var_value` passed into ctor.

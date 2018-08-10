@@ -90,7 +90,7 @@ class Dummy2To2(Component):
         return input1 + self.constant_value, input2 * self.constant_value
 
 
-class Dummy0to1(Component):
+class Dummy0To1(Component):
     """
     A dummy component with one graph_fn without api_methods and one output.
 
@@ -98,7 +98,7 @@ class Dummy0to1(Component):
         run() -> fixed value stored in a variable
     """
     def __init__(self, scope="dummy-0-to-1", var_value=1.0):
-        super(Dummy0to1, self).__init__(scope=scope)
+        super(Dummy0To1, self).__init__(scope=scope)
         self.var_value = var_value
         self.var = None
 
