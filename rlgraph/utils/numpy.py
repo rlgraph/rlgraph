@@ -91,7 +91,11 @@ def one_hot(x, depth=0, on_value=1, off_value=0):
         depth = np.max(x) + 1
     assert np.max(x) < depth, "ERROR: The max. index of `x` ({}) is larger than depth ({})!".format(np.max(x), depth)
     shape = x.shape
-    out = np.ones((*shape, depth)) * off_value
+
+    # Python 2.7 compatibility, (*shape, depth) is not allowed.
+    shape_list = [dim for dim in shape]
+    shape_list.append(depth)
+    out = np.ones(shape_list) * off_value
     indices = []
     for i in range(x.ndim):
         tiles = [1] * x.ndim
