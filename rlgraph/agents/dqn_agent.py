@@ -201,16 +201,13 @@ class DQNAgent(Agent):
             # Get the different Q-values.
             q_values_s = self_.call(policy.get_q_values, preprocessed_states)
             qt_values_sp = self_.call(target_policy.get_q_values, preprocessed_next_states)
-            q_values_sp = None
             if self.double_q:
                 q_values_sp = self_.call(policy.get_q_values, preprocessed_next_states)
-
-            if isinstance(memory, PrioritizedReplay):
-                loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-                                     qt_values_sp, q_values_sp, importance_weights)
             else:
-                loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-                                     qt_values_sp, q_values_sp)
+                q_values_sp = np.zeros_like(q_values_s)
+
+            loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
+                                 qt_values_sp, q_values_sp, importance_weights)
 
             policy_vars = self_.call(policy._variables)
             step_op = self_.call(optimizer.step, policy_vars, loss)

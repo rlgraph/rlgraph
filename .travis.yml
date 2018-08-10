@@ -38,6 +38,6 @@ script:
 notifications:
   email:
     recipients:
-      - dev@rlgraph-project.org
+      - contact@rlcore.ai
     on_success: never
     on_failure: always
