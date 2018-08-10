@@ -300,7 +300,7 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
         ret = []
 
         for i, op in enumerate(ops):
-            # A FlattenedDataOp: Try to re-nest it and then compare it to input_template_op's structure.
+            # A FlattenedDataOp: Try to re-nest it.
             if isinstance(op, FlattenedDataOp):
                 ret.append(unflatten_op(op))
             # All others are left as-is.
@@ -422,7 +422,8 @@ def flatten_op(op, scope_="", list_=None):
     if isinstance(op, dict):
         scope_ += "/"
         for key in sorted(op.keys()):
-            flatten_op(op[key], scope_=scope_ + key, list_=list_)
+            # Make sure we have no double slashes from flattening an already FlattenedDataOp.
+            flatten_op(op[key], scope_=(scope_[:-1] if len(key) == 0 or key[0] == "/" else scope_) + key, list_=list_)
     elif isinstance(op, tuple):
         scope_ += "/" + FLAT_TUPLE_OPEN
         for i, c in enumerate(op):
