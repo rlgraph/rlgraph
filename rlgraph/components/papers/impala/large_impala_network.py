@@ -40,6 +40,7 @@ class LargeIMPALANetwork(NeuralNetwork):
         Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
     """
     def __init__(self, scope="large-impala-network", **kwargs):
+        # OBSOLETE: Switch off automatic `apply` API-method construction. We define our own.
         super(LargeIMPALANetwork, self).__init__(scope=scope, **kwargs)
 
         # Create all needed sub-components.
@@ -80,24 +81,28 @@ class LargeIMPALANetwork(NeuralNetwork):
             # Conv2D plus MaxPool2D.
             conv2d_plus_maxpool = Stack(
                 Conv2DLayer(filters=num_filters, kernel_size=3, strides=1),
-                MaxPool2DLayer(pool_size=3, strides=2)
+                MaxPool2DLayer(pool_size=3, strides=2),
+                scope="conv-max"
             )
 
             # Single unit for the residual layers (ReLU + Conv2D 3x3 stride=1).
             residual_unit = Stack(
                 NNLayer(activation="relu"),  # single ReLU
-                Conv2DLayer(filters=num_filters, kernel_size=3, strides=1)
+                Conv2DLayer(filters=num_filters, kernel_size=3, strides=1),
+                scope="relu-conv"
             )
             # Residual Layer.
             residual_layer = ResidualLayer(residual_unit=residual_unit, repeats=2)
             # Repeat same residual layer 2x.
             residual_repeater = RepeaterStack(sub_component=residual_layer, repeats=2)
 
-            conv2d_main_units.append(Stack(conv2d_plus_maxpool, residual_repeater))
+            conv2d_main_units.append(Stack(conv2d_plus_maxpool, residual_repeater, scope="conv-unit-{}".format(i)))
 
         # Sequence together the conv2d units and an fc block (surrounded by ReLUs).
         return Stack(
-            conv2d_main_units + [NNLayer(activation="relu"), DenseLayer(units=256), NNLayer(activation="relu")],
+            conv2d_main_units + [NNLayer(activation="relu", scope="relu-1"),
+                                 DenseLayer(units=256),
+                                 NNLayer(activation="relu", scope="relu-2")],
             scope="image-processing-stack"
         )
 
@@ -127,7 +132,7 @@ class LargeIMPALANetwork(NeuralNetwork):
             scope="text-processing-stack"
         )
 
-    def apply(self, input_dict, ):
+    def apply(self, input_dict):
         # Split the input dict coming directly from the Env.
         # TODO: How do we get the previous action and reward in there?
         image, text, previous_action, previous_reward = self.call(self.splitter.split, input_dict)
