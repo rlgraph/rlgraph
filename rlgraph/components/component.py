@@ -172,7 +172,7 @@ class Component(Specifiable):
         for member in inspect.getmembers(self):
             name, method = (member[0], member[1])
             if name != "define_api_method" and name != "add_components" and name[0] != "_" and \
-                    name not in self.switched_off_apis and util.get_method_type(method) == "api":
+                    name not in self.switched_off_apis and callable(method) and util.get_method_type(method) == "api":
                 # callable_anytime = False  # not util.does_method_call_graph_fns(method)
                 self.api_methods[name] = APIMethodRecord(method, component=self)  #, callable_anytime=callable_anytime)
                 # Store the input-parameter names and map them to None records (Space not defined yet).
