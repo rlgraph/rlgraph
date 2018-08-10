@@ -17,8 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph import get_backend
-from rlgraph.components import Component
+from rlgraph import get_backend, RLGraphError
+from rlgraph.components.component import Component
 from rlgraph.utils.util import force_tuple
 
 
@@ -45,52 +45,97 @@ class Stack(Component):
                 to each other.
 
         Keyword Args:
-            api_methods (Optional[Set[str]]): A set of names of API-methods to connect through the stack.
+            api_methods (Set[Union[str,Tuple[str,str]]]): A set of names of API-methods to connect through the stack.
                 Defaults to {"apply"}. All sub-Components must implement all API-methods in this set.
                 Alternatively, a tuple can be used  (instead of a string), in which case the first tuple-item
                 is used as the Stack's API-method name and the second item is the sub-Components' API-method name.
                 E.g. api_methods={("stack_run", "run")}. This will create "stack_run" for the Stack, which will call
-                one by one the "run" methods of the sub-Components.
+                - one by one - all the "run" methods of the sub-Components.
 
                 Connecting always works by first calling the first sub-Component's API-method, then - with the
                 result - calling the second sub-Component's API-method, etc..
                 This is done for all API-methods in the given set.
+            # implement "expose"-mode later. For now require custom API-method in child-of-Stack class.
+            #connection_rule (str): Either "strict" (default) or "expose".
+            #    "strict": Throws error if the number of inputs/return values between the different sub-component does
+            #        not match.
+            #        E.g. sub-components A and B:
+            #        A has 1-in 2-outs, B has 2-ins, 1-out -> ok
+            #        A has 1-in 3-outs, B has 1-in, 1-out -> not ok (3 does not match 1)
+            #    "expose": Extra (non matching) ins and outs are being "exposed" into the Stack's API-method.
+            #        E.g. sub-components A and B:
+            #        A has 1-in 2-outs, B has 1-in, 1-out -> the 2nd out of A will be forwarded to be another out
+            #            of Stack's API-method, such that the Stack now has 1 in and 2 outs (1 out coming from B,
+            #            the other one being the 2nd out of A).
+            #        A has 1-in 1-out, B has 2-ins, 1-out -> the 2nd in of B will be forwarded to be another in
+            #            of Stack's API-method, such that the Stack now has 2 ins (1 in coming from A, the other
+            #            one being the 2nd in of B) and 1 out.
         """
         api_methods = kwargs.pop("api_methods", {"apply"})
+        #connection_rule = kwargs.pop("connection_rule", "strict")
 
         super(Stack, self).__init__(*sub_components, scope=kwargs.pop("scope", "stack"), **kwargs)
 
-        # For each api-method in the given set, create our own API-method connecting through
-        # all sub-Component's API-methods.
+        self.num_allowed_inputs = None
+        self.num_allowed_returns = None
+
+        self._build_stack(api_methods)
+
+    def _build_stack(self, api_methods):
+        """
+        For each api-method in set `api_methods`, automatically create this Stack's own API-method by connecting
+        through all sub-Component's API-methods. This is skipped if this Stack already has a custom API-method
+        by that name.
+
+        Args:
+            api_methods (Set[Union[str,Tuple[str,str]]]): See ctor kwargs.
+            #connection_rule (str): See ctor kwargs.
+        """
+        # Loop through the API-method set.
         for api_method_name in api_methods:
+            # API-method of sub-Components and this Stack should have different names.
             if isinstance(api_method_name, tuple):
                 stack_api_method_name, components_api_method_name = api_method_name[0], api_method_name[1]
+            # API-method of sub-Components and this Stack should have the same name.
             else:
                 stack_api_method_name, components_api_method_name = api_method_name, api_method_name
 
-            # API-method for this Stack does not exist yet -> Manually create it.
+            # API-method for this Stack does not exist yet -> Automatically create it.
             if not hasattr(self, stack_api_method_name):
+
                 def method(self_, *inputs):
                     result = inputs
 
-                    # TODO: python-Components: For now, we call each preprocessor's graph_fn directly.
-                    if self_.backend == "python" or get_backend() == "python":
-                        for sub_component in self_.sub_components.values():
-                            result = getattr(sub_component, "_graph_fn_"+components_api_method_name)(*force_tuple(result))
+                    for sub_component in self_.sub_components.values():
+                        num_allowed_inputs =  sub_component.get_number_of_allowed_inputs(api_method_name)
+                        num_actual_inputs = len(result) if isinstance(result, (tuple, list)) else 1
+                        # Check whether number of inputs to this sub-component's API-method is ok.
+                        if num_allowed_inputs[0] > num_actual_inputs:
+                            raise RLGraphError(
+                                "Number of given input args ({}) to Stack's API-method '{}' is too low! Needs to "
+                                "be at least {}.".format(num_actual_inputs, stack_api_method_name,
+                                                         num_allowed_inputs[0])
+                            )
+                        elif num_allowed_inputs[1] is not None and  num_allowed_inputs[1] < num_actual_inputs:
+                            raise RLGraphError(
+                                "Number of given input args ({}) to Stack's API-method '{}' is too high! Needs to "
+                                "be at most {}.".format(num_actual_inputs, stack_api_method_name, num_allowed_inputs[1])
+                            )
 
-                    elif get_backend() == "tf":
-                        for sub_component in self_.sub_components.values():
-                            result = self_.call(getattr(sub_component, components_api_method_name), *force_tuple(result))
+                        # TODO: python-Components: For now, we call each preprocessor's graph_fn directly.
+                        if self_.backend == "python" or get_backend() == "python":
+                            result = getattr(sub_component, "_graph_fn_"+components_api_method_name)(
+                                *force_tuple(result)
+                            )
+                        elif get_backend() == "tf":
+                            result = self_.call(
+                                getattr(sub_component, components_api_method_name), *force_tuple(result)
+                            )
 
                     return result
 
                 # Register `method` to this Component using the custom name given in `api_methods`.
                 self.define_api_method(stack_api_method_name, method)
-
-            # This Stack already has a member with this name. Trust that the API-method detector of Component
-            # takes care of registering it.
-            else:
-                pass
 
     @classmethod
     def from_spec(cls, spec=None, **kwargs):

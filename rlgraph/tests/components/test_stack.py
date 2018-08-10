@@ -20,9 +20,10 @@ from __future__ import print_function
 import unittest
 import numpy as np
 
+from rlgraph import RLGraphError
 from rlgraph.components.neural_networks import Stack
 from rlgraph.components.common import RepeaterStack
-from rlgraph.tests.dummy_components import Dummy1To1, Dummy2To1, Dummy1To2, Dummy2To2
+from rlgraph.tests.dummy_components import Dummy1To1, Dummy2To1, Dummy1To2, Dummy2To2, Dummy0To1
 from rlgraph.spaces import FloatBox
 from rlgraph.tests import ComponentTest
 
@@ -71,3 +72,27 @@ class TestStack(unittest.TestCase):
         # 2nd return value: 10 times multiply with 0.5 (to initially 2048)
         expected_outputs = (5.0, 2.0)
         test.test(("some_crazy_new_api_method_name", [0.0, 2048]), expected_outputs=expected_outputs)
+
+    def test_non_matching_sub_components_in_stack(self):
+        stack = Stack(Dummy2To1(scope="A"), Dummy2To1(scope="B"), api_methods={"run"})
+        try:
+            ComponentTest(component=stack, input_spaces=dict(inputs=[float, float]))
+        except RLGraphError:
+            print("expected this error.")
+            return
+        else:
+            # Something went wrong.
+            assert False, "Expected Error on non-matching sub-Components in Stack, but none was thrown!"
+
+    def test_other_non_matching_sub_components_in_stack(self):
+        stack = Stack(Dummy1To2(scope="A"), Dummy2To1(scope="B"), Dummy1To1(scope="C"), Dummy0To1(scope="D"),
+                      api_methods={"run"})
+        try:
+            ComponentTest(component=stack, input_spaces=dict(inputs=FloatBox()))
+        except RLGraphError:
+            print("expected this error.")
+            return
+        else:
+            # Something went wrong.
+            assert False, "Expected Error on non-matching sub-Components in Stack, but none was thrown!"
+

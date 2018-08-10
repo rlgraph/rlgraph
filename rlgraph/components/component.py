@@ -490,6 +490,34 @@ class Component(Specifiable):
         else:
             return tuple(out_op_column.op_records)
 
+    def get_number_of_allowed_inputs(self, api_method_name):
+        """
+        Returns the number of allowed input args for a given API-method.
+
+        Args:
+            api_method_name (str): The API-method to analyze.
+
+        Returns:
+            Tuple[int,int]: A tuple with the range (lower/upper bound) of allowed input args for the given API-method.
+                An upper bound of None means that the API-method accepts any number of input args equal or larger
+                than the lower bound.
+        """
+        input_names = self.api_methods[api_method_name].input_names
+        num_allowed_inputs = [0, 0]
+        for in_name in input_names:
+            # Positional arg with default values (not required, only raise upper bound).
+            if self.api_method_inputs[in_name] == "flex":
+                num_allowed_inputs[1] += 1
+            # Var-positional (no upper bound anymore).
+            elif self.api_method_inputs[in_name] == "*flex":
+                num_allowed_inputs[1] = None
+            # Required arg (raise both lower and upper bound).
+            else:
+                num_allowed_inputs[0] += 1
+                num_allowed_inputs[1] += 1
+
+        return tuple(num_allowed_inputs)
+
     def check_input_completeness(self):
         """
         Checks whether this Component is "input-complete" and stores the result in self.input_complete.
