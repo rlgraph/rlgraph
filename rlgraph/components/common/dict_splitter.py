@@ -22,7 +22,7 @@ from rlgraph.components import Component
 from rlgraph.spaces import Dict
 
 
-class Splitter(Component):
+class DictSplitter(Component):
     """
     Splits an incoming container Space into all its single primitive Spaces.
     """
@@ -36,7 +36,7 @@ class Splitter(Component):
         """
         self.output_order = output_order
 
-        super(Splitter, self).__init__(
+        super(DictSplitter, self).__init__(
             scope=kwargs.pop("scope", "splitter"),
             graph_fn_num_outputs=dict(_graph_fn_split=len(output_order)),
             **kwargs
@@ -47,12 +47,12 @@ class Splitter(Component):
     def check_input_spaces(self, input_spaces, action_space=None):
         in_space = input_spaces["inputs"]
         # Make sure input is a Dict (unsorted).
-        assert isinstance(in_space, Dict), "ERROR: Input Space for Splitter ({}) must be Dict (but is {})!".\
+        assert isinstance(in_space, Dict), "ERROR: Input Space for DictSplitter ({}) must be Dict (but is {})!".\
             format(self.global_scope, in_space)
         # Keys of in_space must all be part of `self.output_order`.
         for i, name in enumerate(self.output_order):
             if name not in in_space:
-                raise RLGraphError("Item {} in `output_order` of Splitter '{}' is not part of the input Space ({})!".
+                raise RLGraphError("Item {} in `output_order` of DictSplitter '{}' is not part of the input Space ({})!".
                                    format(i, self.global_scope, in_space))
 
     def _graph_fn_split(self, inputs):

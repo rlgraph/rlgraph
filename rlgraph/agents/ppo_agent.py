@@ -21,7 +21,7 @@ import copy
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Merger, Splitter,\
+from rlgraph.components import Merger, DictSplitter,\
     Memory, PPOLossFunction, Policy
 from rlgraph.spaces import Dict, IntBox, FloatBox, BoolBox
 
@@ -54,7 +54,7 @@ class PPOAgent(Agent):
 
         self.merger = Merger(output_space=self.record_space)
         splitter_input_space = copy.deepcopy(self.record_space)
-        self.splitter = Splitter(input_space=splitter_input_space)
+        self.splitter = DictSplitter(input_space=splitter_input_space)
         self.loss_function = PPOLossFunction(clip_ratio=clip_ratio, discount=self.discount)
 
         self.define_api_methods()

@@ -29,7 +29,7 @@ from rlgraph.components.layers.strings.string_to_hash_bucket import StringToHash
 from rlgraph.components.layers.strings.embedding_lookup import EmbeddingLookup
 from rlgraph.components.neural_networks.stack import Stack
 from rlgraph.components.common.repeater_stack import RepeaterStack
-from rlgraph.components.common.splitter import Splitter
+from rlgraph.components.common.dict_splitter import DictSplitter
 
 
 class LargeIMPALANetwork(NeuralNetwork):
@@ -44,8 +44,8 @@ class LargeIMPALANetwork(NeuralNetwork):
 
         # Create all needed sub-components.
 
-        # Splitter for the Env signal (dict of 4 keys: for env image, env text, previous action and reward).
-        self.splitter = Splitter("image", "text", "previous_action", "previous_reward")
+        # DictSplitter for the Env signal (dict of 4 keys: for env image, env text, previous action and reward).
+        self.splitter = DictSplitter("image", "text", "previous_action", "previous_reward")
 
         # The Image Processing Stack (left side of "Large Architecture" Figure 3 in [1]).
         # Conv2D column + ReLU + fc(256) + ReLU.
@@ -65,8 +65,6 @@ class LargeIMPALANetwork(NeuralNetwork):
         self.add_components(
             self.splitter, self.image_processing_stack, self.text_processing_stack, self.concat_layer, self.main_lstm
         )
-
-        # TODO: Define the API method (apply) to stick it all together.
 
     @staticmethod
     def build_image_processing_stack():
@@ -129,7 +127,7 @@ class LargeIMPALANetwork(NeuralNetwork):
             scope="text-processing-stack"
         )
 
-    def apply(self, input_dict):
+    def apply(self, input_dict, ):
         # Split the input dict coming directly from the Env.
         # TODO: How do we get the previous action and reward in there?
         image, text, previous_action, previous_reward = self.call(self.splitter.split, input_dict)

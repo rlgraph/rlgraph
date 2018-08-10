@@ -19,14 +19,14 @@ from __future__ import print_function
 
 import unittest
 
-from rlgraph.components.common import Splitter, Merger
+from rlgraph.components.common import DictSplitter, Merger
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 
 
 class TestSplitterMergerComponents(unittest.TestCase):
     """
-    Tests the Splitter- and Merger-Components.
+    Tests the DictSplitter- and Merger-Components.
     """
 
     def test_splitter_component(self):
@@ -41,7 +41,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
             add_batch_rank=True
         )
         # Define the output-order.
-        splitter = Splitter("g", "a", "b", "c", "d", "e", "f")
+        splitter = DictSplitter("g", "a", "b", "c", "d", "e", "f")
         test = ComponentTest(component=splitter, input_spaces=dict(inputs=space))
 
         # Get a batch of samples.
@@ -68,7 +68,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
             add_batch_rank=False
         )
         # Define the output-order.
-        splitter = Splitter("b", "c", "d", "a", "f", "e")
+        splitter = DictSplitter("b", "c", "d", "a", "f", "e")
         test = ComponentTest(component=splitter, input_spaces=dict(inputs=space))
 
         # Single sample (no batch rank).

@@ -26,9 +26,9 @@ from rlgraph.tests import ComponentTest
 
 class TestBatchSplitter(unittest.TestCase):
     """
-    Tests the Splitter- and Merger-Components.
+    Tests the BatchSplitter Component.
     """
-    def test_splitter_component(self):
+    def test_batch_splitter_component(self):
         num_shards = 4
         space = Dict(
             states=dict(state1=float, state2=float),

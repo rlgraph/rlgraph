@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, Merger, Splitter
+from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, Merger, DictSplitter
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils.util import strip_list
 
@@ -92,7 +92,7 @@ class DQNAgent(Agent):
         # The replay memory.
         self.memory = Memory.from_spec(memory_spec)
         # The splitter for splitting up the records coming from the memory.
-        self.splitter = Splitter("states", "actions", "rewards", "terminals", "next_states")
+        self.splitter = DictSplitter("states", "actions", "rewards", "terminals", "next_states")
 
         # Copy our Policy (target-net), make target-net synchronizable.
         self.target_policy = self.policy.copy(scope="target-policy", trainable=False)
