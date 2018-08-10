@@ -23,7 +23,7 @@ from rlgraph.components import Component
 from rlgraph.utils.ops import DataOpDict
 
 
-class Merger(Component):
+class DictMerger(Component):
     """
     Merges incoming items into one FlattenedDataOp.
 
@@ -40,10 +40,10 @@ class Merger(Component):
                 - merge(Dict(c=1, d=2), Tuple(3, 4))
                 - returned value: Dict(A=Dict(c=1, d=2), B=Tuple(3, 4))
         """
-        super(Merger, self).__init__(scope=kwargs.pop("scope", "merger"), **kwargs)
+        super(DictMerger, self).__init__(scope=kwargs.pop("scope", "merger"), **kwargs)
 
         assert all(isinstance(i, str) and not re.search(r'/', i) for i in input_names), \
-            "ERROR: Not all input names of Merger Component '{}' are strings or some of them have '/' characters in " \
+            "ERROR: Not all input names of DictMerger Component '{}' are strings or some of them have '/' characters in " \
             "them, which are not allowed.".format(self.global_scope)
         self.input_names = input_names
 
@@ -60,7 +60,7 @@ class Merger(Component):
             idx += 1
 
         assert len(spaces) == len(self.input_names),\
-            "ERROR: Number of incoming Spaces ({}) does not match number of given `input_names` in Merger Component " \
+            "ERROR: Number of incoming Spaces ({}) does not match number of given `input_names` in DictMerger Component " \
             "'{}'!".format(len(spaces), len(self.input_names), self.global_scope)
 
     #    #for space in spaces:

@@ -19,14 +19,14 @@ from __future__ import print_function
 
 import unittest
 
-from rlgraph.components.common import DictSplitter, Merger
+from rlgraph.components.common import DictSplitter, DictMerger
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 
 
 class TestSplitterMergerComponents(unittest.TestCase):
     """
-    Tests the DictSplitter- and Merger-Components.
+    Tests the DictSplitter- and DictMerger-Components.
     """
 
     def test_splitter_component(self):
@@ -95,7 +95,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
             Dict(d=bool, e=FloatBox(shape=())),
             add_batch_rank=False
         )
-        merger = Merger("1", "2", "3", "test", "5", "6", "7")
+        merger = DictMerger("1", "2", "3", "test", "5", "6", "7")
         test = ComponentTest(component=merger, input_spaces=dict(inputs=[s for s in space]))
 
         # Get a single sample.

@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, Merger, DictSplitter
+from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, DictMerger, DictSplitter
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils.util import strip_list
 
@@ -88,7 +88,7 @@ class DQNAgent(Agent):
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.
-        self.merger = Merger("states", "actions", "rewards", "terminals")
+        self.merger = DictMerger("states", "actions", "rewards", "terminals")
         # The replay memory.
         self.memory = Memory.from_spec(memory_spec)
         # The splitter for splitting up the records coming from the memory.

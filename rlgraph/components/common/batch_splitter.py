@@ -77,7 +77,7 @@ class BatchSplitter(Component):
             # Flip the list to generate a new list where each item represents one shard.
             shard_list = list()
             for shard_idx in range(self.num_shards):
-                # To be converted into DataOpTuples over the input args once complete.
+                # To be converted into FlattenedDataOps over the input-arg-pieces once complete.
                 input_arg_list = list()
                 for input_elem in range(len(inputs)):
                     sharded_data_dict = FlattenedDataOp()
