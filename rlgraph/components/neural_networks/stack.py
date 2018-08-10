@@ -69,7 +69,7 @@ class Stack(Component):
                 stack_api_method_name, components_api_method_name = api_method_name, api_method_name
 
             # API-method for this Stack does not exist yet -> Manually create it.
-            if not hasattr(self, api_method_name):
+            if not hasattr(self, stack_api_method_name):
                 def method(self_, *inputs):
                     result = inputs
 
