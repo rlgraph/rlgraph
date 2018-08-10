@@ -31,9 +31,8 @@ class LSTMLayer(NNLayer):
     a final internal state and a batch of output sequences.
     """
     def __init__(
-            self, units, use_peepholes=False, cell_clip=None, forget_bias=1.0,
-            sequence_length=None, parallel_iterations=32, swap_memory=False, time_major=False,
-            **kwargs):  # weights_spec=None, dtype="float"
+            self, units, use_peepholes=False, cell_clip=None, forget_bias=1.0, parallel_iterations=32,
+            swap_memory=False, time_major=False, **kwargs):  # weights_spec=None, dtype="float"
         """
         Args:
             units (int): The number of units in the LSTM cell.
@@ -44,8 +43,6 @@ class LSTMLayer(NNLayer):
             #weights_spec: A specifier for the weight-matrices' initializers.
             #If None, use the default initializers.
             forget_bias (float): The forget gate bias to use. Default: 1.0.
-            sequence_length (Optional[np.ndarray]): An int vector mapping each batch item to a sequence length
-                such that the remaining time slots for each batch item are filled with zeros.
             parallel_iterations (int): The number of iterations to run in parallel.
                 Default: 32.
             swap_memory (bool): Transparently swap the tensors produced in forward inference but needed for back
@@ -68,7 +65,6 @@ class LSTMLayer(NNLayer):
         # self.weights_init = None
         self.forget_bias = forget_bias
 
-        self.sequence_length = sequence_length
         self.parallel_iterations = parallel_iterations
         self.swap_memory = swap_memory
         self.time_major = time_major
@@ -106,7 +102,24 @@ class LSTMLayer(NNLayer):
             # Register the generated variables with our registry.
             self.register_variables(*self.lstm_cell.variables)
 
-    def _graph_fn_apply(self, inputs, initial_c_state=None, initial_h_state=None):
+    def _graph_fn_apply(self, inputs, sequence_length=None, initial_c_state=None, initial_h_state=None):
+        """
+        Args:
+            inputs (SingleDataOp): The data to pass through the layer (batch of n items, one(!) timestep).
+            sequence_length (Optional[np.ndarray]): An int vector mapping each batch item to a sequence length
+                such that the remaining time slots for each batch item are filled with zeros.
+            initial_c_state (SingleDataOp): The initial cell-state to use. None for the default behavior (TODO: describe here what default means: zero?)
+                The cell-state in an LSTM is passed between cells from step to step and only affected by element-wise
+                operations.
+            initial_h_state (SingleDataOp): The initial hidden-state to use. None for the default behavior. TODO: what's tf's default?
+                The hidden state is identical as the output of the LSTM on the previous time step.
+
+        Returns:
+            tuple:
+                - The outputs over all timesteps of the LSTM.
+                - The final cell-state.
+                - The final hidden-state (same as last timestep's output).
+        """
         if get_backend() == "tf":
             # Run the input (and initial state) through a dynamic LSTM and return unrolled outputs and final
             # internal states.
@@ -116,10 +129,10 @@ class LSTMLayer(NNLayer):
                 initial_states = (initial_c_state, initial_h_state)
 
             lstm_out, lstm_state_tuple = tf.nn.dynamic_rnn(
-                cell=self.lstm_cell, inputs=inputs, sequence_length=self.sequence_length, initial_state=initial_states,
+                cell=self.lstm_cell, inputs=inputs, sequence_length=sequence_length, initial_state=initial_states,
                 parallel_iterations=self.parallel_iterations, swap_memory=self.swap_memory, time_major=self.time_major,
                 dtype="float" #self.dtype
             )
 
-            # Returns: Unrolled-output (time series h-states), final c-state, final h-state.
+            # Returns: Unrolled-outputs (time series of all encountered h-states), final c-state, final h-state.
             return lstm_out, lstm_state_tuple[0], lstm_state_tuple[1]
