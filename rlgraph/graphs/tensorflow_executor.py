@@ -616,7 +616,7 @@ class TensorFlowExecutor(GraphExecutor):
             assert isinstance(optimizer, MultiGpuSyncOptimizer)
 
             # 1. Get the original component used by the agent to define its model.
-            master_component = self.graph_builder.core_component()
+            master_component = self.graph_builder.core_component
 
             # TODO this copies everything, what we need is:
             # 2. Get a copy of the core component  which only contains the sub-components necessary
