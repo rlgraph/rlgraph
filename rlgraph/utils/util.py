@@ -262,7 +262,7 @@ def get_method_type(method):
         return "graph_fn"
     # Figure out API-methods by their source code: Have calls to `Component.call`.
     elif method.__name__[0] != "_" and method.__name__ != "define_api_method" and \
-        re.search(r'\.call\(', inspect.getsource(method)):
+            re.search(r'\.call\(', strip_source_code(method)):
         return "api"
     else:
         return "unknown"
@@ -278,7 +278,9 @@ def does_method_call_graph_fns(method):
     Returns:
         bool: Whether at least one graph_fn is called somewhere in the source code.
     """
-    mo = re.search(r'\.call\([^,\)]+\._graph_fn_', inspect.getsource(method))
+    src = strip_source_code(method)
+
+    mo = re.search(r'\.call\([^,\)]+\._graph_fn_', src)
     return mo is not None
 
 
@@ -293,12 +295,7 @@ def get_num_return_values(method):
     Returns:
         int: The number of return values of `method`.
     """
-    src = inspect.getsource(method)
-    # Resolve '\' at end of lines.
-    src = re.sub(r'\\\s*\n', "", src)
-    # Remove simple comment lines.
-    src = re.sub(r'^\s*#.+\n', "", src)
-    # TODO: Remove multi-line comments.
+    src = strip_source_code(method)
 
     mo = re.search(r'.*\breturn (.+)', src, flags=re.DOTALL)
     if mo:
@@ -317,3 +314,33 @@ def get_num_return_values(method):
         return num_return_values
     else:
         return 0
+
+
+def strip_source_code(method, remove_nested_functions=True):
+    """
+    Strips the source code of a method by everything that's "not important", like comments.
+
+    Args:
+        method (Union[callable,str]): The method to strip the source code for (or the source code directly as string).
+        remove_nested_functions (bool): Whether to remove nested functions from the source code as well.
+            These usually confuse the analysis of a method's source code as they comprise a method within a method.
+
+    Returns:
+        str: The stripped source code.
+    """
+    if callable(method):
+        src = inspect.getsource(method)
+    else:
+        src = method
+
+    # Resolve '\' at end of lines.
+    src = re.sub(r'\\\s*\n', "", src)
+    # Remove single line comments.
+    src = re.sub(r'\n\s*#.+', "", src)
+    # Remove multi-line comments.
+    src = re.sub(r'"""(.|\n)*?"""', "", src)
+    # Remove nested functions.
+    if remove_nested_functions is True:
+        src = re.sub(r'\n(\s*)def \w+\((.|\n)+?\n\1[^\s\n]', "", src)
+
+    return src
