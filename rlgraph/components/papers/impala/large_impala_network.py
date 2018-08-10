@@ -124,11 +124,18 @@ class LargeIMPALANetwork(NeuralNetwork):
         embedding = EmbeddingLookup(embed_dim=20, vocab_size=num_hash_buckets)
 
         lstm64 = LSTMLayer(units=64, scope="lstm-64")
-
         # TODO: Stack with LSTM (side) input of initial hidden state.
         # TODO: time-rank must be unfolded again from batch rank before passing into LSTM.
+
+        def custom_apply(self_, inputs):
+            hash_bucket, lengths = self_.call(string_to_hash_bucket.apply, inputs)
+            embedding_output = self_.call(embedding.apply, hash_bucket)
+            lstm_outputs, lstm_final_c, lstm_final_h = self_.call(lstm64.apply, embedding_output, lengths)
+            return lstm_outputs
+
         return Stack(
             string_to_hash_bucket, embedding, lstm64,
+            api_methods={("apply", custom_apply)},
             scope="text-processing-stack"
         )
 
@@ -147,6 +154,6 @@ class LargeIMPALANetwork(NeuralNetwork):
 
         # Feed concat'd input into main LSTM(256).
         # TODO: initial hidden state (probably another input to this API-method)?
-        action_probs, values = self.call(self.main_lstm.apply, main_lstm_input)
+        main_lstm_output, main_lstm_final_c, main_lstm_final_h = self.call(self.main_lstm.apply, main_lstm_input)
 
-        return action_probs, values
+        return main_lstm_output, main_lstm_final_c, main_lstm_final_h
