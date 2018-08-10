@@ -29,7 +29,7 @@ class IntBox(BoxSpace):
     A box in Z^n (only integers; each coordinate is bounded)
     e.g. an image (w x h x RGB) where each color channel pixel can be between 0 and 255.
     """
-    def __init__(self, low=None, high=None, shape=None, add_batch_rank=False, add_time_rank=False, dtype="int32"):
+    def __init__(self, low=None, high=None, shape=None, dtype="int32", **kwargs):
         """
         Three kinds of valid input:
             IntBox(6)  # only high is given -> low assumed to be 0 (0D scalar).
@@ -51,8 +51,7 @@ class IntBox(BoxSpace):
         assert dtype in [np.int16, np.int32, np.int64, np.uint8], \
             "ERROR: IntBox does not allow dtype '{}'!".format(dtype)
 
-        super(IntBox, self).__init__(low=low, high=high, shape=shape, add_batch_rank=add_batch_rank,
-                                     add_time_rank=add_time_rank, dtype=dtype)
+        super(IntBox, self).__init__(low=low, high=high, shape=shape, dtype=dtype, **kwargs)
 
         self.num_categories = None if self.global_bounds is False else self.global_bounds[1]
 

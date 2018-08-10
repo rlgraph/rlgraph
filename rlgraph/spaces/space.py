@@ -44,11 +44,10 @@ class Space(Specifiable):
 
         self.has_batch_rank = None
         self.has_time_rank = None
-
-        self.time_major = time_major
+        self.time_major = None
 
         self._add_batch_rank(add_batch_rank)
-        self._add_time_rank(add_time_rank)
+        self._add_time_rank(add_time_rank, time_major)
 
     def _add_batch_rank(self, add_batch_rank=False):
         """
@@ -60,17 +59,20 @@ class Space(Specifiable):
         """
         self.has_batch_rank = add_batch_rank
 
-    def _add_time_rank(self, add_time_rank=False):
+    def _add_time_rank(self, add_time_rank=False, time_major=False):
         """
         Changes the add_time_rank property of this Space (and of all child Spaces in a ContainerSpace).
 
         Args:
             add_time_rank (bool): Whether this Space (and all child Spaces in a ContainerSpace) should have a
                 time rank.
+            time_major (bool): Whether the time rank should come before the batch rank. Not important if no batch rank
+                exists.
         """
         self.has_time_rank = add_time_rank
+        self.time_major = time_major
 
-    def with_extra_ranks(self, add_batch_rank=True, add_time_rank=True):
+    def with_extra_ranks(self, add_batch_rank=True, add_time_rank=True, time_major=False):
         """
         Returns a deepcopy of this Space, but with `has_batch_rank` and `has_time_rank`
         set to the provided value. Use None to leave whatever value this Space has already.
@@ -80,13 +82,18 @@ class Space(Specifiable):
                 to this value. Use None to leave the property as is.
             add_time_rank (Optional[bool]): If True or False, set the `has_time_rank` property of the new Space
                 to this value. Use None to leave the property as is.
+            time_major (Optional[bool]): Whether the time-rank should be the 0th rank (instead of the 1st by default).
+                Not important if either batch_rank or time_rank are not set. Use None to leave the property as is.
 
         Returns:
             Space: The deepcopy of this Space, but with `has_batch_rank` set to True.
         """
         ret = copy.deepcopy(self)
         ret._add_batch_rank(add_batch_rank if add_batch_rank is not None else self.has_batch_rank)
-        ret._add_time_rank(add_time_rank if add_time_rank is not None else self.has_time_rank)
+        ret._add_time_rank(
+            add_time_rank if add_time_rank is not None else self.has_time_rank,
+            time_major if time_major is not None else self.time_major
+        )
         return ret
 
     def with_batch_rank(self, add_batch_rank=True):

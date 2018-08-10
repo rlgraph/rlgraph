@@ -34,7 +34,8 @@ class BoxSpace(Space):
     A box in R^n with a shape tuple of len n. Each dimension may be bounded.
     """
 
-    def __init__(self, low, high, shape=None, add_batch_rank=False, add_time_rank=False, dtype=np.float32):
+    def __init__(self, low, high, shape=None, add_batch_rank=False, add_time_rank=False, time_major=False,
+                 dtype=np.float32):
         """
         Args:
             low (any): The lower bound (see Valid Inputs for more information).
@@ -51,7 +52,8 @@ class BoxSpace(Space):
             BoxSpace(np.array([-1.0,-2.0]), np.array([2.0,4.0])) # low and high are arrays of the same shape
                 (no shape given!) -> nD array where each dimension has different bounds.
         """
-        super(BoxSpace, self).__init__(add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
+        super(BoxSpace, self).__init__(add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
+                                       time_major=time_major)
 
         self._dtype = dtype
 
