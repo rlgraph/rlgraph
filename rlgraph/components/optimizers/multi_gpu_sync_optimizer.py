@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+from rlgraph.components import BatchSplitter
 from rlgraph.components.optimizers.optimizer import Optimizer
 
 
@@ -29,16 +30,20 @@ class MultiGpuSyncOptimizer(Optimizer):
     """
     The Multi-GPU optimizer parallelizes synchronous optimization across multiple GPUs.
     """
-    def __init__(self, local_optimizer=None, scope="multi-gpu-sync-optimizer", **kwargs):
+    def __init__(self, local_optimizer, devices, scope="multi-gpu-sync-optimizer", **kwargs):
         """
         Args:
-            local_optimizer (Optional[dict,LocalOptimizer]): The spec-dict for the LocalOptimizer object used
-                to run on each device or a LocalOptimizer object itself.
+            local_optimizer (Optimizer): Local optimizer object to wrap with the multi-gpu optimizer.
+            devices (list):
         """
         super(MultiGpuSyncOptimizer, self).__init__(scope=scope, **kwargs)
 
         # Add local Optimizer object.
         self.local_optimizer = local_optimizer
+        self.gpu_devices = devices
+        self.num_gpus = len(devices)
+        assert self.num_gpus > 1, "ERROR: The MultiGPUSyncOptimizer requires as least two GPUs but only {} " \
+                                  "device ids were passed in.".format(self.num_gpus)
         self.add_components(self.local_optimizer)
 
         # Function handle used to create replicas.
@@ -52,6 +57,8 @@ class MultiGpuSyncOptimizer(Optimizer):
         self.device_gradients = list()
         self.device_vars = list()
         self.device_losses = list()
+
+
 
         def step(self_):
             grads_and_vars = self_.call(self_._graph_fn_calculate_gradients)
@@ -76,16 +83,6 @@ class MultiGpuSyncOptimizer(Optimizer):
             # Get loss by fetching the loss component from each subgraph.
             loss_component = graph.sub_component_by_name(loss_component)
             self.device_losses.append(loss_component.loss)
-
-    def set_devices(self, gpu_devices):
-        """
-        Provides the optimizer with device identifiers to be used for assigning replicas
-        to devices.
-
-        Args:
-            gpu_devices (list): List of device names.
-        """
-        self.gpu_devices = gpu_devices
 
     def create_variables(self, input_spaces, action_space=None):
         super(MultiGpuSyncOptimizer, self).create_variables(input_spaces, action_space)

@@ -626,32 +626,22 @@ class TensorFlowExecutor(GraphExecutor):
             for device in range(self.num_gpus - 1):
                 subgraphs.append(master_component.copy())
 
-            # 3. Wrap local optimizer (e.g. Adam) with multi-gpu optimizer.
-            self.optimizer = MultiGpuSyncOptimizer(local_optimizer=self.optimizer)
+            # 3. Wrap local optimizer (e.g. Adam) with multi-gpu optimizer and pass device info.
+            self.optimizer = MultiGpuSyncOptimizer(local_optimizer=self.optimizer, devices=self.gpu_names)
 
             # 4. Pass the graph copies and the name of the loss component to the multi gpu optimizer.
-            # TODO do they need to be subcomponents?
             optimizer.set_replicas(subgraphs, loss_component=loss_name)
-
-            # 5. Pass device info to optimizer.
-            optimizer.set_devices(self.gpu_names)
-
             batch_splitter = BatchSplitter(self.num_gpus)
-            # TODO not ideal to fetch the splitter this way
-            splitter = master_component.subcomponents["splitter"]
+            splitter = master_component.sub_component_by_name("splitter")
             master_component.add_components(batch_splitter)
 
-            # def optimize(self_, *loss_inputs):
-            #     loss, loss_per_item = self_.call(loss_function.loss, *loss_inputs)
-            #
-            #     policy_vars = self_.call(policy._variables)
-            #     grads_and_vars = self_.call(optimizer.calculate_gradients, policy_vars, loss)
-            #     step_op = self_.call(optimizer.apply_gradients, grads_and_vars)
-            #     return step_op, loss, loss_per_item
-
-            # With all graphs and subgraphs in place, we need to connect
-            # the inputs to the subgraphs and create the multi gpu ops.
-
+            # 5. Sawp in uupdate method which performs the following steps:
+            # - Init device memory, i.e. load batch to GPU memory.
+            # - Call gradient calculation on multi-gpu optimizer which splits batch
+            #   and gets gradients from each subgraph, then averages them.
+            # - Apply averaged gradients to master component.
+            # - Sync new weights to subgraphs.
+            # We simply swap this update method in place to enable multi-gpu processing on any agent.
             def optimize_subgraphs(self_, *inputs):
                 input_batches = self_.call_(batch_splitter.split_batch, *inputs)
                 all_grads_and_vars = list()
@@ -663,7 +653,7 @@ class TensorFlowExecutor(GraphExecutor):
                     device_inputs = self_.call(splitter.split(shard))
 
                     # Fetch optimizer for this subgraph.
-                    sub_graph_opt = subgraphs[i].subcomponents["optimizer"]
+                    sub_graph_opt = subgraphs[i].sub_component_by_name("optimizer")
 
                     # Obtain gradientsfor this shard.
                     tower_grads = self_.call(sub_graph_opt.calculate_gradients, *device_inputs)
