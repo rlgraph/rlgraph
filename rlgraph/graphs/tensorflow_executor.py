@@ -22,11 +22,10 @@ import tensorflow as tf
 from tensorflow.python.client import device_lib
 
 from rlgraph import RLGraphError
-from rlgraph.components import MultiGpuSyncOptimizer
+from rlgraph.components import MultiGpuSyncOptimizer, BatchSplitter
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.backend_system import get_distributed_backend
 import rlgraph.utils as util
-from rlgraph.utils.input_parsing import get_optimizer_from_device_strategy
 
 
 class TensorFlowExecutor(GraphExecutor):
@@ -637,18 +636,26 @@ class TensorFlowExecutor(GraphExecutor):
             # 5. Pass device info to optimizer.
             optimizer.set_devices(self.gpu_names)
 
-            # TODO Create connections/ops
+            batch_splitter = BatchSplitter(self.num_gpus)
+            # TODO not ideal to fetch the splitter this way
+            splitter = master_component.subcomponents["splitter"]
+            master_component.add_components(batch_splitter)
+
+
             # With all graphs and subgraphs in place, we need to connect
-            # the inputs to the subgraphs and create the multi gpu ops
+            # the inputs to the subgraphs and create the multi gpu ops.
 
-            # TODO create splitter
-            splitter = None
+            def update_subgraphs(self_, *inputs):
+                input_batches = self_.call_(batch_splitter.split_batch, *inputs)
+                grads_and_var_outputs = list()
+                for i, shard in enumerate(input_batches):
+                    device_inputs = self_.call(splitter.split(shard))
+                    # This is wrong because it returns losses, not gradients
+                    result_from_tower = self_.call(subgraphs[i].update_from_external_batch, *device_inputs)
+                    grads_and_var_outputs.append(result_from_tower)
 
-            # TODO implement splitting logic
-            def update_devices():
-                pass
-
-            master_component.define_api_method("update_devices", update_devices)
+            # Swap update method in place.
+            master_component.define_api_method("update_from_external_batch", update_subgraphs)
 
     def _sanity_check_devices(self):
         """
