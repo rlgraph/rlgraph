@@ -655,7 +655,7 @@ class TensorFlowExecutor(GraphExecutor):
                     # Fetch optimizer for this subgraph.
                     sub_graph_opt = subgraphs[i].sub_component_by_name("optimizer")
 
-                    # Obtain gradientsfor this shard.
+                    # Obtain gradients for this shard.
                     tower_grads = self_.call(sub_graph_opt.calculate_gradients, *device_inputs)
                     all_grads_and_vars.append(tower_grads)
 

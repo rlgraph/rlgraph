@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components import BatchSplitter
+from rlgraph.components.common.batch_splitter import BatchSplitter
 from rlgraph.components.optimizers.optimizer import Optimizer
 
 
