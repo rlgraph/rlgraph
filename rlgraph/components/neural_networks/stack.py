@@ -107,7 +107,7 @@ class Stack(Component):
                     result = inputs
 
                     for sub_component in self_.sub_components.values():
-                        num_allowed_inputs =  sub_component.get_number_of_allowed_inputs(api_method_name)
+                        num_allowed_inputs =  sub_component.get_number_of_allowed_inputs(components_api_method_name)
                         num_actual_inputs = len(result) if isinstance(result, (tuple, list)) else 1
                         # Check whether number of inputs to this sub-component's API-method is ok.
                         if num_allowed_inputs[0] > num_actual_inputs:
