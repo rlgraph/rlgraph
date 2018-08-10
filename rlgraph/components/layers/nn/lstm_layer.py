@@ -96,8 +96,6 @@ class LSTMLayer(NNLayer):
 
             # Now build the layer so that its variables get created.
             in_space_without_time_rank = list(in_space.get_shape(with_batch_rank=True))
-            # Remove time-rank.
-            in_space_without_time_rank.pop(1)
             self.lstm_cell.build(tf.TensorShape(in_space_without_time_rank))
             # Register the generated variables with our registry.
             self.register_variables(*self.lstm_cell.variables)
