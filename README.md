@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/rlgraph/rlgraph.svg?branch=master)](https://travis-ci.org/rlgraph/rlgraph)
+
 # RLgraph
 Flexible computation graphs for deep reinforcement learning.
 
