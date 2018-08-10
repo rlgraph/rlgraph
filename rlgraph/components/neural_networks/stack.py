@@ -58,7 +58,7 @@ class Stack(Component):
         """
         api_methods = kwargs.pop("api_methods", {"apply"})
 
-        super(Stack, self).__init__(*sub_components, **kwargs)
+        super(Stack, self).__init__(*sub_components, scope=kwargs.pop("scope", "stack"), **kwargs)
 
         # For each api-method in the given set, create our own API-method connecting through
         # all sub-Component's API-methods.
@@ -68,22 +68,29 @@ class Stack(Component):
             else:
                 stack_api_method_name, components_api_method_name = api_method_name, api_method_name
 
-            def method(self_, *inputs):
-                result = inputs
+            # API-method for this Stack does not exist yet -> Manually create it.
+            if not hasattr(self, api_method_name):
+                def method(self_, *inputs):
+                    result = inputs
 
-                # TODO: python-Components: For now, we call each preprocessor's graph_fn directly.
-                if self_.backend == "python" or get_backend() == "python":
-                    for sub_component in self_.sub_components.values():
-                        result = getattr(sub_component, "_graph_fn_"+components_api_method_name)(*force_tuple(result))
+                    # TODO: python-Components: For now, we call each preprocessor's graph_fn directly.
+                    if self_.backend == "python" or get_backend() == "python":
+                        for sub_component in self_.sub_components.values():
+                            result = getattr(sub_component, "_graph_fn_"+components_api_method_name)(*force_tuple(result))
 
-                elif get_backend() == "tf":
-                    for sub_component in self_.sub_components.values():
-                        result = self_.call(getattr(sub_component, components_api_method_name), *force_tuple(result))
+                    elif get_backend() == "tf":
+                        for sub_component in self_.sub_components.values():
+                            result = self_.call(getattr(sub_component, components_api_method_name), *force_tuple(result))
 
-                return result
+                    return result
 
-            # Register `method` to this Component using the custom name given in `api_methods`.
-            self.define_api_method(stack_api_method_name, method)
+                # Register `method` to this Component using the custom name given in `api_methods`.
+                self.define_api_method(stack_api_method_name, method)
+
+            # This Stack already has a member with this name. Trust that the API-method detector of Component
+            # takes care of registering it.
+            else:
+                pass
 
     @classmethod
     def from_spec(cls, spec=None, **kwargs):
