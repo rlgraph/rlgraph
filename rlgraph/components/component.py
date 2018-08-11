@@ -92,6 +92,10 @@ class Component(Specifiable):
         # The global scope string defining the exact nested position of this Component in the Graph.
         # e.g. "/core/component1/sub-component-a"
         self.global_scope = self.scope
+
+        # Shared variable scope.
+        self.reuse_variable_scope = kwargs.pop("reuse_variable_scope", None)
+
         # Names of sub-components that exist (parallelly) inside a containing component must be unique.
         self.name = kwargs.pop("name", self.scope)  # if no name given, use scope
         self.device = kwargs.pop("device", None)
@@ -715,16 +719,8 @@ class Component(Specifiable):
         # We are creating the variable using a Space as template.
         if from_space is not None:
             # Variables should be returned in a flattened OrderedDict.
-            if flatten:
-                var = from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
-                    name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
-                    time_major=time_major, trainable=trainable, initializer=initializer,
-                    is_python=(self.backend == "python" or get_backend() == "python")))
-            # Normal, nested Variables from a Space (container or primitive).
-            else:
-                var = from_space.get_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable,
-                                              initializer=initializer,
-                                              is_python=(self.backend == "python" or get_backend() == "python"))
+            var = self._variable_from_space(flatten, from_space, name, add_batch_rank,
+                                            add_time_rank, time_major, trainable, initializer)
 
         # TODO: Figure out complete concept for python/numpy based Components (including their handling of variables).
         elif self.backend == "python" or get_backend() == "python":
@@ -777,6 +773,21 @@ class Component(Specifiable):
             self.variables[key] = var
 
         return var
+
+    def _variable_from_space(self, flatten, from_space, name, add_batch_rank, add_time_rank, time_major, trainable,
+                             initializer):
+        """
+        Private variable from space helper, see 'get_variable' for API.
+        """
+        if flatten:
+            return from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
+                name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
+                time_major=time_major, trainable=trainable, initializer=initializer,
+                is_python=(self.backend == "python" or get_backend() == "python")))
+        # Normal, nested Variables from a Space (container or primitive).
+        else:
+            return from_space.get_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable,
+                initializer=initializer, is_python=(self.backend == "python" or get_backend() == "python"))
 
     def get_variables(self, *names, **kwargs):
         """
@@ -1078,7 +1089,8 @@ class Component(Specifiable):
         # Recurse up the container hierarchy.
         self.parent_component.propagate_variables(keys)
 
-    def copy(self, name=None, scope=None, device=None, trainable=None, global_component=False):
+    def copy(self, name=None, scope=None, device=None, trainable=None,
+             global_component=False, reuse_variable_scope=None):
         """
         Copies this component and returns a new component with possibly another name and another scope.
         The new component has its own variables (they are not shared with the variables of this component as they
@@ -1093,7 +1105,7 @@ class Component(Specifiable):
                 Use None for no specific preference.
             global_component (Optional[bool]): Whether the new Component is global or not. If None, use the same
                 setting as this one.
-
+            reuse_variable_scope (Optional[str]): If not None, variables of the copy will be shared under this scope.
         Returns:
             Component: The copied component object.
         """
@@ -1116,6 +1128,7 @@ class Component(Specifiable):
         new_component = copy.deepcopy(self)
         new_component.name = name
         new_component.scope = scope
+        new_component.reuse_variable_scope = reuse_variable_scope
         # Change global_scope for the copy and all its sub-components.
         new_component.global_scope = scope
         new_component.propagate_scope(sub_component=None)
