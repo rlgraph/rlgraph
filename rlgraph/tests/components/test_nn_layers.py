@@ -210,11 +210,10 @@ class TestNNLayer(unittest.TestCase):
         # 0th rank=batch-rank; 1st rank=time/sequence-rank; 2nd-nth rank=data.
         batch_size = 3
         sequence_length = 2
-        input_space = FloatBox(shape=(sequence_length, 3), add_batch_rank=True)
-        action_space = IntBox(2, shape=(2, 2))
+        input_space = FloatBox(shape=(3,), add_batch_rank=True, add_time_rank=True)
 
         lstm_layer = LSTMLayer(units=5)
-        test = ComponentTest(component=lstm_layer, input_spaces=dict(inputs=input_space), action_space=action_space)
+        test = ComponentTest(component=lstm_layer, input_spaces=dict(inputs=input_space))
 
         # Batch of n samples.
         inputs = np.ones(shape=(batch_size, sequence_length, 3))

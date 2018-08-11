@@ -103,7 +103,8 @@ class LSTMLayer(NNLayer):
     def _graph_fn_apply(self, inputs, sequence_length=None, initial_c_state=None, initial_h_state=None):
         """
         Args:
-            inputs (SingleDataOp): The data to pass through the layer (batch of n items, one(!) timestep).
+            inputs (SingleDataOp): The data to pass through the layer (batch of n items, m timesteps).
+                Position of batch- and time-ranks in the input depend on `self.time_major` setting.
             sequence_length (Optional[np.ndarray]): An int vector mapping each batch item to a sequence length
                 such that the remaining time slots for each batch item are filled with zeros.
             initial_c_state (SingleDataOp): The initial cell-state to use. None for the default behavior (TODO: describe here what default means: zero?)
