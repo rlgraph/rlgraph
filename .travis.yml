@@ -19,7 +19,7 @@ before_install:
   - docker run -d --rm --name ${DOCKER_JOB_NAME} -v $(pwd):/rlgraph ${DOCKER_IMAGE} /bin/bash -c 'while true; do sleep 1; done';
 
 install:
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'apt-get update && apt-get install -y python-opencv';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'apt-get update && apt-get install -y python-opencv python-pip';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U pip';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install pytest-xdist';
   # In the future, add further extra packages here, like horovod, pytorch, or ray
