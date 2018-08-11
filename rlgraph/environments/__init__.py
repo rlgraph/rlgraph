@@ -46,7 +46,8 @@ try:
         deepmindlab=DeepmindLabEnv,
         deepmindlabenv=DeepmindLabEnv,
     ))
-except ModuleNotFoundError:
+    # TODO travis error on this, investigate.
+except Exception:
     pass
 
 

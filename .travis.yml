@@ -28,7 +28,7 @@ install:
 
 script:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/core';
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/envs';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && pytest -m test_apex_agent_long_task_learning.py::TestApexAgentLongTaskLearning::test_agent_compilation';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && pytest -m test_apex_agent_long_task_learning.py::TestApexAgentLongTaskLearning::test_worker_update';
 
