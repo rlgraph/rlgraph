@@ -18,12 +18,11 @@ from __future__ import division
 from __future__ import print_function
 
 import copy
-import numpy as np
 
 from rlgraph.agents import Agent
 from rlgraph.components import DictMerger, DictSplitter,\
     Memory, PPOLossFunction, Policy
-from rlgraph.spaces import Dict, IntBox, FloatBox, BoolBox
+from rlgraph.spaces import Dict, BoolBox
 
 
 class PPOAgent(Agent):
@@ -62,45 +61,13 @@ class PPOAgent(Agent):
             self._build_graph()
             self.graph_built = True
 
-    def _assemble_meta_graph(self, core, *params):
+    def define_api_methods(self, *params):
         # Define our interface.
-        core.define_inputs("states_from_env", "external_batch_states", "external_batch_next_states",
-                           "states_for_memory", space=self.state_space.with_batch_rank())
-        core.define_inputs("actions_for_memory", "external_batch_actions", space=self.action_space.with_batch_rank())
-        core.define_inputs("rewards_for_memory", "external_batch_rewards", space=FloatBox(add_batch_rank=True))
-        core.define_inputs("terminals_for_memory", "external_batch_terminals", space=BoolBox(add_batch_rank=True))
-
-        #core.define_inputs("deterministic", space=bool)
-        core.define_inputs("time_step", space=int)
-        core.define_outputs("get_actions", "insert_records",
-                            "update_from_memory", "update_from_external_batch",
-                            "get_batch", "get_indices", "loss")
-
-
-        core.add_components(self.policy)
-        # Add an Exploration for the q-net (target-net doesn't need one).
-        core.add_components(self.exploration)
-
-        # Add our Memory Component plus merger and splitter.
-        core.add_components(self.memory, self.merger, self.splitter)
-
-        # Add the loss function and optimizer.
-        core.add_components(self.loss_function, self.optimizer)
-
+        pass
         # TODO define and connect missing components
 
-    def get_action(self, states, use_exploration=True):
-        batched_states = self.state_space.force_batch(states)
-        remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
-        # Increase timesteps by the batch size (number of states in batch).
-        self.timesteps += len(batched_states)
-        actions = self.graph_executor.execute(
-            "get_actions", inputs=dict(states_from_env=batched_states, time_step=self.timesteps)
-        )
-
-        if remove_batch_rank:
-            return actions[0]
-        return actions
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
+        pass
 
     def get_batch(self):
         """
@@ -109,7 +76,7 @@ class PPOAgent(Agent):
         Returns:
             batch, ndarray: Sample batch and indices sampled.
         """
-        batch, indices = self.graph_executor.execute("get_batch", "get")
+        batch, indices = self.graph_executor.execute("get_batch")
 
         # Return indices so we later now which priorities to update.
         return batch, indices
