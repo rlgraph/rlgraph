@@ -22,6 +22,7 @@ import numpy as np
 from rlgraph import RLGraphError, get_backend
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.components.layers.preprocessing import PreprocessLayer
+from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.ops import flatten_op, unflatten_op
 
 if get_backend() == "tf":
@@ -65,6 +66,8 @@ class Flatten(PreprocessLayer):
 
         # Check whether our input space has-batch or not and store this information here.
         in_space = input_spaces["preprocessing_inputs"]  # type: Dict
+        if isinstance(in_space, IntBox):
+            sanity_check_space(in_space, must_have_categories=True, num_categories=(2, 10000))
 
         # Store the mapped output Spaces (per flat key).
         self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
