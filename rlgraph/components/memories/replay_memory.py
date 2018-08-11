@@ -124,4 +124,6 @@ class ReplayMemory(Memory):
         index = self.read_variable(self.index)
         indices = tf.random_uniform(shape=(num_records,), maxval=size, dtype=tf.int32)
         indices = (index - 1 - indices) % self.capacity
-        return self.read_records(indices=indices)
+
+        # Return default importance weight one.
+        return self.read_records(indices=indices), indices, tf.ones_like(tensor=indices)

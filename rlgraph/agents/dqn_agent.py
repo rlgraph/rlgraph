@@ -170,17 +170,10 @@ class DQNAgent(Agent):
 
         # Learn from memory.
         def update_from_memory(self_):
-            # PRs also return updated weights and their indices.
-            sample_indices = None
-            if isinstance(memory, PrioritizedReplay):
-                records, sample_indices, importance_weights = self_.call(
+            # Non prioritized memory will just return weight 1.0 for all samples.
+            records, sample_indices, importance_weights = self_.call(
                     memory.get_records, self.update_spec["batch_size"]
                 )
-            # Non-PR memory.
-            else:
-                records = self_.call(memory.get_records, self.update_spec["batch_size"])
-                importance_weights = np.ones(shape=(self.update_spec["batch_size"],))
-
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = self_.call(splitter.split, records)
 
             # Delegate actual update to update_from_external_batch.
@@ -201,13 +194,14 @@ class DQNAgent(Agent):
             # Get the different Q-values.
             q_values_s = self_.call(policy.get_q_values, preprocessed_states)
             qt_values_sp = self_.call(target_policy.get_q_values, preprocessed_next_states)
+
             if self.double_q:
                 q_values_sp = self_.call(policy.get_q_values, preprocessed_next_states)
             else:
-                q_values_sp = np.zeros_like(q_values_s)
-
+                # These will be not used here, we just cant have None if it's not the last argument.
+                q_values_sp = q_values_s
             loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-                                 qt_values_sp, q_values_sp, importance_weights)
+                qt_values_sp, q_values_sp, importance_weights)
 
             policy_vars = self_.call(policy._variables)
             step_op = self_.call(optimizer.step, policy_vars, loss)
