@@ -42,15 +42,15 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         """
         Creates a large IMPALA architecture network and runs a few input samples through it.
         """
+        action_space = IntBox(9, add_batch_rank=True, add_time_rank=True, time_major=True)
         # Use the exact same input space as in the IMPALA paper.
         input_space = Dict(
             image=FloatBox(shape=(96, 72, 3)), text=TextBox(),
-            previous_action=IntBox(), previous_reward=FloatBox(),
+            previous_action=action_space, previous_reward=FloatBox(),
             add_batch_rank=True,
             add_time_rank=True,
             time_major=True
         )
-        action_space = IntBox(9, add_batch_rank=True, add_time_rank=True, time_major=True)
 
         # Create the network.
         large_impala_architecture = LargeIMPALANetwork()

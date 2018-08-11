@@ -90,4 +90,3 @@ class Conv2DLayer(NNLayer):
             self.layer.build(in_space.get_shape(with_batch_rank=True))
             # Register the generated variables with our registry.
             self.register_variables(*self.layer.variables)
-

@@ -92,16 +92,28 @@ class Stack(Component):
             #connection_rule (str): See ctor kwargs.
         """
         # Loop through the API-method set.
-        for api_method_name in api_methods:
+        for api_method_spec in api_methods:
+
+            custom_api_method = None
+
             # API-method of sub-Components and this Stack should have different names.
-            if isinstance(api_method_name, tuple):
-                stack_api_method_name, components_api_method_name = api_method_name[0], api_method_name[1]
+            if isinstance(api_method_spec, tuple):
+                # Custom method given, use that instead of creating one automatically.
+                if callable(api_method_spec[1]):
+                    stack_api_method_name = components_api_method_name = api_method_spec[0]
+                    custom_api_method = api_method_spec[1]
+                else:
+                    stack_api_method_name, components_api_method_name = api_method_spec[0], api_method_spec[1]
             # API-method of sub-Components and this Stack should have the same name.
             else:
-                stack_api_method_name, components_api_method_name = api_method_name, api_method_name
+                stack_api_method_name = components_api_method_name = api_method_spec
+
+            # Custom API-method was provided. Register it.
+            if custom_api_method is not None:
+                self.define_api_method(stack_api_method_name, custom_api_method)
 
             # API-method for this Stack does not exist yet -> Automatically create it.
-            if not hasattr(self, stack_api_method_name):
+            elif not hasattr(self, stack_api_method_name):
 
                 def method(self_, *inputs):
                     result = inputs
