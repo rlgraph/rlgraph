@@ -97,7 +97,7 @@ class TestPreprocessors(unittest.TestCase):
     def test_reshape_with_time_rank_folding(self):
         # Fold time rank into batch rank.
         in_space = FloatBox(shape=(4, 4), add_batch_rank=True, add_time_rank=True, time_major=True)
-        reshape = ReShape(new_shape="fold_time_rank")
+        reshape = ReShape(fold_time_rank=True)
         test = ComponentTest(component=reshape, input_spaces=dict(
             preprocessing_inputs=in_space
         ))
@@ -106,6 +106,20 @@ class TestPreprocessors(unittest.TestCase):
         # seq-len=3, batch-size=2
         inputs = in_space.sample(size=(3, 2))
         expected = np.reshape(inputs, newshape=(6, 4, 4))
+        test.test(("apply", inputs), expected_outputs=expected)
+
+    def test_reshape_with_time_rank_unfolding(self):
+        # Unfold time rank from batch rank with given time-dimension (2 out of 8 -> batch will be 4 after unfolding).
+        in_space = FloatBox(shape=(4, 4), add_batch_rank=True, add_time_rank=False)
+        reshape = ReShape(unfold_time_rank=2)
+        test = ComponentTest(component=reshape, input_spaces=dict(
+            preprocessing_inputs=in_space
+        ))
+
+        test.test("reset")
+        # seq-len=2, batch-size=4 -> unfold from 8.
+        inputs = in_space.sample(size=8)
+        expected = np.reshape(inputs, newshape=(4, 2, 4, 4))
         test.test(("apply", inputs), expected_outputs=expected)
 
     def test_split_inputs_on_grayscale(self):
