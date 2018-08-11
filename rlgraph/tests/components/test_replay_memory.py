@@ -106,7 +106,7 @@ class TestReplayMemory(unittest.TestCase):
 
         # Assert we can now fetch 2 elements.
         num_records = 2
-        batch = test.test(("get_records", num_records), expected_outputs=None)
+        batch, _, _ = test.test(("get_records", num_records), expected_outputs=None)
         print('Result batch = {}'.format(batch))
         self.assertEqual(2, len(batch['terminals']))
         # Assert next states key is there
@@ -114,7 +114,7 @@ class TestReplayMemory(unittest.TestCase):
 
         # Test duplicate sampling.
         num_records = 5
-        batch = test.test(("get_records", num_records), expected_outputs=None)
+        batch, _, _ = test.test(("get_records", num_records), expected_outputs=None)
         self.assertEqual(5, len(batch['terminals']))
 
         # Now insert over capacity.
@@ -123,7 +123,7 @@ class TestReplayMemory(unittest.TestCase):
 
         # Assert we can fetch exactly capacity elements.
         num_records = self.capacity
-        batch = test.test(("get_records", num_records), expected_outputs=None)
+        batch, _, _ = test.test(("get_records", num_records), expected_outputs=None)
         self.assertEqual(self.capacity, len(batch['terminals']))
 
     def test_with_terminals_no_next_states(self):
@@ -143,7 +143,7 @@ class TestReplayMemory(unittest.TestCase):
 
         # Assert we can now fetch 2 elements.
         num_records = 2
-        batch = test.test(("get_records", num_records), expected_outputs=None)
+        batch, _, _ = test.test(("get_records", num_records), expected_outputs=None)
 
         # Sampled 2 elements
         self.assertEqual(num_records, len(batch['terminals']))
@@ -169,6 +169,6 @@ class TestReplayMemory(unittest.TestCase):
 
         # Assert we can now fetch 2 elements.
         num_records = 2
-        batch = test.test(("get_records", num_records), expected_outputs=None)
+        batch, _, _ = test.test(("get_records", num_records), expected_outputs=None)
         self.assertTrue('next_states' not in batch)
 
