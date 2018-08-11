@@ -22,17 +22,23 @@ import json
 import numpy as np
 
 
-def agent_config_from_path(path):
+def config_from_path(path, root=None):
     """
-    Generates an agent config from path
+    Generates an agent config from path relative to a specified directory (per
+    default the `tests` directory).
 
     Args:
         path (str): Path to config, e.g. json file.
+        root (str): Root directory. Per default it's the `tests` directory relativ
+            to this file.
 
     Returns:
         dict: Agent config dict.
     """
-    path = os.path.join(path)
+    if not root:
+        root = os.path.join(os.path.dirname(__file__))
+
+    path = os.path.join(root, path)
     with open(path, 'rt') as fp:
         return json.load(fp)
 

@@ -25,7 +25,7 @@ from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.spaces import FloatBox, IntBox
 from rlgraph.tests import ComponentTest
-from rlgraph.tests.test_util import agent_config_from_path
+from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils.ops import DataOpTuple
 
 
@@ -37,7 +37,7 @@ class TestEnvironmentStepper(unittest.TestCase):
         state_space = FloatBox(shape=(1,))
         action_space = IntBox(2)
         preprocessor_spec = None
-        neural_network_spec = "../configs/test_simple_nn.json"
+        neural_network_spec = config_from_path("configs/test_simple_nn.json")
         exploration_spec = None
         actor_component = ActorComponent(
             preprocessor_spec, dict(neural_network=neural_network_spec, action_space=action_space), exploration_spec
@@ -87,7 +87,7 @@ class TestEnvironmentStepper(unittest.TestCase):
         dummy_env = Environment.from_spec(environment_spec)
         state_space = dummy_env.state_space
         action_space = dummy_env.action_space
-        agent_config = agent_config_from_path("../configs/dqn_agent_for_pong.json")
+        agent_config = config_from_path("configs/dqn_agent_for_pong.json")
         actor_component = ActorComponent(
             agent_config["preprocessing_spec"],
             dict(neural_network=agent_config["network_spec"], action_space=action_space),

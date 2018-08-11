@@ -24,7 +24,7 @@ from rlgraph.agents import ApexAgent
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.execution.ray.apex import ApexExecutor
 from rlgraph.execution.ray import RayWorker
-from rlgraph.tests.test_util import agent_config_from_path
+from rlgraph.tests.test_util import config_from_path
 
 
 class TestApexAgentLongTaskLearning(unittest.TestCase):
@@ -48,7 +48,7 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         """
         Tests agent compilation without Ray to ease debugging on Windows.
         """
-        agent_config = agent_config_from_path("../../configs/ray_apex_for_pong.json")
+        agent_config = config_from_path("configs/ray_apex_for_pong.json")
         agent_config["execution_spec"].pop("ray_spec")
         environment = OpenAIGymEnv("Pong-v0", frameskip=4)
 
@@ -61,7 +61,7 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         """
         Tests if workers initialize without problems for the pong config.
         """
-        agent_config = agent_config_from_path("../../configs/ray_apex_for_pong.json")
+        agent_config = config_from_path("configs/ray_apex_for_pong.json")
 
         # Long initialization times can lead to Ray crashes.
         start = time.monotonic()
@@ -83,7 +83,7 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         N.b. this test does not use Ray.
         """
         ray.init()
-        agent_config = agent_config_from_path("../../configs/ray_apex_for_pong.json")
+        agent_config = config_from_path("configs/ray_apex_for_pong.json")
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         worker_cls = RayWorker.as_remote().remote
         worker = worker_cls(agent_config, self.env_spec, ray_spec["worker_spec"])
@@ -100,7 +100,7 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         """
         Tests if Apex can start learning pong effectively on ray.
         """
-        agent_config = agent_config_from_path("../../configs/ray_apex_for_pong.json")
+        agent_config = config_from_path("configs/ray_apex_for_pong.json")
         executor = ApexExecutor(
             environment_spec=self.env_spec,
             agent_config=agent_config,

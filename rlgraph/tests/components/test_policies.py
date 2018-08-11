@@ -23,6 +23,7 @@ import unittest
 from rlgraph.components.neural_networks import Policy
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
+from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import softmax, relu
 
 
@@ -35,7 +36,7 @@ class TestPolicies(unittest.TestCase):
         # action_space (5 possible actions).
         action_space = IntBox(5, add_batch_rank=True)
 
-        policy = Policy(neural_network="../configs/test_simple_nn.json", action_space=action_space)
+        policy = Policy(neural_network=config_from_path("configs/test_simple_nn.json"), action_space=action_space)
         test = ComponentTest(
             component=policy,
             input_spaces=dict(nn_input=state_space),
@@ -86,7 +87,7 @@ class TestPolicies(unittest.TestCase):
 
         # Policy with additional dueling layer.
         policy = Policy(
-            neural_network="../configs/test_lrelu_nn.json",
+            neural_network=config_from_path("configs/test_lrelu_nn.json"),
             action_adapter_spec=dict(type="dueling_action_adapter", action_space=action_space),
             switched_off_apis={"get_q_values"}
         )

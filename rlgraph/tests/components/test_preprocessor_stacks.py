@@ -28,7 +28,7 @@ from rlgraph.components.neural_networks import PreprocessorStack
 from rlgraph.environments import SequentialVectorEnv
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
-from rlgraph.tests.test_util import agent_config_from_path
+from rlgraph.tests.test_util import config_from_path
 
 
 class TestPreprocessorStacks(unittest.TestCase):
@@ -87,7 +87,7 @@ class TestPreprocessorStacks(unittest.TestCase):
         )
         env = SequentialVectorEnv(num_envs=1, env_spec=env_spec, num_background_envs=2)
         in_space = env.state_space
-        agent_config = agent_config_from_path("../configs/dqn_agent_for_pong.json")
+        agent_config = config_from_path("configs/dqn_agent_for_pong.json")
 
         # Regression test: Incrementally add preprocessors.
         to_use = []
@@ -148,7 +148,7 @@ class TestPreprocessorStacks(unittest.TestCase):
         env = SequentialVectorEnv(num_envs=4, env_spec=env_spec, num_background_envs=2)
         in_space = env.state_space
 
-        agent_config = agent_config_from_path("../configs/ray_apex_for_pong.json")
+        agent_config = config_from_path("configs/ray_apex_for_pong.json")
         preprocessing_spec = deepcopy(agent_config["preprocessing_spec"])
 
         # Set up python preprocessor.

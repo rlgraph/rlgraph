@@ -26,6 +26,7 @@ import rlgraph.spaces as spaces
 from rlgraph.components.loss_functions.dqn_loss_function import DQNLossFunction
 from rlgraph.environments import GridWorld, RandomEnv
 from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
+from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import root_logger, one_hot
 from rlgraph.tests.agent_test import AgentTest
 
@@ -42,7 +43,7 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         """
         env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
         agent = Agent.from_spec(
-            "../configs/dqn_agent_for_random_env.json",
+            config_from_path("configs/dqn_agent_for_random_env.json"),
             double_q=False,
             dueling_q=False,
             state_space=env.state_space,
@@ -56,7 +57,7 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         """
         env = GridWorld(world="2x2", save_mode=True)  # no holes, just fire
         agent = Agent.from_spec(  # type: DQNAgent
-            "../configs/dqn_agent_for_functionality_test.json",
+            config_from_path("configs/dqn_agent_for_functionality_test.json"),
             double_q=True,
             dueling_q=True,
             state_space=env.state_space,

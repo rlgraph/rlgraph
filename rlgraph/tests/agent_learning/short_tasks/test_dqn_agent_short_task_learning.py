@@ -25,6 +25,7 @@ from rlgraph.environments import GridWorld, OpenAIGymEnv
 from rlgraph.agents import DQNAgent
 from rlgraph.execution import SingleThreadedWorker
 from rlgraph.utils import root_logger
+from rlgraph.tests.test_util import config_from_path
 
 
 class TestDQNAgentShortTaskLearning(unittest.TestCase):
@@ -39,7 +40,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         """
         env = GridWorld("2x2")
         agent = DQNAgent.from_spec(
-            "../../configs/dqn_agent_for_2x2_grid.json",
+            config_from_path("configs/dqn_agent_for_2x2_grid.json"),
             #discount=1.0,  # very short episodes -> no discount.
             double_q=False,
             dueling_q=False,
@@ -71,7 +72,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         """
         env = GridWorld("2x2")
         agent = DQNAgent.from_spec(
-            "../../configs/dqn_agent_for_2x2_grid.json",
+            config_from_path("configs/dqn_agent_for_2x2_grid.json"),
             dueling_q=False,
             state_space=env.state_space,
             action_space=env.action_space,
@@ -98,7 +99,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         """
         env = GridWorld("4x4")
         agent = DQNAgent.from_spec(
-            "../../configs/dqn_agent_for_4x4_grid.json",
+            config_from_path("configs/dqn_agent_for_4x4_grid.json"),
             state_space=env.state_space,
             action_space=env.action_space,
             observe_spec=dict(buffer_size=100),
@@ -128,7 +129,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         env = OpenAIGymEnv("CartPole-v0")
         env.seed(10)
         agent = DQNAgent.from_spec(
-            "../../configs/dqn_agent_for_cartpole.json",
+            config_from_path("configs/dqn_agent_for_cartpole.json"),
             double_q=False,
             dueling_q=False,
             state_space=env.state_space,
@@ -160,7 +161,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         env = OpenAIGymEnv("CartPole-v0")
         env.seed(10)
         agent = DQNAgent.from_spec(
-            "../../configs/dqn_agent_for_cartpole.json",
+            config_from_path("configs/dqn_agent_for_cartpole.json"),
             double_q=True,
             dueling_q=True,
             state_space=env.state_space,

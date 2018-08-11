@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import unittest
 from time import sleep
-from rlgraph.tests.test_util import recursive_assert_almost_equal, agent_config_from_path
+from rlgraph.tests.test_util import recursive_assert_almost_equal, config_from_path
 import numpy as np
 
 from rlgraph import get_distributed_backend
@@ -48,7 +48,7 @@ class TestRayWorker(unittest.TestCase):
         """
         Simply tests if time-step execution loop works and returns the samples.
         """
-        agent_config = agent_config_from_path("../configs/apex_agent_cartpole.json")
+        agent_config = config_from_path("configs/apex_agent_cartpole.json")
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         worker = RayWorker.as_remote().remote(agent_config, self.env_spec, ray_spec["worker_spec"], auto_build=True)
 
@@ -99,7 +99,7 @@ class TestRayWorker(unittest.TestCase):
         """
         Tests metric collection for 1 and multiple environments.
         """
-        agent_config = agent_config_from_path("../configs/apex_agent_cartpole.json")
+        agent_config = config_from_path("configs/apex_agent_cartpole.json")
 
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         worker_spec = ray_spec["worker_spec"]
@@ -162,7 +162,7 @@ class TestRayWorker(unittest.TestCase):
             episodic_life=True
         )
         env = Environment.from_spec(env_spec)
-        agent_config = agent_config_from_path("../configs/ray_apex_for_pong.json")
+        agent_config = config_from_path("configs/ray_apex_for_pong.json")
 
         # Remove unneeded apex params.
         if "apex_replay_spec" in agent_config:

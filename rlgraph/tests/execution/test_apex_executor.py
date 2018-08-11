@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 
 from rlgraph.execution.ray.apex import ApexExecutor
-from rlgraph.tests.test_util import agent_config_from_path
+from rlgraph.tests.test_util import config_from_path
 
 
 class TestApexExecutor(unittest.TestCase):
@@ -38,7 +38,7 @@ class TestApexExecutor(unittest.TestCase):
         Tests if apex can learn a simple environment using a single worker, thus replicating
         dqn.
         """
-        agent_config = agent_config_from_path("../configs/apex_agent_cartpole.json")
+        agent_config = config_from_path("configs/apex_agent_cartpole.json")
 
         # Cartpole settings from cartpole dqn test.
         agent_config.update(

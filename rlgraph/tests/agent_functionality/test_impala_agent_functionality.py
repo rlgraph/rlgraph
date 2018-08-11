@@ -25,6 +25,7 @@ from rlgraph.environments import RandomEnv
 from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
 from rlgraph.spaces import *
 from rlgraph.tests.component_test import ComponentTest
+from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import root_logger
 
 
@@ -69,7 +70,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         """
         env = RandomEnv(state_space=FloatBox(shape=(2,)), action_space=IntBox(2), deterministic=True)
         agent = Agent.from_spec(
-            "../configs/impala_agent_for_random_env.json",
+            config_from_path("configs/impala_agent_for_random_env.json"),
             state_space=env.state_space,
             action_space=env.action_space
         )
