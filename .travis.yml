@@ -21,6 +21,7 @@ before_install:
 install:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'curl https://bootstrap.pypa.io/get-pip.py | python';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U pip';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U numpy';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install opencv-python';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install pytest-xdist';
   # In the future, add further extra packages here, like horovod, pytorch, or ray
