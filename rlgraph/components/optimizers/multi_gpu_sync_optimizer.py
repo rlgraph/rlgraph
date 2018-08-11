@@ -67,19 +67,16 @@ class MultiGpuSyncOptimizer(Optimizer):
                 the shards for each device.
         """
         self.subgraphs = component_graphs
+        self.add_components(*component_graphs)
         self.splitter = splitter
 
     def create_variables(self, input_spaces, action_space=None):
         super(MultiGpuSyncOptimizer, self).create_variables(input_spaces, action_space)
 
         # Create device copies and variables
-        for device in self.gpu_devices:
-            with tf.device(device):
-                with tf.name_scope(self.scope):
-                    # TODO split inputs
-                    # TODO Create variables
-                    # TODO Get gradients for sub-graphs
-                    pass
+        with tf.name_scope(self.scope):
+            # TODO create init op?
+            pass
 
     def _graph_fn_load_to_device(self, *inputs):
         """

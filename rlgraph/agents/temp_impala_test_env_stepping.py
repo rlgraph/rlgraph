@@ -17,8 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import timeit
-
 from rlgraph.agents.dqn_agent import DQNAgent
 from rlgraph.environments.openai_gym import OpenAIGymEnv
 from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
