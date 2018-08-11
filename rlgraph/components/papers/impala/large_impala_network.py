@@ -25,6 +25,7 @@ from rlgraph.components.layers.nn.residual_layer import ResidualLayer
 from rlgraph.components.layers.nn.maxpool2d_layer import MaxPool2DLayer
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 from rlgraph.components.layers.nn.concat_layer import ConcatLayer
+from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.layers.strings.string_to_hash_bucket import StringToHashBucket
 from rlgraph.components.layers.strings.embedding_lookup import EmbeddingLookup
 from rlgraph.components.neural_networks.stack import Stack
@@ -70,12 +71,19 @@ class LargeIMPALANetwork(NeuralNetwork):
     @staticmethod
     def build_image_processing_stack():
         """
-        Builds the 3 sequential Conv2D blocks that process the image information.
+        Constructs a ReShape preprocessor to fold the time rank into the batch rank.
+
+        Then builds the 3 sequential Conv2D blocks that process the image information.
         Each of these 3 blocks consists of:
         - 1 Conv2D layer followed by a MaxPool2D
         - 2 residual blocks, each of which looks like:
             - ReLU + Conv2D + ReLU + Conv2D + element-wise add with original input
+
+        Then adds: ReLU + fc(256) + ReLU.
         """
+        #
+        time_rank_reshape = ReShape(new_shape="fold_time_rank")
+
         conv2d_main_units = list()
         for i, num_filters in enumerate([16, 32, 32]):
             # Conv2D plus MaxPool2D.
@@ -98,11 +106,12 @@ class LargeIMPALANetwork(NeuralNetwork):
 
             conv2d_main_units.append(Stack(conv2d_plus_maxpool, residual_repeater, scope="conv-unit-{}".format(i)))
 
-        # Sequence together the conv2d units and an fc block (surrounded by ReLUs).
+        # Sequence together the time-rank-into-batch-folder, conv2d units and an fc block (surrounded by ReLUs).
         return Stack(
-            conv2d_main_units + [NNLayer(activation="relu", scope="relu-1"),
-                                 DenseLayer(units=256),
-                                 NNLayer(activation="relu", scope="relu-2")],
+            [time_rank_reshape] + conv2d_main_units + [
+                NNLayer(activation="relu", scope="relu-1"), DenseLayer(units=256),
+                NNLayer(activation="relu", scope="relu-2")
+            ],
             scope="image-processing-stack"
         )
 
@@ -110,6 +119,7 @@ class LargeIMPALANetwork(NeuralNetwork):
     def build_text_processing_stack():
         """
         Builds the text processing pipeline consisting of:
+        - 1 ReShape preprocessor to fold the incoming time rank into the batch rank.
         - 1 StringToHashBucket Layer taking a batch of sentences and converting them to an indices-table of dimensions:
             cols=length of longest sentences in input
             rows=number of items in the batch
@@ -120,6 +130,7 @@ class LargeIMPALANetwork(NeuralNetwork):
         """
         num_hash_buckets = 1000
 
+        time_rank_reshape = ReShape(new_shape="fold_time_rank")
         string_to_hash_bucket = StringToHashBucket(num_hash_buckets=num_hash_buckets)
         embedding = EmbeddingLookup(embed_dim=20, vocab_size=num_hash_buckets)
 
@@ -128,7 +139,8 @@ class LargeIMPALANetwork(NeuralNetwork):
         # TODO: time-rank must be unfolded again from batch rank before passing into LSTM.
 
         def custom_apply(self_, inputs):
-            hash_bucket, lengths = self_.call(string_to_hash_bucket.apply, inputs)
+            text_to_batch = self_.call(time_rank_reshape.apply, inputs)
+            hash_bucket, lengths = self_.call(string_to_hash_bucket.apply, text_to_batch)
             embedding_output = self_.call(embedding.apply, hash_bucket)
             lstm_outputs, lstm_final_c, lstm_final_h = self_.call(lstm64.apply, embedding_output, lengths)
             return lstm_outputs
