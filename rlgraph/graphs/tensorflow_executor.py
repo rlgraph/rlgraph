@@ -618,24 +618,23 @@ class TensorFlowExecutor(GraphExecutor):
             # 1. Get the original component used by the agent to define its model.
             master_component = self.graph_builder.core_component
 
-            # TODO this copies everything, what we need is:
-            # 2. Get a copy of the core component  which only contains the sub-components necessary
-            # for the API method.
-            # sub_graph = self.graph_builder.get_subgraph("update_from_external_batch")
+            # 2. Get a copy of the core component.
             subgraphs = []
-            for device in range(self.num_gpus - 1):
-                subgraphs.append(master_component.copy())
+            for device in self.gpu_names:
+                # TODO only copy relevant subgraphs
+                # Copy and assign GPU to copy.
+                subgraphs.append(master_component.copy(device=device))
 
             # 3. Wrap local optimizer (e.g. Adam) with multi-gpu optimizer and pass device info.
             self.optimizer = MultiGpuSyncOptimizer(local_optimizer=self.optimizer, devices=self.gpu_names)
 
-            # 4. Pass the graph copies and the name of the loss component to the multi gpu optimizer.
-            optimizer.set_replicas(subgraphs, loss_component=loss_name)
-            batch_splitter = BatchSplitter(self.num_gpus)
+            # 4. Pass the graph copies and the splitter containing the info how to split batches into tensors.
             splitter = master_component.sub_component_by_name("splitter")
+            optimizer.set_replicas(subgraphs, splitter)
+            batch_splitter = BatchSplitter(self.num_gpus)
             master_component.add_components(batch_splitter)
 
-            # 5. Sawp in uupdate method which performs the following steps:
+            # 5. Swap in update method which performs the following steps:
             # - Init device memory, i.e. load batch to GPU memory.
             # - Call gradient calculation on multi-gpu optimizer which splits batch
             #   and gets gradients from each subgraph, then averages them.
