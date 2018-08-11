@@ -69,7 +69,7 @@ class TestRingBufferMemory(unittest.TestCase):
         observation = self.record_space.sample(size=1)
         test.test(("insert_records", observation), expected_outputs=None)
 
-        observation = self.record_space.sample(size=100)
+        observation = self.record_space.sample(size=10)
         test.test(("insert_records", observation), expected_outputs=None)
 
     def test_capacity_no_episodes(self):

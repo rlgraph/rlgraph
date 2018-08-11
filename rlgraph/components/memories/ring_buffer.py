@@ -77,6 +77,7 @@ class RingBuffer(Memory):
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
+        # update_indices = tf.Print(update_indices, [num_records, update_indices], summarize=100, message='num|indices')
         # Update indices and size.
         index_updates = list()
         if self.episode_semantics:
