@@ -109,7 +109,7 @@ class TestExplorations(unittest.TestCase):
         # Our distribution to go into the Exploration object.
         nn_output_space = FloatBox(shape=(13,), add_batch_rank=True)  # 13: Any flat nn-output should be ok.
 
-        exploration = Exploration.from_spec(dict(noise_spec=dict(type="gaussian_noise", mean=10.0, sd=2.0)))
+        exploration = Exploration.from_spec(dict(noise_spec=dict(type="gaussian_noise", mean=10.0, stddev=2.0)))
 
         # The Component to test.
         exploration_pipeline = Component(scope="continuous-plus-noise")
@@ -135,22 +135,18 @@ class TestExplorations(unittest.TestCase):
 
         # Collect outputs in `collected` list to compare moments.
         collected = list()
-
-        def collect_outs(component_test, outs):
-            return collected.append(outs)
-
-        for i in range_(1000):
-            test.test("get_noise", fn_test=collect_outs)
+        for _ in range_(1000):
+            test.test("get_noise", fn_test=lambda component_test, outs: collected.append(outs))
 
         self.assertAlmostEqual(10.0, np.mean(collected), places=1)
         self.assertAlmostEqual(2.0, np.std(collected), places=1)
 
         np.random.seed(10)
         input_ = nn_output_space.sample(size=3)
-        expected = np.array([[[7.702055, 8.40904],
-                              [9.960112, 9.146257]],
-                             [[12.037837, 8.062615],
-                              [10.098725, 7.4949145]],
-                             [[9.66774, 8.39154],
-                              [10.217849, 8.008392]]], dtype=np.float32)
-        test.test(("get_action", input_), expected_outputs=expected)
+        expected = np.array([[[13.163095, 8.46925],
+                              [10.375976, 5.4675055]],
+                             [[13.239931, 7.990649],
+                              [10.03761, 10.465796]],
+                             [[10.280741, 7.2384844],
+                              [10.040194, 8.248206]]], dtype=np.float32)
+        test.test(("get_action", input_), expected_outputs=expected, decimals=3)

@@ -69,11 +69,11 @@ class GaussianNoise(NoiseComponent):
     """
     Simple Gaussian noise component.
     """
-    def __init__(self, mean=0.0, sd=1.0, scope="gaussian_noise", **kwargs):
+    def __init__(self, mean=0.0, stddev=1.0, scope="gaussian_noise", **kwargs):
         super(GaussianNoise, self).__init__(scope=scope, **kwargs)
 
         self.mean = mean
-        self.sd = sd
+        self.stddev = stddev
 
         self.action_space = None
 
@@ -86,7 +86,7 @@ class GaussianNoise(NoiseComponent):
             return tf.random_normal(
                 shape=(1,) + self.action_space.shape,
                 mean=self.mean,
-                stddev=self.sd,
+                stddev=self.stddev,
                 dtype=dtype(self.action_space.dtype)
             )
 
