@@ -40,7 +40,7 @@ class DictMerger(Component):
                 - merge(Dict(c=1, d=2), Tuple(3, 4))
                 - returned value: Dict(A=Dict(c=1, d=2), B=Tuple(3, 4))
         """
-        super(DictMerger, self).__init__(scope=kwargs.pop("scope", "merger"), **kwargs)
+        super(DictMerger, self).__init__(scope=kwargs.pop("scope", "dict-merger"), **kwargs)
 
         assert all(isinstance(i, str) and not re.search(r'/', i) for i in input_names), \
             "ERROR: Not all input names of DictMerger Component '{}' are strings or some of them have '/' characters in " \

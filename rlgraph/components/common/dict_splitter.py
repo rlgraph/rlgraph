@@ -37,7 +37,7 @@ class DictSplitter(Component):
         self.output_order = output_order
 
         super(DictSplitter, self).__init__(
-            scope=kwargs.pop("scope", "splitter"),
+            scope=kwargs.pop("scope", "dict-splitter"),
             graph_fn_num_outputs=dict(_graph_fn_split=len(output_order)),
             **kwargs
         )
