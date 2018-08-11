@@ -718,7 +718,6 @@ class Component(Specifiable):
 
         # We are creating the variable using a Space as template.
         if from_space is not None:
-            # Variables should be returned in a flattened OrderedDict.
             var = self._variable_from_space(flatten, from_space, name, add_batch_rank,
                                             add_time_rank, time_major, trainable, initializer)
 
@@ -749,10 +748,15 @@ class Component(Specifiable):
             else:
                 shape = None
                 initializer = np.asarray(initializer, dtype=util.dtype(dtype, "np"))
-
-            var = tf.get_variable(
-                name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
-            )
+            if self.reuse_variable_scope is not None:
+                with tf.variable_scope(name_or_scope=self.reuse_variable_scope, reuse=True):
+                    var = tf.get_variable(
+                        name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
+                    )
+            else:
+                var = tf.get_variable(
+                    name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
+                )
         elif get_backend() == "tf-eager":
             shape = tuple((() if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,))
                           + (shape or ()))
@@ -779,15 +783,30 @@ class Component(Specifiable):
         """
         Private variable from space helper, see 'get_variable' for API.
         """
-        if flatten:
-            return from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
-                name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
-                time_major=time_major, trainable=trainable, initializer=initializer,
-                is_python=(self.backend == "python" or get_backend() == "python")))
-        # Normal, nested Variables from a Space (container or primitive).
-        else:
-            return from_space.get_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable,
-                initializer=initializer, is_python=(self.backend == "python" or get_backend() == "python"))
+        # Variables should be returned in a flattened OrderedDict.
+        if get_backend() == "tf":
+            if self.reuse_variable_scope is not None:
+                with tf.variable_scope(name_or_scope=self.reuse_variable_scope, reuse=True):
+                    if flatten:
+                        return from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
+                            name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
+                            time_major=time_major, trainable=trainable, initializer=initializer,
+                            is_python=(self.backend == "python" or get_backend() == "python")))
+                    # Normal, nested Variables from a Space (container or primitive).
+                    else:
+                        return from_space.get_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable,
+                            initializer=initializer, is_python=(self.backend == "python" or get_backend() == "python"))
+            else:
+                if flatten:
+                    return from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
+                        name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
+                        time_major=time_major, trainable=trainable, initializer=initializer,
+                        is_python=(self.backend == "python" or get_backend() == "python")))
+                # Normal, nested Variables from a Space (container or primitive).
+                else:
+                    return from_space.get_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable,
+                                                   initializer=initializer,
+                                                   is_python=(self.backend == "python" or get_backend() == "python"))
 
     def get_variables(self, *names, **kwargs):
         """
