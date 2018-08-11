@@ -98,4 +98,4 @@ class ReShape(PreprocessLayer):
         if self.backend == "python" or get_backend() == "python":
             return np.reshape(preprocessing_inputs, newshape=new_shape)
         elif get_backend() == "tf":
-            return tf.reshape(preprocessing_inputs, shape=new_shape, name="reshaped")
+            return tf.reshape(tensor=preprocessing_inputs, shape=new_shape, name="reshaped")

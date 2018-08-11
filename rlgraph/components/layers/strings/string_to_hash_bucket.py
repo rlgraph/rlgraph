@@ -86,18 +86,20 @@ class StringToHashBucket(StringLayer):
         """
         if get_backend() == "tf":
             # Split the input string.
-            split_text_inputs = tf.string_split(text_inputs, delimiter=self.delimiter)
+            split_text_inputs = tf.string_split(source=text_inputs, delimiter=self.delimiter)
             # Build a tensor of n rows (number of items in text_inputs) words with
-            dense = tf.sparse_tensor_to_dense(split_text_inputs, default_value="")
+            dense = tf.sparse_tensor_to_dense(sp_input=split_text_inputs, default_value="")
 
-            length = tf.reduce_sum(tf.to_int32(tf.not_equal(dense, "")), axis=-1)
+            length = tf.reduce_sum(input_tensor=tf.to_int32(x=tf.not_equal(x=dense, y="")), axis=-1)
             if self.hash_function == "fast":
-                hash_bucket = tf.string_to_hash_bucket_fast(dense, self.num_hash_buckets)
+                hash_bucket = tf.string_to_hash_bucket_fast(input=dense, num_buckets=self.num_hash_buckets)
             else:
-                hash_bucket = tf.string_to_hash_bucket_strong(dense, self.num_hash_buckets, key=self.hash_keys)
+                hash_bucket = tf.string_to_hash_bucket_strong(input=dense,
+                                                              num_buckets=self.num_hash_buckets,
+                                                              key=self.hash_keys)
 
             # Int64 is tf's default for `string_to_hash_bucket` operation: Can leave as is.
             if self.dtype != "int64":
-                hash_bucket = tf.cast(hash_bucket, dtype_(self.dtype))
+                hash_bucket = tf.cast(x=hash_bucket, dtype=dtype_(self.dtype))
 
             return hash_bucket, length
