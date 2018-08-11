@@ -30,13 +30,11 @@ class VectorEnv(Environment):
         """
         Args:
             num_envs (int): Number of environments
-            **kwargs (dict): Keyword args to create environment.
+            env_spec (dict): Environment spec dict.
         """
         self.num_envs = num_envs
         self.environments = list()
 
-        # TODO list comprehension caused error here where type was missing. Investigate later.
-        # [Environment.from_spec(deepcopy(env_spec)) for _ in range_(num_envs)]
         for _ in range_(num_envs):
             env = Environment.from_spec(env_spec)
             self.environments.append(env)
