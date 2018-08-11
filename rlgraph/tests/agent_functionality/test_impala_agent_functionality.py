@@ -64,6 +64,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         expected = None
         test.test(("apply", sample_input), expected_outputs=expected)
 
+    # TODO move this to test_all_compile once it works.
     def test_impala_assembly(self):
         """
         Creates an IMPALAAgent and runs it for a few steps in the RandomEnv.

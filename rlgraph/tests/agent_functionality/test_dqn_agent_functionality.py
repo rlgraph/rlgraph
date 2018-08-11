@@ -33,22 +33,9 @@ from rlgraph.tests.agent_test import AgentTest
 
 class TestDQNAgentFunctionality(unittest.TestCase):
     """
-    Tests the DQN Agent's assembly and functionality.
+    Tests the DQN Agent's functionality.
     """
     root_logger.setLevel(level=logging.DEBUG)
-
-    def test_dqn_assembly(self):
-        """
-        Creates a DQNAgent and runs it for a few steps in the random Env.
-        """
-        env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
-        agent = Agent.from_spec(
-            config_from_path("configs/dqn_agent_for_random_env.json"),
-            double_q=False,
-            dueling_q=False,
-            state_space=env.state_space,
-            action_space=env.action_space
-        )
 
     def test_dqn_functionality(self):
         """

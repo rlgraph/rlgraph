@@ -22,7 +22,6 @@ import unittest
 from rlgraph.agents import Agent
 import rlgraph.spaces as spaces
 from rlgraph.environments import RandomEnv
-from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
 from rlgraph.tests import recursive_assert_almost_equal
 from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import root_logger
@@ -33,17 +32,6 @@ class TestApexAgentFunctionality(unittest.TestCase):
     Tests the ApexAgent assembly on the RandomEnv.
     """
     root_logger.setLevel(level=logging.INFO)
-
-    def test_apex_assembly(self):
-        """
-        Creates an ApexAgent and runs it for a few steps in the RandomEnv.
-        """
-        env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
-        agent = Agent.from_spec(
-            config_from_path("configs/apex_agent_for_random_env.json"),
-            state_space=env.state_space,
-            action_space=env.action_space
-        )
 
     def test_apex_weight_syncing(self):
         env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
