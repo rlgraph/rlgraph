@@ -149,9 +149,9 @@ class Component(Specifiable):
         # This will be set by the GraphBuilder at build time.
         self.summary_regexp = None
 
-        # Now add all sub-Components.
-        sub_components = sub_components[0] if len(sub_components) > 0 and \
-                                              isinstance(sub_components[0], (list, tuple)) else sub_components
+        # Now add all sub-Components (also support all sub-Components being given in a single list).
+        sub_components = sub_components[0] if len(sub_components) == 1 and \
+            isinstance(sub_components[0], (list, tuple)) else sub_components
         self.add_components(*sub_components)
 
         # Define the "_variables" API-method that each Component automatically has.
