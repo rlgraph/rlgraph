@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from six.moves import xrange
+from six.moves import xrange as range_
 import numpy as np
 
 from rlgraph.spaces import BoxSpace
@@ -50,17 +50,17 @@ def get_list_registry(from_space, capacity=None, initializer=0, flatten=True, ad
     if flatten:
         if capacity is not None:
             var = from_space.flatten(
-                custom_scope_separator="-", scope_separator_at_start=False, add_batch_rank=add_batch_rank,
-                mapping=lambda k, primitive: [initializer for _ in xrange(capacity)]
+                custom_scope_separator="-", scope_separator_at_start=False,
+                mapping=lambda k, primitive: [initializer for _ in range_(capacity)]
             )
         else:
             var = from_space.flatten(
-                custom_scope_separator="-", scope_separator_at_start=False, add_batch_rank=add_batch_rank,
+                custom_scope_separator="-", scope_separator_at_start=False,
                 mapping=lambda k, primitive: []
             )
     else:
         if capacity is not None:
-            var = [initializer for _ in xrange(capacity)]
+            var = [initializer for _ in range_(capacity)]
         else:
             var = []
     return var

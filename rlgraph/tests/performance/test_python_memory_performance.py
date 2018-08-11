@@ -190,7 +190,8 @@ class TestPythonMemoryPerformance(unittest.TestCase):
                  record['states'],
                  record['actions'],
                  record['reward'],
-                 record['terminals']
+                 record['terminals'],
+                 None
             ))
         end = time.monotonic() - start
         tp = len(records) / end
@@ -214,7 +215,8 @@ class TestPythonMemoryPerformance(unittest.TestCase):
                     chunk['states'][i],
                     chunk['actions'][i],
                     chunk['reward'][i],
-                    chunk['terminals'][i]
+                    chunk['terminals'][i],
+                    None
                 ))
 
         end = time.monotonic() - start
@@ -239,7 +241,8 @@ class TestPythonMemoryPerformance(unittest.TestCase):
                  ray_compress(record['states']),
                  record['actions'],
                  record['reward'],
-                 record['terminals']
+                 record['terminals'],
+                 None
             ))
         start = time.monotonic()
         for _ in range_(self.samples):
@@ -267,7 +270,8 @@ class TestPythonMemoryPerformance(unittest.TestCase):
                  record['states'],
                  record['actions'],
                  record['reward'],
-                 record['terminals']
+                 record['terminals'],
+                 None
             ))
         loss_values = [np.random.random(size=self.sample_batch_size) for _ in range_(self.samples)]
         indices = [np.random.randint(low=0, high=self.inserts, size=self.sample_batch_size) for _
@@ -347,7 +351,8 @@ class TestPythonMemoryPerformance(unittest.TestCase):
                     ray_compress(chunk['states'][i]),
                     chunk['actions'][i],
                     chunk['reward'][i],
-                    chunk['terminals'][i]
+                    chunk['terminals'][i],
+                    None
                 ))
             batch, indices, weights = memory.get_records(self.sample_batch_size)
             memory.update_records(indices, loss_values)

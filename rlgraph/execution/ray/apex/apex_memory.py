@@ -74,7 +74,7 @@ class ApexMemory(Specifiable):
         else:
             self.memory_values[self.index] = record
 
-        # Weights.
+        # Weights. # TODO this is problematic due to index not existing.
         if record[4] is not None:
             self.merged_segment_tree.insert(self.index, record[4])
         else:

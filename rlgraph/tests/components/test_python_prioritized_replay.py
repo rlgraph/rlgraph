@@ -42,6 +42,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         actions=FloatBox(shape=(2,)),
         reward=float,
         terminals=BoolBox(),
+        weights=FloatBox(),
         add_batch_rank=True
     )
 
@@ -94,7 +95,8 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
                 observation['states'][i],
                 observation['actions'][i],
                 observation['reward'][i],
-                observation['terminals'][i]
+                observation['terminals'][i],
+                observation["weights"][i]
             ))
 
     def test_update_records(self):
@@ -129,10 +131,11 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         observation = self.apex_space.sample(size=5)
         for i in range_(5):
             memory.insert_records((
-                ray_compress(observation['states'][i]),
-                observation['actions'][i],
-                observation['reward'][i],
-                observation['terminals'][i]
+                ray_compress(observation["states"][i]),
+                observation["actions"][i],
+                observation["reward"][i],
+                observation["terminals"][i],
+                observation["weights"][i]
             ))
 
         # Fetch elements and their indices.
