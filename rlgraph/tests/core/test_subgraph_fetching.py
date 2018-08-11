@@ -31,8 +31,6 @@ class TestSubGraphFetching(unittest.TestCase):
     Tests if the graph builder can correctly return subgraphs leading to
     a given input.
     """
-    root_logger.setLevel(level=logging.DEBUG)
-
     def test_subgraph_components(self):
         return
         # TODO fix when we have built selective subgraph fetching correctly.
