@@ -428,8 +428,8 @@ class RayWorker(RayActor):
         # Compute loss-per-item.
         if self.worker_computes_weights:
             # Next states were just collected, we batch process them here.
-            # TODO we can merge this preprocessing into the same call.
-            _, loss_per_item = self.agent.update(
+            # TODO make generic agent method?
+            _, loss_per_item = self.agent.get_td_loss(
                 dict(
                     states=states,
                     actions=actions,

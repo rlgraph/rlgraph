@@ -209,6 +209,26 @@ class DQNAgent(Agent):
 
         self.core_component.define_api_method("update_from_external_batch", update_from_external_batch)
 
+        # TODO for testing
+        def get_td_loss(self_, preprocessed_states, actions, rewards,
+                        terminals, preprocessed_next_states, importance_weights):
+            # Get the different Q-values.
+            q_values_s = self_.call(policy.get_q_values, preprocessed_states)
+            qt_values_sp = self_.call(target_policy.get_q_values, preprocessed_next_states)
+
+            if self.double_q:
+                q_values_sp = self_.call(policy.get_q_values, preprocessed_next_states)
+            else:
+                # These will be not used here, we just cant have None if it's not the last argument.
+                q_values_sp = q_values_s
+            loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
+                qt_values_sp, q_values_sp, importance_weights)
+
+            return loss, loss_per_item
+
+        self.core_component.define_api_method("get_td_loss", get_td_loss)
+
+        # TODO is not plugged in yet,
         # Generic optimization method which we can replace for device strategies.
         # This method should receive as inputs everything the loss function and optimizer need.
         def optimize(self_, *loss_inputs):
