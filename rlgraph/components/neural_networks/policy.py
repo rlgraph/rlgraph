@@ -25,14 +25,13 @@ from rlgraph.components.distributions import Normal, Categorical
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.action_adapters.dueling_action_adapter import DuelingActionAdapter
+from rlgraph.components.action_adapters.baseline_action_adapter import BaselineActionAdapter
 
 
 class Policy(Component):
     """
     A Policy is a Component without own graph_fns that contains a NeuralNetwork with an attached ActionAdapter
     followed by a Distribution Component.
-    The NeuralNetwork's and the Distribution's out-Sockets are all exposed so one can extract the direct
-    NN-output but also query actions (stochastically or deterministically) from the distribution.
 
     API:
         get_action(nn_input, max_likelihood): Returns a single action based on the neural network input AND
@@ -40,20 +39,30 @@ class Policy(Component):
             sample.
         get_nn_output(nn_input): The raw output of the neural network (before it's cleaned-up and passed through
             our ActionAdapter).
-        get_action_layer_output(nn_input) (SingleDataOp): The flat output of the action layer of the ActionAdapter.
-        Optional:
-            If action_adapter has a DuelingLayer:
-                state_value (SingleDataOp): The state value diverged from the first output node of the previous layer.
-                advantage_values (SingleDataOp): The advantage values (already reshaped) for the different actions.
-                q_values (SingleDataOp): The Q-values (already reshaped) for the different state-action pairs.
-                    Calculated according to the dueling layer logic.
-            else:
-                action_layer_output_reshaped (SingleDataOp): The action layer output, reshaped according to the action
-                    space.
+        get_action_layer_output(nn_input) (SingleDataOp): The raw output of the action layer of the ActionAdapter.
+        get_q_values(nn_input): The Q-values (action-space shaped) as calculated by the action-adapter.
         get_logits_parameters_log_probs: See ActionAdapter Component.
+            action_layer_output_reshaped (SingleDataOp): The action layer output, reshaped according to the action
+                    space.
         sample_stochastic: See Distribution component.
         sample_deterministic: See Distribution component.
         entropy: See Distribution component.
+
+        Optional:
+            # TODO: Fix this and automatically forward all action adapter's API methods (with the preceding NN call)
+            # TODO: to the policy.
+            If action_adapter is a DuelingActionAdapter:
+                get_dueling_output:
+                    state_value (SingleDataOp): The state value diverged from the first output node of the previous
+                        layer.
+                    advantage_values (SingleDataOp): The advantage values (already reshaped) for the different actions.
+                    q_values (SingleDataOp): The Q-values (already reshaped) for the different state-action pairs.
+                        Calculated according to the dueling layer logic.
+            Elif action_adapter is a BaselineActionAdapter:
+                get_baseline_output:
+                    state_value (SingleDataOp): The state value diverged from the first output node of the previous
+                        layer.
+                    logits (SingleDataOp): The (action-space reshaped, but otherwise raw) logits.
     """
     def __init__(self, neural_network, action_space=None,
                  writable=False, action_adapter_spec=None, scope="policy", **kwargs):
@@ -64,7 +73,7 @@ class Policy(Component):
             action_space (Space): The action Space within which this Component will create actions.
             writable (bool): Whether this Policy can be synced to by another (equally structured) Policy.
                 Default: False.
-            action_adapter_spec (Optional[dict]): A spec-dict to create an ActionAdapter. USe None for the default
+            action_adapter_spec (Optional[dict]): A spec-dict to create an ActionAdapter. Use None for the default
                 ActionAdapter object.
         """
         super(Policy, self).__init__(scope=scope, **kwargs)
@@ -85,6 +94,18 @@ class Policy(Component):
                 return self_.call(self_.action_adapter.get_dueling_output, nn_output)
 
             self.define_api_method("get_dueling_output", get_dueling_output)
+
+            def get_q_values(self_, nn_input):
+                nn_output = self_.call(self_.neural_network.apply, nn_input)
+                _, _, q = self_.call(self_.action_adapter.get_dueling_output, nn_output)
+                return q
+        # Add API-method to get baseline output (if we use an extra value function baseline node).
+        elif isinstance(self.action_adapter, BaselineActionAdapter):
+            def get_baseline_output(self_, nn_input):
+                nn_output = self_.call(self_.neural_network.apply, nn_input)
+                return self_.call(self_.action_adapter.get_state_values_and_logits, nn_output)
+
+            self.define_api_method("get_baseline_output", get_baseline_output)
 
             def get_q_values(self_, nn_input):
                 nn_output = self_.call(self_.neural_network.apply, nn_input)
