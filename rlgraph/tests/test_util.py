@@ -42,6 +42,7 @@ def config_from_path(path, root=None):
     with open(path, 'rt') as fp:
         return json.load(fp)
 
+
 def non_terminal_records(record_space, num_samples):
     """
     Samples a number of records and enforces all terminals to be 0,

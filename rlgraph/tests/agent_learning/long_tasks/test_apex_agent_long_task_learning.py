@@ -44,19 +44,6 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         episodic_life=True
     )
 
-    def test_agent_compilation(self):
-        """
-        Tests agent compilation without Ray to ease debugging on Windows.
-        """
-        agent_config = config_from_path("configs/ray_apex_for_pong.json")
-        agent_config["execution_spec"].pop("ray_spec")
-        environment = OpenAIGymEnv("Pong-v0", frameskip=4)
-
-        agent = ApexAgent.from_spec(
-            agent_config, state_space=environment.state_space, action_space=environment.action_space
-        )
-        print('Compiled apex agent')
-
     def test_worker_init(self):
         """
         Tests if workers initialize without problems for the pong config.

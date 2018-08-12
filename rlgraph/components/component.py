@@ -718,7 +718,6 @@ class Component(Specifiable):
 
         # We are creating the variable using a Space as template.
         if from_space is not None:
-            # Variables should be returned in a flattened OrderedDict.
             var = self._variable_from_space(flatten, from_space, name, add_batch_rank,
                                             add_time_rank, time_major, trainable, initializer)
 
@@ -749,10 +748,15 @@ class Component(Specifiable):
             else:
                 shape = None
                 initializer = np.asarray(initializer, dtype=util.dtype(dtype, "np"))
-
-            var = tf.get_variable(
-                name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
-            )
+            if self.reuse_variable_scope is not None:
+                with tf.variable_scope(name_or_scope=self.reuse_variable_scope, reuse=True):
+                    var = tf.get_variable(
+                        name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
+                    )
+            else:
+                var = tf.get_variable(
+                    name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
+                )
         elif get_backend() == "tf-eager":
             shape = tuple((() if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,))
                           + (shape or ()))
@@ -779,15 +783,30 @@ class Component(Specifiable):
         """
         Private variable from space helper, see 'get_variable' for API.
         """
-        if flatten:
-            return from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
-                name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
-                time_major=time_major, trainable=trainable, initializer=initializer,
-                is_python=(self.backend == "python" or get_backend() == "python")))
-        # Normal, nested Variables from a Space (container or primitive).
-        else:
-            return from_space.get_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable,
-                initializer=initializer, is_python=(self.backend == "python" or get_backend() == "python"))
+        # Variables should be returned in a flattened OrderedDict.
+        if get_backend() == "tf":
+            if self.reuse_variable_scope is not None:
+                with tf.variable_scope(name_or_scope=self.reuse_variable_scope, reuse=True):
+                    if flatten:
+                        return from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
+                            name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
+                            time_major=time_major, trainable=trainable, initializer=initializer,
+                            is_python=(self.backend == "python" or get_backend() == "python")))
+                    # Normal, nested Variables from a Space (container or primitive).
+                    else:
+                        return from_space.get_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable,
+                            initializer=initializer, is_python=(self.backend == "python" or get_backend() == "python"))
+            else:
+                if flatten:
+                    return from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
+                        name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
+                        time_major=time_major, trainable=trainable, initializer=initializer,
+                        is_python=(self.backend == "python" or get_backend() == "python")))
+                # Normal, nested Variables from a Space (container or primitive).
+                else:
+                    return from_space.get_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable,
+                                                   initializer=initializer,
+                                                   is_python=(self.backend == "python" or get_backend() == "python"))
 
     def get_variables(self, *names, **kwargs):
         """
@@ -1032,6 +1051,9 @@ class Component(Specifiable):
                 raise RLGraphError("ERROR: Sub-Component with name '{}' has already been added once to a container "
                                 "Component! Each Component can only be added once to a parent.".format(component.name))
             component.parent_component = self
+
+            # Pass reusable scope to subscomponents.
+            component.reuse_variable_scope = self.reuse_variable_scope
             self.sub_components[component.name] = component
 
             # Fix the sub-component's (and sub-sub-component's etc..) scope(s).
@@ -1046,22 +1068,41 @@ class Component(Specifiable):
                     # Add the sub-component's API-registered methods to ours.
                     #self.defined_externally.add(component.scope + "-" + api_method_name)
 
-    def propagate_scope(self, sub_component):
+    def propagate_scope(self, sub_component, properties=None):
         """
         Fixes all the sub-Component's (and its sub-Component's) global_scopes.
 
         Args:
             sub_component (Optional[Component]): The sub-Component object whose global_scope needs to be updated.
                 Use None for this Component itself.
+            properties (Optional[dict]): Dict with properties to update on subcomponents.
         """
+        # TODO this should be moved to use generic method below, but checking if global scope if set
+        # does not work well within that.
         if sub_component is None:
             sub_component = self
         elif self.global_scope:
             sub_component.global_scope = self.global_scope + (
                 ("/" + sub_component.scope) if sub_component.scope else "")
+
         # Recurse.
         for sc in sub_component.sub_components.values():
             sub_component.propagate_scope(sc)
+
+    def update_properties_recursively(self, properties, component=None):
+        """
+        Recursively updates properties of component and its subcomponents.
+        Args:
+            properties (dict): Dict with names of properties and their values to recursively update
+                sub-components with.
+            component (Optional([Component])): Component to recursively update. Uses self if None.
+        """
+        if component is None:
+            component = self
+        for name, value in properties.items():
+            setattr(component, name, value)
+        for sc in component.sub_components.values():
+            component.update_properties_recursively(properties, sc)
 
     def propagate_variables(self, keys=None):
         """
@@ -1128,14 +1169,19 @@ class Component(Specifiable):
         new_component = copy.deepcopy(self)
         new_component.name = name
         new_component.scope = scope
-        new_component.reuse_variable_scope = reuse_variable_scope
+
+        # Propagate reusable scope.
+        if reuse_variable_scope is not None:
+            new_component.update_properties_recursively(properties=dict(reuse_variable_scope=reuse_variable_scope))
+
         # Change global_scope for the copy and all its sub-components.
         new_component.global_scope = scope
         new_component.propagate_scope(sub_component=None)
         new_component.device = device
         new_component.trainable = trainable
         new_component.global_component = global_component
-        new_component.parent_component = None  # erase the parent pointer
+        # Erase the parent pointer.
+        new_component.parent_component = None
 
         return new_component
 

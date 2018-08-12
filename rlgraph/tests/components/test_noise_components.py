@@ -40,21 +40,21 @@ class TestNoiseComponents(unittest.TestCase):
         noise_component = ConstantNoise(value=real_noise)
         test = ComponentTest(component=noise_component, action_space=self.action_input_space)
 
-        for i in range_(1000):
+        for _ in range_(1000):
             test.test(("get_noise", None), expected_outputs=real_noise)
 
     def test_gaussian_noise(self):
         real_mean = 10.0
         real_sd = 2.0
 
-        noise_component = GaussianNoise(mean=real_mean, sd=real_sd)
+        noise_component = GaussianNoise(mean=real_mean, stddev=real_sd)
         test = ComponentTest(component=noise_component, input_spaces=None, action_space=self.action_input_space)
 
         # Collect outputs in `collected` list to compare moments.
         collected = list()
         collect_outs = lambda component_test, outs: collected.append(outs)
 
-        for i in range_(1000):
+        for _ in range_(1000):
             test.test(("get_noise", None), fn_test=collect_outs)
 
         test_mean = np.mean(collected)

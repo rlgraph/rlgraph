@@ -39,13 +39,13 @@ LARGE_INTEGER = 100000000
 # Logging config for testing.
 logging_formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s', datefmt='%y-%m-%d %H:%M:%S')
 root_logger = logging.getLogger('')
-root_logger.setLevel(level=logging.DEBUG)
+root_logger.setLevel(level=logging.INFO)
 tf_logger = logging.getLogger('tensorflow')
-tf_logger.setLevel(level=logging.DEBUG)
+tf_logger.setLevel(level=logging.INFO)
 
 print_logging_handler = logging.StreamHandler(stream=sys.stdout)
 print_logging_handler.setFormatter(logging_formatter)
-print_logging_handler.setLevel(level=logging.DEBUG)
+print_logging_handler.setLevel(level=logging.INFO)
 root_logger.addHandler(print_logging_handler)
 
 

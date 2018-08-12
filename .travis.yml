@@ -1,5 +1,5 @@
 sudo: required
-dist: trusty
+dist: xenial
 language: python
 
 services:
@@ -19,7 +19,7 @@ before_install:
   - docker run -d --rm --name ${DOCKER_JOB_NAME} -v $(pwd):/rlgraph ${DOCKER_IMAGE} /bin/bash -c 'while true; do sleep 1; done';
 
 install:
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'apt-get update && apt-get -y install libsm6 libxrender-dev libxext6';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'apt-get update && apt-get -y install libsm6 libxrender-dev libxext6 cmake libz-dev';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'curl https://bootstrap.pypa.io/get-pip.py | python';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U pip';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U numpy';
@@ -32,8 +32,8 @@ install:
 script:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/core';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components';
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && pytest -m test_apex_agent_long_task_learning.py::TestApexAgentLongTaskLearning::test_agent_compilation';
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && pytest -m test_apex_agent_long_task_learning.py::TestApexAgentLongTaskLearning::test_worker_update';
+  # Test if all agents compile.
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_functionality/test_all_compile.py';
 
 notifications:
   email:

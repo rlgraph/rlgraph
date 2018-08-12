@@ -17,46 +17,42 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import logging
-
-from rlgraph.agents import ApexAgent
+import unittest
+from rlgraph.agents import DQNAgent, ApexAgent
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.tests.test_util import config_from_path
-from rlgraph.utils import root_logger
-import unittest
 
 
-class TestSubGraphFetching(unittest.TestCase):
+class TestAllCompile(unittest.TestCase):
     """
-    Tests if the graph builder can correctly return subgraphs leading to
-    a given input.
+    Tests if all agents compile correctly on relevant configurations.
     """
-    def test_subgraph_components(self):
-        return
-        # TODO fix when we have built selective subgraph fetching correctly.
-        # Create agent.
+    def test_dqn_compilation(self):
+        """
+        Creates a DQNAgent and runs it via a Runner on an openAI Pong Env.
+        """
+        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, random_start=True, episodic_life=True)
+        agent_config = config_from_path("configs/dqn_agent_for_pong.json")
+        agent = DQNAgent.from_spec(
+            # Uses 2015 DQN parameters as closely as possible.
+            agent_config,
+            state_space=env.state_space,
+            # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
+            action_space=env.action_space
+        )
+
+    def test_apex_compilation(self):
+        """
+        Tests agent compilation without Ray to ease debugging on Windows.
+        """
         agent_config = config_from_path("configs/ray_apex_for_pong.json")
         agent_config["execution_spec"].pop("ray_spec")
         environment = OpenAIGymEnv("Pong-v0", frameskip=4)
 
-        # Do not build yet.
         agent = ApexAgent.from_spec(
-            agent_config, state_space=environment.state_space, action_space=environment.action_space,
-            auto_build=False
+            agent_config, state_space=environment.state_space, action_space=environment.action_space
         )
+        print('Compiled apex agent')
 
-        # Prepare all steps until build device strategy so we can test subgraph fetching.
-        agent.graph_executor.init_execution()
-        agent.graph_executor.setup_graph()
 
-        # Meta graph must be built for sub-graph tracing.
-        agent.graph_builder.build_meta_graph(agent.input_spaces)
-
-        sub_graph = agent.graph_builder.get_subgraph("update_from_external_batch")
-        print("Sub graph components:")
-        print(sub_graph.sub_components)
-        print("Sub graph API: ")
-        print(sub_graph.api_methods)
-
-        # TODO assert which components are needed.
 
