@@ -108,3 +108,37 @@ class TestReShapePreprocessors(unittest.TestCase):
         inputs = in_space.sample(size=8)
         expected = np.reshape(inputs, newshape=(4, 2, 4, 4))
         test.test(("apply", inputs), expected_outputs=expected)
+
+    def test_reshape_with_batch_vs_time_flipping_and_reshaping(self):
+        # Flip time and batch rank AND reshape.
+        in_space = FloatBox(shape=(5, 8), add_batch_rank=True, add_time_rank=True, time_major=True)
+        reshape = ReShape(time_major=False, new_shape=(4, 10))
+        test = ComponentTest(component=reshape, input_spaces=dict(
+            preprocessing_inputs=in_space
+        ))
+
+        test.test("reset")
+        # seq-len=2, batch-size=4
+        inputs = in_space.sample(size=(2, 4))
+        # Flip the first two dimensions.
+        expected = np.transpose(inputs, axes=(1, 0, 2, 3))
+        # Do the actual reshape (not touching the first two dimensions).
+        expected = np.reshape(expected, newshape=(4, 2, 4, 10))
+        test.test(("apply", inputs), expected_outputs=expected)
+
+    def test_reshape_with_batch_vs_time_flipping_and_flattening(self):
+        # Flip time and batch rank AND reshape.
+        in_space = FloatBox(shape=(6, 4, 2), add_batch_rank=True, add_time_rank=True, time_major=False)
+        reshape = ReShape(time_major=True, flatten=True)
+        test = ComponentTest(component=reshape, input_spaces=dict(
+            preprocessing_inputs=in_space
+        ))
+
+        test.test("reset")
+        # seq-len=2, batch-size=4
+        inputs = in_space.sample(size=(1, 3))
+        # Flip the first two dimensions.
+        expected = np.transpose(inputs, axes=(1, 0, 2, 3, 4))
+        # Do the actual reshape (not touching the first two dimensions).
+        expected = np.reshape(expected, newshape=(3, 1, 48))
+        test.test(("apply", inputs), expected_outputs=expected)
