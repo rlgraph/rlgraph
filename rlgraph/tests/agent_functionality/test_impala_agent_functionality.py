@@ -43,26 +43,28 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         """
         Creates a large IMPALA architecture network and runs a few input samples through it.
         """
-        action_space = IntBox(9, add_batch_rank=True, add_time_rank=True, time_major=True)
+        #action_space = IntBox(9, add_batch_rank=True, add_time_rank=True, time_major=True)
         # Use the exact same input space as in the IMPALA paper.
         input_space = Dict(
             image=FloatBox(shape=(96, 72, 3)), text=TextBox(),
-            previous_action=action_space, previous_reward=FloatBox(),
+            previous_action=FloatBox(shape=(9,)),
+            previous_reward=FloatBox(shape=(1,)),  # add the extra rank for proper concatenating with the othe.
             add_batch_rank=True,
             add_time_rank=True,
             time_major=True
         )
 
-        # Create the network.
-        large_impala_architecture = LargeIMPALANetwork()
+        # Create the network (with a small time-step value for this test).
+        large_impala_architecture = LargeIMPALANetwork(num_timesteps=2)
         test = ComponentTest(
-            large_impala_architecture, input_spaces=dict(input_dict=input_space), action_space=action_space
+            large_impala_architecture, input_spaces=dict(input_dict=input_space)
         )
 
         # Send a 2x3 sample through the network (2=sequence-length (time-rank), 3=batch-size).
         sample_input = input_space.sample(size=(2, 3))
         expected = None
-        test.test(("apply", sample_input), expected_outputs=expected)
+        ret = test.test(("apply", sample_input), expected_outputs=expected)
+        print(ret)
 
     # TODO move this to test_all_compile once it works.
     def test_impala_assembly(self):
