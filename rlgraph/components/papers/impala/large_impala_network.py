@@ -25,7 +25,6 @@ from rlgraph.components.layers.nn.residual_layer import ResidualLayer
 from rlgraph.components.layers.nn.maxpool2d_layer import MaxPool2DLayer
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 from rlgraph.components.layers.nn.concat_layer import ConcatLayer
-from rlgraph.components.layers.preprocessing.flatten import Flatten
 from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.layers.strings.string_to_hash_bucket import StringToHashBucket
 from rlgraph.components.layers.strings.embedding_lookup import EmbeddingLookup
@@ -95,7 +94,7 @@ class LargeIMPALANetwork(NeuralNetwork):
         sub_components = list()
 
         # Time-rank into batch-rank reshaper.
-        sub_components.append(ReShape(fold_time_rank=True))
+        sub_components.append(ReShape(fold_time_rank=True, scope="time-rank-fold"))
 
         for i, num_filters in enumerate([16, 32, 32]):
             # Conv2D plus MaxPool2D.
@@ -120,11 +119,11 @@ class LargeIMPALANetwork(NeuralNetwork):
 
         # A Flatten preprocessor and then an fc block (surrounded by ReLUs) and a time-rank-unfolding.
         sub_components.extend([
-            Flatten(),  # Flattener (to flatten Conv2D output for the fc layer).
+            ReShape(flatten=True, scope="flatten"),  # Flattener (to flatten Conv2D output for the fc layer).
             NNLayer(activation="relu", scope="relu-1"),  # ReLU 1
             DenseLayer(units=256),  # Dense layer.
             NNLayer(activation="relu", scope="relu-2"),  # ReLU 2
-            ReShape(unfold_time_rank=num_timesteps, time_major=True, scope="time-rank-unfolder")
+            ReShape(unfold_time_rank=num_timesteps, time_major=True, scope="time-rank-unfold")
         ])
 
         # Return the image stack.

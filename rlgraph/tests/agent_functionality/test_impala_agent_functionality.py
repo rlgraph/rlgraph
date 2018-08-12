@@ -20,6 +20,7 @@ from __future__ import print_function
 import logging
 import unittest
 from rlgraph.agents import Agent
+from rlgraph.components.neural_networks.policy import Policy
 from rlgraph.components.papers.impala.large_impala_network import LargeIMPALANetwork
 from rlgraph.environments import RandomEnv
 from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
@@ -39,29 +40,46 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
     """
     root_logger.setLevel(level=logging.INFO)
 
+    # Use the exact same Spaces as in the IMPALA paper.
+    action_space = IntBox(9, add_batch_rank=True, add_time_rank=True, time_major=True)
+    input_space = Dict(
+        image=FloatBox(shape=(96, 72, 3)), text=TextBox(),
+        previous_action=FloatBox(shape=(9,)),
+        previous_reward=FloatBox(shape=(1,)),  # add the extra rank for proper concatenating with the other inputs.
+        add_batch_rank=True,
+        add_time_rank=True,
+        time_major=True
+    )
+
     def test_large_impala_network_without_agent(self):
         """
-        Creates a large IMPALA architecture network and runs a few input samples through it.
+        Creates a large IMPALA architecture network and runs an input sample through it.
         """
-        #action_space = IntBox(9, add_batch_rank=True, add_time_rank=True, time_major=True)
-        # Use the exact same input space as in the IMPALA paper.
-        input_space = Dict(
-            image=FloatBox(shape=(96, 72, 3)), text=TextBox(),
-            previous_action=FloatBox(shape=(9,)),
-            previous_reward=FloatBox(shape=(1,)),  # add the extra rank for proper concatenating with the othe.
-            add_batch_rank=True,
-            add_time_rank=True,
-            time_major=True
-        )
-
         # Create the network (with a small time-step value for this test).
         large_impala_architecture = LargeIMPALANetwork(num_timesteps=2)
         test = ComponentTest(
-            large_impala_architecture, input_spaces=dict(input_dict=input_space)
+            large_impala_architecture, input_spaces=dict(input_dict=self.input_space)
         )
 
         # Send a 2x3 sample through the network (2=sequence-length (time-rank), 3=batch-size).
-        sample_input = input_space.sample(size=(2, 3))
+        sample_input = self.input_space.sample(size=(2, 3))
+        expected = None
+        ret = test.test(("apply", sample_input), expected_outputs=expected)
+        print(ret)
+
+    def test_large_impala_policy_without_agent(self):
+        """
+        Creates a large IMPALA architecture network inside a policy and runs an input sample through it.
+        """
+        # Create the network (with a small time-step value for this test).
+        large_impala_architecture = LargeIMPALANetwork(num_timesteps=1)
+        policy = Policy(large_impala_architecture, action_space=self.action_space)
+        test = ComponentTest(
+            policy, input_spaces=dict(nn_input=self.input_space), action_space=self.action_space
+        )
+
+        # Send a 2x3 sample through the network (1=sequence-length (time-rank), 1=batch-size).
+        sample_input = self.input_space.sample(size=(1, 1))
         expected = None
         ret = test.test(("apply", sample_input), expected_outputs=expected)
         print(ret)
