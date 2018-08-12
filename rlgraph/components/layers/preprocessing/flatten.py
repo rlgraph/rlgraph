@@ -33,7 +33,7 @@ class Flatten(PreprocessLayer):
     """
     Flattens the input by reshaping it, excluding the batch- or the time-rank (if there are any).
     e.g. input FloatBox(shape=(None, 2, 3, 4)) -> flatten -> FloatBox(shape=(None, 24)).
-    If both batch-rank and time-rank are given, will fold the time rank into the batch rank (0th rank).
+    If both batch-rank and time-rank are given, will fold both ranks into one resulting one (0th rank).
 
     If the input is an IntBox, will (optionally) flatten for categories as well.
     e.g. input Space=IntBox(4) -> flatten -> FloatBox(shape=(4,)).
