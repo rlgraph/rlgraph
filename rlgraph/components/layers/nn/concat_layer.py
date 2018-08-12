@@ -53,7 +53,7 @@ class ConcatLayer(NNLayer):
             assert in_space_0.shape[:-1] == input_spaces[key].shape[:-1], \
                 "ERROR: Input spaces to ConcatLayer must have same shape except for last rank. " \
                 "0th input's shape is {}, but {}st input's shape is {} (all shapes here are without " \
-                "batch/time-ranks).".format(idx, input_spaces[key].shape, in_space_0.shape)
+                "batch/time-ranks).".format(in_space_0.shape, idx, input_spaces[key].shape)
             idx += 1
 
     def create_variables(self, input_spaces, action_space=None):
