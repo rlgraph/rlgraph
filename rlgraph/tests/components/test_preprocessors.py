@@ -22,7 +22,7 @@ import numpy as np
 import os
 import unittest
 
-from rlgraph.components.layers import GrayScale, Flatten, Multiply, Divide, Clip, ImageBinary, ImageResize, ImageCrop
+from rlgraph.components.layers import GrayScale, ReShape, Multiply, Divide, Clip, ImageBinary, ImageResize, ImageCrop
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 
@@ -111,7 +111,7 @@ class TestPreprocessors(unittest.TestCase):
             ),
             add_batch_rank=True
         )
-        flatten = Flatten()
+        flatten = ReShape(flatten=True)
 
         test = ComponentTest(component=flatten, input_spaces=dict(preprocessing_inputs=space))
 

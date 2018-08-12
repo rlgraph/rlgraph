@@ -22,7 +22,7 @@ import numpy as np
 from six.moves import xrange as range_
 
 from rlgraph.components import Component
-from rlgraph.components.layers.preprocessing import Flatten
+from rlgraph.components.layers.preprocessing import ReShape
 from rlgraph.spaces import FloatBox
 from rlgraph.tests import ComponentTest
 
@@ -35,13 +35,16 @@ class TestComponentCopy(unittest.TestCase):
         # Flatten a simple 2x2 FloatBox to (4,).
         space = FloatBox(shape=(2, 2), add_batch_rank=False)
 
-        flatten_orig = Flatten(scope="A")
+        flatten_orig = ReShape(flatten=True, scope="A")
         flatten_copy = flatten_orig.copy(scope="B")
         container = Component(flatten_orig, flatten_copy)
+
         def flatten1(self_, input_):
             return self_.call(self_.sub_components["A"].apply, input_)
+
         def flatten2(self_, input_):
             return self_.call(self_.sub_components["B"].apply, input_)
+
         container.define_api_method("flatten1", flatten1)
         container.define_api_method("flatten2", flatten2)
         test = ComponentTest(component=container, input_spaces=dict(input_=space))

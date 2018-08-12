@@ -11,7 +11,8 @@
   "preprocessing_spec":
   [
     {
-      "type": "flatten"
+      "type": "reshape",
+      "flatten": true
     }
   ],
 

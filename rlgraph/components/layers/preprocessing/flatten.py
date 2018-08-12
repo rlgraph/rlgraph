@@ -29,6 +29,7 @@ if get_backend() == "tf":
     import tensorflow as tf
 
 
+# OBSOLETE: use more powerful `ReShape(flatten=True)` instead.
 class Flatten(PreprocessLayer):
     """
     Flattens the input by reshaping it, excluding the batch- or the time-rank (if there are any).
@@ -43,6 +44,8 @@ class Flatten(PreprocessLayer):
         Args:
             flatten_categories (bool): Whether to flatten also IntBox categories. Default: True.
         """
+        raise RLGraphError("ERROR: `Flatten` preprocessor has been obsoleted. Use `ReShape(flatten=True)` instead.")
+
         super(Flatten, self).__init__(scope=scope, add_auto_key_as_first_param=True, **kwargs)
 
         self.flatten_categories = flatten_categories

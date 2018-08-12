@@ -71,7 +71,8 @@
         "scope": "conv3"
     },
     {
-        "type": "flatten"
+        "type": "reshape",
+        "flatten": true
     },
     {
         "type": "dense",
