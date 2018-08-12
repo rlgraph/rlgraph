@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.optimizers.optimizer import Optimizer
-
+from rlgraph.spaces import Dict
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -48,8 +48,9 @@ class MultiGpuSyncOptimizer(Optimizer):
         # Function handle used to create replicas.
         self.subgraphs = None
 
-        # Device names.
+        # Device names and variables.
         self.gpu_devices = None
+        self.sub_graph_vars = None
 
         def step(self_):
             grads_and_vars = self_.call(self_._graph_fn_calculate_gradients)
@@ -73,23 +74,47 @@ class MultiGpuSyncOptimizer(Optimizer):
     def create_variables(self, input_spaces, action_space=None):
         super(MultiGpuSyncOptimizer, self).create_variables(input_spaces, action_space)
 
-        # Create device copies and variables
-        with tf.name_scope(self.scope):
-            # TODO create init op?
-            pass
+        # Get input space to load device fun.
+        device_input_space = dict()
+        for name, space in input_spaces.items():
+            # TODO more elegant approach to fetch input space for these tuple spaces?
+            if name.startswith("device_inputs"):
+                device_input_space[name] = space
 
-    def _graph_fn_load_to_device(self, *inputs):
+        # Turn into container space for easy variable creation.
+        device_input_space = Dict(spec=device_input_space)
+        self.sub_graph_vars = list()
+
+        # Create input variables for devices.
+        for device in self.gpu_devices:
+            with tf.device(device):
+                device_variable = self.get_variable(
+                    name=device, trainable=False,
+                    from_space=device_input_space,
+                    flatten=True,
+                    add_batch_rank=True,
+                    initializer=0
+                )
+                self.sub_graph_vars.append(device_variable)
+
+    def _graph_fn_load_to_device(self, *device_inputs):
         """
         Loads inputs to device memories by splitting data across configured devices.
 
         Args:
-            *inputs (SingleDataOp): Data batch.
+            *DataOpTuple (DataOpTuple): Data batch.
 
         Returns:
-            int: Tuples per device
+            DataOpTuple: Identity op of device allocated variables.
         """
-        # TODO generate ops to load to device memory
-        pass
+        # TODO how to assign effectively?
+        if get_backend() == "tf":
+            for i, shard in enumerate(device_inputs):
+                # TODO splitter must be in GPUs?
+                device_inputs = self.splitter.call("split", shard)
+                pass
+
+            return None
 
     def _graph_fn_calculate_gradients(self, input_batches):
         """
