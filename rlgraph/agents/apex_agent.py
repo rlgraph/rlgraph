@@ -74,5 +74,27 @@ class ApexAgent(DQNAgent):
             # Return [1]=total loss, [2]=loss-per-item (skip [0]=update noop).
             return ret[1], ret[2]
 
+    def get_td_loss(self, batch):
+        """
+        Utility method that just returns the td-loss from a batch without
+        applying an update.
+
+        Args:
+            batch (dict): Input batch.
+
+        Returns:
+            Tuple: Total loss and loss per item.
+        """
+        batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
+                       batch["next_states"], batch["importance_weights"]]
+        ret = self.graph_executor.execute(("get_td_loss", batch_input))
+
+        # Remove unnecessary return dicts.
+        if isinstance(ret, dict):
+            ret = ret["get_td_loss"]
+
+        # Return [0]=total loss, [1]=loss-per-item
+        return ret[0], ret[1]
+
     def __repr__(self):
         return "ApexAgent"
