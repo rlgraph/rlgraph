@@ -91,7 +91,8 @@ class MultiGpuSyncOptimizer(Optimizer):
                 device_variable = self.get_variable(
                     name=device, trainable=False,
                     from_space=device_input_space,
-                    flatten=True,
+                    # TODO false or True?
+                    flatten=False,
                     add_batch_rank=True,
                     initializer=0
                 )
@@ -112,7 +113,7 @@ class MultiGpuSyncOptimizer(Optimizer):
             for i, shard in enumerate(device_inputs):
                 # TODO splitter must be in GPUs?
                 device_inputs = self.splitter.call("split", shard)
-                pass
+                # TODO how do we map these to the variable names?
 
             return None
 

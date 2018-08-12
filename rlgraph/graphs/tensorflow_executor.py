@@ -646,7 +646,7 @@ class TensorFlowExecutor(GraphExecutor):
                 input_batches = self_.call_(batch_splitter.split_batch, *inputs)
 
                 # Load to device, return.
-                input_batches = self_.call(optimizer.__graph_fn_load_to_device, input_batches)
+                input_batches = self_.call(optimizer._graph_fn_load_to_device, input_batches)
 
                 # Multi gpu optimizer passes shards to the respective subg-raphs.
                 averaged_grads = self_.call(optimizer._graph_fn_calculate_gradients(input_batches))
