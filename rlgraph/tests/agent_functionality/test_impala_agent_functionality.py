@@ -73,7 +73,9 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         """
         # Create the network (with a small time-step value for this test).
         large_impala_architecture = LargeIMPALANetwork(num_timesteps=1)
-        policy = Policy(large_impala_architecture, action_space=self.action_space)
+        # IMPALA uses a baseline action adapter (v-trace off-policy PG with baseline value function).
+        policy = Policy(large_impala_architecture, action_space=self.action_space,
+                        action_adapter_spec=dict(type="baseline_action_adapter"))
         test = ComponentTest(
             policy, input_spaces=dict(nn_input=self.input_space), action_space=self.action_space
         )
