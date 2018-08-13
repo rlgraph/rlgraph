@@ -148,7 +148,13 @@ class Sequence(PreprocessLayer):
                     self.deque.append(preprocessing_inputs)
             else:
                 self.deque.append(preprocessing_inputs)
-            sequence = np.concatenate(self.deque, axis=-1)
+            self.index = (self.index + 1) % self.sequence_length
+
+            if self.add_rank:
+                sequence = np.stack(self.deque, axis=-1)
+            # Concat the sequence items in the last rank.
+            else:
+                sequence = np.concatenate(self.deque, axis=-1)
             return sequence
 
         elif get_backend() == "tf":
