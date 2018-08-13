@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from collections import deque
+
 import numpy as np
 from six.moves import xrange as range_
 
@@ -60,6 +62,8 @@ class Sequence(PreprocessLayer):
         self.index = None
         # The output spaces after preprocessing (per flat-key).
         self.output_spaces = None
+        if self.backend == "python" or get_backend() == "python":
+            self.deque = deque([], maxlen=self.sequence_length)
 
     def get_preprocessed_space(self, space):
         ret = dict()
@@ -116,32 +120,35 @@ class Sequence(PreprocessLayer):
         """
         # A normal (index != -1) assign op.
         if self.backend == "python" or get_backend() == "python":
-            #for key_, value in inputs.items():
+            #   for key_, value in inputs.items():
             # Insert the input at the correct index or fill empty buffer entirely with input.
+            # if self.index == -1:
+            #     reps = (self.sequence_length,) + tuple([1] * get_rank(preprocessing_inputs))
+            #     input_ = np.expand_dims(preprocessing_inputs, 0)
+            #     self.buffer = np.tile(input_, reps=reps)
+            # else:
+            #     self.buffer[self.index] = preprocessing_inputs
+            #
+            # self.index = (self.index + 1) % self.sequence_length
+            #
+            # #sequences = FlattenedDataOp()
+            # # Collect the correct previous inputs from the buffer to form the output sequence.
+            # #for key in inputs.keys():
+            # n_in = [self.buffer[(self.index + n) % self.sequence_length]
+            #         for n in range_(self.sequence_length)]
+            #
+            # # Add the sequence-rank to the end of our inputs.
+            # if self.add_rank:
+            #     sequence = np.stack(n_in, axis=-1)
+            # # Concat the sequence items in the last rank.
+            # else:
+            #     sequence = np.concatenate(n_in, axis=-1)
             if self.index == -1:
-                reps = (self.sequence_length,) + tuple([1] * get_rank(preprocessing_inputs))
-                input_ = np.expand_dims(preprocessing_inputs, 0)
-                self.buffer = np.tile(input_, reps=reps)
+                for _ in range_(self.sequence_length):
+                    self.deque.append(preprocessing_inputs)
             else:
-                self.buffer[self.index] = preprocessing_inputs
-
-            self.index = (self.index + 1) % self.sequence_length
-
-            #sequences = FlattenedDataOp()
-            # Collect the correct previous inputs from the buffer to form the output sequence.
-            #for key in inputs.keys():
-            n_in = [self.buffer[(self.index + n) % self.sequence_length]
-                    for n in range_(self.sequence_length)]
-
-            # Add the sequence-rank to the end of our inputs.
-            if self.add_rank:
-                sequence = np.stack(n_in, axis=-1)
-            # Concat the sequence items in the last rank.
-            else:
-                sequence = np.concatenate(n_in, axis=-1)
-
-            #sequences[key] = sequence
-
+                self.deque.append(preprocessing_inputs)
+            sequence = np.concatenate(self.deque, axis=-1)
             return sequence
 
         elif get_backend() == "tf":

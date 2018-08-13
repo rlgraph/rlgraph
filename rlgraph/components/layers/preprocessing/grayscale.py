@@ -103,6 +103,9 @@ class GrayScale(PreprocessLayer):
                 if self.keep_rank:
                     scaled_images = scaled_images[:, :, :, np.newaxis]
                 return scaled_images
+            else:
+                # Sample by sample.
+                return cv2.cvtColor(preprocessing_inputs, cv2.COLOR_RGB2GRAY)
         elif get_backend() == "tf":
             weights_reshaped = np.reshape(a=self.weights,
                                           newshape=tuple([1] * (get_rank(preprocessing_inputs) - 1))

@@ -82,7 +82,6 @@ class ImageResize(PreprocessLayer):
         Images come in with either a batch dimension or not.
         """
         if self.backend == "python" or get_backend() == "python":
-            import cv2
             if isinstance(preprocessing_inputs, list):
                 preprocessing_inputs = np.asarray(preprocessing_inputs)
             if preprocessing_inputs.ndim == 4:
@@ -94,6 +93,7 @@ class ImageResize(PreprocessLayer):
                 resized = resized[:, :, :, np.newaxis]
                 return resized
             else:
+                # Single sample.
                 return cv2.resize(preprocessing_inputs, dsize=(self.width, self.height),
                                   interpolation=self.cv2_interpolation)
         elif get_backend() == "tf":
