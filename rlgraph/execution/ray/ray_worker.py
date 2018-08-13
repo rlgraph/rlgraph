@@ -301,24 +301,23 @@ class RayWorker(RayActor):
         batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals = list(), list(), list(),\
             list(), list()
 
+        default_next = np.zeros_like(next_states[0])
         for i, env_id in enumerate(self.env_ids):
-            env_sample_states = np.squeeze(sample_states[env_id])
+            env_sample_states = sample_states[env_id]
 
             # Get next states for this environment's trajectory.
             env_sample_next_states = env_sample_states[1:]
             batch_states.extend(env_sample_states)
             if terminals[i]:
-                next_state = np.zeros_like(next_states[0])
+                next_state = default_next
             else:
                 next_state = next_states[i]
 
             next_state = self.agent.state_space.force_batch(next_state)
             if self.preprocessors[env_id] is not None:
                 next_state = self.preprocessors[env_id].preprocess(next_state)
-
             # print('next state shape append: {}'.format(next_state.shape))
             batch_next_states.extend(env_sample_next_states)
-            #  next_state = self.agent.preprocessed_state_space.force_batch(next_state)
             batch_next_states.extend(next_state)
             batch_actions.extend(sample_actions[env_id])
             batch_rewards.extend(sample_rewards[env_id])
