@@ -73,7 +73,8 @@ class ApexExecutor(RayExecutor):
         # These are the tasks actually interacting with the environment.
         self.env_sample_tasks = RayTaskPool()
         self.env_interaction_task_depth = self.executor_spec["env_interaction_task_depth"]
-        self.worker_sample_size = self.executor_spec["num_worker_samples"]
+        self.worker_sample_size = self.executor_spec["num_worker_samples"] + self.worker_spec["n_step_adjustment"] - 1
+
 
         assert not ray_spec, "ERROR: ray_spec still contains items: {}".format(ray_spec)
         self.logger.info("Setting up execution for Apex executor.")
