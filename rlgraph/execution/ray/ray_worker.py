@@ -255,6 +255,7 @@ class RayWorker(RayActor):
             #         break
 
             timesteps_executed += self.num_environments
+            env_frames += self.num_environments
             env_states = next_states
 
             # Do accounting for each environment.
