@@ -48,8 +48,8 @@ class TestPythonMemoryPerformance(unittest.TestCase):
     samples = 10000
     sample_batch_size = 50
 
-    alpha = 1.0
-    beta = 1.0
+    alpha = 0.6
+    beta = 0.4
     max_priority = 1.0
 
     def test_ray_prioritized_replay_insert(self):

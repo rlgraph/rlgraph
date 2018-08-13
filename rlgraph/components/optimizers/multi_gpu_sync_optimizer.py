@@ -82,17 +82,17 @@ class MultiGpuSyncOptimizer(Optimizer):
                 device_input_space[name] = space
 
         # Turn into container space for easy variable creation.
-        device_input_space = Dict(spec=device_input_space)
+        self.device_input_space = Dict(spec=device_input_space)
         self.sub_graph_vars = list()
 
         # Create input variables for devices.
         for device in self.gpu_devices:
             with tf.device(device):
                 device_variable = self.get_variable(
-                    name=device, trainable=False,
-                    from_space=device_input_space,
+                    name="gpu_placeholder_{}".format(str(device)), trainable=False,
+                    from_space=self.device_input_space,
                     # TODO false or True?
-                    flatten=False,
+                    flatten=True,
                     add_batch_rank=True,
                     initializer=0
                 )
@@ -108,13 +108,14 @@ class MultiGpuSyncOptimizer(Optimizer):
         Returns:
             DataOpTuple: Identity op of device allocated variables.
         """
-        # TODO how to assign effectively?
         if get_backend() == "tf":
             for i, shard in enumerate(device_inputs):
                 # TODO splitter must be in GPUs?
                 device_inputs = self.splitter.call("split", shard)
-                # TODO how do we map these to the variable names?
-
+                for name in self.device_input_space.keys():
+                    # TODO how do we map these to the variable names?
+                    self.sub_graph_vars[i][name] = None
+            # TODO Merge again?
             return None
 
     def _graph_fn_calculate_gradients(self, input_batches):
