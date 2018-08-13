@@ -64,7 +64,7 @@ class MultiGpuSyncOptimizer(Optimizer):
 
         Args:
             component_graphs (list): List of component graphs.
-            splitter (Splitter): Splitter object containing the keys needed to split an input batch into
+            splitter (DictSplitter): Splitter object containing the keys needed to split an input batch into
                 the shards for each device.
         """
         self.subgraphs = component_graphs
