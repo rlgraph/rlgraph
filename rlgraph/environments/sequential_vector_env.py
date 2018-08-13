@@ -29,13 +29,18 @@ class SequentialVectorEnv(VectorEnv):
     Sequential multi-environment class which iterates over a list of environments
     to step them.
     """
-    def __init__(self, num_envs, env_spec, num_background_envs=1):
+    def __init__(self, num_envs, env_spec, num_background_envs=1, async_reset=False):
         """
-            num_background_envs (int): Number of environments asynchronously
+            num_background_envs (Optional([int]): Number of environments asynchronously
                 reset in the background. Need to be calibrated depending on reset cost.
+            async_reset (Optional[bool]): If true, resets envs asynchronously in another thread.
         """
         super(SequentialVectorEnv, self).__init__(num_envs, env_spec)
-        self.threaded_resetter = ThreadedResetter(env_spec, num_background_envs)
+        self.async_reset = async_reset
+        if self.async_reset:
+            self.resetter = ThreadedResetter(env_spec, num_background_envs)
+        else:
+            self.resetter = Resetter()
 
     def seed(self, seed=None):
         return [env.seed(seed) for env in self.environments]
@@ -43,13 +48,13 @@ class SequentialVectorEnv(VectorEnv):
     def reset_all(self):
         states = []
         for i, env in enumerate(self.environments):
-            state, env = self.threaded_resetter.swap(self.environments[i])
+            state, env = self.resetter.swap(self.environments[i])
             states.append(state)
             self.environments[i] = env
         return states
 
     def reset(self, index=0):
-        state, env = self.threaded_resetter.swap(self.environments[index])
+        state, env = self.resetter.swap(self.environments[index])
         self.environments[index] = env
         return state
 
@@ -67,11 +72,17 @@ class SequentialVectorEnv(VectorEnv):
         return [str(env) for env in self.environments]
 
 
+class Resetter(object):
+
+    def swap(self, env):
+        return env.reset(), env
+
+
 class ThreadedResetter(Thread):
     """
     Keeps resetting environments in a queue,
 
-    n.b. mechanism originally seen ins RLlib
+    n.b. mechanism originally seen ins RLlib, since removed.
     """
 
     def __init__(self, env_spec, num_environments):
