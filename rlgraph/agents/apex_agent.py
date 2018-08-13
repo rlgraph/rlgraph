@@ -50,7 +50,7 @@ class ApexAgent(DQNAgent):
             sync_call = "sync_target_qnet"
 
         return_ops = [0, 1]
-        self.train_time_steps += 1
+        self.train_time_steps += len(batch["terminals"])
         if batch is None:
             # Add some additional return-ops to pull (left out normally for performance reasons).
             ret = self.graph_executor.execute(("update_from_memory", None, return_ops), sync_call)
