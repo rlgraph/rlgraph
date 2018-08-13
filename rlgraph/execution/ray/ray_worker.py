@@ -95,9 +95,9 @@ class RayWorker(RayActor):
         # To continue running through multiple exec calls.
         self.last_states = self.vector_env.reset_all()
         self.agent.reset()
-        self.env_states_buffer = np.zeros(shape=(self.num_environments, )
-                                          + self.agent.preprocessed_state_space.shape,
-                                          dtype=self.agent.preprocessed_state_space.dtype)
+        self.preprocessed_states_buffer = np.zeros(shape=(self.num_environments,)
+                                                         + self.agent.preprocessed_state_space.shape,
+                                                   dtype=self.agent.preprocessed_state_space.dtype)
         self.last_ep_timesteps = [0 for _ in range_(self.num_environments)]
         self.last_ep_rewards = [0 for _ in range_(self.num_environments)]
         # Was the last state a terminal state so env should be reset in next call?
@@ -231,30 +231,28 @@ class RayWorker(RayActor):
             for i, env_id in enumerate(self.env_ids):
                 state = self.agent.state_space.force_batch(env_states[i])
                 if self.preprocessors[env_id] is not None:
-                    self.env_states_buffer[i] = self.preprocessors[env_id].preprocess(state)
+                    self.preprocessed_states_buffer[i] = self.preprocessors[env_id].preprocess(state)
                 else:
-                    self.env_states_buffer[i] = env_states[i]
+                    self.preprocessed_states_buffer[i] = env_states[i]
 
             # print('states buffer before act: {}'.format(self.env_states_buffer.shape))
-            actions = self.agent.get_action(states=self.env_states_buffer,
+            actions = self.agent.get_action(states=self.preprocessed_states_buffer,
                                             use_exploration=use_exploration, apply_preprocessing=False)
-            rewards = dict()
+
             for i, env_id in enumerate(self.env_ids):
-                sample_states[env_id].append(self.env_states_buffer[i])
+                sample_states[env_id].append(self.preprocessed_states_buffer[i])
                 sample_actions[env_id].append(actions[i])
-                # Also init step rewards here for frame skip accumulation.
-                rewards[env_id] = 0
 
-            # Accumulate the reward over n env-steps and envs (equals one action pick). n=self.frameskip.
-            for _ in range_(self.worker_frameskip):
-                next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
-                env_frames += 1
-
-                for i, env_id in enumerate(self.env_ids):
-                    rewards[env_id] += step_rewards[i]
-                # TODO Break when all or any are terminal?
-                if np.any(terminals):
-                    break
+            next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
+            # Worker frameskip not needed as done in env.
+            # for _ in range_(self.worker_frameskip):
+            #     next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
+            #     env_frames += self.num_environments
+            #
+            #     for i, env_id in enumerate(self.env_ids):
+            #         rewards[env_id] += step_rewards[i]
+            #     if np.any(terminals):
+            #         break
 
             timesteps_executed += self.num_environments
             env_states = next_states
@@ -264,8 +262,8 @@ class RayWorker(RayActor):
                 # Update samples.
                 episode_timesteps[i] += 1
                 # Each position is the running episode reward of that episosde. Add step reward.
-                episode_rewards[i] += rewards[env_id]
-                sample_rewards[env_id].append(rewards[env_id])
+                episode_rewards[i] += step_rewards[i]
+                sample_rewards[env_id].append(step_rewards[i])
                 sample_terminals[env_id].append(terminals[i])
 
                 # Terminate and reset episode for that environment.
