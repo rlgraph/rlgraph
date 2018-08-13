@@ -58,6 +58,9 @@ class TestPolicies(unittest.TestCase):
         test.test(("get_action_layer_output", states), expected_outputs=expected_action_layer_output,
                   decimals=5)
 
+        expected_actions = np.argmax(expected_action_layer_output, axis=-1)
+        test.test(("get_action", [states, True]), expected_outputs=expected_actions)
+
         # Logits, parameters (probs) and skip log-probs (numerically unstable for small probs).
         expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
         test.test(("get_logits_parameters_log_probs", states, [0, 1]), expected_outputs=[

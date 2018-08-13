@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph import RLGraphError
+from rlgraph import RLGraphError, get_backend
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.components.component import Component
 from rlgraph.components.common.synchronizable import Synchronizable
@@ -26,6 +26,9 @@ from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.action_adapters.dueling_action_adapter import DuelingActionAdapter
 from rlgraph.components.action_adapters.baseline_action_adapter import BaselineActionAdapter
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class Policy(Component):
@@ -138,8 +141,15 @@ class Policy(Component):
     # Define our interface.
     def get_action(self, nn_input, max_likelihood=True):
         nn_output = self.call(self.neural_network.apply, nn_input)
-        _, parameters, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
-        sample = self.call(self.distribution.draw, parameters, max_likelihood)
+        # TEST without distribution iff discrete action-space and max-likelihood acting (greedy).
+        # In that case, one does not need to create a distribution in the graph each act (only to get the max anyway
+        # over the logits, which is the same as the max over the probabilities/log-probabilities).
+        if max_likelihood is True and isinstance(self.action_space, IntBox):
+            logits, _, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
+            sample = self.call(self._graph_fn_get_max_likelihood_action_wo_distribution, logits)
+        else:
+            _, parameters, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
+            sample = self.call(self.distribution.draw, parameters, max_likelihood)
         return sample
 
     def get_nn_output(self, nn_input):
@@ -174,3 +184,6 @@ class Policy(Component):
         sample = self.call(self.distribution.sample_deterministic, parameters)
         return sample
 
+    def _graph_fn_get_max_likelihood_action_wo_distribution(self, parameters):
+        if get_backend() == "tf":
+            return tf.argmax(parameters, axis=-1, output_type=tf.int32)
