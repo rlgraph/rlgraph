@@ -189,14 +189,13 @@ class RayWorker(RayActor):
                 executes exactly 'num_timesteps' steps.
         """
         start = time.monotonic()
+
         timesteps_executed = 0
         episodes_executed = [0 for _ in range_(self.num_environments)]
         env_frames = 0
 
         sample_states, sample_actions, sample_rewards, sample_terminals = dict(), dict(), dict(), dict()
-        env_states, episode_rewards, episode_timesteps = list(), list(), list()
         next_states = [np.zeros_like(self.last_states) for _ in range_(self.num_environments)]
-        is_reset = False
 
         # Reset envs and Agent either if finished an episode in current loop or if last state
         # from previous execution was terminal for that environment.
@@ -206,25 +205,9 @@ class RayWorker(RayActor):
             sample_rewards[env_id] = list()
             sample_terminals[env_id] = list()
 
-            if self.last_terminals[i] is True:
-                # Reset this environment.
-                env_states.append(self.vector_env.reset(i))
-                if not is_reset:
-                    self.agent.reset()
-                else:
-                    is_reset = True
-                # The reward accumulated over one episode.
-                # print("Restart env {} episode from reward {} and step {}".format(env_id, self.last_ep_rewards[i],
-                #                                                            self.last_ep_timesteps[i]))
-                episode_rewards.append(0)
-                episode_timesteps.append(0)
-            else:
-                # Continue training between calls.
-                env_states.append(self.last_states[i])
-                # print("Continue env {} episode from reward {} and step {}".format(env_id, self.last_ep_rewards[i],
-                #                                                            self.last_ep_timesteps[i]))
-                episode_rewards.append(self.last_ep_rewards[i])
-                episode_timesteps.append(self.last_ep_timesteps[i])
+        env_states = self.last_states
+        episode_rewards = self.last_ep_rewards
+        episode_timesteps =self.last_ep_timesteps
 
         # Whether the episode in each env has terminated.
         terminals = [False for _ in range_(self.num_environments)]
