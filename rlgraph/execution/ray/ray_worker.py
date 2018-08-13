@@ -95,6 +95,8 @@ class RayWorker(RayActor):
         # To continue running through multiple exec calls.
         self.last_states = self.vector_env.reset_all()
         self.agent.reset()
+
+        self.zero_batched_state = np.zeros((1,) + self.agent.preprocessed_state_space.shape)
         self.preprocessed_states_buffer = np.zeros(shape=(self.num_environments,)
                                                          + self.agent.preprocessed_state_space.shape,
                                                    dtype=self.agent.preprocessed_state_space.dtype)
@@ -301,7 +303,6 @@ class RayWorker(RayActor):
         batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals = list(), list(), list(),\
             list(), list()
 
-        default_next = np.zeros_like(next_states[0])
         for i, env_id in enumerate(self.env_ids):
             env_sample_states = sample_states[env_id]
 
@@ -309,13 +310,13 @@ class RayWorker(RayActor):
             env_sample_next_states = env_sample_states[1:]
             batch_states.extend(env_sample_states)
             if terminals[i]:
-                next_state = default_next
+                next_state = self.zero_batched_state
             else:
                 next_state = next_states[i]
+                next_state = self.agent.state_space.force_batch(next_state)
+                if self.preprocessors[env_id] is not None:
+                    next_state = self.preprocessors[env_id].preprocess(next_state)
 
-            next_state = self.agent.state_space.force_batch(next_state)
-            if self.preprocessors[env_id] is not None:
-                next_state = self.preprocessors[env_id].preprocess(next_state)
             # print('next state shape append: {}'.format(next_state.shape))
             batch_next_states.extend(env_sample_next_states)
             batch_next_states.extend(next_state)
