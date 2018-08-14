@@ -77,7 +77,7 @@ class TestExplorations(unittest.TestCase):
         # The Component to test.
         exploration_pipeline = Component(action_adapter, distribution, exploration, scope="exploration-pipeline")
 
-        def get_action(self_, nn_output, time_step):
+        def get_action(self, nn_output, time_step):
             _, parameters, _ = self_.call(action_adapter.get_logits_parameters_log_probs, nn_output)
             sample_stochastic = self_.call(distribution.sample_stochastic, parameters)
             sample_deterministic = self_.call(distribution.sample_deterministic, parameters)

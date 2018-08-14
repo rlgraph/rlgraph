@@ -124,50 +124,40 @@ class DQNAgent(Agent):
 
         # Reset operation (resets preprocessor).
         if self.preprocessing_required:
-            def reset_preprocessor(self_):
-                reset_op = self_.call(preprocessor.reset)
+            def reset_preprocessor(self):
+                reset_op = self.call(preprocessor.reset)
                 return reset_op
 
             self.core_component.define_api_method("reset_preprocessor", reset_preprocessor)
 
         # Act from preprocessed states.
-        def action_from_preprocessed_state(self_, preprocessed_states, time_step=0, use_exploration=True):
-            sample_deterministic = self_.call(policy.get_max_likelihood_action, preprocessed_states)
-            sample_stochastic = self_.call(policy.get_stochastic_action, preprocessed_states)
-            actions = self_.call(exploration.get_action, sample_deterministic, sample_stochastic,
+        def action_from_preprocessed_state(self, preprocessed_states, time_step=0, use_exploration=True):
+            sample_deterministic = self.call(policy.get_max_likelihood_action, preprocessed_states)
+            sample_stochastic = self.call(policy.get_stochastic_action, preprocessed_states)
+            actions = self.call(exploration.get_action, sample_deterministic, sample_stochastic,
                                  time_step, use_exploration)
             return preprocessed_states, actions
 
         self.core_component.define_api_method("action_from_preprocessed_state", action_from_preprocessed_state)
 
         # State (from environment) to action with preprocessing.
-        def get_preprocessed_state_and_action(self_, states, time_step=0, use_exploration=True):
-            preprocessed_states = self_.call(preprocessor.preprocess, states)
-            return self_.call(self_.action_from_preprocessed_state, preprocessed_states, time_step, use_exploration)
-
-            # TEST: should be done like above (calling other API-methods for brevity and simplicity).
-            #sample_deterministic = self_.call(policy.get_max_likelihood_action, preprocessed_states)
-            #sample_stochastic = self_.call(policy.get_stochastic_action, preprocessed_states)
-            #actions = self_.call(exploration.get_action, sample_deterministic, sample_stochastic,
-            #                     time_step, use_exploration)
-
-            ## TODO: Alternatively, move exploration (especially epsilon-based) into python.
-            ## TODO: return internal states as well and maybe the exploration decision
-            #return preprocessed_states, actions
+        def get_preprocessed_state_and_action(self, states, time_step=0, use_exploration=True):
+            preprocessed_states = self.call(preprocessor.preprocess, states)
+            return self.call(self.action_from_preprocessed_state, preprocessed_states, time_step, use_exploration)
 
         self.core_component.define_api_method("get_preprocessed_state_and_action", get_preprocessed_state_and_action)
 
         # Insert into memory.
-        def insert_records(self_, preprocessed_states, actions, rewards, terminals):
-            records = self_.call(merger.merge, preprocessed_states, actions, rewards, terminals)
-            return self_.call(memory.insert_records, records)
+        def insert_records(self, preprocessed_states, actions, rewards, terminals):
+            records = self.call(merger.merge, preprocessed_states, actions, rewards, terminals)
+            return self.call(memory.insert_records, records)
 
         self.core_component.define_api_method("insert_records", insert_records)
 
         # Syncing target-net.
-        def sync_target_qnet(self_):
-            policy_vars = self_.call(policy._variables)
-            return self_.call(target_policy.sync, policy_vars)
+        def sync_target_qnet(self):
+            policy_vars = self.call(policy._variables)
+            return self.call(target_policy.sync, policy_vars)
 
         self.core_component.define_api_method("sync_target_qnet", sync_target_qnet)
 
@@ -240,6 +230,7 @@ class DQNAgent(Agent):
         # Generic optimization method which we can replace for device strategies.
         # This method should receive as inputs everything the loss function and optimizer need.
         def optimize(self_, *loss_inputs):
+            # TODO: no fixtures from here to outer scope (e.g. loss_function must be replaced with something like: self.sub_components["loss-func"]
             loss, loss_per_item = self_.call(loss_function.loss, *loss_inputs)
 
             policy_vars = self_.call(policy._variables)

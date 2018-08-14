@@ -246,7 +246,6 @@ class Component(Specifiable):
         if method.__name__ in method_owner.api_methods:
             stack = inspect.stack()
             # Do we need to return the raw ops or the op-recs?
-            op_recs = self.call_api(method, method_owner, *params)
             # Direct parent caller is a `_graph_fn_...`: Return raw ops.
             if return_ops is True or re.match(r'^_graph_fn_.+$', stack[1][3]):
                 return (o.op for o in op_recs) if isinstance(op_recs, tuple) else op_recs.op
@@ -972,9 +971,9 @@ class Component(Specifiable):
         # Function is a graph_fn: Build a simple wrapper API-method around it and name it `name`.
         if func_type == "graph_fn":
 
-            def api_method(self_, *inputs):
-                func_ = getattr(self_, func.__name__)
-                return self_.call(func_, *inputs, **kwargs)
+            def api_method(self, *inputs):
+                func_ = getattr(self, func.__name__)
+                return self.call(func_, *inputs, **kwargs)
 
         # Function is a (custom) API-method. Register it with this Component.
         else:
@@ -988,7 +987,7 @@ class Component(Specifiable):
 
         # Update the api_method_inputs dict (with empty Spaces if not defined yet).
         # Note: Skip first param of graph_func's input param list if add-auto-key option is True (1st param would be
-        # the auto-key then). Also skip if api_method is an unbound function (then 1st param is usually `self_`).
+        # the auto-key then). Also skip if api_method is an unbound function (then 1st param is usually `self`).
         if (func_type == "graph_fn" and kwargs.get("add_auto_key_as_first_param") is True) or \
                 (func_type == "api" and type(api_method).__name__ == "function"):
             skip_1st_arg = 1
@@ -1063,8 +1062,8 @@ class Component(Specifiable):
             # Should we expose some API-methods of the child?
             for api_method_name, api_method_rec in component.api_methods.items():
                 if api_method_name in expose_apis:
-                    def exposed_api_method_wrapper(self_, *inputs):
-                        return self_.call(api_method_rec.method, *inputs)
+                    def exposed_api_method_wrapper(self, *inputs):
+                        return self.call(api_method_rec.method, *inputs)
                     self.define_api_method(api_method_name, exposed_api_method_wrapper)
                     # Add the sub-component's API-registered methods to ours.
                     #self.defined_externally.add(component.scope + "-" + api_method_name)

@@ -39,11 +39,11 @@ class TestComponentCopy(unittest.TestCase):
         flatten_copy = flatten_orig.copy(scope="B")
         container = Component(flatten_orig, flatten_copy)
 
-        def flatten1(self_, input_):
-            return self_.call(self_.sub_components["A"].apply, input_)
+        def flatten1(self, input_):
+            return self.call(self.sub_components["A"].apply, input_)
 
-        def flatten2(self_, input_):
-            return self_.call(self_.sub_components["B"].apply, input_)
+        def flatten2(self, input_):
+            return self.call(self.sub_components["B"].apply, input_)
 
         container.define_api_method("flatten1", flatten1)
         container.define_api_method("flatten2", flatten2)

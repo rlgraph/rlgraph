@@ -52,9 +52,9 @@ class MultiGpuSyncOptimizer(Optimizer):
         self.gpu_devices = None
         self.sub_graph_vars = None
 
-        def step(self_):
-            grads_and_vars = self_.call(self_._graph_fn_calculate_gradients)
-            return self_.call(self_._graph_fn_apply_gradients, grads_and_vars)
+        def step(self):
+            grads_and_vars = self.call(self._graph_fn_calculate_gradients)
+            return self.call(self._graph_fn_apply_gradients, grads_and_vars)
 
         self.define_api_method("step", step)
 

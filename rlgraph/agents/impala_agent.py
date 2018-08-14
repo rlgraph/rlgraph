@@ -115,12 +115,12 @@ class IMPALAAgent(Agent):
             fifo_queue (FIFOQueue): The FIFOQueue Component used to enqueue env sample runs (n-step).
         """
         # Perform n-steps in the env and insert the results into our FIFO-queue.
-        def perform_n_steps_and_insert_into_fifo(self_, initial_states, initial_time_step, use_exploration=True):
+        def perform_n_steps_and_insert_into_fifo(self, initial_states, initial_time_step, use_exploration=True):
             # TODO: use a new n-step Component to step through the env and collect results.
-            preprocessed_states = self_.call(preprocessor.preprocess, states)
-            sample_deterministic = self_.call(policy.sample_deterministic, preprocessed_states)
-            sample_stochastic = self_.call(policy.sample_stochastic, preprocessed_states)
-            actions = self_.call(exploration.get_action, sample_deterministic, sample_stochastic,
+            preprocessed_states = self.call(preprocessor.preprocess, states)
+            sample_deterministic = self.call(policy.sample_deterministic, preprocessed_states)
+            sample_stochastic = self.call(policy.sample_stochastic, preprocessed_states)
+            actions = self.call(exploration.get_action, sample_deterministic, sample_stochastic,
                                  time_step, use_exploration)
             return preprocessed_states, actions
 
@@ -131,24 +131,24 @@ class IMPALAAgent(Agent):
     def define_api_methods_learner(self, fifo_queue, policy, loss_function, optimizer):
 
         # Learn from memory.
-        def update_from_fifo_queue(self_):
-            records = self_.call(memory.get_records, self.update_spec["batch_size"])
+        def update_from_fifo_queue(self):
+            records = self.call(fifo_queue.get_records, self.update_spec["batch_size"])
 
-            preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = self_.call(splitter.split,
+            preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = self.call(splitter.split,
                                                                                            records)
 
             # Get the different Q-values.
-            q_values_s = self_.call(policy.get_q_values, preprocessed_s)
-            qt_values_sp = self_.call(target_policy.get_q_values, preprocessed_s_prime)
+            q_values_s = self.call(policy.get_q_values, preprocessed_s)
+            qt_values_sp = self.call(target_policy.get_q_values, preprocessed_s_prime)
             q_values_sp = None
             if self.double_q:
-                q_values_sp = self_.call(policy.get_q_values, preprocessed_s_prime)
+                q_values_sp = self.call(policy.get_q_values, preprocessed_s_prime)
 
-            loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
+            loss, loss_per_item = self.call(loss_function.loss, q_values_s, actions, rewards, terminals,
                                              qt_values_sp, q_values_sp)
 
-            policy_vars = self_.call(policy._variables)
-            step_op = self_.call(optimizer.step, policy_vars, loss)
+            policy_vars = self.call(policy._variables)
+            step_op = self.call(optimizer.step, policy_vars, loss)
 
             # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
             return step_op, loss, loss_per_item, records, q_values_s

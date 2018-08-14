@@ -96,43 +96,43 @@ class Policy(Component):
 
         # Add API-method to get dueling output (if we use a dueling layer).
         if isinstance(self.action_adapter, DuelingActionAdapter):
-            def get_dueling_output(self_, nn_input, internals=None):
-                nn_output, internals = self_.unify_nn_output(self_.call(self.neural_network.apply, nn_input, internals))
-                state_value, advantages, q_values = self_.call(self_.action_adapter.get_dueling_output, nn_output)
+            def get_dueling_output(self, nn_input, internals=None):
+                nn_output, internals = self.unify_nn_output(self.call(self.neural_network.apply, nn_input, internals))
+                state_value, advantages, q_values = self.call(self.action_adapter.get_dueling_output, nn_output)
                 return (state_value, advantages, q_values, internals) if internals is not None else \
                     (state_value, advantages, q_values)
 
             self.define_api_method("get_dueling_output", get_dueling_output)
 
-            def get_q_values(self_, nn_input, internals=None):
-                nn_output, internals = self_.unify_nn_output(
-                    self_.call(self_.neural_network.apply, nn_input, internals)
+            def get_q_values(self, nn_input, internals=None):
+                nn_output, internals = self.unify_nn_output(
+                    self.call(self.neural_network.apply, nn_input, internals)
                 )
-                _, _, q = self_.call(self_.action_adapter.get_dueling_output, nn_output)
+                _, _, q = self.call(self.action_adapter.get_dueling_output, nn_output)
                 return (q, internals) if internals is not None else q
         # Add API-method to get baseline output (if we use an extra value function baseline node).
         elif isinstance(self.action_adapter, BaselineActionAdapter):
-            def get_baseline_output(self_, nn_input, internals=None):
-                nn_output, internals = self_.unify_nn_output(
-                    self_.call(self_.neural_network.apply, nn_input, internals)
+            def get_baseline_output(self, nn_input, internals=None):
+                nn_output, internals = self.unify_nn_output(
+                    self.call(self.neural_network.apply, nn_input, internals)
                 )
-                state_value, logits = self_.call(self_.action_adapter.get_state_values_and_logits, nn_output)
+                state_value, logits = self.call(self.action_adapter.get_state_values_and_logits, nn_output)
                 return (state_value, logits, internals) if internals is not None else (state_value, logits)
 
             self.define_api_method("get_baseline_output", get_baseline_output)
 
-            def get_q_values(self_, nn_input, internals=None):
-                nn_output, internals = self_.unify_nn_output(
-                    self_.call(self_.neural_network.apply, nn_input, internals)
+            def get_q_values(self, nn_input, internals=None):
+                nn_output, internals = self.unify_nn_output(
+                    self.call(self.neural_network.apply, nn_input, internals)
                 )
-                _, logits = self_.call(self_.action_adapter.get_state_values_and_logits, nn_output)
+                _, logits = self.call(self.action_adapter.get_state_values_and_logits, nn_output)
                 return (logits, internals) if internals is not None else logits
         else:
-            def get_q_values(self_, nn_input, internals=None):
-                nn_output, internals = self_.unify_nn_output(
-                    self_.call(self_.neural_network.apply, nn_input, internals)
+            def get_q_values(self, nn_input, internals=None):
+                nn_output, internals = self.unify_nn_output(
+                    self.call(self.neural_network.apply, nn_input, internals)
                 )
-                logits, _, _ = self_.call(self_.action_adapter.get_logits_parameters_log_probs, nn_output)
+                logits, _, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
                 return (logits, internals) if internals is not None else logits
 
         self.define_api_method("get_q_values", get_q_values)

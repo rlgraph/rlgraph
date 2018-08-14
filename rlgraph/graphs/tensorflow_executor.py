@@ -643,7 +643,8 @@ class TensorFlowExecutor(GraphExecutor):
             # - Apply averaged gradients to master component.
             # - Sync new weights to subgraphs.
             # We simply swap this update method in place to enable multi-gpu processing on any agent.
-            def optimize_subgraphs(self_, *inputs):
+            def optimize_subgraphs(self, *inputs):
+                # TODO: 1) replace all self_ by self 2) Make sure we have no fixtures (links to outer scope) in here.
                 input_batches = self_.call(batch_splitter.split_batch, *inputs)
 
                 # Load to device, return.

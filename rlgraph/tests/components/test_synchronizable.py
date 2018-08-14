@@ -75,9 +75,9 @@ class TestSynchronizableComponent(unittest.TestCase):
         container = Component(name="container")
         container.add_components(sync_from, sync_to)
 
-        def execute_sync(self_):
-            values_ = self_.call(sync_from._variables)
-            return self_.call(sync_to.sync, values_)
+        def execute_sync(self):
+            values_ = self.call(sync_from._variables)
+            return self.call(sync_to.sync, values_)
 
         container.define_api_method("execute_sync", execute_sync)
 
@@ -114,9 +114,9 @@ class TestSynchronizableComponent(unittest.TestCase):
 
         container = Component(comp1, comp2_writable, scope="container")
 
-        def execute_sync(self_):
-            values_ = self_.call(comp1._variables)
-            return self_.call(comp2_writable.sync, values_)
+        def execute_sync(self):
+            values_ = self.call(comp1._variables)
+            return self.call(comp2_writable.sync, values_)
 
         container.define_api_method("execute_sync", execute_sync)
 

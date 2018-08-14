@@ -47,9 +47,9 @@ class LocalOptimizer(Optimizer):
         # TODO do this via a run function called 'step'?
         if self.two_step is True:
             pass
-            #def step(self_, *inputs):
-            #    grads_and_vars = self_.call(self_._graph_fn_calculate_gradients, *inputs)
-            #    return self_.call(self_._graph_fn_apply_gradients, grads_and_vars)
+            #def step(self, *inputs):
+            #    grads_and_vars = self.call(self._graph_fn_calculate_gradients, *inputs)
+            #    return self.call(self_._graph_fn_apply_gradients, grads_and_vars)
 
         # One-step optimizer: Returns grads_and_vars and loss (convenience pass through).
         else:

@@ -73,9 +73,9 @@ class Exploration(Component):
             self.add_components(self.epsilon_exploration)
 
             # Define our interface.
-            def get_action(self_, sample_deterministic, sample_stochastic, time_step, use_exploration=True):
-                epsilon_decisions = self_.call(self_.epsilon_exploration.do_explore, sample_deterministic, time_step)
-                return self_.call(self_._graph_fn_pick, use_exploration, epsilon_decisions,
+            def get_action(self, sample_deterministic, sample_stochastic, time_step, use_exploration=True):
+                epsilon_decisions = self.call(self.epsilon_exploration.do_explore, sample_deterministic, time_step)
+                return self.call(self._graph_fn_pick, use_exploration, epsilon_decisions,
                                   sample_deterministic, sample_stochastic)
 
         # Add noise component.
@@ -83,18 +83,18 @@ class Exploration(Component):
             self.noise_component = NoiseComponent.from_spec(noise_spec)
             self.add_components(self.noise_component)
 
-            def get_action(self_, sample_deterministic, sample_stochastic, time_step=0, use_exploration=True):
-                noise = self_.call(self_.noise_component.get_noise)
-                return self_.call(self_._graph_fn_add_noise, use_exploration, noise,
+            def get_action(self, sample_deterministic, sample_stochastic, time_step=0, use_exploration=True):
+                noise = self.call(self.noise_component.get_noise)
+                return self.call(self._graph_fn_add_noise, use_exploration, noise,
                                   sample_deterministic, sample_stochastic)
 
         # Don't explore at all.
         else:
             if self.non_explore_behavior == "max-likelihood":
-                def get_action(self_, sample_deterministic, sample_stochastic, time_step=0, use_exploration=False):
+                def get_action(self, sample_deterministic, sample_stochastic, time_step=0, use_exploration=False):
                     return sample_deterministic
             else:
-                def get_action(self_, sample_deterministic, sample_stochastic, time_step=0, use_exploration=False):
+                def get_action(self, sample_deterministic, sample_stochastic, time_step=0, use_exploration=False):
                     return sample_stochastic
 
         self.define_api_method("get_action", get_action)
