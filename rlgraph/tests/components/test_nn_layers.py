@@ -244,6 +244,6 @@ class TestNNLayer(unittest.TestCase):
             # Store this output time-slice.
             unrolled_outputs[:, t, :] = h_states
 
-        expected = [unrolled_outputs, c_states, h_states]
+        expected = [unrolled_outputs, (c_states, h_states)]
         test.test(("apply", inputs), expected_outputs=expected)
 

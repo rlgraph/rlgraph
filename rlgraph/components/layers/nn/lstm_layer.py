@@ -36,8 +36,8 @@ class LSTMLayer(NNLayer):
         """
         Args:
             units (int): The number of units in the LSTM cell.
-            use_peepholes (bool): True to enable diagonal/peephole connections.
-                Default: False.
+            use_peepholes (bool): True to enable diagonal/peephole connections from the c-state into each of
+                the layers. Default: False.
             cell_clip (Optional[float]): If provided, the cell state is clipped by this value prior to the cell
                 output activation. Default: None.
             #weights_spec: A specifier for the weight-matrices' initializers.
@@ -54,7 +54,7 @@ class LSTMLayer(NNLayer):
             #dtype (str): The dtype of this LSTM. Default: "float".
         """
         super(LSTMLayer, self).__init__(
-            graph_fn_num_outputs=dict(_graph_fn_apply=3),  # LSTMs: unrolled output, final c_state, final h_state
+            graph_fn_num_outputs=dict(_graph_fn_apply=2),  # LSTMs: unrolled output, final c_state, final h_state
             scope=kwargs.pop("scope", "lstm-layer"), activation=kwargs.pop("activation", "tanh"), **kwargs
         )
 
@@ -100,38 +100,30 @@ class LSTMLayer(NNLayer):
             # Register the generated variables with our registry.
             self.register_variables(*self.lstm_cell.variables)
 
-    def _graph_fn_apply(self, inputs, sequence_length=None, initial_c_state=None, initial_h_state=None):
+    def _graph_fn_apply(self, inputs, sequence_length=None, initial_c_and_h_states=None):
         """
         Args:
             inputs (SingleDataOp): The data to pass through the layer (batch of n items, m timesteps).
                 Position of batch- and time-ranks in the input depend on `self.time_major` setting.
             sequence_length (Optional[np.ndarray]): An int vector mapping each batch item to a sequence length
                 such that the remaining time slots for each batch item are filled with zeros.
-            initial_c_state (SingleDataOp): The initial cell-state to use. None for the default behavior (TODO: describe here what default means: zero?)
+            initial_c_and_h_states (DataOpTuple): The initial cell- and hidden-states to use.
+                None for the default behavior (TODO: describe here what default means: zero?)
                 The cell-state in an LSTM is passed between cells from step to step and only affected by element-wise
-                operations.
-            initial_h_state (SingleDataOp): The initial hidden-state to use. None for the default behavior. TODO: what's tf's default?
-                The hidden state is identical as the output of the LSTM on the previous time step.
+                operations. The hidden state is identical to the output of the LSTM on the previous time step.
 
         Returns:
             tuple:
                 - The outputs over all timesteps of the LSTM.
-                - The final cell-state.
-                - The final hidden-state (same as last timestep's output).
+                - DataOpTuple: The final cell- and hidden-states.
         """
         if get_backend() == "tf":
-            # Run the input (and initial state) through a dynamic LSTM and return unrolled outputs and final
-            # internal states.
-            if initial_c_state is None or initial_h_state is None:
-                initial_states = None
-            else:
-                initial_states = (initial_c_state, initial_h_state)
-
             lstm_out, lstm_state_tuple = tf.nn.dynamic_rnn(
-                cell=self.lstm_cell, inputs=inputs, sequence_length=sequence_length, initial_state=initial_states,
+                cell=self.lstm_cell, inputs=inputs, sequence_length=sequence_length,
+                initial_state=initial_c_and_h_states,
                 parallel_iterations=self.parallel_iterations, swap_memory=self.swap_memory, time_major=self.time_major,
                 dtype="float" #self.dtype
             )
 
-            # Returns: Unrolled-outputs (time series of all encountered h-states), final c-state, final h-state.
-            return lstm_out, lstm_state_tuple[0], lstm_state_tuple[1]
+            # Returns: Unrolled-outputs (time series of all encountered h-states), final c- and h-states.
+            return lstm_out, lstm_state_tuple

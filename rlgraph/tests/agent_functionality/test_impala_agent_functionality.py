@@ -83,7 +83,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # Send a 2x3 sample through the network (1=sequence-length (time-rank), 1=batch-size).
         sample_input = self.input_space.sample(size=(1, 1))
         expected = None
-        ret = test.test(("apply", sample_input), expected_outputs=expected)
+        ret = test.test(("get_action", sample_input), expected_outputs=expected)
         print(ret)
 
     # TODO move this to test_all_compile once it works.

@@ -157,7 +157,7 @@ class LargeIMPALANetwork(NeuralNetwork):
         # passing it into the main LSTM.
         lstm64 = LSTMLayer(units=64, scope="lstm-64", time_major=False)
 
-        time_rank_unfolder = ReShape(unfold_time_rank=num_timesteps, time_major=True, scope="time-rank-unfolder")
+        time_rank_unfold = ReShape(unfold_time_rank=num_timesteps, time_major=True, scope="time-rank-unfold")
 
         def custom_apply(self_, inputs):
             text_to_batch = self_.call(time_rank_folder.apply, inputs)
@@ -169,7 +169,7 @@ class LargeIMPALANetwork(NeuralNetwork):
             # where the LSTM has not seen the entire sentence yet).
             _, _, lstm_final_out = self_.call(lstm64.apply, embedding_output, lengths)
 
-            return self_.call(time_rank_unfolder.apply, lstm_final_out)
+            return self_.call(time_rank_unfold.apply, lstm_final_out)
 
         text_processing_stack = Stack(
             string_to_hash_bucket, embedding, lstm64, api_methods={("apply", custom_apply)},
@@ -178,7 +178,7 @@ class LargeIMPALANetwork(NeuralNetwork):
 
         return text_processing_stack
 
-    def apply(self, input_dict):
+    def apply(self, input_dict, internal_states=None):
         # Split the input dict coming directly from the Env.
         image, text, previous_action, previous_reward = self.call(self.splitter.split, input_dict)
 
@@ -193,6 +193,7 @@ class LargeIMPALANetwork(NeuralNetwork):
         )
 
         # Feed concat'd input into main LSTM(256).
-        main_lstm_output, main_lstm_final_c, main_lstm_final_h = self.call(self.main_lstm.apply, concatenated_data)
+        main_lstm_output, main_lstm_final_c_and_h = self.call(self.main_lstm.apply, concatenated_data,
+                                                              internal_states)
 
-        return main_lstm_output, main_lstm_final_c, main_lstm_final_h
+        return main_lstm_output, main_lstm_final_c_and_h
