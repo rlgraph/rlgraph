@@ -105,6 +105,12 @@ class DataOpRecord(object):
     _ID = -1
 
     def __init__(self, op=None, column=None, position=None):
+        """
+        Args:
+            op (Optional[DataOp]): The optional DataOp to already store in this op-rec.
+            column (DataOpRecordColumn): The DataOpRecordColumn to which this op-rec belongs.
+            position (int): An optional position (index) for this op inside `column`.
+        """
         self.id = self.get_id()
         self.op = op
         # Whether the op in this record is one of the last in the graph (a core API-method returned op).
@@ -139,19 +145,16 @@ class DataOpRecordColumn(object):
     _ID = -1
 
     def __init__(self, op_records, component):
+        """
+        Args:
+            op_records (int): The number of individual op_records to create for this column.
+            component (Component): The Component to which this column belongs.
+        """
         self.id = self.get_id()
 
-        # Op-records already given: Add them to this column.
-        if not isinstance(op_records, int):
-            self.op_records = [op_records] if isinstance(op_records, DataOpRecord) else list(op_records)
-            # For graph_fn and convenience reasons, give a pointer to the column to each op in it.
-            for op_rec in self.op_records:
-                op_rec.column = self
-        # Generate n empty op-records.
-        else:
-            self.op_records = list()
-            for i in range(op_records):
-                self.op_records.append(DataOpRecord(op=None, column=self, position=i))
+        self.op_records = list()
+        for i in range(op_records):
+            self.op_records.append(DataOpRecord(op=None, column=self, position=i))
 
         # For __str__ purposes.
         self.op_id_list = [o.id for o in self.op_records]
