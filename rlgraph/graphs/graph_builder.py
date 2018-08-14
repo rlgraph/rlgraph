@@ -141,7 +141,7 @@ class GraphBuilder(Specifiable):
             # Create an new in column and map it to the resulting out column.
             in_ops_records = [DataOpRecord(position=i) for i in range(num_records)]
             # Do the actual core API-method call (thereby assembling the meta-graph).
-            self.core_component.call(api_method_rec.method, *in_ops_records)  # ok_to_call_own_api=True
+            self.core_component.call(api_method_rec.method, *in_ops_records)
 
             # Register core's interface.
             self.api[api_method_name] = (in_ops_records, api_method_rec.out_op_columns[-1].op_records)
@@ -154,28 +154,42 @@ class GraphBuilder(Specifiable):
         self.logger.info("Meta-graph build completed in {} s.".format(time_build))
 
         # Sanity check the meta-graph.
-        #self.sanity_check_meta_graph()
+        self.sanity_check_meta_graph()
 
         # Get some stats on the graph and report.
         self.num_meta_ops = DataOpRecord._ID + 1
-        self.logger.info("\tMeta-graph op-records generated: {}".format(self.num_meta_ops))
+        self.logger.info("Meta-graph op-records generated: {}".format(self.num_meta_ops))
 
     def sanity_check_meta_graph(self):
         """
-        Checks the constructed meta-graph after calling `self.build_meta_graph`.
-        - Whether all entries in any op-record's `next` set point back to the original op-record.
+        Checks the constructed meta-graph after calling `self.build_meta_graph` for
+        inconsistencies.
 
         Raises:
               RLGraphError: If sanity of the meta-graph could not be confirmed.
         """
-        #def check_single_op_rec(op_rec):
-        #    for next_ in op_rec.next:
-        #        if next_.previous is not op_rec:
-        #            raise RLGraphError("")
+        # Check whether every component (except core-component) has a parent.
+        components = self.get_all_components()
 
-        #for api_method_name, (inputs, _) in self.api.items():
-        #    for input_ in inputs:
-        pass
+        self.logger.info("Components created: {}".format(len(components)))
+
+        core_found = False
+        for component in components:
+            if component.parent_component is None:
+                if component is not self.core_component:
+                    raise RLGraphError(
+                        "ERROR: Component '{}' has no parent Component but is not the core-component! Only the "
+                        "core-component has a `parent_component` of None.".format(component)
+                    )
+                else:
+                    core_found = True
+            elif component.parent_component is not None and component is self.core_component:
+                raise RLGraphError(
+                    "ERROR: Core-Component '{}' has a parent Component ({}), but is not allowed to!".
+                    format(component, component.parent_component)
+                )
+        if core_found is False:
+            raise RLGraphError("ERROR: Our core-component '{}' was not found in meta-graph!".format(self.core_component))
 
     def build_graph(self, input_spaces, available_devices,
                     device_strategy="default", default_device=None, device_map=None):
@@ -358,10 +372,10 @@ class GraphBuilder(Specifiable):
 
         # Get some stats on the graph and report.
         self.num_ops = self.count_ops()
-        self.logger.info("\tBackend ops generated: {}".format(self.num_ops))
+        self.logger.info("Actual graph ops generated: {}".format(self.num_ops))
 
         self.num_trainable_parameters = self.count_trainable_parameters()
-        self.logger.info("\tNumber of trainable parameters: {}".format(self.num_trainable_parameters))
+        self.logger.info("Number of trainable parameters: {}".format(self.num_trainable_parameters))
 
     def build_input_space_ops(self, input_spaces):
         """
