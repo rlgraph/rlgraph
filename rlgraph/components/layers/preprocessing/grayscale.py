@@ -24,7 +24,7 @@ import cv2
 from rlgraph.backend_system import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.utils.ops import flatten_op, unflatten_op
-from rlgraph.utils.util import get_rank, get_shape
+from rlgraph.utils.util import get_rank, get_shape, dtype as dtype_
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -102,13 +102,29 @@ class GrayScale(PreprocessLayer):
                 # Keep last dim.
                 if self.keep_rank:
                     scaled_images = scaled_images[:, :, :, np.newaxis]
-                return scaled_images
             else:
                 # Sample by sample.
-                return cv2.cvtColor(preprocessing_inputs, cv2.COLOR_RGB2GRAY)
-        elif get_backend() == "tf":
-            weights_reshaped = np.reshape(a=self.weights,
-                                          newshape=tuple([1] * (get_rank(preprocessing_inputs) - 1))
-                                                   + (self.last_rank,))
-            return tf.reduce_sum(input_tensor=weights_reshaped * preprocessing_inputs, axis=-1, keepdims=self.keep_rank)
+                scaled_images = cv2.cvtColor(preprocessing_inputs, cv2.COLOR_RGB2GRAY)
 
+            return scaled_images
+
+        elif get_backend() == "tf":
+            weights_reshaped = np.reshape(
+                self.weights, newshape=tuple([1] * (get_rank(preprocessing_inputs) - 1)) + (self.last_rank,)
+            )
+
+            # Do we need to convert?
+            # The dangerous thing is that multiplying an int tensor (image) with float weights results in an all
+            # 0 tensor).
+            if "int" in str(dtype_(preprocessing_inputs.dtype)):
+                weighted = weights_reshaped * tf.cast(preprocessing_inputs, dtype=dtype_("float"))
+            else:
+                weighted = weights_reshaped * preprocessing_inputs
+
+            reduced = tf.reduce_sum(weighted, axis=-1, keepdims=self.keep_rank)
+
+            # Cast back to original dtype.
+            if "int" in str(dtype_(preprocessing_inputs.dtype)):
+                reduced = tf.cast(reduced, dtype=preprocessing_inputs.dtype)
+
+            return reduced

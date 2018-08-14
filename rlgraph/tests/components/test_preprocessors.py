@@ -68,6 +68,32 @@ class TestPreprocessors(unittest.TestCase):
         ])
         test.test(("apply", input_images), expected_outputs=expected)
 
+    def test_grayscale_with_uint8_image(self):
+        # last rank is always the color rank (its dim must match len(grayscale-weights))
+        space = IntBox(256, shape=(1, 1, 2), dtype="uint8", add_batch_rank=True)
+        grayscale = GrayScale(weights=(0.5, 0.5), keep_rank=False)
+
+        test = ComponentTest(component=grayscale, input_spaces=dict(preprocessing_inputs=space))
+
+        # Run the test (batch of 3 images).
+        input_ = space.sample(size=3)
+        expected = np.sum(input_, axis=-1, keepdims=False)
+        expected = (expected / 2).astype(input_.dtype)
+        test.test("reset")
+        print(test.test(("apply", input_), expected_outputs=expected))
+
+    def test_grayscale_python_with_uint8_image(self):
+        # last rank is always the color rank (its dim must match len(grayscale-weights))
+        space = IntBox(256, shape=(1, 1, 3), dtype="uint8", add_batch_rank=True)
+        grayscale = GrayScale(keep_rank=False, backend="python")
+
+        # Run the test (batch of 2 images).
+        input_ = space.sample(size=2)
+        expected = np.round(np.dot(input_[:, :, :, :3], [0.299, 0.587, 0.114]), 0).astype(dtype=input_.dtype)
+
+        out = grayscale._graph_fn_apply(input_)
+        recursive_assert_almost_equal(out, expected)
+
     def test_split_inputs_on_grayscale(self):
         # last rank is always the color rank (its dim must match len(grayscale-weights))
         space = Dict.from_spec(dict(
