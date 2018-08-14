@@ -221,13 +221,13 @@ class ApexExecutor(RayExecutor):
 
         # 3. Update priorities on priority sampling workers using loss values produced by update worker.
         while not self.update_worker.output_queue.empty():
-            ray_memory, batch, loss_per_item = self.update_worker.output_queue.get()
+            ray_memory, indices, loss_per_item = self.update_worker.output_queue.get()
             # self.logger.info('indices = {}'.format(batch["indices"]))
             # self.logger.info('loss = {}'.format(loss_per_item))
 
-            ray_memory.update_priorities.remote(batch["indices"], loss_per_item)
+            ray_memory.update_priorities.remote(indices, loss_per_item)
             # len of loss per item is update count.
-            update_steps += len(batch["indices"])
+            update_steps += len(indices)
 
         return env_steps, update_steps
 
@@ -273,5 +273,5 @@ class UpdateWorker(Thread):
         if sample_batch is not None:
             loss, loss_per_item = self.agent.update(batch=sample_batch)
             # Just pass back indices for updating.
-            self.output_queue.put((memory_actor, sample_batch, loss_per_item))
+            self.output_queue.put((memory_actor, sample_batch["indices"], loss_per_item))
             self.update_done = True
