@@ -100,15 +100,17 @@ class ApexMemory(Specifiable):
         terminals = []
         next_states = []
         for index in indices:
+            # TODO remove as array casts if they dont help.
             record = self.memory_values[index]
             state, action, reward, terminal, weight = record
+            state = np.array(ray_decompress(state), copy=False)
             states.append(state)
-            actions.append(action)
+            actions.append(np.array(action, copy=False))
             rewards.append(reward)
             terminals.append(terminal)
 
             next_state = state
-            # If terminal -> just use same state
+            # If terminal -> just use same state, already decompressed
             if terminal:
                 next_states.append(next_state)
             else:
@@ -119,14 +121,14 @@ class ApexMemory(Specifiable):
                     next_state, _, _, terminal, _ = record
                     if terminal:
                         break
-                next_states.append(next_state)
+                next_states.append(np.array(ray_decompress(next_state)))
 
         return dict(
-            states=[ray_decompress(state) for state in states],
-            actions=actions,
-            rewards=rewards,
-            terminals=terminals,
-            next_states=[ray_decompress(state) for state in next_states]
+            states=np.array(states),
+            actions=np.array(actions),
+            rewards=np.array(rewards),
+            terminals=np.array(terminals),
+            next_states=np.array(next_states)
         )
 
     def get_records(self, num_records):
@@ -147,8 +149,8 @@ class ApexMemory(Specifiable):
             weight = (sample_prob * self.size) ** (-self.beta)
             weights.append(weight / max_weight)
 
-        indices = np.asarray(indices)
-        return self.read_records(indices=indices), indices, np.asarray(weights)
+        indices = np.array(indices, copy=False)
+        return self.read_records(indices=indices), indices, np.array(weights, copy=False)
 
     def update_records(self, indices, update):
         for index, loss in zip(indices, update):

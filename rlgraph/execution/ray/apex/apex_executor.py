@@ -83,10 +83,6 @@ class ApexExecutor(RayExecutor):
         # Start Ray cluster and connect to it.
         self.ray_init()
 
-        # Setup queues for communication between main communication loop and learner.
-        self.sample_input_queue = queue.Queue(maxsize=self.executor_spec["learn_queue_size"])
-        self.update_output_queue = queue.Queue()
-
         # Create local worker agent according to spec.
         # Extract states and actions space.
         environment = RayExecutor.build_env_from_config(self.environment_spec)
@@ -98,8 +94,7 @@ class ApexExecutor(RayExecutor):
         # Set up worker thread for performing updates.
         self.update_worker = UpdateWorker(
             agent=self.local_agent,
-            input_queue=self.sample_input_queue,
-            output_queue=self.update_output_queue
+            in_queue_size=self.executor_spec["learn_queue_size"]
         )
 
         # Create remote sample workers based on ray cluster spec.
@@ -219,11 +214,11 @@ class ApexExecutor(RayExecutor):
             # Pass to the agent doing the actual updates.
             # The ray worker is passed along because we need to update its priorities later in the subsequent
             # task (see loop below).
-            self.sample_input_queue.put((ray_memory, sampled_batch, sample_indices))
+            self.update_worker.input_queue.put((ray_memory, sampled_batch, sample_indices))
 
         # 3. Update priorities on priority sampling workers using loss values produced by update worker.
-        while not self.update_output_queue.empty():
-            ray_memory, indices, loss = self.update_output_queue.get()
+        while not self.update_worker.output_queue.empty():
+            ray_memory, indices, loss = self.update_worker.output_queue.get()
             ray_memory.update_priorities.remote(indices, loss)
             # len of loss per item is update count.
             update_steps += len(indices)
@@ -237,7 +232,7 @@ class UpdateWorker(Thread):
     Communicates with the main thread via a queue.
     """
 
-    def __init__(self, agent, input_queue, output_queue):
+    def __init__(self, agent, in_queue_size):
         """
         Initializes the worker with a RLGraph agent and queues for
 
@@ -251,8 +246,8 @@ class UpdateWorker(Thread):
 
         # Agent to use for updating.
         self.agent = agent
-        self.input_queue = input_queue
-        self.output_queue = output_queue
+        self.input_queue = queue.Queue(maxsize=in_queue_size)
+        self.output_queue = queue.Queue()
 
         # Terminate when host process terminates.
         self.daemon = True
