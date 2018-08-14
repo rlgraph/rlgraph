@@ -112,8 +112,17 @@
       },
       "worker_spec": {
         "execution_spec": {
-          "gpu_spec": { "gpus_enabled" : false},
-          "disable_monitoring": true
+        "gpu_spec": {
+          "gpus_enabled" : false
+        },
+        "disable_monitoring": true,
+        "session_config": {
+            "allow_soft_placement": true,
+            "device_count": {
+                "CPU": 1
+            },
+            "inter_op_parallelism_threads": 1,
+            "intra_op_parallelism_threads": 1
         },
         "num_worker_environments": 4,
         "num_background_envs": 2,
