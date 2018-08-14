@@ -17,19 +17,20 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
 import unittest
 
-from rlgraph.components.common import DictSplitter, DictMerger
+from rlgraph.components.common import DictSplitter, DictMerger, TupleSplitter
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 
 
 class TestSplitterMergerComponents(unittest.TestCase):
     """
-    Tests the DictSplitter- and DictMerger-Components.
+    Tests the DictSplitter-, TupleSplitter- and DictMerger-Components.
     """
 
-    def test_splitter_component(self):
+    def test_dict_splitter(self):
         space = Dict(
             a=dict(aa=bool, ab=float),
             b=dict(ba=bool),
@@ -57,7 +58,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
         ]
         test.test(("split", input_), expected_outputs=expected_output)
 
-    def test_splitter_with_different_input_space(self):
+    def test_dict_splitter_with_different_input_space(self):
         space = Dict(
             a=Tuple(bool, FloatBox(shape=())),
             b=FloatBox(shape=()),
@@ -80,6 +81,22 @@ class TestSplitterMergerComponents(unittest.TestCase):
             input_["a"],
             input_["f"],
             input_["e"]
+        ]
+
+        test.test(("split", input_), expected_outputs=expected_outputs)
+
+    def test_tuple_splitter(self):
+        space = Tuple(FloatBox(shape=()), bool, IntBox(low=0, high=255), add_batch_rank=True)
+        # Define the output-order.
+        splitter = TupleSplitter(tuple_length=len(space))
+        test = ComponentTest(component=splitter, input_spaces=dict(inputs=space))
+
+        # Single sample (batch size=6).
+        input_ = np.array(space.sample(size=6))
+        expected_outputs = [
+            input_[0],
+            input_[1],
+            input_[2]
         ]
 
         test.test(("split", input_), expected_outputs=expected_outputs)
