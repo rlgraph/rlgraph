@@ -42,9 +42,9 @@ class TestPolicies(unittest.TestCase):
             input_spaces=dict(nn_input=state_space),
             action_space=action_space
         )
-        policy_params = test.graph_executor.read_variable_values(policy.variables)
+        policy_params = test.read_variable_values(policy.variables)
 
-        # Some NN api_methods (4 input nodes, batch size=2).
+        # Some NN inputs (4 input nodes, batch size=2).
         states = np.array([[-0.08, 0.4, -0.05, -0.55], [13.0, -14.0, 10.0, -16.0]])
         # Raw NN-output.
         expected_nn_output = np.matmul(states, policy_params["policy/test-network/hidden-layer/dense/kernel"])
@@ -59,7 +59,7 @@ class TestPolicies(unittest.TestCase):
                   decimals=5)
 
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)
-        test.test(("get_action", [states, True]), expected_outputs=expected_actions)
+        test.test(("get_action", states), expected_outputs=expected_actions)
 
         # Logits, parameters (probs) and skip log-probs (numerically unstable for small probs).
         expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
@@ -69,16 +69,18 @@ class TestPolicies(unittest.TestCase):
             #np.log(expected_probabilities_output)
         ], decimals=5)
 
+        print("Probs: {}".format(expected_probabilities_output))
+
         # Stochastic sample.
-        expected_actions = np.array([1, 4])
-        test.test(("sample_stochastic", states), expected_outputs=expected_actions)
+        expected_actions = np.array([3, 4])
+        test.test(("get_stochastic_action", states), expected_outputs=expected_actions)
 
         # Deterministic sample.
-        expected_actions = np.array([1, 4])
-        test.test(("sample_deterministic", states), expected_outputs=expected_actions)
+        expected_actions = np.array([4, 4])
+        test.test(("get_max_likelihood_action", states), expected_outputs=expected_actions)
 
         # Distribution's entropy.
-        expected_h = np.array([1.5738281, 1.0164685])
+        expected_h = np.array([1.572, 0.003])
         test.test(("get_entropy", states), expected_outputs=expected_h, decimals=3)
 
     def test_policy_for_discrete_action_space_with_dueling_layer(self):
@@ -99,9 +101,9 @@ class TestPolicies(unittest.TestCase):
             input_spaces=dict(nn_input=state_space),
             action_space=action_space
         )
-        policy_params = test.graph_executor.read_variable_values(policy.variables)
+        policy_params = test.read_variable_values(policy.variables)
 
-        # Some NN api_methods (3 input nodes, batch size=3).
+        # Some NN inputs (3 input nodes, batch size=3).
         states = np.array([[-0.01, 0.02, -0.03], [0.04, -0.05, 0.06], [-0.07, 0.08, -0.09]])
         # Raw NN-output (3 hidden nodes). All weights=1.5, no biases.
         expected_nn_output = np.matmul(states, policy_params["policy/test-network/hidden-layer/dense/kernel"])
@@ -129,6 +131,9 @@ class TestPolicies(unittest.TestCase):
             expected_q_values_output
         ])
 
+        expected_actions = np.argmax(expected_q_values_output, axis=-1)
+        test.test(("get_action", states), expected_outputs=expected_actions)
+
         # Parameter (probabilities). Softmaxed q_values.
         expected_probabilities_output = softmax(expected_q_values_output, axis=-1)
         test.test(("get_logits_parameters_log_probs", states, [0, 1]),
@@ -141,13 +146,80 @@ class TestPolicies(unittest.TestCase):
         print("Probs: {}".format(expected_probabilities_output))
 
         # Stochastic sample.
-        expected_actions = np.array([1, 1, 0])
-        test.test(("sample_stochastic", states), expected_outputs=expected_actions)
+        expected_actions = np.array([0, 0, 1])
+        test.test(("get_stochastic_action", states), expected_outputs=expected_actions)
 
         # Deterministic sample.
-        expected_actions = np.array([0, 1, 0])
-        test.test(("sample_deterministic", states), expected_outputs=expected_actions)
+        expected_actions = np.array([1, 0, 1])
+        test.test(("get_max_likelihood_action", states), expected_outputs=expected_actions)
 
         # Distribution's entropy.
         expected_h = np.array([0.6931462, 0.6925241, 0.6931312])
         test.test(("get_entropy", states), expected_outputs=expected_h, decimals=3)
+
+    def test_policy_for_discrete_action_space_with_baseline_layer(self):
+        # state_space (NN is a simple single fc-layer relu network (2 units), random biases, random weights).
+        state_space = FloatBox(shape=(4,), add_batch_rank=True)
+
+        # action_space (3 possible actions).
+        action_space = IntBox(3, add_batch_rank=True)
+
+        # Policy with baseline action adapter.
+        policy = Policy(
+            neural_network=config_from_path("configs/test_lrelu_nn.json"),
+            action_adapter_spec=dict(type="baseline_action_adapter", action_space=action_space)
+        )
+        test = ComponentTest(
+            component=policy,
+            input_spaces=dict(nn_input=state_space),
+            action_space=action_space,
+            seed=11
+        )
+        policy_params = test.read_variable_values(policy.variables)
+
+        # Some NN inputs (4 input nodes, batch size=3).
+        states = state_space.sample(size=3)
+        # Raw NN-output (3 hidden nodes). All weights=1.5, no biases.
+        expected_nn_output = np.matmul(states, policy_params["policy/test-network/hidden-layer/dense/kernel"])
+        expected_nn_output = relu(expected_nn_output, 0.1)
+        test.test(("get_nn_output", states), expected_outputs=expected_nn_output, decimals=5)
+
+        # Raw action layer output; Expected shape=(3,3): 3=batch, 2=action categories + 1 state value
+        expected_action_layer_output = np.matmul(
+            expected_nn_output, policy_params["policy/baseline-action-adapter/action-layer/dense/kernel"]
+        )
+        expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(3, 4))
+        test.test(("get_action_layer_output", states), expected_outputs=expected_action_layer_output, decimals=5)
+
+        # State-values: One for each item in the batch (simply take first out-node of action_layer).
+        expected_state_value_output = np.squeeze(expected_action_layer_output[:, :1], axis=-1)
+        # logits-values: One for each action-choice per item in the batch (simply take the remaining out nodes).
+        expected_logits_output = expected_action_layer_output[:, 1:]
+        test.test(("get_baseline_output", states),
+                  expected_outputs=[expected_state_value_output, expected_logits_output], decimals=5)
+
+        expected_actions = np.argmax(expected_logits_output, axis=-1)
+        test.test(("get_action", states), expected_outputs=expected_actions)
+
+        # Parameter (probabilities). Softmaxed logits.
+        expected_probabilities_output = softmax(expected_logits_output, axis=-1)
+        test.test(("get_logits_parameters_log_probs", states, [0, 1]),
+                  expected_outputs=[
+                      expected_logits_output,
+                      expected_probabilities_output
+                  ], decimals=5)
+
+        print("Probs: {}".format(expected_probabilities_output))
+
+        # Stochastic sample.
+        expected_actions = np.array([0, 1, 2])
+        test.test(("get_stochastic_action", states), expected_outputs=expected_actions)
+
+        # Deterministic sample.
+        expected_actions = np.array([0, 0, 0])
+        test.test(("get_max_likelihood_action", states), expected_outputs=expected_actions)
+
+        # Distribution's entropy.
+        expected_h = np.array([1.093, 1.092, 1.095])
+        test.test(("get_entropy", states), expected_outputs=expected_h, decimals=2)
+

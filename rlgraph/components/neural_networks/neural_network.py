@@ -22,8 +22,7 @@ from rlgraph.components.neural_networks.stack import Stack
 
 class NeuralNetwork(Stack):
     """
-    Simple placeholder class that's a Stack which optionally owns a Synchronizable Component and is thus
-    writable from another, equally built NeuralNetwork.
+    Simple placeholder class that's a Stack.
     """
     def __init__(self, *layers, **kwargs):
         """
@@ -41,3 +40,6 @@ class NeuralNetwork(Stack):
         kwargs["scope"] = kwargs.get("scope", "neural-network")
         super(NeuralNetwork, self).__init__(*layers_args, **kwargs)
 
+        # Assert that the apply API-method has been defined and that it takes two input args:
+        # `inputs` and `internal_states`.
+        assert "apply" in self.api_methods
