@@ -94,34 +94,33 @@ class ApexMemory(Specifiable):
         Returns:
              dict: Record value dict.
         """
-        states = []
-        actions = []
-        rewards = []
-        terminals = []
-        next_states = []
+        states = list()
+        actions = list()
+        rewards = list()
+        terminals = list()
+        next_states = list()
         for index in indices:
             # TODO remove as array casts if they dont help.
-            record = self.memory_values[index]
-            state, action, reward, terminal, weight = record
-            state = np.array(ray_decompress(state), copy=False)
-            states.append(state)
+            state, action, reward, terminal, weight = self.memory_values[index]
+            decompressed_state = np.array(ray_decompress(state), copy=False)
+            states.append(decompressed_state)
             actions.append(np.array(action, copy=False))
             rewards.append(reward)
             terminals.append(terminal)
 
-            next_state = state
+            decompressed_next_state = decompressed_state
             # If terminal -> just use same state, already decompressed
             if terminal:
-                next_states.append(next_state)
+                next_states.append(decompressed_next_state)
             else:
                 # Otherwise advance until correct next state or terminal.
+                next_state = decompressed_next_state
                 for i in range_(self.n_step_adjustment):
                     next_index = (index + i) % self.size
-                    record = self.memory_values[next_index]
-                    next_state, _, _, terminal, _ = record
+                    next_state, _, _, terminal, _ = self.memory_values[next_index]
                     if terminal:
                         break
-                next_states.append(np.array(ray_decompress(next_state)))
+                next_states.append(np.array(ray_decompress(next_state), copy=False))
 
         return dict(
             states=np.array(states),

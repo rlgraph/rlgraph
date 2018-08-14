@@ -138,9 +138,10 @@ def ray_compress(data):
 
 
 def ray_decompress(data):
-    data = base64.b64decode(data)
-    data = lz4.frame.decompress(data)
-    data = pyarrow.deserialize(data)
+    if isinstance(data, bytes):
+        data = base64.b64decode(data)
+        data = lz4.frame.decompress(data)
+        data = pyarrow.deserialize(data)
     return data
 
 
