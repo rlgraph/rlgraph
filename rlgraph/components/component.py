@@ -222,9 +222,6 @@ class Component(Specifiable):
                         The key can now be used to index into variables equally structured as B.
                 Has no effect if `split_ops` is False.
                 (default: False).
-            # ok_to_call_own_api (bool): Whether an error should be suppressed if a Component `call`s an API-method
-            #    of itself. This is usually not allowed due to introducing circular dependencies.
-            #    Default: False.
             return_ops (bool): Whether to return actual ops rather than op-records. This is done automatically
                 (regardless of this value), if the direct parent caller of this method is a `_graph_fn_`-method.
                 Default: False.
@@ -234,19 +231,20 @@ class Component(Specifiable):
         """
         # Owner of method:
         method_owner = method.__self__  # type: Component
+        # Check, whether the method-owner is either this Component or has this Component as parent.
+        assert method_owner is self or method_owner.parent_component is self,\
+            "ERROR: Can only call API-method ({}/{}) on self ({}) or any sub-Components of self! Most likely, " \
+            "{} has not been added to self.".\
+            format(method_owner.global_scope, method.__name__, self.global_scope, method_owner.global_scope)
         # Try handing the graph-builder link to the owner Component (in case it's not set yet).
         if method_owner.graph_builder is None:
             method_owner.graph_builder = self.graph_builder
 
-        #ok_to_call_own_api = kwargs.pop("ok_to_call_own_api", False)
         return_ops = kwargs.pop("return_ops", False)
 
         # Method is an API method.
         if method.__name__ in method_owner.api_methods:
             stack = inspect.stack()
-            # if method_owner is self and ok_to_call_own_api is False:
-            #    raise RLGraphError("'{}' Component's API-method ('{}') cannot `call` another API-method ('{}') of the "
-            #                       "same Component!".format(self.name, stack[1][3], method.__name__))
             # Do we need to return the raw ops or the op-recs?
             op_recs = self.call_api(method, method_owner, *params)
             # Direct parent caller is a `_graph_fn_...`: Return raw ops.
@@ -1050,6 +1048,9 @@ class Component(Specifiable):
             elif component.parent_component is not None:
                 raise RLGraphError("ERROR: Sub-Component with name '{}' has already been added once to a container "
                                 "Component! Each Component can only be added once to a parent.".format(component.name))
+            # Make sure we don't add to ourselves.
+            elif component is self:
+                raise RLGraphError("ERROR: Cannot add a Component ({}) as a sub-Component to itself!".format(self.name))
             component.parent_component = self
 
             # Pass reusable scope to subscomponents.
