@@ -72,10 +72,14 @@ class ConvertType(PreprocessLayer):
                 return IntBox(shape=space.shape, low=space.low, high=space.high,
                               add_batch_rank=space.has_batch_rank, add_time_rank=space.has_time_rank)
 
-        # Wrong conversion or no conversion necessary? Raise an error.
-        raise RLGraphError("ERROR: Space conversion from: {} to type {} not supported".format(
-            space, self.to_dtype
-        ))
+        # Wrong conversion.
+        else:
+            raise RLGraphError("ERROR: Space conversion from: {} to type {} not supported".format(
+                space, self.to_dtype
+            ))
+
+        # No conversion.
+        return space
 
     def _graph_fn_apply(self, preprocessing_inputs):
         if self.backend == "python" or get_backend() == "python":
@@ -83,4 +87,8 @@ class ConvertType(PreprocessLayer):
                 preprocessing_inputs = np.asarray(preprocessing_inputs)
             return preprocessing_inputs.astype(dtype=util.dtype(self.to_dtype, to="np"))
         elif get_backend() == "tf":
-            return tf.cast(x=preprocessing_inputs, dtype=util.dtype(self.to_dtype, to="tf"))
+            to_dtype = util.dtype(self.to_dtype, to="tf")
+            if preprocessing_inputs.dtype != to_dtype:
+                return tf.cast(x=preprocessing_inputs, dtype=to_dtype)
+            else:
+                return preprocessing_inputs
