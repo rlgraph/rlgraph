@@ -245,6 +245,8 @@ class Component(Specifiable):
         # Method is an API method.
         if method.__name__ in method_owner.api_methods:
             stack = inspect.stack()
+            # Make the API call.
+            op_recs = self.call_api(method, method_owner, *params, **kwargs)
             # Do we need to return the raw ops or the op-recs?
             # Direct parent caller is a `_graph_fn_...`: Return raw ops.
             if return_ops is True or re.match(r'^_graph_fn_.+$', stack[1][3]):
