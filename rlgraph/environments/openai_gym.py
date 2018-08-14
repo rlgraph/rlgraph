@@ -72,9 +72,9 @@ class OpenAIGymEnv(Environment):
                 # Set gym property.
                 self.gym_env.env.frameskip = frameskip
 
-        observation_space = self.translate_space(self.gym_env.observation_space)
+        state_space = self.translate_space(self.gym_env.observation_space)
         action_space = self.translate_space(self.gym_env.action_space)
-        super(OpenAIGymEnv, self).__init__(observation_space, action_space, **kwargs)
+        super(OpenAIGymEnv, self).__init__(state_space, action_space, **kwargs)
 
         # In Atari environments, 0 is no-op.
         self.noop_action = noop_action
