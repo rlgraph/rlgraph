@@ -65,7 +65,7 @@ class TestReShapePreprocessors(unittest.TestCase):
         test.test("reset")
         # Batch=3, time-rank=5
         inputs = in_space.sample(size=(3, 5))
-        expected = np.reshape(one_hot(inputs, depth=2), newshape=(3, 5, 48))
+        expected = np.reshape(one_hot(inputs, depth=2), newshape=(3, 5, 48)).astype(dtype=np.float32)
         test.test(("apply", inputs), expected_outputs=expected)
 
     def test_reshape_with_time_rank(self):
