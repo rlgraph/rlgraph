@@ -263,12 +263,15 @@ class UpdateWorker(Thread):
 
     def run(self):
         while True:
-            # Fetch input for update:
-            # Replay memory used
-            memory_actor, sample_batch = self.input_queue.get()
+            self.step()
 
-            if sample_batch is not None:
-                loss, loss_per_item = self.agent.update(batch=sample_batch)
-                # Just pass back indices for updating.
-                self.output_queue.put((memory_actor, sample_batch, loss_per_item))
-                self.update_done = True
+    def step(self):
+        # Fetch input for update:
+        # Replay memory used
+        memory_actor, sample_batch = self.input_queue.get()
+
+        if sample_batch is not None:
+            loss, loss_per_item = self.agent.update(batch=sample_batch)
+            # Just pass back indices for updating.
+            self.output_queue.put((memory_actor, sample_batch, loss_per_item))
+            self.update_done = True
