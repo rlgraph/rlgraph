@@ -110,6 +110,10 @@ class ApexExecutor(RayExecutor):
         self.apex_replay_spec["min_sample_memory_size"] = int(min_sample_size / self.num_replay_workers)
         self.logger.info("Sampling for learning starts at: {}".format( self.apex_replay_spec["min_sample_memory_size"]))
 
+        # Set sample batch size:
+        self.apex_replay_spec["sample_batch_size"] = self.agent_config["update_spec"]["batch_size"]
+        self.logger.info("Sampling batch size".format(self.apex_replay_spec["sample_batch_size"]))
+
         self.ray_local_replay_memories = create_colocated_ray_actors(
             cls=RayMemoryActor,
             config=self.apex_replay_spec,
@@ -117,7 +121,9 @@ class ApexExecutor(RayExecutor):
         )
 
         # Create remote workers for data collection.
-        self.logger.info("Initializing {} remote data collection agents.".format(self.num_sample_workers))
+        self.worker_spec["worker_sample_size"] = self.worker_sample_size
+        self.logger.info("Initializing {} remote data collection agents, sample size: {}".format(
+            self.num_sample_workers, self.worker_spec["worker_sample_size"]))
         self.ray_env_sample_workers = self.create_remote_workers(
             RayWorker, self.num_sample_workers, self.agent_config,
             # *args
@@ -140,6 +146,12 @@ class ApexExecutor(RayExecutor):
         # Start learner thread.
         self.update_worker.start()
 
+        # Prioritized replay sampling tasks via RayAgents.
+        for ray_memory in self.ray_local_replay_memories:
+            for _ in range(self.replay_sampling_task_depth):
+                # This initializes remote tasks to sample from the prioritized replay memories of each worker.
+                self.prioritized_replay_tasks.add_task(ray_memory, ray_memory.get_batch.remote())
+
         # Env interaction tasks via RayWorkers which each
         # have a local agent.
         weights = self.local_agent.get_policy_weights()
@@ -150,16 +162,7 @@ class ApexExecutor(RayExecutor):
             self.logger.info("Synced worker {} weights, initializing sample tasks.".format(
                 self.worker_ids[ray_worker]))
             for _ in range(self.env_interaction_task_depth):
-                self.env_sample_tasks.add_task(ray_worker, ray_worker.execute_and_get_with_count.remote(
-                    self.worker_sample_size,
-                    break_on_terminal=False
-                ))
-
-        # Prioritized replay sampling tasks via RayAgents.
-        for ray_memory in self.ray_local_replay_memories:
-            for _ in range(self.replay_sampling_task_depth):
-                # This initializes remote tasks to sample from the prioritized replay memories of each worker.
-                self.prioritized_replay_tasks.add_task(ray_memory, ray_memory.get_batch.remote(self.replay_batch_size))
+                self.env_sample_tasks.add_task(ray_worker, ray_worker.execute_and_get_with_count.remote())
 
     def _execute_step(self):
         """
@@ -197,18 +200,15 @@ class ApexExecutor(RayExecutor):
                 self.steps_since_weights_synced[ray_worker] = 0
 
             # Reschedule environment samples.
-            self.env_sample_tasks.add_task(ray_worker, ray_worker.execute_and_get_with_count.remote(
-                self.worker_sample_size,
-                break_on_terminal=False
-            ))
+            self.env_sample_tasks.add_task(ray_worker, ray_worker.execute_and_get_with_count.remote())
 
         # 2. Fetch completed replay priority sampling task, move to worker, reschedule.
         for ray_memory, replay_remote_task in self.prioritized_replay_tasks.get_completed():
             # Immediately schedule new batch sampling tasks on these workers.
-            self.prioritized_replay_tasks.add_task(ray_memory, ray_memory.get_batch.remote(self.replay_batch_size))
+            self.prioritized_replay_tasks.add_task(ray_memory, ray_memory.get_batch.remote())
 
             # Retrieve results via id.
-            #self.logger.info("replay task obj id {}".format(replay_remote_task))
+            # self.logger.info("replay task obj id {}".format(replay_remote_task))
             sampled_batch = ray.get(object_ids=replay_remote_task)
             # if sampled_batch is not None:
             #     self.logger.info("Received result of replay task: {}".format(len(sampled_batch["terminals"])))

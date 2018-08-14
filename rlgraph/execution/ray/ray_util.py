@@ -19,7 +19,6 @@ from __future__ import print_function
 
 import os
 import base64
-import logging
 from rlgraph import RLGraphError, get_distributed_backend
 
 if get_distributed_backend() == "ray":
@@ -79,7 +78,7 @@ def create_colocated_ray_actors(cls, config, num_agents, max_attempts=10):
         cls (class): Actor to create
         config (dict): Config for actor.
         num_agents (int): Number of worker agents to create.
-        max_attempts Optional[int]: Max number of attempts to create colocated agents, will raise
+        max_attempts (Optional[int]): Max number of attempts to create colocated agents, will raise
             an error if creation was not successful within this number.
 
     Returns:

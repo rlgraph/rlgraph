@@ -56,6 +56,7 @@ class RayWorker(RayActor):
         self.env_frame_skip = env_spec.get("frameskip", 1)
         # Worker computes weights for prioritized sampling.
         worker_spec = deepcopy(worker_spec)
+        self.worker_sample_size = worker_spec.pop("worker_sample_size")
         self.worker_computes_weights = worker_spec.pop("worker_computes_weights", True)
         self.n_step_adjustment = worker_spec.pop("n_step_adjustment", 1)
         self.num_environments = worker_spec.pop("num_worker_environments", 1)
@@ -324,15 +325,8 @@ class RayWorker(RayActor):
         )
 
     @ray.method(num_return_vals=2)
-    def execute_and_get_with_count(
-        self,
-        num_timesteps,
-        max_timesteps_per_episode=0,
-        use_exploration=True,
-        break_on_terminal=False
-    ):
-        sample = self.execute_and_get_timesteps(num_timesteps, max_timesteps_per_episode,
-                                                use_exploration, break_on_terminal)
+    def execute_and_get_with_count(self):
+        sample = self.execute_and_get_timesteps(num_timesteps=self.worker_sample_size)
         return sample, sample.batch_size
 
     def set_policy_weights(self, weights):

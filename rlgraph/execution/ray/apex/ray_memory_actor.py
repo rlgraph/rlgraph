@@ -42,25 +42,24 @@ class RayMemoryActor(RayActor):
         # args.
         self.min_sample_memory_size = apex_replay_spec["min_sample_memory_size"]
         self.clip_rewards = apex_replay_spec.get("clip_rewards", True)
-
+        self.sample_batch_size = apex_replay_spec["sample_batch_size"]
         self.memory = ApexMemory(**apex_replay_spec["memory_spec"])
 
-    def get_batch(self, batch_size):
+    def get_batch(self):
         """
         Samples a batch from the replay memory.
 
         Returns:
-            dict: Sample batch and indices sampled.
+            dict: Sample batch
 
         """
         if self.memory.size < self.min_sample_memory_size:
             return None
         else:
-            batch, indices, weights = self.memory.get_records(batch_size)
+            batch, indices, weights = self.memory.get_records(self.sample_batch_size)
             # Merge into one dict to only return one future in ray.
             batch["indices"] = indices
             batch["importance_weights"] = weights
-
             return batch
 
     def observe(self, env_sample):
