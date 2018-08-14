@@ -94,8 +94,8 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         # Check policy and target-policy weights (should be the same).
         test.check_var("policy/neural-network/hidden/dense/kernel", matrix1_qnet)
         test.check_var("target-policy/neural-network/hidden/dense/kernel", matrix1_qnet)
-        test.check_var("policy/action-adapter/action-layer/dense/kernel", matrix2_qnet)
-        test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_qnet)
+        test.check_var("policy/dueling-action-adapter/action-layer/dense/kernel", matrix2_qnet)
+        test.check_var("target-policy/dueling-action-adapter/action-layer/dense/kernel", matrix2_qnet)
 
         # 2nd step -> expect insert into memory (and python buffer should be empty again).
         # action: up (0)
@@ -116,8 +116,8 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         # Check policy and target-policy weights (should be the same).
         test.check_var("policy/neural-network/hidden/dense/kernel", matrix1_qnet)
         test.check_var("target-policy/neural-network/hidden/dense/kernel", matrix1_qnet)
-        test.check_var("policy/action-adapter/action-layer/dense/kernel", matrix2_qnet)
-        test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_qnet)
+        test.check_var("policy/dueling-action-adapter/action-layer/dense/kernel", matrix2_qnet)
+        test.check_var("target-policy/dueling-action-adapter/action-layer/dense/kernel", matrix2_qnet)
 
         # 3rd and 4th step -> expect another insert into memory (and python buffer should be empty again).
         # actions: down (2), up (0)  <- exploring is True = more random actions
@@ -154,8 +154,8 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         # Check policy and target-policy weights (policy should be updated now).
         test.check_var("policy/neural-network/hidden/dense/kernel", mat_updated[0], decimals=4)
         test.check_var("target-policy/neural-network/hidden/dense/kernel", matrix1_target_net)
-        test.check_var("policy/action-adapter/action-layer/dense/kernel", mat_updated[1], decimals=4)
-        test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_target_net)
+        test.check_var("policy/dueling-action-adapter/action-layer/dense/kernel", mat_updated[1], decimals=4)
+        test.check_var("target-policy/dueling-action-adapter/action-layer/dense/kernel", matrix2_target_net)
 
         matrix1_qnet = mat_updated[0]
         matrix2_qnet = mat_updated[1]
@@ -178,8 +178,8 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         test.check_var("replay-memory/memory/terminals", np.array([False, True] * 2 + [True, False]))
         test.check_var("policy/neural-network/hidden/dense/kernel", matrix1_qnet, decimals=4)
         test.check_var("target-policy/neural-network/hidden/dense/kernel", matrix1_target_net)
-        test.check_var("policy/action-adapter/action-layer/dense/kernel", matrix2_qnet, decimals=4)
-        test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_target_net)
+        test.check_var("policy/dueling-action-adapter/action-layer/dense/kernel", matrix2_qnet, decimals=4)
+        test.check_var("target-policy/dueling-action-adapter/action-layer/dense/kernel", matrix2_target_net)
 
         # 6th/7th step (with exploration enabled) -> Another buffer update check.
         # action: up, down (0, 2)
@@ -201,8 +201,8 @@ class TestDQNAgentFunctionality(unittest.TestCase):
 
         test.check_var("policy/neural-network/hidden/dense/kernel", matrix1_qnet, decimals=4)
         test.check_var("target-policy/neural-network/hidden/dense/kernel", matrix1_target_net)
-        test.check_var("policy/action-adapter/action-layer/dense/kernel", matrix2_qnet, decimals=4)
-        test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_target_net)
+        test.check_var("policy/dueling-action-adapter/action-layer/dense/kernel", matrix2_qnet, decimals=4)
+        test.check_var("target-policy/dueling-action-adapter/action-layer/dense/kernel", matrix2_target_net)
 
         # 8th step -> Another buffer update check and weights update and sync.
         # action: down (2)
@@ -236,8 +236,8 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         # Now target-net should be again 1 step behind policy-net.
         test.check_var("policy/neural-network/hidden/dense/kernel", mat_updated[0], decimals=2)
         test.check_var("target-policy/neural-network/hidden/dense/kernel", matrix1_qnet, decimals=2)  # again: old matrix
-        test.check_var("policy/action-adapter/action-layer/dense/kernel", mat_updated[1], decimals=2)
-        test.check_var("target-policy/action-adapter/action-layer/dense/kernel", matrix2_qnet, decimals=2)
+        test.check_var("policy/dueling-action-adapter/action-layer/dense/kernel", mat_updated[1], decimals=2)
+        test.check_var("target-policy/dueling-action-adapter/action-layer/dense/kernel", matrix2_qnet, decimals=2)
 
     def _calculate_action(self, state, matrix1, matrix2):
         s = np.asarray([state])

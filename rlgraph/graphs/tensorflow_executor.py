@@ -173,14 +173,15 @@ class TensorFlowExecutor(GraphExecutor):
             raise RLGraphError("Invalid device_strategy ('{}') for TensorFlowExecutor!".format(self.device_strategy))
 
     def build(self, input_spaces, optimizer=None, loss_name=None):
-        # 0. Build phase: Component construction. Components can still be modified and re-arranged -> init
+        # 0. Init phase: Component construction and nesting (child/parent Components).
+        # Components can still be modified and re-arranged after this.
         self.init_execution()
         self.setup_graph()
         self._build_device_strategy(optimizer, loss_name)
 
-        # 1. Build phase: Meta graph construction -> API methods
-        # Build the meta-graph (generating empty op-record columns around API methods
-        # and graph_fns).
+        # 1. Build phase: Meta graph construction -> All of the core_component's API methods are being called once,
+        # thereby calling other API-methods (of sub-Components). These API-method calls then build the meta-graph
+        # (generating empty op-record columns around API methods and graph_fns).
         self.graph_builder.build_meta_graph(input_spaces)
 
         # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.

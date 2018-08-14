@@ -100,7 +100,7 @@ class IMPALALossFunction(LossFunction):
         # (already multiplied by rho_t_pg): A = rho_t_pg * (rt + gamma*vt - V(t)).
         # Both vs and pg_advantages will block the gradient as they should be treated as constants by the gradient
         # calculator of this loss func.
-        vs, pg_advantages = self.v_trace_function._graph_fn_calc_v_trace_values(
+        vs, pg_advantages = self.call(self.v_trace_function.calc_v_trace_values,
             log_is_weights, discounts, rewards, values, bootstrapped_values
         )
 
