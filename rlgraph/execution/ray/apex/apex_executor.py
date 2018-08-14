@@ -107,6 +107,14 @@ class ApexExecutor(RayExecutor):
         self.num_sample_workers = self.executor_spec["num_sample_workers"]
 
         self.logger.info("Initializing {} local replay memories.".format(self.num_replay_workers))
+        # Update memory size for num of workers
+        shard_size = self.apex_replay_spec["memory_spec"]["capacity"] / self.num_replay_workers
+        self.apex_replay_spec["memory_spec"]["capacity"] = shard_size
+        self.logger.info("Shard size per memory: {}".format(self.apex_replay_spec["memory_spec"]["capacity"]))
+        min_sample_size = self.apex_replay_spec["min_sample_memory_size"]
+        self.apex_replay_spec["min_sample_memory_size"] = min_sample_size / self.num_replay_workers
+        self.logger.info("Sampling for learning starts at: {}".format( self.apex_replay_spec["min_sample_memory_size"]))
+
         self.ray_local_replay_memories = create_colocated_ray_actors(
             cls=RayMemoryActor,
             config=self.apex_replay_spec,
@@ -178,13 +186,9 @@ class ApexExecutor(RayExecutor):
         sample_batch_sizes = ray.get([task[1][1] for task in completed_sample_tasks])
         for i, (ray_worker, (env_sample_obj_id, sample_size)) in enumerate(completed_sample_tasks):
             # Randomly add env sample to a local replay actor.
-            random_memory = random.choice(self.ray_local_replay_memories)
-
+            random.choice(self.ray_local_replay_memories).observe.remote(env_sample_obj_id)
             sample_steps = sample_batch_sizes[i]
             env_steps += sample_steps
-
-            # This is an object id, not the actual result.
-            random_memory.observe.remote(env_sample_obj_id)
 
             self.steps_since_weights_synced[ray_worker] += sample_steps
             if self.steps_since_weights_synced[ray_worker] >= self.weight_sync_steps:
@@ -222,7 +226,7 @@ class ApexExecutor(RayExecutor):
             ray_memory, indices, loss = self.update_output_queue.get()
             ray_memory.update_priorities.remote(indices, loss)
             # len of loss per item is update count.
-            update_steps += len(loss)
+            update_steps += len(indices)
 
         return env_steps, update_steps
 

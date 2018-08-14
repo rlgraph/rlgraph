@@ -37,7 +37,6 @@ class RayTaskPool(object):
     """
 
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
         self.ray_tasks = dict()
         self.ray_objects = dict()
 
