@@ -80,7 +80,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             policy, input_spaces=dict(nn_input=self.input_space), action_space=self.action_space
         )
 
-        # Send a 2x3 sample through the network (1=sequence-length (time-rank), 1=batch-size).
+        # Send a 1x1 sample through the network (1=sequence-length (time-rank), 1=batch-size).
         sample_input = self.input_space.sample(size=(1, 1))
         expected = None
         ret = test.test(("get_action", sample_input), expected_outputs=expected)

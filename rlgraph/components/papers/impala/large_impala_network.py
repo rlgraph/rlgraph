@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph.components.common.tuple_splitter import TupleSplitter
 from rlgraph.components.neural_networks import NeuralNetwork
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.nn.conv2d_layer import Conv2DLayer
@@ -145,7 +146,7 @@ class LargeIMPALANetwork(NeuralNetwork):
         num_hash_buckets = 1000
 
         # Fold the time rank into the batch rank.
-        time_rank_folder = ReShape(fold_time_rank=True)
+        time_rank_fold = ReShape(fold_time_rank=True, scope="time-rank-fold")
         # Create a hash bucket from the sentences and use that bucket to do an embedding lookup (instead of
         # a vocabulary).
         string_to_hash_bucket = StringToHashBucket(num_hash_buckets=num_hash_buckets)
@@ -157,23 +158,32 @@ class LargeIMPALANetwork(NeuralNetwork):
         # passing it into the main LSTM.
         lstm64 = LSTMLayer(units=64, scope="lstm-64", time_major=False)
 
+        tuple_splitter = TupleSplitter(2)
+
         time_rank_unfold = ReShape(unfold_time_rank=num_timesteps, time_major=True, scope="time-rank-unfold")
 
-        def custom_apply(self_, inputs):
-            text_to_batch = self_.call(time_rank_folder.apply, inputs)
-            hash_bucket, lengths = self_.call(string_to_hash_bucket.apply, text_to_batch)
+        def custom_apply(self, inputs):
+            text_to_batch = self.call(self.sub_components["time-rank-fold"].apply, inputs)
+            hash_bucket, lengths = self.call(self.sub_components["string-to-hash-bucket"].apply, text_to_batch)
 
-            embedding_output = self_.call(embedding.apply, hash_bucket)
+            embedding_output = self.call(self.sub_components["embedding-lookup"].apply, hash_bucket)
 
             # Return only the last output (sentence of words, where we are not interested in intermediate results
             # where the LSTM has not seen the entire sentence yet).
-            _, _, lstm_final_out = self_.call(lstm64.apply, embedding_output, lengths)
+            # Last output is the final internal h-state (slot 1 in the returned LSTM tuple; slot 0 is final c-state).
+            _, lstm_final_internals = self.call(self.sub_components["lstm-64"].apply, embedding_output,
+                                                sequence_lengths=lengths)
 
-            return self_.call(time_rank_unfold.apply, lstm_final_out)
+            # Need to split once more because the LSTM state is always a tuple of final c- and h-states.
+            _, lstm_final_h_state = self.call(self.sub_components["tuple-splitter"].split, lstm_final_internals)
+
+            unfolded = self.call(self.sub_components["time-rank-unfold"].apply, lstm_final_h_state)
+
+            return unfolded
 
         text_processing_stack = Stack(
-            string_to_hash_bucket, embedding, lstm64, api_methods={("apply", custom_apply)},
-            scope="text-processing-stack"
+            time_rank_fold, string_to_hash_bucket, embedding, lstm64, tuple_splitter, time_rank_unfold,
+            api_methods={("apply", custom_apply)}, scope="text-processing-stack"
         )
 
         return text_processing_stack

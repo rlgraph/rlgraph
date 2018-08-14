@@ -20,6 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 
 from rlgraph.components.layers.nn.nn_layer import NNLayer
+from rlgraph.utils.ops import DataOpTuple
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -105,7 +106,7 @@ class LSTMLayer(NNLayer):
         Args:
             inputs (SingleDataOp): The data to pass through the layer (batch of n items, m timesteps).
                 Position of batch- and time-ranks in the input depend on `self.time_major` setting.
-            sequence_length (Optional[np.ndarray]): An int vector mapping each batch item to a sequence length
+            sequence_length (Optional[SingleDataOp]): An int tensor mapping each batch item to a sequence length
                 such that the remaining time slots for each batch item are filled with zeros.
             initial_c_and_h_states (DataOpTuple): The initial cell- and hidden-states to use.
                 None for the default behavior (TODO: describe here what default means: zero?)
@@ -126,4 +127,4 @@ class LSTMLayer(NNLayer):
             )
 
             # Returns: Unrolled-outputs (time series of all encountered h-states), final c- and h-states.
-            return lstm_out, lstm_state_tuple
+            return lstm_out, DataOpTuple(lstm_state_tuple)
