@@ -42,7 +42,7 @@ class DuelingActionAdapter(ActionAdapter):
         Override get_logits_parameters_log_probs API-method to use (A minus V) Q-values, instead of raw logits from
         network.
         """
-        _, _, q_values = self.call(self.get_dueling_output, nn_output)  # ok_to_call_own_api=True
+        _, _, q_values = self.call(self.get_dueling_output, nn_output)
         return (q_values,) + tuple(self.call(self._graph_fn_get_parameters_log_probs, q_values))
 
     def get_dueling_output(self, nn_output):

@@ -40,7 +40,7 @@ class StringToHashBucket(StringLayer):
     (n still the batch rank).
     """
     def __init__(self, delimiter=" ", dtype="int64", num_hash_buckets=1000, hash_function="fast",
-                 scope="str-to-hash-bucket", **kwargs):
+                 scope="string-to-hash-bucket", **kwargs):
         """
         Args:
             delimiter (str): The string delimiter used for splitting the input sentences into single "words".

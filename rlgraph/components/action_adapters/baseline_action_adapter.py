@@ -39,7 +39,7 @@ class BaselineActionAdapter(ActionAdapter):
         """
         Override get_logits_parameters_log_probs API-method to not use the state-value, which must be sliced.
         """
-        _, logits = self.call(self.get_state_values_and_logits, nn_output)  # ok_to_call_own_api=True
+        _, logits = self.call(self.get_state_values_and_logits, nn_output)
         return (logits,) + tuple(self.call(self._graph_fn_get_parameters_log_probs, logits))
 
     def get_state_values_and_logits(self, nn_output):
