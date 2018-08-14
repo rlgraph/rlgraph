@@ -198,11 +198,12 @@ class OpenAIGymEnv(Environment):
             return IntBox(low=np.zeros((space.nvec.ndim,), dtype("uint8", "np")), high=space.nvec)
         elif isinstance(space, gym.spaces.Box):
             # Decide by dtype:
-            if "int" in str(space.dtype):
-                return IntBox(low=space.low, high=space.high, dtype=str(space.dtype))
-            elif "float" in str(space.dtype):
-                return FloatBox(low=space.low, high=space.high, dtype=str(space.dtype))
-            elif "bool" in str(space.dtype):
+            box_dtype = str(space.low.dtype)
+            if "int" in box_dtype:
+                return IntBox(low=space.low, high=space.high, dtype=box_dtype)
+            elif "float" in box_dtype:
+                return FloatBox(low=space.low, high=space.high, dtype=box_dtype)
+            elif "bool" in box_dtype:
                 return BoolBox(shape=space.shape)
         elif isinstance(space, gym.spaces.Tuple):
             return Tuple(*[OpenAIGymEnv.translate_space(s) for s in space.spaces])
