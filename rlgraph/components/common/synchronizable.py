@@ -46,6 +46,23 @@ class Synchronizable(Component):
         # Add the syncing operation.
         self.define_api_method(name="sync", func=self._graph_fn_sync)
 
+    def check_input_completeness(self):
+        # Overwrites this method as any Synchronizable should only be input-complete once the parent
+        # component is variable-complete (not counting this component!). Also, the number of variables in
+        # the parent component must match the number of variables that the sync-in component sends in its API-call
+        # to our `sync` API-method.
+        if self.parent_component.input_complete is True:
+            parents_vars = self.parent_component.get_variables(collections=self.collections, custom_scope_separator="-")
+            # We don't have any value yet from the sync-in Component OR
+            # some of the parent's variables (or its other children) have not been created yet.
+            if self.api_method_inputs["values_"] is None or len(self.api_method_inputs["values_"]) != len(parents_vars):
+                return False
+            else:
+                # Check our own input-completeness (have to wait for the incoming values which to sync to).
+                return super(Synchronizable, self).check_input_completeness()
+        # If parent component not input complete, we cannot be either.
+        return False
+
     def _graph_fn_sync(self, values_):
         """
         Generates the op that syncs this Synchronizable's parent's variable values from another Synchronizable
