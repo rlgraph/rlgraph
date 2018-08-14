@@ -108,11 +108,11 @@ class ApexExecutor(RayExecutor):
 
         self.logger.info("Initializing {} local replay memories.".format(self.num_replay_workers))
         # Update memory size for num of workers
-        shard_size = self.apex_replay_spec["memory_spec"]["capacity"] / self.num_replay_workers
+        shard_size = int(self.apex_replay_spec["memory_spec"]["capacity"] / self.num_replay_workers)
         self.apex_replay_spec["memory_spec"]["capacity"] = shard_size
         self.logger.info("Shard size per memory: {}".format(self.apex_replay_spec["memory_spec"]["capacity"]))
         min_sample_size = self.apex_replay_spec["min_sample_memory_size"]
-        self.apex_replay_spec["min_sample_memory_size"] = min_sample_size / self.num_replay_workers
+        self.apex_replay_spec["min_sample_memory_size"] = int(min_sample_size / self.num_replay_workers)
         self.logger.info("Sampling for learning starts at: {}".format( self.apex_replay_spec["min_sample_memory_size"]))
 
         self.ray_local_replay_memories = create_colocated_ray_actors(
