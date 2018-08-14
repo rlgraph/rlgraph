@@ -56,14 +56,14 @@ class ConvertType(PreprocessLayer):
                                    add_time_rank=space.has_time_rank)
                 else:
                     raise RLGraphError("ERROR: Conversion from IntBox to BoolBox not allowed if low is not 0 and "
-                                     "high is not 1.")
+                                       "high is not 1.")
         elif isinstance(space, BoolBox):
             if self.to_dtype == "float" or self.to_dtype == "float32" or self.to_dtype == "np.float" \
                  or self.to_dtype == "tf.float32":
                 return FloatBox(shape=space.shape, low=0.0, high=1.0,
                                 add_batch_rank=space.has_batch_rank, add_time_rank=space.has_time_rank)
             elif self.to_dtype == "int" or self.to_dtype == "int32" or self.to_dtype  == "np.int32" or \
-             self.to_dtype == "tf.int32":
+                    self.to_dtype == "tf.int32":
                 return IntBox(shape=space.shape, low=0, high=1,
                               add_batch_rank=space.has_batch_rank, add_time_rank=space.has_time_rank)
         elif isinstance(space, FloatBox):
@@ -71,10 +71,11 @@ class ConvertType(PreprocessLayer):
                  self.to_dtype == "tf.int32":
                 return IntBox(shape=space.shape, low=space.low, high=space.high,
                               add_batch_rank=space.has_batch_rank, add_time_rank=space.has_time_rank)
-        else:
-            raise RLGraphError("ERROR: Space conversion from: {} to type {} not supported".format(
-                space, self.to_dtype
-            ))
+
+        # Wrong conversion or no conversion necessary? Raise an error.
+        raise RLGraphError("ERROR: Space conversion from: {} to type {} not supported".format(
+            space, self.to_dtype
+        ))
 
     def _graph_fn_apply(self, preprocessing_inputs):
         if self.backend == "python" or get_backend() == "python":
