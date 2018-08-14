@@ -18,12 +18,12 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend, RLGraphError
-from rlgraph.utils.util import dtype
 from rlgraph.components.component import Component
-from rlgraph.spaces import IntBox, FloatBox
-from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.components.explorations.epsilon_exploration import EpsilonExploration
 from rlgraph.components.common.noise_components import NoiseComponent
+from rlgraph.spaces import IntBox, FloatBox
+from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.utils.util import dtype, get_shape
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -74,8 +74,8 @@ class Exploration(Component):
 
             # Define our interface.
             def get_action(self_, sample_deterministic, sample_stochastic, time_step, use_exploration=True):
-                epsilon_decision = self_.call(self_.epsilon_exploration.do_explore, time_step)
-                return self_.call(self_._graph_fn_pick, use_exploration, epsilon_decision,
+                epsilon_decisions = self_.call(self_.epsilon_exploration.do_explore, sample_deterministic, time_step)
+                return self_.call(self_._graph_fn_pick, use_exploration, epsilon_decisions,
                                   sample_deterministic, sample_stochastic)
 
         # Add noise component.
@@ -114,7 +114,7 @@ class Exploration(Component):
         elif self.noise_component:
             sanity_check_space(self.action_space, allowed_types=[FloatBox])
 
-    def _graph_fn_pick(self, use_exploration, epsilon_decision, sample_deterministic, sample_stochastic):
+    def _graph_fn_pick(self, use_exploration, epsilon_decisions, sample_deterministic, sample_stochastic):
         """
         Exploration for discrete action spaces.
         Either pick a random action (if `use_exploration` and `epsilon_decision` are True),
@@ -122,8 +122,8 @@ class Exploration(Component):
 
         Args:
             use_exploration (DataOp): The master switch determining, whether to use exploration or not.
-            epsilon_decision (DataOp): The bool coming from the epsilon-exploration component specifying
-                whether to use exploration or not.
+            epsilon_decisions (DataOp): The bool coming from the epsilon-exploration component specifying
+                whether to use exploration or not (per batch item).
             sample_deterministic (DataOp): The output from a distribution's "sample_deterministic" API-method.
             sample_stochastic (DataOp): The output from a distribution's "sample_stochastic" API-method.
 
@@ -131,15 +131,17 @@ class Exploration(Component):
             DataOp: The DataOp representing the action. This will match the shape of self.action_space.
         """
         if get_backend() == "tf":
-            batch_size = tf.shape(input=sample_stochastic)[0]
-            return tf.cond(
-                tf.logical_and(use_exploration, epsilon_decision),
-                # (batch_size,) = Adding artificial batch rank.
-                true_fn=lambda: tf.random_uniform(shape=(batch_size,) + self.action_space.shape,
-                                                  maxval=self.action_space.num_categories,
-                                                  dtype=dtype("int")),
-                false_fn=lambda: sample_deterministic if self.non_explore_behavior == "max-likelihood"
-                else sample_stochastic
+            batch_size = tf.shape(sample_stochastic)[0]
+            random_actions = tf.random_uniform(shape=(batch_size,) + self.action_space.shape,
+                                               maxval=self.action_space.num_categories,
+                                               dtype=dtype("int"))
+
+            return tf.where(
+                # `use_exploration` given as actual bool or as tensor?
+                condition=epsilon_decisions if type(use_exploration) == bool else tf.logical_and(use_exploration,
+                                                                                                 epsilon_decisions),
+                x=random_actions,
+                y=sample_deterministic if self.non_explore_behavior == "max-likelihood" else sample_stochastic
             )
 
     def _graph_fn_add_noise(self, use_exploration, noise, sample_deterministic, sample_stochastic):

@@ -64,7 +64,8 @@ class TestStringLayers(unittest.TestCase):
         # Input space: Batch of strings.
         input_space = TextBox(add_batch_rank=True)
 
-        string_to_hash_bucket = StringToHashBucket(num_hash_buckets=10)
+        # Use a fast-hash function with 10 possible buckets to put a word into.
+        string_to_hash_bucket = StringToHashBucket(num_hash_buckets=10, hash_function="fast")
         test = ComponentTest(component=string_to_hash_bucket, input_spaces=dict(text_inputs=input_space))
 
         # Send a batch of 3 strings through the hash-bucket generator.
@@ -74,7 +75,7 @@ class TestStringLayers(unittest.TestCase):
             "text C  D and E"
         ])
 
-        # NOTE that some different words occupy the same hash bucket (e.g. 'C' and 'and' OR 'text' and [empty]).
+        # NOTE that some different words occupy the same hash bucket (e.g. 'C' and 'and' (7) OR 'text' and [empty] (3)).
         # This can be avoided by 1) picking a larger `num_hash_buckets` or 2) using the "strong" hash function.
         expected_hash_bucket = np.array([
             [3, 4, 3, 3, 3],  # text A .  .  .

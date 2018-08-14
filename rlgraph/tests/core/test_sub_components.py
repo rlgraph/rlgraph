@@ -27,7 +27,8 @@ from rlgraph.tests.dummy_components import *
 
 class TestTwoSubComponents(unittest.TestCase):
     """
-    Tests for different ways to place two sub-Components into the core.
+    Tests for different ways to place and then connect two or more sub-Components into the core Component.
+    Tests different ways of defining these connections using API-methods.
     """
     root_logger.setLevel(level=logging.INFO)
 
