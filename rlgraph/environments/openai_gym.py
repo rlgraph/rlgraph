@@ -202,7 +202,7 @@ class OpenAIGymEnv(Environment):
             if "int" in box_dtype:
                 return IntBox(low=space.low, high=space.high, dtype=box_dtype)
             elif "float" in box_dtype:
-                return FloatBox(low=space.low, high=space.high, dtype=box_dtype)
+                return FloatBox(low=space.low, high=space.high)
             elif "bool" in box_dtype:
                 return BoolBox(shape=space.shape)
         elif isinstance(space, gym.spaces.Tuple):
