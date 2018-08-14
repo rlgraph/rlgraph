@@ -105,11 +105,7 @@ class TestActionAdapters(unittest.TestCase):
         action_layer_vars = test.read_variable_values(action_adapter.action_layer.variables)
 
         # Batch of 3 samples (9 nodes each: 1 for state-value node AND 2x2x2 for actions).
-        nn_output = np.array([
-            [0.5, 0.6, 0.7, 0.8, 0.1, 0.2, 0.3, 0.4],
-            [0.1, 1.6, 1.7, 1.8, 1.1, 1.2, 1.3, 1.4],
-            [0.52, 0.62, 0.72, 0.82, 0.98, 0.3, 0.4, 0.5],
-        ])
+        nn_output = last_nn_layer_space.sample(3)
 
         # Raw action layer output.
         expected_action_layer_output = np.matmul(
