@@ -144,7 +144,6 @@ class RayExecutor(object):
         self.sample_iteration_throughputs = list()
         self.update_iteration_throughputs = list()
         self.iteration_times = list()
-        self.init_tasks()
 
         # Assume time step based initially.
         num_timesteps = workload["num_timesteps"]

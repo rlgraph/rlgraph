@@ -94,39 +94,40 @@ class ApexMemory(Specifiable):
         Returns:
              dict: Record value dict.
         """
-        states = []
-        actions = []
-        rewards = []
-        terminals = []
-        next_states = []
+        states = list()
+        actions = list()
+        rewards = list()
+        terminals = list()
+        next_states = list()
         for index in indices:
-            record = self.memory_values[index]
-            state, action, reward, terminal, weight = record
-            states.append(state)
-            actions.append(action)
+            # TODO remove as array casts if they dont help.
+            state, action, reward, terminal, weight = self.memory_values[index]
+            decompressed_state = np.array(ray_decompress(state), copy=False)
+            states.append(decompressed_state)
+            actions.append(np.array(action, copy=False))
             rewards.append(reward)
             terminals.append(terminal)
 
-            next_state = state
-            # If terminal -> just use same state
+            decompressed_next_state = decompressed_state
+            # If terminal -> just use same state, already decompressed
             if terminal:
-                next_states.append(next_state)
+                next_states.append(decompressed_next_state)
             else:
                 # Otherwise advance until correct next state or terminal.
+                next_state = decompressed_next_state
                 for i in range_(self.n_step_adjustment):
                     next_index = (index + i) % self.size
-                    record = self.memory_values[next_index]
-                    next_state, _, _, terminal, _ = record
+                    next_state, _, _, terminal, _ = self.memory_values[next_index]
                     if terminal:
                         break
-                next_states.append(next_state)
+                next_states.append(np.array(ray_decompress(next_state), copy=False))
 
         return dict(
-            states=[ray_decompress(state) for state in states],
-            actions=actions,
-            rewards=rewards,
-            terminals=terminals,
-            next_states=[ray_decompress(state) for state in next_states]
+            states=np.array(states),
+            actions=np.array(actions),
+            rewards=np.array(rewards),
+            terminals=np.array(terminals),
+            next_states=np.array(next_states)
         )
 
     def get_records(self, num_records):
@@ -147,8 +148,8 @@ class ApexMemory(Specifiable):
             weight = (sample_prob * self.size) ** (-self.beta)
             weights.append(weight / max_weight)
 
-        indices = np.asarray(indices)
-        return self.read_records(indices=indices), indices, np.asarray(weights)
+        indices = np.array(indices, copy=False)
+        return self.read_records(indices=indices), indices, np.array(weights, copy=False)
 
     def update_records(self, indices, update):
         for index, loss in zip(indices, update):

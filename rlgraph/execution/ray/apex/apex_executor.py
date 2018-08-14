@@ -83,10 +83,6 @@ class ApexExecutor(RayExecutor):
         # Start Ray cluster and connect to it.
         self.ray_init()
 
-        # Setup queues for communication between main communication loop and learner.
-        self.sample_input_queue = queue.Queue(maxsize=self.executor_spec["learn_queue_size"])
-        self.update_output_queue = queue.Queue()
-
         # Create local worker agent according to spec.
         # Extract states and actions space.
         environment = RayExecutor.build_env_from_config(self.environment_spec)
@@ -98,8 +94,7 @@ class ApexExecutor(RayExecutor):
         # Set up worker thread for performing updates.
         self.update_worker = UpdateWorker(
             agent=self.local_agent,
-            input_queue=self.sample_input_queue,
-            output_queue=self.update_output_queue
+            in_queue_size=self.executor_spec["learn_queue_size"]
         )
 
         # Create remote sample workers based on ray cluster spec.
@@ -107,6 +102,14 @@ class ApexExecutor(RayExecutor):
         self.num_sample_workers = self.executor_spec["num_sample_workers"]
 
         self.logger.info("Initializing {} local replay memories.".format(self.num_replay_workers))
+        # Update memory size for num of workers
+        shard_size = int(self.apex_replay_spec["memory_spec"]["capacity"] / self.num_replay_workers)
+        self.apex_replay_spec["memory_spec"]["capacity"] = shard_size
+        self.logger.info("Shard size per memory: {}".format(self.apex_replay_spec["memory_spec"]["capacity"]))
+        min_sample_size = self.apex_replay_spec["min_sample_memory_size"]
+        self.apex_replay_spec["min_sample_memory_size"] = int(min_sample_size / self.num_replay_workers)
+        self.logger.info("Sampling for learning starts at: {}".format( self.apex_replay_spec["min_sample_memory_size"]))
+
         self.ray_local_replay_memories = create_colocated_ray_actors(
             cls=RayMemoryActor,
             config=self.apex_replay_spec,
@@ -120,6 +123,7 @@ class ApexExecutor(RayExecutor):
             # *args
             self.environment_spec, self.worker_spec, self.worker_frameskip
         )
+        self.init_tasks()
 
     def test_worker_init(self):
         """
@@ -177,13 +181,9 @@ class ApexExecutor(RayExecutor):
         sample_batch_sizes = ray.get([task[1][1] for task in completed_sample_tasks])
         for i, (ray_worker, (env_sample_obj_id, sample_size)) in enumerate(completed_sample_tasks):
             # Randomly add env sample to a local replay actor.
-            random_memory = random.choice(self.ray_local_replay_memories)
-
+            random.choice(self.ray_local_replay_memories).observe.remote(env_sample_obj_id)
             sample_steps = sample_batch_sizes[i]
             env_steps += sample_steps
-
-            # This is an object id, not the actual result.
-            random_memory.observe.remote(env_sample_obj_id)
 
             self.steps_since_weights_synced[ray_worker] += sample_steps
             if self.steps_since_weights_synced[ray_worker] >= self.weight_sync_steps:
@@ -208,20 +208,26 @@ class ApexExecutor(RayExecutor):
             self.prioritized_replay_tasks.add_task(ray_memory, ray_memory.get_batch.remote(self.replay_batch_size))
 
             # Retrieve results via id.
-            sampled_batch, sample_indices = ray.get(object_ids=replay_remote_task)
-            # self.logger.debug("Received result of replay task: {}".format(sampled_batch))
+            #self.logger.info("replay task obj id {}".format(replay_remote_task))
+            sampled_batch = ray.get(object_ids=replay_remote_task)
+            # if sampled_batch is not None:
+            #     self.logger.info("Received result of replay task: {}".format(len(sampled_batch["terminals"])))
+            #     self.logger.info("Received result of replay task: {}".format(len(sampled_batch["indices"])))
 
             # Pass to the agent doing the actual updates.
             # The ray worker is passed along because we need to update its priorities later in the subsequent
             # task (see loop below).
-            self.sample_input_queue.put((ray_memory, sampled_batch, sample_indices))
+            self.update_worker.input_queue.put((ray_memory, sampled_batch))
 
         # 3. Update priorities on priority sampling workers using loss values produced by update worker.
-        while not self.update_output_queue.empty():
-            ray_memory, indices, loss = self.update_output_queue.get()
-            ray_memory.update_priorities.remote(indices, loss)
+        while not self.update_worker.output_queue.empty():
+            ray_memory, batch, loss_per_item = self.update_worker.output_queue.get()
+            # self.logger.info('indices = {}'.format(batch["indices"]))
+            # self.logger.info('loss = {}'.format(loss_per_item))
+
+            ray_memory.update_priorities.remote(batch["indices"], loss_per_item)
             # len of loss per item is update count.
-            update_steps += len(loss)
+            update_steps += len(batch["indices"])
 
         return env_steps, update_steps
 
@@ -232,7 +238,7 @@ class UpdateWorker(Thread):
     Communicates with the main thread via a queue.
     """
 
-    def __init__(self, agent, input_queue, output_queue):
+    def __init__(self, agent, in_queue_size):
         """
         Initializes the worker with a RLGraph agent and queues for
 
@@ -246,8 +252,8 @@ class UpdateWorker(Thread):
 
         # Agent to use for updating.
         self.agent = agent
-        self.input_queue = input_queue
-        self.output_queue = output_queue
+        self.input_queue = queue.Queue(maxsize=in_queue_size)
+        self.output_queue = queue.Queue()
 
         # Terminate when host process terminates.
         self.daemon = True
@@ -257,11 +263,15 @@ class UpdateWorker(Thread):
 
     def run(self):
         while True:
-            # Fetch input for update:
-            # Replay memory used
-            memory_actor, sample_batch, indices = self.input_queue.get()
-            if sample_batch is not None:
-                loss, loss_per_item = self.agent.update(batch=sample_batch)
-                # Just pass back indices for updating.
-                self.output_queue.put((memory_actor, indices, loss_per_item))
-                self.update_done = True
+            self.step()
+
+    def step(self):
+        # Fetch input for update:
+        # Replay memory used
+        memory_actor, sample_batch = self.input_queue.get()
+
+        if sample_batch is not None:
+            loss, loss_per_item = self.agent.update(batch=sample_batch)
+            # Just pass back indices for updating.
+            self.output_queue.put((memory_actor, sample_batch, loss_per_item))
+            self.update_done = True

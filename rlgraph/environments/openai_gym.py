@@ -105,12 +105,12 @@ class OpenAIGymEnv(Environment):
         if self.episodic_life:
             # If the last terminal was actually the end of the episode.
             if self.true_terminal:
-                return self._reset()
+                state = self._reset()
             else:
                 # If not, step.
                 state, _, _, _ = self.gym_env.step(self.noop_action)
-                self.lives = self.gym_env.unwrapped.ale.lives()
-                return state
+            self.lives = self.gym_env.unwrapped.ale.lives()
+            return state
         else:
             return self._reset()
 
