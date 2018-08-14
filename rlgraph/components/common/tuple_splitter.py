@@ -19,26 +19,23 @@ from __future__ import print_function
 
 from rlgraph import RLGraphError
 from rlgraph.components import Component
-from rlgraph.spaces import Dict
+from rlgraph.spaces import Tuple
 
 
-class DictSplitter(Component):
+class TupleSplitter(Component):
     """
     Splits an incoming container Space into all its single primitive Spaces.
     """
-    def __init__(self, *output_order, **kwargs):
+    def __init__(self, tuple_length, **kwargs):
         """
         Args:
-            *output_order (str): List of 0th level keys by which the return values of `split` must be sorted.
-                Example: output_order=["B", "C", "A"]
-                -> split(Dict(B=1, A=2, C=10))
-                -> return: list(1, 10, 2), where 1, 10, and 2 are ops
+            tuple_length (int): The length of the Tuple Space to split.
         """
-        self.output_order = output_order
+        self.tuple_length = tuple_length
 
-        super(DictSplitter, self).__init__(
-            scope=kwargs.pop("scope", "dict-splitter"),
-            graph_fn_num_outputs=dict(_graph_fn_split=len(output_order)),
+        super(TupleSplitter, self).__init__(
+            scope=kwargs.pop("scope", "tuple-splitter"),
+            graph_fn_num_outputs=dict(_graph_fn_split=self.tuple_length),
             **kwargs
         )
 
@@ -46,14 +43,15 @@ class DictSplitter(Component):
 
     def check_input_spaces(self, input_spaces, action_space=None):
         in_space = input_spaces["inputs"]
-        # Make sure input is a Dict (unsorted).
-        assert isinstance(in_space, Dict), "ERROR: Input Space for DictSplitter ({}) must be Dict (but is {})!".\
+
+        # Make sure input is a Tuple.
+        assert isinstance(in_space, Tuple), "ERROR: Input Space for TupleSplitter ({}) must be Tuple (but is {})!".\
             format(self.global_scope, in_space)
-        # Keys of in_space must all be part of `self.output_order`.
-        for i, name in enumerate(self.output_order):
-            if name not in in_space:
-                raise RLGraphError("Item {} in `output_order` of DictSplitter '{}' is not part of the input Space ({})!".
-                                   format(i, self.global_scope, in_space))
+
+        # Length of the incoming tuple must correspond with given lengths in ctor.
+        if len(in_space) != self.tuple_length:
+            raise RLGraphError("Length of input Space ({}) != `self.tuple_length` ({})! Input space is '{}'.".
+                               format(len(in_space), self.tuple_length, in_space))
 
     def _graph_fn_split(self, inputs):
         """
@@ -61,13 +59,9 @@ class DictSplitter(Component):
         values).
 
         Args:
-            inputs (DataOpDict): The input Dict to be split by its primary keys.
+            inputs (DataOpTuple): The input Tuple to be split at 0th level.
 
         Returns:
-            tuple: The tuple of the sub-Spaces (may still be Containers) sorted by `self.output_order`.
+            tuple: The tuple of the sub-Spaces (may still be Containers) sorted the same way as they were in the tuple.
         """
-        ret = [None] * len(self.output_order)
-        for key, value in inputs.items():
-            ret[self.output_order.index(key)] = value
-
-        return tuple(ret)
+        return tuple([value for value in inputs])
