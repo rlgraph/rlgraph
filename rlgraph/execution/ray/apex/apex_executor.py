@@ -208,20 +208,26 @@ class ApexExecutor(RayExecutor):
             self.prioritized_replay_tasks.add_task(ray_memory, ray_memory.get_batch.remote(self.replay_batch_size))
 
             # Retrieve results via id.
-            sampled_batch, sample_indices = ray.get(object_ids=replay_remote_task)
-            # self.logger.debug("Received result of replay task: {}".format(sampled_batch))
+            #self.logger.info("replay task obj id {}".format(replay_remote_task))
+            sampled_batch = ray.get(object_ids=replay_remote_task)
+            # if sampled_batch is not None:
+            #     self.logger.info("Received result of replay task: {}".format(len(sampled_batch["terminals"])))
+            #     self.logger.info("Received result of replay task: {}".format(len(sampled_batch["indices"])))
 
             # Pass to the agent doing the actual updates.
             # The ray worker is passed along because we need to update its priorities later in the subsequent
             # task (see loop below).
-            self.update_worker.input_queue.put((ray_memory, sampled_batch, sample_indices))
+            self.update_worker.input_queue.put((ray_memory, sampled_batch))
 
         # 3. Update priorities on priority sampling workers using loss values produced by update worker.
         while not self.update_worker.output_queue.empty():
-            ray_memory, indices, loss = self.update_worker.output_queue.get()
-            ray_memory.update_priorities.remote(indices, loss)
+            ray_memory, batch, loss_per_item = self.update_worker.output_queue.get()
+            # self.logger.info('indices = {}'.format(batch["indices"]))
+            # self.logger.info('loss = {}'.format(loss_per_item))
+
+            ray_memory.update_priorities.remote(batch["indices"], loss_per_item)
             # len of loss per item is update count.
-            update_steps += len(indices)
+            update_steps += len(batch["indices"])
 
         return env_steps, update_steps
 
@@ -259,9 +265,10 @@ class UpdateWorker(Thread):
         while True:
             # Fetch input for update:
             # Replay memory used
-            memory_actor, sample_batch, indices = self.input_queue.get()
+            memory_actor, sample_batch = self.input_queue.get()
+
             if sample_batch is not None:
                 loss, loss_per_item = self.agent.update(batch=sample_batch)
                 # Just pass back indices for updating.
-                self.output_queue.put((memory_actor, indices, loss_per_item))
+                self.output_queue.put((memory_actor, sample_batch, loss_per_item))
                 self.update_done = True
