@@ -131,9 +131,9 @@ class DQNAgent(Agent):
             self.core_component.define_api_method("reset_preprocessor", reset_preprocessor)
 
         # Act from preprocessed states.
-        def action_from_preprocessed_state(self_, preprocessed_states, time_step, use_exploration=True):
-            sample_deterministic = self_.call(policy.sample_deterministic, preprocessed_states)
-            sample_stochastic = self_.call(policy.sample_stochastic, preprocessed_states)
+        def action_from_preprocessed_state(self_, preprocessed_states, time_step=0, use_exploration=True):
+            sample_deterministic = self_.call(policy.get_max_likelihood_action, preprocessed_states)
+            sample_stochastic = self_.call(policy.get_stochastic_action, preprocessed_states)
             actions = self_.call(exploration.get_action, sample_deterministic, sample_stochastic,
                                  time_step, use_exploration)
             return preprocessed_states, actions
@@ -141,16 +141,19 @@ class DQNAgent(Agent):
         self.core_component.define_api_method("action_from_preprocessed_state", action_from_preprocessed_state)
 
         # State (from environment) to action with preprocessing.
-        def get_preprocessed_state_and_action(self_, states, time_step, use_exploration=True):
+        def get_preprocessed_state_and_action(self_, states, time_step=0, use_exploration=True):
             preprocessed_states = self_.call(preprocessor.preprocess, states)
-            sample_deterministic = self_.call(policy.sample_deterministic, preprocessed_states)
-            sample_stochastic = self_.call(policy.sample_stochastic, preprocessed_states)
-            actions = self_.call(exploration.get_action, sample_deterministic, sample_stochastic,
-                                 time_step, use_exploration)
+            return self_.call(self_.action_from_preprocessed_state, preprocessed_states, time_step, use_exploration)
 
-            # TODO: Alternatively, move exploration (especially epsilon-based) into python.
-            # TODO: return internal states as well and maybe the exploration decision
-            return preprocessed_states, actions
+            # TEST: should be done like above (calling other API-methods for brevity and simplicity).
+            #sample_deterministic = self_.call(policy.get_max_likelihood_action, preprocessed_states)
+            #sample_stochastic = self_.call(policy.get_stochastic_action, preprocessed_states)
+            #actions = self_.call(exploration.get_action, sample_deterministic, sample_stochastic,
+            #                     time_step, use_exploration)
+
+            ## TODO: Alternatively, move exploration (especially epsilon-based) into python.
+            ## TODO: return internal states as well and maybe the exploration decision
+            #return preprocessed_states, actions
 
         self.core_component.define_api_method("get_preprocessed_state_and_action", get_preprocessed_state_and_action)
 
@@ -177,8 +180,10 @@ class DQNAgent(Agent):
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = self_.call(splitter.split, records)
 
             # Delegate actual update to update_from_external_batch.
-            step_op, loss, loss_per_item, q_values_s = self_.call(self_.update_from_external_batch, preprocessed_s, actions,
-                              rewards, terminals, preprocessed_s_prime, importance_weights)
+            step_op, loss, loss_per_item, q_values_s = self_.call(
+                self_.update_from_external_batch, preprocessed_s, actions, rewards, terminals, preprocessed_s_prime,
+                importance_weights
+            )
 
             if isinstance(memory, PrioritizedReplay):
                 update_pr_step_op = self_.call(memory.update_records, sample_indices, loss_per_item)
@@ -219,16 +224,19 @@ class DQNAgent(Agent):
             if self.double_q:
                 q_values_sp = self_.call(policy.get_q_values, preprocessed_next_states)
             else:
+                # TODO: make this None when we support Nones non-last arguments in APi-methods.
                 # These will be not used here, we just cant have None if it's not the last argument.
                 q_values_sp = q_values_s
-            loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-                qt_values_sp, q_values_sp, importance_weights)
+            loss, loss_per_item = self_.call(
+                loss_function.loss, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp,
+                importance_weights
+            )
 
             return loss, loss_per_item
 
         self.core_component.define_api_method("get_td_loss", get_td_loss)
 
-        # TODO is not plugged in yet,
+        # TODO: is not plugged in yet,
         # Generic optimization method which we can replace for device strategies.
         # This method should receive as inputs everything the loss function and optimizer need.
         def optimize(self_, *loss_inputs):
