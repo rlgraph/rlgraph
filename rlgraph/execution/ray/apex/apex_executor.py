@@ -120,6 +120,7 @@ class ApexExecutor(RayExecutor):
             # *args
             self.environment_spec, self.worker_spec, self.worker_frameskip
         )
+        self.init_tasks()
 
     def test_worker_init(self):
         """
