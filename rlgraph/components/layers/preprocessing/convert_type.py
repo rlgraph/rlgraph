@@ -32,7 +32,7 @@ class ConvertType(PreprocessLayer):
     """
     Converts data types of inputs for static type checking.
     """
-    def __init__(self, to_dtype, scope="clip", **kwargs):
+    def __init__(self, to_dtype, scope="convert-type", **kwargs):
         """
         Args:
             to_dtype (str): Target data type.
@@ -83,4 +83,3 @@ class ConvertType(PreprocessLayer):
             return preprocessing_inputs.astype(dtype=util.dtype(self.to_dtype, to="np"))
         elif get_backend() == "tf":
             return tf.cast(x=preprocessing_inputs, dtype=util.dtype(self.to_dtype, to="tf"))
-

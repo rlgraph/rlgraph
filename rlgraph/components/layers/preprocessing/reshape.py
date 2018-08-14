@@ -22,7 +22,7 @@ import numpy as np
 from rlgraph import RLGraphError
 from rlgraph.backend_system import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
-from rlgraph.spaces import IntBox
+from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.ops import flatten_op, unflatten_op
 
@@ -98,6 +98,8 @@ class ReShape(PreprocessLayer):
                     [single_space.flat_dim_with_categories if
                      self.flatten_categories is True and type(single_space) == IntBox else single_space.flat_dim]
                 )
+                if self.flatten_categories is True and type(single_space) == IntBox:
+                    class_ = FloatBox
             else:
                 new_shape = self.new_shape[key] if isinstance(self.new_shape, dict) else self.new_shape
 
@@ -128,7 +130,7 @@ class ReShape(PreprocessLayer):
         # Check whether our input space has-batch or not and store this information here.
         in_space = input_spaces["preprocessing_inputs"]  # type: Space
 
-        if isinstance(in_space, IntBox):
+        if self.flatten is True and isinstance(in_space, IntBox):
             sanity_check_space(in_space, must_have_categories=True, num_categories=(2, 10000))
 
         # Store the mapped output Spaces (per flat key).
@@ -162,7 +164,8 @@ class ReShape(PreprocessLayer):
         """
         # Create a one-hot axis for the categories at the end?
         if self.num_categories[key] > 1:
-            preprocessing_inputs = tf.one_hot(indices=preprocessing_inputs, depth=self.num_categories[key], axis=-1)
+            preprocessing_inputs = tf.one_hot(indices=preprocessing_inputs, depth=self.num_categories[key], axis=-1,
+                                              dtype="float32")
 
         new_shape = self.output_spaces[key].get_shape(
             with_batch_rank=-1, with_time_rank=self.unfold_time_rank if type(self.unfold_time_rank) == int else -1,
