@@ -21,7 +21,7 @@ from rlgraph.utils.ops import DataOp, SingleDataOp, DataOpDict, DataOpTuple, Con
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.initializer import Initializer
 from rlgraph.utils.util import dtype, get_shape, get_rank, force_tuple, force_list, LARGE_INTEGER, SMALL_NUMBER, \
-    tf_logger, print_logging_handler, root_logger, logging_formatter, default_dict
+    tf_logger, print_logging_handler, root_logger, logging_formatter, default_dict, unify_nn_and_rnn_api_output
 from rlgraph.utils.numpy import softmax, relu, one_hot
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.utils.specifiable_server import SpecifiableServer, SpecifiableServerHook

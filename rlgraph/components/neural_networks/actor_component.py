@@ -26,17 +26,20 @@ from rlgraph.components.explorations.exploration import Exploration
 class ActorComponent(Component):
     """
     A Component that incorporates an entire pipeline from env state to an action choice.
-    Includes preprocessor, network and exploration sub-components.
+    Includes preprocessor, policy and exploration sub-components.
 
     API:
         get_preprocessed_state_and_action(state, time_step, use_exploration) ->
     """
-    def __init__(self, preprocessor_spec, policy_spec, exploration_spec, **kwargs):
+    def __init__(self, preprocessor_spec, policy_spec, exploration_spec, max_likelihood=True,
+                 **kwargs):
         """
         Args:
             preprocessor_spec ():
             policy_spec ():
             exploration_spec ():
+            max_likelihood (bool): Whether to pick the max-likelihood action in case of non-exploratory actions.
+                Will send max-likelihood pick (from the policy's distribution)
         """
         super(ActorComponent, self).__init__(scope=kwargs.pop("scope", "actor-component"), **kwargs)
 
@@ -47,12 +50,13 @@ class ActorComponent(Component):
         self.add_components(self.preprocessor, self.policy, self.exploration)
 
     # @rlgraph.api_method
-    def get_preprocessed_state_and_action(self, states, time_step, use_exploration=True):
+    def get_preprocessed_state_and_action(self, states, internal_states=None, time_step=0, use_exploration=True):
         """
         API-method to get an action based on a raw state from an Env along with the preprocessed state.
 
         Args:
             states (DataOp): The states coming directly from the environment.
+            internal_states (DataOp): The initial internal states to use (in case of an RNN network).
             time_step (DataOp): The current time step.
             use_exploration (Optional[DataOp]): Whether to use exploration or not.
 
@@ -62,8 +66,9 @@ class ActorComponent(Component):
                 - DataOp: The chosen action.
         """
         preprocessed_states = self.call(self.preprocessor.preprocess, states)
-        sample_deterministic = self.call(self.policy.sample_deterministic, preprocessed_states)
-        sample_stochastic = self.call(self.policy.sample_stochastic, preprocessed_states)
-        actions = self.call(self.exploration.get_action, sample_deterministic, sample_stochastic,
-                            time_step, use_exploration)
+        if self.max_likelihood is True:
+            sample = self.call(self.policy.get_max_likelihood_action, preprocessed_states, internal_states)
+        else:
+            sample = self.call(self.policy.get_stochastic_action, preprocessed_states, internal_states)
+        actions = self.call(self.exploration.get_action, sample, time_step, use_exploration)
         return preprocessed_states, actions

@@ -26,6 +26,7 @@ from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.action_adapters.dueling_action_adapter import DuelingActionAdapter
 from rlgraph.components.action_adapters.baseline_action_adapter import BaselineActionAdapter
+from rlgraph.utils.util import unify_nn_and_rnn_api_output
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -37,15 +38,15 @@ class Policy(Component):
     followed by a Distribution Component.
 
     API:
-        get_action(nn_input, internals) -> (action, last_internals).
+        get_action(nn_input, internal_states) -> (action, last_internals).
             Single action based on the neural network input AND `self.max_likelihood`.
             If True, returns a deterministic (max_likelihood) sample, if False, returns a stochastic sample.
-        get_nn_output(nn_input, internals): The raw output of the neural network (before it's cleaned-up and passed through
+        get_nn_output(nn_input, internal_states): The raw output of the neural network (before it's cleaned-up and passed through
             our ActionAdapter).
-        get_action_layer_output(nn_input, internals) (SingleDataOp): The raw output of the action layer of the
+        get_action_layer_output(nn_input, internal_states) (SingleDataOp): The raw output of the action layer of the
             ActionAdapter.
-        get_q_values(nn_input, internals): The Q-values (action-space shaped) as calculated by the action-adapter.
-        get_logits_parameters_log_probs (nn_input, internals): See ActionAdapter Component.
+        get_q_values(nn_input, internal_states): The Q-values (action-space shaped) as calculated by the action-adapter.
+        get_logits_parameters_log_probs (nn_input, internal_states): See ActionAdapter Component.
             action_layer_output_reshaped (SingleDataOp): The action layer output, reshaped according to the action
                     space.
         get_max_likelihood_action: See get_action, but with max_likelihood force set to True.
@@ -96,44 +97,46 @@ class Policy(Component):
 
         # Add API-method to get dueling output (if we use a dueling layer).
         if isinstance(self.action_adapter, DuelingActionAdapter):
-            def get_dueling_output(self, nn_input, internals=None):
-                nn_output, internals = self.unify_nn_output(self.call(self.neural_network.apply, nn_input, internals))
+            def get_dueling_output(self, nn_input, internal_states=None):
+                nn_output, last_internals = unify_nn_and_rnn_api_output(
+                    self.call(self.neural_network.apply, nn_input, internal_states)
+                )
                 state_value, advantages, q_values = self.call(self.action_adapter.get_dueling_output, nn_output)
-                return (state_value, advantages, q_values, internals) if internals is not None else \
+                return (state_value, advantages, q_values, last_internals) if last_internals is not None else \
                     (state_value, advantages, q_values)
 
             self.define_api_method("get_dueling_output", get_dueling_output)
 
-            def get_q_values(self, nn_input, internals=None):
-                nn_output, internals = self.unify_nn_output(
-                    self.call(self.neural_network.apply, nn_input, internals)
+            def get_q_values(self, nn_input, internal_states=None):
+                nn_output, last_internals = unify_nn_and_rnn_api_output(
+                    self.call(self.neural_network.apply, nn_input, internal_states)
                 )
                 _, _, q = self.call(self.action_adapter.get_dueling_output, nn_output)
-                return (q, internals) if internals is not None else q
+                return (q, last_internals) if last_internals is not None else q
         # Add API-method to get baseline output (if we use an extra value function baseline node).
         elif isinstance(self.action_adapter, BaselineActionAdapter):
-            def get_baseline_output(self, nn_input, internals=None):
-                nn_output, internals = self.unify_nn_output(
-                    self.call(self.neural_network.apply, nn_input, internals)
+            def get_baseline_output(self, nn_input, internal_states=None):
+                nn_output, last_internals = unify_nn_and_rnn_api_output(
+                    self.call(self.neural_network.apply, nn_input, internal_states)
                 )
                 state_value, logits = self.call(self.action_adapter.get_state_values_and_logits, nn_output)
-                return (state_value, logits, internals) if internals is not None else (state_value, logits)
+                return (state_value, logits, last_internals) if last_internals is not None else (state_value, logits)
 
             self.define_api_method("get_baseline_output", get_baseline_output)
 
-            def get_q_values(self, nn_input, internals=None):
-                nn_output, internals = self.unify_nn_output(
-                    self.call(self.neural_network.apply, nn_input, internals)
+            def get_q_values(self, nn_input, internal_states=None):
+                nn_output, last_internals = unify_nn_and_rnn_api_output(
+                    self.call(self.neural_network.apply, nn_input, internal_states)
                 )
                 _, logits = self.call(self.action_adapter.get_state_values_and_logits, nn_output)
-                return (logits, internals) if internals is not None else logits
+                return (logits, last_internals) if last_internals is not None else logits
         else:
-            def get_q_values(self, nn_input, internals=None):
-                nn_output, internals = self.unify_nn_output(
-                    self.call(self.neural_network.apply, nn_input, internals)
+            def get_q_values(self, nn_input, internal_states=None):
+                nn_output, last_internals = unify_nn_and_rnn_api_output(
+                    self.call(self.neural_network.apply, nn_input, internal_states)
                 )
                 logits, _, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
-                return (logits, internals) if internals is not None else logits
+                return (logits, last_internals) if last_internals is not None else logits
 
         self.define_api_method("get_q_values", get_q_values)
 
@@ -154,59 +157,77 @@ class Policy(Component):
             self.add_components(Synchronizable(), expose_apis="sync")
 
     # Define our interface.
-    def get_action(self, nn_input, internals=None):
-        nn_output, internals = self.unify_nn_output(self.call(self.neural_network.apply, nn_input, internals))
-        # TEST without distribution iff discrete action-space and max-likelihood acting (greedy).
-        # In that case, one does not need to create a distribution in the graph each act (only to get the max anyway
-        # over the logits, which is the same as the max over the probabilities/log-probabilities).
-        if self.max_likelihood is True and isinstance(self.action_space, IntBox):
+    def get_action(self, nn_input, internal_states=None, max_likelihood=None):
+        nn_output, last_internals = unify_nn_and_rnn_api_output(
+            self.call(self.neural_network.apply, nn_input, internal_states)
+        )
+        max_likelihood = self.max_likelihood if max_likelihood is None else max_likelihood
+        # Skip our distribution, iff discrete action-space and max-likelihood acting (greedy).
+        # In that case, one does not need to create a distribution in the graph each act (only to get the argmax
+        # over the logits, which is the same as the argmax over the probabilities (or log-probabilities)).
+        if max_likelihood is True and isinstance(self.action_space, IntBox):
             logits, _, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
             sample = self.call(self._graph_fn_get_max_likelihood_action_wo_distribution, logits)
         else:
             _, parameters, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
-            sample = self.call(self.distribution.draw, parameters, self.max_likelihood)
-        return (sample, internals) if internals is not None else sample
+            sample = self.call(self.distribution.draw, parameters, max_likelihood)
+        return (sample, last_internals) if last_internals is not None else sample
 
-    def get_nn_output(self, nn_input, internals=None):
-        nn_output, internals = self.unify_nn_output(self.call(self.neural_network.apply, nn_input, internals))
-        return (nn_output, internals) if internals is not None else nn_output
+    def get_nn_output(self, nn_input, internal_states=None):
+        nn_output, last_internals = unify_nn_and_rnn_api_output(
+            self.call(self.neural_network.apply, nn_input, internal_states)
+        )
+        return (nn_output, last_internals) if last_internals is not None else nn_output
 
-    def get_action_layer_output(self, nn_input, internals=None):
-        nn_output, internals = self.unify_nn_output(self.call(self.neural_network.apply, nn_input, internals))
+    def get_action_layer_output(self, nn_input, internal_states=None):
+        nn_output, last_internals = unify_nn_and_rnn_api_output(
+            self.call(self.neural_network.apply, nn_input, internal_states)
+        )
         action_layer_output = self.call(self.action_adapter.get_action_layer_output, nn_output)
-        return (action_layer_output, internals) if internals is not None else action_layer_output
+        return (action_layer_output, last_internals) if last_internals is not None else action_layer_output
 
-    def get_logits_parameters_log_probs(self, nn_input, internals=None):
-        nn_output, internals = self.unify_nn_output(self.call(self.neural_network.apply, nn_input, internals))
+    def get_logits_parameters_log_probs(self, nn_input, internal_states=None):
+        nn_output, last_internals = unify_nn_and_rnn_api_output(
+            self.call(self.neural_network.apply, nn_input, internal_states)
+        )
         logits, parameters, log_probs = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
-        return (logits, parameters, log_probs, internals) if internals is not None else (logits, parameters, log_probs)
+        return (logits, parameters, log_probs, last_internals) if last_internals is not None \
+            else (logits, parameters, log_probs)
 
-    def get_entropy(self, nn_input, internals=None):
-        nn_output, internals = self.unify_nn_output(self.call(self.neural_network.apply, nn_input, internals))
+    def get_entropy(self, nn_input, internal_states=None):
+        nn_output, last_internals = unify_nn_and_rnn_api_output(
+            self.call(self.neural_network.apply, nn_input, internal_states)
+        )
         _, parameters, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
         entropy = self.call(self.distribution.entropy, parameters)
-        return (entropy, internals) if internals is not None else entropy
+        return (entropy, last_internals) if last_internals is not None else entropy
 
-    def get_max_likelihood_action(self, nn_input, internals=None):
-        nn_output, internals = self.unify_nn_output(self.call(self.neural_network.apply, nn_input, internals))
+    def get_max_likelihood_action(self, nn_input, internal_states=None):
+        nn_output, last_internals = unify_nn_and_rnn_api_output(
+            self.call(self.neural_network.apply, nn_input, internal_states)
+        )
         _, parameters, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
         sample = self.call(self.distribution.sample_deterministic, parameters)
-        return (sample, internals) if internals is not None else sample
+        return (sample, last_internals) if last_internals is not None else sample
 
-    def get_stochastic_action(self, nn_input, internals=None):
-        nn_output, internals = self.unify_nn_output(self.call(self.neural_network.apply, nn_input, internals))
+    def get_stochastic_action(self, nn_input, internal_states=None):
+        nn_output, last_internals = unify_nn_and_rnn_api_output(
+            self.call(self.neural_network.apply, nn_input, internal_states)
+        )
         _, parameters, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
         sample = self.call(self.distribution.sample_stochastic, parameters)
-        return (sample, internals) if internals is not None else sample
+        return (sample, last_internals) if last_internals is not None else sample
 
-    @staticmethod
-    def unify_nn_output(nn_output):
-        # Neural net returns output and internal-state.
-        if isinstance(nn_output, tuple) and len(nn_output) == 2:
-            return nn_output[0], nn_output[1]
-        else:
-            return nn_output, None
+    def _graph_fn_get_max_likelihood_action_wo_distribution(self, logits):
+        """
+        Use this function only for discrete action spaces to circumvent using a full-blown
+        backend-specific distribution object (e.g. tf.distribution.Multinomial).
 
-    def _graph_fn_get_max_likelihood_action_wo_distribution(self, parameters):
+        Args:
+            logits (SingleDataOpDict): Logits over which to pick the argmax (greedy action).
+
+        Returns:
+            SingleDataOp: The argmax over the last rank of the input logits.
+        """
         if get_backend() == "tf":
-            return tf.argmax(parameters, axis=-1, output_type=tf.int32)
+            return tf.argmax(logits, axis=-1, output_type=tf.int32)

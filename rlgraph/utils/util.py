@@ -344,3 +344,24 @@ def strip_source_code(method, remove_nested_functions=True):
         src = re.sub(r'\n(\s*)def \w+\((.|\n)+?\n\1[^\s\n]', "", src)
 
     return src
+
+
+def unify_nn_and_rnn_api_output(nn_output):
+    """
+    Makes sure always two elements are returned, no matter whether nn_output is a single DataOpRec with
+    only simple NN output in it or a tuple of DataOpRecs (one NN output, one last internal state(s) of the RNN(s)).
+
+    Args:
+        nn_output (Union[Tuple[DataOpRecord,DataOpRecord],DataOpRecord]): The output coming from a call to a
+            `NeuralNetwork.apply()` API-method.
+
+    Returns:
+        tuple:
+            - The actual NN output DataOpRec.
+            - The actual NN internal state DataOpRec or None (if no RNN).
+    """
+    # Neural net returns output and internal-state.
+    if isinstance(nn_output, tuple) and len(nn_output) == 2:
+        return nn_output[0], nn_output[1]
+    else:
+        return nn_output, None
