@@ -119,6 +119,12 @@ class LSTMLayer(NNLayer):
                 - DataOpTuple: The final cell- and hidden-states.
         """
         if get_backend() == "tf":
+            # Convert to tf's LSTMStateTuple from DataOpTuple.
+            if initial_c_and_h_states is not None:
+                initial_c_and_h_states = tf.nn.rnn_cell.LSTMStateTuple(
+                    initial_c_and_h_states[0], initial_c_and_h_states[1]
+                )
+
             lstm_out, lstm_state_tuple = tf.nn.dynamic_rnn(
                 cell=self.lstm_cell, inputs=inputs, sequence_length=sequence_length,
                 initial_state=initial_c_and_h_states,
