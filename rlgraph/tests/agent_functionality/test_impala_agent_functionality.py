@@ -50,6 +50,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         add_time_rank=True,
         time_major=True
     )
+    internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True)
 
     def test_large_impala_network_without_agent(self):
         """
@@ -77,14 +78,25 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         policy = Policy(large_impala_architecture, action_space=self.action_space,
                         action_adapter_spec=dict(type="baseline_action_adapter"))
         test = ComponentTest(
-            policy, input_spaces=dict(nn_input=self.input_space), action_space=self.action_space
+            policy, input_spaces=dict(nn_input=self.input_space, internal_states=self.internal_states_space),
+            action_space=self.action_space
         )
 
         # Send a 1x1 sample through the network (1=sequence-length (time-rank), 1=batch-size).
-        sample_input = self.input_space.sample(size=(1, 1))
+        nn_input = self.input_space.sample(size=(1, 1))
+        initial_internal_states = self.internal_states_space.zeros(size=1)
         expected = None
-        ret = test.test(("get_action", sample_input), expected_outputs=expected)
-        print(ret)
+        actions, last_internal_states = test.test(
+            ("get_action", [nn_input, initial_internal_states]), expected_outputs=expected
+        )
+        print("First action: {}".format(actions))
+
+        # Send another 1x1 sample through the network using the previous internal-state.
+        next_nn_input = self.input_space.sample(size=(1, 1))
+        expected = None
+        actions, last_internal_states = test.test(("get_action", [next_nn_input, last_internal_states]),
+                                                  expected_outputs=expected)
+        print("Second action: {}".format(actions))
 
     # TODO move this to test_all_compile once it works.
     def test_impala_assembly(self):
