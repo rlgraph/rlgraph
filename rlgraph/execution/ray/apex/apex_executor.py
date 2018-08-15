@@ -156,8 +156,8 @@ class ApexExecutor(RayExecutor):
         # have a local agent.
         weights = self.local_agent.get_policy_weights()
         for ray_worker in self.ray_env_sample_workers:
-            self.steps_since_weights_synced[ray_worker] = 0
             ray_worker.set_policy_weights.remote(weights)
+            self.steps_since_weights_synced[ray_worker] = 0
 
             self.logger.info("Synced worker {} weights, initializing sample tasks.".format(
                 self.worker_ids[ray_worker]))
