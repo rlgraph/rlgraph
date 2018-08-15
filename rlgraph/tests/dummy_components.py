@@ -20,7 +20,11 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.utils.ops import FlattenedDataOp
-from rlgraph.components import Component
+from rlgraph.components.component import Component
+from rlgraph.components.common.dict_splitter import DictSplitter
+from rlgraph.components.neural_networks.neural_network import NeuralNetwork
+from rlgraph.components.layers.nn.dense_layer import DenseLayer
+from rlgraph.components.layers.nn.concat_layer import ConcatLayer
 
 
 class Dummy1To1(Component):
@@ -361,3 +365,37 @@ class OnlyFlattenDummy(Component):
             ret2[key] = value - input2[""]
         return ret, ret2, input2
 
+
+class DummyNNWithDictInput(NeuralNetwork):
+    """
+    Dummy NN with dict input taking a dict with keys "a" and "b" passes them both through two different (parallel,
+    not connected in any way) dense layers and then concatenating the outputs to yield the final output.
+    """
+
+    def __init__(self, num_units_a=3, num_units_b=2, scope="dummy-nn-with-dict-input", **kwargs):
+        super(DummyNNWithDictInput, self).__init__(scope=scope, **kwargs)
+
+        self.num_units_a = num_units_a
+        self.num_units_b = num_units_b
+
+        # Splits the input into two streams.
+        self.splitter = DictSplitter("a", "b")
+        self.stack_a = DenseLayer(units=self.num_units_a)
+        self.stack_b = DenseLayer(units=self.num_units_b)
+        self.concat_layer = ConcatLayer()
+
+        # Add all sub-components to this one.
+        self.add_components(self.splitter, self.stack_a, self.stack_b, self.concat_layer)
+
+    def apply(self, input_dict):
+        # Split the input dict into two streams.
+        input_a, input_b = self.call(self.splitter.split, input_dict)
+
+        # Get the two stack outputs.
+        output_a = self.call(self.stack_a.apply, input_a)
+        output_b = self.call(self.stack_b.apply, input_b)
+
+        # Concat everything together, that's the output.
+        concatenated_data = self.call(self.concat_layer.apply, output_a, output_b)
+
+        return concatenated_data
