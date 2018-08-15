@@ -21,6 +21,7 @@ from rlgraph.components.component import Component
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.components.neural_networks.policy import Policy
 from rlgraph.components.explorations.exploration import Exploration
+from rlgraph.utils.util import unify_nn_and_rnn_api_output
 
 
 class ActorComponent(Component):
@@ -31,21 +32,23 @@ class ActorComponent(Component):
     API:
         get_preprocessed_state_and_action(state, time_step, use_exploration) ->
     """
-    def __init__(self, preprocessor_spec, policy_spec, exploration_spec, max_likelihood=True,
+    def __init__(self, preprocessor_spec, policy_spec, exploration_spec, max_likelihood=None,
                  **kwargs):
         """
         Args:
             preprocessor_spec ():
             policy_spec ():
             exploration_spec ():
-            max_likelihood (bool): Whether to pick the max-likelihood action in case of non-exploratory actions.
-                Will send max-likelihood pick (from the policy's distribution)
+            max_likelihood (Optional[bool]): See Policy's property `max_likelihood`.
+                If not None, overwrites the setting in this ActorComponent's Policy object.
         """
         super(ActorComponent, self).__init__(scope=kwargs.pop("scope", "actor-component"), **kwargs)
 
         self.preprocessor = PreprocessorStack.from_spec(preprocessor_spec)
         self.policy = Policy.from_spec(policy_spec)
         self.exploration = Exploration.from_spec(exploration_spec)
+
+        self.max_likelihood = max_likelihood
 
         self.add_components(self.preprocessor, self.policy, self.exploration)
 
@@ -65,10 +68,17 @@ class ActorComponent(Component):
                 - DataOp: The preprocessed states.
                 - DataOp: The chosen action.
         """
+        max_likelihood = self.max_likelihood if self.max_likelihood is not None else self.policy.max_likelihood
+
         preprocessed_states = self.call(self.preprocessor.preprocess, states)
-        if self.max_likelihood is True:
-            sample = self.call(self.policy.get_max_likelihood_action, preprocessed_states, internal_states)
+        if max_likelihood is True:
+            sample, last_internal_states = unify_nn_and_rnn_api_output(self.call(
+                self.policy.get_max_likelihood_action, preprocessed_states, internal_states
+            ))
         else:
-            sample = self.call(self.policy.get_stochastic_action, preprocessed_states, internal_states)
+            sample, last_internal_states = unify_nn_and_rnn_api_output(self.call(
+                self.policy.get_stochastic_action, preprocessed_states, internal_states
+            ))
         actions = self.call(self.exploration.get_action, sample, time_step, use_exploration)
-        return preprocessed_states, actions
+        ret = (preprocessed_states, actions) + ((last_internal_states,) if last_internal_states else ())
+        return ret

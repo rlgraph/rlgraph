@@ -69,8 +69,8 @@ class Policy(Component):
                         layer.
                     logits (SingleDataOp): The (action-space reshaped, but otherwise raw) logits.
     """
-    def __init__(self, neural_network, action_space=None,
-                 writable=False, action_adapter_spec=None, max_likelihood=True, scope="policy", **kwargs):
+    def __init__(self, neural_network, action_space=None, writable=False, action_adapter_spec=None,
+                 max_likelihood=True, scope="policy", **kwargs):
         """
         Args:
             neural_network (Union[NeuralNetwork,dict]): The NeuralNetwork Component or a specification dict to build

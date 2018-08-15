@@ -120,7 +120,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         self.assertEqual(results["env_frames"], time_steps)
         self.assertGreaterEqual(results["mean_episode_reward"], -10)
         self.assertGreaterEqual(results["max_episode_reward"], -4)
-        self.assertLessEqual(results["episodes_executed"], 700)
+        self.assertLessEqual(results["episodes_executed"], 1000)
 
     def test_dqn_on_cart_pole(self):
         """
@@ -137,7 +137,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             observe_spec=dict(buffer_size=200),
             execution_spec=dict(seed=15),
             update_spec=dict(update_interval=4, batch_size=24, sync_interval=64),
-            optimizer_spec=dict(type="adam", learning_rate=0.015),
+            optimizer_spec=dict(type="adam", learning_rate=0.05),
             store_last_q_table=True
         )
 
@@ -150,7 +150,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        self.assertGreaterEqual(results["mean_episode_reward"], 25)
+        self.assertGreaterEqual(results["mean_episode_reward"], 20)
         self.assertGreaterEqual(results["max_episode_reward"], 100.0)
         self.assertLessEqual(results["episodes_executed"], 200)
 
