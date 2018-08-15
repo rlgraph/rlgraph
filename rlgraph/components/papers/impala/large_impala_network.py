@@ -41,16 +41,8 @@ class LargeIMPALANetwork(NeuralNetwork):
     [1] IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures - Espeholt, Soyer,
         Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
     """
-    def __init__(self, num_timesteps=20, scope="large-impala-network", **kwargs):
-        """
-        Args:
-            num_timesteps (int): The number of timesteps for the main LSTM(256). This corresponds also with the
-                number of steps taken by the EnvironmentStepper in each worker iteration.
-        """
-
+    def __init__(self, scope="large-impala-network", **kwargs):
         super(LargeIMPALANetwork, self).__init__(scope=scope, **kwargs)
-
-        self.num_timesteps = num_timesteps
 
         # Create all needed sub-components.
 
@@ -59,12 +51,12 @@ class LargeIMPALANetwork(NeuralNetwork):
 
         # The Image Processing Stack (left side of "Large Architecture" Figure 3 in [1]).
         # Conv2D column + ReLU + fc(256) + ReLU.
-        self.image_processing_stack = self.build_image_processing_stack(self.num_timesteps)
+        self.image_processing_stack = self.build_image_processing_stack()  #self.num_timesteps
 
         # The text processing pipeline: Takes a batch of string tensors as input, creates a hash-bucket thereof,
         # and passes the output of the hash bucket through an embedding-lookup(20) layer. The output of the embedding
         # lookup is then passed through an LSTM(64).
-        self.text_processing_stack = self.build_text_processing_stack(self.num_timesteps)
+        self.text_processing_stack = self.build_text_processing_stack()  #self.num_timesteps
 
         # The concatenation layer (concatenates outputs from image/text processing stacks, previous action/reward).
         self.concat_layer = ConcatLayer()
@@ -79,7 +71,7 @@ class LargeIMPALANetwork(NeuralNetwork):
         )
 
     @staticmethod
-    def build_image_processing_stack(num_timesteps):
+    def build_image_processing_stack():
         """
         Constructs a ReShape preprocessor to fold the time rank into the batch rank.
 
@@ -91,7 +83,7 @@ class LargeIMPALANetwork(NeuralNetwork):
 
         Then adds: ReLU + fc(256) + ReLU.
         """
-        # Collect components for image stack.
+        # Collect components for image stack before unfolding time-rank going into main LSTM.
         sub_components = list()
 
         # Time-rank into batch-rank reshaper.
@@ -124,14 +116,26 @@ class LargeIMPALANetwork(NeuralNetwork):
             NNLayer(activation="relu", scope="relu-1"),  # ReLU 1
             DenseLayer(units=256),  # Dense layer.
             NNLayer(activation="relu", scope="relu-2"),  # ReLU 2
-            ReShape(unfold_time_rank=num_timesteps, time_major=True, scope="time-rank-unfold")
         ])
+        stack_before_unfold = Stack(sub_components, scope="image-stack-before-unfold")
 
-        # Return the image stack.
-        return Stack(sub_components, scope="image-processing-stack")
+        time_rank_unfold = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold")
+
+        def custom_apply(self, inputs):
+            image_processing_output = self.call(self.sub_components["image-stack-before-unfold"].apply, inputs)
+            # Feed the original inputs into the unfold-ReShape so can lookup the time-rank dimension to unfold.
+            unfolded = self.call(self.sub_components["time-rank-unfold"].apply, image_processing_output, inputs)
+            return unfolded
+
+        image_stack = Stack(
+            stack_before_unfold, time_rank_unfold,
+            api_methods={("apply", custom_apply)}, scope="image-stack"
+        )
+
+        return image_stack
 
     @staticmethod
-    def build_text_processing_stack(num_timesteps):
+    def build_text_processing_stack():
         """
         Builds the text processing pipeline consisting of:
         - ReShape preprocessor to fold the incoming time rank into the batch rank.
@@ -160,7 +164,7 @@ class LargeIMPALANetwork(NeuralNetwork):
 
         tuple_splitter = TupleSplitter(2)
 
-        time_rank_unfold = ReShape(unfold_time_rank=num_timesteps, time_major=True, scope="time-rank-unfold")
+        time_rank_unfold = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold")
 
         def custom_apply(self, inputs):
             text_to_batch = self.call(self.sub_components["time-rank-fold"].apply, inputs)
@@ -178,13 +182,14 @@ class LargeIMPALANetwork(NeuralNetwork):
             # Need to split once more because the LSTM state is always a tuple of final c- and h-states.
             _, lstm_final_h_state = self.call(self.sub_components["tuple-splitter"].split, lstm_final_internals)
 
-            unfolded = self.call(self.sub_components["time-rank-unfold"].apply, lstm_final_h_state)
+            # Feed the original inputs into the unfold-ReShape so can lookup the time-rank dimension to unfold.
+            unfolded = self.call(self.sub_components["time-rank-unfold"].apply, lstm_final_h_state, inputs)
 
             return unfolded
 
         text_processing_stack = Stack(
             time_rank_fold, string_to_hash_bucket, embedding, lstm64, tuple_splitter, time_rank_unfold,
-            api_methods={("apply", custom_apply)}, scope="text-processing-stack"
+            api_methods={("apply", custom_apply)}, scope="text-stack"
         )
 
         return text_processing_stack
