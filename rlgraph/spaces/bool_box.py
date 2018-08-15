@@ -27,9 +27,13 @@ class BoolBox(BoxSpace):
     def __init__(self, shape=None, **kwargs):
         super(BoolBox, self).__init__(low=False, high=True, shape=shape, dtype=np.bool_, **kwargs)
 
-    def sample(self, size=None):
+    def sample(self, size=None, fill_value=None):
         shape = self._get_np_shape(num_samples=size)
-        return np.random.choice(a=[False, True], size=shape)
+        if fill_value is None:
+            sample_ = np.random.choice(a=[False, True], size=shape)
+        else:
+            sample_ = np.full(shape=size, fill_value=fill_value)
+        return sample_
 
     def contains(self, sample):
         if self.shape == ():

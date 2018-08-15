@@ -275,7 +275,7 @@ class Space(Specifiable):
     def __eq__(self, other):
         raise NotImplementedError
 
-    def sample(self, size=None):
+    def sample(self, size=None, fill_value=None):
         """
         Uniformly randomly samples an element from this space. This is for testing purposes, e.g. to simulate
         a random environment.
@@ -286,9 +286,22 @@ class Space(Specifiable):
                     (even if `self.has_batch_rank` is False).
                 If size is None or (1 and self.has_batch_rank is False): Returns a single sample w/o batch rank.
                 If size is 1 and self.has_batch_rank is True: Returns a single sample w/ the batch rank.
+            fill_value (Optional[any]): The number or initializer specifier to fill the sample. Can be used to create
+                a (non-random) sample with a certain fill value in all elements.
+                TODO: support initializer spec-strings like 'normal', 'truncated_normal', etc..
 
         Returns:
             any: The sampled element(s).
+        """
+        raise NotImplementedError
+
+    def zeros(self, size=None):
+        """
+        Args:
+            size (Optional): Same as `Space.sample()`.
+
+        Returns:
+            np.ndarray: `size` zero samples where all values are zero and have the correct type.
         """
         raise NotImplementedError
 
@@ -306,7 +319,9 @@ class Space(Specifiable):
             Tuple[int]: Shape to use for numpy random sampling.
         """
         # No extra batch/time rank.
-        if num_samples is None or (num_samples == 1 and not self.has_batch_rank and not self.has_time_rank):
+        if num_samples is None or (
+                num_samples == () or num_samples == 1 and not self.has_batch_rank and not self.has_time_rank
+        ):
             if len(self.shape) == 0:
                 return None
             else:
@@ -329,12 +344,5 @@ class Space(Specifiable):
 
         Returns:
             bool: Whether sample is a valid member of this space.
-        """
-        raise NotImplementedError
-
-    def zeros(self):
-        """
-        Returns:
-            np.ndarray: A zero sample where all values are zero and have the correct type.
         """
         raise NotImplementedError

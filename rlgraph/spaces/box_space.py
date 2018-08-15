@@ -199,11 +199,12 @@ class BoxSpace(Space):
             return hash((self.low, self.high))
         return hash((tuple(self.low), tuple(self.high)))
 
+    def zeros(self, size=None):
+        return self.sample(size=size, fill_value=0)
+
     def contains(self, sample):
         sample_shape = sample.shape if not isinstance(sample, int) else ()
         if sample_shape != self.shape:
             return False
         return (sample >= self.low).all() and (sample <= self.high).all()
 
-    def zeros(self):
-        return np.zeros(shape=self.shape, dtype=self.dtype)

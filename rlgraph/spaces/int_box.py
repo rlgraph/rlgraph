@@ -77,13 +77,14 @@ class IntBox(BoxSpace):
             return None
         return int(np.prod(self.shape) * self.global_bounds[1])
 
-    def sample(self, size=None):
+    def sample(self, size=None, fill_value=None):
         shape = self._get_np_shape(num_samples=size)
-        sample_ = np.random.uniform(low=self.low, high=self.high, size=shape)
-        if shape == () or shape is None:
-            return int(sample_)
+        if fill_value is None:
+            sample_ = np.random.uniform(low=self.low, high=self.high, size=shape)
         else:
-            return sample_.astype(self.dtype)
+            sample_ = fill_value if shape == () or shape is None else np.full(shape=shape, fill_value=fill_value)
+
+        return np.asarray(sample_, dtype=self.dtype)
 
     def contains(self, sample):
         # If int: Check for int type in given sample.

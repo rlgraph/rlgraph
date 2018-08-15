@@ -42,12 +42,15 @@ class FloatBox(BoxSpace):
 
         super(FloatBox, self).__init__(low=low, high=high, shape=shape, dtype=dtype, **kwargs)
 
-    def sample(self, size=None):
+    def sample(self, size=None, fill_value=None):
         shape = self._get_np_shape(num_samples=size)
-        if self.unbounded:
-            ret = np.random.uniform(size=shape)
+        if fill_value is not None:
+            sample_ = np.full(shape=shape, fill_value=fill_value)
         else:
-            ret = np.random.uniform(low=self.low, high=self.high, size=shape)
+            if self.unbounded:
+                sample_ = np.random.uniform(size=shape)
+            else:
+                sample_ = np.random.uniform(low=self.low, high=self.high, size=shape)
 
         # Make sure return values have the right dtype (float64 is np.random's default).
-        return np.asarray(ret, dtype=self.dtype)
+        return np.asarray(sample_, dtype=self.dtype)
