@@ -101,17 +101,17 @@ class LSTMLayer(NNLayer):
             # Register the generated variables with our registry.
             self.register_variables(*self.lstm_cell.variables)
 
-    def _graph_fn_apply(self, inputs, sequence_length=None, initial_c_and_h_states=None):
+    def _graph_fn_apply(self, inputs, initial_c_and_h_states=None, sequence_length=None):
         """
         Args:
             inputs (SingleDataOp): The data to pass through the layer (batch of n items, m timesteps).
                 Position of batch- and time-ranks in the input depend on `self.time_major` setting.
-            sequence_length (Optional[SingleDataOp]): An int tensor mapping each batch item to a sequence length
-                such that the remaining time slots for each batch item are filled with zeros.
             initial_c_and_h_states (DataOpTuple): The initial cell- and hidden-states to use.
                 None for the default behavior (TODO: describe here what default means: zero?)
                 The cell-state in an LSTM is passed between cells from step to step and only affected by element-wise
                 operations. The hidden state is identical to the output of the LSTM on the previous time step.
+            sequence_length (Optional[SingleDataOp]): An int tensor mapping each batch item to a sequence length
+                such that the remaining time slots for each batch item are filled with zeros.
 
         Returns:
             tuple:
