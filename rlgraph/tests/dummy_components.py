@@ -380,8 +380,8 @@ class DummyNNWithDictInput(NeuralNetwork):
 
         # Splits the input into two streams.
         self.splitter = DictSplitter("a", "b")
-        self.stack_a = DenseLayer(units=self.num_units_a)
-        self.stack_b = DenseLayer(units=self.num_units_b)
+        self.stack_a = DenseLayer(units=self.num_units_a, scope="dense-a")
+        self.stack_b = DenseLayer(units=self.num_units_b, scope="dense-b")
         self.concat_layer = ConcatLayer()
 
         # Add all sub-components to this one.

@@ -27,7 +27,7 @@ from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorSt
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path
-from rlgraph.utils import softmax, relu
+from rlgraph.tests.dummy_components import DummyNNWithDictInput
 
 
 class TestActorComponents(unittest.TestCase):
@@ -105,4 +105,56 @@ class TestActorComponents(unittest.TestCase):
         test.test(
             ("get_preprocessed_state_and_action", [states, initial_internal_states]),
             expected_outputs=(expected_preprocessed_state, expected_actions, expected_final_internal_states)
+        )
+
+    def test_actor_component_with_preprocess_vector(self):
+        # state_space (a complex Dict Space, that will be partially preprocessed).
+        state_space = Dict(
+            a=FloatBox(shape=(2,)),
+            b=FloatBox(shape=(5,)),
+            add_batch_rank=True
+        )
+        # action_space.
+        action_space = IntBox(2, add_batch_rank=True)
+
+        preprocess_vector_spec = dict(
+            a=[dict(type="convert_type", to_dtype="float"), dict(type="multiply", factor=0.5)]
+        )
+        # Simple custom NN with dict input (splits into 2 streams (simple dense layers) and concats at the end).
+        policy = Policy(neural_network=DummyNNWithDictInput(num_units_a=2, num_units_b=3, scope="dummy-nn"),
+                        action_space=action_space)
+        exploration = None  # no exploration
+
+        actor_component = ActorComponent(preprocess_vector_spec, policy, exploration)
+
+        test = ComponentTest(
+            component=actor_component,
+            input_spaces=dict(states=state_space),
+            action_space=action_space
+        )
+
+        # Some state inputs (batch size=4).
+        states = state_space.sample(size=4)
+        # Get and check some actions.
+        actor_component_params = test.read_variable_values(actor_component.variables)
+        # Expected NN-output.
+        expected_nn_output_stream_a = np.matmul(
+            states["a"] * 0.5, actor_component_params["actor-component/policy/dummy-nn/dense-a/dense/kernel"]
+        )
+        expected_nn_output_stream_b = np.matmul(
+            states["b"], actor_component_params["actor-component/policy/dummy-nn/dense-b/dense/kernel"]
+        )
+        expected_nn_output = np.concatenate((expected_nn_output_stream_a, expected_nn_output_stream_b), axis=-1)
+
+        # Raw action layer output.
+        expected_action_layer_output = np.matmul(
+            expected_nn_output,
+            actor_component_params["actor-component/policy/action-adapter/action-layer/dense/kernel"]
+        )
+        # Final actions (max-likelihood/greedy pick).
+        expected_actions = np.argmax(expected_action_layer_output, axis=-1)
+        expected_preprocessed_state = dict(a=states["a"] * 0.5, b=states["b"])
+        test.test(
+            ("get_preprocessed_state_and_action", states),
+            expected_outputs=(expected_preprocessed_state, expected_actions)
         )

@@ -21,6 +21,7 @@ from rlgraph.components.component import Component
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.components.neural_networks.policy import Policy
 from rlgraph.components.explorations.exploration import Exploration
+from rlgraph.utils.ops import flatten_op, FlattenedDataOp
 from rlgraph.utils.util import unify_nn_and_rnn_api_output
 
 
@@ -52,11 +53,12 @@ class ActorComponent(Component):
 
         # TODO: change this when we have the vector preprocessor component.
         if isinstance(preprocessor_spec, dict):
-            self.preprocessor = dict()
-            for key, spec in preprocessor_spec.items():
+            flat_specs = flatten_op(preprocessor_spec)
+            self.preprocessor = FlattenedDataOp()
+            for key, spec in flat_specs.items():
                 self.preprocessor[key] = PreprocessorStack.from_spec(spec)
         else:
-            self.preprocessor = {"": PreprocessorStack.from_spec(preprocessor_spec)}
+            self.preprocessor = FlattenedDataOp({"": PreprocessorStack.from_spec(preprocessor_spec)})
         self.policy = Policy.from_spec(policy_spec)
         self.exploration = Exploration.from_spec(exploration_spec)
 
@@ -107,4 +109,7 @@ class ActorComponent(Component):
 
     # TODO: replace with a to-be-written PreprocessVector Component
     def _graph_fn_vector_preprocess(self, key, states):
-        return self.call(self.preprocessor[key].preprocess, states)
+        if key in self.preprocessor:
+            return self.call(self.preprocessor[key].preprocess, states)
+        else:
+            return states
