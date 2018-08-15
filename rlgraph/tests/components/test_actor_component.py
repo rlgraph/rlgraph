@@ -69,3 +69,40 @@ class TestActorComponents(unittest.TestCase):
             ("get_preprocessed_state_and_action", states),
             expected_outputs=(expected_preprocessed_state, expected_actions)
         )
+
+    def test_actor_component_with_lstm_network(self):
+        # state space and internal state space
+        state_space = FloatBox(shape=(2,), add_batch_rank=True, add_time_rank=True, time_major=False)
+        internal_state_space = Tuple(FloatBox(shape=(3,)), FloatBox(shape=(3,)), add_batch_rank=True)
+        # action_space.
+        action_space = IntBox(2, add_batch_rank=True, add_time_rank=True)
+
+        preprocessor = PreprocessorStack.from_spec(
+            [dict(type="convert_type", to_dtype="float"), dict(type="divide", divisor=10)]
+        )
+        policy = Policy(neural_network=config_from_path("configs/test_lstm_nn.json"), action_space=action_space)
+        exploration = Exploration()  # no exploration
+        actor_component = ActorComponent(preprocessor, policy, exploration)
+        test = ComponentTest(
+            component=actor_component,
+            input_spaces=dict(states=state_space, internal_states=internal_state_space),
+            action_space=action_space
+        )
+        # Some state inputs (batch size=2, seq-len=3; batch-major).
+        np.random.seed(10)
+        states = state_space.sample(size=(2, 3))
+        initial_internal_states = internal_state_space.zeros(size=2)  # only batch
+
+        # TODO: we need a numpy LSTM implementation (lift from our LSTMLayer test case) to be able to calculate manually in these test cases here
+        expected_actions = np.array([[1, 1, 1], [1, 1, 1]])
+        expected_preprocessed_state = states / 10
+        expected_final_internal_states = (
+            np.array([[-0.03173002, -0.03439367, 0.01098747],
+                      [-0.02962531, -0.0488404, 0.00396963]]),
+            np.array([[-0.01599146, -0.01695652, 0.00551831],
+                      [-0.01525987, -0.02397921,  0.00199732]]),
+        )
+        test.test(
+            ("get_preprocessed_state_and_action", [states, initial_internal_states]),
+            expected_outputs=(expected_preprocessed_state, expected_actions, expected_final_internal_states)
+        )
