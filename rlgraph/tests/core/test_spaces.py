@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
 from six.moves import xrange as range_
 import unittest
 
@@ -50,6 +51,9 @@ class TestSpaces(unittest.TestCase):
                                     samples = space.sample(size=batch_size)
                                     for s in samples:
                                         self.assertTrue(space.contains(s))
+                            # TODO: test zero() method perperly for all cases
+                            #all_0s = space.zeros()
+                            #self.assertTrue(all(v == 0 for v in all_0s))
                     else:
                         space = class_(add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
                         if add_batch_rank is False:

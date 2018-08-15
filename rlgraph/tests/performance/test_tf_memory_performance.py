@@ -159,7 +159,7 @@ class TestTfMemoryPerformance(unittest.TestCase):
         print('Testing sample performance:')
         start = time.monotonic()
         for _ in range(self.samples):
-            test.test(api_methods=dict(get_records=self.sample_batch_size), expected_outputs=None)
+            test.test(("get_records", self.sample_batch_size), expected_outputs=None)
         end = time.monotonic() - start
         tp = self.samples / end
 

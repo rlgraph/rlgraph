@@ -154,3 +154,20 @@ class TestTwoSubComponents(unittest.TestCase):
 
         # Expected: (1): 2*in + 10
         test.test(("run", 1.1), expected_outputs=12.2, decimals=4)
+
+    #def test_kwargs_in_api_call(self):
+    #    core = Component(scope="container")
+    #    sub_comp = Dummy2To2(scope="comp1")
+    #    core.add_components(sub_comp)
+
+    #    def run(self_, input1=1.0, input2=2.0):
+    #        return self_.call(sub_comp.run, input1, input2)
+
+    #    core.define_api_method("run", run)
+
+    #    test = ComponentTest(component=core, input_spaces=dict(input1=float, input2=float))
+
+    #    # Expected output: input + 1.0 + 1.0
+    #    test.test(("run", [1.1, None]), expected_outputs=(2.1, 4.1))
+    #    #test.test(("run", -5.1), expected_outputs=-3.1)
+

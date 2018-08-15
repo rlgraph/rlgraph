@@ -57,7 +57,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         Creates a large IMPALA architecture network and runs an input sample through it.
         """
         # Create the network (with a small time-step value for this test).
-        large_impala_architecture = LargeIMPALANetwork(num_timesteps=2)
+        large_impala_architecture = LargeIMPALANetwork()
         test = ComponentTest(
             large_impala_architecture, input_spaces=dict(input_dict=self.input_space)
         )
@@ -66,14 +66,18 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         sample_input = self.input_space.sample(size=(2, 3))
         expected = None
         ret = test.test(("apply", sample_input), expected_outputs=expected)
-        print(ret)
+        # Check shape of outputs.
+        self.assertEquals(ret[0].shape, (2, 3, 256))
+        # Check shapes of current internal_states (c and h).
+        self.assertEquals(ret[1][0].shape, (3, 256))
+        self.assertEquals(ret[1][1].shape, (3, 256))
 
     def test_large_impala_policy_without_agent(self):
         """
         Creates a large IMPALA architecture network inside a policy and runs an input sample through it.
         """
         # Create the network (with a small time-step value for this test).
-        large_impala_architecture = LargeIMPALANetwork(num_timesteps=1)
+        large_impala_architecture = LargeIMPALANetwork()
         # IMPALA uses a baseline action adapter (v-trace off-policy PG with baseline value function).
         policy = Policy(large_impala_architecture, action_space=self.action_space,
                         action_adapter_spec=dict(type="baseline_action_adapter"))
@@ -97,6 +101,14 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         actions, last_internal_states = test.test(("get_action", [next_nn_input, last_internal_states]),
                                                   expected_outputs=expected)
         print("Second action: {}".format(actions))
+
+        # Send time x batch states through the network to simulate agent-type=learner behavior.
+        next_nn_input = self.input_space.sample(size=(6, 1))  # time-steps=6, batch=1 (must match last-internal-states)
+        expected = None
+        actions, last_internal_states = test.test(("get_action", [next_nn_input, last_internal_states]),
+                                                  expected_outputs=expected)
+        print("Actions 3 to 8: {}".format(actions))
+
 
     # TODO move this to test_all_compile once it works.
     def test_impala_assembly(self):
