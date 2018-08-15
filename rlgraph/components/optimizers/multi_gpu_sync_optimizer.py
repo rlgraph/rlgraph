@@ -58,18 +58,18 @@ class MultiGpuSyncOptimizer(Optimizer):
 
         self.define_api_method("step", step)
 
-    def set_replicas(self, component_graphs, splitter):
+    def set_replicas(self, component_graphs, dict_splitter):
         """
         Provides the optimizer with a list of sub-graphs to use for splitting batches over GPUs.
 
         Args:
             component_graphs (list): List of component graphs.
-            splitter (DictSplitter): Splitter object containing the keys needed to split an input batch into
+            dict_splitter (DictSplitter): Splitter object containing the keys needed to split an input batch into
                 the shards for each device.
         """
         self.subgraphs = component_graphs
         self.add_components(*component_graphs)
-        self.splitter = splitter
+        self.dict_splitter = dict_splitter
 
     def create_variables(self, input_spaces, action_space=None):
         super(MultiGpuSyncOptimizer, self).create_variables(input_spaces, action_space)
@@ -82,7 +82,7 @@ class MultiGpuSyncOptimizer(Optimizer):
                 device_input_space[name] = space
 
         # Turn into container space for easy variable creation.
-        self.device_input_space = Dict(spec=device_input_space)
+        self.device_input_space = Dict.from_spec(spec=device_input_space)
         self.sub_graph_vars = list()
 
         # Create input variables for devices.
