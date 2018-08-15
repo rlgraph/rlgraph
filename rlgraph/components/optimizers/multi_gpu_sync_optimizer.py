@@ -98,25 +98,24 @@ class MultiGpuSyncOptimizer(Optimizer):
                 )
                 self.sub_graph_vars.append(device_variable)
 
-    def _graph_fn_load_to_device(self, *device_inputs):
+    def _graph_fn_load_to_device(self, key, *device_inputs):
         """
         Loads inputs to device memories by splitting data across configured devices.
 
         Args:
+
             *DataOpTuple (DataOpTuple): Data batch.
 
         Returns:
             DataOpTuple: Identity op of device allocated variables.
         """
         if get_backend() == "tf":
+            # Assign shard values to device.
+            shard_vars = []
             for i, shard in enumerate(device_inputs):
-                # TODO splitter must be in GPUs?
-                device_inputs = self.splitter.call("split", shard)
-                for name in self.device_input_space.keys():
-                    # TODO how do we map these to the variable names?
-                    self.sub_graph_vars[i][name] = None
-            # TODO Merge again?
-            return None
+                self.sub_graph_vars[i][key] = device_inputs[i]
+                shard_vars.append(self.sub_graph_vars[i][key] )
+            return shard_vars
 
     def _graph_fn_calculate_gradients(self, input_batches):
         """

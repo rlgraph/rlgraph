@@ -125,7 +125,7 @@
           }
         },
         "num_worker_environments": 4,
-        "num_background_envs": 2,
+        "num_background_envs": 0,
         "frame_skip": 1,
         "n_step_adjustment": 3,
         "worker_computes_weights": true,
