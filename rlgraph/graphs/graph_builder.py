@@ -121,27 +121,36 @@ class GraphBuilder(Specifiable):
         for api_method_name, api_method_rec in self.core_component.api_methods.items():
             self.logger.debug("Building meta-graph of API-method '{}'.".format(api_method_name))
             # Double check whether number of given input Spaces match number of params of the method.
-            num_records = 0
-            for param_name in api_method_rec.input_names:
+            in_ops_records = list()
+            #num_records = 0
+            use_named = False
+            for i, param_name in enumerate(api_method_rec.input_names):
                 # Arg has a default of None (flex). If in input_spaces, arg will be provided.
                 if self.core_component.api_method_inputs[param_name] == "flex":
                     if param_name in input_spaces:
-                        num_records += 1
+                        #num_records += 1
+                        in_ops_records.append(DataOpRecord(position=i, kwarg=param_name if use_named else None))
+                    else:
+                        use_named = True
                 # Already defined (per default arg value (e.g. bool)).
                 elif isinstance(self.core_component.api_method_inputs[param_name], Space):
-                    num_records += 1
+                    in_ops_records.append(DataOpRecord(position=i, kwarg=param_name if use_named else None))
                 # No default values -> Must be provided in `input_spaces`.
                 else:
                     assert param_name in input_spaces
                     # A var-positional param.
                     if self.core_component.api_method_inputs[param_name] == "*flex":
-                        num_records += len(force_list(input_spaces[param_name]))
+                        assert use_named is False
+                        in_ops_records.extend([DataOpRecord(position=i + j) for j in range(len(force_list(input_spaces[param_name])))])
+                        #num_records += len(force_list(input_spaces[param_name]))
                     else:
-                        num_records += 1
+                        in_ops_records.append(DataOpRecord(position=i, kwarg=param_name if use_named else None))
             # Create an new in column and map it to the resulting out column.
-            in_ops_records = [DataOpRecord(position=i) for i in range(num_records)]
+            #in_ops_records = [DataOpRecord(position=i) for i in range(num_records)]
             # Do the actual core API-method call (thereby assembling the meta-graph).
-            self.core_component.call(api_method_rec.method, *in_ops_records)
+            args = [op_rec for op_rec in in_ops_records if op_rec.kwarg is None]
+            kwargs = {op_rec.kwarg: op_rec for op_rec in in_ops_records if op_rec.kwarg is not None}
+            self.core_component.call(api_method_rec.method, *args, **kwargs)
 
             # Register core's interface.
             self.api[api_method_name] = (in_ops_records, api_method_rec.out_op_columns[-1].op_records)
@@ -266,15 +275,16 @@ class GraphBuilder(Specifiable):
                         # Also push Space into possible API-method record if slot's Space is still None.
                         if isinstance(op_rec.column, DataOpRecordColumnIntoAPIMethod):
                             api_method_component = op_rec.column.api_method_rec.component
-                            # Get param-name for var-positional arg: "[param_name][idx]".
+                            # Get param name for var-positional arg: "[param_name][idx]".
                             if api_method_component.api_method_inputs[op_rec.column.api_method_rec.input_names[-1]] == \
                                     "*flex" and op_rec.position >= len(op_rec.column.api_method_rec.input_names) - 1:
                                 param_name = "{}[{}]".format(
                                     op_rec.column.api_method_rec.input_names[-1], str(op_rec.position - (
                                             len(op_rec.column.api_method_rec.input_names) - 1))
                                 )
+                            # Get param name directly from op-rec's kwarg OR - if None - by its position.
                             else:
-                                param_name = op_rec.column.api_method_rec.input_names[op_rec.position]
+                                param_name = op_rec.kwarg or op_rec.column.api_method_rec.input_names[op_rec.position]
                             # Place Space for this input-param name (valid for all input params of same name even of
                             # different API-method of the same Component).
                             if api_method_component.api_method_inputs[param_name] is None or \
