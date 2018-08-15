@@ -57,6 +57,8 @@ class MultiGpuSyncOptimizer(Optimizer):
             return self.call(self._graph_fn_apply_gradients, grads_and_vars)
 
         self.define_api_method("step", step)
+        self.define_api_method("load_to_device", self._graph_fn_load_to_device, flatten_ops=True,
+                               split_ops=True, add_auto_key_as_first_param=True)
 
     def set_replicas(self, component_graphs, dict_splitter):
         """
@@ -115,7 +117,7 @@ class MultiGpuSyncOptimizer(Optimizer):
             for i, shard in enumerate(device_inputs):
                 self.sub_graph_vars[i][key] = device_inputs[i]
                 shard_vars.append(self.sub_graph_vars[i][key] )
-            return shard_vars
+            return tuple(shard_vars)
 
     def _graph_fn_calculate_gradients(self, input_batches):
         """
@@ -128,7 +130,7 @@ class MultiGpuSyncOptimizer(Optimizer):
         all_grads_and_vars = list()
         assert len(input_batches) == self.num_gpus
         for i, shard in enumerate(input_batches):
-            device_inputs = self.splitter.call("split", shard)
+            device_inputs = self.dict_splitter.call("split", shard)
 
             # Fetch optimizer for this subgraph.
             sub_graph_opt = self.subgraphs[i].sub_component_by_name("optimizer")

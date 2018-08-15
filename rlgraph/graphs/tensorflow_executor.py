@@ -631,8 +631,8 @@ class TensorFlowExecutor(GraphExecutor):
             self.optimizer = MultiGpuSyncOptimizer(local_optimizer=self.optimizer, devices=self.gpu_names)
 
             # 4. Pass the graph copies and the splitter containing the info how to split batches into tensors.
-            splitter = master_component.sub_component_by_name("splitter")
-            optimizer.set_replicas(subgraphs, splitter)
+            dict_splitter = master_component.sub_component_by_name("splitter")
+            optimizer.set_replicas(subgraphs, dict_splitter)
             batch_splitter = BatchSplitter(self.num_gpus)
             master_component.add_components(batch_splitter)
 
@@ -645,19 +645,19 @@ class TensorFlowExecutor(GraphExecutor):
             # We simply swap this update method in place to enable multi-gpu processing on any agent.
             def optimize_subgraphs(self, *inputs):
                 # TODO: 1) replace all self_ by self 2) Make sure we have no fixtures (links to outer scope) in here.
-                input_batches = self_.call(batch_splitter.split_batch, *inputs)
+                input_batches = self.call(batch_splitter.split_batch, *inputs)
 
                 # Load to device, return.
-                input_batches = self_.call(optimizer._graph_fn_load_to_device, input_batches)
+                input_batches = self.call(optimizer._graph_fn_load_to_device, input_batches)
 
                 # Multi gpu optimizer passes shards to the respective subg-raphs.
-                averaged_grads = self_.call(optimizer._graph_fn_calculate_gradients, input_batches)
+                averaged_grads = self.call(optimizer._graph_fn_calculate_gradients, input_batches)
 
                 # Apply averaged grads to main policy.
-                update_op = self_.call(optimizer._graph_fn_apply_gradients, averaged_grads)
+                update_op = self.call(optimizer._graph_fn_apply_gradients, averaged_grads)
 
                 # Get master weights
-                weights = self_.call("get_policy_weights")
+                weights = self.call("get_policy_weights")
                 for i, shard in enumerate(subgraphs):
                     # Sync weights to shards
                     subgraphs[i].call("set_policy_weights", weights)
