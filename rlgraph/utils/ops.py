@@ -148,17 +148,20 @@ class DataOpRecord(object):
 class DataOpRecordColumn(object):
     _ID = -1
 
-    def __init__(self, op_records, component):
+    def __init__(self, op_records, component, kwarg_names=None):
         """
         Args:
             op_records (int): The number of individual op_records to create for this column.
             component (Component): The Component to which this column belongs.
+            kwarg_names (Optional[List[str]]): Optional (but complete!) list of already known
+                kwarg-names for some of the op-recs (op-recs w/o kwarg should have `None` in this list).
         """
         self.id = self.get_id()
 
         self.op_records = list()
         for i in range(op_records):
-            self.op_records.append(DataOpRecord(op=None, column=self, position=i))
+            kwarg = kwarg_names[i] if kwarg_names is not None else None
+            self.op_records.append(DataOpRecord(op=None, column=self, position=i, kwarg=kwarg))
 
         # For __str__ purposes.
         self.op_id_list = [o.id for o in self.op_records]
@@ -195,9 +198,11 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
     The call of the graph_fn will result in another column (return values) of DataOpRecords that this record points
     to.
     """
-    def __init__(self, op_records, component, graph_fn, flatten_ops=False,
+    def __init__(self, op_records, component, graph_fn, kwarg_names=None, flatten_ops=False,
                  split_ops=False, add_auto_key_as_first_param=False):
-        super(DataOpRecordColumnIntoGraphFn, self).__init__(op_records=op_records, component=component)
+        super(DataOpRecordColumnIntoGraphFn, self).__init__(
+            op_records=op_records, component=component, kwarg_names=kwarg_names
+        )
 
         # The graph_fn that our ops come from.
         self.graph_fn = graph_fn

@@ -302,10 +302,11 @@ class Component(Specifiable):
             raise RLGraphError("Graph_fn '{}' may only be sent to `call` by its owner ({})! However, '{}' is "
                                "calling it.".format(method.__name__, method_owner.scope, self.scope))
 
-        # Add all kwargs as tuples (key, op-rec) to params.
+        # Add all kwargs to params (op-rec contains kwarg-name).
         params = list(params)
         for key, value in kwargs.items():
-            params.append(tuple([key, value]))
+            value.kwarg = key
+            params.append(value)
 
         # Sanity check number of actual graph_fn input values against len(params).
         self.sanity_check_call_parameters(params, method, "graph_fn", add_auto_key_as_first_param)
@@ -319,19 +320,16 @@ class Component(Specifiable):
             len(params), component=self, graph_fn=method,
             flatten_ops=flatten_ops, split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param
         )
-        # Add kwargs to op-recs in the new column.
-        for i, op_rec in enumerate(params):
-            if isinstance(op_rec, tuple):
-                in_graph_fn_column.op_records[i].kwarg = op_rec[0]
         # Add the column to the `graph_fns` record.
         self.graph_fns[method.__name__].in_op_columns.append(in_graph_fn_column)
 
         # We are already building: Actually call the graph_fn after asserting that its Component is input-complete.
         if self.graph_builder and self.graph_builder.build_phase == "building":
-            # Populate in-op-column with actual ops and Spaces.
+            # Populate in-op-column with actual ops, Space, kwarg-name.
             for i, in_op in enumerate(params):
                 in_graph_fn_column.op_records[i].op = in_op.op
                 in_graph_fn_column.op_records[i].space = get_space_from_op(in_op.op)
+                in_graph_fn_column.op_records[i].kwarg = in_op.kwarg
             # Assert input-completeness of Component (if not already, then after this graph_fn/Space update).
             if self.input_complete is False:
                 assert self.check_input_completeness()
@@ -375,8 +373,11 @@ class Component(Specifiable):
             if isinstance(op_rec, DataOpRecord):
                 op_rec.next.add(in_graph_fn_column.op_records[i])
                 in_graph_fn_column.op_records[i].previous = op_rec
+                # Also update the kwarg name so that a future call to the graph_fn with the in-column will work.
+                in_graph_fn_column.op_records[i].kwarg = op_rec.kwarg
             # A fixed input value. Store directly as op with Space=0 and register it as already known (constant).
             else:
+                # TODO: support fixed values with kwargs as well.
                 in_graph_fn_column.op_records[i].op = np.array(op_rec)
                 in_graph_fn_column.op_records[i].space = 0
                 self.constant_op_records.add(in_graph_fn_column.op_records[i])
@@ -429,18 +430,18 @@ class Component(Specifiable):
         for i, op_rec in enumerate(params_no_none):
             # Named arg/kwarg -> get input_name from that and peel op_rec.
             if isinstance(op_rec, tuple):
-                input_name = op_rec[0]
+                key = op_rec[0]
                 op_rec = op_rec[1]
-                in_op_column.op_records[i].kwarg = input_name
-            # Positional arg.
+                in_op_column.op_records[i].kwarg = key
+            # Positional arg -> get input_name from input_names list.
             else:
-                input_name = api_method_rec.input_names[i if flex is None else flex]
-            if method_owner.api_method_inputs[input_name] == "*flex":
+                key = api_method_rec.input_names[i if flex is None else flex]
+
+            # Var-positional arg, attach the actual position to input_name string.
+            if method_owner.api_method_inputs[key] == "*flex":
                 if flex is None:
                     flex = i
-                key = input_name+"[{}]".format(i - flex)
-            else:
-                key = input_name
+                key += "[{}]".format(i - flex)
 
             # We are already in building phase (params may be coming from inside graph_fn).
             if self.graph_builder is not None and self.graph_builder.build_phase == "building":
