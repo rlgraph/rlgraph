@@ -21,6 +21,8 @@ from rlgraph import get_backend
 
 from rlgraph.components.layers.nn.nn_layer import NNLayer
 from rlgraph.utils.ops import DataOpTuple
+from rlgraph.spaces import Tuple
+from rlgraph.spaces.space_utils import sanity_check_space
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -71,6 +73,13 @@ class LSTMLayer(NNLayer):
         self.time_major = time_major
 
         self.lstm_cell = None
+
+    def check_input_spaces(self, input_spaces, action_space=None):
+        if "internal_states" in input_spaces:
+            sanity_check_space(input_spaces["internal_states"], allowed_types=[Tuple])
+            assert len(input_spaces["internal_states"]) == 2,\
+                "ERROR: If internal_states are provided (which is the case), an LSTMLayer requires the len of " \
+                "this Tuple to be 2 (c- and h-states). Your Space is '{}'.".format(input_spaces["internal_states"])
 
     def create_variables(self, input_spaces, action_space=None):
         in_space = input_spaces["inputs"]
