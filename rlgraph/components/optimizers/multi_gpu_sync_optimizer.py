@@ -39,6 +39,9 @@ class MultiGpuSyncOptimizer(Optimizer):
 
         # Add local Optimizer object.
         self.local_optimizer = local_optimizer
+        # TODO necessary?
+        self.add_components(local_optimizer)
+
         self.gpu_devices = devices
         self.num_gpus = len(devices)
         assert self.num_gpus > 1, "ERROR: The MultiGPUSyncOptimizer requires as least two GPUs but only {} " \
