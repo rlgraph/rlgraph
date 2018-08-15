@@ -22,6 +22,7 @@ from math import log
 from rlgraph import get_backend, SMALL_NUMBER
 from rlgraph.components.component import Component
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
+from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 
@@ -77,11 +78,21 @@ class ActionAdapter(Component):
 
         # Calculate the number of nodes in the action layer (DenseLayer object) depending on our action Space
         # or using a given fixed number (`units`).
-        if units is None:
-            if isinstance(self.action_space, IntBox):
+        # Also generate the ReShape sub-Component and give it the new_shape.
+        if isinstance(self.action_space, IntBox):
+            if units is None:
                 units = add_units + self.action_space.flat_dim_with_categories
-            else:
+            self.reshape = ReShape(
+                new_shape=self.action_space.get_shape(with_category_rank=True),
+                flatten_categories=False
+            )
+        else:
+            if units is None:
                 units = add_units + 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
+            # Manually add moments after batch/time ranks.
+            new_shape = tuple([2] + list(self.action_space.shape))
+            self.reshape = ReShape(new_shape=new_shape)
+
         assert units > 0, "ERROR: Number of nodes for action-layer calculated as {}! Must be larger 0.".format(units)
 
         # Create the action-layer and add it to this component.
@@ -93,7 +104,7 @@ class ActionAdapter(Component):
             scope="action-layer"
         )
 
-        self.add_components(self.action_layer)
+        self.add_components(self.action_layer, self.reshape)
 
     def check_input_spaces(self, input_spaces, action_space=None):
         # Check the input Space.
@@ -127,34 +138,10 @@ class ActionAdapter(Component):
             tuple (3x DataOpRecord):
                 - The output of the action layer (a DenseLayer) after passing `nn_output` through it.
         """
-        action_layer_output = self.call(self.action_layer.apply, nn_output)
-        action_layer_output_reshaped = self.call(self._graph_fn_reshape, action_layer_output)
+        action_layer_output = self.call(self.get_action_layer_output, nn_output)
+        action_layer_output_reshaped = self.call(self.reshape.apply, action_layer_output)
         return (action_layer_output_reshaped,) + \
             tuple(self.call(self._graph_fn_get_parameters_log_probs, action_layer_output_reshaped))
-
-    def _graph_fn_reshape(self, action_layer_output):
-        # TODO: replace this method by a reshape preprocessor layer sub-component.
-        """
-        Only reshapes some NN output according to our action space.
-
-        Args:
-            action_layer_output (SingleDataOp): The output of the action_layer of this Component (last, flattened data
-                coming from the NN).
-
-        Returns:
-            SingleDataOp: The reshaped action_layer_output.
-        """
-        # Reshape action_output to action shape.
-        if isinstance(self.action_space, IntBox):
-            shape = list(self.action_space.get_shape(with_batch_rank=-1, with_category_rank=True))
-        elif isinstance(self.action_space, FloatBox):
-            shape = [-1, 2] + list(self.action_space.get_shape(with_batch_rank=False))  # Manually add moments rank
-        else:
-            raise NotImplementedError
-
-        if get_backend() == "tf":
-            action_layer_output_reshaped = tf.reshape(tensor=action_layer_output, shape=shape)
-            return action_layer_output_reshaped
 
     def _graph_fn_get_parameters_log_probs(self, logits):
         """
