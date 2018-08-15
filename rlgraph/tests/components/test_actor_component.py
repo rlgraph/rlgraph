@@ -97,10 +97,10 @@ class TestActorComponents(unittest.TestCase):
         expected_actions = np.array([[1, 1, 1], [1, 1, 1]])
         expected_preprocessed_state = states / 10
         expected_final_internal_states = (
-            np.array([[-0.03173002, -0.03439367, 0.01098747],
-                      [-0.02962531, -0.0488404, 0.00396963]]),
-            np.array([[-0.01599146, -0.01695652, 0.00551831],
-                      [-0.01525987, -0.02397921,  0.00199732]]),
+            np.array([[0.0290666, -0.0538384, -0.0017982],
+                      [0.020775, -0.0655408, -0.0074419]]),
+            np.array([[0.014499, -0.026742, -0.0008839],
+                      [0.010264, -0.0324619, -0.0035686]]),
         )
         test.test(
             ("get_preprocessed_state_and_action", [states, initial_internal_states]),
