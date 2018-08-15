@@ -22,7 +22,7 @@ import unittest
 
 from rlgraph.components.layers import ReShape
 from rlgraph.spaces import *
-from rlgraph.tests import ComponentTest
+from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 from rlgraph.utils.numpy import one_hot
 
 
@@ -98,16 +98,35 @@ class TestReShapePreprocessors(unittest.TestCase):
     def test_reshape_with_time_rank_unfolding(self):
         # Unfold time rank from batch rank with given time-dimension (2 out of 8 -> batch will be 4 after unfolding).
         in_space = FloatBox(shape=(4, 4), add_batch_rank=True, add_time_rank=False)
-        reshape = ReShape(unfold_time_rank=2)
+        in_space_before_folding = FloatBox(shape=(4, 4), add_batch_rank=True, add_time_rank=True)
+        reshape = ReShape(unfold_time_rank=True)
         test = ComponentTest(component=reshape, input_spaces=dict(
-            preprocessing_inputs=in_space
+            preprocessing_inputs=in_space, input_before_time_rank_folding=in_space_before_folding
         ))
 
         test.test("reset")
         # seq-len=2, batch-size=4 -> unfold from 8.
         inputs = in_space.sample(size=8)
+        inputs_before_folding = in_space_before_folding.sample(size=(4, 2))
         expected = np.reshape(inputs, newshape=(4, 2, 4, 4))
-        test.test(("apply", inputs), expected_outputs=expected)
+        test.test(("apply", (inputs, inputs_before_folding)), expected_outputs=expected)
+
+    def test_reshape_python_with_time_rank_unfolding(self):
+        # Unfold time rank from batch rank with given time-dimension (2 out of 8 -> batch will be 4 after unfolding).
+        in_space = FloatBox(shape=(4, 4), add_batch_rank=True, add_time_rank=False)
+        in_space_before_folding = FloatBox(shape=(4, 4), add_batch_rank=True, add_time_rank=True)
+        reshape = ReShape(unfold_time_rank=True, backend="python")
+        reshape.check_input_spaces(dict(
+            preprocessing_inputs=in_space, input_before_time_rank_folding=in_space_before_folding
+        ))
+
+        # seq-len=2, batch-size=4 -> unfold from 8.
+        inputs = in_space.sample(size=8)
+        inputs_before_folding = in_space_before_folding.sample(size=(4, 2))
+        expected = np.reshape(inputs, newshape=(4, 2, 4, 4))
+        out = reshape._graph_fn_apply("", inputs, inputs_before_folding)
+
+        recursive_assert_almost_equal(out, expected)
 
     def test_reshape_with_batch_vs_time_flipping_and_reshaping(self):
         # Flip time and batch rank AND reshape.
