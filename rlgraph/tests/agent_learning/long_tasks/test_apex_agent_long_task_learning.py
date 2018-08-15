@@ -73,14 +73,15 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         agent_config = config_from_path("configs/ray_apex_for_pong.json")
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         worker_cls = RayWorker.as_remote().remote
+        ray_spec["worker_spec"]["worker_sample_size"] = 100
         worker = worker_cls(agent_config, self.env_spec, ray_spec["worker_spec"])
         build_result = worker.init_agent.remote()
         ready, not_ready = ray.wait([build_result], num_returns=1)
         result = ray.get(ready)
         print(result)
         time.sleep(5)
-        task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=True)
-        result = ray.get(task)
+        task = worker.execute_and_get_with_count.remote()
+        result, count = ray.get(task)
         print(result.get_metrics())
 
     def test_initial_training_pong(self):
