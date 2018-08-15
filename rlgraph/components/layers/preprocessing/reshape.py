@@ -166,7 +166,7 @@ class ReShape(PreprocessLayer):
         assert self.unfold_time_rank is False or input_before_time_rank_folding is not None
 
         # Create a one-hot axis for the categories at the end?
-        if self.num_categories[key] > 1:
+        if self.num_categories.get(key, 0) > 1:
             preprocessing_inputs = tf.one_hot(indices=preprocessing_inputs, depth=self.num_categories[key], axis=-1,
                                               dtype="float32")
 
