@@ -104,21 +104,24 @@ class DataOpRecord(object):
     """
     _ID = -1
 
-    def __init__(self, op=None, column=None, position=None):
+    def __init__(self, op=None, column=None, position=None, kwarg=None):
         """
         Args:
             op (Optional[DataOp]): The optional DataOp to already store in this op-rec.
             column (DataOpRecordColumn): The DataOpRecordColumn to which this op-rec belongs.
             position (int): An optional position (index) for this op inside `column`.
+            kwarg (str): The keyword with which to call the API-method if this op-rec is not a positional
+                arg.
         """
         self.id = self.get_id()
         self.op = op
         # Whether the op in this record is one of the last in the graph (a core API-method returned op).
         self.is_terminal_op = False
-        # Link back to the column we belong to.
+
         self.column = column
-        # An optional position (index) for this op inside `column`.
         self.position = position
+        self.kwarg = kwarg
+
         # The inferred Space of this op.
         self.space = None
 
@@ -133,8 +136,9 @@ class DataOpRecord(object):
         return DataOpRecord._ID
 
     def __str__(self):
-        return "DataOpRec(id={} pos={}{})".format(
-            self.id, self.position, "" if self.column is None else " in "+str(self.column)
+        return "DataOpRec(id={} {}{})".format(
+            self.id,"pos="+str(self.position) if self.kwarg is None else "kwarg="+self.kwarg,
+            "" if self.column is None else " in "+str(self.column)
         )
 
     def __hash__(self):
@@ -208,7 +212,7 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
         # Whether this column has already been sent through the graph_fn.
         self.already_sent = False
 
-    def flatten_input_ops(self, *ops):
+    def flatten_input_ops(self, *ops, **kwarg_ops):
         """
         Flattens all DataOps in ops into FlattenedDataOp with auto-key generation.
         Ops whose Sockets are not in self.flatten_ops (if its a set)
@@ -216,6 +220,7 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
 
         Args:
             *ops (op): The primitive ops to flatten.
+            **kwarg_ops (op): More primitive ops to flatten (but by named key).
 
         Returns:
             Tuple[DataOp]: A new tuple with all ops (or those specified by `flatten_ops` as FlattenedDataOp.
@@ -230,19 +235,29 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
             else:
                 ret.append(op)
 
-        # Always return a tuple for indexing into the return values.
-        return tuple(ret)
+        # Process kwargs, if given.
+        kwarg_ret = dict()
+        if len(kwarg_ops) > 0:
+            for key, op in kwarg_ops.items():
+                if self.flatten_ops is True or (isinstance(self.flatten_ops, set) and key in self.flatten_ops):
+                    kwarg_ret[key] = flatten_op(op)
+                else:
+                    kwarg_ret[key] = op
 
-    def split_flattened_input_ops(self, *ops):
+        # Always return a tuple for indexing into the return values.
+        return tuple(ret), kwarg_ret
+
+    def split_flattened_input_ops(self, *ops, **kwarg_ops):
         """
-        Splits any FlattenedDataOp from `self.op_records.op` into its SingleDataOps and collects them to be passed
-        one by one through some graph_fn. If more than one FlattenedDataOp exists in the ops,
+        Splits any FlattenedDataOp in *ops and **kwarg_ops into its SingleDataOps and collects them to be passed
+        one by one through some graph_fn. If more than one FlattenedDataOp exists in *ops and **kwarg_ops,
         these must have the exact same keys.
         If `add_auto_key_as_first_param` is True: Add auto-key as very first parameter in each
         returned parameter tuple.
 
         Args:
             *ops (op): The primitive ops to split.
+            **kwarg_ops (op): More primitive ops to split (but by named key).
 
         Returns:
             Union[FlattenedDataOp,Tuple[DataOp]]: The sorted parameter tuples (by flat-key) to use as api_methods in the
@@ -278,12 +293,19 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
                 params = [key] if self.add_auto_key_as_first_param is True else []
                 for op in ops:
                     params.append(op[key] if key in op else op[""])
+                # Add kwarg_ops
+                for kwarg_key, kwarg_op in kwarg_ops:
+                    params.append(tuple([
+                        kwarg_key,
+                        kwarg_ops[kwarg_key][key] if key in kwarg_ops[kwarg_key] else kwarg_ops[kwarg_key][""]
+                    ]))
                 # Now do the single call.
                 collected_call_params[key] = params
             return collected_call_params
-        # We don't have any container ops: No splitting possible. Return as is.
+        # We don't have any container ops: No splitting possible. Return args and kwargs as is.
         else:
-            return tuple(([""] if self.add_auto_key_as_first_param is True else []) + [op[""] for op in ops])
+            return tuple(([""] if self.add_auto_key_as_first_param is True else []) + [op[""] for op in ops]),\
+                   {key: value[""] for key, value in kwarg_ops}
 
     @staticmethod
     def unflatten_output_ops(*ops):

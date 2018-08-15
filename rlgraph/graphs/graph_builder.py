@@ -661,7 +661,7 @@ class GraphBuilder(Specifiable):
         the column).
         Call options include flattening ops, flattening+splitting ops and (when splitting) adding the auto-generated
         flat key as first parameter to the different (split) calls of graph_fn.
-        After the call
+        After the call, the already existing output column is populated with the actual results.
 
         Args:
             op_rec_column (DataOpRecordColumnIntoGraphFn): The column of DataOpRecords to be fed through the
@@ -676,43 +676,49 @@ class GraphBuilder(Specifiable):
                 already existed in the meta-graph before the graph_fn call or may have been generated during this
                 call (if `create_new_out_column` is True).
         """
-        in_ops = [r.op for r in op_rec_column.op_records]
-        assert all(op is not None for op in in_ops)  # just make sure
+        args = [r.op for r in op_rec_column.op_records if r.kwarg is None]
+        kwargs = {r.kwarg: r.op for r in op_rec_column.op_records if r.kwarg is not None}
+        assert all(op is not None for op in args)  # just make sure
 
         # Build the ops from this input-combination.
         # Flatten input items.
         if op_rec_column.flatten_ops is not False:
-            flattened_ops = op_rec_column.flatten_input_ops(*in_ops)
+            flattened_args, flattened_kwargs = op_rec_column.flatten_input_ops(*args, **kwargs)
             # Split into SingleDataOps?
             if op_rec_column.split_ops:
-                call_params = op_rec_column.split_flattened_input_ops(*flattened_ops)
+                split_args_and_kwargs = op_rec_column.split_flattened_input_ops(*flattened_args, **flattened_kwargs)
                 # There is some splitting to do. Call graph_fn many times (one for each split).
-                if isinstance(call_params, FlattenedDataOp):
+                if isinstance(split_args_and_kwargs, FlattenedDataOp):
                     ops = dict()
                     num_return_values = -1
-                    for key, params in call_params.items():
-                        ops[key] = force_tuple(op_rec_column.graph_fn(*params))
+                    for key, params in split_args_and_kwargs.items():
+                        params_args = [p for p in params if not isinstance(p, tuple)]
+                        params_kwargs = {p[0]: p[1] for p in params if isinstance(p, tuple)}
+                        ops[key] = force_tuple(op_rec_column.graph_fn(*params_args, *params_kwargs))
                         if num_return_values >= 0 and num_return_values != len(ops[key]):
-                            raise RLGraphError("Different split-runs through {} do not return the same number of "
-                                               "values!".format(op_rec_column.graph_fn.__name__))
+                            raise RLGraphError(
+                                "Different split-runs through {} do not return the same number of values!".
+                                format(op_rec_column.graph_fn.__name__)
+                            )
                         num_return_values = len(ops[key])
                     # Un-split the results dict into a tuple of `num_return_values` slots.
                     un_split_ops = list()
                     for i in range(num_return_values):
                         dict_with_singles = FlattenedDataOp()
-                        for key in call_params.keys():
+                        for key in split_args_and_kwargs.keys():
                             dict_with_singles[key] = ops[key][i]
                         un_split_ops.append(dict_with_singles)
                     ops = tuple(un_split_ops)
 
                 # No splitting to do: Pass everything as-is.
                 else:
-                    ops = op_rec_column.graph_fn(*call_params)
+                    split_args, split_kwargs = split_args_and_kwargs[0], split_args_and_kwargs[1]
+                    ops = op_rec_column.graph_fn(*split_args, **split_kwargs)
             else:
-                ops = op_rec_column.graph_fn(*flattened_ops)
+                ops = op_rec_column.graph_fn(*flattened_args, **flattened_kwargs)
         # Just pass in everything as-is.
         else:
-            ops = op_rec_column.graph_fn(*in_ops)
+            ops = op_rec_column.graph_fn(*args, **kwargs)
 
         # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
         ops = force_tuple(ops)

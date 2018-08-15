@@ -171,8 +171,9 @@ class LargeIMPALANetwork(NeuralNetwork):
             # Return only the last output (sentence of words, where we are not interested in intermediate results
             # where the LSTM has not seen the entire sentence yet).
             # Last output is the final internal h-state (slot 1 in the returned LSTM tuple; slot 0 is final c-state).
-            _, lstm_final_internals = self.call(self.sub_components["lstm-64"].apply, embedding_output,
-                                                sequence_lengths=lengths)
+            _, lstm_final_internals = self.call(
+                self.sub_components["lstm-64"].apply, embedding_output, sequence_length=lengths
+            )
 
             # Need to split once more because the LSTM state is always a tuple of final c- and h-states.
             _, lstm_final_h_state = self.call(self.sub_components["tuple-splitter"].split, lstm_final_internals)
@@ -203,7 +204,8 @@ class LargeIMPALANetwork(NeuralNetwork):
         )
 
         # Feed concat'd input into main LSTM(256).
-        main_lstm_output, main_lstm_final_c_and_h = self.call(self.main_lstm.apply, concatenated_data,
-                                                              internal_states)
+        main_lstm_output, main_lstm_final_c_and_h = self.call(
+            self.main_lstm.apply, concatenated_data, internal_states
+        )
 
         return main_lstm_output, main_lstm_final_c_and_h

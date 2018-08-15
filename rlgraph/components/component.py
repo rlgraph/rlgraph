@@ -29,7 +29,7 @@ from rlgraph import RLGraphError, get_backend, Specifiable
 from rlgraph.utils.ops import SingleDataOp, DataOpDict, DataOpRecord, APIMethodRecord, \
     DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn, DataOpRecordColumnIntoAPIMethod, \
     DataOpRecordColumnFromAPIMethod, GraphFnRecord
-from rlgraph.utils import util
+from rlgraph.utils import util, default_dict
 from rlgraph.spaces.space_utils import get_space_from_op
 
 if get_backend() == "tf":
@@ -244,11 +244,11 @@ class Component(Specifiable):
 
         # Method is an API method.
         if method.__name__ in method_owner.api_methods:
-            stack = inspect.stack()
             # Make the API call.
             op_recs = self.call_api(method, method_owner, *params, **kwargs)
             # Do we need to return the raw ops or the op-recs?
             # Direct parent caller is a `_graph_fn_...`: Return raw ops.
+            stack = inspect.stack()
             if return_ops is True or re.match(r'^_graph_fn_.+$', stack[1][3]):
                 return (o.op for o in op_recs) if isinstance(op_recs, tuple) else op_recs.op
             # Parent caller is non-graph_fn: Return op-recs.
@@ -292,39 +292,38 @@ class Component(Specifiable):
                 (default: False).
 
         """
+        flatten_ops = kwargs.pop("flatten_ops", False)
+        split_ops = kwargs.pop("split_ops", False)
+        add_auto_key_as_first_param = kwargs.pop("add_auto_key_as_first_param", False)
+
         # Make sure the graph_fn belongs to this Component (not allowed to call graph_fn of other component
         # directly).
         if method_owner is not self:
             raise RLGraphError("Graph_fn '{}' may only be sent to `call` by its owner ({})! However, '{}' is "
                                "calling it.".format(method.__name__, method_owner.scope, self.scope))
 
+        # Add all kwargs as tuples (key, op-rec) to params.
+        params = list(params)
+        for key, value in kwargs.items():
+            params.append(tuple([key, value]))
+
         # Sanity check number of actual graph_fn input values against len(params).
-        actual_params = list(inspect.signature(method).parameters.values())
-        if kwargs.get("add_auto_key_as_first_param") is True:
-            actual_params = actual_params[1:]
-        if len(params) != len(actual_params):
-            # Check whether the last arg is var_positional (e.g. *inputs; in that case it's ok if the number of params
-            # is larger than that of the actual graph_fn params).
-            if len(params) > len(actual_params) > 0 and actual_params[-1].kind == inspect.Parameter.VAR_POSITIONAL:
-                pass
-            # Some actual params have default values: Number of given params must be at least as large as the number
-            # of non-default actual params but maximally as large as the number of actual_parameters.
-            elif len(actual_params) >= len(params) >= sum(
-                    [p.default is inspect.Parameter.empty for p in actual_params]):
-                pass
-            else:
-                raise RLGraphError(
-                    "ERROR: Graph_fn '{}/{}' has {} input-parameters, but {} ({}) were being provided in the "
-                    "`Component.call` method!".format(self.name, method.__name__,
-                                                      len(inspect.signature(method).parameters), len(params), params)
-                )
+        self.sanity_check_call_parameters(params, method, "graph_fn", add_auto_key_as_first_param)
 
         # Store a  graph_fn record in this component for better in/out-op-record-column reference.
         if method.__name__ not in self.graph_fns:
             self.graph_fns[method.__name__] = GraphFnRecord(graph_fn=method, component=self)
 
         # Generate in-going op-rec-column.
-        in_graph_fn_column = DataOpRecordColumnIntoGraphFn(len(params), component=self, graph_fn=method, **kwargs)
+        in_graph_fn_column = DataOpRecordColumnIntoGraphFn(
+            len(params), component=self, graph_fn=method,
+            flatten_ops=flatten_ops, split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param
+        )
+        # Add kwargs to op-recs in the new column.
+        for i, op_rec in enumerate(params):
+            if isinstance(op_rec, tuple):
+                in_graph_fn_column.op_records[i].kwarg = op_rec[0]
+        # Add the column to the `graph_fns` record.
         self.graph_fns[method.__name__].in_op_columns.append(in_graph_fn_column)
 
         # We are already building: Actually call the graph_fn after asserting that its Component is input-complete.
@@ -411,12 +410,15 @@ class Component(Specifiable):
                     "list, but not in the middle).".format(params, method.__name__)
             else:
                 params_no_none.insert(0, p)
+        # Add all kwargs as tuples (key, op-rec) to params_no_none.
+        for key, value in kwargs.items():
+            params_no_none.append(tuple([key, value]))
 
         # Create op-record column to call API method with. Ignore None input params. These should not be sent
         # to the API-method.
-        in_op_column = DataOpRecordColumnIntoAPIMethod(op_records=len(params_no_none),
-                                                       component=self,
-                                                       api_method_rec=api_method_rec)
+        in_op_column = DataOpRecordColumnIntoAPIMethod(
+            op_records=len(params_no_none), component=self, api_method_rec=api_method_rec
+        )
 
         # Add the column to the API-method record.
         api_method_rec.in_op_columns.append(in_op_column)
@@ -425,7 +427,14 @@ class Component(Specifiable):
         # if this call was made from within a graph_fn such that ops and Spaces are already known).
         flex = None
         for i, op_rec in enumerate(params_no_none):
-            input_name = api_method_rec.input_names[i if flex is None else flex]
+            # Named arg/kwarg -> get input_name from that and peel op_rec.
+            if isinstance(op_rec, tuple):
+                input_name = op_rec[0]
+                op_rec = op_rec[1]
+                in_op_column.op_records[i].kwarg = input_name
+            # Positional arg.
+            else:
+                input_name = api_method_rec.input_names[i if flex is None else flex]
             if method_owner.api_method_inputs[input_name] == "*flex":
                 if flex is None:
                     flex = i
@@ -461,12 +470,14 @@ class Component(Specifiable):
                     method_owner.api_method_inputs[key] = 0
                 self.constant_op_records.add(in_op_column.op_records[i])
 
-        # Now actually call the API method with that column and
+        # Now actually call the API method with that the correct *args and **kwargs from the new column and
         # create a new out-column with num-records == num-return values.
         name = method.__name__
         self.logger.debug("Calling api method {} with owner {}:".format(name, method_owner))
-        # Do the call.
-        out_op_recs = method(*in_op_column.op_records)
+        args = [op_rec for op_rec in in_op_column.op_records if op_rec.kwarg is None]
+        kwargs = {op_rec.kwarg: op_rec for op_rec in in_op_column.op_records if op_rec.kwarg is not None}
+        out_op_recs = method(*args, **kwargs)
+
         # Process the results (push into a column).
         out_op_recs = util.force_list(out_op_recs)
         out_op_column = DataOpRecordColumnFromAPIMethod(
@@ -492,6 +503,28 @@ class Component(Specifiable):
             return out_op_column.op_records[0]
         else:
             return tuple(out_op_column.op_records)
+
+    def sanity_check_call_parameters(self, params, method, method_type, add_auto_key_as_first_param):
+        raw_signature_parameters = inspect.signature(method).parameters
+        actual_params = list(raw_signature_parameters.values())
+        if add_auto_key_as_first_param is True:
+            actual_params = actual_params[1:]
+        if len(params) != len(actual_params):
+            # Check whether the last arg is var_positional (e.g. *inputs; in that case it's ok if the number of params
+            # is larger than that of the actual graph_fn params).
+            if len(params) > len(actual_params) > 0 and actual_params[-1].kind == inspect.Parameter.VAR_POSITIONAL:
+                pass
+            # Some actual params have default values: Number of given params must be at least as large as the number
+            # of non-default actual params but maximally as large as the number of actual_parameters.
+            elif len(actual_params) >= len(params) >= sum(
+                    [p.default is inspect.Parameter.empty for p in actual_params]):
+                pass
+            else:
+                raise RLGraphError(
+                    "ERROR: {} '{}/{}' has {} input-parameters, but {} ({}) were being provided in the "
+                    "`Component.call` method!".format(method_type, self.name, method.__name__,
+                                                      len(actual_params), len(params), params)
+                )
 
     def get_number_of_allowed_inputs(self, api_method_name):
         """
@@ -973,9 +1006,11 @@ class Component(Specifiable):
         # Function is a graph_fn: Build a simple wrapper API-method around it and name it `name`.
         if func_type == "graph_fn":
 
-            def api_method(self, *inputs):
+            def api_method(self, *inputs_, **kwargs_):
+                # Mix in user provided kwargs with the setting ones from the original `define_api_method` call.
+                default_dict(kwargs_, kwargs)
                 func_ = getattr(self, func.__name__)
-                return self.call(func_, *inputs, **kwargs)
+                return self.call(func_, *inputs_, **kwargs_)
 
         # Function is a (custom) API-method. Register it with this Component.
         else:
