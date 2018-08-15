@@ -17,15 +17,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import random
 from six.moves import queue
+from threading import Thread
+
 from rlgraph import get_distributed_backend
 from rlgraph.agents import Agent
 from rlgraph.execution.ray import RayWorker
 from rlgraph.execution.ray.apex.ray_memory_actor import RayMemoryActor
 from rlgraph.execution.ray.ray_executor import RayExecutor
-import random
-from threading import Thread
-
 from rlgraph.execution.ray.ray_util import create_colocated_ray_actors, RayTaskPool
 
 if get_distributed_backend() == "ray":
@@ -267,7 +267,7 @@ class UpdateWorker(Thread):
 
     def step(self):
         # Fetch input for update:
-        # Replay memory used
+        # Replay memory used.
         memory_actor, sample_batch = self.input_queue.get()
 
         if sample_batch is not None:

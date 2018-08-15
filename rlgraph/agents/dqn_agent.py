@@ -133,9 +133,8 @@ class DQNAgent(Agent):
         # Act from preprocessed states.
         def action_from_preprocessed_state(self, preprocessed_states, time_step=0, use_exploration=True):
             sample_deterministic = self.call(policy.get_max_likelihood_action, preprocessed_states)
-            sample_stochastic = self.call(policy.get_stochastic_action, preprocessed_states)
-            actions = self.call(exploration.get_action, sample_deterministic, sample_stochastic,
-                                 time_step, use_exploration)
+            #sample_stochastic = self.call(policy.get_stochastic_action, preprocessed_states)
+            actions = self.call(exploration.get_action, sample_deterministic, time_step, use_exploration)
             return preprocessed_states, actions
 
         self.core_component.define_api_method("action_from_preprocessed_state", action_from_preprocessed_state)

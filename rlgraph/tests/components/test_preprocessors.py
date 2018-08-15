@@ -127,7 +127,7 @@ class TestPreprocessors(unittest.TestCase):
         test.test("reset")
         test.test(("apply", input_), expected_outputs=expected)
 
-    def test_split_graph_on_flatten(self):
+    def test_split_graph_on_reshape_flatten(self):
         space = Dict.from_spec(
             dict(
                 a=Tuple(FloatBox(shape=(1, 1, 2)), FloatBox(shape=(1, 2, 2))),
