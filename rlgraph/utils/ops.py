@@ -459,7 +459,7 @@ def flatten_op(op, scope_="", list_=None):
         for i, c in enumerate(op):
             flatten_op(c, scope_=scope_ + str(i) + FLAT_TUPLE_CLOSE, list_=list_)
     else:
-        assert not isinstance(op, (dict, tuple, list))
+        assert not isinstance(op, (dict, tuple))
         list_.append((scope_, op))
 
     # Non recursive (first) call -> Return the final FlattenedDataOp.
