@@ -64,8 +64,10 @@ class DecayComponent(Component):
 
     def check_input_spaces(self, input_spaces, action_space=None):
         time_step_space = input_spaces["time_step"]  # type: Space
-        sanity_check_space(time_step_space, allowed_types=[IntBox], must_have_batch_rank=False,
-                           must_have_categories=False, rank=0)
+        sanity_check_space(
+            time_step_space, allowed_types=[IntBox], must_have_batch_rank=False,
+            must_have_categories=False, rank=0
+        )
 
     def _graph_fn_decayed_value(self, time_step):
         """
@@ -76,22 +78,47 @@ class DecayComponent(Component):
             DataOp: The decay'd value depending on the current time step.
         """
         if get_backend() == "tf":
-            return tf.cond(
-                pred=(time_step <= self.start_timestep),
-                # We are still in pre-decay time.
-                true_fn=lambda: self.from_,
-                false_fn=lambda: tf.cond(
-                    pred=(time_step >= self.start_timestep + self.num_timesteps),
-                    # We are in post-decay time.
-                    true_fn=lambda: self.to_,
-                    # We are inside the decay time window.
-                    false_fn=lambda: self._graph_fn_decay(
-                        tf.cast(x=time_step - self.start_timestep, dtype=util.dtype("float"))
+            smaller_than_start = time_step <= self.start_timestep
+
+            shape = tf.shape(time_step)
+            # time_step comes in as a time-sequence of time-steps.
+            if shape.shape[0] > 0:
+                return tf.where(
+                    condition=smaller_than_start,
+                    # We are still in pre-decay time.
+                    x=tf.tile(tf.constant([self.from_]), multiples=shape),
+                    # We are past pre-decay time.
+                    y=tf.where(
+                        condition=(time_step >= self.start_timestep + self.num_timesteps),
+                        # We are in post-decay time.
+                        x=tf.tile(tf.constant([self.to_]), multiples=shape),
+                        # We are inside the decay time window.
+                        y=self._graph_fn_decay(
+                            tf.cast(x=time_step - self.start_timestep, dtype=util.dtype("float"))
+                        ),
+                        name="cond-past-end-time"
                     ),
-                    name="cond-past-end-time"
-                ),
-                name="cond-before-start-time"
-            )
+                    name="cond-before-start-time"
+                )
+            # Single 0D time step.
+            else:
+                return tf.cond(
+                    pred=smaller_than_start,
+                    # We are still in pre-decay time.
+                    true_fn=lambda: self.from_,
+                    # We are past pre-decay time.
+                    false_fn=lambda: tf.cond(
+                        pred=(time_step >= self.start_timestep + self.num_timesteps),
+                        # We are in post-decay time.
+                        true_fn=lambda: self.to_,
+                        # We are inside the decay time window.
+                        false_fn=lambda: self._graph_fn_decay(
+                            tf.cast(x=time_step - self.start_timestep, dtype=util.dtype("float"))
+                        ),
+                        name="cond-past-end-time"
+                    ),
+                    name="cond-before-start-time"
+                )
 
     def _graph_fn_decay(self, time_steps_in_decay_window):
         """
