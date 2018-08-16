@@ -120,21 +120,24 @@ class GraphBuilder(Specifiable):
         # and bi-directional links for the build time.
         for api_method_name, api_method_rec in self.core_component.api_methods.items():
             self.logger.debug("Building meta-graph of API-method '{}'.".format(api_method_name))
-            # Double check whether number of given input Spaces match number of params of the method.
+
+            # Create the loose list of in-op-records depending on signature and input-spaces given.
+            # If an arg has a default value, its input-space does not have to be provided.
             in_ops_records = list()
-            #num_records = 0
             use_named = False
             for i, param_name in enumerate(api_method_rec.input_names):
                 # Arg has a default of None (flex). If in input_spaces, arg will be provided.
                 if self.core_component.api_method_inputs[param_name] == "flex":
                     if param_name in input_spaces:
-                        #num_records += 1
                         in_ops_records.append(DataOpRecord(position=i, kwarg=param_name if use_named else None))
                     else:
                         use_named = True
                 # Already defined (per default arg value (e.g. bool)).
                 elif isinstance(self.core_component.api_method_inputs[param_name], Space):
-                    in_ops_records.append(DataOpRecord(position=i, kwarg=param_name if use_named else None))
+                    if param_name in input_spaces:
+                        in_ops_records.append(DataOpRecord(position=i, kwarg=param_name if use_named else None))
+                    else:
+                        use_named = True
                 # No default values -> Must be provided in `input_spaces`.
                 else:
                     assert param_name in input_spaces
@@ -142,11 +145,9 @@ class GraphBuilder(Specifiable):
                     if self.core_component.api_method_inputs[param_name] == "*flex":
                         assert use_named is False
                         in_ops_records.extend([DataOpRecord(position=i + j) for j in range(len(force_list(input_spaces[param_name])))])
-                        #num_records += len(force_list(input_spaces[param_name]))
                     else:
                         in_ops_records.append(DataOpRecord(position=i, kwarg=param_name if use_named else None))
-            # Create an new in column and map it to the resulting out column.
-            #in_ops_records = [DataOpRecord(position=i) for i in range(num_records)]
+
             # Do the actual core API-method call (thereby assembling the meta-graph).
             args = [op_rec for op_rec in in_ops_records if op_rec.kwarg is None]
             kwargs = {op_rec.kwarg: op_rec for op_rec in in_ops_records if op_rec.kwarg is not None}
@@ -411,7 +412,8 @@ class GraphBuilder(Specifiable):
                     if param_name in input_spaces:
                         spaces.append(input_spaces[param_name])
                 elif isinstance(self.core_component.api_method_inputs[param_name], Space):
-                    spaces.append(self.core_component.api_method_inputs[param_name])
+                    if param_name in input_spaces:
+                        spaces.append(self.core_component.api_method_inputs[param_name])
                 else:
                     assert param_name in input_spaces
                     if self.core_component.api_method_inputs[param_name] == "*flex":
@@ -557,7 +559,7 @@ class GraphBuilder(Specifiable):
                     op_rec_column.out_graph_fn_column = out_op_rec_column
 
         # Tag column as already sent through graph_fn.
-        op_rec_column.already_sent = True
+        op_rec_column.already_sent = True  # TODO: assert is False before this?
 
         # Store assigned names for debugging.
         if device is not None:
