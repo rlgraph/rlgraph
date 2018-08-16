@@ -31,7 +31,8 @@ class TestDecayComponents(unittest.TestCase):
     """
 
     # Decaying a value always without batch dimension (does not make sense for global time step).
-    time_step_space = IntBox(1000, add_batch_rank=False)
+    time_step_space = IntBox(1000)
+    time_step_space_with_time_rank = IntBox(1000, add_time_rank=True)
 
     def test_linear_decay(self):
         decay_component = LinearDecay(from_=1.0, to_=0.0, start_timestep=100, num_timesteps=100)
@@ -43,6 +44,18 @@ class TestDecayComponents(unittest.TestCase):
                              0.0, 0.0])
         for i, e in zip(input_, expected):
             test.test(("decayed_value", i), expected_outputs=e)
+
+    def test_linear_decay_with_time_rank(self):
+        decay_component = LinearDecay(from_=1.0, to_=0.0, start_timestep=0, num_timesteps=100)
+        test = ComponentTest(component=decay_component, input_spaces=dict(
+            time_step=self.time_step_space_with_time_rank
+        ))
+
+        # Values to pass all at once.
+        input_ = np.array([0, 1, 2, 25, 50, 100, 110, 112, 120, 130, 150, 180, 190, 195, 200, 201, 210, 250, 1000])
+        expected = np.array([1.0, 0.99, 0.98, 0.75, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                             0.0, 0.0])
+        test.test(("decayed_value", input_), expected_outputs=expected)
 
     def test_exponential_decay(self):
         decay_component = ExponentialDecay(from_=1.0, to_=0.0, start_timestep=0, num_timesteps=100, half_life=50)
