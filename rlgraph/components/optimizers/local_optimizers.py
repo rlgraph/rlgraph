@@ -59,6 +59,16 @@ class LocalOptimizer(Optimizer):
 
         self.define_api_method("step", step)
 
+        # TODO replace step with this? needed for multi gpu swap in
+        def optimize(self, loss_function, policy, *loss_inputs):
+            loss, loss_per_item = self.call(loss_function.loss, *loss_inputs)
+
+            policy_vars = self.call(policy._variables)
+            grads_and_vars = self.call(self.calculate_gradients, policy_vars, loss)
+            step_op = self.call(self.apply_gradients, grads_and_vars)
+            return step_op, loss, loss_per_item
+        self.define_api_method("optimize", optimize, must_be_complete=False)
+
     def create_variables(self, input_spaces, action_space=None):
         # TODO: problem dont exist here
         # Must register the Optimizer's variables with the Component.

@@ -224,19 +224,6 @@ class DQNAgent(Agent):
 
         self.core_component.define_api_method("get_td_loss", get_td_loss)
 
-        # TODO: is not plugged in yet,
-        # Generic optimization method which we can replace for device strategies.
-        # This method should receive as inputs everything the loss function and optimizer need.
-        def optimize(self, *loss_inputs):
-            loss, loss_per_item = self.call(loss_function.loss, *loss_inputs)
-
-            policy_vars = self.call(policy._variables)
-            grads_and_vars = self.call(optimizer.calculate_gradients, policy_vars, loss)
-            step_op = self.call(optimizer.apply_gradients, grads_and_vars)
-            return step_op, loss, loss_per_item
-
-        # self.core_component.define_api_method("optimize", optimize)
-
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
         Args:
