@@ -201,6 +201,8 @@ class TensorFlowExecutor(GraphExecutor):
         # Fetch inputs for the different API-methods.
         fetch_dict, feed_dict = self.graph_builder.get_execution_inputs(*api_methods)
 
+        # TODO: filter out fetch_dict for plain np values and do not send these into session. However, we must return them either way from this method.
+
         # Expand inputs and fetch list with extra device memory init ops
         for api_method in api_methods:
             if api_method is None:

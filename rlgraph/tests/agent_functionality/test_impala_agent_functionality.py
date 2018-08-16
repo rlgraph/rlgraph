@@ -29,7 +29,7 @@ from rlgraph.environments import RandomEnv
 from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
 from rlgraph.spaces import *
 from rlgraph.tests.component_test import ComponentTest
-from rlgraph.tests.test_util import config_from_path
+from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 from rlgraph.utils import root_logger
 
 
@@ -46,7 +46,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
     # Use the exact same Spaces as in the IMPALA paper.
     action_space = IntBox(9, add_batch_rank=True, add_time_rank=True, time_major=True)
     input_space = Dict(
-        image=FloatBox(shape=(96, 72, 3)), text=TextBox(),
+        image=FloatBox(shape=(96, 72, 3)),
+        text=TextBox(),
         previous_action=FloatBox(shape=(9,)),
         previous_reward=FloatBox(shape=(1,)),  # add the extra rank for proper concatenating with the other inputs.
         add_batch_rank=True,
@@ -126,52 +127,87 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         Creates a large IMPALA architecture network inside a policy inside an actor component and runs a few input
         samples through it.
         """
-        # Use IMPALA paper's preprocessor of division by 255.
-        preprocessor = PreprocessorStack.from_spec([dict(type="divide", divisor=255)])
+        batch_size = 4
+
+        # Use IMPALA paper's preprocessor of division by 255 (only for the Image).
+        preprocessor_spec_for_actor_component = dict(image=[dict(type="divide", divisor=255)])
         # IMPALA uses a baseline action adapter (v-trace off-policy PG with baseline value function).
         policy = Policy(LargeIMPALANetwork(), action_space=self.action_space,
                         action_adapter_spec=dict(type="baseline_action_adapter"))
         exploration = Exploration(epsilon_spec=dict(decay_spec=dict(
             type="linear_decay", from_=1.0, to_=0.1, start_timestep=0, num_timesteps=100)
         ))
-        actor_component = ActorComponent(preprocessor, policy, exploration)
+        actor_component = ActorComponent(preprocessor_spec_for_actor_component, policy, exploration)
 
         test = ComponentTest(
-            actor_component, input_spaces=dict(nn_input=self.input_space, internal_states=self.internal_states_space),
+            actor_component, input_spaces=dict(
+                states=self.input_space,
+                internal_states=self.internal_states_space
+            ),
             action_space=self.action_space
         )
 
-        # Send a 1x1 sample through the network (1=sequence-length (time-rank), 1=batch-size).
-        nn_input = self.input_space.sample(size=(1, 1))
-        initial_internal_states = self.internal_states_space.zeros(size=1)
+        # Send a sample through the network (sequence-length (time-rank) x batch-size).
+        nn_dict_input = self.input_space.sample(size=(1, batch_size))
+        initial_internal_states = self.internal_states_space.zeros(size=batch_size)
         expected = None
-        actions, last_internal_states = test.test(
-            ("get_action", [nn_input, initial_internal_states]), expected_outputs=expected
+        preprocessed_states, actions, last_internal_states = test.test(
+            ("get_preprocessed_state_and_action", [nn_dict_input, initial_internal_states]), expected_outputs=expected
         )
         print("First action: {}".format(actions))
-        self.assertEquals(actions.shape, (1,))
-        self.assertEquals(last_internal_states[0].shape, (1, 256))
-        self.assertEquals(last_internal_states[1].shape, (1, 256))
+        self.assertEquals(actions.shape, (1, batch_size,))
+        self.assertEquals(last_internal_states[0].shape, (batch_size, 256))
+        self.assertEquals(last_internal_states[1].shape, (batch_size, 256))
+        # Check preprocessed state (all the same except 'image' channel).
+        recursive_assert_almost_equal(
+            preprocessed_states, dict(
+                image=nn_dict_input["image"] / 255,
+                text=nn_dict_input["text"],
+                previous_action=nn_dict_input["previous_action"],
+                previous_reward=nn_dict_input["previous_reward"],
+            )
+        )
 
         # Send another 1x1 sample through the network using the previous internal-state.
-        next_nn_input = self.input_space.sample(size=(1, 1))
+        next_nn_input = self.input_space.sample(size=(1, batch_size))
         expected = None
-        actions, last_internal_states = test.test(("get_action", [next_nn_input, last_internal_states]),
-                                                  expected_outputs=expected)
+        preprocessed_states, actions, last_internal_states = test.test(
+            ("get_preprocessed_state_and_action", [next_nn_input, last_internal_states]), expected_outputs=expected
+        )
         print("Second action: {}".format(actions))
-        self.assertEquals(actions.shape, (1,))
-        self.assertEquals(last_internal_states[0].shape, (1, 256))
-        self.assertEquals(last_internal_states[1].shape, (1, 256))
+        self.assertEquals(actions.shape, (1, batch_size))
+        self.assertEquals(last_internal_states[0].shape, (batch_size, 256))
+        self.assertEquals(last_internal_states[1].shape, (batch_size, 256))
+        # Check preprocessed state (all the same except 'image' channel, which gets divided by 255).
+        recursive_assert_almost_equal(
+            preprocessed_states, dict(
+                image=next_nn_input["image"] / 255,
+                text=next_nn_input["text"],
+                previous_action=next_nn_input["previous_action"],
+                previous_reward=next_nn_input["previous_reward"],
+            )
+        )
 
         # Send time x batch states through the network to simulate agent-type=learner behavior.
-        next_nn_input = self.input_space.sample(size=(6, 1))  # time-steps=6, batch=1 (must match last-internal-states)
+        # time-steps=20, batch=1 (must match last-internal-states)
+        next_nn_input = self.input_space.sample(size=(20, batch_size))
         expected = None
-        actions, last_internal_states = test.test(("get_action", [next_nn_input, last_internal_states]),
-                                                  expected_outputs=expected)
-        print("Actions 3 to 8: {}".format(actions))
-        self.assertEquals(actions.shape, (6,))
-        self.assertEquals(last_internal_states[0].shape, (6, 256))
-        self.assertEquals(last_internal_states[1].shape, (6, 256))
+        preprocessed_states, actions, last_internal_states = test.test(
+            ("get_preprocessed_state_and_action", [next_nn_input, last_internal_states]), expected_outputs=expected
+        )
+        print("Actions 3 to 22: {}".format(actions))
+        self.assertEquals(actions.shape, (20, batch_size))
+        self.assertEquals(last_internal_states[0].shape, (batch_size, 256))
+        self.assertEquals(last_internal_states[1].shape, (batch_size, 256))
+        # Check preprocessed state (all the same except 'image' channel).
+        recursive_assert_almost_equal(
+            preprocessed_states, dict(
+                image=next_nn_input["image"] / 255,
+                text=next_nn_input["text"],
+                previous_action=next_nn_input["previous_action"],
+                previous_reward=next_nn_input["previous_reward"],
+            )
+        )
 
     # TODO move this to test_all_compile once it works.
     def test_impala_assembly(self):
