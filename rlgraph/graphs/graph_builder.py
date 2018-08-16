@@ -116,8 +116,8 @@ class GraphBuilder(Specifiable):
                         "the core-component's ('{}') API-methods!".format(input_param_name, self.core_component.name)
                     )
 
-        # Call all API methods of the core and thereby, create empty in-op columns that serve as placeholders
-        # and bi-directional links for the build time.
+        # Call all API methods of the core once and thereby, create empty in-op columns that serve as placeholders
+        # and bi-directional links between ops (for the build time).
         for api_method_name, api_method_rec in self.core_component.api_methods.items():
             self.logger.debug("Building meta-graph of API-method '{}'.".format(api_method_name))
 
@@ -140,6 +140,7 @@ class GraphBuilder(Specifiable):
                         use_named = True
                 # No default values -> Must be provided in `input_spaces`.
                 else:
+                    # TODO: If space not provided in input_spaces -> Try to call this API method later (maybe another API-method).
                     assert param_name in input_spaces
                     # A var-positional param.
                     if self.core_component.api_method_inputs[param_name] == "*flex":

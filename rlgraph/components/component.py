@@ -385,7 +385,7 @@ class Component(Specifiable):
         if len(out_graph_fn_column.op_records) == 1:
             return out_graph_fn_column.op_records[0]
         else:
-            return out_graph_fn_column.op_records
+            return tuple(out_graph_fn_column.op_records)
 
     def call_api(self, method, method_owner, *params, **kwargs):
         """

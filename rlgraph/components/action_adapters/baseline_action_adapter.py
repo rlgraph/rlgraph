@@ -82,7 +82,6 @@ class BaselineActionAdapter(ActionAdapter):
             state_value = tf.squeeze(state_value, axis=-1)
 
             # Now we have to reshape the flat logits to obtain the action-shaped logits.
-            shape = list(self.action_space.get_shape(with_batch_rank=-1, with_category_rank=True))
-            logits = tf.reshape(tensor=flat_logits, shape=shape)
+            logits = self.call(self.reshape.apply, flat_logits)
 
             return state_value, logits

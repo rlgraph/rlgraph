@@ -25,6 +25,7 @@ from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.utils.ops import DataOpTuple
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -140,8 +141,8 @@ class ActionAdapter(Component):
         """
         action_layer_output = self.call(self.get_action_layer_output, nn_output)
         action_layer_output_reshaped = self.call(self.reshape.apply, action_layer_output)
-        return (action_layer_output_reshaped,) + \
-            tuple(self.call(self._graph_fn_get_parameters_log_probs, action_layer_output_reshaped))
+        probs_and_log_probs = self.call(self._graph_fn_get_parameters_log_probs, action_layer_output_reshaped)
+        return (action_layer_output_reshaped,) + probs_and_log_probs
 
     def _graph_fn_get_parameters_log_probs(self, logits):
         """
@@ -153,9 +154,9 @@ class ActionAdapter(Component):
 
         Returns:
             tuple (2x SingleDataOp):
-                parameters (SingleDataOp): The parameters, ready to be passed to a Distribution object's
+                parameters (DataOp): The parameters, ready to be passed to a Distribution object's
                     get_distribution API-method (usually some probabilities or loc/scale pairs).
-                log_probs (SingleDataOp): Simply the log(parameters).
+                log_probs (DataOp): Simply the log(parameters).
         """
         if get_backend() == "tf":
             if isinstance(self.action_space, IntBox):
@@ -176,8 +177,8 @@ class ActionAdapter(Component):
                 # Turn log sd into sd.
                 sd = tf.exp(x=log_sd)
 
-                parameters = (mean, sd)
-                log_probs = (tf.log(x=mean), log_sd)
+                parameters = DataOpTuple(mean, sd)
+                log_probs = DataOpTuple(tf.log(x=mean), log_sd)
             else:
                 raise NotImplementedError
 
