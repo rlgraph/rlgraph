@@ -94,13 +94,13 @@ class TestActorComponents(unittest.TestCase):
         initial_internal_states = internal_state_space.zeros(size=2)  # only batch
 
         # TODO: we need a numpy LSTM implementation (lift from our LSTMLayer test case) to be able to calculate manually in these test cases here
-        expected_actions = np.array([[1, 1, 1], [1, 1, 1]])
+        expected_actions = np.array([[1, 1, 1], [0, 0, 0]])
         expected_preprocessed_state = states / 10
         expected_final_internal_states = (
-            np.array([[0.0290666, -0.0538384, -0.0017982],
-                      [0.020775, -0.0655408, -0.0074419]]),
-            np.array([[0.014499, -0.026742, -0.0008839],
-                      [0.010264, -0.0324619, -0.0035686]]),
+            np.array([[0.0281094, 0.0133832, -0.0236662],
+                      [0.0222283, -0.0093343, -0.0208033]]),
+            np.array([[0.014157, 0.0066405, -0.0117464],
+                      [0.0113204, -0.0046394, -0.0101546]]),
         )
         test.test(
             ("get_preprocessed_state_and_action", [states, initial_internal_states]),
