@@ -98,7 +98,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             ("get_action", [nn_input, initial_internal_states]), expected_outputs=expected
         )
         print("First action: {}".format(actions))
-        self.assertEquals(actions.shape, (1,))
+        self.assertEquals(actions.shape, (1, 1))
         self.assertEquals(last_internal_states[0].shape, (1, 256))
         self.assertEquals(last_internal_states[1].shape, (1, 256))
 
@@ -108,7 +108,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         actions, last_internal_states = test.test(("get_action", [next_nn_input, last_internal_states]),
                                                   expected_outputs=expected)
         print("Second action: {}".format(actions))
-        self.assertEquals(actions.shape, (1,))
+        self.assertEquals(actions.shape, (1, 1))
         self.assertEquals(last_internal_states[0].shape, (1, 256))
         self.assertEquals(last_internal_states[1].shape, (1, 256))
 
@@ -118,7 +118,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         actions, last_internal_states = test.test(("get_action", [next_nn_input, last_internal_states]),
                                                   expected_outputs=expected)
         print("Actions 3 to 8: {}".format(actions))
-        self.assertEquals(actions.shape, (6,))
+        self.assertEquals(actions.shape, (6, 1))
         self.assertEquals(last_internal_states[0].shape, (1, 256))
         self.assertEquals(last_internal_states[1].shape, (1, 256))
 
