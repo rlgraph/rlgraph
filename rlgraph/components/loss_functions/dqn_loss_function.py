@@ -196,7 +196,7 @@ class DQNLossFunction(LossFunction):
                 return np.where(
                     condition=np.abs(td_delta) < self.huber_delta,
                     x=np.square(td_delta) * 0.5,
-                    y=self.huber_delta * (tf.abs(td_delta) - 0.5 * self.huber_delta)
+                    y=self.huber_delta * (np.abs(td_delta) - 0.5 * self.huber_delta)
                 )
             elif get_backend() == "tf":
                 return tf.where(
