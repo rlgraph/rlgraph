@@ -60,14 +60,14 @@ class LocalOptimizer(Optimizer):
         self.define_api_method("step", step)
 
         # TODO replace step with this? needed for multi gpu swap in
-        def optimize(self, loss_function, policy, *loss_inputs):
-            loss, loss_per_item = self.call(loss_function.loss, *loss_inputs)
-
-            policy_vars = self.call(policy._variables)
-            grads_and_vars = self.call(self.calculate_gradients, policy_vars, loss)
-            step_op = self.call(self.apply_gradients, grads_and_vars)
+        def optimize(self_, policy_vars, loss, loss_per_item, *inputs):
+            # Why does this have inputs? Because in multi gpu mode, we pass them
+            # to the subgraphs. In single device mode, we directly use the policy vars
+            # and loss
+            grads_and_vars = self_.call(self_._graph_fn_calculate_gradients, policy_vars, loss)
+            step_op = self_.call(self_._graph_fn_apply_gradients, grads_and_vars)
             return step_op, loss, loss_per_item
-        self.define_api_method("optimize", optimize, must_be_complete=False)
+        #self.define_api_method("optimize", optimize, must_be_complete=False)
 
     def create_variables(self, input_spaces, action_space=None):
         # TODO: problem dont exist here
