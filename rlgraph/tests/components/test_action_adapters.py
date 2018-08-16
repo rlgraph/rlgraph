@@ -25,6 +25,7 @@ from rlgraph.components.action_adapters.baseline_action_adapter import BaselineA
 from rlgraph.components.action_adapters.dueling_action_adapter import DuelingActionAdapter
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
+from rlgraph.utils.numpy import softmax
 
 
 class TestActionAdapters(unittest.TestCase):
@@ -62,6 +63,40 @@ class TestActionAdapters(unittest.TestCase):
         expected_log_probs = np.log(expected_parameters)
         test.test(("get_logits_parameters_log_probs", inputs),
                   expected_outputs=[expected_logits, expected_parameters, expected_log_probs])
+
+    def test_action_adapter_with_complex_lstm_output(self):
+        # Last NN layer (LSTM with time rank).
+        last_nn_layer_space = FloatBox(shape=(4,), add_batch_rank=True, add_time_rank=True, time_major=True)
+        # Action Space.
+        action_space = IntBox(2, shape=(3, 2))
+
+        action_adapter = ActionAdapter(action_space=action_space, biases_spec=False)
+        test = ComponentTest(
+            component=action_adapter, input_spaces=dict(nn_output=last_nn_layer_space), action_space=action_space
+        )
+        action_adapter_params = test.read_variable_values(action_adapter.variables)
+
+        # Batch of 2 samples, 3 timesteps.
+        inputs = last_nn_layer_space.sample(size=(3, 2))
+        # Fold time rank before the action layer pass through.
+        inputs_reshaped = np.reshape(inputs, newshape=(6, -1))
+        # Action layer pass through and unfolding of time rank.
+        expected_action_layer_output = np.matmul(
+            inputs_reshaped, action_adapter_params["action-adapter/action-layer/dense/kernel"]
+        ).reshape((3, 2, -1))
+        test.test(("get_action_layer_output", inputs), expected_outputs=expected_action_layer_output)
+
+        # Logits (already well reshaped (same as action space)).
+        expected_logits = np.reshape(expected_action_layer_output, newshape=(3, 2, 3, 2, 2))
+        # Softmax (probs).
+        expected_parameters = softmax(expected_logits)
+        # Log probs.
+        expected_log_probs = np.log(expected_parameters)
+        test.test(
+            ("get_logits_parameters_log_probs", inputs),
+            expected_outputs=[expected_logits, expected_parameters, expected_log_probs],
+            decimals=5
+        )
 
     def test_dueling_action_adapter(self):
         # Last NN layer.
