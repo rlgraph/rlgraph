@@ -79,7 +79,7 @@ class ActorComponent(Component):
         Args:
             states (DataOp): The states coming directly from the environment.
             internal_states (DataOp): The initial internal states to use (in case of an RNN network).
-            time_step (DataOp): The current time step.
+            time_step (DataOp): The current time step(s).
             use_exploration (Optional[DataOp]): Whether to use exploration or not.
 
         Returns:

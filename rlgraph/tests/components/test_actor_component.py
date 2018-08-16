@@ -26,7 +26,7 @@ from rlgraph.components.neural_networks.policy import Policy
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
-from rlgraph.tests.test_util import config_from_path
+from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 from rlgraph.tests.dummy_components import DummyNNWithDictInput
 
 
@@ -74,6 +74,7 @@ class TestActorComponents(unittest.TestCase):
         # state space and internal state space
         state_space = FloatBox(shape=(2,), add_batch_rank=True, add_time_rank=True, time_major=False)
         internal_state_space = Tuple(FloatBox(shape=(3,)), FloatBox(shape=(3,)), add_batch_rank=True)
+        time_step_space = IntBox()
         # action_space.
         action_space = IntBox(2, add_batch_rank=True, add_time_rank=True)
 
@@ -81,31 +82,49 @@ class TestActorComponents(unittest.TestCase):
             [dict(type="convert_type", to_dtype="float"), dict(type="divide", divisor=10)]
         )
         policy = Policy(neural_network=config_from_path("configs/test_lstm_nn.json"), action_space=action_space)
-        exploration = Exploration()  # no exploration
+        exploration = Exploration(epsilon_spec=dict(decay_spec=dict(
+            type="linear_decay", from_=1.0, to_=0.1, start_timestep=0, num_timesteps=100)
+        ))
         actor_component = ActorComponent(preprocessor, policy, exploration)
         test = ComponentTest(
             component=actor_component,
-            input_spaces=dict(states=state_space, internal_states=internal_state_space),
+            input_spaces=dict(
+                states=state_space,
+                internal_states=internal_state_space,
+                time_step=time_step_space
+            ),
             action_space=action_space
         )
-        # Some state inputs (batch size=2, seq-len=3; batch-major).
+        # Some state inputs (batch size=2, seq-len=1000; batch-major).
         np.random.seed(10)
-        states = state_space.sample(size=(2, 3))
+        states = state_space.sample(size=(1000, 2))
         initial_internal_states = internal_state_space.zeros(size=2)  # only batch
+        time_steps = time_step_space.sample(1000)
 
-        # TODO: we need a numpy LSTM implementation (lift from our LSTMLayer test case) to be able to calculate manually in these test cases here
-        expected_actions = np.array([[1, 1, 1], [0, 0, 0]])
+        # Run n times a single time-step to simulate acting and env interaction with an LSTM.
+        preprocessed_states = np.ndarray(shape=(1000, 2, 2), dtype=np.float)
+        actions = np.ndarray(shape=(1000, 2, 1), dtype=np.int)
+        for i, time_step in enumerate(time_steps):
+            ret = test.test((
+                "get_preprocessed_state_and_action",
+                # expand time dim at 1st slot as we are time-major == False
+                [np.expand_dims(states[i], 1), initial_internal_states, time_step]
+            ))
+            preprocessed_states[i] = ret[0][:, 0, :]  # take out time-rank again ()
+            actions[i] = ret[1]
+            # Check c/h-state shape.
+            self.assertEqual(ret[2][0].shape, (2, 3))  # batch-size=2, LSTM units=3
+            self.assertEqual(ret[2][1].shape, (2, 3))
+
+        # Check all preprocessed states (easy: just divided by 10).
         expected_preprocessed_state = states / 10
-        expected_final_internal_states = (
-            np.array([[0.0281094, 0.0133832, -0.0236662],
-                      [0.0222283, -0.0093343, -0.0208033]]),
-            np.array([[0.014157, 0.0066405, -0.0117464],
-                      [0.0113204, -0.0046394, -0.0101546]]),
-        )
-        test.test(
-            ("get_preprocessed_state_and_action", [states, initial_internal_states]),
-            expected_outputs=(expected_preprocessed_state, expected_actions, expected_final_internal_states)
-        )
+        recursive_assert_almost_equal(preprocessed_states, expected_preprocessed_state)
+
+        # Check the exploration functionality over the actions.
+        # Not checking mean as we are mostly in the non-exploratory region, that's why the stddev should be small.
+        stddev_actions = actions.std()
+        self.assertGreater(stddev_actions, 0.4)
+        self.assertLess(stddev_actions, 0.6)
 
     def test_actor_component_with_preprocess_vector(self):
         # state_space (a complex Dict Space, that will be partially preprocessed).

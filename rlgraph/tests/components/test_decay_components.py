@@ -63,8 +63,8 @@ class TestDecayComponents(unittest.TestCase):
 
         # Values to pass as single items.
         input_ = np.array([0, 1, 2, 25, 50, 75, 80, 90, 99, 100])
-        expected = np.array([1.0, 0.9862327, 0.97265494, 0.70710677, 0.5,
-                             0.35355338, 0.329877, 0.2871746, 0.25348988, 0.0])
+        expected = np.array([1.0, 0.9862327, 0.97265494, 0.70710677, 0.5, 0.35355338, 0.329877, 0.2871746, 0.25348988,
+                             0.0])
         for i, e in zip(input_, expected):
             test.test(("decayed_value", i), expected_outputs=e)
 
