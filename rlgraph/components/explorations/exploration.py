@@ -88,8 +88,8 @@ class Exploration(Component):
 
     def check_input_spaces(self, input_spaces, action_space=None):
         assert action_space is not None
-        self.action_space = action_space.with_batch_rank()
-        assert self.action_space.has_batch_rank, "ERROR: `self.action_space` does not have batch rank!"
+        self.action_space = action_space
+        sanity_check_space(self.action_space, must_have_batch_rank=True)
 
         if self.epsilon_exploration and self.noise_component:
             # Check again at graph creation? This is currently redundant to the check in __init__
@@ -117,20 +117,23 @@ class Exploration(Component):
             DataOp: The DataOp representing the action. This will match the shape of self.action_space.
         """
         if get_backend() == "tf":
-            batch_size = tf.shape(sample)[0]
             random_actions = tf.random_uniform(
-                shape=(batch_size,) + self.action_space.shape, maxval=self.action_space.num_categories,
+                shape=tf.shape(sample),
+                maxval=self.action_space.num_categories,
                 dtype=dtype("int")
             )
 
-            return tf.where(
-                # `use_exploration` given as actual bool or as tensor?
-                condition=epsilon_decisions if type(use_exploration) == bool else tf.logical_and(
-                    use_exploration, epsilon_decisions
-                ),
-                x=random_actions,
-                y=sample
-            )
+            if use_exploration is False:
+                return sample
+            else:
+                return tf.where(
+                    # `use_exploration` given as actual bool or as tensor?
+                    condition=epsilon_decisions if use_exploration is True else tf.logical_and(
+                        use_exploration, epsilon_decisions
+                    ),
+                    x=random_actions,
+                    y=sample
+                )
 
     def _graph_fn_add_noise(self, use_exploration, noise, sample):
         """
