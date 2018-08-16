@@ -193,13 +193,13 @@ class DQNAgent(Agent):
             if self.double_q:
                 q_values_sp = self_.call(policy.get_q_values, preprocessed_next_states)
 
-            step_op, loss, loss_per_item = self_.call(self_.optimize, q_values_s, actions, rewards, terminals,
-                              qt_values_sp, q_values_sp, importance_weights)
-            # loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-            #     qt_values_sp, q_values_sp, importance_weights)
-            #
-            # policy_vars = self_.call(policy._variables)
-            # step_op = self_.call(optimizer.step, policy_vars, loss)
+            # step_op, loss, loss_per_item = self_.call(self_.optimize, q_values_s, actions, rewards, terminals,
+            #                   qt_values_sp, q_values_sp, importance_weights)
+            loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
+                qt_values_sp, q_values_sp, importance_weights)
+
+            policy_vars = self_.call(policy._variables)
+            step_op = self_.call(optimizer.step, policy_vars, loss)
             return step_op, loss, loss_per_item, q_values_s
 
         self.core_component.define_api_method("update_from_external_batch", update_from_external_batch)
@@ -235,7 +235,7 @@ class DQNAgent(Agent):
             step_op = self.call(optimizer.apply_gradients, grads_and_vars)
             return step_op, loss, loss_per_item
 
-        self.core_component.define_api_method("optimize", optimize)
+        # self.core_component.define_api_method("optimize", optimize)
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
