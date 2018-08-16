@@ -44,17 +44,6 @@ class SingleDataOp(DataOp):
     """
     pass
 
-    #def __init__(self, constant_value=None):
-    #    """
-    #    Args:
-    #        constant_value (any): A constant value this SingleDataOp holds instead of an actual op.
-    #            This value is always converted into a numpy array (even if it's a scalar python primitive).
-    #    """
-    #    # Numpy'ize scalar values (tf doesn't sometimes like python primitives).
-    #    if isinstance(constant_value, (float, int, bool)):
-    #        constant_value = np.array(constant_value)
-    #    self.constant_value = constant_value
-
 
 class ContainerDataOp(DataOp):
     """
