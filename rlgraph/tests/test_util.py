@@ -104,12 +104,15 @@ def recursive_assert_almost_equal(x, y, decimals=7):
                                  "x ({} vs {})!".format(len(y), len(x))
         for i, value in enumerate(x):
             recursive_assert_almost_equal(value, y[i], decimals=decimals)
-    # Boolean stuff.
+    # Boolean comparison.
     elif isinstance(x, (np.bool_, bool)):
         assert bool(x) is bool(y), "ERROR: x ({}) is not y ({})!".format(x, y)
     # Nones.
     elif x is None or y is None:
         assert x == y, "ERROR: x ({}) is not the same as y ({})!".format(x, y)
-    # Everything else.
+    # String comparison.
+    elif x.dtype == np.object:
+        np.testing.assert_array_equal(x, y)
+    # Everything else (assume numeric).
     else:
         np.testing.assert_almost_equal(x, y, decimal=decimals)
