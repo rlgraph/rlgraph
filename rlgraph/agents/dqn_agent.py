@@ -193,11 +193,13 @@ class DQNAgent(Agent):
             if self.double_q:
                 q_values_sp = self_.call(policy.get_q_values, preprocessed_next_states)
 
-            loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-                qt_values_sp, q_values_sp, importance_weights)
-
-            policy_vars = self_.call(policy._variables)
-            step_op = self_.call(optimizer.step, policy_vars, loss)
+            step_op, loss, loss_per_item = self_.call(self_.optimize, q_values_s, actions, rewards, terminals,
+                              qt_values_sp, q_values_sp, importance_weights)
+            # loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
+            #     qt_values_sp, q_values_sp, importance_weights)
+            #
+            # policy_vars = self_.call(policy._variables)
+            # step_op = self_.call(optimizer.step, policy_vars, loss)
             return step_op, loss, loss_per_item, q_values_s
 
         self.core_component.define_api_method("update_from_external_batch", update_from_external_batch)
@@ -225,16 +227,15 @@ class DQNAgent(Agent):
         # TODO: is not plugged in yet,
         # Generic optimization method which we can replace for device strategies.
         # This method should receive as inputs everything the loss function and optimizer need.
-        def optimize(self_, *loss_inputs):
-            # TODO: no fixtures from here to outer scope (e.g. loss_function must be replaced with something like: self.sub_components["loss-func"]
-            loss, loss_per_item = self_.call(loss_function.loss, *loss_inputs)
+        def optimize(self, *loss_inputs):
+            loss, loss_per_item = self.call(loss_function.loss, *loss_inputs)
 
-            policy_vars = self_.call(policy._variables)
-            grads_and_vars = self_.call(optimizer.calculate_gradients, policy_vars, loss)
-            step_op = self_.call(optimizer.apply_gradients, grads_and_vars)
+            policy_vars = self.call(policy._variables)
+            grads_and_vars = self.call(optimizer.calculate_gradients, policy_vars, loss)
+            step_op = self.call(optimizer.apply_gradients, grads_and_vars)
             return step_op, loss, loss_per_item
 
-        # self.core_component.define_api_method("optimize", optimize)
+        self.core_component.define_api_method("optimize", optimize)
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
