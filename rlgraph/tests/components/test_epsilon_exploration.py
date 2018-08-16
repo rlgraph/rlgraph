@@ -68,6 +68,9 @@ class TestEpslionExploration(unittest.TestCase):
         mean = out.mean()
         self.assertAlmostEqual(mean, 0.15, places=1)
 
+    """
+    TAKE OUT FOR NOW: doesn't make sense to explore with a sequence of time-steps at the same time.
+    Will revisit when we look into multi-agent RL.
     def test_epsilon_exploration_with_time_rank(self):
         time_step_space = IntBox(add_time_rank=True)
         sample_space = FloatBox(add_batch_rank=True, add_time_rank=True, time_major=True)
@@ -89,3 +92,4 @@ class TestEpslionExploration(unittest.TestCase):
         recursive_assert_almost_equal(out[-1], [False] * 5)
         mean = out.mean()
         self.assertAlmostEqual(mean, 0.65, places=1)
+    """

@@ -66,7 +66,7 @@ class EpsilonExploration(Component):
         self.sample_space = input_spaces["sample"]
         sanity_check_space(self.sample_space, must_have_batch_rank=True)
 
-    def do_explore(self, sample, time_step):
+    def do_explore(self, sample, time_step=0):
         """
         API-method taking a timestep and returning a bool type tensor on whether to explore or not (per batch item).
 
@@ -84,6 +84,4 @@ class EpsilonExploration(Component):
         if get_backend() == "tf":
             shape = tf.shape(sample)
             batch_time_shape = (shape[0],) + ((shape[1],) if self.sample_space.has_time_rank is True else ())
-            if self.sample_space.has_time_rank:
-                decayed_value = tf.expand_dims(decayed_value, axis=1)
             return tf.random_uniform(shape=batch_time_shape) < decayed_value

@@ -155,8 +155,10 @@ class Agent(Specifiable):
         self.update_spec = parse_update_spec(update_spec)
 
         # Create our GraphBuilder and -Executor.
-        self.graph_builder = GraphBuilder(action_space=self.action_space, summary_spec=summary_spec,
-                                          core_component=self.core_component)
+        self.graph_builder = GraphBuilder(
+            action_space=self.action_space, summary_spec=summary_spec,
+            core_component=self.core_component
+        )
         self.graph_executor = GraphExecutor.from_spec(
             get_backend(),
             graph_builder=self.graph_builder,
