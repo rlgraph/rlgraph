@@ -32,43 +32,22 @@ from rlgraph.tests import ComponentTest
 
 class TestExplorations(unittest.TestCase):
 
-    def test_epsilon_exploration(self):
-        # TODO not portable, redo.
-        return
-        # Decaying a value always without batch dimension (does not make sense for global time step).
-        time_step_space = IntBox(add_batch_rank=False)
-        sample_space = FloatBox(add_batch_rank=True)
-
-        # The Component(s) to test.
-        decay_component = LinearDecay(from_=1.0, to_=0.0, start_timestep=0, num_timesteps=1000)
-        epsilon_component = EpsilonExploration(decay_spec=decay_component)
-        test = ComponentTest(component=epsilon_component, input_spaces=dict(sample=sample_space,
-                                                                            time_step=time_step_space))
-
-        # Values to pass as single items.
-        input_ = np.array([0, 1, 2, 25, 50, 100, 110, 112, 120, 130, 150, 180, 190, 195, 200, 201, 210, 250, 386,
-                           670, 789, 900, 923, 465, 894, 91, 1000])
-        expected = np.array([True, True, True, True, True, True, True, True, True, True, True, True, True, True, True,
-                             True, True, False, True, True, False, False, False, False, False, True, False])
-        for i, e in zip(input_, expected):
-            # Only pass in sample (zeros) for the batch rank.
-            test.test(("do_explore", [np.zeros(shape=(1,)), i]), expected_outputs=e)
-
     def test_exploration_with_discrete_action_space(self):
-        # TODO not portable, redo.
-        return
+        nn_output_space = FloatBox(shape=(13,), add_batch_rank=True)  # 13: Any flat nn-output should be ok.
+        time_step_space = IntBox(10000)
         # 2x2 action-pick, each composite action with 5 categories.
         action_space = IntBox(5, shape=(2, 2), add_batch_rank=True)
+
         # Our distribution to go into the Exploration object.
         distribution = Categorical()
         action_adapter = ActionAdapter(action_space=action_space)
-        nn_output_space = FloatBox(shape=(13,), add_batch_rank=True)  # 13: Any flat nn-output should be ok.
+
         exploration = Exploration.from_spec(dict(
             epsilon_spec=dict(
                 decay_spec=dict(
                     type="linear_decay",
                     from_=1.0,
-                    to_=0.1,
+                    to_=0.0,
                     start_timestep=0,
                     num_timesteps=10000
                 )
@@ -78,33 +57,54 @@ class TestExplorations(unittest.TestCase):
         exploration_pipeline = Component(action_adapter, distribution, exploration, scope="exploration-pipeline")
 
         def get_action(self, nn_output, time_step):
-            _, parameters, _ = self_.call(action_adapter.get_logits_parameters_log_probs, nn_output)
-            sample_stochastic = self_.call(distribution.sample_stochastic, parameters)
-            sample_deterministic = self_.call(distribution.sample_deterministic, parameters)
-            action = self_.call(exploration.get_action, sample_stochastic, sample_deterministic, time_step)
+            _, parameters, _ = self.call(action_adapter.get_logits_parameters_log_probs, nn_output)
+            sample = self.call(distribution.sample_deterministic, parameters)
+            action = self.call(exploration.get_action, sample, time_step)
             return action
 
         exploration_pipeline.define_api_method("get_action", get_action)
 
-        test = ComponentTest(component=exploration_pipeline,
-                             input_spaces=dict(nn_output=nn_output_space, time_step=int),
-                             action_space=action_space)
+        test = ComponentTest(
+            component=exploration_pipeline,
+            input_spaces=dict(nn_output=nn_output_space, time_step=int),
+            action_space=action_space
+        )
 
-        # fake output from last NN layer (shape=(13,))
-        inputs = [
-            np.array([[100.0, 50.0, 25.0, 12.5, 6.25,
-                       200.0, 100.0, 50.0, 25.0, 12.5,
-                       1.0, 1.0, 25.0
-                       ],
-                      [123.4, 34.7, 98.2, 1.2, 120.0,
-                       200.0, 200.0, 0.00009, 10.0, 300.0,
-                       0.567, 0.678, 0.789
-                       ]
-                      ]),
-            10000
-        ]
-        expected = np.array([[[1, 2], [2, 4]], [[2, 1], [0, 3]]])
-        test.test(("get_action", inputs), expected_outputs=expected)
+        # With exploration: Check, whether actions are equally distributed.
+        nn_outputs = nn_output_space.sample(2)
+        time_steps = time_step_space.sample(30)
+        # Collect action-batch-of-2 for each of our various random time steps.
+        # Each action is an int box of shape=(2,2)
+        actions = np.ndarray(shape=(30, 2, 2, 2), dtype=np.int)
+        for i, time_step in enumerate(time_steps):
+            actions[i] = test.test(("get_action", [nn_outputs, time_step]), expected_outputs=None)
+
+        # Assert some distribution of the actions.
+        mean_action = actions.mean()
+        stddev_action = actions.std()
+        self.assertAlmostEqual(mean_action, 2.0, places=0)
+        self.assertAlmostEqual(stddev_action, 1.0, places=0)
+
+        # Without exploration (epsilon is force-set to 0.0): Check, whether actions are always the same
+        # (given same nn_output all the time).
+        nn_outputs = nn_output_space.sample(2)
+        time_steps = time_step_space.sample(30) + 10000
+        # Collect action-batch-of-2 for each of our various random time steps.
+        # Each action is an int box of shape=(2,2)
+        actions = np.ndarray(shape=(30, 2, 2, 2), dtype=np.int)
+        for i, time_step in enumerate(time_steps):
+            actions[i] = test.test(("get_action", [nn_outputs, time_step]), expected_outputs=None)
+
+        # Assert zero stddev of the single action components.
+        stddev_action_a = actions[:, 0, 0, 0].std()  # batch item 0, action-component (0,0)
+        self.assertAlmostEqual(stddev_action_a, 0.0, places=1)
+        stddev_action_b = actions[:, 1, 1, 0].std()  # batch item 1, action-component (1,0)
+        self.assertAlmostEqual(stddev_action_b, 0.0, places=1)
+        stddev_action_c = actions[:, 0, 0, 1].std()  # batch item 0, action-component (0,1)
+        self.assertAlmostEqual(stddev_action_c, 0.0, places=1)
+        stddev_action_d = actions[:, 1, 1, 1].std()  # batch item 1, action-component (1,1)
+        self.assertAlmostEqual(stddev_action_d, 0.0, places=1)
+        self.assertAlmostEqual(actions.std(), 1.0, places=0)
 
     def test_exploration_with_continuous_action_space(self):
         # TODO not portable, redo.
