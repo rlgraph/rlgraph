@@ -24,7 +24,6 @@ import unittest
 from rlgraph.components.component import Component
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.explorations.exploration import Exploration, EpsilonExploration
-from rlgraph.components.common.decay_components import LinearDecay
 from rlgraph.components.distributions import Categorical, Normal
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
@@ -107,7 +106,7 @@ class TestExplorations(unittest.TestCase):
         self.assertAlmostEqual(actions.std(), 1.0, places=0)
 
     def test_exploration_with_continuous_action_space(self):
-        # TODO not portable, redo.
+        # TODO not portable, redo with more general mean/stddev checks over a sample of distributed outputs.
         return
         # 2x2 action-pick, each composite action with 5 categories.
         action_space = FloatBox(shape=(2,2), add_batch_rank=True)

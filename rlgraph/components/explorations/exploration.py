@@ -49,7 +49,7 @@ class Exploration(Component):
         """
         super(Exploration, self).__init__(scope=scope, **kwargs)
 
-        self.action_space = None
+        self.action_space = None  # The actual action space (may not have batch-rank, just the plain space)
 
         self.epsilon_exploration = None
         self.noise_component = None
@@ -64,7 +64,7 @@ class Exploration(Component):
             self.add_components(self.epsilon_exploration)
 
             # Define our interface.
-            def get_action(self, actions, time_step=0, use_exploration=True):
+            def get_action(self, actions, time_step, use_exploration=True):
                 epsilon_decisions = self.call(self.epsilon_exploration.do_explore, actions, time_step)
                 return self.call(
                     self._graph_fn_pick, use_exploration, epsilon_decisions, actions
@@ -87,9 +87,11 @@ class Exploration(Component):
         self.define_api_method("get_action", get_action)
 
     def check_input_spaces(self, input_spaces, action_space=None):
+        action_sample_space = input_spaces["actions"]
+        sanity_check_space(action_sample_space, must_have_batch_rank=True)
+
         assert action_space is not None
         self.action_space = action_space
-        sanity_check_space(self.action_space, must_have_batch_rank=True)
 
         if self.epsilon_exploration and self.noise_component:
             # Check again at graph creation? This is currently redundant to the check in __init__
