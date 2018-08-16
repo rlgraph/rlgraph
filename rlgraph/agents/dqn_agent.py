@@ -189,11 +189,10 @@ class DQNAgent(Agent):
             q_values_s = self_.call(policy.get_q_values, preprocessed_states)
             qt_values_sp = self_.call(target_policy.get_q_values, preprocessed_next_states)
 
+            q_values_sp = None
             if self.double_q:
                 q_values_sp = self_.call(policy.get_q_values, preprocessed_next_states)
-            else:
-                # These will be not used here, we just cant have None if it's not the last argument.
-                q_values_sp = q_values_s
+
             loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
                 qt_values_sp, q_values_sp, importance_weights)
 
@@ -210,12 +209,10 @@ class DQNAgent(Agent):
             q_values_s = self_.call(policy.get_q_values, preprocessed_states)
             qt_values_sp = self_.call(target_policy.get_q_values, preprocessed_next_states)
 
+            q_values_sp = None
             if self.double_q:
                 q_values_sp = self_.call(policy.get_q_values, preprocessed_next_states)
-            else:
-                # TODO: make this None when we support Nones non-last arguments in APi-methods.
-                # These will be not used here, we just cant have None if it's not the last argument.
-                q_values_sp = q_values_s
+
             loss, loss_per_item = self_.call(
                 loss_function.loss, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp,
                 importance_weights
