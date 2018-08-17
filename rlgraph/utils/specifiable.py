@@ -92,7 +92,7 @@ class Specifiable(object):
         # `ctor_kwargs`: **kwargs arguments for the constructor.
         # Copy so caller can reuse safely.
         spec = deepcopy(spec)
-        if isinstance(spec, dict):
+        if isinstance(spec, dict) and not isinstance(spec, cls):  # <- Protect our `Dict` class against the dict-check.
             if "type" in spec:
                 type_ = spec.pop("type", None)
             else:
