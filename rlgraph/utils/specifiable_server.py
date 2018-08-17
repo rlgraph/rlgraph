@@ -38,6 +38,7 @@ class SpecifiableServer(Specifiable):
     in-graph fashion for faster Agent-Environment stepping.
     """
 
+    # Class instances get registered/deregistered here.
     INSTANCES = list()
 
     def __init__(self, class_, spec, output_spaces, shutdown_method=None):
@@ -78,7 +79,7 @@ class SpecifiableServer(Specifiable):
         self.in_pipe = None
 
         # Register this object with the class.
-        #self.INSTANCES.append(self)
+        self.INSTANCES.append(self)
 
     def __getattr__(self, method_name):
         """
@@ -103,8 +104,9 @@ class SpecifiableServer(Specifiable):
                 specs = self.output_spaces(method_name)
 
             if specs is None:
-                raise RLGraphError("No Space information received for method '{}:{}'".format(self.class_.__name__,
-                                                                                             method_name))
+                raise RLGraphError(
+                    "No Space information received for method '{}:{}'".format(self.class_.__name__, method_name)
+                )
 
             dtypes = list()
             shapes = list()
@@ -161,7 +163,9 @@ class SpecifiableServer(Specifiable):
         # Create the in- and out- pipes to communicate with the proxy-Specifiable.
         self.out_pipe, self.in_pipe = multiprocessing.Pipe()
         # Create and start the process passing it the spec to construct the desired Specifiable object..
-        self.process = multiprocessing.Process(target=self.run, args=(self.class_, self.spec, self.in_pipe))
+        self.process = multiprocessing.Process(
+            target=self.run, args=(self.class_, self.spec, self.in_pipe, self.shutdown_method)
+        )
         self.process.start()
 
         # Wait for the "ready" signal (which is None).
@@ -184,7 +188,10 @@ class SpecifiableServer(Specifiable):
         proxy_object = None
         try:
             # Construct the Specifiable object.
+            print("SpecifiableServer: Constructing Specifiable object. ...")
             proxy_object = class_.from_spec(spec)
+            print("SpecifiableServer: Done constructing Specifiable object '{}'. Sending 'ready' signal "
+                  "...".format(proxy_object))
 
             # Send the ready signal (no errors).
             in_pipe.send(None)
@@ -197,13 +204,15 @@ class SpecifiableServer(Specifiable):
                 if command is None:
                     # Give the proxy_object a chance to clean up via some `shutdown_method`.
                     if shutdown_method is not None and hasattr(proxy_object, shutdown_method):
+                        print("SpecifiableServer: Calling shutdown method '{}'. ...".format(shutdown_method))
                         getattr(proxy_object, shutdown_method)()
+                    print("SpecifiableServer: Closing pipe.")
                     in_pipe.close()
                     return
 
                 # Call the method with the given args.
                 method_name = command[0].decode()  # must decode here as method_name comes in as bytes
-                print(method_name + " is called on Server.")
+                # print(method_name + " is called on Server.")
                 inputs = command[1:]
                 results = getattr(proxy_object, method_name)(*inputs)
 
@@ -228,18 +237,27 @@ if get_backend() == "tf":
         A hook for a tf.MonitoredSession that takes care of automatically starting and stopping
         SpecifiableServer objects.
         """
+        def __init__(self):
+            self.specifiable_buffer = list()
+
         def begin(self):
             """
             Starts all registered RLGraphProxyProcess processes.
             """
             tp = multiprocessing.pool.ThreadPool()
             tp.map(lambda server: server.start(), SpecifiableServer.INSTANCES)
+
+            # Erase all SpecifiableServers as we open the Session (after having started all of them),
+            # so new ones can get registered.
+            self.specifiable_buffer = SpecifiableServer.INSTANCES[:]  # deepcopy items
+            SpecifiableServer.INSTANCES.clear()
+
             tp.close()
             tp.join()
 
         def end(self, session):
             tp = multiprocessing.pool.ThreadPool()
-            tp.map(lambda server: server.close(), SpecifiableServer.INSTANCES)
+            tp.map(lambda server: server.close(), self.specifiable_buffer)
             tp.close()
             tp.join()
 
