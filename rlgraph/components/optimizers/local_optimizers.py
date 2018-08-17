@@ -30,11 +30,10 @@ class LocalOptimizer(Optimizer):
     A local optimizer performs optimization irrespective of any distributed semantics, i.e.
     it has no knowledge of other machines and does not implement any communications with them.
     """
-    def __init__(self, learning_rate, two_step=False, clip_grad_norm=None, **kwargs):
+    def __init__(self, learning_rate, clip_grad_norm=None, **kwargs):
         super(LocalOptimizer, self).__init__(
             learning_rate=learning_rate, scope=kwargs.pop("scope", "local-optimizer"), **kwargs
         )
-        self.two_step = two_step
         self.clip_grad_norm = clip_grad_norm
         if self.clip_grad_norm is not None:
             assert isinstance(self.clip_grad_norm, float) or isinstance(self.clip_grad_norm, int),\
@@ -43,31 +42,15 @@ class LocalOptimizer(Optimizer):
         # The wrapped, backend-specific optimizer object.
         self.optimizer = None
 
-        # Two-step optimizer: User has to feed back in the zipped gradients and variables for application step.
-        # TODO do this via a run function called 'step'?
-        if self.two_step is True:
-            pass
-            #def step(self, *inputs):
-            #    grads_and_vars = self.call(self._graph_fn_calculate_gradients, *inputs)
-            #    return self.call(self_._graph_fn_apply_gradients, grads_and_vars)
-
-        # One-step optimizer: Returns grads_and_vars and loss (convenience pass through).
-        else:
-            def step(self_, variables, loss, *inputs):
-                grads_and_vars = self_.call(self_._graph_fn_calculate_gradients, variables, loss, *inputs)
-                return self_.call(self_._graph_fn_apply_gradients, grads_and_vars)
-
-        self.define_api_method("step", step)
-
-        # TODO replace step with this? needed for multi gpu swap in
-        def optimize(self_, policy_vars, loss, loss_per_item, *inputs):
-            # Why does this have inputs? Because in multi gpu mode, we pass them
+        def step(self_, variables, loss, loss_per_item, *inputs):
+            # Why does this have *inputs? Because in multi gpu mode, we pass them
             # to the subgraphs. In single device mode, we directly use the policy vars
             # and loss
-            grads_and_vars = self_.call(self_._graph_fn_calculate_gradients, policy_vars, loss)
+            grads_and_vars = self_.call(self_._graph_fn_calculate_gradients, variables, loss)
             step_op = self_.call(self_._graph_fn_apply_gradients, grads_and_vars)
+
             return step_op, loss, loss_per_item
-        #self.define_api_method("optimize", optimize, must_be_complete=False)
+        self.define_api_method("step", step, must_be_complete=False)
 
     def create_variables(self, input_spaces, action_space=None):
         # TODO: problem dont exist here

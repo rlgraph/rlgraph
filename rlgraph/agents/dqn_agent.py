@@ -196,16 +196,11 @@ class DQNAgent(Agent):
             loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
                 qt_values_sp, q_values_sp, importance_weights)
 
-            # TODO this is slightly unelegant because we pass in both loss and arguments - again
-            # TODO: reason is slight friction between device modes.
-            # Everything after here is generically swappable:
-            # policy_vars = self_.call(policy._variables)
-            # step_op, loss, loss_per_item = self_.call(optimizer.optimize, policy_vars, loss, loss_per_item,
-            #                                           q_values_s, actions, rewards, terminals,
-            #                                           qt_values_sp, q_values_sp, importance_weights)
-
+            # Args are passed in again because some device strategies may want to split them to different devices.
             policy_vars = self_.call(policy._variables)
-            step_op = self_.call(optimizer.step, policy_vars, loss)
+            step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item,
+                                                      q_values_s, actions, rewards, terminals,
+                                                      qt_values_sp, q_values_sp, importance_weights)
             return step_op, loss, loss_per_item, q_values_s
 
         self.core_component.define_api_method("update_from_external_batch", update_from_external_batch)

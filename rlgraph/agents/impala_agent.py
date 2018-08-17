@@ -148,7 +148,9 @@ class IMPALAAgent(Agent):
                                              qt_values_sp, q_values_sp)
 
             policy_vars = self.call(policy._variables)
-            step_op = self.call(optimizer.step, policy_vars, loss)
+            # Pass extra args for device strategy.
+            step_op = self.call(optimizer.step, policy_vars, loss, q_values_s, actions, rewards, terminals,
+                                             qt_values_sp, q_values_sp)
 
             # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
             return step_op, loss, loss_per_item, records, q_values_s
