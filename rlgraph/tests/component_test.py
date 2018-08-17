@@ -149,3 +149,10 @@ class ComponentTest(object):
         Convenience wrapper: See implementation of `recursive_assert_almost_equal` for details.
         """
         recursive_assert_almost_equal(outs, expected_outputs, decimals=decimals)
+
+    def terminate(self):
+        """
+        Terminates this ComponentTest object (so it can no longer be used) allowing for cleanup
+        operations to be executed.
+        """
+        self.graph_executor.terminate()

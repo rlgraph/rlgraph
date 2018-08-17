@@ -189,3 +189,11 @@ class GraphExecutor(Specifiable):
             ValueError if weights do not match graph weights in shapes and types.
         """
         raise NotImplementedError
+
+    def terminate(self):
+        """
+        Terminates the GraphExecutor, so it will no longer be usable.
+        Things that need to be cleaned up should be placed into this function, e.g. closing sessions
+        and other open connections.
+        """
+        pass  # optional

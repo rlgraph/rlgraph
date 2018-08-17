@@ -341,6 +341,14 @@ class Agent(Specifiable):
         """
         pass  # optional
 
+    def terminate(self):
+        """
+        Terminates the Agent, so it will no longer be usable.
+        Things that need to be cleaned up should be placed into this function, e.g. closing sessions
+        and other open connections.
+        """
+        self.graph_executor.terminate()
+
     def call_api_method(self, op, inputs=None):
         """
         Utility method to call any desired api method on the graph, identified via output socket.
