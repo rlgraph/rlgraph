@@ -219,8 +219,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         state_space = dummy_env.state_space
         action_space = dummy_env.action_space
         actor_component = ActorComponent(
-            # Preprocessor spec.
-            dict(image=[dict(type="divide", divisor=255)]),
+            # Preprocessor spec (only for the image channel).
+            dict(RGB_INTERLEAVED=[dict(type="divide", divisor=255)]),
             # Policy spec.
             dict(neural_network=LargeIMPALANetwork(), action_space=action_space),
             # Exploration spec.
