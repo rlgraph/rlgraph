@@ -18,18 +18,19 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
+import numpy as np
 import unittest
-from rlgraph.agents import Agent
+
+from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.neural_networks.policy import Policy
-from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.papers.impala.large_impala_network import LargeIMPALANetwork
 from rlgraph.components.explorations import Exploration
-from rlgraph.environments import RandomEnv
-from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
+from rlgraph.environments import Environment, DeepmindLabEnv
 from rlgraph.spaces import *
+from rlgraph.utils.ops import DataOpTuple
 from rlgraph.tests.component_test import ComponentTest
-from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
+from rlgraph.tests.test_util import recursive_assert_almost_equal
 from rlgraph.utils import root_logger
 
 
@@ -209,27 +210,71 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             )
         )
 
-    # TODO move this to test_all_compile once it works.
-    def test_impala_assembly(self):
-        """
-        Creates an IMPALAAgent and runs it for a few steps in the RandomEnv.
-        """
-        env = RandomEnv(state_space=FloatBox(shape=(2,)), action_space=IntBox(2), deterministic=True)
-        agent = Agent.from_spec(
-            config_from_path("configs/impala_agent_for_random_env.json"),
-            state_space=env.state_space,
-            action_space=env.action_space
+    def test_environment_stepper_component_with_large_impala_architecture(self):
+        env_spec = dict(
+            type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
+            frameskip=4
+        )
+        dummy_env = Environment.from_spec(env_spec)
+        state_space = dummy_env.state_space
+        action_space = dummy_env.action_space
+        actor_component = ActorComponent(
+            # Preprocessor spec.
+            dict(image=[dict(type="divide", divisor=255)]),
+            # Policy spec.
+            dict(neural_network=LargeIMPALANetwork(), action_space=action_space),
+            # Exploration spec.
+            Exploration(epsilon_spec=dict(decay_spec=dict(
+                type="linear_decay", from_=1.0, to_=0.1, start_timestep=0, num_timesteps=100)
+            ))
+        )
+        environment_stepper = EnvironmentStepper(
+            environment_spec=env_spec,
+            actor_component_spec=actor_component,
+            state_space=state_space,
+            reward_space="float64"
         )
 
-        worker = SingleThreadedWorker(environment=env, agent=agent)
-        timesteps = 100
-        results = worker.execute_timesteps(timesteps, use_exploration=False)
+        test = ComponentTest(
+            component=environment_stepper,
+            input_spaces=dict(num_steps=int, time_step=int),
+            action_space=action_space
+        )
 
-        print(results)
+        # Reset the stepper.
+        test.test("reset")
 
-        self.assertEqual(results["timesteps_executed"], timesteps)
-        self.assertEqual(results["env_frames"], timesteps)
-        # Assert deterministic execution of Env and Agent.
-        #self.assertAlmostEqual(results["mean_episode_reward"], 5.923551400230593)
-        #self.assertAlmostEqual(results["max_episode_reward"], 14.312868008192979)
-        #self.assertAlmostEqual(results["final_episode_reward"], 0.14325251090518198)
+        # Step n times through the Env and collect results.
+        # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
+        # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
+        time_steps = 2000
+        out = test.test(("step", [time_steps, 0]), expected_outputs=None)
+
+        # Check types of outputs.
+        self.assertTrue(out[0] is None)  # the step op (no_op).
+        self.assertTrue(isinstance(out[1], DataOpTuple))  # the step results as a tuple (see below)
+
+        # Check types of single data.
+        self.assertTrue(out[1][0].dtype == np.float32)  # preprocessed states
+        self.assertTrue(out[1][0].min() >= 0.0)  # make sure we have pixels / 255
+        self.assertTrue(out[1][0].max() <= 1.0)
+        self.assertTrue(out[1][1].dtype == np.int32)  # actions
+        self.assertTrue(out[1][2].dtype == np.float64)  # rewards
+        self.assertTrue(out[1][3].dtype == np.float64)  # episode return
+        self.assertTrue(out[1][4].dtype == np.bool_)  # next-state is terminal?
+        self.assertTrue(out[1][5].dtype == np.uint8)  # next state (raw, not preprocessed)
+        self.assertTrue(out[1][5].min() >= 0)  # make sure we have pixels
+        self.assertTrue(out[1][5].max() <= 255)
+
+        # Check whether episode returns match single rewards (including terminal signals).
+        episode_returns = 0.0
+        for i in range(time_steps):
+            episode_returns += out[1][2][i]
+            self.assertAlmostEqual(episode_returns, out[1][3][i])
+            # Terminal: Reset for next step.
+            if out[1][4][i] is np.bool_(True):
+                episode_returns = 0.0
+
+        # Make sure we close the session (to shut down the Env on the server).
+        test.terminate()
+
