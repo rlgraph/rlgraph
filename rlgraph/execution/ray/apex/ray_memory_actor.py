@@ -27,7 +27,6 @@ if get_distributed_backend() == "ray":
     import ray
 
 
-@ray.remote
 class RayMemoryActor(RayActor):
     """
     An in-memory prioritized replay worker used to accelerate memory interaction in Ape-X.
@@ -44,6 +43,10 @@ class RayMemoryActor(RayActor):
         self.clip_rewards = apex_replay_spec.get("clip_rewards", True)
         self.sample_batch_size = apex_replay_spec["sample_batch_size"]
         self.memory = ApexMemory(**apex_replay_spec["memory_spec"])
+
+    @classmethod
+    def as_remote(cls, num_cpus=None, num_gpus=None):
+        return ray.remote(num_cpus=num_cpus, num_gpus=num_gpus)(cls)
 
     def get_batch(self):
         """

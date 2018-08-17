@@ -22,7 +22,7 @@ import tensorflow as tf
 from tensorflow.python.client import device_lib
 
 from rlgraph import RLGraphError
-from rlgraph.components import MultiGpuSyncOptimizer, BatchSplitter
+from rlgraph.components.optimizers.multi_gpu_sync_optimizer import MultiGpuSyncOptimizer
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.backend_system import get_distributed_backend
 import rlgraph.utils as util
@@ -638,39 +638,6 @@ class TensorFlowExecutor(GraphExecutor):
             # 4. Pass the graph copies and the splitter containing the info how to split batches into tensors.
             dict_splitter = master_component.sub_component_by_name("splitter")
             optimizer.set_replicas(subgraphs, dict_splitter)
-            batch_splitter = BatchSplitter(self.num_gpus)
-            master_component.add_components(batch_splitter)
-
-            # 5. Swap in update method which performs the following steps:
-            # - Init device memory, i.e. load batch to GPU memory.
-            # - Call gradient calculation on multi-gpu optimizer which splits batch
-            #   and gets gradients from each subgraph, then averages them.
-            # - Apply averaged gradients to master component.
-            # - Sync new weights to subgraphs.
-            # We simply swap this update method in place to enable multi-gpu processing on any agent.
-            def optimize_subgraphs(self, *inputs):
-                # TODO: 1) replace all self_ by self 2) Make sure we have no fixtures (links to outer scope) in here.
-                input_batches = self.call(batch_splitter.split_batch, *inputs)
-
-                # Load to device, return.
-                input_batches = self.call(optimizer._graph_fn_load_to_device, input_batches)
-
-                # Multi gpu optimizer passes shards to the respective subg-raphs.
-                averaged_grads = self.call(optimizer._graph_fn_calculate_gradients, input_batches)
-
-                # Apply averaged grads to main policy.
-                update_op = self.call(optimizer._graph_fn_apply_gradients, averaged_grads)
-
-                # Get master weights
-                weights = self.call("get_policy_weights")
-                for i, shard in enumerate(subgraphs):
-                    # Sync weights to shards
-                    subgraphs[i].call("set_policy_weights", weights)
-
-                return update_op
-
-            # Swap update method in place.
-            master_component.define_api_method("optimize", optimize_subgraphs)
 
     def _sanity_check_devices(self):
         """
