@@ -47,7 +47,7 @@ class LargeIMPALANetwork(NeuralNetwork):
         # Create all needed sub-components.
 
         # DictSplitter for the Env signal (dict of 4 keys: for env image, env text, previous action and reward).
-        self.splitter = DictSplitter("image", "text", "previous_action", "previous_reward")
+        self.splitter = DictSplitter("RGB_INTERLEAVED", "INSTR", "previous_action", "previous_reward")
 
         # The Image Processing Stack (left side of "Large Architecture" Figure 3 in [1]).
         # Conv2D column + ReLU + fc(256) + ReLU.
