@@ -55,6 +55,8 @@ class MultiGpuSyncOptimizer(Optimizer):
         # Device names and variables.
         self.gpu_devices = None
         self.sub_graph_vars = None
+        # Name of loss, e.g. the scope. Needed to fetch losses from subcomponents.
+        self.loss_name = None
 
         # Split input shards.
         self.batch_splitter = BatchSplitter(self.num_gpus)
@@ -63,7 +65,7 @@ class MultiGpuSyncOptimizer(Optimizer):
         self.define_api_method("load_to_device", self._graph_fn_load_to_device, flatten_ops=True,
                                split_ops=True, add_auto_key_as_first_param=True)
 
-    def set_replicas(self, component_graphs, dict_splitter):
+    def set_replicas(self, component_graphs, dict_splitter, loss_name):
         """
         Provides the optimizer with a list of sub-graphs to use for splitting batches over GPUs.
 
@@ -71,10 +73,12 @@ class MultiGpuSyncOptimizer(Optimizer):
             component_graphs (list): List of component graphs.
             dict_splitter (DictSplitter): Splitter object containing the keys needed to split an input batch into
                 the shards for each device.
+            loss_name (str): Name of loss component to fetch from sub graphs.
         """
         self.subgraphs = component_graphs
         self.add_components(*component_graphs)
         self.dict_splitter = dict_splitter
+        self.loss_name = loss_name
 
     def create_variables(self, input_spaces, action_space=None):
         super(MultiGpuSyncOptimizer, self).create_variables(input_spaces, action_space)
@@ -120,7 +124,7 @@ class MultiGpuSyncOptimizer(Optimizer):
         averaged_grads = self.call(self._graph_fn_calculate_gradients, input_batches)
 
         # Apply averaged grads to main policy.
-        update_op = self.call(self._graph_fn_apply_gradients, averaged_grads)
+        step_op = self.call(self._graph_fn_apply_gradients, averaged_grads)
 
         # Get master weights.
         weights = self.parent_component.call("get_policy_weights")
@@ -130,7 +134,8 @@ class MultiGpuSyncOptimizer(Optimizer):
             sync_op = self.subgraphs[i].call("set_policy_weights", weights)
             sync_ops.append(sync_op)
 
-        return update_op, sync_ops
+        # TODO this is the main component loss.
+        return step_op, loss, loss_per_item, sync_ops
 
     def _graph_fn_load_to_device(self, key, *device_inputs):
         """
@@ -164,11 +169,20 @@ class MultiGpuSyncOptimizer(Optimizer):
         for i, shard in enumerate(input_batches):
             device_inputs = self.dict_splitter.call("split", shard)
 
-            # Fetch optimizer for this subgraph.
+            # Fetch components for this subgraph.
+            # grads_and_vars = self.call(self._graph_fn_calculate_gradients, variables, loss)
+            # step_op = self.call(self._graph_fn_apply_gradients, grads_and_vars)
             sub_graph_opt = self.subgraphs[i].sub_component_by_name("optimizer")
 
+            sub_graph_policy = self.subgraphs[i].sub_component_by_name("policy")
+            variables = sub_graph_policy._variables
+
+            # Fetch by name, e.g. "dqn-loss-function", passed in by agent.
+            sub_graph_loss_fn = self.subgraphs[i].sub_component_by_name(self.loss_name)
+            loss, loss_per_item = self.call(sub_graph_loss_fn.loss, *device_inputs)
+
             # Obtain gradients for this shard.
-            tower_grads = self.call(sub_graph_opt.calculate_gradients, *device_inputs)
+            tower_grads = self.call(sub_graph_opt.calculate_gradients, variables, loss)
             all_grads_and_vars.append(tower_grads)
 
         # Return averaged gradients.
@@ -179,7 +193,7 @@ class MultiGpuSyncOptimizer(Optimizer):
         These should be the averaged gradients across devices. From the perspective of the
         user of this wrapped optimizer, the API does not change.
         """
-        self.local_optimizer._graph_fn_apply_gradients(grads_and_vars=grads_and_vars)
+        return self.local_optimizer._graph_fn_apply_gradients(grads_and_vars=grads_and_vars)
 
     @staticmethod
     def _average_gradients(gpu_gradients):
