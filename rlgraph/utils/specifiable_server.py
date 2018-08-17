@@ -18,11 +18,10 @@ from __future__ import division
 from __future__ import print_function
 
 import multiprocessing
-import numpy as np
 
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.backend_system import get_backend
-from rlgraph.spaces.space import Space
+from rlgraph.spaces import Space, ContainerSpace
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.util import force_list, dtype
 
@@ -112,6 +111,7 @@ class SpecifiableServer(Specifiable):
             shapes = list()
             return_slots = list()
             for i, space in enumerate(force_list(specs)):
+                assert isinstance(space, Space) and not isinstance(space, ContainerSpace)
                 # Expecting an op (space 0).
                 if space == 0:
                     dtypes.append(0)
@@ -155,7 +155,7 @@ class SpecifiableServer(Specifiable):
             else:
                 raise NotImplementedError
 
-            return results[0] if len(dtypes) == 1 else results
+            return results[0] if len(dtypes) == 1 else tuple(results)
 
         return call
 
