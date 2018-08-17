@@ -52,8 +52,10 @@ class DictSplitter(Component):
         # Keys of in_space must all be part of `self.output_order`.
         for i, name in enumerate(self.output_order):
             if name not in in_space:
-                raise RLGraphError("Item {} in `output_order` of DictSplitter '{}' is not part of the input Space ({})!".
-                                   format(i, self.global_scope, in_space))
+                raise RLGraphError(
+                    "Item {} in `output_order` (value={}) of DictSplitter '{}' is not part of the input Space "
+                    "({})!".format(i, name, self.scope, in_space)
+                )
 
     def _graph_fn_split(self, inputs):
         """
