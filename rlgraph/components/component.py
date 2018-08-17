@@ -199,7 +199,7 @@ class Component(Specifiable):
 
         Args:
             method (callable): The method (graph_fn or API method) to call.
-            *params (DataOpRecord): The DataOpRecords to be used  for calling the method.
+            *params (Union[DataOpRecord,DataOp]): The DataOpRecords/DataOps to be used for calling the method.
 
         Keyword Args:
             flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
