@@ -18,6 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.agents.agent import Agent
+from rlgraph.components.common.environment_stepper import EnvironmentStepper
+from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.loss_functions.impala_loss_function import IMPALALossFunction
 from rlgraph.components.memories.fifo_queue import FIFOQueue
 from rlgraph.spaces import FloatBox, BoolBox
@@ -49,10 +51,15 @@ class IMPALAAgent(Agent):
             exploration_spec = None
             observe_spec = None
             update_spec = kwargs.pop("update_spec", None)
+            environment_spec = None
         # Explorers won't need to learn (no optimizer needed in graph).
         else:
             optimizer_spec = None
             update_spec = kwargs.pop("update_spec", dict(do_updates=False))
+            environment_spec = kwargs.pop("environment_spec", dict(
+                    type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
+                    frameskip=4
+            ))
 
         # Now that we fixed the Agent's spec, call the super constructor.
         super(IMPALAAgent, self).__init__(
@@ -76,7 +83,9 @@ class IMPALAAgent(Agent):
         # Add all our sub-components to the core.
         if self.type == "explorer":
             self.loss_function = None
-            sub_components = [self.preprocessor, self.policy, self.exploration, self.fifo_queue]
+            actor_component = ActorComponent(self.preprocessor, self.policy, self.exploration)
+            env_stepper = EnvironmentStepper(environment_spec, actor_component, state_space, reward_space)
+            sub_components = [env_stepper, self.fifo_queue]
         else:
             # TODO: add loss func options here and to our ctor.
             self.loss_function = IMPALALossFunction()
@@ -101,7 +110,7 @@ class IMPALAAgent(Agent):
         else:
             self.define_api_methods_learner(*sub_components)
 
-    def define_api_methods_explorer(self, preprocessor, policy, exploration, fifo_queue):
+    def define_api_methods_explorer(self, env_stepper, fifo_queue):
         """
         Defines the API-methods used by an IMPALA explorer. Explorers only step through an environment (n-steps at
         a time), collect the results and push them into the FIFO queue. Results include: The actions actually
@@ -109,20 +118,17 @@ class IMPALAAgent(Agent):
         the behavior policy.
 
         Args:
-            preprocessor (PreprocessorStack): The PreprocessorStack to preprocess all states coming from the env.
-            policy (Policy): The Policy Component used to compute actions.
-            exploration (Exploration): The Exploration
+            env_stepper (EnvironmentStepper): The EnvironmentStepper Component to setp through the Env n steps
+                in a single op call.
             fifo_queue (FIFOQueue): The FIFOQueue Component used to enqueue env sample runs (n-step).
         """
         # Perform n-steps in the env and insert the results into our FIFO-queue.
-        def perform_n_steps_and_insert_into_fifo(self, initial_states, initial_time_step, use_exploration=True):
-            # TODO: use a new n-step Component to step through the env and collect results.
-            preprocessed_states = self.call(preprocessor.preprocess, states)
-            sample_deterministic = self.call(policy.sample_deterministic, preprocessed_states)
-            sample_stochastic = self.call(policy.sample_stochastic, preprocessed_states)
-            actions = self.call(exploration.get_action, sample_deterministic, sample_stochastic,
-                                 time_step, use_exploration)
-            return preprocessed_states, actions
+        def perform_n_steps_and_insert_into_fifo(self, num_steps, time_step=0, use_exploration=True):
+            # Take n steps in the environment.
+            results = self.call(env_stepper.step, num_steps, time_step)
+            # Insert results into the FIFOQueue.
+            insert_op = self.call(fifo_queue.insert, results)
+            return insert_op
 
         self.core_component.define_api_method(
             "perform_n_steps_and_insert_into_fifo", perform_n_steps_and_insert_into_fifo
