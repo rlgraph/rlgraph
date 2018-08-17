@@ -42,21 +42,16 @@ class LocalOptimizer(Optimizer):
         # The wrapped, backend-specific optimizer object.
         self.optimizer = None
 
-        def step(self_, variables, loss, loss_per_item, *inputs):
-            # Why does this have *inputs? Because in multi gpu mode, we pass them
-            # to the subgraphs. In single device mode, we directly use the policy vars
-            # and loss
-            grads_and_vars = self_.call(self_._graph_fn_calculate_gradients, variables, loss)
-            step_op = self_.call(self_._graph_fn_apply_gradients, grads_and_vars)
-
-            return step_op, loss, loss_per_item
-        self.define_api_method("step", step, must_be_complete=False)
-
     def create_variables(self, input_spaces, action_space=None):
-        # TODO: problem dont exist here
         # Must register the Optimizer's variables with the Component.
         # self.register_variables(*self.optimizer.variables())
         pass
+
+    def _graph_fn_step(self, variables, loss, loss_per_item, *inputs):
+        grads_and_vars = self.call(self._graph_fn_calculate_gradients, variables, loss)
+        step_op = self.call(self._graph_fn_apply_gradients, grads_and_vars)
+
+        return step_op, loss, loss_per_item
 
     def _graph_fn_calculate_gradients(self, variables, loss):
         """

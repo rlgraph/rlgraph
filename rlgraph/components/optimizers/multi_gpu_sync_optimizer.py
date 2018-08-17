@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+from rlgraph.components.common.batch_splitter import BatchSplitter
 from rlgraph.components.optimizers.optimizer import Optimizer
 from rlgraph.spaces import Dict
 
@@ -55,11 +56,10 @@ class MultiGpuSyncOptimizer(Optimizer):
         self.gpu_devices = None
         self.sub_graph_vars = None
 
-        def step(self):
-            grads_and_vars = self.call(self._graph_fn_calculate_gradients)
-            return self.call(self._graph_fn_apply_gradients, grads_and_vars)
-
-        self.define_api_method("step", step)
+        # Split input shards.
+        self.batch_splitter = BatchSplitter(self.num_gpus)
+        # TODO needed to add?
+        self.add_components(self.batch_splitter)
         self.define_api_method("load_to_device", self._graph_fn_load_to_device, flatten_ops=True,
                                split_ops=True, add_auto_key_as_first_param=True)
 
@@ -102,6 +102,35 @@ class MultiGpuSyncOptimizer(Optimizer):
                     initializer=0
                 )
                 self.sub_graph_vars.append(device_variable)
+
+    def _graph_fn_step(self, variables, loss, loss_per_item, *inputs):
+        # - Init device memory, i.e. load batch to GPU memory.
+        # - Call gradient calculation on multi-gpu optimizer which splits batch
+        #   and gets gradients from each subgraph, then averages them.
+        # - Apply averaged gradients to master component.
+        # - Sync new weights to subgraphs.
+
+        # TODO: 1) replace all self_ by self 2) Make sure we have no fixtures (links to outer scope) in here.
+        input_batches = self.call(self.batch_splitter.split_batch, *inputs)
+
+        # Load to device, return.
+        input_batches = self.call(self._graph_fn_load_to_device, input_batches)
+
+        # Multi gpu optimizer passes shards to the respective subg-raphs.
+        averaged_grads = self.call(self._graph_fn_calculate_gradients, input_batches)
+
+        # Apply averaged grads to main policy.
+        update_op = self.call(self._graph_fn_apply_gradients, averaged_grads)
+
+        # Get master weights.
+        weights = self.parent_component.call("get_policy_weights")
+        sync_ops = []
+        for i, shard in enumerate(self.subgraphs):
+            # Sync weights to shards
+            sync_op = self.subgraphs[i].call("set_policy_weights", weights)
+            sync_ops.append(sync_op)
+
+        return update_op, sync_ops
 
     def _graph_fn_load_to_device(self, key, *device_inputs):
         """
