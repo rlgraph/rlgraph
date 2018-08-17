@@ -52,7 +52,8 @@ class DeepmindLabEnv(Environment):
             frameskip (Optional[Tuple[int,int],int]): How many frames should be skipped with (repeated action and
                 accumulated reward). Default: (2,5) -> Uniformly pull from set [2,3,4].
             config (Optional[dict]): The `config` parameter to be passed into the Lab's constructor.
-                Contains width and height, fps, and other useful parameters.
+                Supports 'width', 'height', 'fps', and other useful parameters.
+                Values must be given as string values. e.g. dict(width='96')
             renderer (str): The `renderer` parameter to be passed into the Lab's constructor.
             level_cache (Optional[object]): An optional custom level caching object to help increase performance
                 when playing many repeating levels. Will be passed as is into the Lab's constructor.
@@ -60,14 +61,15 @@ class DeepmindLabEnv(Environment):
         # Create the wrapped deepmind lab level object.
         self.level_id = level_id
         observations = force_list(observations)
+        config = config or dict(width='96', height='72', fps='60')  # Default config.
         self.level = deepmind_lab.Lab(
-            level=level_id, observations=observations, config=config, renderer=renderer, level_cache=level_cache
+            level_id, observations, config=config, renderer=renderer, level_cache=level_cache
         )
 
         # Dict mapping a discrete action (int) - we don't support continuous actions yet - into a
         # deepmind Lab action vector.
         self.action_list, action_space = self.define_actions(actions)
-        observation_space = self.define_observations(self.level.observation_spec())
+        observation_space = self.define_observations(observations)
         super(DeepmindLabEnv, self).__init__(observation_space, action_space)
 
         self.frameskip = frameskip
@@ -136,26 +138,29 @@ class DeepmindLabEnv(Environment):
         # Return the lookup_list and the RLgraph action Space.
         return lookup_list, IntBox(len(actions_spec))
 
-    @staticmethod
-    def define_observations(observation_spec):
+    def define_observations(self, observation_spec):
         """
         Creates a RLgraph Space for the given deepmind Lab's observation specifier.
 
         Args:
-            observation_spec (List[str]): A list with the name(s) of the deepmind Lab observation(s) to use.
+            observation_spec (List[str]): A list with the wanted names from the deepmind Lab available observations.
+                Each available observation is a dict with the following keys: name, shape and dtype.
 
         Returns:
             Space: The RLgraph equivalent observation Space.
         """
         dict_space = dict()
         space = None
+        available_observations = self.level.observation_spec()
         for observation_name in observation_spec:
             # Find the observation_item in the observation_spec of the Env.
-            observation_item = [o for o in observation_spec if o["name"] == observation_name][0]
-            if observation_item.dtype == dtype("float", "np"):
-                space = FloatBox(shape=observation_item.shape, dtype=observation_item.dtype)
-            elif observation_item.dtype == dtype("int", "np"):
-                space = IntBox(shape=observation_item.shape, dtype=observation_item.dtype)
+            observation_item = [o for o in available_observations if o["name"] == observation_name][0]
+            if "float" in str(observation_item["dtype"]):
+                space = FloatBox(shape=observation_item["shape"], dtype=observation_item["dtype"])
+            elif "int" in str(observation_item["dtype"]):
+                space = IntBox(shape=observation_item["shape"], dtype=observation_item["dtype"])
+            elif "str" in str(observation_item["dtype"]):
+                space = TextBox(shape=observation_item["shape"])
             else:
                 raise RLGraphError("Unknown Deepmind Lab Space class for state_space!")
 

@@ -72,10 +72,6 @@ class OpenAIGymEnv(Environment):
                 # Set gym property.
                 self.gym_env.env.frameskip = frameskip
 
-        state_space = self.translate_space(self.gym_env.observation_space)
-        action_space = self.translate_space(self.gym_env.action_space)
-        super(OpenAIGymEnv, self).__init__(state_space, action_space, **kwargs)
-
         # In Atari environments, 0 is no-op.
         self.noop_action = noop_action
         self.max_num_noops = max_num_noops
@@ -85,6 +81,12 @@ class OpenAIGymEnv(Environment):
         self.episodic_life = episodic_life
         self.true_terminal = True
         self.lives = 0
+
+        # Don't trust gym's own information on dtype. Find out what the observation space really is.
+        # Gym_env.observation_space's low/high used to be float64 ndarrays, but the actual output was uint8.
+        self.action_space = self.translate_space(self.gym_env.action_space)
+        self.state_space = self.translate_space(self.gym_env.observation_space, dtype=self.reset().dtype)
+        super(OpenAIGymEnv, self).__init__(self.state_space, self.action_space, **kwargs)
 
         self.visualize = visualize
         if monitor:
@@ -180,7 +182,7 @@ class OpenAIGymEnv(Environment):
         self.gym_env.render("human")
 
     @staticmethod
-    def translate_space(space):
+    def translate_space(space, dtype=None):
         """
         Translates openAI spaces into RLGraph Space classes.
 
@@ -198,7 +200,7 @@ class OpenAIGymEnv(Environment):
             return IntBox(low=np.zeros((space.nvec.ndim,), dtype("uint8", "np")), high=space.nvec)
         elif isinstance(space, gym.spaces.Box):
             # Decide by dtype:
-            box_dtype = str(space.low.dtype)
+            box_dtype = str(dtype or space.low.dtype)
             if "int" in box_dtype:
                 return IntBox(low=space.low, high=space.high, dtype=box_dtype)
             elif "float" in box_dtype:
