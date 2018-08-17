@@ -43,16 +43,13 @@ class TextBox(BoxSpace):
         assert isinstance(shape, tuple), "ERROR: `shape` must be a tuple."
         self._shape = shape
 
-    def sample(self, size=None):
+    def sample(self, size=None, fill_value=None):
         shape = self._get_np_shape(num_samples=size)
 
         # TODO: Make it such that it doesn't only produce number strings (using `petname` module?).
-        sample_ = np.random.randint(low=32, high=127, size=shape)
+        sample_ = np.full(shape=shape, fill_value=fill_value, dtype=self.dtype)
 
-        if shape == () or shape is None:
-            return str(sample_)
-        else:
-            return sample_.astype(self.dtype)
+        return sample_.astype(self.dtype)
 
     def contains(self, sample):
         sample_shape = sample.shape if not isinstance(sample, str) else ()
