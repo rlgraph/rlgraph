@@ -100,7 +100,7 @@ class RayExecutor(object):
         workers = []
         init_tasks = []
 
-        cls_as_remote = cls.as_remote(num_cpus=self.num_cpus_per_worker,num_gpus=self.num_gpus_per_worker).remote
+        cls_as_remote = cls.as_remote(num_cpus=self.num_cpus_per_worker, num_gpus=self.num_gpus_per_worker).remote
         # Create remote objects and schedule init tasks.
         for i in range_(num_actors):
             worker = cls_as_remote(deepcopy(agent_config), *args)
