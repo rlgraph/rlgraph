@@ -17,16 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from collections import OrderedDict
 import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.environments.environment import Environment
-from rlgraph.spaces import Dict
-from rlgraph.utils.ops import DataOpTuple, FlattenedDataOp, unflatten_op
+from rlgraph.utils.ops import DataOpTuple, flatten_op, unflatten_op
 from rlgraph.utils.specifiable_server import SpecifiableServer
-from rlgraph.utils.util import dtype as dtype_
+from rlgraph.utils.util import dtype as dtype_, force_tuple
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -56,17 +56,28 @@ class EnvironmentStepper(Component):
         """
         super(EnvironmentStepper, self).__init__(scope=kwargs.pop("scope", "env-stepper"), **kwargs)
 
+        # Only to retrieve some information about the particular Env.
+        dummy_env = Environment.from_spec(environment_spec)  # type: Environment
+
         # Create the SpecifiableServer with the given env spec.
         if state_space is None or reward_space is None:
-            dummy_env = Environment.from_spec(environment_spec)  # type: Environment
             state_space = dummy_env.state_space
             if reward_space is None:
                 _, reward, _, _ = dummy_env.step(dummy_env.action_space.sample())
+                # TODO: this may break on non 64-bit machines. tf seems to interpret a python float as tf.float64.
                 reward_space = "float64" if type(reward) == float else float
 
         self.state_space = state_space
+
+        # The Problem with ContainerSpaces here is that py_func (SpecifiableServer) cannot handle container
+        # spaces, which is why we need to painfully convert these into flat spaces and tuples here whenever
+        # we make a call to the env. So to keep things unified, we treat all container spaces
+        # (state space, preprocessed state) from here on as tuples of primitive spaces sorted by their would be
+        # flat-keys in a flattened dict).
+
+        self.state_space_flattened = self.state_space.flatten()
         # Need to flatten the state-space in case it's a ContainerSpace for the return dtypes.
-        self.state_space_list = list(self.state_space.flatten().values())
+        self.state_space_list = list(self.state_space_flattened.values())
         self.reward_space = reward_space
         self.environment_spec = environment_spec
         self.environment_server = SpecifiableServer(
@@ -74,7 +85,7 @@ class EnvironmentStepper(Component):
             spec=environment_spec,
             output_spaces=dict(
                 step=self.state_space_list + [self.reward_space, bool, None],
-                reset=self.state_space
+                reset=self.state_space_list
             ),
             shutdown_method="terminate"
         )
@@ -83,13 +94,13 @@ class EnvironmentStepper(Component):
         # Add the sub-components.
         self.actor_component = ActorComponent.from_spec(actor_component_spec)  # type: ActorComponent
         # ActorComponent has - maybe - more than one preprocessor.
-        # Collect a Dict space of preprocessed Spaces here.
-        self.preprocessed_state_space = unflatten_op({
-            key: pp.get_preprocessed_space(self.state_space) for key, pp in
-            self.actor_component.preprocessors.items()
-        })
-        if isinstance(self.preprocessed_state_space, dict):
-            self.preprocessed_state_space = Dict(self.preprocessed_state_space)
+        # Collect a flattened ordered dict of preprocessed Spaces here (including non-preprocessed components of the
+        # state space).
+        self.preprocessed_state_space = OrderedDict()
+        for flat_key, space in self.state_space_flattened.items():
+            self.preprocessed_state_space[flat_key] = self.actor_component.preprocessors[flat_key].\
+                get_preprocessed_space(self.state_space_flattened[flat_key]) if \
+                flat_key in self.actor_component.preprocessors else space
         self.add_components(self.actor_component)
 
         # Variables that hold information of last step through Env.
@@ -104,7 +115,7 @@ class EnvironmentStepper(Component):
     def create_variables(self, input_spaces, action_space=None):
         self.episode_return = self.get_variable(name="episode-return", initializer=0.0, dtype=self.reward_space)
         self.current_terminal = self.get_variable(name="current-terminal", dtype="bool", initializer=False)
-        self.current_state = self.get_variable(name="current-state", from_space=self.state_space)
+        self.current_state = self.get_variable(name="current-state", from_space=self.state_space, flatten=True)
 
         assert action_space is not None
         self.action_space = action_space
@@ -120,10 +131,13 @@ class EnvironmentStepper(Component):
         """
         if get_backend() == "tf":
             state_after_reset = self.environment_server.reset()
+            # Store current state (support ContainerSpaces as well) in our variable(s).
             assigns = [
-                self.assign_variable(self.current_state, state_after_reset),
-                tf.variables_initializer(var_list=[self.episode_return, self.current_terminal])
+                self.assign_variable(var, s) for var, s in zip(list(self.current_state.values()), state_after_reset)
             ]
+            # Store current return and whether current state is terminal.
+            assigns.append(tf.variables_initializer(var_list=[self.episode_return, self.current_terminal]))
+
             with tf.control_dependencies(assigns):
                 return tf.no_op()
 
@@ -162,9 +176,11 @@ class EnvironmentStepper(Component):
         """
 
         if get_backend() == "tf":
+
             def scan_func(accum, time_delta):
-                # preprocessed-previous-states, prev-action, prev-r not needed
-                _, _, _, episode_return, terminal, state = accum
+                # Not needed: preprocessed-previous-states (tuple!)
+                # `state` is a tuple as well. See comment in ctor for why tf cannot use ContainerSpaces here.
+                _, prev_a, prev_r, episode_return, terminal, state = accum
 
                 # Add control dependency to make sure we don't step parallelly through the Env.
                 terminal = tf.convert_to_tensor(value=terminal)
@@ -173,14 +189,22 @@ class EnvironmentStepper(Component):
                     # version thereof for any NN runs (q-values, probs, values, etc..) as no actions are taken from s).
                     state = tf.cond(
                         pred=terminal,
-                        true_fn=lambda: self.environment_server.reset(),
-                        false_fn=lambda: tf.convert_to_tensor(state)
+                        true_fn=lambda: force_tuple(self.environment_server.reset()),
+                        false_fn=lambda: tuple(tf.convert_to_tensor(s) for s in state)
                     )
 
-                # Add a simple (size 1) batch rank to the state so it'll pass through the NN.
-                state = tf.expand_dims(input=state, axis=0)
-                # Make None so it'll be recognized as batch-rank by the auto-Space detector.
-                state = tf.placeholder_with_default(input=state, shape=(None,) + self.state_space.shape)
+                flat_state = OrderedDict()
+                for i, flat_key in enumerate(self.state_space_flattened.keys()):
+                    # Add a simple (size 1) batch rank to the state so it'll pass through the NN.
+                    expanded = tf.expand_dims(input=state[i], axis=0)
+                    # Make None so it'll be recognized as batch-rank by the auto-Space detector.
+                    flat_state[flat_key] = tf.placeholder_with_default(
+                        input=expanded, shape=(None,) + self.state_space_list[i].shape
+                    )
+
+                # Recreate state as the original Space to pass it into the action-component.
+                state = unflatten_op(flat_state)
+
                 # Get action and preprocessed state (as batch-size 1).
                 preprocessed_s, a = self.call(
                     self.actor_component.get_preprocessed_state_and_action, state, time_step=time_step + time_delta,
@@ -188,25 +212,29 @@ class EnvironmentStepper(Component):
                 )
                 # Strip the batch size 1 again from the action in case the Env doesn't like it.
                 a = a[0]
-                # Step through the Env and collect next state, reward and terminal as single values (not batched).
+                # Step through the Env and collect next state (tuple!), reward and terminal as single values
+                # (not batched).
                 s_, r, t_ = self.environment_server.step(a)
 
                 # Add up return (if s was not terminal).
                 new_episode_return = tf.where(condition=terminal, x=r, y=(r + episode_return))
 
                 # Accumulate return values (remove batch again from preprocessed_s).
-                return preprocessed_s[0], a, r, new_episode_return, t_, s_
+                # - preprocessed_s[0] is still a possible container, make it a tuple again.
+                preprocessed_s_no_batch = tuple(flatten_op(preprocessed_s[0]).values())
+                return preprocessed_s_no_batch, a, r, new_episode_return, t_, s_
 
-            # Initialize the tf.scan run and make sure nothing is float64.
+            print()
+            # Initialize the tf.scan run.
             initializer = (
-                self.preprocessed_state_space.zeros(),
+                tuple(map(lambda space: space.zeros(), self.preprocessed_state_space.values())),
                 self.action_space.zeros(),  # zero previous action (doesn't matter)
                 np.asarray(0.0, dtype=dtype_(self.reward_space, "np")),  # zero previous reward (doesn't matter)
                 self.episode_return,  # return so far
                 self.current_terminal,  # whether the current state is terminal
-                self.current_state  # current (raw) state
+                tuple(self.current_state.values())  # current (raw) state (flattened components if ContainerSpace).
             )
-            step_results = DataOpTuple(tf.scan(fn=scan_func, elems=tf.range(num_steps), initializer=initializer))
+            step_results = DataOpTuple(tf.scan(fn=scan_func, elems=tf.range(num_steps), initializer=tuple(initializer)))
 
             # Store the return so far, current terminal and current state.
             assigns = [
