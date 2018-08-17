@@ -593,6 +593,15 @@ class TensorFlowExecutor(GraphExecutor):
         # Note that this can only assign components which have been declared synchronizable.
         self.execute(("sync", weights))
 
+    def terminate(self):
+        """
+        Terminates the GraphExecutor, so it will no longer be usable.
+        Things that need to be cleaned up should be placed into this function, e.g. closing sessions
+        and other open connections.
+        """
+        # Close the tf.Session.
+        self.monitored_session.close()
+
     def _build_device_strategy(self, optimizer, loss_name=None):
         """
         When using multiple GPUs or other special devices, additional graph components
@@ -725,6 +734,3 @@ class TensorFlowExecutor(GraphExecutor):
             # Do not allow any GPUs to be used.
             self.gpus_enabled = False
             self.logger.info("gpu_spec is None, disabling GPUs.")
-
-
-

@@ -134,7 +134,7 @@ class GraphBuilder(Specifiable):
                         use_named = True
                 # Already defined (per default arg value (e.g. bool)).
                 elif isinstance(self.core_component.api_method_inputs[param_name], Space):
-                    if param_name in input_spaces:
+                    if input_spaces is not None and param_name in input_spaces:
                         in_ops_records.append(DataOpRecord(position=i, kwarg=param_name if use_named else None))
                     else:
                         use_named = True
@@ -410,10 +410,10 @@ class GraphBuilder(Specifiable):
             spaces = list()
             for param_name in api_method_rec.input_names:
                 if self.core_component.api_method_inputs[param_name] == "flex":
-                    if param_name in input_spaces:
+                    if input_spaces is not None and param_name in input_spaces:
                         spaces.append(input_spaces[param_name])
                 elif isinstance(self.core_component.api_method_inputs[param_name], Space):
-                    if param_name in input_spaces:
+                    if input_spaces is not None and param_name in input_spaces:
                         spaces.append(self.core_component.api_method_inputs[param_name])
                 else:
                     assert param_name in input_spaces

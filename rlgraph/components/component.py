@@ -327,9 +327,13 @@ class Component(Specifiable):
         if self.graph_builder and self.graph_builder.build_phase == "building":
             # Populate in-op-column with actual ops, Space, kwarg-name.
             for i, in_op in enumerate(params):
-                in_graph_fn_column.op_records[i].op = in_op.op
-                in_graph_fn_column.op_records[i].space = get_space_from_op(in_op.op)
-                in_graph_fn_column.op_records[i].kwarg = in_op.kwarg
+                if isinstance(in_op, DataOpRecord):
+                    in_graph_fn_column.op_records[i].op = in_op.op
+                    in_graph_fn_column.op_records[i].space = get_space_from_op(in_op.op)
+                    in_graph_fn_column.op_records[i].kwarg = in_op.kwarg
+                elif in_op is not None:
+                    in_graph_fn_column.op_records[i].op = in_op
+                    in_graph_fn_column.op_records[i].space = get_space_from_op(in_op)
             # Assert input-completeness of Component (if not already, then after this graph_fn/Space update).
             if self.input_complete is False:
                 assert self.check_input_completeness()
@@ -375,11 +379,12 @@ class Component(Specifiable):
                 in_graph_fn_column.op_records[i].previous = op_rec
                 # Also update the kwarg name so that a future call to the graph_fn with the in-column will work.
                 in_graph_fn_column.op_records[i].kwarg = op_rec.kwarg
-            # A fixed input value. Store directly as op with Space=0 and register it as already known (constant).
-            else:
+            # A fixed input value. Store directly as op with Space and register it as already known (constant).
+            elif op_rec is not None:
                 # TODO: support fixed values with kwargs as well.
-                in_graph_fn_column.op_records[i].op = np.array(op_rec)
-                in_graph_fn_column.op_records[i].space = 0
+                constant_op = np.array(op_rec)
+                in_graph_fn_column.op_records[i].op = constant_op
+                in_graph_fn_column.op_records[i].space = get_space_from_op(constant_op)
                 self.constant_op_records.add(in_graph_fn_column.op_records[i])
 
         if len(out_graph_fn_column.op_records) == 1:
@@ -466,9 +471,9 @@ class Component(Specifiable):
             # Fixed value (instead of op-record): Store the fixed value directly in the op.
             else:
                 in_op_column.op_records[i].op = np.array(op_rec)
-                in_op_column.op_records[i].space = 0
+                in_op_column.op_records[i].space = get_space_from_op(op_rec)
                 if key not in method_owner.api_method_inputs or method_owner.api_method_inputs[key] is None:
-                    method_owner.api_method_inputs[key] = 0
+                    method_owner.api_method_inputs[key] = in_op_column.op_records[i].space
                 self.constant_op_records.add(in_op_column.op_records[i])
 
         # Now actually call the API method with that the correct *args and **kwargs from the new column and
