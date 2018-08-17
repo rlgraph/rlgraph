@@ -36,7 +36,7 @@ class TestActorComponents(unittest.TestCase):
         # state_space (NN is a simple single fc-layer relu network (2 units), random biases, random weights).
         state_space = FloatBox(shape=(5,), add_batch_rank=True)
         # action_space.
-        action_space = IntBox(10, add_batch_rank=True)
+        action_space = IntBox(10)
 
         preprocessor = PreprocessorStack.from_spec(
             [dict(type="convert_type", to_dtype="float"), dict(type="multiply", factor=2)]
@@ -50,7 +50,7 @@ class TestActorComponents(unittest.TestCase):
             action_space=action_space
         )
         # Some state inputs (5 input nodes, batch size=2).
-        states = np.array([[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]])
+        states = state_space.sample(2)
         # Get and check some actions.
         actor_component_params = test.read_variable_values(actor_component.variables)
         # Expected NN-output.
