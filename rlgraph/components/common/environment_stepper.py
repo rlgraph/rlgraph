@@ -42,7 +42,8 @@ class EnvironmentStepper(Component):
             preprocessed_states, actions taken, action log-probabilities, rewards, terminals, discounts
     """
 
-    def __init__(self, environment_spec, actor_component_spec, state_space=None, reward_space=None, **kwargs):
+    def __init__(self, environment_spec, actor_component_spec, state_space=None, reward_space=None,
+                 add_previous_action=False, add_previous_reward=False, **kwargs):
         """
         Args:
             environment_spec (dict): A specification dict for constructing an Environment object that will be run
@@ -53,6 +54,12 @@ class EnvironmentStepper(Component):
                 environment to get the state Space from there.
             reward_space (Optional[Space]): The reward Space of the Environment. If None, will construct a dummy
                 environment to get the reward Space from there.
+            add_previous_action (bool): Whether to add the previous action as another input channel to the
+                ActionComponent's (NN's) input at each step. This is only possible if the state space is already a Dict.
+                It will be added under the key "previous_action". Default: False.
+            add_previous_reward (bool): Whether to add the previous reward as another input channel to the
+                ActionComponent's (NN's) input at each step. This is only possible if the state space is already a Dict.
+                It will be added under the key "previous_reward". Default: False.
         """
         super(EnvironmentStepper, self).__init__(scope=kwargs.pop("scope", "env-stepper"), **kwargs)
 
@@ -79,6 +86,9 @@ class EnvironmentStepper(Component):
         # Need to flatten the state-space in case it's a ContainerSpace for the return dtypes.
         self.state_space_list = list(self.state_space_flattened.values())
         self.reward_space = reward_space
+        self.add_previous_action = add_previous_action
+        self.add_previous_reward = add_previous_reward
+
         self.environment_spec = environment_spec
         self.environment_server = SpecifiableServer(
             class_=Environment,
@@ -204,6 +214,17 @@ class EnvironmentStepper(Component):
 
                 # Recreate state as the original Space to pass it into the action-component.
                 state = unflatten_op(flat_state)
+                # Add prev_a and/or prev_r?
+                if self.add_previous_action is True:
+                    assert isinstance(state, dict), "ERROR: Cannot add previous action to non Dict state space!"
+                    state["previous_action"] = tf.placeholder_with_default(
+                        tf.expand_dims(prev_a, axis=0), shape=(None,) + self.action_space.shape
+                    )
+                if self.add_previous_reward is True:
+                    assert isinstance(state, dict), "ERROR: Cannot add previous reward to non Dict state space!"
+                    state["previous_reward"] = tf.placeholder_with_default(
+                        tf.expand_dims(prev_r, axis=0), shape=(None,)
+                    )
 
                 # Get action and preprocessed state (as batch-size 1).
                 preprocessed_s, a = self.call(

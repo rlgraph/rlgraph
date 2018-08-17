@@ -232,7 +232,9 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             environment_spec=env_spec,
             actor_component_spec=actor_component,
             state_space=state_space,
-            reward_space="float64"
+            reward_space="float64",
+            add_previous_action=True,
+            add_previous_reward=True
         )
 
         test = ComponentTest(
