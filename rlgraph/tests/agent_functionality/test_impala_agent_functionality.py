@@ -219,8 +219,11 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         state_space = dummy_env.state_space
         action_space = dummy_env.action_space
         actor_component = ActorComponent(
-            # Preprocessor spec (only for the image channel).
-            dict(RGB_INTERLEAVED=[dict(type="divide", divisor=255)]),
+            # Preprocessor spec (only for image and prev-action channel).
+            dict(
+                RGB_INTERLEAVED=[dict(type="divide", divisor=255)],  # the images from the env  are divided by 255
+                previous_action=[dict(type="reshape", flatten=True)]  # the prev. actions from the env must be flattened
+            ),
             # Policy spec.
             dict(neural_network=LargeIMPALANetwork(), action_space=action_space),
             # Exploration spec.
@@ -239,7 +242,12 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
 
         test = ComponentTest(
             component=environment_stepper,
-            input_spaces=dict(num_steps=int, time_step=int),
+            input_spaces=dict(
+                internal_states=Tuple(FloatBox(shape=(256,), add_batch_rank=True),
+                                      FloatBox(shape=(256,), add_batch_rank=True)),
+                num_steps=int,
+                time_step=int
+            ),
             action_space=action_space
         )
 
