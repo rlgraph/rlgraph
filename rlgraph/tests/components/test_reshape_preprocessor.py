@@ -54,6 +54,20 @@ class TestReShapePreprocessors(unittest.TestCase):
         expected = np.reshape(inputs, newshape=(5, 2, 24))
         test.test(("apply", inputs), expected_outputs=expected)
 
+    def test_reshape_with_flatten_option_with_0D_shape(self):
+        # Test flattening int with shape=().
+        in_space = IntBox(3, shape=(), add_batch_rank=True)
+        reshape = ReShape(flatten=True)
+        test = ComponentTest(component=reshape, input_spaces=dict(
+            preprocessing_inputs=in_space
+        ))
+
+        test.test("reset")
+        # Time-rank=5, Batch=2
+        inputs = in_space.sample(size=4)
+        expected = one_hot(inputs, depth=3)
+        test.test(("apply", inputs), expected_outputs=expected)
+
     def test_reshape_with_flatten_option_with_categories(self):
         # Test flattening while leaving batch and time rank as is, but flattening out int categories.
         in_space = IntBox(2, shape=(2, 3, 4), add_batch_rank=True, add_time_rank=True, time_major=False)
