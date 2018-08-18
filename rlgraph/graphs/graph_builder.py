@@ -180,7 +180,7 @@ class GraphBuilder(Specifiable):
               RLGraphError: If sanity of the meta-graph could not be confirmed.
         """
         # Check whether every component (except core-component) has a parent.
-        components = self.get_all_components()
+        components = self.core_component.get_all_sub_components()
 
         self.logger.info("Components created: {}".format(len(components)))
 
@@ -238,7 +238,7 @@ class GraphBuilder(Specifiable):
         op_records_to_process, op_records_to_process_later = self.build_input_space_ops(input_spaces)
 
         # Collect all components and add those op-recs to the set that are constant.
-        components = self.get_all_components()
+        components = self.core_component.get_all_sub_components()
         for component in components:
             component.graph_builder = self  # point to us.
             op_records_to_process.update(component.constant_op_records)
@@ -465,36 +465,6 @@ class GraphBuilder(Specifiable):
             with tf.device(device):
                 placeholder = space.get_variable(name=name, is_input_feed=True)
         return placeholder
-
-    def get_all_components(self, component=None, list_=None, level_=0):
-        """
-        Returns all Components of the core-Component sorted by their nesting-level (... grand-children before children
-        before parents).
-
-        Args:
-            component (Optional[Component]): The Component to look through. None for the core-Component.
-            list_ (Optional[List[Component]])): A list of already collected components to append to.
-            level_ (int): The slot indicating the Component level depth in `list_` at which we are currently.
-
-        Returns:
-            List[Component]: A list with all the components in `component`.
-        """
-        component = component or self.core_component
-        return_ = False
-        if list_ is None:
-            list_ = dict()
-            return_ = True
-        if level_ not in list_:
-            list_[level_] = list()
-        list_[level_].append(component)
-        level_ += 1
-        for sub_component in component.sub_components.values():
-            self.get_all_components(sub_component, list_, level_)
-        if return_:
-            ret = list()
-            for l in sorted(list_.keys(), reverse=True):
-                ret.extend(sorted(list_[l], key=lambda c: c.scope))
-            return ret
 
     def build_component_when_input_complete(self, component, op_records_to_process):
         # Not input complete yet -> Check now.

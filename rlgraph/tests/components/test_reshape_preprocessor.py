@@ -65,6 +65,7 @@ class TestReShapePreprocessors(unittest.TestCase):
         test.test("reset")
         # Time-rank=5, Batch=2
         inputs = in_space.sample(size=4)
+        # Expect a by-int-category one-hot flattening.
         expected = one_hot(inputs, depth=3)
         test.test(("apply", inputs), expected_outputs=expected)
 

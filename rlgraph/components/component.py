@@ -28,7 +28,7 @@ import re
 from rlgraph import RLGraphError, get_backend, Specifiable
 from rlgraph.utils.ops import SingleDataOp, DataOpDict, DataOpRecord, APIMethodRecord, \
     DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn, DataOpRecordColumnIntoAPIMethod, \
-    DataOpRecordColumnFromAPIMethod, GraphFnRecord
+    DataOpRecordColumnFromAPIMethod, GraphFnRecord, DataOpTuple
 from rlgraph.utils import util, default_dict
 from rlgraph.spaces.space_utils import get_space_from_op
 
@@ -434,7 +434,7 @@ class Component(Specifiable):
         flex = None
         for i, op_rec in enumerate(params_no_none):
             # Named arg/kwarg -> get input_name from that and peel op_rec.
-            if isinstance(op_rec, tuple):
+            if isinstance(op_rec, tuple) and not isinstance(op_rec, DataOpTuple):
                 key = op_rec[0]
                 op_rec = op_rec[1]
                 in_op_column.op_records[i].kwarg = key
@@ -1110,6 +1110,34 @@ class Component(Specifiable):
                     self.define_api_method(api_method_name, exposed_api_method_wrapper)
                     # Add the sub-component's API-registered methods to ours.
                     #self.defined_externally.add(component.scope + "-" + api_method_name)
+
+    def get_all_sub_components(self, list_=None, level_=0):
+        """
+        Returns all sub-Components (including self) sorted by their nesting-level (... grand-children before children
+        before parents).
+
+        Args:
+            list_ (Optional[List[Component]])): A list of already collected components to append to.
+            level_ (int): The slot indicating the Component level depth in `list_` at which we are currently.
+
+        Returns:
+            List[Component]: A list with all the sub-components in `self` and `self` itself.
+        """
+        return_ = False
+        if list_ is None:
+            list_ = dict()
+            return_ = True
+        if level_ not in list_:
+            list_[level_] = list()
+        list_[level_].append(self)
+        level_ += 1
+        for sub_component in self.sub_components.values():
+            sub_component.get_all_sub_components(list_, level_)
+        if return_:
+            ret = list()
+            for l in sorted(list_.keys(), reverse=True):
+                ret.extend(sorted(list_[l], key=lambda c: c.scope))
+            return ret
 
     def propagate_scope(self, sub_component, properties=None):
         """
