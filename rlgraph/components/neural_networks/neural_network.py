@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.neural_networks.stack import Stack
+from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 
 
 class NeuralNetwork(Stack):
@@ -43,3 +44,9 @@ class NeuralNetwork(Stack):
         # Assert that the apply API-method has been defined and that it takes two input args:
         # `inputs` and `internal_states`.
         assert "apply" in self.api_methods
+
+    def has_rnn(self):
+        # TODO: Maybe it would be better to create a child class (RecurrentNeuralNetwork with has_rrn=True and
+        # TODO: other available information for its API-clients such as internal_state_space, etc..)
+        # Set a convenience flag if one of our sub-Components is an LSTMLayer.
+        return any(isinstance(sc, LSTMLayer) for sc in self.get_all_sub_components())
