@@ -22,7 +22,7 @@ import operator
 from six.moves import xrange as range_
 
 from rlgraph.utils.specifiable import Specifiable
-from rlgraph.components.memories.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
+from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
 from rlgraph.spaces.space_utils import get_list_registry
 from rlgraph.spaces import Dict
 

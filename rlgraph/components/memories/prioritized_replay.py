@@ -21,7 +21,7 @@ import tensorflow as tf
 import numpy as np
 
 from rlgraph.components.memories.memory import Memory
-from rlgraph.components.memories.segment_tree import SegmentTree
+from rlgraph.components.helpers.segment_tree import SegmentTree
 from rlgraph.utils.ops import FlattenedDataOp
 from rlgraph.utils.util import get_batch_size
 

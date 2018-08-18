@@ -193,10 +193,8 @@ class MinSumSegmentTree(object):
         self.sum_segment_tree.values[index] = element
         self.min_segment_tree.values[index] = element
 
-        # Bit shift should be slightly faster here than division.
         index = index >> 1
         while index >= 1:
-            # No shift because small multiplications are optimized.
             update_index = 2 * index
             self.sum_segment_tree.values[index] = self.sum_segment_tree.values[update_index] +\
                 self.sum_segment_tree.values[update_index + 1]
