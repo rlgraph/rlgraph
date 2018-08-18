@@ -54,7 +54,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         )
 
         time_steps = 1000
-        worker = SingleThreadedWorker(environment=env, agent=agent)
+        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         #print("STATES:\n{}".format(agent.last_q_table["states"]))
@@ -84,7 +84,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         )
 
         time_steps = 500
-        worker = SingleThreadedWorker(environment=env, agent=agent)
+        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         self.assertEqual(results["timesteps_executed"], time_steps)
@@ -110,7 +110,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         )
 
         time_steps = 3000
-        worker = SingleThreadedWorker(environment=env, agent=agent)
+        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         #print("STATES:\n{}".format(agent.last_q_table["states"]))
@@ -142,7 +142,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         )
 
         time_steps = 5000
-        worker = SingleThreadedWorker(environment=env, agent=agent, render=True)
+        worker = SingleThreadedWorker(env_spec=lambda : env, agent=agent, render=True)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         #print("STATES:\n{}".format(agent.last_q_table["states"]))
@@ -174,7 +174,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         )
 
         time_steps = 3000
-        worker = SingleThreadedWorker(environment=env, agent=agent, render=True)
+        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, render=True)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         #print("STATES:\n{}".format(agent.last_q_table["states"]))

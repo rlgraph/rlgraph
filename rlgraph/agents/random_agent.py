@@ -29,8 +29,8 @@ class RandomAgent(Agent):
             state_space=state_space, action_space=action_space, name=kwargs.pop("name", "random-agent"), **kwargs
         )
 
-    def get_action(self, states, internals=None, use_exploration=False, extra_returns=None):
-        a = self.action_space.sample()
+    def get_action(self, states, internals=None, use_exploration=False,  apply_preprocessing=True, extra_returns=None):
+        a = self.action_space.sample(size=len(states[0]))
         if extra_returns is not None and "preprocessed_states" in extra_returns:
             return a, states
         else:

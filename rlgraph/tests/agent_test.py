@@ -37,7 +37,7 @@ class AgentTest(object):
         """
         self.worker = worker
         self.agent = self.worker.agent
-        self.env = self.worker.environment
+        self.env = self.worker.vector_env.get_env()
         self.seed = seed
         if logging_level is not None:
             root_logger.setLevel(logging_level)
@@ -77,7 +77,7 @@ class AgentTest(object):
         is_value = getattr(self.env, prop, None)
         recursive_assert_almost_equal(is_value, expected_value, decimals=decimals)
 
-    def check_agent(self, prop, expected_value, decimals=7):
+    def check_agent(self, prop, expected_value, decimals=7, key_or_index=None):
         """
         Checks a property of our Agent for (almost) equality.
 
@@ -86,8 +86,11 @@ class AgentTest(object):
             expected_value (any): The expected value of the given property.
             decimals (Optional[int]): The number of digits after the floating point up to which to compare actual
                 and expected values.
+            key_or_index (Optional[int, str]): Optional key or index into the propery in case of nested data structure.
         """
         is_value = getattr(self.agent, prop, None)
+        if key_or_index is not None:
+            is_value = is_value[key_or_index]
         recursive_assert_almost_equal(is_value, expected_value, decimals=decimals)
 
     def check_var(self, variable, expected_value, decimals=7):

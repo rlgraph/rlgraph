@@ -37,24 +37,27 @@ class SingleThreadedWorker(Worker):
 
         super(SingleThreadedWorker, self).__init__(**kwargs)
 
-        self.logger.info("Initialized single-threaded executor with Environment '{}' and Agent '{}'".format(
-            self.environment, self.agent
+        self.logger.info("Initialized single-threaded executor with {} environments '{}' and Agent '{}'".format(
+            self.num_envs, self.vector_env.get_env(), self.agent
         ))
 
+        # Global statistics.
         self.env_frames = 0
-        self.episode_rewards = list()
-        self.episode_durations = list()
-        self.episode_steps = list()
+        self.finished_episode_rewards = list()
+        self.finished_episode_durations = list()
+        self.finished_episode_steps = list()
+
         # Accumulated return over the running episode.
-        self.episode_return = 0
+        self.episode_returns = [0 for _ in range_(self.num_envs)]
+
         # The number of steps taken in the running episode.
-        self.episode_timesteps = 0
+        self.episode_timesteps = [0 for _ in range_(self.num_envs)]
         # Whether the running episode has terminated.
-        self.episode_terminal = False
+        self.episode_terminals = [False for _ in range_(self.num_envs)]
         # Wall time of the last start of the running episode.
-        self.episode_start = None
+        self.episode_starts = [0 for _ in range_(self.num_envs)]
         # The current state of the running episode.
-        self.episode_state = None
+        self.env_states = [None for _ in range_(self.num_envs)]
 
     def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
                           frameskip=None, reset=True):
@@ -119,91 +122,106 @@ class SingleThreadedWorker(Worker):
 
         num_timesteps = num_timesteps or 0
         num_episodes = num_episodes or 0
-        max_timesteps_per_episode = max_timesteps_per_episode or 0
+        max_timesteps_per_episode = [max_timesteps_per_episode or 0 for _ in range_(self.num_envs)]
         frameskip = frameskip or self.frameskip
 
         # Stats.
         timesteps_executed = 0
         episodes_executed = 0
 
+        start = time.monotonic()
         if reset is True:
             self.env_frames = 0
-            self.episode_rewards = list()
-            self.episode_durations = list()
-            self.episode_steps = list()
+            self.finished_episode_rewards = list()
+            self.finished_episode_durations = list()
+            self.finished_episode_steps = list()
 
-        start = time.monotonic()
+            for i in range_(self.num_envs):
+                self.episode_returns[i] = 0
+                self.episode_timesteps[i] = 0
+                self.episode_terminals[i] = False
+                self.episode_starts[i] = time.monotonic()
+            self.env_states = self.vector_env.reset()
+            self.agent.reset()
+        elif self.env_states[0] is None:
+            raise RLGraphError("Runner must be reset at the very beginning. Environment is in invalid state.")
 
         # Only run everything for at most num_timesteps (if defined).
         while not (0 < num_timesteps <= timesteps_executed):
-            # If we are in a second or later loop OR reset is True -> Reset the Env and the Agent.
-            if timesteps_executed != 0 or reset is True or self.episode_terminal is True:
-                self.episode_return = 0
-                self.episode_timesteps = 0
-                self.episode_terminal = False
-                self.episode_start = time.monotonic()
-                self.episode_state = self.environment.reset()
-                self.agent.reset()
-            elif self.episode_state is None:
-                raise RLGraphError("Runner must be reset at the very beginning. Environment is in invalid state.")
 
             if self.render:
-                self.environment.render()
+                # This renders the first underlying environment.
+                self.vector_env.render()
 
-            while True:
-                action, preprocessed_state = self.agent.get_action(
-                    states=self.episode_state, use_exploration=use_exploration, extra_returns="preprocessed_states"
-                )
+            self.env_states = self.agent.state_space.force_batch(self.env_states)
 
-                # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
-                reward = 0
-                next_state = None
-                for _ in range_(frameskip):
-                    next_state, step_reward, self.episode_terminal, info = self.environment.step(actions=action)
-                    self.env_frames += 1
-                    reward += step_reward
-                    if self.episode_terminal:
-                        break
+            actions, preprocessed_states = self.agent.get_action(
+                states=self.env_states, use_exploration=use_exploration, extra_returns="preprocessed_states"
+            )
 
-                # Only render once per action.
-                if self.render:
-                    self.environment.render()
+            # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
+            env_rewards = [0 for _ in range_(self.num_envs)]
+            next_states = None
+            for _ in range_(frameskip):
+                next_states, step_rewards, self.episode_terminals, infos = self.vector_env.step(actions=actions)
 
-                self.episode_return += reward
-                timesteps_executed += 1
-                self.episode_timesteps += 1
-
-                num_timesteps_reached = (0 < num_timesteps <= timesteps_executed)
-                max_episode_timesteps_reached = (0 < max_timesteps_per_episode <= self.episode_timesteps)
-                # The episode was aborted artificially (without actually being terminal).
-                # Change the last terminal flag to True.
-                if max_episode_timesteps_reached:
-                    self.episode_terminal = True
-
-                self.agent.observe(
-                    preprocessed_states=preprocessed_state, actions=action, internals=[], rewards=reward,
-                    terminals=self.episode_terminal
-                )
-
-                self.episode_state = next_state
-
-                self.update_if_necessary()
-
-                # Is the episode finished or do we have to terminate it prematurely because of other restrictions?
-                if self.episode_terminal or num_timesteps_reached or max_episode_timesteps_reached:
+                self.env_frames += self.num_envs
+                for i, step_reward in enumerate(step_rewards):
+                    env_rewards[i] += step_reward
+                if np.any(self.episode_terminals):
                     break
 
-            episodes_executed += 1
-            self.episode_rewards.append(self.episode_return)
-            self.episode_durations.append(time.monotonic() - self.episode_start)
-            self.episode_steps.append(self.episode_timesteps)
-            self.logger.info("Finished episode: reward={}, actions={}, duration={}s.".format(
-                self.episode_return, self.episode_timesteps, self.episode_durations[-1]))
+            # Only render once per action.
+            if self.render:
+                self.vector_env.environments[0].render()
 
-            if 0 < num_episodes <= episodes_executed:
+            for i in range_(self.num_envs):
+                self.episode_returns[i] += env_rewards[i]
+                self.episode_timesteps[i] += 1
+
+                if 0 < max_timesteps_per_episode[i] <= self.episode_timesteps[i]:
+                    self.episode_terminals[i] = True
+
+                # Do accounting for finished episodes.
+                if self.episode_terminals[i]:
+                    episodes_executed += 1
+                    self.finished_episode_rewards.append(self.episode_returns)
+                    self.finished_episode_durations.append(time.monotonic() - self.episode_starts[i])
+                    self.finished_episode_steps.append(self.episode_timesteps)
+                    self.logger.info("Finished episode: reward={}, actions={}, duration={}s.".format(
+                        self.episode_returns, self.episode_timesteps, self.finished_episode_durations[-1]))
+
+                    # Reset this environment and its preprocecssor stack.
+                    self.env_states[i] = self.vector_env.reset(i)
+                    self.episode_returns[i] = 0
+                    self.episode_timesteps[i] = 0
+
+                # Observe per environment.
+                self.agent.observe(
+                    preprocessed_states=preprocessed_states[i], actions=actions[i], internals=[], rewards=env_rewards[i],
+                    terminals=self.episode_terminals[i], env_id=self.env_ids[i]
+                )
+            self.env_states = next_states
+            self.update_if_necessary()
+            timesteps_executed += self.num_envs
+            num_timesteps_reached = (0 < num_timesteps <= timesteps_executed)
+
+            if 0 < num_episodes <= episodes_executed or num_timesteps_reached:
                 break
 
         total_time = (time.monotonic() - start) or 1e-10
+
+        # Return values for current episode(s) if None have been completed.
+        if len(self.finished_episode_rewards) == 0:
+            mean_episode_runtime = 0
+            mean_episode_reward = np.mean(self.episode_returns)
+            max_episode_reward = np.max(self.episode_returns)
+            final_episode_reward = self.episode_returns[0]
+        else:
+            mean_episode_runtime = np.mean(self.finished_episode_durations)
+            mean_episode_reward = np.mean(self.finished_episode_rewards)
+            max_episode_reward = np.max(self.finished_episode_rewards)
+            final_episode_reward = self.finished_episode_rewards[-1]
 
         results = dict(
             runtime=total_time,
@@ -215,10 +233,10 @@ class SingleThreadedWorker(Worker):
             env_frames_per_second=(self.env_frames / total_time),
             episodes_executed=episodes_executed,
             episodes_per_minute=(episodes_executed/(total_time / 60)),
-            mean_episode_runtime=np.mean(self.episode_durations),
-            mean_episode_reward=np.mean(self.episode_rewards),
-            max_episode_reward=np.max(self.episode_rewards),
-            final_episode_reward=self.episode_rewards[-1]
+            mean_episode_runtime=mean_episode_runtime,
+            mean_episode_reward=mean_episode_reward,
+            max_episode_reward=max_episode_reward,
+            final_episode_reward=final_episode_reward
         )
 
         # Total time of run.

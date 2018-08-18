@@ -53,7 +53,7 @@ class TestDQNAgentFunctionality(unittest.TestCase):
             store_last_q_table=True,
             discount=0.95
         )
-        worker = SingleThreadedWorker(environment=env, agent=agent)
+        worker = SingleThreadedWorker(env_spec=lambda: GridWorld(world="2x2", save_mode=True), agent=agent)
         test = AgentTest(worker=worker)
 
         # Helper python DQNLossFunc object.
@@ -80,10 +80,10 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         # Environment's new state.
         test.check_env("state", 0)
         # Agent's buffer.
-        test.check_agent("states_buffer", [[1.0, 0.0, 0.0, 0.0]])  # <- prev state (preprocessed)
-        test.check_agent("actions_buffer", [a])
-        test.check_agent("rewards_buffer", [-1.0])
-        test.check_agent("terminals_buffer", [False])
+        test.check_agent("states_buffer", [[1.0, 0.0, 0.0, 0.0]], key_or_index="env_0")  # <- prev state (preprocessed)
+        test.check_agent("actions_buffer", [a],  key_or_index="env_0")
+        test.check_agent("rewards_buffer", [-1.0], key_or_index="env_0")
+        test.check_agent("terminals_buffer", [False], key_or_index="env_0")
         # Memory contents.
         test.check_var("replay-memory/index", 0)
         test.check_var("replay-memory/size", 0)
@@ -102,10 +102,10 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         # Also check the policy and target policy values (Should be equal at this point).
         test.step(1)
         test.check_env("state", 0)
-        test.check_agent("states_buffer", [])
-        test.check_agent("actions_buffer", [])
-        test.check_agent("rewards_buffer", [])
-        test.check_agent("terminals_buffer", [])
+        test.check_agent("states_buffer", [], key_or_index="env_0")
+        test.check_agent("actions_buffer", [], key_or_index="env_0")
+        test.check_agent("rewards_buffer", [], key_or_index="env_0")
+        test.check_agent("terminals_buffer", [], key_or_index="env_0")
         test.check_var("replay-memory/index", 2)
         test.check_var("replay-memory/size", 2)
         test.check_var("replay-memory/memory/states", np.array([[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]] +
@@ -124,10 +124,10 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         # Expect an update to the policy variables (leave target as is (no sync yet)).
         test.step(2, use_exploration=True)
         test.check_env("state", 0)
-        test.check_agent("states_buffer", [])
-        test.check_agent("actions_buffer", [])
-        test.check_agent("rewards_buffer", [])
-        test.check_agent("terminals_buffer", [])
+        test.check_agent("states_buffer", [], key_or_index="env_0")
+        test.check_agent("actions_buffer", [], key_or_index="env_0")
+        test.check_agent("rewards_buffer", [], key_or_index="env_0")
+        test.check_agent("terminals_buffer", [], key_or_index="env_0")
         test.check_var("replay-memory/index", 4)
         test.check_var("replay-memory/size", 4)
         test.check_var("replay-memory/memory/states", np.array([[1.0, 0.0, 0.0, 0.0]] * 3 +
@@ -164,10 +164,10 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         # action: down (2) (weights have been updated -> different actions)
         test.step(1)
         test.check_env("state", 3)
-        test.check_agent("states_buffer", [])  # <- all empty b/c we reached end of episode (buffer gets force-flushed)
-        test.check_agent("actions_buffer", [])
-        test.check_agent("rewards_buffer", [])
-        test.check_agent("terminals_buffer", [])
+        test.check_agent("states_buffer", [], key_or_index="env_0")  # <- all empty b/c we reached end of episode (buffer gets force-flushed)
+        test.check_agent("actions_buffer", [], key_or_index="env_0")
+        test.check_agent("rewards_buffer", [], key_or_index="env_0")
+        test.check_agent("terminals_buffer", [], key_or_index="env_0")
         test.check_agent("last_memory_batch", expected_batch)
         test.check_var("replay-memory/index", 5)
         test.check_var("replay-memory/size", 5)
@@ -185,10 +185,10 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         # action: up, down (0, 2)
         test.step(2, use_exploration=True)
         test.check_env("state", 1)
-        test.check_agent("states_buffer", [])  # <- all empty again; flushed after 6th step (when buffer was full).
-        test.check_agent("actions_buffer", [])
-        test.check_agent("rewards_buffer", [])
-        test.check_agent("terminals_buffer", [])
+        test.check_agent("states_buffer", [], key_or_index="env_0")  # <- all empty again; flushed after 6th step (when buffer was full).
+        test.check_agent("actions_buffer", [], key_or_index="env_0")
+        test.check_agent("rewards_buffer", [], key_or_index="env_0")
+        test.check_agent("terminals_buffer", [], key_or_index="env_0")
         test.check_agent("last_memory_batch", expected_batch)
         test.check_var("replay-memory/index", 1)  # index has been rolled over (memory capacity is 6)
         test.check_var("replay-memory/size", 6)
@@ -208,10 +208,10 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         # action: down (2)
         test.step(1)
         test.check_env("state", 1)
-        test.check_agent("states_buffer", [1])
-        test.check_agent("actions_buffer", [2])
-        test.check_agent("rewards_buffer", [-1.0])
-        test.check_agent("terminals_buffer", [False])
+        test.check_agent("states_buffer", [1], key_or_index="env_0")
+        test.check_agent("actions_buffer", [2], key_or_index="env_0")
+        test.check_agent("rewards_buffer", [-1.0], key_or_index="env_0")
+        test.check_agent("terminals_buffer", [False], key_or_index="env_0")
         expected_batch = dict(
             states=np.array([[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]]),
             actions=np.array([0, 1]),

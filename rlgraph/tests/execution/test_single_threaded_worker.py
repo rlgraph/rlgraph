@@ -37,7 +37,7 @@ class TestSingleThreadedWorker(unittest.TestCase):
             state_space=self.environment.state_space
         )
         worker = SingleThreadedWorker(
-            environment=self.environment,
+            env_spec=lambda: self.environment,
             agent=agent,
             frameskip=1
         )
@@ -58,7 +58,7 @@ class TestSingleThreadedWorker(unittest.TestCase):
             state_space=self.environment.state_space
         )
         worker = SingleThreadedWorker(
-            environment=self.environment,
+            env_spec=lambda: self.environment,
             agent=agent,
             frameskip=1
         )

@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+
 from rlgraph.environments import Environment
 from six.moves import xrange as range_
 
@@ -30,16 +31,33 @@ class VectorEnv(Environment):
         """
         Args:
             num_envs (int): Number of environments
-            env_spec (dict): Environment spec dict.
+            env_spec Union[callable, dict]: Environment spec dict.
         """
         self.num_envs = num_envs
         self.environments = list()
 
         for _ in range_(num_envs):
-            env = Environment.from_spec(env_spec)
+            if isinstance(env_spec, dict):
+                env = Environment.from_spec(env_spec)
+            elif hasattr(env_spec, '__call__'):
+                env = env_spec()
+            else:
+                raise ValueError("Env_spec must be either a dict containing an environment spec or a callable"
+                                 "returning a new environment object.")
             self.environments.append(env)
         super(VectorEnv, self).__init__(state_space=self.environments[0].state_space,
                                         action_space=self.environments[0].action_space)
+
+    def get_env(self):
+        """
+        Returns an underlying environment instance (the first).
+        Returns:
+            Environment: Environment instance.
+        """
+        return self.environments[0]
+
+    def render(self):
+        self.environments[0].render()
 
     def seed(self, seed=None):
         return [env.seed(seed) for env in self.environments]

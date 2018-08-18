@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from collections import defaultdict
+
 from rlgraph import Specifiable, get_backend
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
@@ -136,15 +138,16 @@ class Agent(Specifiable):
         self.execution_spec = parse_execution_spec(execution_spec)
 
         # Python-side experience buffer for better performance (may be disabled).
-        self.states_buffer = None
-        self.actions_buffer = None
-        self.internals_buffer = None
-        self.rewards_buffer = None
-        self.terminals_buffer = None
+        self.default_env = "env_0"
+        self.states_buffer = defaultdict(list)
+        self.actions_buffer = defaultdict(list)
+        self.internals_buffer = defaultdict(list)
+        self.rewards_buffer = defaultdict(list)
+        self.terminals_buffer = defaultdict(list)
 
         self.observe_spec = parse_observe_spec(observe_spec)
         if self.observe_spec["buffer_enabled"]:
-            self.reset_buffers()
+            self.reset_env_buffers()
 
         # Global time step counter.
         self.timesteps = 0
@@ -166,15 +169,21 @@ class Agent(Specifiable):
             saver_spec=saver_spec
         )  # type: GraphExecutor
 
-    def reset_buffers(self):
+    def reset_env_buffers(self, env_id=None):
         """
-        Initializes buffers for buffered `observe` calls.
+        Resets an environment buffer for buffered `observe` calls.
+
+        Args:
+            env_id (Optional[str]): Environment id to reset. Defaults to a default environment
+                if None provided.
         """
-        self.states_buffer = list()
-        self.actions_buffer = list()
-        self.internals_buffer = list()
-        self.rewards_buffer = list()
-        self.terminals_buffer = list()
+        if env_id is None:
+            env_id = self.default_env
+        self.states_buffer[env_id] = list()
+        self.actions_buffer[env_id] = list()
+        self.internals_buffer[env_id] = list()
+        self.rewards_buffer[env_id] = list()
+        self.terminals_buffer[env_id] = list()
 
     def define_api_methods(self, *params):
         """
@@ -241,7 +250,7 @@ class Agent(Specifiable):
         """
         raise NotImplementedError
 
-    def observe(self, preprocessed_states, actions, internals, rewards, terminals):
+    def observe(self, preprocessed_states, actions, internals, rewards, terminals, env_id=None):
         """
         Observes an experience tuple or a batch of experience tuples. Note: If configured,
         first uses buffers and then internally calls _observe_graph() to actually run the computation graph.
@@ -255,6 +264,9 @@ class Agent(Specifiable):
                 empty list if no internals available.
             rewards (float): Scalar reward(s) observed.
             terminals (bool): Boolean indicating terminal.
+            env_id (Optional[str]): Environment id to observe for. When using vectorized execution and
+                buffering, using environment ids is necessary to ensure correct trajectories are inserted.
+                See `SingleThreadedWorker` for example usage.
         """
         batched_states = self.preprocessed_state_space.force_batch(preprocessed_states)
 
@@ -271,25 +283,28 @@ class Agent(Specifiable):
             terminals = np.asarray([terminals])
 
         if self.observe_spec["buffer_enabled"] is True:
-            self.states_buffer.extend(preprocessed_states)
-            self.actions_buffer.extend(actions)
-            self.internals_buffer.extend(internals)
-            self.rewards_buffer.extend(rewards)
-            self.terminals_buffer.extend(terminals)
+            if env_id is None:
+                env_id = self.default_env
+            self.states_buffer[env_id].extend(preprocessed_states)
+            self.actions_buffer[env_id].extend(actions)
+            self.internals_buffer[env_id].extend(internals)
+            self.rewards_buffer[env_id].extend(rewards)
+            self.terminals_buffer[env_id].extend(terminals)
 
-            buffer_is_full = len(self.rewards_buffer) >= self.observe_spec["buffer_size"]
-            # If the buffer is full OR the episode was aborted:
+            buffer_is_full = len(self.rewards_buffer[env_id]) >= self.observe_spec["buffer_size"]
+
+            # If the buffer (per environment) is full OR the episode was aborted:
             # Change terminal of last record artificially to True, insert and flush the buffer.
-            if buffer_is_full or self.terminals_buffer[-1]:
-                self.terminals_buffer[-1] = True
+            if buffer_is_full or self.terminals_buffer[env_id][-1]:
+                self.terminals_buffer[env_id][-1] = True
                 self._observe_graph(
-                    preprocessed_states=np.asarray(self.states_buffer),
-                    actions=np.asarray(self.actions_buffer),
-                    internals=np.asarray(self.internals_buffer),
-                    rewards=np.asarray(self.rewards_buffer),
-                    terminals=np.asarray(self.terminals_buffer)
+                    preprocessed_states=np.asarray(self.states_buffer[env_id]),
+                    actions=np.asarray(self.actions_buffer[env_id]),
+                    internals=np.asarray(self.internals_buffer[env_id]),
+                    rewards=np.asarray(self.rewards_buffer[env_id]),
+                    terminals=np.asarray(self.terminals_buffer[env_id])
                 )
-                self.reset_buffers()
+                self.reset_env_buffers(env_id)
         else:
             self._observe_graph(preprocessed_states, actions, internals, rewards, terminals)
 
