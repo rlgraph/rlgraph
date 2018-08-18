@@ -47,7 +47,7 @@ class TestSingleThreadedDQN(unittest.TestCase):
             )
         )
         worker = SingleThreadedWorker(
-            environment=self.env,
+            env_spec=lambda: self.env,
             agent=agent,
             frameskip=1
         )
@@ -71,7 +71,7 @@ class TestSingleThreadedDQN(unittest.TestCase):
             )
         )
         worker = SingleThreadedWorker(
-            environment=self.env,
+            env_spec=lambda: self.env,
             agent=agent,
             frameskip=1
         )

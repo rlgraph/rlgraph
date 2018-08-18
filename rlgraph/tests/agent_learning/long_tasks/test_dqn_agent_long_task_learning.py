@@ -48,7 +48,7 @@ class TestDQNAgentLongTaskLearning(unittest.TestCase):
         )
 
         time_steps = 4000000
-        worker = SingleThreadedWorker(environment=env, agent=agent, render=False)
+        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, render=False)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         #self.assertEqual(results["timesteps_executed"], time_steps)
