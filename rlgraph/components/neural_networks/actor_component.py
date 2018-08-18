@@ -55,8 +55,8 @@ class ActorComponent(Component):
         if isinstance(preprocessor_spec, dict):
             flat_specs = flatten_op(preprocessor_spec)
             self.preprocessors = FlattenedDataOp()
-            for key, spec in flat_specs.items():
-                self.preprocessors[key] = PreprocessorStack.from_spec(spec)
+            for i, (key, spec) in enumerate(flat_specs.items()):
+                self.preprocessors[key] = PreprocessorStack.from_spec(spec, scope="preprocessor-stack-{}".format(i))
         else:
             self.preprocessors = FlattenedDataOp({"": PreprocessorStack.from_spec(preprocessor_spec)})
         self.policy = Policy.from_spec(policy_spec)
