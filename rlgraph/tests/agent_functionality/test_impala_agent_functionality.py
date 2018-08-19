@@ -46,6 +46,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
 
     # Use the exact same Spaces as in the IMPALA paper.
     action_space = IntBox(9, add_batch_rank=True, add_time_rank=True, time_major=True)
+    action_probs_space = FloatBox(shape=(9,), add_batch_rank=True, add_time_rank=True, time_major=True)
     input_space = Dict(
         RGB_INTERLEAVED=FloatBox(shape=(96, 72, 3)),
         INSTR=TextBox(),
@@ -240,7 +241,9 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             reward_space="float64",
             # Add both prev-action and -reward into the state sent through the network.
             add_previous_action=True,
-            add_previous_reward=True
+            add_previous_reward=True,
+            add_action_probs=True,
+            action_probs_space=self.action_probs_space
         )
 
         test = ComponentTest(
