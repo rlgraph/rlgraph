@@ -91,6 +91,71 @@ class TestEnvironmentStepper(unittest.TestCase):
         # Make sure we close the session (to shut down the Env on the server).
         test.terminate()
 
+    def test_environment_stepper_on_random_env_with_returning_action_probs(self):
+        #return  # reactivate later
+        state_space = FloatBox(shape=(2,))
+        action_space = IntBox(4)
+        preprocessor_spec = [dict(type="multiply", factor=3)]
+        neural_network_spec = config_from_path("configs/test_simple_nn.json")
+        exploration_spec = None
+        actor_component = ActorComponent(
+            preprocessor_spec, dict(neural_network=neural_network_spec, action_space=action_space), exploration_spec
+        )
+        environment_stepper = EnvironmentStepper(
+            environment_spec=dict(
+                type="random_env", state_space=state_space, action_space=action_space, deterministic=True
+            ),
+            actor_component_spec=actor_component,
+            state_space=state_space,
+            reward_space="float32",
+            add_action_probs=True,
+            action_probs_space=FloatBox(shape=(4,), add_batch_rank=True)
+        )
+
+        test = ComponentTest(
+            component=environment_stepper,
+            input_spaces=dict(num_steps=int, time_step=int),
+            action_space=action_space
+        )
+
+        # Reset the stepper.
+        test.test("reset")
+
+        # Step 3 times through the Env and collect results.
+        # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
+        # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
+        expected_r = np.array([0.19806287, 0.68535984, 0.81262094])
+        expected = (None, (
+            np.array([[2.313962 , 0.06225585], [1.4955211, 0.67438996], [0.5073325, 0.26501945]]),  # p(s)
+            np.array([0, 0, 0]),  # a
+            expected_r,  # r
+            np.array([expected_r[:1].sum(), expected_r[:2].sum(), expected_r[:3].sum()]),  # episode's accumulated returns
+            np.array([False, False, False]),
+            np.array([[0.49850702, 0.22479665], [0.16911083, 0.08833981], [0.00394827, 0.51219225]]),  # s' (raw)
+            np.array([[0.6712843, 0.06846256, 0.06183266, 0.19842048],
+                      [0.6271601, 0.08469879, 0.0771056, 0.21103564],
+                      [0.3777738, 0.18586391, 0.17974629, 0.25661606]])  # action probs
+        ))
+        test.test(("step", [3, 0]), expected_outputs=expected)
+
+        # Step again, check whether stitching of states/etc.. works.
+        expected_r2 = np.array([0.91777414, 0.37334076, 0.617767])
+        expected = (None, (
+            np.array([[0.0118448, 1.5365767], [2.165266, 0.87562823], [1.6276331, 0.42651013]]),  # p(s)
+            np.array([0, 0, 0]),  # a
+            expected_r2,  # r
+            np.array([expected_r.sum() + expected_r2[0], expected_r.sum() + expected_r2[:2].sum(), expected_r.sum() + expected_r2[:3].sum()]),
+            np.array([False, False, False]),
+            np.array([[0.7217553, 0.29187608], [0.54254436, 0.14217004], [0.44183317, 0.434014]]),  # s' (raw)
+            np.array([[0.496921, 0.13712819, 0.12803856, 0.23791224],
+                      [0.75234985, 0.04506856, 0.03951426, 0.16306734],
+                      [0.61218584, 0.08942561, 0.08184328, 0.21654527]])
+        ))
+        test.test(("step", [3, 50]), expected_outputs=expected, decimals=5)
+
+        # Make sure we close the session (to shut down the Env on the server).
+        test.terminate()
+
     def test_environment_stepper_on_pong(self):
         environment_spec = dict(type="openai_gym", gym_env="Pong-v0", frameskip=4, seed=10)
         dummy_env = Environment.from_spec(environment_spec)

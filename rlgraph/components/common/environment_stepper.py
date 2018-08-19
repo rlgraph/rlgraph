@@ -41,12 +41,14 @@ class EnvironmentStepper(Component):
         reset(): Resets the Environment stepper including its environment and gets everything ready for stepping.
             Resets the stored state, return and terminal of the env.
         step(internal_states, num_steps, time_step): Performs n steps through the environment and returns some
-            collected stats: preprocessed_states, actions taken, action log-probabilities, rewards,
-            terminals, discounts.
+            collected stats: preprocessed_states, actions taken, (optional: action log-probabilities)?, rewards,
+            accumulated episode returns, terminals, next states (un-preprocessed), (optional: internal states, only
+            for RNN based ActorComponents).
     """
 
     def __init__(self, environment_spec, actor_component_spec, state_space=None, reward_space=None,
-                 add_previous_action=False, add_previous_reward=False, **kwargs):
+                 add_action_probs=False, action_probs_space=None, add_previous_action=False, add_previous_reward=False,
+                 **kwargs):
         """
         Args:
             environment_spec (dict): A specification dict for constructing an Environment object that will be run
@@ -57,6 +59,11 @@ class EnvironmentStepper(Component):
                 environment to get the state Space from there.
             reward_space (Optional[Space]): The reward Space of the Environment. If None, will construct a dummy
                 environment to get the reward Space from there.
+            add_action_probs (bool): Whether to add all action probabilities for each step to the ActionComponent's
+                outputs at each step. These will be added as additional tensor inside the
+                Default: False.
+            action_probs_space (Optional[Space]): If add_action_probs is True, the Space that the action_probs will have.
+                This is usually just the flattened (one-hot) action space.
             add_previous_action (bool): Whether to add the previous action as another input channel to the
                 ActionComponent's (NN's) input at each step. This is only possible if the state space is already a Dict.
                 It will be added under the key "previous_action". Default: False.
@@ -89,6 +96,8 @@ class EnvironmentStepper(Component):
         # Need to flatten the state-space in case it's a ContainerSpace for the return dtypes.
         self.state_space_list = list(self.state_space_flattened.values())
         self.reward_space = reward_space
+        self.add_action_probs = add_action_probs
+        self.action_probs_space = action_probs_space
         self.add_previous_action = add_previous_action
         self.add_previous_reward = add_previous_reward
 
@@ -131,6 +140,9 @@ class EnvironmentStepper(Component):
         self.define_api_method("step", self._graph_fn_step)
 
     def check_input_spaces(self, input_spaces, action_space=None):
+        assert action_space is not None
+        self.action_space = action_space
+
         if self.has_rnn:
             self.internal_state_spaces = input_spaces["internal_states"]
 
@@ -138,9 +150,6 @@ class EnvironmentStepper(Component):
         self.episode_return = self.get_variable(name="episode-return", initializer=0.0, dtype=self.reward_space)
         self.current_terminal = self.get_variable(name="current-terminal", dtype="bool", initializer=False)
         self.current_state = self.get_variable(name="current-state", from_space=self.state_space, flatten=True)
-
-        assert action_space is not None
-        self.action_space = action_space
 
     def _graph_fn_reset(self):
         """
@@ -194,10 +203,16 @@ class EnvironmentStepper(Component):
                 # Not needed: preprocessed-previous-states (tuple!)
                 # `state` is a tuple as well. See comment in ctor for why tf cannot use ContainerSpaces here.
                 if self.has_rnn is False:
-                    _, prev_a, prev_r, episode_return, terminal, state = accum
+                    if self.add_action_probs is False:
+                        _, prev_a, prev_r, episode_return, terminal, state = accum
+                    else:
+                        _, prev_a, prev_r, episode_return, terminal, state, _ = accum
                     internal_states = None
                 else:
-                    _, prev_a, prev_r, episode_return, terminal, state, internal_states = accum
+                    if self.add_action_probs is False:
+                        _, prev_a, prev_r, episode_return, terminal, state, internal_states = accum
+                    else:
+                        _, prev_a, prev_r, episode_return, terminal, state, _, internal_states = accum
 
                 # Add control dependency to make sure we don't step parallelly through the Env.
                 terminal = tf.convert_to_tensor(value=terminal)
@@ -246,7 +261,8 @@ class EnvironmentStepper(Component):
 
                 # Get action and preprocessed state (as batch-size 1).
                 out = self.call(
-                    self.actor_component.get_preprocessed_state_and_action,
+                    (self.actor_component.get_preprocessed_state_and_action if self.add_action_probs is False else
+                     self.actor_component.get_preprocessed_state_action_and_action_probs),
                     state,
                     None if internal_states is None else DataOpTuple(internal_states),  # <- None for non-RNN systems
                     time_step=time_step + time_delta,
@@ -254,11 +270,18 @@ class EnvironmentStepper(Component):
                 )
 
                 # Get output depending on whether it contains internal_states or not.
+                current_internal_states = None
+                action_probs = None
                 if self.has_rnn is True:
-                    preprocessed_s, a, current_internal_states = out
+                    if self.add_action_probs is False:
+                        preprocessed_s, a, current_internal_states = out
+                    else:
+                        preprocessed_s, a, action_probs, current_internal_states = out
                 else:
-                    preprocessed_s, a = out
-                    current_internal_states = None
+                    if self.add_action_probs is False:
+                        preprocessed_s, a = out
+                    else:
+                        preprocessed_s, a, action_probs = out
 
                 # Remove the prev_a, prev_r again (not really part of the state).
                 if self.add_previous_action is True:
@@ -283,10 +306,11 @@ class EnvironmentStepper(Component):
                     flatten_op(preprocessed_s).values()
                 ))
                 # Note: Preprocessed_s and s_ are packed as tuples.
-                ret = [preprocessed_s_no_batch, a, r, new_episode_return, t_, s_]
-                # Add internal_states of an RNN to the return->input cycle.
-                if self.has_rnn is True:
-                    ret.append(current_internal_states)
+                ret = [preprocessed_s_no_batch, a, r, new_episode_return, t_, s_] + \
+                    ([(action_probs[0][0] if self.has_rnn is True else action_probs[0])] if
+                     self.add_action_probs is True else []) + \
+                    ([current_internal_states] if self.has_rnn is True else [])
+
                 return tuple(ret)
 
             # Initialize the tf.scan run.
@@ -298,6 +322,9 @@ class EnvironmentStepper(Component):
                 self.current_terminal,  # whether the current state is terminal
                 tuple(self.current_state.values())  # current (raw) state (flattened components if ContainerSpace).
             ]
+            # Append action probs if needed.
+            if self.add_action_probs is True:
+                initializer.append(self.action_probs_space.zeros())  # zero action probs (doesn't matter)
             # Append internal states if needed.
             if internal_states is not None:
                 initializer.append(internal_states)
