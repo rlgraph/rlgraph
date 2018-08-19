@@ -39,7 +39,7 @@ install_requires = [
 setup_requires = []
 
 extras_require = {
-    'gym': ['gym','atari-py'],
+    'gym': ['gym', 'atari-py'],
     'horovod': 'horovod',
     'pytorch': 'pytorch',
     'ray': ['ray', 'lz4', 'pyarrow']

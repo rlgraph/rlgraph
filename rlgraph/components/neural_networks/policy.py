@@ -50,6 +50,9 @@ class Policy(Component):
         get_logits_parameters_log_probs (nn_input, internal_states): See ActionAdapter Component.
             action_layer_output_reshaped (SingleDataOp): The action layer output, reshaped according to the action
                     space.
+            parameters (SingleDataOp): The parameters (probabilities) for retrieving an actual action from
+                our distribution object (or directly via argmax if max-likelihood is True).
+            log_probs (SingleDataOp): The log(parameters).
         get_max_likelihood_action: See get_action, but with max_likelihood force set to True.
         get_stochastic_action: See get_action, but with max_likelihood force set to False.
         entropy: See Distribution component.

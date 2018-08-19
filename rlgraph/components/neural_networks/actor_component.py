@@ -74,7 +74,7 @@ class ActorComponent(Component):
     # @rlgraph.api_method
     def get_preprocessed_state_and_action(self, states, internal_states=None, time_step=0, use_exploration=True):
         """
-        API-method to get an action based on a raw state from an Env along with the preprocessed state.
+        API-method to get the preprocessed state and an action based on a raw state from an Env.
 
         Args:
             states (DataOp): The states coming directly from the environment.
@@ -96,15 +96,54 @@ class ActorComponent(Component):
             preprocessed_states = self.call(self.preprocessors[""].preprocess, states)
 
         if max_likelihood is True:
-            sample, last_internal_states = unify_nn_and_rnn_api_output(self.call(
+            action_sample, last_internal_states = unify_nn_and_rnn_api_output(self.call(
                 self.policy.get_max_likelihood_action, preprocessed_states, internal_states
             ))
         else:
-            sample, last_internal_states = unify_nn_and_rnn_api_output(self.call(
+            action_sample, last_internal_states = unify_nn_and_rnn_api_output(self.call(
                 self.policy.get_stochastic_action, preprocessed_states, internal_states
             ))
-        actions = self.call(self.exploration.get_action, sample, time_step, use_exploration)
+        actions = self.call(self.exploration.get_action, action_sample, time_step, use_exploration)
         ret = (preprocessed_states, actions) + ((last_internal_states,) if last_internal_states else ())
+        return ret
+
+    def get_preprocessed_state_action_and_action_probs(
+            self, states, internal_states=None, time_step=0, use_exploration=True
+    ):
+        """
+        API-method to get the preprocessed state, one action and all possible action's probabilities based on a
+        raw state from an Env.
+
+        Args:
+            states (DataOp): The states coming directly from the environment.
+            internal_states (DataOp): The initial internal states to use (in case of an RNN network).
+            time_step (DataOp): The current time step(s).
+            use_exploration (Optional[DataOp]): Whether to use exploration or not.
+
+        Returns:
+            tuple:
+                - DataOp: The preprocessed states.
+                - DataOp: The chosen action.
+                - DataOp: The probabilities of all possible actions.
+        """
+        max_likelihood = self.max_likelihood if self.max_likelihood is not None else self.policy.max_likelihood
+
+        # TODO: Fix as soon as we have PreprocessVector (different parallel Dict preprocessor for different spaces in a dict)
+        if len(self.preprocessors) > 1 or "" not in self.preprocessors:
+            preprocessed_states = self.call(self.vector_preprocess, states)
+        else:
+            preprocessed_states = self.call(self.preprocessors[""].preprocess, states)
+
+        _, action_probs, _, last_internal_states = unify_nn_and_rnn_api_output(self.call(
+            self.policy.get_logits_parameters_log_probs, preprocessed_states, internal_states
+        ), return_values_wo_internal_state=3)
+
+        if max_likelihood is True:
+            action_sample = self.call(self.policy.distribution.sample_deterministic, action_probs)
+        else:
+            action_sample = self.call(self.policy.distribution.sample_stochastic, action_probs)
+        actions = self.call(self.exploration.get_action, action_sample, time_step, use_exploration)
+        ret = (preprocessed_states, actions, action_probs) + ((last_internal_states,) if last_internal_states else ())
         return ret
 
     # TODO: replace with a to-be-written PreprocessVector Component
