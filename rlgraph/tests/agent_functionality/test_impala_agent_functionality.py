@@ -22,6 +22,7 @@ import numpy as np
 import time
 import unittest
 
+from rlgraph.agents.impala_agent import IMPALAAgent
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.neural_networks.policy import Policy
 from rlgraph.components.neural_networks.actor_component import ActorComponent
@@ -31,7 +32,7 @@ from rlgraph.environments import Environment, DeepmindLabEnv
 from rlgraph.spaces import *
 from rlgraph.utils.ops import DataOpTuple
 from rlgraph.tests.component_test import ComponentTest
-from rlgraph.tests.test_util import recursive_assert_almost_equal
+from rlgraph.tests.test_util import recursive_assert_almost_equal, config_from_path
 from rlgraph.utils import root_logger
 
 
@@ -317,4 +318,17 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # Make sure we close the specifiable server (as we have started it manually and have no monitored session).
         environment_stepper.environment_server.stop()
         test.terminate()
+
+    def test_impala_agent_compilation(self):
+        """
+        Tests IMPALA agent compilation (explorer).
+        """
+        agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
+        env = DeepmindLabEnv(level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
+                             frameskip=4)
+
+        agent = IMPALAAgent.from_spec(agent_config, type="explorer", state_space=env.state_space,
+                                      action_space=env.action_space)
+        print("Compiled IMPALA agent")
+
 

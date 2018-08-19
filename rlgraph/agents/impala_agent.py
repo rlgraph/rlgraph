@@ -22,6 +22,7 @@ from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.loss_functions.impala_loss_function import IMPALALossFunction
 from rlgraph.components.memories.fifo_queue import FIFOQueue
+from rlgraph.components.papers.impala.large_impala_network import LargeIMPALANetwork
 from rlgraph.spaces import FloatBox, BoolBox
 
 
@@ -33,14 +34,20 @@ class IMPALAAgent(Agent):
     [1] IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures - Espeholt, Soyer,
         Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
     """
-    def __init__(self, **kwargs):
+    def __init__(self, fifo_queue_spec=None, **kwargs):
         """
+        Args:
+            fifo_queue_spec (Optional[dict,Memory]): The spec for the FIFOQueue to use for the IMPALA algorithm.
+
         Keyword Args:
             type (str): One of "explorer" or "learner". Default: "explorer".
         """
         type_ = kwargs.pop("type", "explorer")
         assert type_ in ["explorer", "learner"]
         self.type = type_
+
+        # Network-spec by default is a large architecture IMPALA network.
+        network_spec = kwargs.pop("network_spec", LargeIMPALANetwork())
 
         # Depending on the job-type, remove the pieces from the Agent-spec/graph we won't need.
         exploration_spec = kwargs.pop("exploration_spec", None),
@@ -63,12 +70,13 @@ class IMPALAAgent(Agent):
 
         # Now that we fixed the Agent's spec, call the super constructor.
         super(IMPALAAgent, self).__init__(
-            exploration_spec=exploration_spec, optimizer_spec=optimizer_spec, observe_spec=observe_spec,
-            update_spec=update_spec, name=kwargs.pop("name", "impala-{}-agent".format(self.type)), **kwargs
+            network_spec=network_spec, exploration_spec=exploration_spec, optimizer_spec=optimizer_spec,
+            observe_spec=observe_spec, update_spec=update_spec,
+            name=kwargs.pop("name", "impala-{}-agent".format(self.type)), **kwargs
         )
 
         # Create our FIFOQueue (explorers will enqueue, learner(s) will dequeue).
-        self.fifo_queue = FIFOQueue()
+        self.fifo_queue = FIFOQueue.from_spec(fifo_queue_spec, reuse_variable_scope="shared-fifo-queue")
 
         # Extend input Space definitions to this Agent's specific API-methods.
         state_space = self.state_space.with_batch_rank()
@@ -163,7 +171,7 @@ class IMPALAAgent(Agent):
 
         self.root_component.define_api_method("update_from_fifo_queue", update_from_fifo_queue)
 
-    def get_action(self, states, internals=None, use_exploration=True, extra_returns=None):
+    def get_action(self, states, internal_states=None, use_exploration=True, extra_returns=None):
         """
         Args:
             extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return
