@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import os.path
 
-from rlgraph import RLGraphError
+from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.components.optimizers.optimizer import Optimizer
 from rlgraph.components.optimizers.multi_gpu_sync_optimizer import MultiGpuSyncOptimizer
 from rlgraph.utils.util import default_dict

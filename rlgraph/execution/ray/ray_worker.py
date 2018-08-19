@@ -22,8 +22,8 @@ import numpy as np
 from six.moves import xrange as range_
 import time
 
-from rlgraph import SMALL_NUMBER
-from rlgraph.backend_system import get_distributed_backend
+from rlgraph import get_distributed_backend
+from rlgraph.utils.util import SMALL_NUMBER
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.environments.sequential_vector_env import SequentialVectorEnv
 from rlgraph.execution.environment_sample import EnvironmentSample

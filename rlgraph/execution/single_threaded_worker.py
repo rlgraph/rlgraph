@@ -21,7 +21,7 @@ import numpy as np
 from six.moves import xrange as range_
 import time
 
-from rlgraph import RLGraphError
+from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.utils.util import default_dict
 from rlgraph.execution.worker import Worker
 

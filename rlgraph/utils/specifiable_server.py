@@ -20,7 +20,7 @@ from __future__ import print_function
 import multiprocessing
 
 from rlgraph.utils.rlgraph_error import RLGraphError
-from rlgraph.backend_system import get_backend
+from rlgraph import get_backend
 from rlgraph.spaces import Space, ContainerSpace
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.util import force_list, dtype

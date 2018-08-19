@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import numpy as np
 from six.moves import xrange as range_
-from rlgraph.backend_system import get_distributed_backend
+from rlgraph import get_distributed_backend
 from rlgraph.execution.ray.apex.apex_memory import ApexMemory
 from rlgraph.execution.ray.ray_actor import RayActor
 

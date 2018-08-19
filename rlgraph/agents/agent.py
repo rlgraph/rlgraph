@@ -19,7 +19,8 @@ from __future__ import print_function
 
 from collections import defaultdict
 
-from rlgraph import Specifiable, get_backend
+from rlgraph import get_backend
+from rlgraph.utils.specifiable import Specifiable
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
 from rlgraph.components import Component, Exploration, PreprocessorStack, NeuralNetwork, Synchronizable, Policy, \

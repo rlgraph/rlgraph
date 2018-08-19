@@ -19,7 +19,8 @@ from __future__ import print_function
 
 from math import log
 
-from rlgraph import get_backend, SMALL_NUMBER
+from rlgraph import get_backend
+from rlgraph.utils.util import SMALL_NUMBER
 from rlgraph.components.component import Component
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.preprocessing.reshape import ReShape

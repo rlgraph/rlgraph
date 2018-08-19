@@ -21,7 +21,7 @@ import numpy as np
 import operator
 from six.moves import xrange as range_
 
-from rlgraph import Specifiable
+from rlgraph.utils.specifiable import Specifiable
 from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
 from rlgraph.execution.ray.ray_util import ray_decompress
 

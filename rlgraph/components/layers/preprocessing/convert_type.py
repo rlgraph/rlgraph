@@ -19,7 +19,8 @@ from __future__ import print_function
 
 import numpy as np
 
-from rlgraph import get_backend, RLGraphError
+from rlgraph import get_backend
+from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.spaces import IntBox, FloatBox, BoolBox, ContainerSpace
 from rlgraph.utils import util

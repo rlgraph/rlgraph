@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 import numpy as np
 
-from rlgraph import RLGraphError
+from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.components.neural_networks import Stack
 from rlgraph.components.common import RepeaterStack
 from rlgraph.tests.dummy_components import Dummy1To1, Dummy2To1, Dummy1To2, Dummy2To2, Dummy0To1

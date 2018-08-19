@@ -21,7 +21,7 @@ import numpy as np
 from six.moves import xrange as range_
 import cv2
 
-from rlgraph.backend_system import get_backend
+from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.utils.ops import flatten_op, unflatten_op
 from rlgraph.utils.util import get_rank, get_shape, dtype as dtype_

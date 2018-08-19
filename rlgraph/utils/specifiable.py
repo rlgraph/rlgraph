@@ -25,7 +25,6 @@ import os
 import re
 import yaml
 import logging
-import weakref
 
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.utils.util import default_dict

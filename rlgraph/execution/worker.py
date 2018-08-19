@@ -20,7 +20,7 @@ from __future__ import print_function
 import logging
 from six.moves import xrange as range_
 
-from rlgraph import Specifiable
+from rlgraph.utils.specifiable import Specifiable
 from rlgraph.environments import SequentialVectorEnv
 
 

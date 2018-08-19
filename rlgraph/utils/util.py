@@ -25,7 +25,7 @@ import re
 import sys
 import tensorflow as tf
 
-from rlgraph.backend_system import get_backend
+from rlgraph import get_backend
 from rlgraph.utils.rlgraph_error import RLGraphError
 
 if get_backend() == "tf":

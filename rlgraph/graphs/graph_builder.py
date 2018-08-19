@@ -21,7 +21,10 @@ import logging
 import re
 import time
 
-from rlgraph import RLGraphError, Specifiable, get_backend
+from rlgraph import get_backend
+from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.specifiable import Specifiable
+
 from rlgraph.components.component import Component
 from rlgraph.spaces import Space, Dict
 from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalence

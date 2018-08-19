@@ -20,7 +20,7 @@ from __future__ import print_function
 import math
 import numpy as np
 
-from rlgraph.backend_system import get_backend
+from rlgraph import get_backend
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.util import dtype

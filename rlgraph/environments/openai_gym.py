@@ -23,8 +23,7 @@ import gym
 import numpy as np
 import time
 
-from rlgraph import RLGraphError
-from rlgraph.utils.util import dtype
+from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.environments import Environment
 from rlgraph.spaces import *
 

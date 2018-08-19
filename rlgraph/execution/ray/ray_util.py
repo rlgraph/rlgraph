@@ -19,7 +19,9 @@ from __future__ import print_function
 
 import os
 import base64
-from rlgraph import RLGraphError, get_distributed_backend
+from rlgraph import get_distributed_backend
+from rlgraph.utils.rlgraph_error import RLGraphError
+
 
 if get_distributed_backend() == "ray":
     import ray

@@ -23,7 +23,7 @@ from six.moves import xrange as range_
 import re
 
 from rlgraph.utils.rlgraph_error import RLGraphError
-from rlgraph.backend_system import get_backend
+from rlgraph import get_backend
 from rlgraph.utils.util import dtype
 from rlgraph.utils.initializer import Initializer
 from rlgraph.spaces.space import Space

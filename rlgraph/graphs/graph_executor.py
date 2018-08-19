@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import logging
 
-from rlgraph import Specifiable
+from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.input_parsing import parse_saver_spec, parse_execution_spec
 
 

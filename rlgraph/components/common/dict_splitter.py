@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph import RLGraphError
+from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.components import Component
 from rlgraph.spaces import Dict
 

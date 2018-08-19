@@ -25,7 +25,10 @@ import inspect
 import numpy as np
 import re
 
-from rlgraph import RLGraphError, get_backend, Specifiable
+from rlgraph import get_backend
+from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.specifiable import Specifiable
+
 from rlgraph.utils.ops import SingleDataOp, DataOpDict, DataOpRecord, APIMethodRecord, \
     DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn, DataOpRecordColumnIntoAPIMethod, \
     DataOpRecordColumnFromAPIMethod, GraphFnRecord, DataOpTuple

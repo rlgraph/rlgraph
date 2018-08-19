@@ -17,13 +17,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph import get_backend, RLGraphError
+from rlgraph import get_backend
+from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.components.component import Component
 from rlgraph.components.explorations.epsilon_exploration import EpsilonExploration
 from rlgraph.components.common.noise_components import NoiseComponent
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space
-from rlgraph.utils.util import dtype, get_shape
+from rlgraph.utils.util import dtype
 
 if get_backend() == "tf":
     import tensorflow as tf

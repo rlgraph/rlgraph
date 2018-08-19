@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.backend_system import get_backend
+from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 
 if get_backend() == "tf":

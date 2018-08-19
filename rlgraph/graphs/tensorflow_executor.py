@@ -21,10 +21,10 @@ import os
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
-from rlgraph import RLGraphError
+from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.components.optimizers.multi_gpu_sync_optimizer import MultiGpuSyncOptimizer
 from rlgraph.graphs.graph_executor import GraphExecutor
-from rlgraph.backend_system import get_distributed_backend
+from rlgraph import get_distributed_backend
 import rlgraph.utils as util
 
 

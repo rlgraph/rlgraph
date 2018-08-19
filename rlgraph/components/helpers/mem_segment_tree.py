@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import operator
 
-from rlgraph import RLGraphError
+from rlgraph.utils.rlgraph_error import RLGraphError
 
 
 class MemSegmentTree(object):
