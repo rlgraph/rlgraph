@@ -89,9 +89,13 @@ class DeepmindLabEnv(Environment):
     def step(self, actions):
         # Do the actual step.
         reward = self.level.step(action=self.action_list[actions], num_steps=self.frameskip)
+        terminal = not self.level.is_running()
+        # Quirk in DM Lab: A terminal state cannot be observed anymore
+        # (which is fine as its state-value (and action choices) is always 0 anyway).
+        state = self.level.observations() if terminal is False else self.state_space.zeros()
 
         # Return state, reward, terminal, and None (info).
-        return self.level.observations(), reward, not self.level.is_running(), None
+        return state, reward, terminal, None
 
     @staticmethod
     def define_actions(actions_spec=None):

@@ -30,7 +30,8 @@ class TestDeepmindLabEnv(unittest.TestCase):
     """
     def test_deepmind_lab_env(self):
         frameskip = 4
-        env = DeepmindLabEnv("seekavoid_arena_01", observations=["RGB_INTERLEAVED", "MAP_FRAME_NUMBER"], frameskip=4)
+        env = DeepmindLabEnv("seekavoid_arena_01", observations=["RGB_INTERLEAVED", "MAP_FRAME_NUMBER"],
+                             frameskip=frameskip)
 
         # Assert action Space is IntBox(9). 9 default actions from IMPALA paper.
         self.assertTrue(env.action_space == IntBox(9))
@@ -41,15 +42,25 @@ class TestDeepmindLabEnv(unittest.TestCase):
         self.assertGreaterEqual(np.mean(s["RGB_INTERLEAVED"]), 0)
         self.assertLessEqual(np.mean(s["RGB_INTERLEAVED"]), 255)
         accum_reward = 0.0
-        for i in range(100):
+        frame = 0
+        for i in range(2000):
             s, r, t, _ = env.step(env.action_space.sample())
             assert isinstance(r, float)
             assert isinstance(t, bool)
             # Assert we have pixels.
             self.assertGreaterEqual(np.mean(s["RGB_INTERLEAVED"]), 0)
             self.assertLessEqual(np.mean(s["RGB_INTERLEAVED"]), 255)
-            # Assert the env-observed timestep counter.
-            self.assertEqual(s["MAP_FRAME_NUMBER"], i * frameskip)
             accum_reward += r
+            if t is True:
+                s = env.reset()
+                frame = 0
+                # Assert we have pixels.
+                self.assertGreaterEqual(np.mean(s["RGB_INTERLEAVED"]), 0)
+                self.assertLessEqual(np.mean(s["RGB_INTERLEAVED"]), 255)
+                # Assert the env-observed timestep counter.
+                self.assertEqual(s["MAP_FRAME_NUMBER"], 0)
+            else:
+                frame += frameskip
+                self.assertEqual(s["MAP_FRAME_NUMBER"], frame)
 
         print("Accumulated Reward: ".format(accum_reward))
