@@ -17,27 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph import get_backend
-from rlgraph.graphs.meta_graph import MetaGraph
-from rlgraph.graphs.meta_graph_builder import MetaGraphBuilder
-from rlgraph.graphs.graph_builder import GraphBuilder
-from rlgraph.graphs.graph_executor import GraphExecutor
-from rlgraph.graphs.tensorflow_executor import TensorFlowExecutor
 
-
-def backend_executor():
+class MetaGraph(object):
     """
-    Returns default class for backend.
-    Returns: Executioner for the specified backend.
+    Represents a single RLgraph meta graph object.
     """
-    if get_backend() == "tf":
-        return TensorFlowExecutor
+    def __init__(self, core_component, api, num_ops=0):
+        self.core_component = core_component
+        self.api = api
+        self.num_ops = num_ops
 
-
-GraphExecutor.__lookup_classes__ = dict(
-    tf=TensorFlowExecutor,
-    tensorflow=TensorFlowExecutor
-)
-
-__all__ = ["MetaGraph", "MetaGraphBuilder", "GraphBuilder",
-           "GraphExecutor", "TensorFlowExecutor", "backend_executor"]

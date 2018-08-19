@@ -205,7 +205,7 @@ class GraphBuilder(Specifiable):
                     format(component, component.parent_component)
                 )
         if core_found is False:
-            raise RLGraphError("ERROR: Our core-component '{}' was not found in meta-graph!".format(self.core_component))
+            raise RLGraphError("ERROR: Core-component '{}' was not found in meta-graph!".format(self.core_component))
 
     def build_graph(self, input_spaces, available_devices,
                     device_strategy="default", default_device=None, device_map=None):
