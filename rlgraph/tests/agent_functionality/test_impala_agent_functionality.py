@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import logging
 import numpy as np
+import time
 import unittest
 
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
@@ -263,12 +264,18 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # Reset the stepper.
         test.test("reset")
 
+        initial_internal_states = self.internal_states_space.zeros(size=1)
+
         # Step n times through the Env and collect results.
         # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
         # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
-        time_steps = 2000
-        initial_internal_states = self.internal_states_space.zeros(size=1)
+        time_steps = 500
+        time_start = time.monotonic()
         out = test.test(("step", [initial_internal_states, time_steps, 0]), expected_outputs=None)
+        time_end = time.monotonic()
+        print("Done running {} steps in Deepmind Lab env using IMPALA network in {}sec.".format(
+            time_steps, time_end - time_start)
+        )
 
         # Check types of outputs.
         self.assertTrue(out[0] is None)  # the step op (no_op).
@@ -291,12 +298,12 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         self.assertTrue(out[1][6].dtype == np.float32)
         self.assertTrue(out[1][6].min() >= 0.0)
         self.assertTrue(out[1][6].max() <= 1.0)
-        recursive_assert_almost_equal(out[1][6].sum(axis=-1, keepdims=False), np.ones(shape=(50,)))
+        recursive_assert_almost_equal(out[1][6].sum(axis=-1, keepdims=False), np.ones(shape=(time_steps,)), decimals=4)
         # internal states (c- and h-state)
         self.assertTrue(out[1][7][0].dtype == np.float32)
         self.assertTrue(out[1][7][1].dtype == np.float32)
-        self.assertTrue(out[1][7][0].shape == (50, 1, 256))
-        self.assertTrue(out[1][7][1].shape == (50, 1, 256))
+        self.assertTrue(out[1][7][0].shape == (time_steps, 1, 256))
+        self.assertTrue(out[1][7][1].shape == (time_steps, 1, 256))
 
         # Check whether episode returns match single rewards (including terminal signals).
         episode_returns = 0.0
