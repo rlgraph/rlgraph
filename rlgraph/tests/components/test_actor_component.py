@@ -28,6 +28,7 @@ from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 from rlgraph.tests.dummy_components import DummyNNWithDictInput
+from rlgraph.utils.numpy import softmax
 
 
 class TestActorComponents(unittest.TestCase):
@@ -49,10 +50,11 @@ class TestActorComponents(unittest.TestCase):
             input_spaces=dict(states=state_space),
             action_space=action_space
         )
-        # Some state inputs (5 input nodes, batch size=2).
-        states = state_space.sample(2)
         # Get and check some actions.
         actor_component_params = test.read_variable_values(actor_component.variables)
+
+        # Some state inputs (5 input nodes, batch size=2).
+        states = state_space.sample(2)
         # Expected NN-output.
         expected_nn_output = np.matmul(
             states * 2, actor_component_params["actor-component/policy/test-network/hidden-layer/dense/kernel"]
@@ -69,6 +71,30 @@ class TestActorComponents(unittest.TestCase):
             ("get_preprocessed_state_and_action", states),
             expected_outputs=(expected_preprocessed_state, expected_actions)
         )
+
+        # Get actions and action-probs by calling a different API-method.
+        states = state_space.sample(5)
+        # Get and check some actions.
+        actor_component_params = test.read_variable_values(actor_component.variables)
+        # Expected NN-output.
+        expected_nn_output = np.matmul(
+            states * 2, actor_component_params["actor-component/policy/test-network/hidden-layer/dense/kernel"]
+        )
+        # Raw action layer output.
+        expected_action_layer_output = np.matmul(
+            expected_nn_output,
+            actor_component_params["actor-component/policy/action-adapter/action-layer/dense/kernel"]
+        )
+        # No reshape necessary (simple action space), softmax to get probs.
+        expected_action_probs = softmax(expected_action_layer_output)
+        # Final actions (max-likelihood/greedy pick).
+        expected_actions = np.argmax(expected_action_layer_output, axis=-1)
+        expected_preprocessed_state = states * 2
+        test.test(
+            ("get_preprocessed_state_action_and_action_probs", states),
+            expected_outputs=(expected_preprocessed_state, expected_actions, expected_action_probs)
+        )
+
 
     def test_actor_component_with_lstm_network(self):
         # state space and internal state space

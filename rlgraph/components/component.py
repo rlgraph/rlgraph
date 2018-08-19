@@ -235,9 +235,11 @@ class Component(Specifiable):
         # Owner of method:
         method_owner = method.__self__  # type: Component
         # Check, whether the method-owner is either this Component or has this Component as parent.
-        assert method_owner is self or method_owner.parent_component is self,\
+        # TODO: make this check generic for any depth-grand-child.A
+        assert method_owner is self or method_owner.parent_component is self or \
+               method_owner.parent_component is not None and method_owner.parent_component.parent_component is self, \
             "ERROR: Can only call API-method ({}/{}) on self ({}) or any sub-Components of self! Most likely, " \
-            "{} has not been added to self.".\
+            "{} has not been added to self.". \
             format(method_owner.global_scope, method.__name__, self.global_scope, method_owner.global_scope)
         # Try handing the graph-builder link to the owner Component (in case it's not set yet).
         if method_owner.graph_builder is None:
