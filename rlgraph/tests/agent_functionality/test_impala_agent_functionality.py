@@ -253,8 +253,12 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
                 num_steps=int,
                 time_step=int
             ),
-            action_space=action_space
+            action_space=action_space,
+            disable_monitoring=True,  # Make session-creation hang in docker.
         )
+
+        # Start Specifiable Server with Env manually.
+        environment_stepper.environment_server.start()
 
         # Reset the stepper.
         test.test("reset")
@@ -263,24 +267,36 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
         # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
         time_steps = 2000
-        initial_internal_states = self.internal_states_space.zeros()
-        out = test.test(("step", [time_steps, 0, initial_internal_states]), expected_outputs=None)
+        initial_internal_states = self.internal_states_space.zeros(size=1)
+        out = test.test(("step", [initial_internal_states, time_steps, 0]), expected_outputs=None)
 
         # Check types of outputs.
         self.assertTrue(out[0] is None)  # the step op (no_op).
         self.assertTrue(isinstance(out[1], DataOpTuple))  # the step results as a tuple (see below)
 
         # Check types of single data.
-        self.assertTrue(out[1][0].dtype == np.float32)  # preprocessed states
-        self.assertTrue(out[1][0].min() >= 0.0)  # make sure we have pixels / 255
-        self.assertTrue(out[1][0].max() <= 1.0)
+        self.assertTrue(out[1][0]["INSTR"].dtype == np.object)
+        self.assertTrue(out[1][0]["RGB_INTERLEAVED"].dtype == np.float32)
+        self.assertTrue(out[1][0]["RGB_INTERLEAVED"].min() >= 0.0)  # make sure we have pixels / 255
+        self.assertTrue(out[1][0]["RGB_INTERLEAVED"].max() <= 1.0)
         self.assertTrue(out[1][1].dtype == np.int32)  # actions
         self.assertTrue(out[1][2].dtype == np.float64)  # rewards
         self.assertTrue(out[1][3].dtype == np.float64)  # episode return
         self.assertTrue(out[1][4].dtype == np.bool_)  # next-state is terminal?
-        self.assertTrue(out[1][5].dtype == np.uint8)  # next state (raw, not preprocessed)
-        self.assertTrue(out[1][5].min() >= 0)  # make sure we have pixels
-        self.assertTrue(out[1][5].max() <= 255)
+        self.assertTrue(out[1][5]["INSTR"].dtype == np.object)  # next state (raw, not preprocessed)
+        self.assertTrue(out[1][5]["RGB_INTERLEAVED"].dtype == np.uint8)  # next state (raw, not preprocessed)
+        self.assertTrue(out[1][5]["RGB_INTERLEAVED"].min() >= 0)  # make sure we have pixels
+        self.assertTrue(out[1][5]["RGB_INTERLEAVED"].max() <= 255)
+        # action probs (test whether sum to one).
+        self.assertTrue(out[1][6].dtype == np.float32)
+        self.assertTrue(out[1][6].min() >= 0.0)
+        self.assertTrue(out[1][6].max() <= 1.0)
+        recursive_assert_almost_equal(out[1][6].sum(axis=-1, keepdims=False), np.ones(shape=(50,)))
+        # internal states (c- and h-state)
+        self.assertTrue(out[1][7][0].dtype == np.float32)
+        self.assertTrue(out[1][7][1].dtype == np.float32)
+        self.assertTrue(out[1][7][0].shape == (50, 1, 256))
+        self.assertTrue(out[1][7][1].shape == (50, 1, 256))
 
         # Check whether episode returns match single rewards (including terminal signals).
         episode_returns = 0.0
@@ -291,6 +307,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             if out[1][4][i] is np.bool_(True):
                 episode_returns = 0.0
 
-        # Make sure we close the session (to shut down the Env on the server).
+        # Make sure we close the specifiable server (as we have started it manually and have no monitored session).
+        environment_stepper.environment_server.stop()
         test.terminate()
 
