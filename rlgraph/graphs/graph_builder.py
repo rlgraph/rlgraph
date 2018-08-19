@@ -129,7 +129,9 @@ class GraphBuilder(Specifiable):
                 # Arg has a default of None (flex). If in input_spaces, arg will be provided.
                 if self.core_component.api_method_inputs[param_name] == "flex":
                     if param_name in input_spaces:
-                        in_ops_records.append(DataOpRecord(position=i, kwarg=param_name if use_named else None))
+                        in_ops_records.append(
+                            DataOpRecord(position=i, kwarg=param_name if use_named else None)
+                        )
                     else:
                         use_named = True
                 # Already defined (per default arg value (e.g. bool)).
@@ -412,6 +414,7 @@ class GraphBuilder(Specifiable):
                 if self.core_component.api_method_inputs[param_name] == "flex":
                     if input_spaces is not None and param_name in input_spaces:
                         spaces.append(input_spaces[param_name])
+                        self.core_component.api_method_inputs[param_name] = input_spaces[param_name]
                 elif isinstance(self.core_component.api_method_inputs[param_name], Space):
                     if input_spaces is not None and param_name in input_spaces:
                         spaces.append(self.core_component.api_method_inputs[param_name])

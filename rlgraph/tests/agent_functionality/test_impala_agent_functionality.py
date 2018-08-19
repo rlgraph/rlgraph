@@ -47,8 +47,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
     # Use the exact same Spaces as in the IMPALA paper.
     action_space = IntBox(9, add_batch_rank=True, add_time_rank=True, time_major=True)
     input_space = Dict(
-        image=FloatBox(shape=(96, 72, 3)),
-        text=TextBox(),
+        RGB_INTERLEAVED=FloatBox(shape=(96, 72, 3)),
+        INSTR=TextBox(),
         previous_action=FloatBox(shape=(9,)),
         previous_reward=FloatBox(shape=(1,)),  # add the extra rank for proper concatenating with the other inputs.
         add_batch_rank=True,
@@ -131,7 +131,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         batch_size = 4
 
         # Use IMPALA paper's preprocessor of division by 255 (only for the Image).
-        preprocessor_spec_for_actor_component = dict(image=[dict(type="divide", divisor=255)])
+        preprocessor_spec_for_actor_component = dict(RGB_INTERLEAVED=[dict(type="divide", divisor=255)])
         # IMPALA uses a baseline action adapter (v-trace off-policy PG with baseline value function).
         policy = Policy(LargeIMPALANetwork(), action_space=self.action_space,
                         action_adapter_spec=dict(type="baseline_action_adapter"))
@@ -162,8 +162,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # Check preprocessed state (all the same except 'image' channel).
         recursive_assert_almost_equal(
             preprocessed_states, dict(
-                image=nn_dict_input["image"] / 255,
-                text=nn_dict_input["text"],
+                RGB_INTERLEAVED=nn_dict_input["RGB_INTERLEAVED"] / 255,
+                INSTR=nn_dict_input["INSTR"],
                 previous_action=nn_dict_input["previous_action"],
                 previous_reward=nn_dict_input["previous_reward"],
             )
@@ -182,8 +182,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # Check preprocessed state (all the same except 'image' channel, which gets divided by 255).
         recursive_assert_almost_equal(
             preprocessed_states, dict(
-                image=next_nn_input["image"] / 255,
-                text=next_nn_input["text"],
+                RGB_INTERLEAVED=next_nn_input["RGB_INTERLEAVED"] / 255,
+                INSTR=next_nn_input["INSTR"],
                 previous_action=next_nn_input["previous_action"],
                 previous_reward=next_nn_input["previous_reward"],
             )
@@ -203,8 +203,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # Check preprocessed state (all the same except 'image' channel).
         recursive_assert_almost_equal(
             preprocessed_states, dict(
-                image=next_nn_input["image"] / 255,
-                text=next_nn_input["text"],
+                RGB_INTERLEAVED=next_nn_input["RGB_INTERLEAVED"] / 255,
+                INSTR=next_nn_input["INSTR"],
                 previous_action=next_nn_input["previous_action"],
                 previous_reward=next_nn_input["previous_reward"],
             )
@@ -221,8 +221,10 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         actor_component = ActorComponent(
             # Preprocessor spec (only for image and prev-action channel).
             dict(
-                RGB_INTERLEAVED=[dict(type="divide", divisor=255)],  # the images from the env  are divided by 255
-                previous_action=[dict(type="reshape", flatten=True)]  # the prev. actions from the env must be flattened
+                # The images from the env  are divided by 255.
+                RGB_INTERLEAVED=[dict(type="divide", divisor=255)],
+                # The prev. actions from the env must be flattened.
+                previous_action=[dict(type="reshape", flatten=True, flatten_categories=action_space.num_categories)]
             ),
             # Policy spec.
             dict(neural_network=LargeIMPALANetwork(), action_space=action_space),
@@ -236,6 +238,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             actor_component_spec=actor_component,
             state_space=state_space,
             reward_space="float64",
+            # Add both prev-action and -reward into the state sent through the network.
             add_previous_action=True,
             add_previous_reward=True
         )
@@ -243,8 +246,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         test = ComponentTest(
             component=environment_stepper,
             input_spaces=dict(
-                internal_states=Tuple(FloatBox(shape=(256,), add_batch_rank=True),
-                                      FloatBox(shape=(256,), add_batch_rank=True)),
+                internal_states=self.internal_states_space,
                 num_steps=int,
                 time_step=int
             ),
@@ -258,7 +260,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
         # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
         time_steps = 2000
-        out = test.test(("step", [time_steps, 0]), expected_outputs=None)
+        initial_internal_states = self.internal_states_space.zeros()
+        out = test.test(("step", [time_steps, 0, initial_internal_states]), expected_outputs=None)
 
         # Check types of outputs.
         self.assertTrue(out[0] is None)  # the step op (no_op).

@@ -111,7 +111,7 @@ class SpecifiableServer(Specifiable):
             shapes = list()
             return_slots = list()
             for i, space in enumerate(force_list(specs)):
-                assert isinstance(space, Space) and not isinstance(space, ContainerSpace)
+                assert not isinstance(space, ContainerSpace)
                 # Expecting an op (space 0).
                 if space == 0:
                     dtypes.append(0)

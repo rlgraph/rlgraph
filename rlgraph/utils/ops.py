@@ -93,14 +93,16 @@ class DataOpRecord(object):
     """
     _ID = -1
 
-    def __init__(self, op=None, column=None, position=None, kwarg=None):
+    def __init__(self, op=None, column=None, position=None, kwarg=None, space=None):
         """
         Args:
             op (Optional[DataOp]): The optional DataOp to already store in this op-rec.
             column (DataOpRecordColumn): The DataOpRecordColumn to which this op-rec belongs.
-            position (int): An optional position (index) for this op inside `column`.
-            kwarg (str): The keyword with which to call the API-method if this op-rec is not a positional
+            position (Optional[int]): An optional position (index) for this op inside `column`.
+            kwarg (Optional[str]): The keyword with which to call the API-method if this op-rec is not a positional
                 arg.
+            space (Optional[Space]): The Space of `op` if already known at construction time. Will be poulated
+                later (during build phase) if not.
         """
         self.id = self.get_id()
         self.op = op
@@ -112,7 +114,7 @@ class DataOpRecord(object):
         self.kwarg = kwarg
 
         # The inferred Space of this op.
-        self.space = None
+        self.space = space
 
         # Set of (op-col ID, slot) tuples that are connected from this one.
         self.next = set()

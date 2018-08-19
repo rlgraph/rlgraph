@@ -48,8 +48,9 @@ class ReShape(PreprocessLayer):
             flatten (bool): Whether to simply flatten the input Space into a single rank. This does not include
                 batch- or time-ranks. These can be processed separately by the other ctor options.
                 If flatten is True, new_shape must be None.
-            flatten_categories (bool): Only important if `flatten` is True and incoming space is an IntBox.
-                Specifies, whether to also flatten IntBox categories.
+            flatten_categories (Union[bool,int]): Only important if `flatten` is True and incoming space is an IntBox.
+                Specifies, whether to also flatten IntBox categories OR specifies the exact number of int categories to
+                use for flattening.
                 Default: True.
             fold_time_rank (bool): Whether to fold the time rank into a single batch rank.
                 E.g. from (None, None, 2, 3) to (None, 2, 3). Providing both `fold_time_rank` (True) and
@@ -96,7 +97,7 @@ class ReShape(PreprocessLayer):
                     [single_space.flat_dim_with_categories if
                      self.flatten_categories is True and type(single_space) == IntBox else single_space.flat_dim]
                 )
-                if self.flatten_categories is True and type(single_space) == IntBox:
+                if self.flatten_categories is not False and type(single_space) == IntBox:
                     class_ = FloatBox
             else:
                 new_shape = self.new_shape[key] if isinstance(self.new_shape, dict) else self.new_shape
@@ -128,7 +129,7 @@ class ReShape(PreprocessLayer):
         # Check whether our input space has-batch or not and store this information here.
         in_space = input_spaces["preprocessing_inputs"]  # type: Space
 
-        if self.flatten is True and isinstance(in_space, IntBox):
+        if self.flatten is True and isinstance(in_space, IntBox) and self.flatten_categories is True:
             sanity_check_space(in_space, must_have_categories=True, num_categories=(2, 10000))
 
         # Store the mapped output Spaces (per flat key).
@@ -149,6 +150,9 @@ class ReShape(PreprocessLayer):
                 # No categories. Keep as is.
                 return 1
             self.num_categories = in_space.flatten(mapping=mapping_func)
+        elif self.flatten_categories is not False:
+            # TODO: adjust for input ContainerSpaces. For now only support single space (flat-key=="")
+            self.num_categories = {"": self.flatten_categories}
 
     def _graph_fn_apply(self, key, preprocessing_inputs, input_before_time_rank_folding=None):
         """
