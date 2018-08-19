@@ -35,7 +35,7 @@ class TestEnvironmentStepper(unittest.TestCase):
     Tests for the EnvironmentStepper Component using a simple RandomEnv.
     """
     def test_environment_stepper_on_random_env(self):
-        return  # reactivate later
+        #return  # reactivate later
         state_space = FloatBox(shape=(1,))
         action_space = IntBox(2)
         preprocessor_spec = None
@@ -92,7 +92,6 @@ class TestEnvironmentStepper(unittest.TestCase):
         test.terminate()
 
     def test_environment_stepper_on_pong(self):
-        return  # reactivate later
         environment_spec = dict(type="openai_gym", gym_env="Pong-v0", frameskip=4, seed=10)
         dummy_env = Environment.from_spec(environment_spec)
         state_space = dummy_env.state_space
@@ -121,7 +120,7 @@ class TestEnvironmentStepper(unittest.TestCase):
         # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
         # Reset the stepper.
         test.test("reset")
-        time_steps = 2000
+        time_steps = 500
         time_start = time.monotonic()
         out = test.test(("step", [time_steps, 0]))
         time_end = time.monotonic()
@@ -156,7 +155,6 @@ class TestEnvironmentStepper(unittest.TestCase):
         test.terminate()
 
     def test_just_for_fun_compare_with_non_env_stepper(self):
-        return  # reactivate later
         environment_spec = dict(type="openai_gym", gym_env="Pong-v0", frameskip=4, seed=10)
         dummy_env = Environment.from_spec(environment_spec)
         state_space = dummy_env.state_space.with_batch_rank()
@@ -173,7 +171,7 @@ class TestEnvironmentStepper(unittest.TestCase):
             action_space=action_space
         )
         s = dummy_env.reset()
-        time_steps = 2000
+        time_steps = 500
         time_start = time.monotonic()
         for i in range(time_steps):
             preprocessed_s, a = test.test(("get_preprocessed_state_and_action", np.array([s])))

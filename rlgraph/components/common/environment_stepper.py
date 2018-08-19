@@ -154,9 +154,9 @@ class EnvironmentStepper(Component):
         if get_backend() == "tf":
             state_after_reset = self.environment_server.reset()
             # Store current state (support ContainerSpaces as well) in our variable(s).
-            assigns = [
-                self.assign_variable(var, s) for var, s in zip(list(self.current_state.values()), state_after_reset)
-            ]
+            assigns = [self.assign_variable(var, s) for var, s in zip(
+                    self.current_state.values(), force_tuple(state_after_reset)
+            )]
             # Store current return and whether current state is terminal.
             assigns.append(tf.variables_initializer(var_list=[self.episode_return, self.current_terminal]))
 
@@ -204,11 +204,11 @@ class EnvironmentStepper(Component):
                 with tf.control_dependencies(control_inputs=[terminal]):
                     # If state (s) was terminal, reset the env (in this case, we will never need s (or a preprocessed
                     # version thereof for any NN runs (q-values, probs, values, etc..) as no actions are taken from s).
-                    state = tf.cond(
+                    state = force_tuple(tf.cond(
                         pred=terminal,
-                        true_fn=lambda: force_tuple(self.environment_server.reset()),
+                        true_fn=lambda: self.environment_server.reset(),
                         false_fn=lambda: tuple(tf.convert_to_tensor(s) for s in state)
-                    )
+                    ))
 
                 flat_state = OrderedDict()
                 for i, flat_key in enumerate(self.state_space_flattened.keys()):
@@ -248,7 +248,7 @@ class EnvironmentStepper(Component):
                 out = self.call(
                     self.actor_component.get_preprocessed_state_and_action,
                     state,
-                    DataOpTuple(internal_states),  # <- None for non-RNN systems
+                    None if internal_states is None else DataOpTuple(internal_states),  # <- None for non-RNN systems
                     time_step=time_step + time_delta,
                     return_ops=True
                 )
