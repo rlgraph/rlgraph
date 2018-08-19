@@ -23,6 +23,7 @@ from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph import get_backend
 from rlgraph.spaces import Space, ContainerSpace
 from rlgraph.utils.specifiable import Specifiable
+from rlgraph.utils.ops import flatten_op
 from rlgraph.utils.util import force_list, dtype
 
 if get_backend() == "tf":
@@ -52,6 +53,8 @@ class SpecifiableServer(Specifiable):
             shutdown_method (Optional[str]): An optional name of a shutdown method that will be called on the
                 Specifiable object before "server" shutdown to give the Specifiable a chance to clean up.
                 The Specifiable must implement this method.
+            #flatten_output_dicts (bool): Whether output dictionaries should be flattened to tuples and then
+            #    returned.
         """
         super(SpecifiableServer, self).__init__()
 
@@ -127,16 +130,48 @@ class SpecifiableServer(Specifiable):
                 # This function will send the method-call-comment via the out-pipe to the remote (server) Specifiable
                 # object - all in-graph - and return the results to be used further by other graph ops.
                 def py_call(*args_):
+
+                    def quick_flatten_dict(dict_, start_slot):
+                        ret = tuple(res for slot, (key, res) in enumerate(sorted(dict_.items())) if slot+start_slot in
+                                    return_slots)
+                        #print("after quick flatten dict: returning {}".format(ret))
+                        return ret
+
                     try:
+                        #print("Sending args '{}' through pipe!".format(args))
                         self.out_pipe.send(args_)
                         result_ = self.out_pipe.recv()
+                        #print("Received results_ '{}'.".format(result_))
+
                         # If an error occurred, it'll be passed back through the pipe.
                         if isinstance(result_, Exception):
                             raise result_
+                        # Dict output. Flatten to tuple, then filter out the return
+                        # values according to return_slots.
+                        elif isinstance(result_, dict):
+                            return quick_flatten_dict(result_, 0)
                         # Regular result. Filter out the return values according to return_slots.
                         elif isinstance(result_, tuple):
                             #return tuple((np.asarray(r, dtype=np.float32, order="C") if type(r) == float else r) for slot, r in enumerate(result_) if slot in return_slots)
-                            return tuple(r for slot, r in enumerate(result_) if slot in return_slots)
+                            #print("return slots={}".format(return_slots))
+                            ret = list()
+                            slot = 0
+                            for i, r in enumerate(result_):
+                                if slot in return_slots:
+                                    if not isinstance(r, dict):
+                                        #print("no dict, append {}".format(r))
+                                        ret.append(r)
+                                        slot += 1
+                                    else:
+                                        #print("QUICK flattening. {}".format(r))
+                                        flat_dict = quick_flatten_dict(r, slot)
+                                        ret.extend(flat_dict)
+                                        slot += len(flat_dict)
+                                else:
+                                    #print("skipped slot={}".format(slot))
+                                    slot += 1
+                            #print("returning {}".format(ret))
+                            return tuple(ret)
                         else:
                             #return np.asarray(result_, dtype=np.float32, order="C") if type(result_) == float else result_
                             return result_
@@ -175,7 +210,7 @@ class SpecifiableServer(Specifiable):
         if isinstance(result, Exception):
             raise result
 
-    def close(self):  #, session):
+    def stop(self):  #, session):
         try:
             self.out_pipe.send(None)
             self.out_pipe.close()
@@ -257,7 +292,7 @@ if get_backend() == "tf":
 
         def end(self, session):
             tp = multiprocessing.pool.ThreadPool()
-            tp.map(lambda server: server.close(), self.specifiable_buffer)
+            tp.map(lambda server: server.stop(), self.specifiable_buffer)
             tp.close()
             tp.join()
 
