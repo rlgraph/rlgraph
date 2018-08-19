@@ -37,6 +37,7 @@ class ComponentTest(object):
         seed=10,
         logging_level=None,
         enable_profiler=False,
+        disable_monitoring=False,
         device_strategy="default",
         device_map=None
     ):
@@ -50,8 +51,9 @@ class ComponentTest(object):
             seed (Optional[int]): The seed to use for random-seeding the Model object.
                 If None, do not seed the Graph (things may behave non-deterministically).
             logging_level (Optional[int]): When provided, sets RLGraph's root_logger's logging level to this value.
-            enable_profiler (Optional(bool)): When enabled, activates backend profiling.
-            device_strategy (Optional[str]): Optional device-strategy to be passed into GraphExecutor.
+            enable_profiler (bool): When enabled, activates backend profiling. Default: False.
+            disable_monitoring (bool): When True, will not use a monitored session. Default: False.
+            device_strategy (str): Optional device-strategy to be passed into GraphExecutor.
             device_map (Optional[Dict[str,str]]): Optional device-map to be passed into GraphExecutor.
         """
         self.seed = seed
@@ -66,6 +68,7 @@ class ComponentTest(object):
             seed=self.seed,
             enable_profiler=enable_profiler,
             device_strategy=device_strategy,
+            disable_monitoring=disable_monitoring,
             device_map=device_map
         ))
         self.graph_executor = GraphExecutor.from_spec(
