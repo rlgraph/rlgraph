@@ -93,10 +93,15 @@ class ReShape(PreprocessLayer):
 
             # Determine the actual shape (not batch/time ranks).
             if self.flatten is True:
-                new_shape = tuple(
-                    [single_space.flat_dim_with_categories if
-                     self.flatten_categories is True and type(single_space) == IntBox else single_space.flat_dim]
-                )
+                if self.flatten_categories is not False and type(single_space) == IntBox:
+                    if self.flatten_categories is True:
+                        num_categories = single_space.flat_dim_with_categories
+                    else:
+                        num_categories = self.flatten_categories
+                    new_shape = (num_categories,)
+                else:
+                    new_shape = (single_space.flat_dim,)
+
                 if self.flatten_categories is not False and type(single_space) == IntBox:
                     class_ = FloatBox
             else:
