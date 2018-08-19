@@ -172,24 +172,26 @@ class TensorFlowExecutor(GraphExecutor):
         else:
             raise RLGraphError("Invalid device_strategy ('{}') for TensorFlowExecutor!".format(self.device_strategy))
 
-    def build(self, input_spaces, optimizer=None, loss_name=None):
+    def build(self, root_components, input_spaces, optimizer=None, loss_name=None):
         # 0. Init phase: Component construction and nesting (child/parent Components).
         # Components can still be modified and re-arranged after this.
         self.init_execution()
         self.setup_graph()
         self._build_device_strategy(optimizer, loss_name)
 
-        # 1. Build phase: Meta graph construction -> All of the core_component's API methods are being called once,
+        # 1. Build phase: Meta graph construction -> All of the root_component's API methods are being called once,
         # thereby calling other API-methods (of sub-Components). These API-method calls then build the meta-graph
         # (generating empty op-record columns around API methods and graph_fns).
-        self.graph_builder.build_meta_graph(input_spaces)
+        # TODO make compatible for multiple roots in graph builder.
+        for component in root_components:
+            meta_graph = self.meta_graph_builder.build(component, input_spaces)
 
-        # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
-        # -> Inputs/Operations/variables
-        self.graph_builder.build_graph(
-            input_spaces=input_spaces, available_devices=self.available_devices,
-            device_strategy=self.device_strategy, default_device=self.default_device, device_map=self.device_map
-        )
+            # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
+            # -> Inputs/Operations/variables
+            self.graph_builder.build_graph(
+                meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices,
+                device_strategy=self.device_strategy, default_device=self.default_device, device_map=self.device_map
+            )
 
         # Check device assignments for inconsistencies or unused devices.
         self._sanity_check_devices()
@@ -367,7 +369,7 @@ class TensorFlowExecutor(GraphExecutor):
             hooks (list): List of hooks to use for Saver and Summarizer in Session. Should be appended to.
         """
         self.saver = tf.train.Saver(
-            var_list=list(self.graph_builder.core_component.variables.values()),
+            var_list=list(self.graph_builder.root_component.variables.values()),
             reshape=False,
             sharded=False,
             max_to_keep=self.saver_spec.get("max_checkpoints", 1) if self.saver_spec else None,
@@ -417,7 +419,7 @@ class TensorFlowExecutor(GraphExecutor):
         )
 
         # Creates a single summary op to be used by the session to write the summary files.
-        summary_list = list(self.graph_builder.core_component.summaries.values())
+        summary_list = list(self.graph_builder.root_component.summaries.values())
         if len(summary_list) > 0:
             self.summary_op = tf.summary.merge(inputs=summary_list)
 
@@ -440,7 +442,7 @@ class TensorFlowExecutor(GraphExecutor):
         Assigns the scaffold object to `self.scaffold`.
         """
         if self.execution_mode == "single":
-            var_list = list(self.graph_builder.core_component.variables.values())
+            var_list = list(self.graph_builder.root_component.variables.values())
             # We can not fetch optimizer vars.
             # self.logger.info("optimizer vars before init :")
             # self.logger.info(self.optimizer.optimizer.variables())
@@ -628,7 +630,7 @@ class TensorFlowExecutor(GraphExecutor):
                                       "there are only {} GPUs visible.".format(self.num_gpus)
 
             # 1. Get the original component used by the agent to define its model.
-            master_component = self.graph_builder.core_component
+            master_component = self.graph_builder.root_component
 
             # 2. Get a copy of the core component.
             subgraphs = []

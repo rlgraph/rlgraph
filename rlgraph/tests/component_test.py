@@ -59,7 +59,7 @@ class ComponentTest(object):
             root_logger.setLevel(logging_level)
 
         # Create a GraphBuilder.
-        self.graph_builder = GraphBuilder(action_space=action_space, core_component=component)
+        self.graph_builder = GraphBuilder(action_space=action_space)
 
         # Build the model.
         execution_spec = parse_execution_spec(dict(
@@ -73,7 +73,7 @@ class ComponentTest(object):
             graph_builder=self.graph_builder,
             execution_spec=execution_spec
         )
-        self.graph_executor.build(input_spaces)
+        self.graph_executor.build([component], input_spaces)
 
     def test(self, *api_methods, **kwargs):
         """

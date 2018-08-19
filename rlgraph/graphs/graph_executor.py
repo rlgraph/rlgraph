@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import logging
 
+from rlgraph.graphs import MetaGraphBuilder
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.input_parsing import parse_saver_spec, parse_execution_spec
 
@@ -51,6 +52,7 @@ class GraphExecutor(Specifiable):
 
         self.logger = logging.getLogger(__name__)
 
+        self.meta_graph_builder = MetaGraphBuilder()
         self.graph_builder = graph_builder
 
         self.saver_spec = parse_saver_spec(saver_spec)
@@ -70,7 +72,7 @@ class GraphExecutor(Specifiable):
         self.session_config = self.execution_spec["session_config"]
         self.distributed_spec = self.execution_spec.get("distributed_spec")
 
-    def build(self, input_spaces, *args):
+    def build(self, root_components, input_spaces, *args):
         """
         Sets up the computation graph by:
         - Starting the Server, if necessary.
@@ -79,6 +81,8 @@ class GraphExecutor(Specifiable):
         - Setting up graph-savers, -summaries, and finalizing the graph.
 
         Args:
+            root_components (list): List of root components where each root component corresponds to a
+                meta graph to be built.
             input_spaces (dict): Dict with keys as core's API method names and values as tuples of Spaces that
                 should go into these API methods.
         """

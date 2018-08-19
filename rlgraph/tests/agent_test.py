@@ -103,7 +103,7 @@ class AgentTest(object):
             decimals (Optional[int]): The number of digits after the floating point up to which to compare actual
                 and expected values.
         """
-        variables_dict = self.agent.core_component.variables
+        variables_dict = self.agent.root_component.variables
         assert variable in variables_dict, "ERROR: Variable '{}' not found in Agent '{}'!".\
             format(variable, self.agent.name)
         var = variables_dict[variable]

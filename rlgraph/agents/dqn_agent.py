@@ -107,15 +107,15 @@ class DQNAgent(Agent):
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
                           self.target_policy, self.exploration, self.loss_function, self.optimizer]
-        self.core_component.add_components(*sub_components)
+        self.root_component.add_components(*sub_components)
 
         # Define the Agent's (core Component's) API.
         self.define_api_methods(*sub_components)
 
-        # markup = get_graph_markup(self.graph_builder.core_component)
+        # markup = get_graph_markup(self.graph_builder.root_component)
         # print(markup)
         if self.auto_build:
-            self._build_graph(self.input_spaces, self.optimizer, self.loss_function.name)
+            self._build_graph([self.root_component], self.input_spaces, self.optimizer, self.loss_function.name)
             self.graph_built = True
 
     def define_api_methods(self, preprocessor, merger, memory, splitter, policy, target_policy, exploration,
@@ -128,7 +128,7 @@ class DQNAgent(Agent):
                 reset_op = self.call(preprocessor.reset)
                 return reset_op
 
-            self.core_component.define_api_method("reset_preprocessor", reset_preprocessor)
+            self.root_component.define_api_method("reset_preprocessor", reset_preprocessor)
 
         # Act from preprocessed states.
         def action_from_preprocessed_state(self, preprocessed_states, time_step=0, use_exploration=True):
@@ -137,28 +137,28 @@ class DQNAgent(Agent):
             actions = self.call(exploration.get_action, sample_deterministic, time_step, use_exploration)
             return preprocessed_states, actions
 
-        self.core_component.define_api_method("action_from_preprocessed_state", action_from_preprocessed_state)
+        self.root_component.define_api_method("action_from_preprocessed_state", action_from_preprocessed_state)
 
         # State (from environment) to action with preprocessing.
         def get_preprocessed_state_and_action(self, states, time_step=0, use_exploration=True):
             preprocessed_states = self.call(preprocessor.preprocess, states)
             return self.call(self.action_from_preprocessed_state, preprocessed_states, time_step, use_exploration)
 
-        self.core_component.define_api_method("get_preprocessed_state_and_action", get_preprocessed_state_and_action)
+        self.root_component.define_api_method("get_preprocessed_state_and_action", get_preprocessed_state_and_action)
 
         # Insert into memory.
         def insert_records(self, preprocessed_states, actions, rewards, terminals):
             records = self.call(merger.merge, preprocessed_states, actions, rewards, terminals)
             return self.call(memory.insert_records, records)
 
-        self.core_component.define_api_method("insert_records", insert_records)
+        self.root_component.define_api_method("insert_records", insert_records)
 
         # Syncing target-net.
         def sync_target_qnet(self):
             policy_vars = self.call(policy._variables)
             return self.call(target_policy.sync, policy_vars)
 
-        self.core_component.define_api_method("sync_target_qnet", sync_target_qnet)
+        self.root_component.define_api_method("sync_target_qnet", sync_target_qnet)
 
         # Learn from memory.
         def update_from_memory(self_):
@@ -180,7 +180,7 @@ class DQNAgent(Agent):
             else:
                 return step_op, loss, loss_per_item, records, q_values_s
 
-        self.core_component.define_api_method("update_from_memory", update_from_memory)
+        self.root_component.define_api_method("update_from_memory", update_from_memory)
 
         # Learn from an external batch.
         def update_from_external_batch(self_, preprocessed_states, actions, rewards, terminals,
@@ -203,7 +203,7 @@ class DQNAgent(Agent):
                                                       qt_values_sp, q_values_sp, importance_weights)
             return step_op, loss, loss_per_item, q_values_s
 
-        self.core_component.define_api_method("update_from_external_batch", update_from_external_batch)
+        self.root_component.define_api_method("update_from_external_batch", update_from_external_batch)
 
         # TODO for testing
         def get_td_loss(self_, preprocessed_states, actions, rewards,
@@ -223,7 +223,7 @@ class DQNAgent(Agent):
 
             return loss, loss_per_item
 
-        self.core_component.define_api_method("get_td_loss", get_td_loss)
+        self.root_component.define_api_method("get_td_loss", get_td_loss)
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """

@@ -92,7 +92,7 @@ class Agent(Specifiable):
         self.discount = discount
 
         # The agent's core Component.
-        self.core_component = Component(name=self.name)
+        self.root_component = Component(name=self.name)
 
         # Define the input-Spaces:
         # Tag the input-Space to `self.set_policy_weights` as equal to whatever the variables-Space will be for
@@ -159,10 +159,7 @@ class Agent(Specifiable):
         self.update_spec = parse_update_spec(update_spec)
 
         # Create our GraphBuilder and -Executor.
-        self.graph_builder = GraphBuilder(
-            action_space=self.action_space, summary_spec=summary_spec,
-            core_component=self.core_component
-        )
+        self.graph_builder = GraphBuilder(action_space=self.action_space, summary_spec=summary_spec)
         self.graph_executor = GraphExecutor.from_spec(
             get_backend(),
             graph_builder=self.graph_builder,
@@ -200,25 +197,25 @@ class Agent(Specifiable):
         def get_policy_weights(self):
             return self.call(self.sub_components["policy"]._variables)
 
-        self.core_component.define_api_method("get_policy_weights", get_policy_weights)
+        self.root_component.define_api_method("get_policy_weights", get_policy_weights)
 
         def set_policy_weights(self, weights):
             return self.call(self.sub_components["policy"].sync, weights)
 
-        self.core_component.define_api_method("set_policy_weights", set_policy_weights, must_be_complete=False)
+        self.root_component.define_api_method("set_policy_weights", set_policy_weights, must_be_complete=False)
 
         # To pre-process external data if needed.
         def preprocess_states(self, states):
             preprocessed_states = self.call(self.sub_components["preprocessor-stack"].preprocess, states)
             return preprocessed_states
 
-        self.core_component.define_api_method("preprocess_states", preprocess_states)
+        self.root_component.define_api_method("preprocess_states", preprocess_states)
 
-    def _build_graph(self, input_spaces, *args):
+    def _build_graph(self, root_components, input_spaces, *args):
         """
         Builds the internal graph from the RLGraph meta-graph via the graph executor..
         """
-        self.graph_executor.build(input_spaces, *args)
+        self.graph_executor.build(root_components, input_spaces, *args)
 
     def build(self):
         """
@@ -228,7 +225,8 @@ class Agent(Specifiable):
         assert not self.graph_built, "ERROR: Attempting to build agent which has already been built. Ensure" \
                                      "auto_build parameter is set to False (was {}), and" \
                                      "method has not been called twice".format(self.auto_build)
-        self._build_graph(self.input_spaces, self.optimizer, self.loss_function.name)
+        # TODO let agent have a list of core components
+        self._build_graph([self.root_component], self.input_spaces, self.optimizer, self.loss_function.name)
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """

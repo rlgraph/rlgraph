@@ -91,15 +91,15 @@ class IMPALAAgent(Agent):
             self.loss_function = IMPALALossFunction()
             sub_components = [self.fifo_queue, self.policy, self.loss_function, self.optimizer]
 
-        self.core_component.add_components(*sub_components)
+        self.root_component.add_components(*sub_components)
 
         # Define the Agent's (core Component's) API.
         self.define_api_methods(*sub_components)
 
-        # markup = get_graph_markup(self.graph_builder.core_component)
+        # markup = get_graph_markup(self.graph_builder.root_component)
         # print(markup)
         if self.auto_build:
-            self._build_graph(self.input_spaces, self.optimizer)
+            self._build_graph([self.root_component], self.input_spaces, self.optimizer)
             self.graph_built = True
 
     def define_api_methods(self, *sub_components):
@@ -130,7 +130,7 @@ class IMPALAAgent(Agent):
             insert_op = self.call(fifo_queue.insert, results)
             return insert_op
 
-        self.core_component.define_api_method(
+        self.root_component.define_api_method(
             "perform_n_steps_and_insert_into_fifo", perform_n_steps_and_insert_into_fifo
         )
 
@@ -161,7 +161,7 @@ class IMPALAAgent(Agent):
             # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
             return step_op, loss, loss_per_item, records, q_values_s
 
-        self.core_component.define_api_method("update_from_fifo_queue", update_from_fifo_queue)
+        self.root_component.define_api_method("update_from_fifo_queue", update_from_fifo_queue)
 
     def get_action(self, states, internals=None, use_exploration=True, extra_returns=None):
         """

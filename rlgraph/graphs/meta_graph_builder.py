@@ -37,13 +37,13 @@ class MetaGraphBuilder(Specifiable):
         super(MetaGraphBuilder, self).__init__()
         self.logger = logging.getLogger(__name__)
 
-    def build(self, core_component, input_spaces=None):
+    def build(self, root_component, input_spaces=None):
         """
         Builds the meta-graph by constructing op-record columns going into and coming out of all API-methods
         and graph_fns.
 
         Args:
-            core_component (Component): Root component of the meta graph to build.
+            root_component (Component): Root component of the meta graph to build.
             input_spaces (Optional[Space]): Input spaces for api methods.
         """
 
@@ -54,15 +54,15 @@ class MetaGraphBuilder(Specifiable):
         # Sanity check input_spaces dict.
         if input_spaces is not None:
             for input_param_name in input_spaces.keys():
-                if input_param_name not in core_component.api_method_inputs:
+                if input_param_name not in root_component.api_method_inputs:
                     raise RLGraphError(
                         "ERROR: `input_spaces` contains an input-parameter-name ('{}') that's not defined in any of "
-                        "the core-component's ('{}') API-methods!".format(input_param_name, core_component.name)
+                        "the core-component's ('{}') API-methods!".format(input_param_name, root_component.name)
                     )
 
         # Call all API methods of the core once and thereby, create empty in-op columns that serve as placeholders
         # and bi-directional links between ops (for the build time).
-        for api_method_name, api_method_rec in core_component.api_methods.items():
+        for api_method_name, api_method_rec in root_component.api_methods.items():
             self.logger.debug("Building meta-graph of API-method '{}'.".format(api_method_name))
 
             # Create the loose list of in-op-records depending on signature and input-spaces given.
@@ -71,7 +71,7 @@ class MetaGraphBuilder(Specifiable):
             use_named = False
             for i, param_name in enumerate(api_method_rec.input_names):
                 # Arg has a default of None (flex). If in input_spaces, arg will be provided.
-                if core_component.api_method_inputs[param_name] == "flex":
+                if root_component.api_method_inputs[param_name] == "flex":
                     if param_name in input_spaces:
                         in_ops_records.append(
                             DataOpRecord(position=i, kwarg=param_name if use_named else None)
@@ -79,7 +79,7 @@ class MetaGraphBuilder(Specifiable):
                     else:
                         use_named = True
                 # Already defined (per default arg value (e.g. bool)).
-                elif isinstance(core_component.api_method_inputs[param_name], Space):
+                elif isinstance(root_component.api_method_inputs[param_name], Space):
                     if input_spaces is not None and param_name in input_spaces:
                         in_ops_records.append(DataOpRecord(position=i, kwarg=param_name if use_named else None))
                     else:
@@ -89,7 +89,7 @@ class MetaGraphBuilder(Specifiable):
                     # TODO: If space not provided in input_spaces -> Try to call this API method later (maybe another API-method).
                     assert param_name in input_spaces
                     # A var-positional param.
-                    if core_component.api_method_inputs[param_name] == "*flex":
+                    if root_component.api_method_inputs[param_name] == "*flex":
                         assert use_named is False
                         in_ops_records.extend([DataOpRecord(position=i + j) for j in range(len(force_list(input_spaces[param_name])))])
                     else:
@@ -98,7 +98,7 @@ class MetaGraphBuilder(Specifiable):
             # Do the actual core API-method call (thereby assembling the meta-graph).
             args = [op_rec for op_rec in in_ops_records if op_rec.kwarg is None]
             kwargs = {op_rec.kwarg: op_rec for op_rec in in_ops_records if op_rec.kwarg is not None}
-            core_component.call(api_method_rec.method, *args, **kwargs)
+            root_component.call(api_method_rec.method, *args, **kwargs)
 
             # Register core's interface.
             api[api_method_name] = (in_ops_records, api_method_rec.out_op_columns[-1].op_records)
@@ -111,15 +111,15 @@ class MetaGraphBuilder(Specifiable):
         self.logger.info("Meta-graph build completed in {} s.".format(time_build))
 
         # Sanity check the meta-graph.
-        self.sanity_check_meta_graph(core_component)
+        self.sanity_check_meta_graph(root_component)
 
         # Get some stats on the graph and report.
         num_meta_ops = DataOpRecord._ID + 1
         self.logger.info("Meta-graph op-records generated: {}".format(num_meta_ops))
 
-        return MetaGraph(core_component=core_component, api=api, num_ops=num_meta_ops)
+        return MetaGraph(root_component=root_component, api=api, num_ops=num_meta_ops, build_status=True)
 
-    def sanity_check_meta_graph(self, core_component):
+    def sanity_check_meta_graph(self, root_component):
         """
         Checks the constructed meta-graph after calling `self.build_meta_graph` for
         inconsistencies.
@@ -128,24 +128,24 @@ class MetaGraphBuilder(Specifiable):
               RLGraphError: If sanity of the meta-graph could not be confirmed.
         """
         # Check whether every component (except core-component) has a parent.
-        components = core_component.get_all_sub_components()
+        components = root_component.get_all_sub_components()
 
         self.logger.info("Components created: {}".format(len(components)))
 
         core_found = False
         for component in components:
             if component.parent_component is None:
-                if component is not core_component:
+                if component is not root_component:
                     raise RLGraphError(
                         "ERROR: Component '{}' has no parent Component but is not the core-component! Only the "
                         "core-component has a `parent_component` of None.".format(component)
                     )
                 else:
                     core_found = True
-            elif component.parent_component is not None and component is core_component:
+            elif component.parent_component is not None and component is root_component:
                 raise RLGraphError(
                     "ERROR: Core-Component '{}' has a parent Component ({}), but is not allowed to!".
                         format(component, component.parent_component)
                 )
         if core_found is False:
-            raise RLGraphError("ERROR: Core-component '{}' was not found in meta-graph!".format(core_component))
+            raise RLGraphError("ERROR: Core-component '{}' was not found in meta-graph!".format(root_component))

@@ -22,8 +22,17 @@ class MetaGraph(object):
     """
     Represents a single RLgraph meta graph object.
     """
-    def __init__(self, core_component, api, num_ops=0):
-        self.core_component = core_component
+    def __init__(self, root_component, api, num_ops, build_status=False):
+        self.root_component = root_component
         self.api = api
         self.num_ops = num_ops
+        self._built = build_status
+
+    def set_to_built(self):
+        assert not self._built, "ERROR: Cannot set graph to built if already built."
+        self._built = True
+
+    @property
+    def build_status(self):
+        return self._built
 
