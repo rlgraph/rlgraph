@@ -58,14 +58,16 @@ class TestDQNAgentFunctionality(unittest.TestCase):
 
         # Helper python DQNLossFunc object.
         loss_func = DQNLossFunction(backend="python", double_q=True, discount=agent.discount)
-        loss_func.when_input_complete(input_spaces=dict(loss_per_item=[spaces.FloatBox(shape=(4,), add_batch_rank=True),
-                                                                       spaces.IntBox(4, add_batch_rank=True),
-                                                                       spaces.FloatBox(add_batch_rank=True),
-                                                                       spaces.BoolBox(add_batch_rank=True),
-                                                                       spaces.FloatBox(shape=(4,), add_batch_rank=True),
-                                                                       spaces.FloatBox(shape=(4,), add_batch_rank=True)
-                                                                       ]),
-                                      action_space=env.action_space)
+        loss_func.when_input_complete(input_spaces=dict(
+            loss_per_item=[
+                spaces.FloatBox(shape=(4,), add_batch_rank=True),
+                spaces.IntBox(4, add_batch_rank=True),
+                spaces.FloatBox(add_batch_rank=True),
+                spaces.BoolBox(add_batch_rank=True),
+                spaces.FloatBox(shape=(4,), add_batch_rank=True),
+                spaces.FloatBox(shape=(4,), add_batch_rank=True)
+            ]
+        ), action_space=env.action_space)
 
         matrix1_qnet = np.array([[0.9] * 2] * 4)
         matrix2_qnet = np.array([[0.8] * 5] * 2)

@@ -251,18 +251,19 @@ class Component(Specifiable):
         if method.__name__ in method_owner.api_methods:
             # Make the API call.
             op_recs = self.call_api(method, method_owner, *params, **kwargs)
-            # Do we need to return the raw ops or the op-recs?
-            # Direct parent caller is a `_graph_fn_...`: Return raw ops.
-            stack = inspect.stack()
-            if return_ops is True or re.match(r'^_graph_fn_.+$', stack[1][3]):
-                return (o.op for o in op_recs) if isinstance(op_recs, tuple) else op_recs.op
-            # Parent caller is non-graph_fn: Return op-recs.
-            else:
-                return op_recs
 
         # Method is a graph_fn.
         else:
-            return self.call_graph_fn(method, method_owner, *params, **kwargs)
+            op_recs = self.call_graph_fn(method, method_owner, *params, **kwargs)
+
+        # Do we need to return the raw ops or the op-recs?
+        # Direct parent caller is a `_graph_fn_...`: Return raw ops.
+        stack = inspect.stack()
+        if return_ops is True or re.match(r'^_graph_fn_.+$', stack[1][3]):
+            return (o.op for o in op_recs) if isinstance(op_recs, tuple) else op_recs.op
+        # Parent caller is non-graph_fn: Return op-recs.
+        else:
+            return op_recs
 
     def call_graph_fn(self, method, method_owner, *params, **kwargs):
         """

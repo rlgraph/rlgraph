@@ -749,7 +749,7 @@ class GraphBuilder(Specifiable):
                     for ph, p in zip(placeholder, param):
                         feed_dict[ph] = p
                 # Special case: Get the default argument for this arg.
-                # TODO: Support APi-method's kwargs here as well (mostly useful for test.test).
+                # TODO: Support API-method's kwargs here as well (mostly useful for test.test).
                 #elif param is None:
                 #    feed_dict[placeholder] = self.root_component.api_methods[api_method].default_values[i]
                 else:

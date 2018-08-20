@@ -42,7 +42,7 @@ class AgentTest(object):
         if logging_level is not None:
             root_logger.setLevel(logging_level)
 
-        # Use the Agent's GraphBuilder.
+        # Simply use the Agent's GraphExecutor.
         self.graph_executor = self.agent.graph_executor
 
     def step(self, num_timesteps=1, use_exploration=False, frameskip=None, reset=False):
@@ -95,7 +95,7 @@ class AgentTest(object):
 
     def check_var(self, variable, expected_value, decimals=7):
         """
-        Checks a property of our environment for (almost) equality.
+        Checks a value of our an Agent's variable for (almost) equality against an expected one.
 
         Args:
             variable (str): The global scope (within Agent's core-component) of the variable to check.
