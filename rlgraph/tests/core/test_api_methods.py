@@ -27,7 +27,7 @@ from rlgraph.tests.dummy_components import *
 
 class TestTwoSubComponents(unittest.TestCase):
     """
-    Tests for different ways to place and then connect two or more sub-Components into the core Component.
+    Tests for different ways to place and then connect two or more sub-Components into the root-Component.
     Tests different ways of defining these connections using API-methods.
     """
     root_logger.setLevel(level=logging.INFO)
@@ -86,7 +86,7 @@ class TestTwoSubComponents(unittest.TestCase):
     def test_1to1_to_2to1_component_with_constant_input_value(self):
         """
         Adds two components in sequence, 1-to-1 and 2-to-1, to the core and blocks one of the api_methods of 2-to-1
-        with a constant value (so that this constant value is not at the border of the core component).
+        with a constant value (so that this constant value is not at the border of the root-component).
         """
         core = Component(scope="container")
         sub_comp1 = Dummy1To1(scope="A")

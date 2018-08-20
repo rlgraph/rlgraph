@@ -98,7 +98,7 @@ class AgentTest(object):
         Checks a value of our an Agent's variable for (almost) equality against an expected one.
 
         Args:
-            variable (str): The global scope (within Agent's core-component) of the variable to check.
+            variable (str): The global scope (within Agent's root-component) of the variable to check.
             expected_value (any): The expected value of the given variable.
             decimals (Optional[int]): The number of digits after the floating point up to which to compare actual
                 and expected values.

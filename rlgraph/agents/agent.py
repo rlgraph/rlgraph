@@ -91,7 +91,7 @@ class Agent(Specifiable):
 
         self.discount = discount
 
-        # The agent's core Component.
+        # The agent's root-Component.
         self.root_component = Component(name=self.name)
 
         # Define the input-Spaces:
@@ -225,7 +225,7 @@ class Agent(Specifiable):
         assert not self.graph_built, "ERROR: Attempting to build agent which has already been built. Ensure" \
                                      "auto_build parameter is set to False (was {}), and" \
                                      "method has not been called twice".format(self.auto_build)
-        # TODO let agent have a list of core components
+        # TODO let agent have a list of root-components
         self._build_graph([self.root_component], self.input_spaces, self.optimizer, self.loss_function.name)
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):

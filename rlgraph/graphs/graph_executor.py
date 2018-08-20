@@ -77,7 +77,7 @@ class GraphExecutor(Specifiable):
         Sets up the computation graph by:
         - Starting the Server, if necessary.
         - Setting up the computation graph object.
-        - Assembling the computation graph defined inside our core component.
+        - Assembling the computation graph defined inside our root-component.
         - Setting up graph-savers, -summaries, and finalizing the graph.
 
         Args:

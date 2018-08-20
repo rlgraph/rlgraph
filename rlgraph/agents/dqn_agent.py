@@ -109,7 +109,7 @@ class DQNAgent(Agent):
                           self.target_policy, self.exploration, self.loss_function, self.optimizer]
         self.root_component.add_components(*sub_components)
 
-        # Define the Agent's (core Component's) API.
+        # Define the Agent's (root-Component's) API.
         self.define_api_methods(*sub_components)
 
         # markup = get_graph_markup(self.graph_builder.root_component)

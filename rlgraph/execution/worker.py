@@ -34,6 +34,7 @@ class Worker(Specifiable):
             env_spec Union[callable, dict]): Either an environment spec or a callable returning a new
                 environment.
             agent (Agent): Agent to execute environment on.
+            num_envs (int): How many single Environments should be run in parallel in a SequentialVectorEnv.
             frameskip (int): How often actions are repeated after retrieving them from the agent.
                 This setting can be overwritten in the single calls to the different `execute_..` methods.
         """

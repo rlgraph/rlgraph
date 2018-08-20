@@ -25,6 +25,6 @@ __all__ = ["Worker", "SingleThreadedWorker", "EnvironmentSample"]
 
 Worker.__lookup_classes__ = dict(
    single=SingleThreadedWorker,
-   single_threaded_worker=SingleThreadedWorker,
-   single_threaded=SingleThreadedWorker
+   singlethreadedworker=SingleThreadedWorker,
+   singlethreaded=SingleThreadedWorker
 )

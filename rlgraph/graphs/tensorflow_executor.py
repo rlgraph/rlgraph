@@ -632,7 +632,7 @@ class TensorFlowExecutor(GraphExecutor):
             # 1. Get the original component used by the agent to define its model.
             master_component = self.graph_builder.root_component
 
-            # 2. Get a copy of the core component.
+            # 2. Get a copy of the root-component.
             subgraphs = []
             shared_scope = "shared-scope"
             for device in self.gpu_names:

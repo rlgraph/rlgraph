@@ -42,6 +42,7 @@ class EnvironmentSample(object):
     def get_batch(self):
         """
         Get experience sample in insert format.
+
         Returns:
             dict: Sample batch.
         """

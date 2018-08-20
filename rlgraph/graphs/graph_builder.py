@@ -47,7 +47,7 @@ class GraphBuilder(Specifiable):
     def __init__(self, name="model", action_space=None, summary_spec=None):
         """
         Args:
-            name (str): The name of this GraphBuilder and of the meta-graph's core component.
+            name (str): The name of this GraphBuilder and of the meta-graph's root-component.
             action_space (Optional[Space]): The action Space information to be passed into calls to each Components'
                 `when_input_complete` methods.
             summary_spec (Optional[dict]): A specification dict that defines, which summaries we would like to
@@ -55,7 +55,7 @@ class GraphBuilder(Specifiable):
         """
         super(GraphBuilder, self).__init__()
 
-        # The name of this model. Our core Component gets this name.
+        # The name of this model. Our root-Component gets this name.
         self.logger = logging.getLogger(__name__)
         self.name = name
         self.action_space = action_space
@@ -83,7 +83,7 @@ class GraphBuilder(Specifiable):
         # Number of trainable variables (optimizable weights).
         self.num_trainable_parameters = 0
 
-        # Create an empty core Component into which everything will be assembled by an Algo.
+        # Create an empty root-Component into which everything will be assembled by an Algo.
         self.root_component = None
 
         # Maps API method names to in- (placeholders) and out op columns (ops to pull).
@@ -740,7 +740,7 @@ class GraphBuilder(Specifiable):
                 fetch_dict[api_method] = [self.api[api_method][1][i].op for i in return_ops]
 
             for i, param in enumerate(params):
-                # TODO: What if len(params) < len(self.api[api_method][0])? Need to handle default API-method params also for the core-component (this one).
+                # TODO: What if len(params) < len(self.api[api_method][0])? Need to handle default API-method params also for the root-component (this one).
                 if len(self.api[api_method][0]) <= i:
                     raise RLGraphError("API-method with name '{}' only has {} input parameters! You passed in "
                                        "{}.".format(api_method, len(self.api[api_method][0]), len(params)))

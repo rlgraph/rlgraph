@@ -57,7 +57,7 @@ class MetaGraphBuilder(Specifiable):
                 if input_param_name not in root_component.api_method_inputs:
                     raise RLGraphError(
                         "ERROR: `input_spaces` contains an input-parameter-name ('{}') that's not defined in any of "
-                        "the core-component's ('{}') API-methods!".format(input_param_name, root_component.name)
+                        "the root-component's ('{}') API-methods!".format(input_param_name, root_component.name)
                     )
 
         # Call all API methods of the core once and thereby, create empty in-op columns that serve as placeholders
@@ -127,7 +127,7 @@ class MetaGraphBuilder(Specifiable):
         Raises:
               RLGraphError: If sanity of the meta-graph could not be confirmed.
         """
-        # Check whether every component (except core-component) has a parent.
+        # Check whether every component (except root-component) has a parent.
         components = root_component.get_all_sub_components()
 
         self.logger.info("Components created: {}".format(len(components)))
@@ -137,15 +137,15 @@ class MetaGraphBuilder(Specifiable):
             if component.parent_component is None:
                 if component is not root_component:
                     raise RLGraphError(
-                        "ERROR: Component '{}' has no parent Component but is not the core-component! Only the "
-                        "core-component has a `parent_component` of None.".format(component)
+                        "ERROR: Component '{}' has no parent Component but is not the root-component! Only the "
+                        "root-component has a `parent_component` of None.".format(component)
                     )
                 else:
                     core_found = True
             elif component.parent_component is not None and component is root_component:
                 raise RLGraphError(
-                    "ERROR: Core-Component '{}' has a parent Component ({}), but is not allowed to!".
+                    "ERROR: Root-Component '{}' has a parent Component ({}), but is not allowed to!".
                         format(component, component.parent_component)
                 )
         if core_found is False:
-            raise RLGraphError("ERROR: Core-component '{}' was not found in meta-graph!".format(root_component))
+            raise RLGraphError("ERROR: Root-component '{}' was not found in meta-graph!".format(root_component))
