@@ -77,8 +77,7 @@ class RayWorker(RayActor):
         self.preprocessors = dict()
         preprocessing_spec = agent_config.get("preprocessing_spec", None)
         for env_id in self.env_ids:
-            self.preprocessors[env_id] = self.setup_preprocessor(preprocessing_spec,
-                                                                 self.vector_env.state_space)
+            self.preprocessors[env_id] = self.setup_preprocessor(preprocessing_spec, self.vector_env.state_space)
         self.agent = self.setup_agent(agent_config, worker_spec)
         self.worker_frameskip = frameskip
 
@@ -98,9 +97,10 @@ class RayWorker(RayActor):
         self.agent.reset()
 
         self.zero_batched_state = np.zeros((1,) + self.agent.preprocessed_state_space.shape)
-        self.preprocessed_states_buffer = np.zeros(shape=(self.num_environments,)
-                                                         + self.agent.preprocessed_state_space.shape,
-                                                   dtype=self.agent.preprocessed_state_space.dtype)
+        self.preprocessed_states_buffer = np.zeros(
+            shape=(self.num_environments,) + self.agent.preprocessed_state_space.shape,
+            dtype=self.agent.preprocessed_state_space.dtype
+        )
         self.last_ep_timesteps = [0 for _ in range_(self.num_environments)]
         self.last_ep_rewards = [0 for _ in range_(self.num_environments)]
         # Was the last state a terminal state so env should be reset in next call?

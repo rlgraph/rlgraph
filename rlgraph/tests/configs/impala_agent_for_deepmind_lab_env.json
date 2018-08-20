@@ -1,9 +1,8 @@
 {
   "type": "impala",
 
-  "memory_spec":
+  "fifo_queue_spec":
   {
-    "type": "fifo_queue",
     "capacity": 10000
   },
 
