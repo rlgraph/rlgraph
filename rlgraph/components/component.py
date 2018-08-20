@@ -801,6 +801,10 @@ class Component(Specifiable):
                 var = tf.get_variable(
                     name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
                 )
+        elif get_backend() == "pytorch":
+            # TODO
+            # clarify when we actually need a pytorch tensor of when a numpy variable is enough
+            pass
         elif get_backend() == "tf-eager":
             shape = tuple((() if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,))
                           + (shape or ()))
