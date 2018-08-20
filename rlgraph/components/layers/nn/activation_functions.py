@@ -25,6 +25,8 @@ from rlgraph.utils.rlgraph_error import RLGraphError
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch.nn as nn
 
 
 def get_activation_function(activation_function=None, *other_parameters):
@@ -84,4 +86,41 @@ def get_activation_function(activation_function=None, *other_parameters):
             return tf.nn.tanh
         else:
             raise RLGraphError("ERROR: Unknown activation_function '{}' for TensorFlow backend!".
+                               format(activation_function))
+    elif get_backend() == "pytorch":
+        # Have to instantiate objects here.
+        if activation_function is None or callable(activation_function):
+            return activation_function
+        # Rectifier linear unit (ReLU) : 0 if x < 0 else x
+        elif activation_function == "relu":
+            return nn.ReLU()
+        # TODO note that there is no linear activation, just use a linear layer
+        # Exponential linear: exp(x) - 1 if x < 0 else x
+        elif activation_function == "elu":
+            return nn.ELU()
+        # Sigmoid: 1 / (1 + exp(-x))
+        elif activation_function == "sigmoid":
+            return nn.Sigmoid()
+        # Scaled exponential linear unit: scale * [alpha * (exp(x) - 1) if < 0 else x]
+        # https://arxiv.org/pdf/1706.02515.pdf
+        elif activation_function == "selu":
+            return nn.SELU()
+        # Leaky ReLU: x * [alpha if x < 0 else 1.0]
+        elif activation_function in ["lrelu", "leaky_relu"]:
+            alpha = other_parameters[0] if len(other_parameters) > 0 else 0.2
+            return partial(nn.LeakyReLU(), alpha=alpha)
+        # Softmax function:
+        elif activation_function == "softmax":
+            return nn.Softmax()
+        # Softplus function:
+        elif activation_function == 'softplus':
+            return nn.Softplus()
+        # Softsign function:
+        elif activation_function == "softsign":
+            return nn.Softsign()
+        # tanh activation function:
+        elif activation_function == "tanh":
+            return nn.Tanh()
+        else:
+            raise RLGraphError("ERROR: Unknown activation_function '{}' for PyTorch backend!".
                                format(activation_function))
