@@ -24,6 +24,8 @@ from rlgraph.components.layers.nn.activation_functions import get_activation_fun
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch.nn as nn
 
 
 class Conv2DLayer(NNLayer):
@@ -90,3 +92,18 @@ class Conv2DLayer(NNLayer):
             self.layer.build(in_space.get_shape(with_batch_rank=True))
             # Register the generated variables with our registry.
             self.register_variables(*self.layer.variables)
+        elif get_backend() == "pytorch":
+            shape = in_space.shape
+            if self.data_format == "channels_last":
+                num_channels = shape[-1]
+            else:
+                num_channels = shape[0]
+            self.layer = nn.Conv2d(
+                in_channels=num_channels,
+                out_channels=self.filters,
+                kernel_size=self.kernel_size,
+                stride=self.strides,
+                padding=self.padding,
+                bias=(self.biases_spec is not False)
+            )
+
