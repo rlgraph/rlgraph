@@ -1145,6 +1145,24 @@ class Component(Specifiable):
                 ret.extend(sorted(list_[l], key=lambda c: c.scope))
             return ret
 
+    def get_sub_component_by_scope(self, scope):
+        """
+        Returns a sub-Component (or None if not found) by scope. The sub-coponent's scope should be given
+        as global scope of the sub-component (not local scope with respect to this Component).
+
+        Args:
+            scope (str): The global scope of the sub-Component we are looking for.
+
+        Returns:
+            Component: The sub-Component with the given global scope if found, None if not found.
+        """
+        # TODO: make method more efficient.
+        components = self.get_all_sub_components()
+        for component in components:
+            if components.global_scope == scope:
+                return component
+        return None
+
     def propagate_scope(self, sub_component, properties=None):
         """
         Fixes all the sub-Component's (and its sub-Component's) global_scopes.
