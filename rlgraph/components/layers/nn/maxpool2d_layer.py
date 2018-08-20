@@ -12,18 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.initializer import Initializer
 from rlgraph.components.layers.nn.nn_layer import NNLayer
-from rlgraph.components.layers.nn.activation_functions import get_activation_function
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch.nn as nn
 
 
 class MaxPool2DLayer(NNLayer):
@@ -55,4 +54,10 @@ class MaxPool2DLayer(NNLayer):
                 strides=self.strides,
                 padding=self.padding,
                 data_format=self.data_format,
+            )
+        elif get_backend() == "pytorch":
+            self.layer = nn.MaxPool2d(
+                kernel_size=self.pool_size,
+                stride=self.strides,
+                padding=self.padding
             )
