@@ -26,6 +26,9 @@ from rlgraph.spaces.space_utils import sanity_check_space
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
+    import torch.nn as nn
 
 
 class LSTMLayer(NNLayer):
@@ -109,6 +112,9 @@ class LSTMLayer(NNLayer):
             self.lstm_cell.build(tf.TensorShape(in_space_without_time_rank))
             # Register the generated variables with our registry.
             self.register_variables(*self.lstm_cell.variables)
+        elif get_backend() == "pytorch":
+            self.lstm = nn.LSTM(in_space, self.units)
+            self.hidden_state = (torch.zeros(1, 1, self.units), torch.zeros(1, 1, self.units))
 
     def _graph_fn_apply(self, inputs, initial_c_and_h_states=None, sequence_length=None):
         """
@@ -143,3 +149,8 @@ class LSTMLayer(NNLayer):
 
             # Returns: Unrolled-outputs (time series of all encountered h-states), final c- and h-states.
             return lstm_out, DataOpTuple(lstm_state_tuple)
+        elif get_backend() == "pytorch":
+            # TODO init hidden state has to be available at create variable time to use.
+            inputs = torch.cat(inputs).view(len(inputs), 1, -1)
+            out, self.hidden = self.lstm(inputs, self.hidden)
+            return out, self.hidden
