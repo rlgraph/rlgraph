@@ -24,6 +24,8 @@ from .nn_layer import NNLayer
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch.nn as nn
 
 
 class ConcatLayer(NNLayer):
@@ -64,5 +66,7 @@ class ConcatLayer(NNLayer):
             self.layer = tf.keras.layers.Concatenate(axis=self.axis)
 
     def _graph_fn_apply(self, *inputs):
-        return self.layer.apply(force_list(inputs))
-
+        if get_backend() == "tf":
+            return self.layer.apply(force_list(inputs))
+        elif get_backend() == "pytorch":
+            return nn.Sequential(force_list(inputs))
