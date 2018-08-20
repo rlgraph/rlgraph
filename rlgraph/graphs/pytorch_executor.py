@@ -26,12 +26,12 @@ if get_backend() == "pytorch":
     import torch
 
 
-class PytorchExecutor(GraphExecutor):
+class PyTorchExecutor(GraphExecutor):
     """
     Manages execution for component graphs using define-by-run semantics.
     """
     def __init__(self, **kwargs):
-        super(PytorchExecutor, self).__init__(**kwargs)
+        super(PyTorchExecutor, self).__init__(**kwargs)
 
         self.cuda_enabled = torch.cuda.is_available()
 
