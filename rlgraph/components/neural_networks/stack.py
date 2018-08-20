@@ -56,24 +56,8 @@ class Stack(Component):
                 Connecting always works by first calling the first sub-Component's API-method, then - with the
                 result - calling the second sub-Component's API-method, etc..
                 This is done for all API-methods in the given set.
-            # implement "expose"-mode later. For now require custom API-method in child-of-Stack class.
-            #connection_rule (str): Either "strict" (default) or "expose".
-            #    "strict": Throws error if the number of inputs/return values between the different sub-component does
-            #        not match.
-            #        E.g. sub-components A and B:
-            #        A has 1-in 2-outs, B has 2-ins, 1-out -> ok
-            #        A has 1-in 3-outs, B has 1-in, 1-out -> not ok (3 does not match 1)
-            #    "expose": Extra (non matching) ins and outs are being "exposed" into the Stack's API-method.
-            #        E.g. sub-components A and B:
-            #        A has 1-in 2-outs, B has 1-in, 1-out -> the 2nd out of A will be forwarded to be another out
-            #            of Stack's API-method, such that the Stack now has 1 in and 2 outs (1 out coming from B,
-            #            the other one being the 2nd out of A).
-            #        A has 1-in 1-out, B has 2-ins, 1-out -> the 2nd in of B will be forwarded to be another in
-            #            of Stack's API-method, such that the Stack now has 2 ins (1 in coming from A, the other
-            #            one being the 2nd in of B) and 1 out.
         """
         api_methods = kwargs.pop("api_methods", {"apply"})
-        #connection_rule = kwargs.pop("connection_rule", "strict")
 
         super(Stack, self).__init__(*sub_components, scope=kwargs.pop("scope", "stack"), **kwargs)
 

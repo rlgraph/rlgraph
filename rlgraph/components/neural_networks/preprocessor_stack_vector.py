@@ -18,54 +18,67 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+#from rlgraph.components.common.dict_merger import DictMerger
+#from rlgraph.components.common.dict_splitter import DictSplitter
 from rlgraph.components.layers.preprocessing import PreprocessLayer
+from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
+from rlgraph.spaces import ContainerSpace, Dict
+from rlgraph.utils.ops import flatten_op
 from rlgraph.utils.util import default_dict
-from rlgraph.components.neural_networks.stack import Stack
 
 if get_backend() == "tf":
     import tensorflow as tf
 
 
-class PreprocessorStack(Stack):
+class DictPreprocessorStack(PreprocessorStack):
     """
-    A special Stack that only carries PreprocessLayer Components and bundles all their `reset` output ops
-    into one exposed `reset` output op. Otherwise, behaves like a Stack in feeding the outputs
-    of one sub-Component to the inputs of the next sub-Component, etc..
+    A generic PreprocessorStack that can handle Dict/Tuple Spaces and parallely preprocess different Spaces within
+    different (and separate) single PreprocessorStack components.
+    The output is again a dict of preprocessed inputs.
 
     API:
         preprocess(input_): Outputs the preprocessed input_ after sending it through all sub-Components of this Stack.
-        reset(): An op to trigger all PreprocessorLayers of this Stack to be reset.
+        reset(): An op to trigger all PreprocessorStacks of this Vector to be reset.
     """
-    def __init__(self, *preprocessors, **kwargs):
+    def __init__(self, preprocessor_spec, **kwargs):
         """
         Args:
-            preprocessors (PreprocessorLayer): The PreprocessorLayers to add to the Stack and connect to each other.
+            preprocessor_spec (dict):
 
         Raises:
             RLGraphError: If a sub-component is not a PreprocessLayer object.
         """
-        # Link sub-Components' `apply` methods together to yield PreprocessorStack's `preprocess` method.
-        # NOTE: Do not include `reset` here as it is defined explicitly below.
-        kwargs["api_methods"] = {("preprocess", "apply")}
-        default_dict(kwargs, dict(scope=kwargs.pop("scope", "preprocessor-stack")))
-        super(PreprocessorStack, self).__init__(*preprocessors, **kwargs)
+        # Create one separate PreprocessorStack per given key.
+        # All possibly other keys in an input will be pass through un-preprocessed.
+        self.preprocessors = flatten_op(preprocessor_spec)
+        for key, spec in preprocessor_spec:
+            self.preprocessors[key] = PreprocessorStack.from_spec(spec, scope="preprocessor-stack-{}".format(key))
 
-        # Now that the sub-components are constructed, make sure they are all PreprocessorLayer objects.
-        for key, preprocessor in self.sub_components.items():
-            assert isinstance(preprocessor, PreprocessLayer), \
-                "ERROR: sub-Component '{}' in PreprocessorStack '{}' is not a PreprocessorLayer!".\
-                format(preprocessor.name, self.name)
+        #self.splitter = DictSplitter(*list(self.preprocessors.keys()))
+        #self.merger = DictMerger(*list(self.preprocessors.keys()))
+
+        # NOTE: No automatic API-methods. Define them all ourselves.
+        kwargs["api_methods"] = {}
+        default_dict(kwargs, dict(scope=kwargs.pop("scope", "dict-preprocessor-stack")))
+        super(DictPreprocessorStack, self).__init__(*self.preprocessors, **kwargs)
+
+        self.define_api_method(
+            "preprocess", self._graph_fn_preprocess, flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True
+        )
+
+    def _graph_fn_preprocess(self, key, input_):
+        return self.call(self.preprocessors[key], input_)
 
     def reset(self):
         # TODO: python-Components: For now, we call each preprocessor's graph_fn directly.
         if self.backend == "python" or get_backend() == "python":
-            for preprocessor in self.sub_components.values():  # type: PreprocessLayer
-                preprocessor._graph_fn_reset()
+            for preprocessor in self.preprocessors.values():  # type: PreprocessLayer
+                preprocessor.reset()
 
         elif get_backend() == "tf":
             # Connect each pre-processor's "reset" output op via our graph_fn into one op.
             resets = list()
-            for preprocessor in self.sub_components.values():  # type: PreprocessLayer
+            for preprocessor in self.preprocessors.values():  # type: PreprocessorStack
                 resets.append(self.call(preprocessor.reset))
             reset_op = self.call(self._graph_fn_reset, *resets)
             return reset_op
@@ -85,6 +98,8 @@ class PreprocessorStack(Stack):
         Returns:
             Space: The Space after preprocessing.
         """
+        assert isinstance(space, ContainerSpace)
+        dict_spec = dict()
         for pp in self.sub_components.values():
             space = pp.get_preprocessed_space(space)
-        return space
+        return Dict(dict_spec)

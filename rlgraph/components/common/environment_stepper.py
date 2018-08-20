@@ -71,7 +71,7 @@ class EnvironmentStepper(Component):
                 ActionComponent's (NN's) input at each step. This is only possible if the state space is already a Dict.
                 It will be added under the key "previous_reward". Default: False.
         """
-        super(EnvironmentStepper, self).__init__(scope=kwargs.pop("scope", "env-stepper"), **kwargs)
+        super(EnvironmentStepper, self).__init__(scope=kwargs.pop("scope", "environment-stepper"), **kwargs)
 
         # Only to retrieve some information about the particular Env.
         dummy_env = Environment.from_spec(environment_spec)  # type: Environment
