@@ -103,3 +103,14 @@ class Optimizer(Component):
             Tuple: Fetch list and feed dict for device ops.
         """
         pass
+
+    def get_optimizer_variables(self):
+        """
+        Returns this optimizer's variables. This extra utility function is necessary because
+        some frameworks like TensorFlow create optimizer variables "late", e.g. Adam variables,
+        so they cannot be fetched at graph build time yet.
+
+        Returns:
+            list: List of variables.
+        """
+        pass

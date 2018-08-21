@@ -38,13 +38,13 @@ class MultiGpuSyncOptimizer(Optimizer):
         """
         super(MultiGpuSyncOptimizer, self).__init__(scope=scope, **kwargs)
 
-        self.local_optimizer = local_optimizer
+        self.optimizer = local_optimizer
         self.gpu_devices = devices
         self.num_gpus = len(devices)
         assert self.num_gpus > 1, "ERROR: The MultiGPUSyncOptimizer requires as least two GPUs but only {} " \
                                   "device ids were passed in.".format(self.num_gpus)
         # Add local Optimizer object.
-        self.add_components(self.local_optimizer)
+        self.add_components(self.optimizer)
 
         # Function handle used to create replicas.
         self.subgraphs = None
@@ -190,7 +190,7 @@ class MultiGpuSyncOptimizer(Optimizer):
         These should be the averaged gradients across devices. From the perspective of the
         user of this wrapped optimizer, the API does not change.
         """
-        return self.local_optimizer._graph_fn_apply_gradients(grads_and_vars=grads_and_vars)
+        return self.optimizer._graph_fn_apply_gradients(grads_and_vars=grads_and_vars)
 
     @staticmethod
     def _average_gradients(gpu_gradients):
@@ -227,3 +227,10 @@ class MultiGpuSyncOptimizer(Optimizer):
                 var = grads_and_vars[0][1]
                 gpu_averages.append((mean_grad, var))
         return gpu_averages
+
+    def get_optimizer_variables(self):
+        # Fetch variables both from local optimizer and sub graphs.
+        local_optimizer_vars = self.optimizer.get_optimizer_variables()
+        for sub_graph in self.subgraphs:
+            sub_graph_opt = sub_graph.sub_component_by_name("optimizer")
+            local_optimizer_vars.extend(sub_graph_opt.get_optimizer_variables())

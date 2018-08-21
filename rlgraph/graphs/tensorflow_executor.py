@@ -199,7 +199,6 @@ class TensorFlowExecutor(GraphExecutor):
         fetch_dict, feed_dict = self.graph_builder.get_execution_inputs(*api_methods)
 
         # TODO: filter out fetch_dict for plain np values and do not send these into session. However, we must return them either way from this method.
-
         # Expand inputs and fetch list with extra device memory init ops
         for api_method in api_methods:
             if api_method is None:
@@ -239,12 +238,12 @@ class TensorFlowExecutor(GraphExecutor):
         Returns:
             tuple: Fetch list and input dict with additional device ops depending on device strategy.
         """
-        if self.device_strategy == 'multi_gpu_sync':
-            # Request additional ops from optimizer which implements them.
-            # TODO need inputs here?
-            device_fetches, device_dict = self.optimizer.graph_builder.get_execution_inputs({"update_devices": []})
-            fetch_list.extend(device_fetches)
-            feed_dict.update(device_dict)
+        if self.device_strategy == "multi_gpu_sync":
+            # TODO probably not needed, clean up once multi gpu finished.
+            # # Request additional ops from optimizer which implements them.
+            # device_fetches, device_dict = self.optimizer.graph_builder.get_execution_inputs({"update_devices": []})
+            # fetch_list.extend(device_fetches)
+            # feed_dict.update(device_dict)
 
             return fetch_list, feed_dict
         else:
@@ -443,7 +442,7 @@ class TensorFlowExecutor(GraphExecutor):
             # self.logger.info(self.optimizer.optimizer.variables())
             # TODO let graph builder do this
             if self.optimizer is not None:
-                var_list.extend(self.optimizer.optimizer.variables())
+                var_list.extend(self.optimizer.get_optimizer_variables())
             self.init_op = tf.variables_initializer(var_list=var_list)
             self.ready_op = tf.report_uninitialized_variables(var_list=var_list)
         else:

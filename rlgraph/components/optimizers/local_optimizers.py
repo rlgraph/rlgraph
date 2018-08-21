@@ -76,6 +76,9 @@ class LocalOptimizer(Optimizer):
                 grads_and_vars=grads_and_vars
             )
 
+    def get_optimizer_variables(self):
+        return self.optimizer.variables()
+
 
 class GradientDescentOptimizer(LocalOptimizer):
     """
