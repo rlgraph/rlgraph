@@ -660,7 +660,7 @@ class TensorFlowExecutor(GraphExecutor):
             root_component.add_components(multi_gpu_optimizer)
             self.optimizer = multi_gpu_optimizer
             # 4. Pass the graph copies and the splitter containing the info how to split batches into tensors.
-            dict_splitter = root_component.sub_component_by_name("splitter")
+            dict_splitter = root_component.sub_component_by_name("dict-splitter")
             optimizer.set_replicas(sub_graphs, dict_splitter, loss_name)
 
     def _sanity_check_devices(self):
