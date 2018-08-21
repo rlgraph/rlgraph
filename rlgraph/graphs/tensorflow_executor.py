@@ -631,7 +631,7 @@ class TensorFlowExecutor(GraphExecutor):
             for i, device in enumerate(self.gpu_names):
                 # TODO only copy relevant subgraphs
                 # Copy and assign GPU to copy.
-                self.logger.info("Creating device supgraph for device: {}.".format(device))
+                self.logger.info("Creating device sub-graph for device: {}.".format(device))
                 sub_graph = root_component.copy(device=device, reuse_variable_scope=shared_scope)
 
                 # Set name to avoid sub component clashes.

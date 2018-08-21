@@ -235,3 +235,4 @@ class MultiGpuSyncOptimizer(Optimizer):
         for sub_graph in self.subgraphs:
             sub_graph_opt = sub_graph.sub_component_by_name(self.optimizer_name)
             local_optimizer_vars.extend(sub_graph_opt.get_optimizer_variables())
+        return local_optimizer_vars
