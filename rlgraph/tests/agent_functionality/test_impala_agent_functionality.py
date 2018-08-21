@@ -327,8 +327,11 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         env = DeepmindLabEnv(level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
                              frameskip=4)
 
-        agent = IMPALAAgent.from_spec(agent_config, type="explorer", state_space=env.state_space,
-                                      action_space=env.action_space)
+        agent = IMPALAAgent.from_spec(
+            agent_config, type="explorer",
+            state_space=env.state_space, action_space=env.action_space,
+            internal_states_space=FloatBox(shape=(256,))
+                                      )
         print("Compiled IMPALA agent")
 
 

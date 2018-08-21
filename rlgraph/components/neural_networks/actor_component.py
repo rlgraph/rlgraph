@@ -38,7 +38,6 @@ class ActorComponent(Component):
         """
         Args:
             preprocessor_spec (Union[list,dict,PreprocessorSpec]):
-                # TODO: create separate component: PreprocessorVector, which can process different (Dict) spaces parallely and outputs another Dict with the preprocessed single Spaces.
                 - A dict if the state from the Env will come in as a ContainerSpace (e.g. Dict). In this case, each
                     each key in this dict specifies, which value in the incoming dict should go through which PreprocessorStack.
                 - A list with layer specs.

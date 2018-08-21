@@ -37,7 +37,7 @@ class IMPALAAgent(Agent):
     def __init__(self, fifo_queue_spec=None, **kwargs):
         """
         Args:
-            fifo_queue_spec (Optional[dict,Memory]): The spec for the FIFOQueue to use for the IMPALA algorithm.
+            fifo_queue_spec (Optional[dict,FIFOQueue]): The spec for the FIFOQueue to use for the IMPALA algorithm.
 
         Keyword Args:
             type (str): One of "explorer" or "learner". Default: "explorer".
@@ -50,7 +50,7 @@ class IMPALAAgent(Agent):
         network_spec = kwargs.pop("network_spec", LargeIMPALANetwork())
 
         # Depending on the job-type, remove the pieces from the Agent-spec/graph we won't need.
-        exploration_spec = kwargs.pop("exploration_spec", None),
+        exploration_spec = kwargs.pop("exploration_spec", None)
         optimizer_spec = kwargs.pop("optimizer_spec", None)
         observe_spec = kwargs.pop("observe_spec", None)
         # Learners won't need  to explore (act) or observe (insert into Queue).
@@ -77,21 +77,23 @@ class IMPALAAgent(Agent):
 
         # Create our FIFOQueue (explorers will enqueue, learner(s) will dequeue).
         self.fifo_queue = FIFOQueue.from_spec(fifo_queue_spec, reuse_variable_scope="shared-fifo-queue")
-
+        # Check whether we have an RNN.
+        self.has_rnn = self.neural_network.has_rnn()
         # Extend input Space definitions to this Agent's specific API-methods.
-        state_space = self.state_space.with_batch_rank()
-        preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()
-        action_space = self.action_space.with_batch_rank()
-        reward_space = FloatBox(add_batch_rank=True)
-        terminal_space = BoolBox(add_batch_rank=True)
         self.input_spaces.update(dict(
-            perform_n_steps_and_insert_into_fifo=[state_space, int, bool],  # state, time-step, use_exploration
+            internal_states=self.internal_states_space.with_extra_ranks(
+                add_batch_rank=True, add_time_rank=True, time_major=True
+            ),
+            num_steps=int,
+            time_step=int
         ))
 
         # Add all our sub-components to the core.
         if self.type == "explorer":
             self.loss_function = None
             actor_component = ActorComponent(self.preprocessor, self.policy, self.exploration)
+            state_space = self.state_space.with_batch_rank()
+            reward_space = FloatBox(add_batch_rank=True)
             env_stepper = EnvironmentStepper(environment_spec, actor_component, state_space, reward_space)
             sub_components = [env_stepper, self.fifo_queue]
         else:
@@ -99,9 +101,10 @@ class IMPALAAgent(Agent):
             self.loss_function = IMPALALossFunction()
             sub_components = [self.fifo_queue, self.policy, self.loss_function, self.optimizer]
 
+        # Add all the agent's sub-components to the root.
         self.root_component.add_components(*sub_components)
 
-        # Define the Agent's (core Component's) API.
+        # Define the Agent's (root Component's) API.
         self.define_api_methods(*sub_components)
 
         # markup = get_graph_markup(self.graph_builder.root_component)
@@ -111,7 +114,9 @@ class IMPALAAgent(Agent):
             self.graph_built = True
 
     def define_api_methods(self, *sub_components):
-        super(IMPALAAgent, self).define_api_methods()
+        super(IMPALAAgent, self).define_api_methods(
+            "environment-stepper/actor-component/policy", "environment-stepper/actor-component/preprocesor-stack"
+        )
 
         if self.type == "explorer":
             self.define_api_methods_explorer(*sub_components)
@@ -131,9 +136,11 @@ class IMPALAAgent(Agent):
             fifo_queue (FIFOQueue): The FIFOQueue Component used to enqueue env sample runs (n-step).
         """
         # Perform n-steps in the env and insert the results into our FIFO-queue.
-        def perform_n_steps_and_insert_into_fifo(self, num_steps, time_step=0, use_exploration=True):
+        def perform_n_steps_and_insert_into_fifo(self, internal_states=None, num_steps=1, time_step=0):
             # Take n steps in the environment.
-            results = self.call(env_stepper.step, num_steps, time_step)
+            results = self.call(env_stepper.step, internal_states, num_steps, time_step)
+            # Dissect the results.
+
             # Insert results into the FIFOQueue.
             insert_op = self.call(fifo_queue.insert, results)
             return insert_op
@@ -143,6 +150,8 @@ class IMPALAAgent(Agent):
         )
 
     def define_api_methods_learner(self, fifo_queue, policy, loss_function, optimizer):
+        # TODO: implement learner logic
+        return
 
         # Learn from memory.
         def update_from_fifo_queue(self):
@@ -211,57 +220,8 @@ class IMPALAAgent(Agent):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
     def update(self, batch=None):
-        # [0]=no-op step; [1]=the loss; [2]=loss-per-item, [3]=memory-batch (if pulled); [4]=q-values
-        return_ops = [0, 1, 2]
-        q_table = None
-
-        if batch is None:
-            # Add some additional return-ops to pull (left out normally for performance reasons).
-            if self.store_last_q_table is True:
-                return_ops += [3, 4]  # 3=batch, 4=q-values
-            elif self.store_last_memory_batch is True:
-                return_ops += [3]  # 3=batch
-            ret = self.graph_executor.execute(("update_from_memory", None, return_ops))
-
-            # Remove unnecessary return dicts (e.g. sync-op).
-            if isinstance(ret, dict):
-                ret = ret["update_from_memory"]
-
-            # Store the last Q-table?
-            if self.store_last_q_table is True:
-                q_table = dict(
-                    states=ret[3]["states"],
-                    q_values=ret[4]
-                )
-        else:
-            # Add some additional return-ops to pull (left out normally for performance reasons).
-            if self.store_last_q_table is True:
-                return_ops += [3]  # 3=q-values
-
-            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
-                           batch["next_states"], batch["importance_weights"]]
-            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
-
-            # Remove unnecessary return dicts (e.g. sync-op).
-            if isinstance(ret, dict):
-                ret = ret["update_from_external_batch"]
-
-            # Store the last Q-table?
-            if self.store_last_q_table is True:
-                q_table = dict(
-                    states=batch["states"],
-                    q_values=ret[3]
-                )
-
-        # Store the latest pulled memory batch?
-        if self.store_last_memory_batch is True and batch is None:
-            self.last_memory_batch = ret[2]
-        if self.store_last_q_table is True:
-            self.last_q_table = q_table
-
-        # [1]=the loss (0=update noop)
-        # [2]=loss per item for external update, records for update from memory
-        return ret[1], ret[2]
+        # TODO: implement logic
+        return
 
     def __repr__(self):
         return "IMPALAAgent()"

@@ -50,12 +50,6 @@ class PreprocessorStack(Stack):
         default_dict(kwargs, dict(scope=kwargs.pop("scope", "preprocessor-stack")))
         super(PreprocessorStack, self).__init__(*preprocessors, **kwargs)
 
-        # Now that the sub-components are constructed, make sure they are all PreprocessorLayer objects.
-        for key, preprocessor in self.sub_components.items():
-            assert isinstance(preprocessor, PreprocessLayer), \
-                "ERROR: sub-Component '{}' in PreprocessorStack '{}' is not a PreprocessorLayer!".\
-                format(preprocessor.name, self.name)
-
     def reset(self):
         # TODO: python-Components: For now, we call each preprocessor's graph_fn directly.
         if self.backend == "python" or get_backend() == "python":
