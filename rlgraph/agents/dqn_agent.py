@@ -69,18 +69,17 @@ class DQNAgent(Agent):
         self.last_q_table = None
 
         # Extend input Space definitions to this Agent's specific API-methods.
-        state_space = self.state_space.with_batch_rank()
         preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()
-        action_space = self.action_space.with_batch_rank()
         reward_space = FloatBox(add_batch_rank=True)
         terminal_space = BoolBox(add_batch_rank=True)
         weight_space = FloatBox(add_batch_rank=True)
+
         self.input_spaces.update(dict(
-            states=state_space,
+            actions=self.action_space.with_batch_rank(),
+            weights="variables:policy",
             time_step=int,
             use_exploration=bool,
             preprocessed_states=preprocessed_state_space,
-            actions=action_space,
             rewards=reward_space,
             terminals=terminal_space,
             preprocessed_next_states=preprocessed_state_space,
