@@ -40,7 +40,6 @@ class MultiGpuSyncOptimizer(Optimizer):
 
         # Add local Optimizer object.
         self.local_optimizer = local_optimizer
-        # TODO necessary?
         self.add_components(local_optimizer)
 
         self.gpu_devices = devices

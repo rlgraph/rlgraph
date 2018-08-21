@@ -652,12 +652,13 @@ class TensorFlowExecutor(GraphExecutor):
                 self.used_devices.append(device)
 
             # 3. Wrap local optimizer (e.g. Adam) with multi-gpu optimizer and pass device info.
-            # Replace old optimizers parent component
+
+            # Old: root <-> local_optimizer, new: root <-> multi_gpu_optimizer <-> local_optimizer
             self.optimizer.parent_component = None
             root_component.remove_sub_component_by_name(self.optimizer.name)
-            self.optimizer = MultiGpuSyncOptimizer(local_optimizer=self.optimizer, devices=self.gpu_names)
-            self.optimizer.parent_component = root_component
-
+            multi_gpu_optimizer = MultiGpuSyncOptimizer(local_optimizer=self.optimizer, devices=self.gpu_names)
+            root_component.add_components(multi_gpu_optimizer)
+            self.optimizer = multi_gpu_optimizer
             # 4. Pass the graph copies and the splitter containing the info how to split batches into tensors.
             dict_splitter = root_component.sub_component_by_name("splitter")
             optimizer.set_replicas(sub_graphs, dict_splitter, loss_name)
