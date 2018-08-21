@@ -18,8 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
-from rlgraph.agents import DQNAgent, ApexAgent
-from rlgraph.environments import OpenAIGymEnv
+from rlgraph.agents import DQNAgent, ApexAgent, IMPALAAgent
+from rlgraph.environments import OpenAIGymEnv, DeepmindLabEnv
+from rlgraph.spaces import FloatBox, Tuple
 from rlgraph.tests.test_util import config_from_path
 
 
@@ -54,5 +55,25 @@ class TestAllCompile(unittest.TestCase):
         )
         print('Compiled apex agent')
 
+    def test_impala_agent_compilation(self):
+        """
+        Tests IMPALA agent compilation (explorer).
+        """
+        agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
+        env = DeepmindLabEnv(level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
+                             frameskip=4)
 
+        agent = IMPALAAgent.from_spec(
+            agent_config, type="explorer",
+            state_space=env.state_space,
+            action_space=env.action_space,
+            internal_states_space=Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True),
+            # Make session-creation hang in docker.
+            execution_spec=dict(disable_monitoring=True)
+        )
+        # Start Specifiable Server with Env manually.
+        agent.environment_stepper.environment_server.start()
 
+        print("Compiled IMPALA agent")
+
+        agent.environment_stepper.environment_server.stop()

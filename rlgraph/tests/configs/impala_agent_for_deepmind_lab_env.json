@@ -6,13 +6,17 @@
     "capacity": 10000
   },
 
-  "preprocessing_spec":
-  [
-    {
-      "type": "divide",
-      "divisor": 255
+  "preprocessing_spec": {
+    "type": "dict-preprocessor-stack",
+    "preprocessors": {
+      "RGB_INTERLEAVED": [
+        {
+          "type": "divide",
+          "divisor": 255
+        }
+      ]
     }
-  ],
+  },
 
   "exploration_spec":
   {
