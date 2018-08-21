@@ -39,6 +39,9 @@ class MultiGpuSyncOptimizer(Optimizer):
         super(MultiGpuSyncOptimizer, self).__init__(scope=scope, **kwargs)
 
         self.optimizer = local_optimizer
+        # Name to fetch optimizers on sub-graphs.
+        self.optimizer_name = local_optimizer.name
+
         self.gpu_devices = devices
         self.num_gpus = len(devices)
         assert self.num_gpus > 1, "ERROR: The MultiGPUSyncOptimizer requires as least two GPUs but only {} " \
@@ -167,9 +170,7 @@ class MultiGpuSyncOptimizer(Optimizer):
             device_inputs = self.dict_splitter.call("split", shard)
 
             # Fetch components for this subgraph.
-            # grads_and_vars = self.call(self._graph_fn_calculate_gradients, variables, loss)
-            # step_op = self.call(self._graph_fn_apply_gradients, grads_and_vars)
-            sub_graph_opt = self.subgraphs[i].sub_component_by_name("optimizer")
+            sub_graph_opt = self.subgraphs[i].sub_component_by_name(self.optimizer_name)
 
             sub_graph_policy = self.subgraphs[i].sub_component_by_name("policy")
             variables = sub_graph_policy._variables
@@ -232,5 +233,5 @@ class MultiGpuSyncOptimizer(Optimizer):
         # Fetch variables both from local optimizer and sub graphs.
         local_optimizer_vars = self.optimizer.get_optimizer_variables()
         for sub_graph in self.subgraphs:
-            sub_graph_opt = sub_graph.sub_component_by_name("optimizer")
+            sub_graph_opt = sub_graph.sub_component_by_name(self.optimizer_name)
             local_optimizer_vars.extend(sub_graph_opt.get_optimizer_variables())
