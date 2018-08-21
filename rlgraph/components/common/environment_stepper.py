@@ -83,20 +83,23 @@ class EnvironmentStepper(Component):
             if reward_space is None:
                 _, reward, _, _ = dummy_env.step(dummy_env.action_space.sample())
                 # TODO: this may break on non 64-bit machines. tf seems to interpret a python float as tf.float64.
-                reward_space = Space.from_spec("float64" if type(reward) == float else float)
+                reward_space = Space.from_spec(
+                    "float64" if type(reward) == float else float, shape=(1,)
+                ).with_batch_rank()
+        else:
+            reward_space = Space.from_spec(reward_space).with_batch_rank()
 
-        self.state_space = state_space
+        self.reward_space = reward_space
 
         # The Problem with ContainerSpaces here is that py_func (SpecifiableServer) cannot handle container
         # spaces, which is why we need to painfully convert these into flat spaces and tuples here whenever
         # we make a call to the env. So to keep things unified, we treat all container spaces
         # (state space, preprocessed state) from here on as tuples of primitive spaces sorted by their would be
         # flat-keys in a flattened dict).
-
+        self.state_space = state_space
         self.state_space_flattened = self.state_space.flatten()
         # Need to flatten the state-space in case it's a ContainerSpace for the return dtypes.
         self.state_space_list = list(self.state_space_flattened.values())
-        self.reward_space = reward_space
         self.add_action_probs = add_action_probs
         self.action_probs_space = action_probs_space
         self.add_previous_action = add_previous_action
@@ -116,14 +119,7 @@ class EnvironmentStepper(Component):
 
         # Add the sub-components.
         self.actor_component = ActorComponent.from_spec(actor_component_spec)  # type: ActorComponent
-        # ActorComponent has - maybe - more than one preprocessor.
-        # Collect a flattened ordered dict of preprocessed Spaces here (including non-preprocessed components of the
-        # state space).
-        self.preprocessed_state_space = OrderedDict()
-        for flat_key, space in self.state_space_flattened.items():
-            self.preprocessed_state_space[flat_key] = self.actor_component.preprocessors[flat_key].\
-                get_preprocessed_space(self.state_space_flattened[flat_key]) if \
-                flat_key in self.actor_component.preprocessors else space
+        self.preprocessed_state_space = self.actor_component.preprocessor.get_preprocessed_space(self.state_space)
 
         # Variables that hold information of last step through Env.
         self.episode_return = None
@@ -131,7 +127,6 @@ class EnvironmentStepper(Component):
         self.current_state = None
 
         self.has_rnn = self.actor_component.policy.neural_network.has_rnn()
-        self.internal_state_spaces = None
 
         # Add all sub-components (only ActorComponent).
         self.add_components(self.actor_component)
@@ -143,9 +138,6 @@ class EnvironmentStepper(Component):
     def check_input_spaces(self, input_spaces, action_space=None):
         assert action_space is not None
         self.action_space = action_space
-
-        if self.has_rnn:
-            self.internal_state_spaces = input_spaces["internal_states"]
 
     def create_variables(self, input_spaces, action_space=None):
         self.episode_return = self.get_variable(name="episode-return", from_space=self.reward_space,
@@ -322,7 +314,7 @@ class EnvironmentStepper(Component):
 
             # Initialize the tf.scan run.
             initializer = [
-                tuple(map(lambda space: space.zeros(), self.preprocessed_state_space.values())),
+                tuple(map(lambda space: space.zeros(), self.preprocessed_state_space.flatten().values())),
                 self.action_space.zeros(),  # zero previous action (doesn't matter)
                 np.asarray(0.0, dtype=self.reward_space.dtype),  # zero previous reward (doesn't matter)
                 self.episode_return,  # return so far
@@ -331,7 +323,7 @@ class EnvironmentStepper(Component):
             ]
             # Append action probs if needed.
             if self.add_action_probs is True:
-                initializer.append(self.action_probs_space.zeros())  # zero action probs (doesn't matter)
+                initializer.append(self.action_probs_space.zeros())  # zero action probs (don't matter)
             # Append internal states if needed.
             if internal_states is not None:
                 initializer.append(internal_states)
@@ -358,6 +350,17 @@ class EnvironmentStepper(Component):
             rebuild_s = unflatten_op(rebuild_s)
             step_results[0] = rebuild_preprocessed_s
             step_results[5] = rebuild_s
+
+            # Remove batch rank from internal states again.
+            if internal_states is not None:
+                slot = 7 if self.add_action_probs is True else 6
+                # TODO: what if internal states is a dict? Right now assume some tuple.
+                # TODO: what if internal states is not the last item in the list anymore due to some change
+                internal_states_wo_batch = list()
+                for i in range(len(step_results[slot])):
+                    # 1=batch axis (which is 1); 0=time axis.
+                    internal_states_wo_batch.append(tf.squeeze(step_results[-1][i], axis=1))
+                step_results[slot] = DataOpTuple(internal_states_wo_batch)
 
             with tf.control_dependencies(control_inputs=assigns):
                 step_op = tf.no_op()
