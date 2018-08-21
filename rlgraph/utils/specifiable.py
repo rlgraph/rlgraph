@@ -86,12 +86,16 @@ class Specifiable(object):
         Returns:
             The object generated from the spec.
         """
+        # type_ is already a created object of this class -> Take it as is.
+        if isinstance(spec, cls):
+            return spec
+
         # `type_`: Indicator for the Specifiable's constructor.
         # `ctor_args`: *args arguments for the constructor.
         # `ctor_kwargs`: **kwargs arguments for the constructor.
         # Copy so caller can reuse safely.
         spec = deepcopy(spec)
-        if isinstance(spec, dict) and not isinstance(spec, cls):  # <- Protect our `Dict` class against the dict-check.
+        if isinstance(spec, dict):
             if "type" in spec:
                 type_ = spec.pop("type", None)
             else:
@@ -123,9 +127,6 @@ class Specifiable(object):
             # Try our luck with this class itself.
             else:
                 constructor = cls
-        # type_ is already a created object of this class -> Take it as is.
-        elif isinstance(type_, cls):
-            return type_
         # Valid key of cls.__lookup_classes__.
         elif isinstance(cls.__lookup_classes__, dict) and (type_ in cls.__lookup_classes__ or
                  (isinstance(type_, str) and re.sub(r'[\W_]', '', type_.lower()) in cls.__lookup_classes__)):
