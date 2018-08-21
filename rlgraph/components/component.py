@@ -236,8 +236,7 @@ class Component(Specifiable):
         method_owner = method.__self__  # type: Component
         # Check, whether the method-owner is either this Component or has this Component as parent.
         # TODO: make this check generic for any depth-grand-child.A
-        assert method_owner is self or method_owner.parent_component is self or \
-               method_owner.parent_component is not None and method_owner.parent_component.parent_component is self, \
+        assert method_owner is self or self in method_owner.get_parents(), \
             "ERROR: Can only call API-method ({}/{}) on self ({}) or any sub-Components of self! Most likely, " \
             "{} has not been added to self.". \
             format(method_owner.global_scope, method.__name__, self.global_scope, method_owner.global_scope)
@@ -1174,6 +1173,20 @@ class Component(Specifiable):
             if component.global_scope == scope:
                 return component
         return None
+
+    def get_parents(self):
+        """
+        Returns a list of parent and grand-parents of this component.
+
+        Returns:
+            List[Component]: A list (may be empty if this component has no parents) of all parent and grand-parents.
+        """
+        ret = list()
+        component = self
+        while component.parent_component is not None:
+            ret.append(component.parent_component)
+            component = component.parent_component
+        return ret
 
     def propagate_scope(self, sub_component, properties=None):
         """
