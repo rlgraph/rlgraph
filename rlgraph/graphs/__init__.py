@@ -22,6 +22,7 @@ from rlgraph.graphs.meta_graph import MetaGraph
 from rlgraph.graphs.meta_graph_builder import MetaGraphBuilder
 from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
+from rlgraph.graphs.pytorch_executor import PyTorchExecutor
 from rlgraph.graphs.tensorflow_executor import TensorFlowExecutor
 
 
@@ -32,12 +33,16 @@ def backend_executor():
     """
     if get_backend() == "tf":
         return TensorFlowExecutor
+    elif get_backend() == "pytorch":
+        return PyTorchExecutor
 
 
 GraphExecutor.__lookup_classes__ = dict(
     tf=TensorFlowExecutor,
-    tensorflow=TensorFlowExecutor
+    tensorflow=TensorFlowExecutor,
+    pt=PyTorchExecutor,
+    pytorch=PyTorchExecutor
 )
 
 __all__ = ["MetaGraph", "MetaGraphBuilder", "GraphBuilder",
-           "GraphExecutor", "TensorFlowExecutor", "backend_executor"]
+           "GraphExecutor", "TensorFlowExecutor", "PyTorchExecutor", "backend_executor"]

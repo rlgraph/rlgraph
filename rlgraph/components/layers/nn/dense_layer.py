@@ -25,6 +25,8 @@ from rlgraph.components.layers.nn.activation_functions import get_activation_fun
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch.nn as nn
 
 
 class DenseLayer(NNLayer):
@@ -75,3 +77,10 @@ class DenseLayer(NNLayer):
             self.layer.build(in_space.get_shape(with_batch_rank=True))
             # Register the generated variables with our registry.
             self.register_variables(*self.layer.variables)
+        elif get_backend() == "pytorch":
+            # N.b. activation must be added as a separate 'layer' when assembling a network.
+            self.layer = nn.Linear(
+                in_features=in_space.get_shape(with_batch_rank=True),
+                out_features=self.units,
+                bias=(self.biases_spec is not False),
+            )

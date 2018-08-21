@@ -23,6 +23,8 @@ from rlgraph.components.optimizers.optimizer import Optimizer
 
 if get_backend() == "tf" and get_distributed_backend() == "horovod":
     import horovod.tensorflow as hvd
+elif get_backend() == "pytorch" and get_backend() == "horovod":
+    import horovod.pytorch as hvd
 
 
 class HorovodOptimizer(Optimizer):

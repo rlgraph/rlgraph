@@ -772,7 +772,8 @@ class Component(Specifiable):
                                             add_time_rank, time_major, trainable, initializer)
 
         # TODO: Figure out complete concept for python/numpy based Components (including their handling of variables).
-        elif self.backend == "python" or get_backend() == "python":
+        # Assume that when using pytorch, we use Python/numpy collections to store data.
+        elif self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
             if isinstance(add_batch_rank, int):
                 if isinstance(add_time_rank, int):
                     if time_major:
@@ -807,10 +808,6 @@ class Component(Specifiable):
                 var = tf.get_variable(
                     name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
                 )
-        elif get_backend() == "pytorch":
-            # TODO
-            # clarify when we actually need a pytorch tensor of when a numpy variable is enough
-            pass
         elif get_backend() == "tf-eager":
             shape = tuple((() if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,))
                           + (shape or ()))

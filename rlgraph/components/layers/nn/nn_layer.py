@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph import get_backend
 from rlgraph.components.layers.layer import Layer
 from rlgraph.components.layers.nn.activation_functions import get_activation_function
 from rlgraph.spaces import FloatBox, IntBox
@@ -81,4 +82,8 @@ class NNLayer(Layer):
                 return activation_function(*inputs)
         # `self.layer` already includes activation function details.
         else:
-            return self.layer.apply(*inputs)
+            if get_backend() == "tf":
+                return self.layer.apply(*inputs)
+            elif get_backend() == "pytorch":
+                # PyTorch layers are called, not applied.
+                return self.layer(*inputs)
