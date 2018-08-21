@@ -40,10 +40,12 @@ class TestDictPreprocessorStacks(unittest.TestCase):
         input_space = Dict(
             a=FloatBox(shape=(2, 3)),
             b=IntBox(3),
+            c=FloatBox(shape=(4, 5, 6)),
             add_batch_rank=True
         )
         preprocessor_spec = dict(
-            a=[dict(type="divide", divisor=2), dict(type="multiply", factor=4)]
+            a=[dict(type="divide", divisor=2), dict(type="multiply", factor=4)],
+            c=[dict(type="reshape", flatten=True)]
         )
 
         dict_preprocessor_stack = DictPreprocessorStack(preprocessor_spec)
@@ -51,7 +53,8 @@ class TestDictPreprocessorStacks(unittest.TestCase):
         test = ComponentTest(component=dict_preprocessor_stack, input_spaces=dict(inputs=input_space))
 
         # Run the test.
-        inputs = input_space.sample(5)
-        expected = dict(a=inputs["a"] * 2, b=inputs["b"])
+        batch_size = 5
+        inputs = input_space.sample(batch_size)
+        expected = dict(a=inputs["a"] * 2, b=inputs["b"], c=np.reshape(inputs["c"], newshape=(batch_size, 120,)))
         test.test("reset")
         test.test(("preprocess", inputs), expected_outputs=expected)
