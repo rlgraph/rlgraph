@@ -83,7 +83,7 @@
   "execution_spec": {
     "gpu_spec": {
       "gpus_enabled" : true,
-      "max_usable_gpus": 0,
+      "max_usable_gpus": 2,
       "per_process_gpu_memory_fraction": 0.5,
       "allow_memory_growth": true
     },
