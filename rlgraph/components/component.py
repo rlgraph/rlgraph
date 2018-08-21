@@ -1174,6 +1174,17 @@ class Component(Specifiable):
                 return component
         return None
 
+    def remove_sub_component_by_name(self, name):
+        """
+        Removes a sub-component by its name. Raises an error if the sub-component does not exist.
+
+        Args:
+            name (str):
+        """
+        assert name in self.sub_components, "ERROR: Component {} cannot be removed because it is not" \
+            "a sub-component. Sub-components by name are: {}.".format(name, list(self.sub_components.keys()))
+        self.sub_components.pop(name)
+
     def get_parents(self):
         """
         Returns a list of parent and grand-parents of this component.

@@ -650,6 +650,7 @@ class TensorFlowExecutor(GraphExecutor):
             # 3. Wrap local optimizer (e.g. Adam) with multi-gpu optimizer and pass device info.
             # Replace old optimizers parent component
             self.optimizer.parent_component = None
+            root_component.remove_sub_component_by_name(self.optimizer.name)
             self.optimizer = MultiGpuSyncOptimizer(local_optimizer=self.optimizer, devices=self.gpu_names)
             self.optimizer.parent_component = root_component
 
