@@ -38,14 +38,12 @@ class MultiGpuSyncOptimizer(Optimizer):
         """
         super(MultiGpuSyncOptimizer, self).__init__(scope=scope, **kwargs)
 
-        # Add local Optimizer object.
         self.local_optimizer = local_optimizer
-        self.add_components(local_optimizer)
-
         self.gpu_devices = devices
         self.num_gpus = len(devices)
         assert self.num_gpus > 1, "ERROR: The MultiGPUSyncOptimizer requires as least two GPUs but only {} " \
                                   "device ids were passed in.".format(self.num_gpus)
+        # Add local Optimizer object.
         self.add_components(self.local_optimizer)
 
         # Function handle used to create replicas.
