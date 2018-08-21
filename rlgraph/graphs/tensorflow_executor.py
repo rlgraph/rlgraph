@@ -629,7 +629,7 @@ class TensorFlowExecutor(GraphExecutor):
         """
         self.optimizer = optimizer
 
-        if self.device_strategy == 'multi_gpu_sync':
+        if self.device_strategy == "multi_gpu_sync":
             # 0. Assert we have more than one gpu.
             assert self.num_gpus > 1, "ERROR: MultiGpuSync strategy needs more than one GPU available but" \
                                       "there are only {} GPUs visible.".format(self.num_gpus)

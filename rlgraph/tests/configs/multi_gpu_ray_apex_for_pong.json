@@ -81,6 +81,7 @@
     }
   },
   "execution_spec": {
+    "device_strategy": "multi_gpu_sync",
     "gpu_spec": {
       "gpus_enabled" : true,
       "max_usable_gpus": 2,
