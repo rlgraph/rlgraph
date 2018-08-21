@@ -43,6 +43,7 @@ class Agent(Specifiable):
         discount=0.98,
         preprocessing_spec=None,
         network_spec=None,
+        internal_states_space=None,
         action_adapter_spec=None,
         exploration_spec=None,
         execution_spec=None,
@@ -63,6 +64,8 @@ class Agent(Specifiable):
             discount (float): The discount factor (gamma).
             network_spec (Optional[list,NeuralNetwork]): Spec list for a NeuralNetwork Component or the NeuralNetwork
                 object itself.
+            internal_states_space (Optional[Union[dict,Space]]): Spec dict for the internal-states Space or a direct
+                Space object for the Space(s) of the internal (RNN) states.
             action_adapter_spec (Optional[dict,ActionAdapter]): The spec-dict for the ActionAdapter Component or the
                 ActionAdapter object itself.
             exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
@@ -116,6 +119,7 @@ class Agent(Specifiable):
         self.neural_network = None
         if network_spec is not None:
             self.neural_network = NeuralNetwork.from_spec(network_spec)
+        self.internal_states_space = internal_states_space
         self.action_adapter_spec = action_adapter_spec
 
         # An object implementing the loss function interface is only strictly needed
@@ -183,30 +187,35 @@ class Agent(Specifiable):
         self.rewards_buffer[env_id] = list()
         self.terminals_buffer[env_id] = list()
 
-    def define_api_methods(self, *params):
+    def define_api_methods(self, policy_scope, pre_processor_scope, *params):
         """
         Can be used to specify and then `self.define_api_method` the Agent's CoreComponent's API methods.
         Each agent implements this to build its algorithm logic.
 
         Args:
+            policy_scope (str): The global scope of the Policy within the Agent.
+            pre_processor_scope (str): The global scope of the PreprocessorStack within the Agent.
             params (any): Params to be used freely by child Agent implementations.
         """
         self.policy.add_components(Synchronizable(), expose_apis="sync")
 
         # Add api methods for syncing.
         def get_policy_weights(self):
-            return self.call(self.sub_components["policy"]._variables)
+            policy = self.get_sub_component_by_scope(policy_scope)
+            return self.call(policy._variables)
 
         self.root_component.define_api_method("get_policy_weights", get_policy_weights)
 
         def set_policy_weights(self, weights):
-            return self.call(self.sub_components["policy"].sync, weights)
+            policy = self.get_sub_component_by_scope(policy_scope)
+            return self.call(policy.sync, weights)
 
         self.root_component.define_api_method("set_policy_weights", set_policy_weights, must_be_complete=False)
 
         # To pre-process external data if needed.
         def preprocess_states(self, states):
-            preprocessed_states = self.call(self.sub_components["preprocessor-stack"].preprocess, states)
+            preprocessor_stack = self.get_sub_component_by_scope(pre_processor_scope)
+            preprocessed_states = self.call(preprocessor_stack.preprocess, states)
             return preprocessed_states
 
         self.root_component.define_api_method("preprocess_states", preprocess_states)
