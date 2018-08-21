@@ -632,7 +632,7 @@ class TensorFlowExecutor(GraphExecutor):
             # 0. Assert we have more than one gpu.
             assert self.num_gpus > 1, "ERROR: MultiGpuSync strategy needs more than one GPU available but" \
                                       "there are only {} GPUs visible.".format(self.num_gpus)
-
+            self.logger.info("Building MultiGpuSync strategy with {} GPUs.".format(self.num_gpus))
             # 1. Get the original component used by the agent to define its model.
             master_component = self.graph_builder.root_component
 
@@ -642,6 +642,7 @@ class TensorFlowExecutor(GraphExecutor):
             for device in self.gpu_names:
                 # TODO only copy relevant subgraphs
                 # Copy and assign GPU to copy.
+                self.logger.info("Creating device supgraph for device: {}.".format(device))
                 subgraphs.append(master_component.copy(device=device, reuse_variable_scope=shared_scope))
 
             # 3. Wrap local optimizer (e.g. Adam) with multi-gpu optimizer and pass device info.
