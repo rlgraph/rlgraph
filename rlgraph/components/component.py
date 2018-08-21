@@ -342,9 +342,10 @@ class Component(Specifiable):
                     in_graph_fn_column.op_records[i].space = get_space_from_op(in_op)
             # Assert input-completeness of Component (if not already, then after this graph_fn/Space update).
             if self.input_complete is False:
-                assert self.check_input_completeness()
                 # Check Spaces and create variables.
-                self.when_input_complete(action_space=self.graph_builder.action_space)
+                self.graph_builder.build_component_when_input_complete(self)
+                assert self.input_complete
+
             # Call the graph_fn.
             out_graph_fn_column = self.graph_builder.run_through_graph_fn_with_device_and_scope(
                 in_graph_fn_column, create_new_out_column=True
@@ -468,6 +469,11 @@ class Component(Specifiable):
                     in_op_column.op_records[i].op = op_rec
                     in_op_column.op_records[i].space = method_owner.api_method_inputs[key] = \
                         get_space_from_op(op_rec)
+                # Check input-completeness of Component (but not strict as we are only calling API, not a graph_fn).
+                if method_owner.input_complete is False:
+                    # Check Spaces and create variables.
+                    method_owner.graph_builder.build_component_when_input_complete(method_owner)
+
             # A DataOpRecord from the meta-graph.
             elif isinstance(op_rec, DataOpRecord):
                 op_rec.next.add(in_op_column.op_records[i])
@@ -988,7 +994,7 @@ class Component(Specifiable):
         # Recurse up the container hierarchy.
         self.parent_component.propagate_summary(key_)
 
-    def define_api_method(self, name, func=None, must_be_complete=True, **kwargs):
+    def define_api_method(self, name, func=None, must_be_complete=True, ok_to_overwrite=False, **kwargs):
         """
         Creates a very basic graph_fn based API method for this Component.
         Alternative way for defining an API method directly in the Component via def.
@@ -1000,21 +1006,26 @@ class Component(Specifiable):
             must_be_complete (bool): Whether this API-method must have all its incoming Spaces defined in order
                 for the Component to count as "input-complete". Some API-methods may be still input-incomplete without
                 affecting the Component's build process.
+            ok_to_overwrite (bool): Whether to raise an Error if an API-method with that name or another property
+                with that name already exists. Default: False.
 
         Keyword Args:
             flatten_ops (bool,Set[int]): See `self.call` for details.
             split_ops (bool,Set[int]): See `self.call` for details.
             add_auto_key_as_first_param (bool): See `self.call` for details.
         """
-        # There already is an API-method with that name.
-        if name in self.api_methods:
-            raise RLGraphError("API-method with name '{}' already defined!".format(name))
-        # There already is another object property with that name (avoid accidental overriding).
-        elif getattr(self, name, None) is not None:
-            raise RLGraphError("Component '{}' already has a property called '{}'. Cannot define an API-method with "
-                               "the same name!".format(self.name, name))
+        # Raise errors if `name` already taken in this Component.
+        if not ok_to_overwrite:
+            # There already is an API-method with that name.
+            if name in self.api_methods:
+                raise RLGraphError("API-method with name '{}' already defined!".format(name))
+            # There already is another object property with that name (avoid accidental overriding).
+            elif getattr(self, name, None) is not None:
+                raise RLGraphError("Component '{}' already has a property called '{}'. Cannot define an API-method with "
+                                   "the same name!".format(self.name, name))
+
         # Do not build this API as per ctor instructions.
-        elif name in self.switched_off_apis:
+        if name in self.switched_off_apis:
             return
 
         func_type = util.get_method_type(func)
@@ -1042,7 +1053,7 @@ class Component(Specifiable):
         # Note: Skip first param of graph_func's input param list if add-auto-key option is True (1st param would be
         # the auto-key then). Also skip if api_method is an unbound function (then 1st param is usually `self`).
         if (func_type == "graph_fn" and kwargs.get("add_auto_key_as_first_param") is True) or \
-                (func_type == "api" and type(api_method).__name__ == "function"):
+                (func_type != "graph_fn" and type(api_method).__name__ == "function"):
             skip_1st_arg = 1
         else:
             skip_1st_arg = 0
@@ -1163,7 +1174,7 @@ class Component(Specifiable):
         # TODO: make method more efficient.
         components = self.get_all_sub_components()
         for component in components:
-            if components.global_scope == scope:
+            if component.global_scope == scope:
                 return component
         return None
 
