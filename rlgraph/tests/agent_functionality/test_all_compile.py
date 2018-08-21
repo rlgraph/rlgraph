@@ -60,13 +60,20 @@ class TestAllCompile(unittest.TestCase):
         Tests IMPALA agent compilation (explorer).
 
         """
-        from rlgraph.environments.deepmind_lab import DeepmindLabEnv
+        try:
+            from rlgraph.environments.deepmind_lab import DeepmindLabEnv
+        except ImportError:
+            print("Deepmind Lab not installed: Will skip this test.")
+            return
+
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
-        env = DeepmindLabEnv(level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
-                             frameskip=4)
+        env = DeepmindLabEnv(
+            level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
+        )
 
         agent = IMPALAAgent.from_spec(
-            agent_config, type="explorer",
+            agent_config,
+            type="explorer",
             state_space=env.state_space,
             action_space=env.action_space,
             internal_states_space=Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True),
