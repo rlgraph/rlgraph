@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import unittest
 from rlgraph.agents import DQNAgent, ApexAgent, IMPALAAgent
-from rlgraph.environments import OpenAIGymEnv, DeepmindLabEnv
+from rlgraph.environments import OpenAIGymEnv
 from rlgraph.spaces import FloatBox, Tuple
 from rlgraph.tests.test_util import config_from_path
 
@@ -58,7 +58,9 @@ class TestAllCompile(unittest.TestCase):
     def test_impala_agent_compilation(self):
         """
         Tests IMPALA agent compilation (explorer).
+
         """
+        from rlgraph.environments.deepmind_lab import DeepmindLabEnv
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
         env = DeepmindLabEnv(level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
                              frameskip=4)
