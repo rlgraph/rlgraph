@@ -638,13 +638,15 @@ class TensorFlowExecutor(GraphExecutor):
             # 1. Get the original component used by the agent to define its model.
 
             # 2. Get a copy of the root-component.
-            subgraphs = []
+            sub_graphs = []
             shared_scope = "shared-scope"
-            for device in self.gpu_names:
+            for i, device in enumerate(self.gpu_names):
                 # TODO only copy relevant subgraphs
                 # Copy and assign GPU to copy.
                 self.logger.info("Creating device supgraph for device: {}.".format(device))
-                subgraphs.append(root_component.copy(device=device, reuse_variable_scope=shared_scope))
+                sub_graph = root_component.copy(device=device, reuse_variable_scope=shared_scope)
+                sub_graph.name = "sync_copy_graph_{}".format(i)
+                sub_graphs.append(sub_graph)
                 self.used_devices.append(device)
 
             # 3. Wrap local optimizer (e.g. Adam) with multi-gpu optimizer and pass device info.
@@ -656,7 +658,7 @@ class TensorFlowExecutor(GraphExecutor):
 
             # 4. Pass the graph copies and the splitter containing the info how to split batches into tensors.
             dict_splitter = root_component.sub_component_by_name("splitter")
-            optimizer.set_replicas(subgraphs, dict_splitter, loss_name)
+            optimizer.set_replicas(sub_graphs, dict_splitter, loss_name)
 
     def _sanity_check_devices(self):
         """
