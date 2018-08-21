@@ -18,14 +18,18 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.neural_networks.stack import Stack
+from rlgraph.components.neural_networks.dict_preprocessor_stack import DictPreprocessorStack
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
+
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.neural_networks.policy import Policy
 
 # The Stacks.
 Stack.__lookup_classes__ = dict(
+    dictpreprocessorstack=DictPreprocessorStack,
     preprocessorstack=PreprocessorStack
 )
 
-__all__ = ["Stack", "PreprocessorStack", "NeuralNetwork", "Policy"]
-
+__all__ = ["NeuralNetwork", "Policy"] + \
+          ["Stack"] + \
+          list(set(map(lambda x: x.__name__, Stack.__lookup_classes__.values())))

@@ -40,17 +40,17 @@ class DictPreprocessorStack(PreprocessorStack):
         preprocess(input_): Outputs the preprocessed input_ after sending it through all sub-Components of this Stack.
         reset(): An op to trigger all PreprocessorStacks of this Vector to be reset.
     """
-    def __init__(self, preprocessor_spec, **kwargs):
+    def __init__(self, preprocessors, **kwargs):
         """
         Args:
-            preprocessor_spec (dict):
+            preprocessors (dict):
 
         Raises:
             RLGraphError: If a sub-component is not a PreprocessLayer object.
         """
         # Create one separate PreprocessorStack per given key.
         # All possibly other keys in an input will be pass through un-preprocessed.
-        self.preprocessors = flatten_op(preprocessor_spec)
+        self.preprocessors = flatten_op(preprocessors)
         for i, (flat_key, spec) in enumerate(self.preprocessors.items()):
             self.preprocessors[flat_key] = PreprocessorStack.from_spec(
                 spec, scope="preprocessor-stack-{}".format(i)

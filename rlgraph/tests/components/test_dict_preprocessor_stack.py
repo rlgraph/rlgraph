@@ -43,12 +43,12 @@ class TestDictPreprocessorStacks(unittest.TestCase):
             c=FloatBox(shape=(4, 5, 6)),
             add_batch_rank=True
         )
-        preprocessor_spec = dict(
+        preprocessors = dict(
             a=[dict(type="divide", divisor=2), dict(type="multiply", factor=4)],
             c=[dict(type="reshape", flatten=True)]
         )
 
-        dict_preprocessor_stack = DictPreprocessorStack(preprocessor_spec)
+        dict_preprocessor_stack = DictPreprocessorStack(preprocessors)
 
         test = ComponentTest(component=dict_preprocessor_stack, input_spaces=dict(inputs=input_space))
 

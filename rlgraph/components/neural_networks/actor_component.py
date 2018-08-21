@@ -50,25 +50,13 @@ class ActorComponent(Component):
         """
         super(ActorComponent, self).__init__(scope=kwargs.pop("scope", "actor-component"), **kwargs)
 
-        # TODO: change this when we have the vector preprocessor component.
-        if isinstance(preprocessor_spec, dict):
-            flat_specs = flatten_op(preprocessor_spec)
-            self.preprocessors = FlattenedDataOp()
-            for i, (key, spec) in enumerate(flat_specs.items()):
-                self.preprocessors[key] = PreprocessorStack.from_spec(spec, scope="preprocessor-stack-{}".format(i))
-        else:
-            self.preprocessors = FlattenedDataOp({"": PreprocessorStack.from_spec(preprocessor_spec)})
+        self.preprocessor = PreprocessorStack.from_spec(preprocessor_spec)
         self.policy = Policy.from_spec(policy_spec)
         self.exploration = Exploration.from_spec(exploration_spec)
 
         self.max_likelihood = max_likelihood
 
-        self.add_components(self.policy, self.exploration, *self.preprocessors.values())
-
-        self.define_api_method(
-            "vector_preprocess", self._graph_fn_vector_preprocess,
-            flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True
-        )
+        self.add_components(self.policy, self.exploration, self.preprocessor)
 
     # @rlgraph.api_method
     def get_preprocessed_state_and_action(self, states, internal_states=None, time_step=0, use_exploration=True):
@@ -88,11 +76,7 @@ class ActorComponent(Component):
         """
         max_likelihood = self.max_likelihood if self.max_likelihood is not None else self.policy.max_likelihood
 
-        # TODO: Fix as soon as we have PreprocessVector (different parallel Dict preprocessor for different spaces in a dict)
-        if len(self.preprocessors) > 1 or "" not in self.preprocessors:
-            preprocessed_states = self.call(self.vector_preprocess, states)
-        else:
-            preprocessed_states = self.call(self.preprocessors[""].preprocess, states)
+        preprocessed_states = self.call(self.preprocessor.preprocess, states)
 
         if max_likelihood is True:
             action_sample, last_internal_states = unify_nn_and_rnn_api_output(self.call(
@@ -127,11 +111,7 @@ class ActorComponent(Component):
         """
         max_likelihood = self.max_likelihood if self.max_likelihood is not None else self.policy.max_likelihood
 
-        # TODO: Fix as soon as we have PreprocessVector (different parallel Dict preprocessor for different spaces in a dict)
-        if len(self.preprocessors) > 1 or "" not in self.preprocessors:
-            preprocessed_states = self.call(self.vector_preprocess, states)
-        else:
-            preprocessed_states = self.call(self.preprocessors[""].preprocess, states)
+        preprocessed_states = self.call(self.preprocessor.preprocess, states)
 
         _, action_probs, _, last_internal_states = unify_nn_and_rnn_api_output(self.call(
             self.policy.get_logits_parameters_log_probs, preprocessed_states, internal_states
@@ -144,10 +124,3 @@ class ActorComponent(Component):
         actions = self.call(self.exploration.get_action, action_sample, time_step, use_exploration)
         ret = (preprocessed_states, actions, action_probs) + ((last_internal_states,) if last_internal_states else ())
         return ret
-
-    # TODO: replace with a to-be-written PreprocessVector Component
-    def _graph_fn_vector_preprocess(self, key, states):
-        if key in self.preprocessors:
-            return self.call(self.preprocessors[key].preprocess, states)
-        else:
-            return states

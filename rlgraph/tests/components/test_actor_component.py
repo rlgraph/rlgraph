@@ -95,7 +95,6 @@ class TestActorComponents(unittest.TestCase):
             expected_outputs=(expected_preprocessed_state, expected_actions, expected_action_probs)
         )
 
-
     def test_actor_component_with_lstm_network(self):
         # state space and internal state space
         state_space = FloatBox(shape=(2,), add_batch_rank=True, add_time_rank=True, time_major=False)
@@ -152,7 +151,7 @@ class TestActorComponents(unittest.TestCase):
         self.assertGreater(stddev_actions, 0.4)
         self.assertLess(stddev_actions, 0.6)
 
-    def test_actor_component_with_preprocess_vector(self):
+    def test_actor_component_with_dict_preprocessor(self):
         # state_space (a complex Dict Space, that will be partially preprocessed).
         state_space = Dict(
             a=FloatBox(shape=(2,)),
@@ -162,15 +161,18 @@ class TestActorComponents(unittest.TestCase):
         # action_space.
         action_space = IntBox(2, add_batch_rank=True)
 
-        preprocess_vector_spec = dict(
-            a=[dict(type="convert_type", to_dtype="float"), dict(type="multiply", factor=0.5)]
+        preprocessor_spec = dict(
+            type="dict-preprocessor-stack",
+            preprocessors=dict(
+                a=[dict(type="convert_type", to_dtype="float"), dict(type="multiply", factor=0.5)]
+            )
         )
         # Simple custom NN with dict input (splits into 2 streams (simple dense layers) and concats at the end).
         policy = Policy(neural_network=DummyNNWithDictInput(num_units_a=2, num_units_b=3, scope="dummy-nn"),
                         action_space=action_space)
         exploration = None  # no exploration
 
-        actor_component = ActorComponent(preprocess_vector_spec, policy, exploration)
+        actor_component = ActorComponent(preprocessor_spec, policy, exploration)
 
         test = ComponentTest(
             component=actor_component,
