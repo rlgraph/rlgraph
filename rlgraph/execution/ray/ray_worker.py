@@ -208,7 +208,7 @@ class RayWorker(RayActor):
 
         env_states = self.last_states
         episode_rewards = self.last_ep_rewards
-        episode_timesteps =self.last_ep_timesteps
+        episode_timesteps = self.last_ep_timesteps
 
         # Whether the episode in each env has terminated.
         terminals = [False for _ in range_(self.num_environments)]
@@ -342,9 +342,10 @@ class RayWorker(RayActor):
         # Adjust env frames for internal env frameskip:
         adjusted_frames = [env_frames * self.env_frame_skip for env_frames in self.sample_env_frames]
         if len(self.episode_rewards) > 0:
-            min_episode_reward = np.min(self.episode_rewards)
-            max_episode_reward = np.max(self.episode_rewards)
-            mean_episode_reward = np.mean(self.episode_rewards)
+            flattened_rewards = np.sum(self.episode_rewards)  # np.sum flattens the nested lists
+            min_episode_reward = np.min(flattened_rewards)
+            max_episode_reward = np.max(flattened_rewards)
+            mean_episode_reward = np.mean(flattened_rewards)
             # Mean of final episode rewards over all envs
             final_episode_reward = np.mean([env_rewards[-1] for env_rewards in self.episode_rewards])
         else:

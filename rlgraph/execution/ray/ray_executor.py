@@ -302,6 +302,23 @@ class RayExecutor(object):
             episode_timesteps=metrics["episode_timesteps"]
         )
 
+    def get_all_worker_results(self):
+        """
+        Retrieves full episode-reward time series for all workers.
+
+        Returns:
+            dict: Dict of dict of workers and full results.
+        """
+        results = dict()
+        for ray_worker in self.ray_env_sample_workers:
+            task = ray_worker.get_workload_statistics.remote()
+            metrics = ray.get(task)
+            results[ray_worker] = dict(
+                episode_rewards=metrics["episode_rewards"],
+                episode_timesteps=metrics["episode_timesteps"]
+            )
+        return results
+
     def get_sample_worker_ids(self):
         """
         Returns identifeirs of all sample workers.
