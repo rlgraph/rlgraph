@@ -23,7 +23,7 @@ from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.spaces import ContainerSpace, Dict
-from rlgraph.utils.ops import flatten_op
+from rlgraph.utils.ops import flatten_op, unflatten_op
 from rlgraph.utils.util import default_dict
 
 if get_backend() == "tf":
@@ -101,13 +101,17 @@ class DictPreprocessorStack(PreprocessorStack):
         Returns the Space obtained after pushing the input through all layers of this Stack.
 
         Args:
-            space (Space): The incoming Space object.
+            space (Dict): The incoming Space object.
 
         Returns:
             Space: The Space after preprocessing.
         """
         assert isinstance(space, ContainerSpace)
         dict_spec = dict()
-        for pp in self.sub_components.values():
-            space = pp.get_preprocessed_space(space)
+        for flat_key, sub_space in space.flatten().items():
+            if flat_key in self.preprocessors:
+                dict_spec[flat_key] = self.preprocessors[flat_key].get_preprocessed_space(sub_space)
+            else:
+                dict_spec[flat_key] = sub_space
+        dict_spec = unflatten_op(dict_spec)
         return Dict(dict_spec)
