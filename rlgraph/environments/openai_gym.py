@@ -154,7 +154,7 @@ class OpenAIGymEnv(Environment):
                     self.state_buffer[0] = state
                 if i == self.frameskip - 1:
                     self.state_buffer[1] = state
-                    step_reward += reward
+                step_reward += reward
                 if terminal:
                     break
 
