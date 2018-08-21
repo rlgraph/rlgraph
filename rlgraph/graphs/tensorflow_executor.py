@@ -94,6 +94,7 @@ class TensorFlowExecutor(GraphExecutor):
         # Number of available GPUs and their names.
         self.gpus_enabled = None
         self.gpu_names = None
+        self.used_devices = list()
         self.max_usable_gpus = 0
         self.num_gpus = 0
 
@@ -644,6 +645,7 @@ class TensorFlowExecutor(GraphExecutor):
                 # Copy and assign GPU to copy.
                 self.logger.info("Creating device supgraph for device: {}.".format(device))
                 subgraphs.append(master_component.copy(device=device, reuse_variable_scope=shared_scope))
+                self.used_devices.append(device)
 
             # 3. Wrap local optimizer (e.g. Adam) with multi-gpu optimizer and pass device info.
             # Replace old optimizers parent component
@@ -660,7 +662,8 @@ class TensorFlowExecutor(GraphExecutor):
         Checks device assignments to identify unused or conflicting assignments.
         """
         assignments = self.graph_builder.device_component_assignments
-        used_devices = assignments.keys()
+        # Devices can be used here or within graph build assignments.
+        used_devices = list(assignments.keys()) + self.used_devices
 
         # Warn if some devices have not been assigned.
         self.logger.info("Checking if all visible devices are in use. Available devices are: {}.".format(
@@ -671,8 +674,6 @@ class TensorFlowExecutor(GraphExecutor):
                 self.logger.warning("Warning: Device {} is usable but has not been assigned.".format(
                     device
                 ))
-
-        # TODO check assignments for multi gpu strategy when implemented.
 
     def init_gpus(self):
         """
