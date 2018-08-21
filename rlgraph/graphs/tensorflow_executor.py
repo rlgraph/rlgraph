@@ -87,16 +87,6 @@ class TensorFlowExecutor(GraphExecutor):
 
         # Just fetch CPUs. GPUs will be added when parsing the GPU configuration.
         self.available_devices = [x.name for x in self.local_device_protos if x.device_type == 'CPU']
-        self.device_strategy = None
-        self.default_device = None
-        self.device_map = None
-
-        # Number of available GPUs and their names.
-        self.gpus_enabled = None
-        self.gpu_names = None
-        self.used_devices = list()
-        self.max_usable_gpus = 0
-        self.num_gpus = 0
 
         # Tf profiler.
         trace_enabled = self.execution_spec.get('trace_enabled', True)
@@ -654,8 +644,8 @@ class TensorFlowExecutor(GraphExecutor):
 
             # Old: root <-> local_optimizer, new: root <-> multi_gpu_optimizer <-> local_optimizer
             optimizer.parent_component = None
-            root_component.remove_sub_component_by_name(self.optimizer.name)
-            multi_gpu_optimizer = MultiGpuSyncOptimizer(local_optimizer=self.optimizer, devices=self.gpu_names)
+            root_component.remove_sub_component_by_name(optimizer.name)
+            multi_gpu_optimizer = MultiGpuSyncOptimizer(local_optimizer=optimizer, devices=self.gpu_names)
             root_component.add_components(multi_gpu_optimizer)
             # 4. Pass the graph copies and the splitter containing the info how to split batches into tensors.
             dict_splitter = root_component.sub_component_by_name("dict-splitter")
@@ -674,9 +664,8 @@ class TensorFlowExecutor(GraphExecutor):
         used_devices = list(assignments.keys()) + self.used_devices
 
         # Warn if some devices have not been assigned.
-        self.logger.info("Checking if all visible devices are in use. Available devices are: {}.".format(
-            self.available_devices
-        ))
+        self.logger.info("Checking if all visible devices are in use for strategy: {}. Available devices are: {}.".
+            format(self.device_strategy, self.available_devices))
         for device in self.available_devices:
             if device not in used_devices:
                 self.logger.warning("Warning: Device {} is usable but has not been assigned.".format(

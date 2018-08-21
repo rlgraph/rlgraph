@@ -72,6 +72,17 @@ class GraphExecutor(Specifiable):
         self.session_config = self.execution_spec["session_config"]
         self.distributed_spec = self.execution_spec.get("distributed_spec")
 
+        # Number of available GPUs and their names.
+        self.gpus_enabled = None
+        self.gpu_names = None
+        self.used_devices = list()
+        self.max_usable_gpus = 0
+        self.num_gpus = 0
+
+        self.device_strategy = None
+        self.default_device = None
+        self.device_map = None
+
     def build(self, root_components, input_spaces, *args):
         """
         Sets up the computation graph by:
