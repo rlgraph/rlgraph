@@ -182,13 +182,13 @@ class TensorFlowExecutor(GraphExecutor):
         # Components can still be modified and re-arranged after this.
         self.init_execution()
         self.setup_graph()
-        self._build_device_strategy(optimizer, loss_name)
 
         # 1. Build phase: Meta graph construction -> All of the root_component's API methods are being called once,
         # thereby calling other API-methods (of sub-Components). These API-method calls then build the meta-graph
         # (generating empty op-record columns around API methods and graph_fns).
         # TODO make compatible for multiple roots in graph builder.
         for component in root_components:
+            self._build_device_strategy(component, optimizer, loss_name)
             meta_graph = self.meta_graph_builder.build(component, input_spaces)
 
             # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
@@ -609,7 +609,7 @@ class TensorFlowExecutor(GraphExecutor):
         # Close the tf.Session.
         self.monitored_session.close()
 
-    def _build_device_strategy(self, optimizer, loss_name=None):
+    def _build_device_strategy(self,root_component, optimizer, loss_name=None):
         """
         When using multiple GPUs or other special devices, additional graph components
         may be required to split up incoming data, load it to device memories, and aggregate
@@ -623,6 +623,7 @@ class TensorFlowExecutor(GraphExecutor):
         This method expands the meta graph according to the given device strategy if necessary.
 
         Args:
+            root_component (Component):
             optimizer (Optimizer): Optimizer object.
             loss_name Optional([str]): Name of loss component. Needed by some device strategies
                 to fetch the less on graph replicas.
@@ -635,7 +636,6 @@ class TensorFlowExecutor(GraphExecutor):
                                       "there are only {} GPUs visible.".format(self.num_gpus)
             self.logger.info("Building MultiGpuSync strategy with {} GPUs.".format(self.num_gpus))
             # 1. Get the original component used by the agent to define its model.
-            master_component = self.graph_builder.root_component
 
             # 2. Get a copy of the root-component.
             subgraphs = []
@@ -644,18 +644,18 @@ class TensorFlowExecutor(GraphExecutor):
                 # TODO only copy relevant subgraphs
                 # Copy and assign GPU to copy.
                 self.logger.info("Creating device supgraph for device: {}.".format(device))
-                subgraphs.append(master_component.copy(device=device, reuse_variable_scope=shared_scope))
+                subgraphs.append(root_component.copy(device=device, reuse_variable_scope=shared_scope))
                 self.used_devices.append(device)
 
             # 3. Wrap local optimizer (e.g. Adam) with multi-gpu optimizer and pass device info.
             # Replace old optimizers parent component
             self.optimizer.parent_component = None
             self.optimizer = MultiGpuSyncOptimizer(local_optimizer=self.optimizer, devices=self.gpu_names)
-            self.optimizer.parent_component = master_component
+            self.optimizer.parent_component = root_component
 
             # 4. Pass the graph copies and the splitter containing the info how to split batches into tensors.
-            dict_splitter = master_component.sub_component_by_name("splitter")
-            optimizer.set_replicas(subgraphs, dict_splitter)
+            dict_splitter = root_component.sub_component_by_name("splitter")
+            optimizer.set_replicas(subgraphs, dict_splitter, loss_name)
 
     def _sanity_check_devices(self):
         """
