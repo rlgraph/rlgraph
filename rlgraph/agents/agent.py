@@ -101,8 +101,7 @@ class Agent(Specifiable):
         # Tag the input-Space to `self.set_policy_weights` as equal to whatever the variables-Space will be for
         # the Agent's policy Component.
         self.input_spaces = dict(
-            weights="variables:policy",
-            states=self.state_space.with_batch_rank()
+            states=self.state_space.with_batch_rank(),
         )
 
         # Construct the Preprocessor.

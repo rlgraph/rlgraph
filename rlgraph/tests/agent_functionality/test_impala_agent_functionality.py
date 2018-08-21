@@ -224,10 +224,13 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         actor_component = ActorComponent(
             # Preprocessor spec (only for image and prev-action channel).
             dict(
-                # The images from the env  are divided by 255.
-                RGB_INTERLEAVED=[dict(type="divide", divisor=255)],
-                # The prev. actions from the env must be flattened.
-                previous_action=[dict(type="reshape", flatten=True, flatten_categories=action_space.num_categories)]
+                type="dict-preprocessor-stack",
+                preprocessors=dict(
+                    # The images from the env  are divided by 255.
+                    RGB_INTERLEAVED=[dict(type="divide", divisor=255)],
+                    # The prev. actions from the env must be flattened.
+                    previous_action=[dict(type="reshape", flatten=True, flatten_categories=action_space.num_categories)]
+                )
             ),
             # Policy spec.
             dict(neural_network=LargeIMPALANetwork(), action_space=action_space),
@@ -303,8 +306,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # internal states (c- and h-state)
         self.assertTrue(out[1][7][0].dtype == np.float32)
         self.assertTrue(out[1][7][1].dtype == np.float32)
-        self.assertTrue(out[1][7][0].shape == (time_steps, 1, 256))
-        self.assertTrue(out[1][7][1].shape == (time_steps, 1, 256))
+        self.assertTrue(out[1][7][0].shape == (time_steps, 256))
+        self.assertTrue(out[1][7][1].shape == (time_steps, 256))
 
         # Check whether episode returns match single rewards (including terminal signals).
         episode_returns = 0.0
@@ -318,20 +321,4 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # Make sure we close the specifiable server (as we have started it manually and have no monitored session).
         environment_stepper.environment_server.stop()
         test.terminate()
-
-    def test_impala_agent_compilation(self):
-        """
-        Tests IMPALA agent compilation (explorer).
-        """
-        agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
-        env = DeepmindLabEnv(level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
-                             frameskip=4)
-
-        agent = IMPALAAgent.from_spec(
-            agent_config, type="explorer",
-            state_space=env.state_space, action_space=env.action_space,
-            internal_states_space=FloatBox(shape=(256,))
-                                      )
-        print("Compiled IMPALA agent")
-
 

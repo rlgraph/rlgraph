@@ -66,7 +66,7 @@ class FIFOQueue(Memory):
         # Insert the records as FlattenedDataOp (dict).
         return self.queue.enqueue_many(records)
 
-    def _graph_fn_get_records(self, num_records):
+    def _graph_fn_get_records(self, num_records=1):
         # Get the records as dict.
         record_dict = self.queue.dequeue_many(num_records)
         # Return a FlattenedDataOp.

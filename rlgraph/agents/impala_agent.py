@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from rlgraph.agents.agent import Agent
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
+from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.loss_functions.impala_loss_function import IMPALALossFunction
 from rlgraph.components.memories.fifo_queue import FIFOQueue
@@ -67,6 +68,12 @@ class IMPALAAgent(Agent):
                     type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
                     frameskip=4
             ))
+            # Add simple previous-action preprocessor (flatten) to env-specific preprocessor spec.
+            preprocessing_spec = kwargs.pop("preprocessing_spec", dict(preprocessors=dict()))
+            preprocessing_spec["preprocessors"]["previous_action"] = [
+                dict(type="reshape", flatten=True, flatten_categories=kwargs.get("action_space").num_categories)
+            ]
+            kwargs["preprocessing_spec"] = preprocessing_spec
 
         # Now that we fixed the Agent's spec, call the super constructor.
         super(IMPALAAgent, self).__init__(
@@ -79,26 +86,41 @@ class IMPALAAgent(Agent):
         self.fifo_queue = FIFOQueue.from_spec(fifo_queue_spec, reuse_variable_scope="shared-fifo-queue")
         # Check whether we have an RNN.
         self.has_rnn = self.neural_network.has_rnn()
-        # Extend input Space definitions to this Agent's specific API-methods.
-        self.input_spaces.update(dict(
-            internal_states=self.internal_states_space.with_extra_ranks(
-                add_batch_rank=True, add_time_rank=True, time_major=True
-            ),
-            num_steps=int,
-            time_step=int
-        ))
 
         # Add all our sub-components to the core.
         if self.type == "explorer":
+            # Extend input Space definitions to this Agent's specific API-methods.
+            self.input_spaces.update(dict(
+                weights="variables:environment-stepper/actor-component/policy",
+                internal_states=self.internal_states_space.with_batch_rank(),
+                num_steps=int,
+                time_step=int
+            ))
             self.loss_function = None
             actor_component = ActorComponent(self.preprocessor, self.policy, self.exploration)
             state_space = self.state_space.with_batch_rank()
-            reward_space = FloatBox(add_batch_rank=True)
-            env_stepper = EnvironmentStepper(environment_spec, actor_component, state_space, reward_space)
-            sub_components = [env_stepper, self.fifo_queue]
+            dummy_flattener = ReShape(flatten=True)  # dummy Flattener to calculate action-probs space
+            reward_space = float
+            self.environment_stepper = EnvironmentStepper(
+                environment_spec=environment_spec,
+                actor_component_spec=actor_component,
+                state_space=state_space,
+                reward_space=reward_space,
+                add_previous_action=True,
+                add_previous_reward=True,
+                add_action_probs=True,
+                action_probs_space=dummy_flattener.get_preprocessed_space(self.action_space)
+            )
+            sub_components = [self.environment_stepper, self.fifo_queue]
         else:
+            # Extend input Space definitions to this Agent's specific API-methods.
+            self.input_spaces.update(dict(
+                # TODO: fill out learner's input spaces
+            ))
+
             # TODO: add loss func options here and to our ctor.
             self.loss_function = IMPALALossFunction()
+            self.environment_stepper = None
             sub_components = [self.fifo_queue, self.policy, self.loss_function, self.optimizer]
 
         # Add all the agent's sub-components to the root.
@@ -115,7 +137,7 @@ class IMPALAAgent(Agent):
 
     def define_api_methods(self, *sub_components):
         super(IMPALAAgent, self).define_api_methods(
-            "environment-stepper/actor-component/policy", "environment-stepper/actor-component/preprocesor-stack"
+            "environment-stepper/actor-component/policy", "environment-stepper/actor-component/dict-preprocessor-stack"
         )
 
         if self.type == "explorer":
@@ -138,12 +160,13 @@ class IMPALAAgent(Agent):
         # Perform n-steps in the env and insert the results into our FIFO-queue.
         def perform_n_steps_and_insert_into_fifo(self, internal_states=None, num_steps=1, time_step=0):
             # Take n steps in the environment.
-            results = self.call(env_stepper.step, internal_states, num_steps, time_step)
+            step_op, step_results = self.call(env_stepper.step, internal_states, num_steps, time_step)
             # Dissect the results.
+            #preprocessed_s, actions, rewards, returns, terminals, next_states, action_log_probs, internal_states = split(step_results)
 
             # Insert results into the FIFOQueue.
-            insert_op = self.call(fifo_queue.insert, results)
-            return insert_op
+            insert_op = self.call(fifo_queue.insert_records, step_results)
+            return step_op, insert_op
 
         self.root_component.define_api_method(
             "perform_n_steps_and_insert_into_fifo", perform_n_steps_and_insert_into_fifo
