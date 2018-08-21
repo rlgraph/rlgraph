@@ -47,6 +47,6 @@ class NeuralNetwork(Stack):
 
     def has_rnn(self):
         # TODO: Maybe it would be better to create a child class (RecurrentNeuralNetwork with has_rrn=True and
-        # TODO: other available information for its API-clients such as internal_state_space, etc..)
+        # TODO: other available information for its API-clients such as internal_states_space, etc..)
         # Set a convenience flag if one of our sub-Components is an LSTMLayer.
         return any(isinstance(sc, LSTMLayer) for sc in self.get_all_sub_components())

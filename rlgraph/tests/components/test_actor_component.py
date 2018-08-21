@@ -98,7 +98,7 @@ class TestActorComponents(unittest.TestCase):
     def test_actor_component_with_lstm_network(self):
         # state space and internal state space
         state_space = FloatBox(shape=(2,), add_batch_rank=True, add_time_rank=True, time_major=False)
-        internal_state_space = Tuple(FloatBox(shape=(3,)), FloatBox(shape=(3,)), add_batch_rank=True)
+        internal_states_space = Tuple(FloatBox(shape=(3,)), FloatBox(shape=(3,)), add_batch_rank=True)
         time_step_space = IntBox()
         # action_space.
         action_space = IntBox(2, add_batch_rank=True, add_time_rank=True)
@@ -115,7 +115,7 @@ class TestActorComponents(unittest.TestCase):
             component=actor_component,
             input_spaces=dict(
                 states=state_space,
-                internal_states=internal_state_space,
+                internal_states=internal_states_space,
                 time_step=time_step_space
             ),
             action_space=action_space
@@ -123,7 +123,7 @@ class TestActorComponents(unittest.TestCase):
         # Some state inputs (batch size=2, seq-len=1000; batch-major).
         np.random.seed(10)
         states = state_space.sample(size=(1000, 2))
-        initial_internal_states = internal_state_space.zeros(size=2)  # only batch
+        initial_internal_states = internal_states_space.zeros(size=2)  # only batch
         time_steps = time_step_space.sample(1000)
 
         # Run n times a single time-step to simulate acting and env interaction with an LSTM.
