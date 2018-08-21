@@ -25,6 +25,7 @@ from rlgraph.components.component import Component
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.environments.environment import Environment
 from rlgraph.utils.ops import DataOpTuple, DataOpDict, flatten_op, unflatten_op
+from rlgraph.spaces import Space
 from rlgraph.utils.specifiable_server import SpecifiableServer
 from rlgraph.utils.util import dtype as dtype_, force_tuple
 
@@ -82,7 +83,7 @@ class EnvironmentStepper(Component):
             if reward_space is None:
                 _, reward, _, _ = dummy_env.step(dummy_env.action_space.sample())
                 # TODO: this may break on non 64-bit machines. tf seems to interpret a python float as tf.float64.
-                reward_space = "float64" if type(reward) == float else float
+                reward_space = Space.from_spec("float64" if type(reward) == float else float)
 
         self.state_space = state_space
 
@@ -147,9 +148,12 @@ class EnvironmentStepper(Component):
             self.internal_state_spaces = input_spaces["internal_states"]
 
     def create_variables(self, input_spaces, action_space=None):
-        self.episode_return = self.get_variable(name="episode-return", initializer=0.0, dtype=self.reward_space)
-        self.current_terminal = self.get_variable(name="current-terminal", dtype="bool", initializer=False)
-        self.current_state = self.get_variable(name="current-state", from_space=self.state_space, flatten=True)
+        self.episode_return = self.get_variable(name="episode-return", from_space=self.reward_space,
+                                                initializer=0.0, trainable=False)
+        self.current_terminal = self.get_variable(name="current-terminal", dtype="bool",
+                                                  initializer=False, trainable=False)
+        self.current_state = self.get_variable(name="current-state", from_space=self.state_space,
+                                               flatten=True, trainable=False)
 
     def _graph_fn_reset(self):
         """
@@ -189,13 +193,16 @@ class EnvironmentStepper(Component):
                 - preprocessed_previous_states: Starting with the initial state of the environment and ending with
                     the one state before the last element in `next_states` (see below).
                 - actions: The actions actually picked by our policy.
-                - action_log_probs: The log-probabilities of all actions per step.
+                - rewards: The rewards actually observed during stepping.
                 - returns: The accumulated reward values for the ongoing episode up to after taking an action.
                 TODO: discounting?
-                - rewards: The rewards actually observed during stepping.
                 - terminals: The terminal signals from the env. Values refere to whether the states in `next_states`
                     (see below) are terminal or not.
                 - next_states: The (non-preprocessed) next states.
+                Optional if self.add_action_probs is True:
+                - action_log_probs: The log-probabilities of all actions per step.
+                Optional if self.has_rnn is True:
+                - internal_states: The internal-states outputs of an RNN.
         """
         if get_backend() == "tf":
 
@@ -317,7 +324,7 @@ class EnvironmentStepper(Component):
             initializer = [
                 tuple(map(lambda space: space.zeros(), self.preprocessed_state_space.values())),
                 self.action_space.zeros(),  # zero previous action (doesn't matter)
-                np.asarray(0.0, dtype=dtype_(self.reward_space, "np")),  # zero previous reward (doesn't matter)
+                np.asarray(0.0, dtype=self.reward_space.dtype),  # zero previous reward (doesn't matter)
                 self.episode_return,  # return so far
                 self.current_terminal,  # whether the current state is terminal
                 tuple(self.current_state.values())  # current (raw) state (flattened components if ContainerSpace).
