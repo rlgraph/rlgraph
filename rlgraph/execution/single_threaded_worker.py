@@ -28,18 +28,19 @@ from rlgraph.execution.worker import Worker
 
 class SingleThreadedWorker(Worker):
 
-    def __init__(self, **kwargs):
+    def __init__(self, render=False, **kwargs):
         """
-        Keyword Args:
-            render (bool): Whether to render the environment after each action. Default: False.
+        Args:
+            render (bool): Whether to render the environment after each action.
+                Default: False.
         """
-        self.render = kwargs.pop("render", False)
-
         super(SingleThreadedWorker, self).__init__(**kwargs)
 
         self.logger.info("Initialized single-threaded executor with {} environments '{}' and Agent '{}'".format(
             self.num_envs, self.vector_env.get_env(), self.agent
         ))
+
+        self.render = render
 
         # Global statistics.
         self.env_frames = 0

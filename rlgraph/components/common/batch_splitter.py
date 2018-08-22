@@ -20,16 +20,17 @@ class BatchSplitter(Component):
         Args:
             num_shards (int): Number of shards to split the batch dimension into.
         """
-        assert num_shards > 1, "ERROR: num shards must be greater than 1 but is {}.".format(
-            num_shards
-        )
-        self.num_shards = num_shards
-
         super(BatchSplitter, self).__init__(
             scope=kwargs.pop("scope", "batch-splitter"),
             graph_fn_num_outputs=dict(_graph_fn_split_batch=num_shards),
             **kwargs
         )
+
+        assert num_shards > 1, "ERROR: num shards must be greater than 1 but is {}.".format(
+            num_shards
+        )
+        self.num_shards = num_shards
+
         self.define_api_method(name="split_batch", func=self._graph_fn_split_batch, flatten_ops=True)
 
     def _graph_fn_split_batch(self, *inputs):
