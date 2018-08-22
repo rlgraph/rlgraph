@@ -33,6 +33,26 @@ class TestApexExecutor(unittest.TestCase):
       gym_env="CartPole-v0"
     )
 
+    def test_learning_grid_world(self):
+        """
+        Tests if apex can learn a simple environment using a single worker, thus replicating
+        dqn.
+        """
+        agent_config = config_from_path("configs/apex_agent_gridworld_for_2x2_grid.json")
+
+        executor = ApexExecutor(
+            environment_spec=self.env_spec,
+            agent_config=agent_config,
+        )
+        # Define executor, test assembly.
+        print("Successfully created executor.")
+
+        # Executes actual workload.
+        result = executor.execute_workload(workload=dict(num_timesteps=1000, report_interval=100,
+                                                         report_interval_min_seconds=1))
+        print("Finished executing workload:")
+        print(result)
+
     def test_learning_cartpole(self):
         """
         Tests if apex can learn a simple environment using a single worker, thus replicating
