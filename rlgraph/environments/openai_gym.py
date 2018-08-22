@@ -33,7 +33,7 @@ class OpenAIGymEnv(Environment):
     OpenAI Gym adapter for RLgraph: https://gym.openai.com/.
     """
     def __init__(
-        self, gym_env, frameskip=None, max_num_noops=0, random_start=False, noop_action=0, episodic_life=False,
+        self, gym_env, frameskip=None, max_num_noops=0, noop_action=0, episodic_life=False,
         monitor=None, monitor_safe=False, monitor_video=0, visualize=False, **kwargs
     ):
         """
@@ -44,7 +44,6 @@ class OpenAIGymEnv(Environment):
                 Default: (2,5) -> Uniformly pull from set [2,3,4].
             max_num_noops (Optional[int]): How many no-ops to maximally perform when resetting
                 the environment before returning the reset state.
-            random_start (Optional[bool]): If true, sample random actions instead of no-ops initially.
             noop_action (Optional[bool]): The action representing no-op. 0 for Atari.
             episodic_life (Optional[bool]): If true, losing a life will lead to episode end from the perspective
                 of the agent. Internally, th environment will keep stepping the game and manage the true
@@ -74,7 +73,6 @@ class OpenAIGymEnv(Environment):
         # In Atari environments, 0 is no-op.
         self.noop_action = noop_action
         self.max_num_noops = max_num_noops
-        self.random_start = random_start
 
         # Manage life as episodes.
         self.episodic_life = episodic_life
@@ -124,13 +122,9 @@ class OpenAIGymEnv(Environment):
         state = self.gym_env.reset()
         if self.max_num_noops > 0:
             num_noops = np.random.randint(low=1, high=self.max_num_noops + 1)
-            # Do a number of random actions or noops to vary starting positions.
+            # Do a number of noops to vary starting positions.
             for _ in range_(num_noops):
-                if self.random_start:
-                    action = self.action_space.sample()
-                else:
-                    action = self.noop_action
-                state, reward, terminal, info = self.gym_env.step(action)
+                state, reward, terminal, info = self.gym_env.step(self.noop_action)
                 if terminal:
                     state = self.gym_env.reset()
         return state
