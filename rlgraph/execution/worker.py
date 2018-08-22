@@ -28,12 +28,12 @@ class Worker(Specifiable):
     """
     Generic worker to locally interact with simulator environments.
     """
-    def __init__(self, env_spec, agent, num_envs=1, frameskip=1):
+    def __init__(self, agent, env_spec=None, num_envs=1, frameskip=1):
         """
         Args:
-            env_spec Union[callable, dict]): Either an environment spec or a callable returning a new
-                environment.
             agent (Agent): Agent to execute environment on.
+            env_spec Optional[Union[callable, dict]]): Either an environment spec or a callable returning a new
+                environment.
             num_envs (int): How many single Environments should be run in parallel in a SequentialVectorEnv.
             frameskip (int): How often actions are repeated after retrieving them from the agent.
                 This setting can be overwritten in the single calls to the different `execute_..` methods.
@@ -41,8 +41,12 @@ class Worker(Specifiable):
         super(Worker, self).__init__()
         self.num_envs = num_envs
         self.logger = logging.getLogger(__name__)
-        self.env_ids = ["env_{}".format(i) for i in range_(self.num_envs)]
-        self.vector_env = SequentialVectorEnv(env_spec=env_spec, num_envs=self.num_envs)
+        if env_spec is not None:
+            self.env_ids = ["env_{}".format(i) for i in range_(self.num_envs)]
+            self.vector_env = SequentialVectorEnv(env_spec=env_spec, num_envs=self.num_envs)
+        else:
+            self.env_ids = []
+            self.vector_env = None
         self.agent = agent
         self.frameskip = frameskip
 
