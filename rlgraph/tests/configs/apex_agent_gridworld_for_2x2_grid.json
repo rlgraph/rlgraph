@@ -8,9 +8,8 @@
   "preprocessing_spec":
   [
     {
-      "type": "reshape",
-      "flatten": true,
-      "scope": "reshape"
+      "type": "flatten",
+      "scope": "flatten"
     }
   ],  "saver_spec": null,
   "execution_spec": {

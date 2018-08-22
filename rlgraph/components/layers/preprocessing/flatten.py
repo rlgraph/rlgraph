@@ -45,7 +45,7 @@ class Flatten(PreprocessLayer):
         Args:
             flatten_categories (bool): Whether to flatten also IntBox categories. Default: True.
         """
-        raise RLGraphError("ERROR: `Flatten` preprocessor has been obsoleted. Use `ReShape(flatten=True)` instead.")
+        #raise RLGraphError("ERROR: `Flatten` preprocessor has been obsoleted. Use `ReShape(flatten=True)` instead.")
 
         super(Flatten, self).__init__(scope=scope, add_auto_key_as_first_param=True, **kwargs)
 

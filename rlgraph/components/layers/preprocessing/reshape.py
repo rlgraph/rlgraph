@@ -88,6 +88,7 @@ class ReShape(PreprocessLayer):
 
     def get_preprocessed_space(self, space):
         ret = dict()
+        #print("input to get_preprocessed_space ({}): space={}".format(self.global_scope, space))
         for key, single_space in space.flatten().items():
             class_ = type(single_space)
 
@@ -126,7 +127,9 @@ class ReShape(PreprocessLayer):
             else:
                 ret[key] = class_(shape=new_shape, add_batch_rank=single_space.has_batch_rank,
                                   add_time_rank=single_space.has_time_rank)
-        return unflatten_op(ret)
+        ret = unflatten_op(ret)
+        #print("output of get_preprocessed_space: space={}".format(ret))
+        return ret
 
     def check_input_spaces(self, input_spaces, action_space=None):
         super(ReShape, self).check_input_spaces(input_spaces, action_space)
@@ -139,9 +142,12 @@ class ReShape(PreprocessLayer):
 
     def create_variables(self, input_spaces, action_space=None):
         in_space = input_spaces["preprocessing_inputs"]  # type: Space
+        #print("in_space={}".format(in_space))
 
         # Store the mapped output Spaces (per flat key).
+        #print("determining self.output_spaces for {}...".format(self.global_scope))
         self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
+        #print("determined self.output_spaces={} for {}...".format(self.output_spaces, self.global_scope))
         # Store time_major settings of incoming spaces.
         self.in_space_time_majors = in_space.flatten(mapping=lambda key, space: space.time_major)
 
@@ -177,6 +183,8 @@ class ReShape(PreprocessLayer):
         """
         assert self.unfold_time_rank is False or input_before_time_rank_folding is not None
 
+        #print("before one-hot: preprocessing_inputs={}".format(preprocessing_inputs))
+
         # Create a one-hot axis for the categories at the end?
         if self.num_categories.get(key, 0) > 1:
             preprocessing_inputs = tf.one_hot(indices=preprocessing_inputs, depth=self.num_categories[key], axis=-1,
@@ -185,11 +193,13 @@ class ReShape(PreprocessLayer):
         new_shape = self.output_spaces[key].get_shape(
             with_batch_rank=-1, with_time_rank=-1, time_major=self.time_major
         )
+        #print("new_shape={}".format(new_shape))
         # Dynamic new shape inference:
         # If both batch and time rank must be left alone OR the time rank must be unfolded from a currently common
         # batch+time 0th rank, get these two dynamically.
         # Note: We may still flip the two, if input space has a different `time_major` than output space.
         if len(new_shape) > 2 and new_shape[0] == -1 and new_shape[1] == -1:
+            #print("in dynamic if-block. unfold_time_rank={} time_major={}".format(self.unfold_time_rank, self.time_major))
             # Time rank unfolding. Get the time rank from original input.
             if self.unfold_time_rank is True:
                 if self.backend == "python" or get_backend() == "python":
@@ -219,6 +229,8 @@ class ReShape(PreprocessLayer):
                     new_shape = (input_shape[1], input_shape[0]) + new_shape[2:]
 
         if self.backend == "python" or get_backend() == "python":
+            #print("BEFORE np.reshape: preprocessing_inputs={}".format(preprocessing_inputs))
+            #print("BEFORE np.reshape: new_shape={}".format(new_shape))
             return np.reshape(preprocessing_inputs, newshape=new_shape)
 
         elif get_backend() == "tf":
