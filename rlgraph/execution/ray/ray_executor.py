@@ -273,25 +273,21 @@ class RayExecutor(object):
         env_cls = Environment.__lookup_classes__.get(env_spec.pop("type"))
         return env_cls(**env_spec)
 
-    def result_by_worker(self, worker_id=None):
+    def result_by_worker(self, worker_index=None):
         """
         Retreives full episode-reward time series for a worker by id (or first worker in registry if None).
 
         Args:
-            worker_id Optional[str]:
+            worker_index (Optional[int]): Index of worker to fetch.
 
         Returns:
             dict: Full results for this worker.
         """
-        if worker_id is not None:
-            # Get first.
-            assert worker_id in self.ray_env_sample_workers.keys(),\
-                "Parameter worker_id: {} must be valid key. Fetch keys via 'get_sample_worker_ids'.".\
-                format(worker_id)
-            ray_worker = self.ray_env_sample_workers[worker_id]
+        if worker_index is not None:
+            ray_worker = self.ray_env_sample_workers[worker_index]
         else:
             # Otherwise just pick  first.
-            ray_worker = list(self.ray_env_sample_workers.values())[0]
+            ray_worker = self.ray_env_sample_workers[0]
 
         task = ray_worker.get_workload_statistics.remote()
         metrics = ray.get(task)
