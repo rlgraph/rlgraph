@@ -383,7 +383,8 @@ class DataOpRecordColumnFromAPIMethod(DataOpRecordColumn):
 
 
 class APIMethodRecord(object):
-    def __init__(self, method, component, must_be_complete=True):  #, callable_anytime=False):
+    def __init__(self, method, component, must_be_complete=True, is_graph_fn_wrapper=False,
+                 add_auto_key_as_first_param=False):  #, callable_anytime=False):
         """
         Args:
             method (callable): The actual API-method (callable).
@@ -396,7 +397,9 @@ class APIMethodRecord(object):
         self.name = self.method.__name__
         self.component = component
         self.must_be_complete = must_be_complete
-        #self.callable_anytime = callable_anytime
+
+        self.is_graph_fn_wrapper = is_graph_fn_wrapper
+        self.add_auto_key_as_first_param = add_auto_key_as_first_param
 
         # List of the input-parameter names (str) of this API-method.
         self.input_names = None
@@ -412,6 +415,7 @@ class APIMethodRecord(object):
 class GraphFnRecord(object):
     def __init__(self, graph_fn, component):
         self.graph_fn = graph_fn
+        self.name = self.graph_fn.__name__
         self.component = component
 
         self.in_op_columns = list()

@@ -56,8 +56,10 @@ class MetaGraphBuilder(Specifiable):
             for input_param_name in input_spaces.keys():
                 if input_param_name not in root_component.api_method_inputs:
                     raise RLGraphError(
-                        "ERROR: `input_spaces` contains an input-parameter-name ('{}') that's not defined in any of "
-                        "the root-component's ('{}') API-methods!".format(input_param_name, root_component.name)
+                        "ERROR: `input_spaces` contains an input-parameter name ('{}') that's not defined in any of "
+                        "the root-component's ('{}') API-methods, whose args are '{}'!".format(
+                            input_param_name, root_component.name, root_component.api_method_inputs
+                        )
                     )
 
         # Call all API methods of the core once and thereby, create empty in-op columns that serve as placeholders

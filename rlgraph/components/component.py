@@ -1043,7 +1043,11 @@ class Component(Specifiable):
         setattr(api_method, "__self__", self)
         setattr(api_method, "__name__", name)
 
-        self.api_methods[name] = APIMethodRecord(getattr(self, name), component=self, must_be_complete=must_be_complete)
+        self.api_methods[name] = APIMethodRecord(
+            getattr(self, name), component=self, must_be_complete=must_be_complete,
+            is_graph_fn_wrapper=(func_type == "graph_fn"),
+            add_auto_key_as_first_param=kwargs.get("add_auto_key_as_first_param", False)
+        )
 
         # Update the api_method_inputs dict (with empty Spaces if not defined yet).
         # Note: Skip first param of graph_func's input param list if add-auto-key option is True (1st param would be
