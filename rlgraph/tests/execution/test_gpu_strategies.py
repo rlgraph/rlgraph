@@ -41,3 +41,14 @@ class TestGpuStrategies(unittest.TestCase):
             agent_config, state_space=environment.state_space, action_space=environment.action_space
         )
         print('Compiled apex agent')
+
+    def test_multi_gpu_update(self):
+        """
+        Tests if the multi GPU optimizer can perform a successful update.
+        """
+        pass
+
+
+    # TODO (Bart maybe): We should probably have some tests that simply test the update call
+    # This is just slightly annoying because we have to assemble a preprocessed batch manually
+    # It would be good to have a utility method for that to use in tests (e.g. sample atari batches).

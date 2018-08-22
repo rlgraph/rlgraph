@@ -14,8 +14,8 @@
     },
     {
       "type": "image_resize",
-      "width": 80,
-      "height": 80,
+      "width": 84,
+      "height": 84,
       "scope": "image_resize"
     },
     {
@@ -52,8 +52,8 @@
     },
     {
       "type": "conv2d",
-      "filters": 512,
-      "kernel_size": 10,
+      "filters": 256,
+      "kernel_size": 11,
       "strides": 1,
       "padding": "valid",
       "activation": "relu",
