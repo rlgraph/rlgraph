@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.agents.agent import Agent
+from rlgraph.components.common.dict_merger import DictMerger
 from rlgraph.components.common.dict_splitter import DictSplitter
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.layers.preprocessing.reshape import ReShape
@@ -56,7 +57,7 @@ class IMPALAAgent(Agent):
         assert type_ in ["explorer", "learner"]
         self.type = type_
 
-        # Network-spec by default is a large architecture IMPALA network.
+        # Network-spec by default is a "large architecture" IMPALA network.
         network_spec = kwargs.pop("network_spec", LargeIMPALANetwork())
 
         # Depending on the job-type, remove the pieces from the Agent-spec/graph we won't need.
@@ -83,13 +84,17 @@ class IMPALAAgent(Agent):
             preprocessing_spec["preprocessors"]["previous_action"] = [
                 dict(type="reshape", flatten=True, flatten_categories=kwargs.get("action_space").num_categories)
             ]
-            kwargs["preprocessing_spec"] = preprocessing_spec
 
         # Now that we fixed the Agent's spec, call the super constructor.
         super(IMPALAAgent, self).__init__(
-            network_spec=network_spec, exploration_spec=exploration_spec, optimizer_spec=optimizer_spec,
-            observe_spec=observe_spec, update_spec=update_spec,
-            name=kwargs.pop("name", "impala-{}-agent".format(self.type)), **kwargs
+            preprocessing_spec=preprocessing_spec,
+            network_spec=network_spec,
+            exploration_spec=exploration_spec,
+            optimizer_spec=optimizer_spec,
+            observe_spec=observe_spec,
+            update_spec=update_spec,
+            name=kwargs.pop("name", "impala-{}-agent".format(self.type)),
+            **kwargs
         )
 
         # Create our FIFOQueue (explorers will enqueue, learner(s) will dequeue).
@@ -106,8 +111,15 @@ class IMPALAAgent(Agent):
                 num_steps=int,
                 time_step=int
             ))
+
             self.loss_function = None
+
+            # A Dict merger to merge items into a record for the queue.
+            self.merger = DictMerger(
+                "preprocessed_states", "actions", "rewards", "terminals", "action_probs", "initial_internal_states"
+            )
             self.splitter = None
+
             actor_component = ActorComponent(self.preprocessor, self.policy, self.exploration)
             state_space = self.state_space.with_batch_rank()
             dummy_flattener = ReShape(flatten=True)  # dummy Flattener to calculate action-probs space
@@ -122,20 +134,25 @@ class IMPALAAgent(Agent):
                 add_action_probs=True,
                 action_probs_space=dummy_flattener.get_preprocessed_space(self.action_space)
             )
-            sub_components = [self.environment_stepper, self.fifo_queue]
+            sub_components = [self.environment_stepper, self.merger, self.fifo_queue]
         else:
             # Extend input Space definitions to this Agent's specific API-methods.
             self.input_spaces.update(dict(
                 # TODO: fill out learner's input spaces
             ))
+            self.environment_stepper = None
+
+            # A Dict splitter to split up items from the queue.
+            self.merger = None
+            self.splitter = DictSplitter()
+
             # Create an IMPALALossFunction with some parameters.
             self.loss_function = IMPALALossFunction(
                 weight_pg=weight_pg, weight_baseline=weight_baseline, weight_entropy=weight_entropy
             )
-            self.environment_stepper = None
-            # A Dict splitter to split up items from the queue.
-            self.splitter = DictSplitter("")
-            sub_components = [self.fifo_queue, self.splitter, self.policy, self.loss_function, self.optimizer]
+
+            sub_components = [self.fifo_queue, self.splitter, self.preprocessor, self.policy,
+                              self.loss_function, self.optimizer]
 
         # Add all the agent's sub-components to the root.
         self.root_component.add_components(*sub_components)
@@ -160,7 +177,7 @@ class IMPALAAgent(Agent):
         else:
             self.define_api_methods_learner(*sub_components)
 
-    def define_api_methods_explorer(self, env_stepper, fifo_queue):
+    def define_api_methods_explorer(self, env_stepper, merger, fifo_queue):
         """
         Defines the API-methods used by an IMPALA explorer. Explorers only step through an environment (n-steps at
         a time), collect the results and push them into the FIFO queue. Results include: The actions actually
@@ -186,7 +203,7 @@ class IMPALAAgent(Agent):
             current_internal_states = self.call(self.slicer.slice, internal_states, -1)
 
             record = self.call(
-                self.merger.merge, preprocessed_s, actions, rewards, terminals, last_next_state,
+                merger.merge, preprocessed_s, actions, rewards, terminals, last_next_state,
                 action_log_probs, initial_internal_states
             )
 
@@ -205,7 +222,7 @@ class IMPALAAgent(Agent):
 
         self.root_component.define_api_method("reset", reset)
 
-    def define_api_methods_learner(self, fifo_queue, splitter, policy, loss_function, optimizer):
+    def define_api_methods_learner(self, fifo_queue, splitter, preprocessor, policy, loss_function, optimizer):
         """
         Defines the API-methods used by an IMPALA learner. Its job is basically: Pull a batch from the
         FIFOQueue, split it up into its components and pass these through the loss function and into the optimizer for
@@ -222,11 +239,12 @@ class IMPALAAgent(Agent):
         def update_from_memory(self):
             records = self.call(fifo_queue.get_records, self.update_spec["batch_size"])
 
-            preprocessed_s, actions, rewards, returns, terminals, s_prime, action_probs, \
+            preprocessed_s, actions, rewards, terminals, last_s_prime, action_probs, \
                 initial_internal_states = self.call(splitter.split, records)
 
+            preprocessed_last_s_prime = self.call(preprocessor.preprocess, last_s_prime)
 
-
+            # Get the pi-action probs AND the value for all our states.
 
             # Get the different Q-values.
             q_values_s = self.call(policy.get_q_values, preprocessed_s)
