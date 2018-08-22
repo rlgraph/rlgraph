@@ -63,13 +63,6 @@ class TestApexExecutor(unittest.TestCase):
             gym_env="CartPole-v0"
         )
         agent_config = config_from_path("configs/apex_agent_cartpole.json")
-
-        # Cartpole settings from cartpole dqn test.
-        agent_config.update(
-            update_spec=dict(update_interval=4, batch_size=24, sync_interval=64),
-            optimizer_spec=dict(learning_rate=0.0002, clip_grad_norm=40.0)
-        )
-
         executor = ApexExecutor(
             environment_spec=env_spec,
             agent_config=agent_config,
