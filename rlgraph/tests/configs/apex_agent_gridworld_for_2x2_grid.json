@@ -5,8 +5,13 @@
     "type": "prioritized_replay",
     "capacity": 128
   },
-  "preprocessing_spec": null,
-  "saver_spec": null,
+  "preprocessing_spec":
+  [
+    {
+      "type": "reshape",
+      "flatten": true
+    }
+  ],  "saver_spec": null,
   "execution_spec": {
     "session_config": {
       "log_device_placement": false,
