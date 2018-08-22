@@ -96,6 +96,9 @@ class TestSingleComponents(unittest.TestCase):
 
     def test_2to1_component_with_1_constant_input(self):
         """
+        TODO: Same as above test case: Rather make input2 have placeholder_with_default so that we don't need to
+        TODO: provide a value for it necessarily.
+
         Adds a single component with 2-to-1 graph_fn to the core, and the second input to the
         graph_fn is already blocked by the component.
         """

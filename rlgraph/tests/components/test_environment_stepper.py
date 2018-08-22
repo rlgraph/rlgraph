@@ -233,7 +233,7 @@ class TestEnvironmentStepper(unittest.TestCase):
         environment_stepper.environment_server.stop()
         test.terminate()
 
-    def test_just_for_fun_compare_with_non_env_stepper(self):
+    def test_compare_with_non_env_stepper(self):
         environment_spec = dict(type="openai_gym", gym_env="Pong-v0", frameskip=4, seed=10)
         dummy_env = Environment.from_spec(environment_spec)
         state_space = dummy_env.state_space.with_batch_rank()

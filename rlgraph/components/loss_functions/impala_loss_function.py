@@ -42,11 +42,9 @@ class IMPALALossFunction(LossFunction):
     [1] IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures - Espeholt, Soyer,
         Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
     """
-    def __init__(self, v_trace_spec=None, weight_pg=1.0, weight_baseline=0.5, weight_entropy=0.001, **kwargs):
+    def __init__(self, weight_pg=None, weight_baseline=None, weight_entropy=None, **kwargs):
         """
         Args:
-            v_trace_spec (Optional[VTraceFunction,dict]): A specification dict to construct a VTraceFunction or
-                a VTraceFunction object to use.
             weight_pg (float): The coefficient used for the policy gradient loss term (L[PG]).
             weight_baseline (float): The coefficient used for the Value-function baseline term (L[V]).
             weight_entropy (float): The coefficient used for the entropy regularization term (L[E]).
@@ -56,9 +54,9 @@ class IMPALALossFunction(LossFunction):
 
         self.v_trace_function = VTraceFunction.from_spec(v_trace_spec)  # type: VTraceFunction
 
-        self.weight_pg = weight_pg
-        self.weight_baseline = weight_baseline
-        self.weight_entropy = weight_entropy
+        self.weight_pg = weight_pg if weight_pg is not None else 1.0
+        self.weight_baseline = weight_baseline if weight_baseline is not None else 0.5
+        self.weight_entropy = weight_entropy if weight_entropy is not None else 0.001
 
         self.action_space = None
 

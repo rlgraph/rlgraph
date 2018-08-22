@@ -18,13 +18,14 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.agents.agent import Agent
+from rlgraph.components.common.dict_splitter import DictSplitter
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.loss_functions.impala_loss_function import IMPALALossFunction
 from rlgraph.components.memories.fifo_queue import FIFOQueue
 from rlgraph.components.papers.impala.large_impala_network import LargeIMPALANetwork
-from rlgraph.spaces import FloatBox, BoolBox
+from rlgraph.spaces import FloatBox, Tuple
 
 
 class IMPALAAgent(Agent):
@@ -35,10 +36,18 @@ class IMPALAAgent(Agent):
     [1] IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures - Espeholt, Soyer,
         Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
     """
-    def __init__(self, fifo_queue_spec=None, **kwargs):
+
+    standard_internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True)
+
+    def __init__(self, fifo_queue_spec=None, environment_spec=None, weight_pg=None, weight_baseline=None,
+                 weight_entropy=None, **kwargs):
         """
         Args:
             fifo_queue_spec (Optional[dict,FIFOQueue]): The spec for the FIFOQueue to use for the IMPALA algorithm.
+            environment_spec (dict): The spec for constructing an Environment object for an explorer-type IMPALA agent.
+            weight_pg (float): See IMPALALossFunction Component.
+            weight_baseline (float): See IMPALALossFunction Component.
+            weight_entropy (float): See IMPALALossFunction Component.
 
         Keyword Args:
             type (str): One of "explorer" or "learner". Default: "explorer".
@@ -60,14 +69,15 @@ class IMPALAAgent(Agent):
             observe_spec = None
             update_spec = kwargs.pop("update_spec", None)
             environment_spec = None
+            preprocessing_spec = None
         # Explorers won't need to learn (no optimizer needed in graph).
         else:
             optimizer_spec = None
             update_spec = kwargs.pop("update_spec", dict(do_updates=False))
-            environment_spec = kwargs.pop("environment_spec", dict(
+            environment_spec = environment_spec or dict(
                     type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
                     frameskip=4
-            ))
+            )
             # Add simple previous-action preprocessor (flatten) to env-specific preprocessor spec.
             preprocessing_spec = kwargs.pop("preprocessing_spec", dict(preprocessors=dict()))
             preprocessing_spec["preprocessors"]["previous_action"] = [
@@ -97,6 +107,7 @@ class IMPALAAgent(Agent):
                 time_step=int
             ))
             self.loss_function = None
+            self.splitter = None
             actor_component = ActorComponent(self.preprocessor, self.policy, self.exploration)
             state_space = self.state_space.with_batch_rank()
             dummy_flattener = ReShape(flatten=True)  # dummy Flattener to calculate action-probs space
@@ -117,11 +128,14 @@ class IMPALAAgent(Agent):
             self.input_spaces.update(dict(
                 # TODO: fill out learner's input spaces
             ))
-
-            # TODO: add loss func options here and to our ctor.
-            self.loss_function = IMPALALossFunction()
+            # Create an IMPALALossFunction with some parameters.
+            self.loss_function = IMPALALossFunction(
+                weight_pg=weight_pg, weight_baseline=weight_baseline, weight_entropy=weight_entropy
+            )
             self.environment_stepper = None
-            sub_components = [self.fifo_queue, self.policy, self.loss_function, self.optimizer]
+            # A Dict splitter to split up items from the queue.
+            self.splitter = DictSplitter("")
+            sub_components = [self.fifo_queue, self.splitter, self.policy, self.loss_function, self.optimizer]
 
         # Add all the agent's sub-components to the root.
         self.root_component.add_components(*sub_components)
@@ -137,9 +151,10 @@ class IMPALAAgent(Agent):
 
     def define_api_methods(self, *sub_components):
         super(IMPALAAgent, self).define_api_methods(
-            "environment-stepper/actor-component/policy", "environment-stepper/actor-component/dict-preprocessor-stack"
+            "environment-stepper/actor-component/policy",
+            "environment-stepper/actor-component/dict-preprocessor-stack"
         )
-
+        # Assemble the specific agent.
         if self.type == "explorer":
             self.define_api_methods_explorer(*sub_components)
         else:
@@ -161,34 +176,60 @@ class IMPALAAgent(Agent):
         def perform_n_steps_and_insert_into_fifo(self, internal_states=None, num_steps=1, time_step=0):
             # Take n steps in the environment.
             step_op, step_results = self.call(env_stepper.step, internal_states, num_steps, time_step)
-            # Dissect the results.
-            #preprocessed_s, actions, rewards, returns, terminals, next_states, action_log_probs, internal_states = split(step_results)
+
+            # TODO: only pass action_prob of the actually taken action into FIFO (one-hot, reduce_sum).
+            preprocessed_s, actions, rewards, returns, terminals, next_states, action_log_probs, \
+                internal_states = self.call(self.splitter.split, step_results)
+
+            last_next_state = self.call(self.slicer.slice, next_states, -1)
+            initial_internal_states = self.call(self.slicer.slice, internal_states, 0)
+            current_internal_states = self.call(self.slicer.slice, internal_states, -1)
+
+            record = self.call(
+                self.merger.merge, preprocessed_s, actions, rewards, terminals, last_next_state,
+                action_log_probs, initial_internal_states
+            )
 
             # Insert results into the FIFOQueue.
-            insert_op = self.call(fifo_queue.insert_records, step_results)
-            return step_op, insert_op
+            insert_op = self.call(fifo_queue.insert_records, record)
+            return step_op, insert_op, current_internal_states
 
         self.root_component.define_api_method(
             "perform_n_steps_and_insert_into_fifo", perform_n_steps_and_insert_into_fifo
         )
 
-    def define_api_methods_learner(self, fifo_queue, policy, loss_function, optimizer):
-        # TODO: implement learner logic
-        return
+        def reset(self):
+            # Resets the environment running inside the agent.
+            reset_op = self.call(env_stepper.reset)
+            return reset_op
 
-        # Learn from memory.
-        def update_from_fifo_queue(self):
+        self.root_component.define_api_method("reset", reset)
+
+    def define_api_methods_learner(self, fifo_queue, splitter, policy, loss_function, optimizer):
+        """
+        Defines the API-methods used by an IMPALA learner. Its job is basically: Pull a batch from the
+        FIFOQueue, split it up into its components and pass these through the loss function and into the optimizer for
+        a learning update.
+
+        Args:
+            fifo_queue (FIFOQueue): The FIFOQueue Component used to enqueue env sample runs (n-step).
+            splitter (DictSplitter): The DictSplitter Component to split up a batch from the queue along its
+                items.
+            policy (Policy): The Policy Component, which to update.
+            loss_function (IMPALALossFunction): The IMPALALossFunction Component.
+            optimizer (Optimizer): The optimizer that we use to calculate an update and apply it.
+        """
+        def update_from_memory(self):
             records = self.call(fifo_queue.get_records, self.update_spec["batch_size"])
 
-            preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = self.call(splitter.split,
-                                                                                           records)
+            preprocessed_s, actions, rewards, returns, terminals, s_prime, action_probs, \
+                initial_internal_states = self.call(splitter.split, records)
+
+
+
 
             # Get the different Q-values.
             q_values_s = self.call(policy.get_q_values, preprocessed_s)
-            qt_values_sp = self.call(target_policy.get_q_values, preprocessed_s_prime)
-            q_values_sp = None
-            if self.double_q:
-                q_values_sp = self.call(policy.get_q_values, preprocessed_s_prime)
 
             loss, loss_per_item = self.call(loss_function.loss, q_values_s, actions, rewards, terminals,
                                              qt_values_sp, q_values_sp)
@@ -198,10 +239,9 @@ class IMPALAAgent(Agent):
             step_op = self.call(optimizer.step, policy_vars, loss, q_values_s, actions, rewards, terminals,
                                              qt_values_sp, q_values_sp)
 
-            # TODO: For multi-GPU, the final-loss will probably have to come from the optimizer.
             return step_op, loss, loss_per_item, records, q_values_s
 
-        self.root_component.define_api_method("update_from_fifo_queue", update_from_fifo_queue)
+        self.root_component.define_api_method("update_from_memory", update_from_memory)
 
     def get_action(self, states, internal_states=None, use_exploration=True, extra_returns=None):
         """

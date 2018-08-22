@@ -29,6 +29,7 @@ from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.papers.impala.large_impala_network import LargeIMPALANetwork
 from rlgraph.components.explorations import Exploration
 from rlgraph.environments import Environment, DeepmindLabEnv
+from rlgraph.execution.distributed_tf.impala.impala_worker import IMPALAWorker
 from rlgraph.spaces import *
 from rlgraph.utils.ops import DataOpTuple
 from rlgraph.tests.component_test import ComponentTest
@@ -322,3 +323,31 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         environment_stepper.environment_server.stop()
         test.terminate()
 
+    def test_impala_explorer_agent_functionality(self):
+        """
+        Creates a IMPALAAgent and runs it for a few steps in a DeepMindLab Env to vigorously test
+        all steps of the learning process.
+        """
+        agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
+        environment_spec = dict(
+            type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
+        )
+        env = DeepmindLabEnv.from_spec(environment_spec)
+        agent = IMPALAAgent.from_spec(
+            agent_config,
+            type="explorer",
+            environment_spec=environment_spec,
+            state_space=env.state_space,
+            action_space=env.action_space,
+            # TODO: automate this (by lookup from NN).
+            internal_states_space=IMPALAAgent.standard_internal_states_space,
+            # Make session-creation hang in docker.
+            execution_spec=dict(disable_monitoring=True)
+        )
+
+        worker = IMPALAWorker(agent=agent)
+        #test = AgentTest(worker=worker)
+
+        out = worker.execute_timesteps(500)
+
+        agent.environment_stepper.environment_server.stop()

@@ -29,19 +29,22 @@ from rlgraph.execution.worker import Worker
 
 class IMPALAWorker(Worker):
 
-    def __init__(self, environment_spec, agent, **kwargs):
+    def __init__(self, agent, num_steps=20, **kwargs):
         """
         Args:
-            environment_spec (dict): The spec dict to create an environment.
             agent (IMPALAAgent): The IMPALAAgent object to use.
+            num_steps (int): The number of steps (actions) to perform in the environment each rollout.
         """
         assert isinstance(agent, IMPALAAgent)
 
-        super(IMPALAWorker, self).__init__(num_envs=1, **kwargs)
+        super(IMPALAWorker, self).__init__(agent=agent, **kwargs)
 
-        self.logger.info("Initialized IMPALA worker (type {}) with 1 environment '{}' running inside Agent's "
-                         "EnvStepper component.".format(self.agent.type, self.vector_env.get_env(), self.agent
-        ))
+        self.logger.info(
+            "Initialized IMPALA worker (type {}) with 1 environment '{}' running inside Agent's EnvStepper "
+            "component.".format(self.agent.type, self.agent.environment_stepper.environment_spec)
+        )
+
+        self.num_steps = num_steps
 
         # Global statistics.
         self.env_frames = 0
@@ -107,31 +110,35 @@ class IMPALAWorker(Worker):
                 self.episode_terminals[i] = False
                 self.episode_starts[i] = time.monotonic()
             # TODO: Fix for vectorized Envs.
-            self.env_states[0] = self.agent.call_api_method("reset")
-            self.agent.reset()
-        elif self.env_states[0] is None:
-            raise RLGraphError("Runner must be reset at the very beginning. Environment is in invalid state.")
+            #self.env_states[0] = self.agent.call_api_method("reset")
+            #self.agent.reset()
+        #elif self.env_states[0] is None:
+        #    raise RLGraphError("Runner must be reset at the very beginning. Environment is in invalid state.")
 
         # Only run everything for at most num_timesteps (if defined).
         while not (0 < num_timesteps <= timesteps_executed):
 
-            if self.render:
-                # This renders the first underlying environment.
-                self.vector_env.render()
+            #if self.render:
+            #    # This renders the first underlying environment.
+            #    self.vector_env.render()
 
-            self.env_states = self.agent.state_space.force_batch(self.env_states)
+            #self.env_states = self.agent.state_space.force_batch(self.env_states)
 
             # TODO insert call to env-stepper
-
-            actions, preprocessed_states = self.agent.get_action(
-                states=self.env_states, use_exploration=use_exploration, extra_returns="preprocessed_states"
+            out = self.agent.call_api_method(
+                "perform_n_steps_and_insert_into_fifo", [current_internal_states, self.num_steps, num_timesteps]
             )
+            num_timesteps += self.num_steps
 
+            #actions, preprocessed_states = self.agent.get_action(
+            #    states=self.env_states, use_exploration=use_exploration, extra_returns="preprocessed_states"
+            #)
             # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
             env_rewards = [0 for _ in range_(self.num_envs)]
             next_states = None
             for _ in range_(frameskip):
                 next_states, step_rewards, self.episode_terminals, infos = self.vector_env.step(actions=actions)
+
 
                 self.env_frames += self.num_envs
                 for i, step_reward in enumerate(step_rewards):
