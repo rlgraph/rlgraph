@@ -3,7 +3,7 @@
   "discount": 0.99,
   "memory_spec": {
     "type": "prioritized_replay",
-    "capacity": 10000
+    "capacity": 128
   },
   "preprocessing_spec": null,
   "saver_spec": null,
@@ -22,11 +22,11 @@
         "env_interaction_task_depth": 1,
         "num_worker_samples": 50,
         "learn_queue_size": 1,
-        "num_sample_workers": 1,
-        "num_replay_workers": 2
+        "num_sample_workers": 2,
+        "num_replay_workers": 1
       },
       "worker_spec": {
-        "num_worker_environments": 8,
+        "num_worker_environments": 2,
         "num_background_envs": 1,
         "execution_spec": {
           "gpu_spec": { "gpus_enabled" : false}
@@ -40,7 +40,7 @@
         "memory_spec": {
           "capacity": 10000
         },
-        "clip_rewards": true,
+        "clip_rewards": false,
         "min_sample_memory_size": 200,
         "n_step_adjustment": 0
       }
@@ -72,8 +72,7 @@
     "sync_interval": 32
   },
   "optimizer_spec": {
-    "type": "gradient_descent",
-    "learning_rate": 0.001,
-    "clip_grad_norm": 20.0
+    "type": "adam",
+    "learning_rate": 0.05
   }
 }

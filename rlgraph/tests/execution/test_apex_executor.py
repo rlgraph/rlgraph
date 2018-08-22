@@ -28,20 +28,20 @@ class TestApexExecutor(unittest.TestCase):
     Tests the ApexExecutor which provides an interface for distributing Apex-style workloads
     via Ray.
     """
-    env_spec = dict(
-      type="openai",
-      gym_env="CartPole-v0"
-    )
-
     def test_learning_grid_world(self):
         """
         Tests if apex can learn a simple environment using a single worker, thus replicating
         dqn.
         """
+        env_spec = dict(
+            type="gridworld",
+            world="2x2",
+            save_mode=True
+        )
         agent_config = config_from_path("configs/apex_agent_gridworld_for_2x2_grid.json")
 
         executor = ApexExecutor(
-            environment_spec=self.env_spec,
+            environment_spec=env_spec,
             agent_config=agent_config,
         )
         # Define executor, test assembly.
@@ -58,6 +58,10 @@ class TestApexExecutor(unittest.TestCase):
         Tests if apex can learn a simple environment using a single worker, thus replicating
         dqn.
         """
+        env_spec = dict(
+            type="openai",
+            gym_env="CartPole-v0"
+        )
         agent_config = config_from_path("configs/apex_agent_cartpole.json")
 
         # Cartpole settings from cartpole dqn test.
@@ -67,14 +71,14 @@ class TestApexExecutor(unittest.TestCase):
         )
 
         executor = ApexExecutor(
-            environment_spec=self.env_spec,
+            environment_spec=env_spec,
             agent_config=agent_config,
         )
         # Define executor, test assembly.
         print("Successfully created executor.")
 
         # Executes actual workload.
-        result = executor.execute_workload(workload=dict(num_timesteps=1000, report_interval=1000,
+        result = executor.execute_workload(workload=dict(num_timesteps=10000, report_interval=1000,
                                                          report_interval_min_seconds=1))
         print("Finished executing workload:")
         print(result)
