@@ -39,11 +39,11 @@ class Worker(Specifiable):
                 This setting can be overwritten in the single calls to the different `execute_..` methods.
         """
         super(Worker, self).__init__()
-        self.num_envs = num_envs
+        self.num_environments = num_envs
         self.logger = logging.getLogger(__name__)
         if env_spec is not None:
-            self.env_ids = ["env_{}".format(i) for i in range_(self.num_envs)]
-            self.vector_env = SequentialVectorEnv(env_spec=env_spec, num_envs=self.num_envs)
+            self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
+            self.vector_env = SequentialVectorEnv(env_spec=env_spec, num_envs=self.num_environments)
         else:
             self.env_ids = []
             self.vector_env = None

@@ -53,16 +53,16 @@ class IMPALAWorker(Worker):
         self.finished_episode_steps = list()
 
         # Accumulated return over the running episode.
-        self.episode_returns = [0 for _ in range_(self.num_envs)]
+        self.episode_returns = [0 for _ in range_(self.num_environments)]
 
         # The number of steps taken in the running episode.
-        self.episode_timesteps = [0 for _ in range_(self.num_envs)]
+        self.episode_timesteps = [0 for _ in range_(self.num_environments)]
         # Whether the running episode has terminated.
-        self.episode_terminals = [False for _ in range_(self.num_envs)]
+        self.episode_terminals = [False for _ in range_(self.num_environments)]
         # Wall time of the last start of the running episode.
-        self.episode_starts = [0 for _ in range_(self.num_envs)]
+        self.episode_starts = [0 for _ in range_(self.num_environments)]
         # The current state of the running episode.
-        self.env_states = [None for _ in range_(self.num_envs)]
+        self.env_states = [None for _ in range_(self.num_environments)]
 
     def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
                           frameskip=None, reset=True):
@@ -90,7 +90,7 @@ class IMPALAWorker(Worker):
         self.set_update_schedule(update_spec)
 
         num_timesteps = num_timesteps or 0
-        max_timesteps_per_episode = [max_timesteps_per_episode or 0 for _ in range_(self.num_envs)]
+        max_timesteps_per_episode = [max_timesteps_per_episode or 0 for _ in range_(self.num_environments)]
         frameskip = frameskip or self.frameskip
 
         # Stats.
@@ -104,7 +104,7 @@ class IMPALAWorker(Worker):
             self.finished_episode_durations = list()
             self.finished_episode_steps = list()
 
-            for i in range_(self.num_envs):
+            for i in range_(self.num_environments):
                 self.episode_returns[i] = 0
                 self.episode_timesteps[i] = 0
                 self.episode_terminals[i] = False
@@ -134,13 +134,13 @@ class IMPALAWorker(Worker):
             #    states=self.env_states, use_exploration=use_exploration, extra_returns="preprocessed_states"
             #)
             # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
-            env_rewards = [0 for _ in range_(self.num_envs)]
+            env_rewards = [0 for _ in range_(self.num_environments)]
             next_states = None
             for _ in range_(frameskip):
                 next_states, step_rewards, self.episode_terminals, infos = self.vector_env.step(actions=actions)
 
 
-                self.env_frames += self.num_envs
+                self.env_frames += self.num_environments
                 for i, step_reward in enumerate(step_rewards):
                     env_rewards[i] += step_reward
                 if np.any(self.episode_terminals):
@@ -150,7 +150,7 @@ class IMPALAWorker(Worker):
             if self.render:
                 self.vector_env.environments[0].render()
 
-            for i in range_(self.num_envs):
+            for i in range_(self.num_environments):
                 self.episode_returns[i] += env_rewards[i]
                 self.episode_timesteps[i] += 1
 
@@ -178,7 +178,7 @@ class IMPALAWorker(Worker):
                 )
             self.env_states = next_states
             self.update_if_necessary()
-            timesteps_executed += self.num_envs
+            timesteps_executed += self.num_environments
             num_timesteps_reached = (0 < num_timesteps <= timesteps_executed)
 
             if 0 < num_episodes <= episodes_executed or num_timesteps_reached:

@@ -37,28 +37,28 @@ class SingleThreadedWorker(Worker):
         super(SingleThreadedWorker, self).__init__(**kwargs)
 
         self.logger.info("Initialized single-threaded executor with {} environments '{}' and Agent '{}'".format(
-            self.num_envs, self.vector_env.get_env(), self.agent
+            self.num_environments, self.vector_env.get_env(), self.agent
         ))
 
         self.render = render
 
         # Global statistics.
         self.env_frames = 0
-        self.finished_episode_rewards = list()
-        self.finished_episode_durations = list()
-        self.finished_episode_steps = list()
+        self.finished_episode_rewards = [list() for _ in range_(self.num_environments)]
+        self.finished_episode_durations = [list() for _ in range_(self.num_environments)]
+        self.finished_episode_timesteps = [list() for _ in range_(self.num_environments)]
 
         # Accumulated return over the running episode.
-        self.episode_returns = [0 for _ in range_(self.num_envs)]
+        self.episode_returns = [0 for _ in range_(self.num_environments)]
 
         # The number of steps taken in the running episode.
-        self.episode_timesteps = [0 for _ in range_(self.num_envs)]
+        self.episode_timesteps = [0 for _ in range_(self.num_environments)]
         # Whether the running episode has terminated.
-        self.episode_terminals = [False for _ in range_(self.num_envs)]
+        self.episode_terminals = [False for _ in range_(self.num_environments)]
         # Wall time of the last start of the running episode.
-        self.episode_starts = [0 for _ in range_(self.num_envs)]
+        self.episode_starts = [0 for _ in range_(self.num_environments)]
         # The current state of the running episode.
-        self.env_states = [None for _ in range_(self.num_envs)]
+        self.env_states = [None for _ in range_(self.num_environments)]
 
     def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
                           frameskip=None, reset=True):
@@ -123,7 +123,7 @@ class SingleThreadedWorker(Worker):
 
         num_timesteps = num_timesteps or 0
         num_episodes = num_episodes or 0
-        max_timesteps_per_episode = [max_timesteps_per_episode or 0 for _ in range_(self.num_envs)]
+        max_timesteps_per_episode = [max_timesteps_per_episode or 0 for _ in range_(self.num_environments)]
         frameskip = frameskip or self.frameskip
 
         # Stats.
@@ -133,11 +133,11 @@ class SingleThreadedWorker(Worker):
         start = time.monotonic()
         if reset is True:
             self.env_frames = 0
-            self.finished_episode_rewards = list()
-            self.finished_episode_durations = list()
-            self.finished_episode_steps = list()
+            self.finished_episode_rewards = [list() for _ in range_(self.num_environments)]
+            self.finished_episode_durations = [list() for _ in range_(self.num_environments)]
+            self.finished_episode_timesteps = [list() for _ in range_(self.num_environments)]
 
-            for i in range_(self.num_envs):
+            for i in range_(self.num_environments):
                 self.episode_returns[i] = 0
                 self.episode_timesteps[i] = 0
                 self.episode_terminals[i] = False
@@ -161,12 +161,12 @@ class SingleThreadedWorker(Worker):
             )
 
             # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
-            env_rewards = [0 for _ in range_(self.num_envs)]
+            env_rewards = [0 for _ in range_(self.num_environments)]
             next_states = None
             for _ in range_(frameskip):
                 next_states, step_rewards, self.episode_terminals, infos = self.vector_env.step(actions=actions)
 
-                self.env_frames += self.num_envs
+                self.env_frames += self.num_environments
                 for i, step_reward in enumerate(step_rewards):
                     env_rewards[i] += step_reward
                 if np.any(self.episode_terminals):
@@ -176,7 +176,7 @@ class SingleThreadedWorker(Worker):
             if self.render:
                 self.vector_env.environments[0].render()
 
-            for i in range_(self.num_envs):
+            for i in range_(self.num_environments):
                 self.episode_returns[i] += env_rewards[i]
                 self.episode_timesteps[i] += 1
 
@@ -186,9 +186,9 @@ class SingleThreadedWorker(Worker):
                 # Do accounting for finished episodes.
                 if self.episode_terminals[i]:
                     episodes_executed += 1
-                    self.finished_episode_rewards.append(self.episode_returns)
-                    self.finished_episode_durations.append(time.monotonic() - self.episode_starts[i])
-                    self.finished_episode_steps.append(self.episode_timesteps)
+                    self.finished_episode_rewards[i].append(self.episode_returns)
+                    self.finished_episode_durations[i].append(time.monotonic() - self.episode_starts[i])
+                    self.finished_episode_timesteps[i].append(self.episode_timesteps)
                     self.logger.info("Finished episode: reward={}, actions={}, duration={}s.".format(
                         self.episode_returns, self.episode_timesteps, self.finished_episode_durations[-1]))
 
@@ -196,6 +196,7 @@ class SingleThreadedWorker(Worker):
                     self.env_states[i] = self.vector_env.reset(i)
                     self.episode_returns[i] = 0
                     self.episode_timesteps[i] = 0
+                    self.episode_starts[i] = time.monotonic()
 
                 # Observe per environment.
                 self.agent.observe(
@@ -204,7 +205,7 @@ class SingleThreadedWorker(Worker):
                 )
             self.env_states = next_states
             self.update_if_necessary()
-            timesteps_executed += self.num_envs
+            timesteps_executed += self.num_environments
             num_timesteps_reached = (0 < num_timesteps <= timesteps_executed)
 
             if 0 < num_episodes <= episodes_executed or num_timesteps_reached:
@@ -219,10 +220,15 @@ class SingleThreadedWorker(Worker):
             max_episode_reward = np.max(self.episode_returns)
             final_episode_reward = self.episode_returns[0]
         else:
-            mean_episode_runtime = np.mean(self.finished_episode_durations)
-            mean_episode_reward = np.mean(self.finished_episode_rewards)
-            max_episode_reward = np.max(self.finished_episode_rewards)
-            final_episode_reward = self.finished_episode_rewards[-1]
+            all_finished_durations = list()
+            all_finished_rewards = list()
+            for i in range_(self.num_environments):
+                all_finished_rewards.extend(self.finished_episode_rewards[i])
+                all_finished_durations.extend(self.finished_episode_durations[i])
+            mean_episode_runtime = np.mean(all_finished_durations)
+            mean_episode_reward = np.mean(all_finished_rewards)
+            max_episode_reward = np.max(all_finished_rewards)
+            final_episode_reward = all_finished_rewards[-1]
 
         results = dict(
             runtime=total_time,
