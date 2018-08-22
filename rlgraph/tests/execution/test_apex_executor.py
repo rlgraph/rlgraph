@@ -70,7 +70,6 @@ class TestApexExecutor(unittest.TestCase):
                 "ERROR: state '{}' not expected in q-table as it's a terminal state!".format(state)
             recursive_assert_almost_equal(q_values, expected_q_values_per_state[state], decimals=0)
 
-
     def test_learning_cartpole(self):
         """
         Tests if apex can learn a simple environment using a single worker, thus replicating
@@ -93,7 +92,3 @@ class TestApexExecutor(unittest.TestCase):
                                                          report_interval_min_seconds=1))
         print("Finished executing workload:")
         print(result)
-
-        full_worker_stats = executor.result_by_worker()
-        print("All finished episode rewards")
-        print(full_worker_stats["episode_rewards"])
