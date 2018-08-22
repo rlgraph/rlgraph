@@ -131,7 +131,7 @@ class TestReShapePreprocessors(unittest.TestCase):
         in_space = FloatBox(shape=(4, 4), add_batch_rank=True, add_time_rank=False)
         in_space_before_folding = FloatBox(shape=(4, 4), add_batch_rank=True, add_time_rank=True)
         reshape = ReShape(unfold_time_rank=True, backend="python")
-        reshape.check_input_spaces(dict(
+        reshape.create_variables(dict(
             preprocessing_inputs=in_space, input_before_time_rank_folding=in_space_before_folding
         ))
 

@@ -202,8 +202,9 @@ class TestPreprocessors(unittest.TestCase):
 
     def test_python_image_crop(self):
         image_crop = ImageCrop(x=7, y=1, width=8, height=12, backend="python")
-        image_crop.check_input_spaces(input_spaces=dict(preprocessing_inputs=FloatBox(shape=(16, 16, 3)),
-                                                        add_batch_rank=False))
+        image_crop.create_variables(input_spaces=dict(
+            preprocessing_inputs=FloatBox(shape=(16, 16, 3)), add_batch_rank=False)
+        )
 
         input_image = cv2.imread(os.path.join(os.path.dirname(__file__), "images/16x16x3_image.bmp"))
         expected = cv2.imread(os.path.join(os.path.dirname(__file__), "images/8x12x3_image_cropped.bmp"))
