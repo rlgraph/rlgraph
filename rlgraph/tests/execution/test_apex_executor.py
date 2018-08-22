@@ -54,7 +54,6 @@ class TestApexExecutor(unittest.TestCase):
         print("All finished episode rewards")
         print(full_worker_stats["episode_rewards"])
 
-
     def test_learning_cartpole(self):
         """
         Tests if apex can learn a simple environment using a single worker, thus replicating

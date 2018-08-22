@@ -109,7 +109,6 @@ class Specifiable(object):
         ctor_args = ctor_kwargs.pop("_args", list())
 
         # Figure out the actual constructor (class) from `type_`.
-        constructor = None
         # None: Try __default__object (if no args/kwargs), only then constructor of cls (using args/kwargs).
         if type_ is None:
             # We have a default constructor that was defined directly by cls (not by its children).
@@ -127,26 +126,29 @@ class Specifiable(object):
             # Try our luck with this class itself.
             else:
                 constructor = cls
-        # Valid key of cls.__lookup_classes__.
-        elif isinstance(cls.__lookup_classes__, dict) and (type_ in cls.__lookup_classes__ or
-                 (isinstance(type_, str) and re.sub(r'[\W_]', '', type_.lower()) in cls.__lookup_classes__)):
-            constructor = cls.__lookup_classes__.get(type_)
-            if constructor is None:
-                constructor = cls.__lookup_classes__[re.sub(r'[\W_]', '', type_.lower())]
-        # Python callable.
-        elif callable(type_):
-            constructor = type_
-        # A string: Filename or a python module+class.
-        elif isinstance(type_, str):
-            if re.search(r'\.(yaml|yml|json)$', type_):
-                return cls.from_file(type_, *ctor_args, **ctor_kwargs)
-            elif type_.find('.') != -1:
-                module_name, function_name = type_.rsplit(".", 1)
-                module = importlib.import_module(module_name)
-                constructor = getattr(module, function_name)
-            else:
-                raise RLGraphError("ERROR: String specifier ({}) in from_spec must be a filename, a module+class, or "
-                                   "a key into {}.__lookup_classes__!".format(type_, cls.__name__))
+        # Try the __lookup_classes__ of this class.
+        else:
+            constructor = cls.lookup_class(type_)
+
+            # Found in cls.__lookup_classes__.
+            if constructor is not None:
+                pass
+            # Python callable.
+            elif callable(type_):
+                constructor = type_
+            # A string: Filename or a python module+class.
+            elif isinstance(type_, str):
+                if re.search(r'\.(yaml|yml|json)$', type_):
+                    return cls.from_file(type_, *ctor_args, **ctor_kwargs)
+                elif type_.find('.') != -1:
+                    module_name, function_name = type_.rsplit(".", 1)
+                    module = importlib.import_module(module_name)
+                    constructor = getattr(module, function_name)
+                else:
+                    raise RLGraphError(
+                        "ERROR: String specifier ({}) in from_spec must be a filename, a module+class, or a key "
+                        "into {}.__lookup_classes__!".format(type_, cls.__name__)
+                    )
 
         if not constructor:
             raise RLGraphError("Invalid type: {}".format(type_))
@@ -204,6 +206,19 @@ class Specifiable(object):
             return cls.from_file(filename=mixed)
         else:
             raise RLGraphError('Invalid input to `from_mixed`: {}'.format(mixed))
+
+    @classmethod
+    def lookup_class(cls, type_):
+        if isinstance(cls.__lookup_classes__, dict) and \
+            (type_ in cls.__lookup_classes__ or \
+             (isinstance(type_, str) and re.sub(r'[\W_]', '', type_.lower()) in cls.__lookup_classes__)
+            ):
+            class_ = cls.__lookup_classes__.get(type_)
+            if class_ is None:
+                class_ = cls.__lookup_classes__[re.sub(r'[\W_]', '', type_.lower())]
+            return class_
+        return None
+
 
     #@classmethod
     #def get_instances(cls):

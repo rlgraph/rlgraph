@@ -270,7 +270,7 @@ class RayExecutor(object):
             Environment: Env object.
         """
         env_spec = deepcopy(env_spec)
-        env_cls = Environment.__lookup_classes__.get(env_spec.pop("type"))
+        env_cls = Environment.lookup_class(env_spec.pop("type"))
         return env_cls(**env_spec)
 
     def result_by_worker(self, worker_index=None):

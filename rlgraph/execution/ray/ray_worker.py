@@ -77,7 +77,9 @@ class RayWorker(RayActor):
         self.preprocessors = dict()
         preprocessing_spec = agent_config.get("preprocessing_spec", None)
         for env_id in self.env_ids:
-            self.preprocessors[env_id] = self.setup_preprocessor(preprocessing_spec, self.vector_env.state_space)
+            self.preprocessors[env_id] = self.setup_preprocessor(
+                preprocessing_spec, self.vector_env.state_space.with_batch_rank()
+            )
         self.agent = self.setup_agent(agent_config, worker_spec)
         self.worker_frameskip = frameskip
 
