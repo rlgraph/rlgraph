@@ -186,11 +186,11 @@ class SingleThreadedWorker(Worker):
                 # Do accounting for finished episodes.
                 if self.episode_terminals[i]:
                     episodes_executed += 1
-                    self.finished_episode_rewards[i].append(self.episode_returns)
+                    self.finished_episode_rewards[i].append(self.episode_returns[i])
                     self.finished_episode_durations[i].append(time.monotonic() - self.episode_starts[i])
-                    self.finished_episode_timesteps[i].append(self.episode_timesteps)
+                    self.finished_episode_timesteps[i].append(self.episode_timesteps[i])
                     self.logger.info("Finished episode: reward={}, actions={}, duration={}s.".format(
-                        self.episode_returns, self.episode_timesteps, self.finished_episode_durations[-1]))
+                        self.episode_returns[i], self.episode_timesteps[i], self.finished_episode_durations[i][-1]))
 
                     # Reset this environment and its preprocecssor stack.
                     self.env_states[i] = self.vector_env.reset(i)
