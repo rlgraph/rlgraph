@@ -103,6 +103,7 @@ class TestRayWorker(unittest.TestCase):
         agent_config = config_from_path("configs/apex_agent_cartpole.json")
 
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
+        ray_spec["worker_spec"]["worker_sample_size"] = 100
         worker_spec = ray_spec["worker_spec"]
         worker = RayWorker.as_remote().remote(agent_config, self.env_spec, ray_spec["worker_spec"], auto_build=True)
 
