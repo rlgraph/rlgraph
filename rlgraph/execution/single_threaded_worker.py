@@ -197,13 +197,15 @@ class SingleThreadedWorker(Worker):
                     self.episode_returns[i] = 0
                     self.episode_timesteps[i] = 0
                     self.episode_starts[i] = time.monotonic()
+                else:
+                    # Otherwise assign states to next states
+                    self.env_states[i] = next_states[i]
 
                 # Observe per environment.
                 self.agent.observe(
                     preprocessed_states=preprocessed_states[i], actions=actions[i], internals=[],
                     rewards=env_rewards[i], terminals=self.episode_terminals[i], env_id=self.env_ids[i]
                 )
-            self.env_states = next_states
             self.update_if_necessary()
             timesteps_executed += self.num_environments
             num_timesteps_reached = (0 < num_timesteps <= timesteps_executed)
