@@ -48,6 +48,8 @@ class ApexMemory(Specifiable):
         self.max_priority = 1.0
         self.alpha = alpha
         self.beta = beta
+        assert n_step_adjustment > 0, "ERROR: n-step adjustment must be at least 1 where 1 corresponds" \
+            "to the direct next state."
         self.n_step_adjustment = n_step_adjustment
 
         self.default_new_weight = np.power(self.max_priority, self.alpha)
@@ -116,7 +118,7 @@ class ApexMemory(Specifiable):
                 # Otherwise advance until correct next state or terminal.
                 next_state = decompressed_next_state
                 for i in range_(self.n_step_adjustment):
-                    next_index = (index + i) % self.size
+                    next_index = (index + i + 1) % self.size
                     next_state, _, _, terminal, _ = self.memory_values[next_index]
                     if terminal:
                         break

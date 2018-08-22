@@ -31,7 +31,7 @@
         "execution_spec": {
           "gpu_spec": { "gpus_enabled" : false}
         },
-        "n_step_adjustment": 0,
+        "n_step_adjustment": 1,
         "worker_computes_weights": false,
         "sample_exploration": false,
         "exploration_min_value": 0.5
@@ -42,7 +42,7 @@
         },
         "clip_rewards": false,
         "min_sample_memory_size": 200,
-        "n_step_adjustment": 0
+        "n_step_adjustment": 1
       }
     }
   },
