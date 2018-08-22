@@ -203,6 +203,9 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
             start = int(start / 2)
 
     def test_tree_insert(self):
+        """
+        Tests inserting into the segment tree and querying segments.
+        """
         memory = ApexMemory(
             capacity=4
         )
@@ -216,7 +219,10 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         assert np.isclose(tree.get_sum(2, -1), 1.0)
         assert np.isclose(tree.get_sum(2, 4), 4.0)
 
-    def test_prefixsum_idx(self,):
+    def test_prefixsum_idx(self):
+        """
+        Tests fetching the index corresponding to a prefix sum.
+        """
         memory = ApexMemory(
             capacity=4
         )
@@ -230,3 +236,18 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         self.assertEqual(tree.index_of_prefixsum(1.01), 3)
         self.assertEqual(tree.index_of_prefixsum(3.0), 3)
         self.assertEqual(tree.index_of_prefixsum(4.0), 3)
+
+        memory = ApexMemory(
+            capacity=4
+        )
+        tree = memory.merged_segment_tree.sum_segment_tree
+        tree.insert(0, 0.5)
+        tree.insert(1, 1.0)
+        tree.insert(2, 1.0)
+        tree.insert(3, 3.0)
+        self.assertEqual(tree.index_of_prefixsum(0.0), 0)
+        self.assertEqual(tree.index_of_prefixsum(0.55), 1)
+        self.assertEqual(tree.index_of_prefixsum(0.99), 1)
+        self.assertEqual(tree.index_of_prefixsum(1.51), 2)
+        self.assertEqual(tree.index_of_prefixsum(3.0), 3)
+        self.assertEqual(tree.index_of_prefixsum(5.50), 3)
