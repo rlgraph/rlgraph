@@ -25,7 +25,7 @@ from rlgraph.environments import GridWorld, OpenAIGymEnv
 from rlgraph.agents import DQNAgent
 from rlgraph.execution import SingleThreadedWorker
 from rlgraph.utils import root_logger
-from rlgraph.tests.test_util import config_from_path
+from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 
 
 class TestDQNAgentShortTaskLearning(unittest.TestCase):
@@ -57,14 +57,25 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
-        #print("STATES:\n{}".format(agent.last_q_table["states"]))
-        #print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
+        print("STATES:\n{}".format(agent.last_q_table["states"]))
+        print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
         self.assertGreaterEqual(results["mean_episode_reward"], -3.5)
         self.assertGreaterEqual(results["max_episode_reward"], 0.0)
         self.assertLessEqual(results["episodes_executed"], 350)
+
+        # Check q-table for correct values.
+        expected_q_values_per_state = {
+            (1.0, 0, 0, 0): (-1, -5, 0, -1),
+            (0, 1.0, 0, 0): (-1, 1, 0, 0)
+        }
+        for state, q_values in zip(agent.last_q_table["states"], agent.last_q_table["q_values"]):
+            state, q_values = tuple(state), tuple(q_values)
+            assert state in expected_q_values_per_state, \
+                "ERROR: state '{}' not expected in q-table as it's a terminal state!".format(state)
+            recursive_assert_almost_equal(q_values, expected_q_values_per_state[state], decimals=0)
 
     def test_double_dqn_on_2x2_grid_world(self):
         """
@@ -83,7 +94,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             store_last_q_table=True
         )
 
-        time_steps = 1000
+        time_steps = 500
         worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
@@ -95,6 +106,17 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         self.assertGreaterEqual(results["mean_episode_reward"], -4.5)
         self.assertGreaterEqual(results["max_episode_reward"], 0.0)
         self.assertLessEqual(results["episodes_executed"], 250)
+
+        # Check q-table for correct values.
+        expected_q_values_per_state = {
+            (1.0, 0, 0, 0): (-1, -5, 0, -1),
+            (0, 1.0, 0, 0): (-1, 1, 0, 0)
+        }
+        for state, q_values in zip(agent.last_q_table["states"], agent.last_q_table["q_values"]):
+            state, q_values = tuple(state), tuple(q_values)
+            assert state in expected_q_values_per_state, \
+                "ERROR: state '{}' not expected in q-table as it's a terminal state!".format(state)
+            recursive_assert_almost_equal(q_values, expected_q_values_per_state[state], decimals=0)
 
     def test_double_dueling_dqn_on_4x4_grid_world(self):
         """
@@ -112,18 +134,43 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             store_last_q_table=True
         )
 
-        time_steps = 3000
+        time_steps = 5000
         worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
-        #print("STATES:\n{}".format(agent.last_q_table["states"]))
-        #print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
+        print("STATES:\n{}".format(agent.last_q_table["states"]))
+        print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
         self.assertGreaterEqual(results["mean_episode_reward"], -10)
         self.assertGreaterEqual(results["max_episode_reward"], -4)
         self.assertLessEqual(results["episodes_executed"], 1000)
+
+        # Check q-table for correct values.
+        expected_q_values_per_state = {
+            (1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): (-5, -4, -4, -4),  # 0
+            (0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): (-5, -5, -3, -4),  # 1
+            (0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): (-4, -2, -5, -3),  # 2
+            # 3=terminal
+            (0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): (-4, -3, -5, -5),  # 4
+            # 5=terminal
+            (0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0): (-5, -1, -1, -3),  # 6
+            (0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0): (-2, 0, -1, -5),  # 7
+            (0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0): (-3, -4, -2, -4),  # 8
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0): (-3, -5, -1, -5),  # 9
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0): (-2, -5, 0, -2),  # 10
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0): (-1, 1, 0, -1),  # 11
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0): (-4, -4, -5, -3),  # 12
+            # 13=terminal
+            # 14=terminal
+            # 15=terminal
+        }
+        for state, q_values in zip(agent.last_q_table["states"], agent.last_q_table["q_values"]):
+            state, q_values = tuple(state), tuple(q_values)
+            assert state in expected_q_values_per_state, \
+                "ERROR: state '{}' not expected in q-table as it's a terminal state!".format(state)
+            recursive_assert_almost_equal(q_values, expected_q_values_per_state[state], decimals=0)
 
     def test_dqn_on_cart_pole(self):
         """
@@ -186,6 +233,6 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
         self.assertGreaterEqual(results["mean_episode_reward"], 25)
-        self.assertGreaterEqual(results["max_episode_reward"], 100.0)
+        self.assertGreaterEqual(results["max_episode_reward"], 200.0)
         self.assertLessEqual(results["episodes_executed"], 200)
 
