@@ -134,14 +134,14 @@ class DQNLossFunction(LossFunction):
             if td_delta.ndim > 1:
                 if self.importance_weights:
                     td_delta = np.mean(
-                        (self._apply_huber_loss_if_necessary(td_delta) * importance_weights),
+                        td_delta * importance_weights,
                         axis=list(range(1, self.ranks_to_reduce + 1))
                     )
 
                 else:
-                    td_delta = np.mean(self._apply_huber_loss_if_necessary(td_delta), axis=list(range(1, self.ranks_to_reduce + 1)))
+                    td_delta = np.mean(td_delta, axis=list(range(1, self.ranks_to_reduce + 1)))
 
-            return np.power(td_delta, 2)
+            return self._apply_huber_loss_if_necessary(td_delta)
 
         elif get_backend() == "tf":
             # Make sure the target policy's outputs are treated as constant when calculating gradients.
@@ -179,7 +179,6 @@ class DQNLossFunction(LossFunction):
 
             # Reduce over the composite actions, if any.
             if get_rank(td_delta) > 1:
-                #TODO huber loss?
                 if self.importance_weights:
                     td_delta = tf.reduce_mean(
                         input_tensor=td_delta * importance_weights,
@@ -188,21 +187,24 @@ class DQNLossFunction(LossFunction):
                 else:
                     td_delta = tf.reduce_mean(input_tensor=td_delta, axis=list(range(1, self.ranks_to_reduce + 1)))
 
-            return tf.square(x=td_delta)
+            return self._apply_huber_loss_if_necessary(td_delta)
 
     def _apply_huber_loss_if_necessary(self, td_delta):
-        if self.huber_loss:
-            if self.backend == "python" or get_backend() == "python":
+        if self.backend == "python" or get_backend() == "python":
+            if self.huber_loss:
                 return np.where(
                     condition=np.abs(td_delta) < self.huber_delta,
                     x=np.square(td_delta) * 0.5,
                     y=self.huber_delta * (np.abs(td_delta) - 0.5 * self.huber_delta)
                 )
-            elif get_backend() == "tf":
+            else:
+                return np.power(td_delta, 2)
+        elif get_backend() == "tf":
+            if self.huber_loss:
                 return tf.where(
                     condition=tf.abs(x=td_delta) < self.huber_delta,
                     x=tf.square(x=td_delta) * 0.5,
                     y=self.huber_delta * (tf.abs(x=td_delta) - 0.5 * self.huber_delta)
                 )
-        else:
-            return td_delta
+            else:
+                return tf.square(x=td_delta)
