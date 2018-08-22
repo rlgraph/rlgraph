@@ -90,7 +90,8 @@ class ImageResize(PreprocessLayer):
                     resized.append(cv2.resize(preprocessing_inputs[i], dsize=(self.width, self.height),
                                               interpolation=self.cv2_interpolation))
                 resized = np.asarray(resized)
-                resized = resized[:, :, :, np.newaxis]
+                # TODO: Not sure about the following line ...
+                # resized = resized[:, :, :, np.newaxis]
                 return resized
             else:
                 # Single sample.
