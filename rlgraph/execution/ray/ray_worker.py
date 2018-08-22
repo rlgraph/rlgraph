@@ -342,10 +342,12 @@ class RayWorker(RayActor):
         # Adjust env frames for internal env frameskip:
         adjusted_frames = [env_frames * self.env_frame_skip for env_frames in self.sample_env_frames]
         if len(self.finished_episode_rewards) > 0:
-            flattened_rewards = np.sum(self.finished_episode_rewards)  # np.sum flattens the nested lists
-            min_episode_reward = np.min(flattened_rewards)
-            max_episode_reward = np.max(flattened_rewards)
-            mean_episode_reward = np.mean(flattened_rewards)
+            all_finished_rewards = list()
+            for env_reward_list in self.finished_episode_rewards:
+                all_finished_rewards.extend(env_reward_list)
+            min_episode_reward = np.min(all_finished_rewards)
+            max_episode_reward = np.max(all_finished_rewards)
+            mean_episode_reward = np.mean(all_finished_rewards)
             # Mean of final episode rewards over all envs
             final_episode_reward = np.mean([env_rewards[-1] for env_rewards in self.finished_episode_rewards])
         else:
