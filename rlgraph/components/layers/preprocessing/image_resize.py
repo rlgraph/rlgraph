@@ -82,20 +82,28 @@ class ImageResize(PreprocessLayer):
         if self.backend == "python" or get_backend() == "python":
             if isinstance(preprocessing_inputs, list):
                 preprocessing_inputs = np.asarray(preprocessing_inputs)
+            had_single_color_dim = (preprocessing_inputs.shape[3] == 1)
+            # Batch of samples.
             if preprocessing_inputs.ndim == 4:
                 resized = []
                 for i in range_(len(preprocessing_inputs)):
-                    resized.append(cv2.resize(preprocessing_inputs[i], dsize=(self.width, self.height),
-                                              interpolation=self.cv2_interpolation))
+                    resized.append(cv2.resize(
+                        preprocessing_inputs[i], dsize=(self.width, self.height), interpolation=self.cv2_interpolation)
+                    )
                 resized = np.asarray(resized)
-                # TODO: Not sure about the following line ...
-                # resized = resized[:, :, :, np.newaxis]
-                return resized
+            # Single sample.
             else:
-                # Single sample.
-                return cv2.resize(preprocessing_inputs, dsize=(self.width, self.height),
-                                  interpolation=self.cv2_interpolation)
+                resized = cv2.resize(preprocessing_inputs, dsize=(self.width, self.height),
+                                     interpolation=self.cv2_interpolation)
+
+            # cv2.resize removes the color rank, if its dimension is 1 (e.g. grayscale), add it back here.
+            if had_single_color_dim is True:
+                resized = np.expand_dims(resized, axis=-1)
+
+            return resized
+
         elif get_backend() == "tf":
-            return tf.image.resize_images(images=preprocessing_inputs, size=(self.width, self.height),
-                                          method=self.tf_interpolation)
+            return tf.image.resize_images(
+                images=preprocessing_inputs, size=(self.width, self.height), method=self.tf_interpolation
+            )
 

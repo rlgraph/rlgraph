@@ -113,4 +113,3 @@ class Flatten(PreprocessLayer):
                                   shape=self.output_spaces[key].get_shape(with_batch_rank=with_batch_rank),
                                   name="flattened")
             return reshaped
-
