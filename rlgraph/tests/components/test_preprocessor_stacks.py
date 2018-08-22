@@ -35,7 +35,6 @@ class TestPreprocessorStacks(unittest.TestCase):
     """
     Tests preprocessor stacks using different backends.
     """
-
     batch_size = 4
 
     # All preprocessors
@@ -75,28 +74,43 @@ class TestPreprocessorStacks(unittest.TestCase):
         }
     ]
 
+    preprocessing_spec_ray_pong = [
+        {
+            "type": "grayscale",
+            "keep_rank": True,
+            "scope": "grayscale"
+        },
+        {
+            "type": "image_resize",
+            "width": 84,
+            "height": 84,
+            "scope": "image_resize"
+        },
+        {
+            "type": "convert_type",
+            "to_dtype": "float",
+            "scope": "convert_type"
+        },
+        {
+            "type": "sequence",
+            "sequence_length": 4,
+            "batch_size": 1,
+            "add_rank": False,
+            "scope": "sequence"
+        }
+    ]
+
     # TODO: Make tests backend independent so we can use the same tests for everything.
     def test_backend_equivalence(self):
         """
         Tests if Python and TensorFlow backend return the same output
         for a standard DQN-style preprocessing stack.
         """
-        #env_spec = dict(
-        #    type="openai",
-        #    gym_env="Pong-v0",
-        #    frameskip=4,
-        #    max_num_noops=30,
-        #    episodic_life=True
-        #)
-        #env = SequentialVectorEnv(num_envs=1, env_spec=env_spec, num_background_envs=2)
-        #in_space = env.state_space.with_batch_rank()
         in_space = IntBox(256, shape=(210, 160, 3), dtype="uint8", add_batch_rank=True)
-        agent_config = config_from_path("configs/dqn_agent_for_pong.json")
 
         # Regression test: Incrementally add preprocessors.
         to_use = []
         for i, decimals in zip(range_(len(self.preprocessing_spec)), [0, 0, 2, 2]):
-            agent_config_copy = deepcopy(agent_config)
             to_use.append(i)
             incremental_spec = []
             incremental_scopes = []
@@ -105,13 +119,11 @@ class TestPreprocessorStacks(unittest.TestCase):
                 incremental_scopes.append(self.preprocessing_spec[index]["scope"])
 
             print("Comparing incremental spec: {}".format(incremental_scopes))
-            agent_config_copy.update(preprocessing_spec=deepcopy(incremental_spec))
 
             # Set up python preprocessor.
             # Set backend to python.
             for spec in incremental_spec:
                 spec["backend"] = "python"
-            #print(*incremental_spec)
             python_preprocessor = PreprocessorStack(*incremental_spec, backend="python")
             for sub_comp_scope in incremental_scopes:
                 python_preprocessor.sub_components[sub_comp_scope].create_variables(
@@ -142,6 +154,30 @@ class TestPreprocessorStacks(unittest.TestCase):
             for tf_state, python_state in zip(tf_preprocessed_states, python_preprocessed_states):
                 recursive_assert_almost_equal(tf_state, python_state, decimals=decimals)
             print("Success comparing: {}".format(incremental_scopes))
+
+    def test_ray_pong_preprocessor_config_in_python(self):
+        in_space = IntBox(256, shape=(210, 160, 3), dtype="uint8", add_batch_rank=True)
+
+        # Regression test: Incrementally add preprocessors.
+        specs = [spec for spec in self.preprocessing_spec_ray_pong]
+        scopes = [spec["scope"] for spec in self.preprocessing_spec_ray_pong]
+
+        # Set up python preprocessor.
+        # Set backend to python.
+        for spec in specs:
+            spec["backend"] = "python"
+        python_preprocessor = PreprocessorStack(*specs, backend="python")
+        for sub_comp_scope in scopes:
+            python_preprocessor.sub_components[sub_comp_scope].create_variables(
+                input_spaces=dict(preprocessing_inputs=in_space), action_space=None
+            )
+            python_preprocessor.reset()
+
+        # Generate a few states from random set points. Test if preprocessed states are almost equal
+        states = in_space.sample(size=self.batch_size)
+        python_preprocessed_states = python_preprocessor.preprocess(states)
+        # TODO: add more checks here besides the shape.
+        self.assertEqual(python_preprocessed_states.shape, (4, 84, 84, 4))
 
     def test_batched_backend_equivalence(self):
         return

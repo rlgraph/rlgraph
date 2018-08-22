@@ -56,7 +56,7 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
             agent_config=agent_config,
         )
         end = time.monotonic() - start
-        print("Iinitialized {} workers in {} s.".format(
+        print("Initialized {} workers in {} s.".format(
             executor.num_sample_workers, end
         ))
         executor.test_worker_init()
@@ -94,7 +94,8 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         )
 
         # Executes actual workload.
-        result = executor.execute_workload(workload=dict(num_timesteps=10000000, report_interval=10000,
-                                                         report_interval_min_seconds=10))
+        result = executor.execute_workload(workload=dict(
+            num_timesteps=10000000, report_interval=10000, report_interval_min_seconds=10)
+        )
         print("Finished executing workload:")
         print(result)

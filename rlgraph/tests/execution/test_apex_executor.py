@@ -28,13 +28,13 @@ class TestApexExecutor(unittest.TestCase):
     Tests the ApexExecutor which provides an interface for distributing Apex-style workloads
     via Ray.
     """
-    def test_learning_grid_world(self):
+    def test_learning_2x2_grid_world(self):
         """
         Tests if apex can learn a simple environment using a single worker, thus replicating
         dqn.
         """
         env_spec = dict(
-            type="gridworld",
+            type="grid-world",
             world="2x2",
             save_mode=False
         )
@@ -49,7 +49,7 @@ class TestApexExecutor(unittest.TestCase):
 
         # Executes actual workload.
         result = executor.execute_workload(workload=dict(
-            num_timesteps=5000, report_interval=100, report_interval_min_seconds=1)
+            num_timesteps=2000, report_interval=100, report_interval_min_seconds=1)
         )
         full_worker_stats = executor.result_by_worker()
         print("All finished episode rewards")
@@ -63,8 +63,9 @@ class TestApexExecutor(unittest.TestCase):
             (1.0, 0, 0, 0): (-1, -5, 0, -1),
             (0, 1.0, 0, 0): (-1, 1, 0, 0)
         }
-        for state, q_values in zip(executor.local_agent.last_q_table["states"]
-                , executor.local_agent.last_q_table["q_values"]):
+        for state, q_values in zip(
+                executor.local_agent.last_q_table["states"], executor.local_agent.last_q_table["q_values"]
+        ):
             state, q_values = tuple(state), tuple(q_values)
             assert state in expected_q_values_per_state, \
                 "ERROR: state '{}' not expected in q-table as it's a terminal state!".format(state)
