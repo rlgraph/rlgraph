@@ -9,7 +9,7 @@
   [
     {
       "type": "flatten",
-      "scope": "flatten"
+      "scope": "reshape"
     }
   ],  "saver_spec": null,
   "execution_spec": {
