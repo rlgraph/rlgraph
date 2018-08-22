@@ -21,9 +21,9 @@ import multiprocessing
 
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph import get_backend
-from rlgraph.spaces import Space, ContainerSpace
+from rlgraph.spaces.space import Space
+from rlgraph.spaces.containers import ContainerSpace
 from rlgraph.utils.specifiable import Specifiable
-from rlgraph.utils.ops import flatten_op
 from rlgraph.utils.util import force_list, dtype
 
 if get_backend() == "tf":

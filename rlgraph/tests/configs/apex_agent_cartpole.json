@@ -15,7 +15,7 @@
     "ray_spec": {
       "executor_spec": {
         "redis_address": null,
-        "num_cpus": 4,
+        "num_cpus": 8,
         "num_gpus": 0,
         "weight_sync_steps": 32,
         "replay_sampling_task_depth": 1,

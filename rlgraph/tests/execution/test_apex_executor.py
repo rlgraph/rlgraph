@@ -36,7 +36,7 @@ class TestApexExecutor(unittest.TestCase):
         env_spec = dict(
             type="gridworld",
             world="2x2",
-            save_mode=True
+            save_mode=False
         )
         agent_config = config_from_path("configs/apex_agent_gridworld_for_2x2_grid.json")
 
