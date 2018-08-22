@@ -37,7 +37,6 @@ class TestVectorEnv(unittest.TestCase):
         gym_env="Pong-v0",
         frameskip=4,
         max_num_noops=30,
-        random_start=True,
         episodic_life=True
     )
 

@@ -32,7 +32,7 @@ class TestAllCompile(unittest.TestCase):
         """
         Creates a DQNAgent and runs it via a Runner on an openAI Pong Env.
         """
-        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, random_start=True, episodic_life=True)
+        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
         agent_config = config_from_path("configs/dqn_agent_for_pong.json")
         agent = DQNAgent.from_spec(
             # Uses 2015 DQN parameters as closely as possible.

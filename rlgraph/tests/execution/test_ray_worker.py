@@ -158,7 +158,6 @@ class TestRayWorker(unittest.TestCase):
             # is used for internal env.
             frameskip=4,
             max_num_noops=30,
-            random_start=True,
             episodic_life=True
         )
         env = Environment.from_spec(env_spec)

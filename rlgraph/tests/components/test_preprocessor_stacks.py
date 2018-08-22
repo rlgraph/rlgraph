@@ -83,7 +83,6 @@ class TestPreprocessorStacks(unittest.TestCase):
             gym_env="Pong-v0",
             frameskip=4,
             max_num_noops=30,
-            random_start=True,
             episodic_life=True
         )
         env = SequentialVectorEnv(num_envs=1, env_spec=env_spec, num_background_envs=2)
@@ -143,7 +142,6 @@ class TestPreprocessorStacks(unittest.TestCase):
             gym_env="Pong-v0",
             frameskip=4,
             max_num_noops=30,
-            random_start=True,
             episodic_life=True
         )
         # Test with batching because we assume vector environments to be the normal case going forward.
