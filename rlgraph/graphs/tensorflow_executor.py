@@ -25,6 +25,7 @@ from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.components.optimizers.multi_gpu_sync_optimizer import MultiGpuSyncOptimizer
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph import get_distributed_backend
+from rlgraph.utils.specifiable_server import SpecifiableServer, SpecifiableServerHook
 import rlgraph.utils as util
 
 if get_backend() == "tf":
@@ -490,8 +491,8 @@ class TensorFlowExecutor(GraphExecutor):
         # Add the hook only if there have been SpecifiableServer objects created.
         # TODO: Change this registry to a tf collections based one. Problem: EnvStepper is created before the Graph,
         # TODO: So when the Graph gets entered, the registry (with the SpecifiableServer in it) is gone.
-        if len(util.SpecifiableServer.INSTANCES) > 0:
-            hooks.append(util.SpecifiableServerHook())
+        if len(SpecifiableServer.INSTANCES) > 0:
+            hooks.append(SpecifiableServerHook())
 
     def setup_session(self, hooks):
         """
