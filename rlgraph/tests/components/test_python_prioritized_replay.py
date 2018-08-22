@@ -201,3 +201,32 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
             # min is still 1.
             self.assertEqual(min_segment_values[start], 1.0)
             start = int(start / 2)
+
+    def test_tree_insert(self):
+        memory = ApexMemory(
+            capacity=4
+        )
+        tree = memory.merged_segment_tree.sum_segment_tree
+        tree.insert(2, 1.0)
+        tree.insert(3, 3.0)
+        assert np.isclose(tree.get_sum(), 4.0)
+        assert np.isclose(tree.get_sum(0, 2), 0.0)
+        assert np.isclose(tree.get_sum(0, 3), 1.0)
+        assert np.isclose(tree.get_sum(2, 3), 1.0)
+        assert np.isclose(tree.get_sum(2, -1), 1.0)
+        assert np.isclose(tree.get_sum(2, 4), 4.0)
+
+    def test_prefixsum_idx(self,):
+        memory = ApexMemory(
+            capacity=4
+        )
+        tree = memory.merged_segment_tree.sum_segment_tree
+        tree.insert(2, 1.0)
+        tree.insert(3, 3.0)
+
+        self.assertEqual(tree.index_of_prefixsum(0.0), 2)
+        self.assertEqual(tree.index_of_prefixsum(0.5), 2)
+        self.assertEqual(tree.index_of_prefixsum(0.99), 2)
+        self.assertEqual(tree.index_of_prefixsum(1.01), 3)
+        self.assertEqual(tree.index_of_prefixsum(3.0), 3)
+        self.assertEqual(tree.index_of_prefixsum(4.0), 3)

@@ -50,6 +50,7 @@ class TestRayWorker(unittest.TestCase):
         """
         agent_config = config_from_path("configs/apex_agent_cartpole.json")
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
+        ray_spec["worker_spec"]["num_worker_samples"] = 100
         worker = RayWorker.as_remote().remote(agent_config, self.env_spec, ray_spec["worker_spec"], auto_build=True)
 
         # Test when breaking on terminal.
@@ -85,7 +86,7 @@ class TestRayWorker(unittest.TestCase):
         self.assertEqual(len(observations['terminals']), 100)
 
         # Test with count.
-        task = worker.execute_and_get_with_count.remote(100, break_on_terminal=False)
+        task = worker.execute_and_get_with_count.remote()
         # Retrieve result.
         result, size = ray.get(task)
         observations = result.get_batch()

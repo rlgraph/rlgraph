@@ -61,6 +61,10 @@ class MemSegmentTree(object):
         index += self.capacity
         self.values[index] = element
 
+        #void modify(int p, int value) {  // set value at position p
+        # for (t[p += n] = value; p > 1; p >>= 1) t[p>>1] = t[p] + t[p^1];
+        # }
+
         # Bit shift should be slightly faster here than division.
         index = index >> 1
         while index >= 1:
@@ -120,7 +124,7 @@ class MemSegmentTree(object):
             Number: Result of reduce operation
         """
         if limit is None:
-            limit = self.capacity - 1
+            limit = self.capacity
         if limit < 0:
             limit += self.capacity
 
