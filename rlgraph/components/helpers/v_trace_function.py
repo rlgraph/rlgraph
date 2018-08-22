@@ -34,7 +34,7 @@ class VTraceFunction(Component):
         Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
     """
 
-    def __init__(self, rho_bar=1.0, rho_bar_pg=1.0, c_bar=1.0, clip_pg_rho_threshold=1.0, **kwargs):
+    def __init__(self, rho_bar=1.0, rho_bar_pg=1.0, c_bar=1.0, **kwargs):
         """
         Args:
             rho_bar (float): The maximum values of the IS-weights for the temporal differences of V.
