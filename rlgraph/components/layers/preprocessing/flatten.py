@@ -73,6 +73,9 @@ class Flatten(PreprocessLayer):
         if isinstance(in_space, IntBox):
             sanity_check_space(in_space, must_have_categories=True, num_categories=(2, 10000))
 
+    def create_variables(self, input_spaces, action_space=None):
+        in_space = input_spaces["preprocessing_inputs"]  # type: Dict
+
         # Store the mapped output Spaces (per flat key).
         self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
 

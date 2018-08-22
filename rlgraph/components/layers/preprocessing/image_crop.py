@@ -69,8 +69,7 @@ class ImageCrop(PreprocessLayer):
             ret[key] = value.__class__(shape=tuple(shape), add_batch_rank=value.has_batch_rank)
         return unflatten_op(ret)
 
-    def check_input_spaces(self, input_spaces, action_space=None):
-        super(ImageCrop, self).check_input_spaces(input_spaces, action_space)
+    def create_variables(self, input_spaces, action_space=None):
         in_space = input_spaces["preprocessing_inputs"]
 
         self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))

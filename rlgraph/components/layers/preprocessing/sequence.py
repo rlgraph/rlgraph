@@ -83,10 +83,10 @@ class Sequence(PreprocessLayer):
         # Require preprocessing_inputs to not have time rank (batch rank doesn't matter).
         sanity_check_space(in_space, must_have_time_rank=False)
 
-        self.output_spaces = self.get_preprocessed_space(in_space)
-
     def create_variables(self, input_spaces, action_space=None):
         in_space = input_spaces["preprocessing_inputs"]
+
+        self.output_spaces = self.get_preprocessed_space(in_space)
 
         self.index = self.get_variable(name="index", dtype="int", initializer=-1, trainable=False)
         self.buffer = self.get_variable(
