@@ -83,9 +83,12 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             store_last_q_table=True
         )
 
-        time_steps = 500
+        time_steps = 1000
         worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
+
+        print("STATES:\n{}".format(agent.last_q_table["states"]))
+        print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
