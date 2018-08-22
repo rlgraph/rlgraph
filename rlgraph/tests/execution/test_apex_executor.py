@@ -48,8 +48,9 @@ class TestApexExecutor(unittest.TestCase):
         print("Successfully created executor.")
 
         # Executes actual workload.
-        result = executor.execute_workload(workload=dict(num_timesteps=1000, report_interval=100,
-                                                         report_interval_min_seconds=1))
+        result = executor.execute_workload(workload=dict(
+            num_timesteps=1000, report_interval=100, report_interval_min_seconds=1)
+        )
         full_worker_stats = executor.result_by_worker()
         print("All finished episode rewards")
         print(full_worker_stats["episode_rewards"])

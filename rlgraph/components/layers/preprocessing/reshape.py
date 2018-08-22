@@ -25,6 +25,7 @@ from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.ops import flatten_op, unflatten_op
+from rlgraph.utils.numpy import one_hot
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -185,55 +186,70 @@ class ReShape(PreprocessLayer):
 
         #print("before one-hot: preprocessing_inputs={}".format(preprocessing_inputs))
 
-        # Create a one-hot axis for the categories at the end?
-        if self.num_categories.get(key, 0) > 1:
-            preprocessing_inputs = tf.one_hot(indices=preprocessing_inputs, depth=self.num_categories[key], axis=-1,
-                                              dtype="float32")
+        if self.backend == "python" or get_backend() == "python":
+            # Create a one-hot axis for the categories at the end?
+            if self.num_categories.get(key, 0) > 1:
+                preprocessing_inputs = one_hot(preprocessing_inputs, depth=self.num_categories[key])
 
-        new_shape = self.output_spaces[key].get_shape(
-            with_batch_rank=-1, with_time_rank=-1, time_major=self.time_major
-        )
-        #print("new_shape={}".format(new_shape))
-        # Dynamic new shape inference:
-        # If both batch and time rank must be left alone OR the time rank must be unfolded from a currently common
-        # batch+time 0th rank, get these two dynamically.
-        # Note: We may still flip the two, if input space has a different `time_major` than output space.
-        if len(new_shape) > 2 and new_shape[0] == -1 and new_shape[1] == -1:
-            #print("in dynamic if-block. unfold_time_rank={} time_major={}".format(self.unfold_time_rank, self.time_major))
-            # Time rank unfolding. Get the time rank from original input.
-            if self.unfold_time_rank is True:
-                if self.backend == "python" or get_backend() == "python":
+            new_shape = self.output_spaces[key].get_shape(
+                with_batch_rank=-1, with_time_rank=-1, time_major=self.time_major
+            )
+            # Dynamic new shape inference:
+            # If both batch and time rank must be left alone OR the time rank must be unfolded from a currently common
+            # batch+time 0th rank, get these two dynamically.
+            # Note: We may still flip the two, if input space has a different `time_major` than output space.
+            if len(new_shape) > 2 and new_shape[0] == -1 and new_shape[1] == -1:
+                # Time rank unfolding. Get the time rank from original input.
+                if self.unfold_time_rank is True:
                     original_shape = input_before_time_rank_folding.shape
-                elif get_backend() == "tf":
-                    original_shape = tf.shape(input_before_time_rank_folding)
-                new_shape = (original_shape[0], original_shape[1]) + new_shape[2:]
-            # No time-rank unfolding, but we do have both batch- and time-rank.
-            else:
-                if self.backend == "python" or get_backend() == "python":
-                    input_shape = preprocessing_inputs.shape
-                elif get_backend() == "tf":
-                    input_shape = tf.shape(preprocessing_inputs)
-                # Batch and time rank stay as is.
-                if self.time_major is None or self.time_major is self.in_space_time_majors[key]:
-                    new_shape = (input_shape[0], input_shape[1]) + new_shape[2:]
-                # Batch and time rank need to be flipped around: Do a transpose.
+                    new_shape = (original_shape[0], original_shape[1]) + new_shape[2:]
+                # No time-rank unfolding, but we do have both batch- and time-rank.
                 else:
-                    if self.backend == "python" or get_backend() == "python":
+                    input_shape = preprocessing_inputs.shape
+                    # Batch and time rank stay as is.
+                    if self.time_major is None or self.time_major is self.in_space_time_majors[key]:
+                        new_shape = (input_shape[0], input_shape[1]) + new_shape[2:]
+                    # Batch and time rank need to be flipped around: Do a transpose.
+                    else:
                         preprocessing_inputs = np.transpose(preprocessing_inputs, axes=(1, 0) + input_shape[2:])
-                    elif get_backend() == "tf":
+                        new_shape = (input_shape[1], input_shape[0]) + new_shape[2:]
+
+            return np.reshape(preprocessing_inputs, newshape=new_shape)
+
+        elif get_backend() == "tf":
+            # Create a one-hot axis for the categories at the end?
+            if self.num_categories.get(key, 0) > 1:
+                preprocessing_inputs = tf.one_hot(
+                    preprocessing_inputs, depth=self.num_categories[key], axis=-1, dtype="float32"
+                )
+
+            new_shape = self.output_spaces[key].get_shape(
+                with_batch_rank=-1, with_time_rank=-1, time_major=self.time_major
+            )
+            # Dynamic new shape inference:
+            # If both batch and time rank must be left alone OR the time rank must be unfolded from a currently common
+            # batch+time 0th rank, get these two dynamically.
+            # Note: We may still flip the two, if input space has a different `time_major` than output space.
+            if len(new_shape) > 2 and new_shape[0] == -1 and new_shape[1] == -1:
+                # Time rank unfolding. Get the time rank from original input.
+                if self.unfold_time_rank is True:
+                    original_shape = tf.shape(input_before_time_rank_folding)
+                    new_shape = (original_shape[0], original_shape[1]) + new_shape[2:]
+                # No time-rank unfolding, but we do have both batch- and time-rank.
+                else:
+                    input_shape = tf.shape(preprocessing_inputs)
+                    # Batch and time rank stay as is.
+                    if self.time_major is None or self.time_major is self.in_space_time_majors[key]:
+                        new_shape = (input_shape[0], input_shape[1]) + new_shape[2:]
+                    # Batch and time rank need to be flipped around: Do a transpose.
+                    else:
                         preprocessing_inputs = tf.transpose(
                             preprocessing_inputs, perm=(1, 0) + tuple(i for i in range(
                                 2, input_shape.shape.as_list()[0]
                             ))
                         )
-                    new_shape = (input_shape[1], input_shape[0]) + new_shape[2:]
+                        new_shape = (input_shape[1], input_shape[0]) + new_shape[2:]
 
-        if self.backend == "python" or get_backend() == "python":
-            #print("BEFORE np.reshape: preprocessing_inputs={}".format(preprocessing_inputs))
-            #print("BEFORE np.reshape: new_shape={}".format(new_shape))
-            return np.reshape(preprocessing_inputs, newshape=new_shape)
-
-        elif get_backend() == "tf":
             reshaped = tf.reshape(tensor=preprocessing_inputs, shape=new_shape, name="reshaped")
             # Have to place the time rank back in as unknown (for the auto Space inference).
             if type(self.unfold_time_rank) == int:
