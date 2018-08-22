@@ -60,6 +60,13 @@ class ApexAgent(DQNAgent):
             if isinstance(ret, dict):
                 ret = ret["update_from_memory"]
 
+            if self.store_last_q_table is True:
+                q_table = dict(
+                    states=ret[3]["states"],
+                    q_values=ret[4]
+                )
+                self.last_q_table = q_table
+
             return ret[1]
         else:
             # Add some additional return-ops to pull (left out normally for performance reasons).
@@ -71,6 +78,14 @@ class ApexAgent(DQNAgent):
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
                 ret = ret["update_from_external_batch"]
+
+            if self.store_last_q_table is True:
+                q_table = dict(
+                    states=batch["states"],
+                    q_values=ret[3]
+                )
+                self.last_q_table = q_table
+
 
             # Return [1]=total loss, [2]=loss-per-item (skip [0]=update noop).
             return ret[1], ret[2]

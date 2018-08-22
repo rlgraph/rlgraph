@@ -1,6 +1,7 @@
 {
   "type": "apex",
   "discount": 0.99,
+  "store_last_q_table": true,
   "memory_spec": {
     "type": "prioritized_replay",
     "capacity": 128

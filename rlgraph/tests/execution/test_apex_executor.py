@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
-
+import numpy as np
 from rlgraph.execution.ray.apex import ApexExecutor
 from rlgraph.tests.test_util import config_from_path
 
@@ -54,6 +54,9 @@ class TestApexExecutor(unittest.TestCase):
         full_worker_stats = executor.result_by_worker()
         print("All finished episode rewards")
         print(full_worker_stats["episode_rewards"])
+
+        print("STATES:\n{}".format(executor.local_agent.last_q_table["states"]))
+        print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(executor.local_agent.last_q_table["q_values"], decimals=2)))
 
     def test_learning_cartpole(self):
         """
