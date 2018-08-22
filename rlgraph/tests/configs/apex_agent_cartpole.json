@@ -17,7 +17,7 @@
         "redis_address": null,
         "num_cpus": 8,
         "num_gpus": 0,
-        "weight_sync_steps": 32,
+        "weight_sync_steps": 100,
         "replay_sampling_task_depth": 1,
         "env_interaction_task_depth": 1,
         "num_worker_samples": 50,
@@ -32,8 +32,8 @@
           "gpu_spec": { "gpus_enabled" : false}
         },
         "n_step_adjustment": 0,
-        "worker_computes_weights": true,
-        "sample_exploration": true,
+        "worker_computes_weights": false,
+        "sample_exploration": false,
         "exploration_min_value": 0.5
       },
       "apex_replay_spec": {
