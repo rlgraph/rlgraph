@@ -52,7 +52,7 @@ class IMPALALossFunction(LossFunction):
         """
         super(IMPALALossFunction, self).__init__(scope=kwargs.pop("scope", "impala-loss-func"), **kwargs)
 
-        self.v_trace_function = VTraceFunction.from_spec(v_trace_spec)  # type: VTraceFunction
+        self.v_trace_function = VTraceFunction()  # type: VTraceFunction
 
         self.weight_pg = weight_pg if weight_pg is not None else 1.0
         self.weight_baseline = weight_baseline if weight_baseline is not None else 0.5
