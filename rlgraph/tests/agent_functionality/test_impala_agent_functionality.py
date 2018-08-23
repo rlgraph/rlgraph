@@ -135,7 +135,12 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         batch_size = 4
 
         # Use IMPALA paper's preprocessor of division by 255 (only for the Image).
-        preprocessor_spec_for_actor_component = dict(RGB_INTERLEAVED=[dict(type="divide", divisor=255)])
+        preprocessor_spec_for_actor_component = dict(
+            type="dict-preprocessor-stack",
+            preprocessors=dict(
+                RGB_INTERLEAVED=[dict(type="divide", divisor=255)]
+            )
+        )
         # IMPALA uses a baseline action adapter (v-trace off-policy PG with baseline value function).
         policy = Policy(LargeIMPALANetwork(), action_space=self.action_space,
                         action_adapter_spec=dict(type="baseline_action_adapter"))
