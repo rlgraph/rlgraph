@@ -113,7 +113,7 @@ def get_space_from_op(op):
         elif isinstance(op, (bool, int, float)):
             return BoxSpace.from_spec(spec=type(op), shape=())
         # No Space: e.g. the tf.no_op, a distribution (anything that's not a tensor).
-        elif hasattr(op, "dtype") is False or (not hasattr(op, "get_shape") and not hasattr(op, "shape")):
+        elif hasattr(op, "dtype") is False or not hasattr(op, "get_shape"):
             return 0
         # Some tensor: can be converted into a BoxSpace.
         else:
