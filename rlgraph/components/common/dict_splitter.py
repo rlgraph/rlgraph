@@ -19,9 +19,10 @@ from __future__ import print_function
 
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.components import Component
-from rlgraph.spaces import Dict
+from rlgraph.spaces import Dict, Tuple
 
 
+# TODO: rename to DictTupleSplitter
 class DictSplitter(Component):
     """
     Splits an incoming container Space into all its single primitive Spaces.
@@ -29,32 +30,55 @@ class DictSplitter(Component):
     def __init__(self, *output_order, **kwargs):
         """
         Args:
-            *output_order (str): List of 0th level keys by which the return values of `split` must be sorted.
-                Example: output_order=["B", "C", "A"]
-                -> split(Dict(B=1, A=2, C=10))
-                -> return: list(1, 10, 2), where 1, 10, and 2 are ops
+            *output_order (Union[str,int]):
+                For Dict splitting:
+                    List of 0th level keys by which the return values of `split` must be sorted.
+                    Example: output_order=["B", "C", "A"]
+                    -> split(Dict(A=o1, B=o2, C=o3))
+                    -> return: list(o2, o3, o1), where o1-3 are ops
+                For Tuple splitting:
+                    List of 0th level indices by which the return values of `split` must be sorted.
+                    Example: output_order=[0, 2, 1]
+                    -> split(Tuple(o1, o2, o3))
+                    -> return: list(o1, o3, o2), where o1-3 are ops
         """
-        self.output_order = output_order
-
         super(DictSplitter, self).__init__(
-            scope=kwargs.pop("scope", "dict-splitter"),
-            graph_fn_num_outputs=dict(_graph_fn_split=len(output_order)),
+            scope=kwargs.pop("scope", "dict-splitter"), graph_fn_num_outputs=dict(_graph_fn_split=len(output_order)),
             **kwargs
         )
+        self.output_order = output_order
+        if len(self.output_order) == 0:
+            self.output_order = None
+        # Dict or Tuple?
+        self.type = None
 
         self.define_api_method(name="split", func=self._graph_fn_split)
 
     def check_input_spaces(self, input_spaces, action_space=None):
         in_space = input_spaces["inputs"]
+
+        self.type = type(in_space)
+
         # Make sure input is a Dict (unsorted).
-        assert isinstance(in_space, Dict), "ERROR: Input Space for DictSplitter ({}) must be Dict (but is {})!".\
-            format(self.global_scope, in_space)
+        assert self.type == Dict or self.type == Tuple,\
+            "ERROR: Input Space for DictSplitter ({}) must be Dict or Tuple (but is " \
+            "{})!".format(self.global_scope, in_space)
+
+        # Auto-ordering only valid for incoming Tuples.
+        assert self.output_order is not None or self.type == Tuple, \
+            "ERROR: Cannot use auto-ordering in DictSplitter for input Dict spaces! Only ok for Tuples."
+
         # Keys of in_space must all be part of `self.output_order`.
-        for i, name in enumerate(self.output_order):
-            if name not in in_space:
+        for i, name_or_index in enumerate(self.output_order):
+            if self.type == Dict and name_or_index not in in_space:
                 raise RLGraphError(
-                    "Item {} in `output_order` (value={}) of DictSplitter '{}' is not part of the input Space "
-                    "({})!".format(i, name, self.scope, in_space)
+                    "Name #{} in `output_order` (value={}) of DictSplitter '{}' is not part of the input Space "
+                    "({})!".format(i, name_or_index, self.scope, in_space)
+                )
+            elif self.type == Tuple and name_or_index >= len(in_space):
+                raise RLGraphError(
+                    "Index #{} in `output_order` (value={}) of DictSplitter '{}' is outside the length of the input "
+                    "Space ({})!".format(i, name_or_index, self.scope, in_space)
                 )
 
     def _graph_fn_split(self, inputs):
@@ -63,13 +87,23 @@ class DictSplitter(Component):
         values).
 
         Args:
-            inputs (DataOpDict): The input Dict to be split by its primary keys.
+            inputs (DataOpDict): The input Dict/Tuple to be split by its primary keys or along its indices.
 
         Returns:
             tuple: The tuple of the sub-Spaces (may still be Containers) sorted by `self.output_order`.
         """
         ret = [None] * len(self.output_order)
-        for key, value in inputs.items():
-            ret[self.output_order.index(key)] = value
+        if self.type == Dict:
+            for key, value in inputs.items():
+                ret[self.output_order.index(key)] = value
+        else:
+            # No special ordering -> return as is.
+            if self.output_order is None:
+                for index, value in enumerate(inputs):
+                    ret[index] = value
+            # Custom re-ordering of the input tuple.
+            else:
+                for index, value in enumerate(inputs):
+                    ret[self.output_order.index(index)] = value
 
         return tuple(ret)

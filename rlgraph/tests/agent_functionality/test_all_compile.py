@@ -83,6 +83,6 @@ class TestAllCompile(unittest.TestCase):
         # Start Specifiable Server with Env manually.
         agent.environment_stepper.environment_server.start()
 
-        print("Compiled IMPALA agent")
+        print("Compiled IMPALA type=explorer agent.")
 
         agent.environment_stepper.environment_server.stop()

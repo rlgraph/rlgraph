@@ -96,7 +96,6 @@ class TestEnvironmentStepper(unittest.TestCase):
         test.terminate()
 
     def test_environment_stepper_on_random_env_with_returning_action_probs(self):
-        #return  # reactivate later
         state_space = FloatBox(shape=(2,))
         action_space = IntBox(4)
         preprocessor_spec = [dict(type="multiply", factor=3)]
