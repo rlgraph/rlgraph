@@ -3,7 +3,7 @@
   "discount": 0.99,
   "memory_spec": {
     "type": "prioritized_replay",
-    "capacity": 10000
+    "capacity": 100
   },
   "saver_spec": null,
   "preprocessing_spec": [
@@ -52,8 +52,8 @@
     },
     {
       "type": "conv2d",
-      "filters": 512,
-      "kernel_size": 10,
+      "filters": 256,
+      "kernel_size": 11,
       "strides": 1,
       "padding": "valid",
       "activation": "relu",
