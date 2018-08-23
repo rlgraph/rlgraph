@@ -20,14 +20,14 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph import get_backend
-from rlgraph.components.layers.preprocessing import PreprocessLayer
+from rlgraph.components.component import Component
 from rlgraph.spaces.space_utils import sanity_check_space
 
 if get_backend() == "tf":
     import tensorflow as tf
 
 
-class Slice(PreprocessLayer):
+class Slice(Component):
     """
     A simple slicer layer. Slices off a piece from the input along the 0th rank returns it.
     """
@@ -39,13 +39,15 @@ class Slice(PreprocessLayer):
         """
         super(Slice, self).__init__(scope=scope, **kwargs)
 
+        self.define_api_method("slice", self._graph_fn_slice)
+
     def check_input_spaces(self, input_spaces, action_space=None):
         in_space = input_spaces["preprocessing_inputs"]
 
         # Must have at least rank 1.
         sanity_check_space(in_space, rank=(1, None))
 
-    def _graph_fn_apply(self, preprocessing_inputs, start_index=0, end_index=1):
+    def _graph_fn_slice(self, preprocessing_inputs, start_index=0, end_index=1):
         slice_ = preprocessing_inputs[start_index:end_index]
         if self.backend == "python" or get_backend() == "python":
             if end_index - start_index == 1:

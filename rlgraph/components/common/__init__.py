@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components.common.dict_splitter import DictSplitter
+from rlgraph.components.common.dict_splitter import ContainerSplitter
 from rlgraph.components.common.dict_merger import DictMerger
 #from rlgraph.components.common.tuple_splitter import TupleSplitter
 from rlgraph.components.common.synchronizable import Synchronizable
@@ -26,6 +26,7 @@ from rlgraph.components.common.noise_components import NoiseComponent, ConstantN
     OrnsteinUhlenbeckNoise
 from rlgraph.components.common.fixed_loop import FixedLoop
 from rlgraph.components.common.sampler import Sampler
+from rlgraph.components.common.slice import Slice
 from rlgraph.components.common.repeater_stack import RepeaterStack
 from rlgraph.components.common.batch_splitter import BatchSplitter
 #from rlgraph.components.common.environment_stepper import EnvironmentStepper
@@ -47,8 +48,8 @@ NoiseComponent.__lookup_classes__ = dict(
 NoiseComponent.__default_constructor__ = GaussianNoise
 
 
-__all__ = ["DictSplitter", "DictMerger", #"TupleSplitter",
-           "Synchronizable", "RepeaterStack",
+__all__ = ["ContainerSplitter", "DictMerger",
+           "Synchronizable", "RepeaterStack", "Slice",
            "DecayComponent", "LinearDecay", "PolynomialDecay", "ExponentialDecay",
            "NoiseComponent", "ConstantNoise", "GaussianNoise", "OrnsteinUhlenbeckNoise",
            "FixedLoop", "Sampler", "BatchSplitter"]
