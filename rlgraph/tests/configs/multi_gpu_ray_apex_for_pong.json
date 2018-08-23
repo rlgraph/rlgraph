@@ -14,8 +14,8 @@
     },
     {
       "type": "image_resize",
-      "width": 80,
-      "height": 80,
+      "width": 84,
+      "height": 84,
       "scope": "image_resize"
     },
     {
@@ -95,7 +95,7 @@
     "ray_spec": {
       "executor_spec": {
         "redis_address": null,
-        "num_cpus": 18,
+        "num_cpus": 16,
         "num_gpus": 0,
         "weight_sync_steps": 400,
         "replay_sampling_task_depth": 4,
