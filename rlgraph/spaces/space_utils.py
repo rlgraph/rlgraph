@@ -113,7 +113,7 @@ def get_space_from_op(op):
         elif isinstance(op, (bool, int, float)):
             return BoxSpace.from_spec(spec=type(op), shape=())
         # No Space: e.g. the tf.no_op, a distribution (anything that's not a tensor).
-        elif hasattr(op, "dtype") is False or not hasattr(op, "get_shape"):
+        elif hasattr(op, "dtype") is False or (not hasattr(op, "get_shape") and not hasattr(op, "shape")):
             return 0
         # Some tensor: can be converted into a BoxSpace.
         else:
@@ -133,16 +133,17 @@ def get_space_from_op(op):
                     shape = shape[1:]
                 add_batch_rank = True
 
-            base_dtype_str = str(op.dtype.base_dtype)
+            base_dtype = op.dtype.base_dtype if hasattr(op.dtype, "base_dtype") else op.dtype
+            base_dtype_str = str(base_dtype)
 
             # FloatBox
             if "float" in base_dtype_str:
                 return FloatBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
-                                dtype=dtype(op.dtype.base_dtype, "np"))
+                                dtype=dtype(base_dtype, "np"))
             # IntBox
             elif "int" in base_dtype_str:
                 return IntBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
-                              dtype=dtype(op.dtype.base_dtype, "np"))
+                              dtype=dtype(base_dtype, "np"))
             # a BoolBox
             elif "bool" in base_dtype_str:
                 return BoolBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
