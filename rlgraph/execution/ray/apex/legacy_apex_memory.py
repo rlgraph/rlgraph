@@ -40,7 +40,7 @@ class LegacyApexMemory(Specifiable):
             beta ():
             n_step_adjustment ():
         """
-        super(ApexMemory, self).__init__()
+        super(LegacyApexMemory, self).__init__()
 
         self.memory_values = []
         self.index = 0
@@ -145,7 +145,6 @@ class LegacyApexMemory(Specifiable):
         sum_prob = self.merged_segment_tree.sum_segment_tree.get_sum()
         min_prob = self.merged_segment_tree.min_segment_tree.get_min_value() / sum_prob
         max_weight = (min_prob * self.size) ** (-self.beta)
-        indices = np.random.randint(low=0, high=self.size - 1 - 1, size=(num_records, ))
         weights = []
         for index in indices:
             sample_prob = self.merged_segment_tree.sum_segment_tree.get(index) / sum_prob

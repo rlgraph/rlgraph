@@ -120,8 +120,7 @@ class ApexMemory(Specifiable):
     def get_records(self, num_records):
         indices = []
         # Ensure we always have n-next states.
-        # TODO potentially block this if size - 1 - nstep < 1?
-        prob_sum = self.merged_segment_tree.sum_segment_tree.get_sum(0, self.size - 1 - self.n_step_adjustment)
+        prob_sum = self.merged_segment_tree.sum_segment_tree.get_sum(0, self.size - 1)
         samples = np.random.random(size=(num_records,)) * prob_sum
         for sample in samples:
             indices.append(self.merged_segment_tree.sum_segment_tree.index_of_prefixsum(prefix_sum=sample))
@@ -129,7 +128,6 @@ class ApexMemory(Specifiable):
         sum_prob = self.merged_segment_tree.sum_segment_tree.get_sum()
         min_prob = self.merged_segment_tree.min_segment_tree.get_min_value() / sum_prob
         max_weight = (min_prob * self.size) ** (-self.beta)
-        indices = np.random.randint(low=0, high=self.size - 1 - 1, size=(num_records, ))
         weights = []
         for index in indices:
             sample_prob = self.merged_segment_tree.sum_segment_tree.get(index) / sum_prob
