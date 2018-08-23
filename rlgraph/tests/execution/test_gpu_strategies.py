@@ -20,6 +20,7 @@ from __future__ import print_function
 import unittest
 from rlgraph.agents import ApexAgent
 from rlgraph.environments import OpenAIGymEnv
+from rlgraph.execution.ray import ApexExecutor
 from rlgraph.tests.test_util import config_from_path
 
 
@@ -27,6 +28,16 @@ class TestGpuStrategies(unittest.TestCase):
     """
     Tests gpu strategies.
     """
+    env_spec = dict(
+        type="openai",
+        gym_env="PongNoFrameskip-v4",
+        # The frameskip in the agent config will trigger worker skips, this
+        # is used for internal env.
+        frameskip=4,
+        max_num_noops=30,
+        episodic_life=True
+    )
+
     def test_multi_gpu_agent_compilation(self):
         """
         Tests if the multi gpu strategy can compile successfully on a multi gpu system.
@@ -42,11 +53,20 @@ class TestGpuStrategies(unittest.TestCase):
         )
         print('Compiled apex agent')
 
-    def test_multi_gpu_update(self):
+    def test_apex_multi_gpu_update(self):
         """
-        Tests if the multi GPU optimizer can perform a successful update.
+        Tests if the multi GPU optimizer can perform successful updates, using the apex executor.
         """
-        pass
+        agent_config = config_from_path("configs/multi_gpu_ray_apex_for_pong.json")
+        executor = ApexExecutor(
+            environment_spec=self.env_spec,
+            agent_config=agent_config,
+        )
+
+        # Executes actual workload.
+        result = executor.execute_workload(workload=dict(
+            num_timesteps=100000, report_interval=10000, report_interval_min_seconds=10)
+        )
 
 
     # TODO (Bart maybe): We should probably have some tests that simply test the update call
