@@ -193,8 +193,13 @@ class RMSPropOptimizer(LocalOptimizer):
     """
     def __init__(self, learning_rate, **kwargs):
         super(RMSPropOptimizer, self).__init__(
-            learning_rate=learning_rate, scope=kwargs.pop("scope", "rmsprop-optimizer"), **kwargs
+            learning_rate=learning_rate, scope=kwargs.pop("scope", "rms-prop-optimizer"), **kwargs
         )
 
         if get_backend() == "tf":
-            self.optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.learning_rate, rho=kwargs.pop("rho", 0.95))
+            self.optimizer = tf.train.RMSPropOptimizer(
+                learning_rate=self.learning_rate,
+                decay=kwargs.pop("decay", 0.99),
+                momentum=kwargs.pop("momentum", 0.0),
+                epsilon=kwargs.pop("epsilon", 0.1),
+            )
