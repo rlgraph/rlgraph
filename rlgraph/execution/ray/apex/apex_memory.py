@@ -134,8 +134,7 @@ class ApexMemory(Specifiable):
             weight = (sample_prob * self.size) ** (-self.beta)
             weights.append(weight / max_weight)
 
-        indices = np.asarray(indices)
-        return self.read_records(indices=indices), indices, np.asarray(weights)
+        return self.read_records(indices=indices), np.array(indices), np.array(weights)
 
     def update_records(self, indices, update):
         for index, loss in zip(indices, update):

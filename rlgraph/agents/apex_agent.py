@@ -70,6 +70,8 @@ class ApexAgent(DQNAgent):
             return ret[1]
         else:
             # Add some additional return-ops to pull (left out normally for performance reasons).
+            # print("LEARNING BATCH INPUT:")
+            # print(batch)
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
                            batch["next_states"], batch["importance_weights"]]
             # print(np.asarray(batch["states"]).shape)
