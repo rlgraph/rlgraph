@@ -101,7 +101,7 @@
       "executor_spec": {
         "redis_address": null,
         "num_cpus": 16,
-        "num_gpus": 0,
+        "num_gpus": 2,
         "weight_sync_steps": 400,
         "replay_sampling_task_depth": 4,
         "env_interaction_task_depth": 2,
