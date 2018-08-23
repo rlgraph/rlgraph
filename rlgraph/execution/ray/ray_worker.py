@@ -319,12 +319,12 @@ class RayWorker(RayActor):
             batch_rewards.extend(sample_rewards[env_id])
             batch_terminals.extend(sample_terminals[env_id])
 
-        print("RAY WORKER STATES:")
-        print(batch_states)
-        print("RAY WORKER ACTIONS:")
-        print(batch_actions)
-        print("RAY WORKER NEXT STATES:")
-        print(batch_next_states)
+        # print("RAY WORKER STATES:")
+        # print(batch_states)
+        # print("RAY WORKER ACTIONS:")
+        # print(batch_actions)
+        # print("RAY WORKER NEXT STATES:")
+        # print(batch_next_states)
         time.sleep(0.1)
         sample_batch, batch_size = self._process_sample_if_necessary(batch_states, batch_actions,
             batch_rewards, batch_next_states, batch_terminals)
