@@ -428,5 +428,6 @@ class RayWorker(RayActor):
             actions=actions,
             rewards=rewards,
             terminals=terminals,
+            next_states=[ray_compress(next_state) for next_state in next_states],
             importance_weights=weights
         ), len(rewards)

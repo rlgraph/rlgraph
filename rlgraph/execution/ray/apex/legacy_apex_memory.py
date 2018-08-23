@@ -26,7 +26,8 @@ from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSe
 from rlgraph.execution.ray.ray_util import ray_decompress
 
 
-class ApexMemory(Specifiable):
+# TODO do not delete yet, will use this as basis for optimized env fragments
+class LegacyApexMemory(Specifiable):
     """
     Apex prioritized replay implementing compression.
     """
@@ -77,8 +78,8 @@ class ApexMemory(Specifiable):
             self.memory_values[self.index] = record
 
         # Weights. # TODO this is problematic due to index not existing.
-        if record[5] is not None:
-            self.merged_segment_tree.insert(self.index, record[5])
+        if record[4] is not None:
+            self.merged_segment_tree.insert(self.index, record[4])
         else:
             self.merged_segment_tree.insert(self.index, self.default_new_weight)
 
@@ -102,12 +103,27 @@ class ApexMemory(Specifiable):
         terminals = list()
         next_states = list()
         for index in indices:
-            state, action, reward, terminal, next_state, weight = self.memory_values[index]
-            states.append(ray_decompress(state))
-            actions.append(action)
+            # TODO remove as array casts if they dont help.
+            state, action, reward, terminal, weight = self.memory_values[index]
+            decompressed_state = np.array(ray_decompress(state), copy=False)
+            states.append(decompressed_state)
+            actions.append(np.array(action, copy=False))
             rewards.append(reward)
             terminals.append(terminal)
-            next_states.append(ray_decompress(next_state))
+
+            decompressed_next_state = decompressed_state
+            # If terminal -> just use same state, already decompressed
+            if terminal:
+                next_states.append(decompressed_next_state)
+            else:
+                # Otherwise advance until correct next state or terminal.
+                next_state = decompressed_next_state
+                for i in range_(self.n_step_adjustment):
+                    next_index = (index + i + 1) % self.size
+                    next_state, _, _, terminal, _ = self.memory_values[next_index]
+                    if terminal:
+                        break
+                next_states.append(np.array(ray_decompress(next_state), copy=False))
 
         return dict(
             states=np.array(states),
@@ -136,8 +152,8 @@ class ApexMemory(Specifiable):
             weight = (sample_prob * self.size) ** (-self.beta)
             weights.append(weight / max_weight)
 
-        indices = np.asarray(indices)
-        return self.read_records(indices=indices), indices, np.asarray(weights)
+        indices = np.array(indices, copy=False)
+        return self.read_records(indices=indices), indices, np.array(weights, copy=False)
 
     def update_records(self, indices, update):
         for index, loss in zip(indices, update):
