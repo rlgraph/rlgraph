@@ -21,7 +21,7 @@ import numpy as np
 
 from rlgraph.utils.ops import FlattenedDataOp
 from rlgraph.components.component import Component
-from rlgraph.components.common.dict_splitter import DictSplitter
+from rlgraph.components.common.dict_splitter import ContainerSplitter
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.nn.concat_layer import ConcatLayer
@@ -395,7 +395,7 @@ class DummyNNWithDictInput(NeuralNetwork):
         self.num_units_b = num_units_b
 
         # Splits the input into two streams.
-        self.splitter = DictSplitter("a", "b")
+        self.splitter = ContainerSplitter("a", "b")
         self.stack_a = DenseLayer(units=self.num_units_a, scope="dense-a")
         self.stack_b = DenseLayer(units=self.num_units_b, scope="dense-b")
         self.concat_layer = ConcatLayer()

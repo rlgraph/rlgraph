@@ -31,7 +31,7 @@ class TupleSplitter(Component):
         Args:
             tuple_length (int): The length of the Tuple Space to split.
         """
-        raise RLGraphError("TupleSplitter is an obsoleted class! Use DictSplitter instead.")
+        raise RLGraphError("TupleSplitter is an obsoleted class! Use ContainerSplitter instead.")
         self.tuple_length = tuple_length
 
         super(TupleSplitter, self).__init__(

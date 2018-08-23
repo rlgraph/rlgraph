@@ -31,7 +31,7 @@ from rlgraph.components.layers.strings.string_to_hash_bucket import StringToHash
 from rlgraph.components.layers.strings.embedding_lookup import EmbeddingLookup
 from rlgraph.components.neural_networks.stack import Stack
 from rlgraph.components.common.repeater_stack import RepeaterStack
-from rlgraph.components.common.dict_splitter import DictSplitter
+from rlgraph.components.common.dict_splitter import ContainerSplitter
 
 
 class LargeIMPALANetwork(NeuralNetwork):
@@ -46,8 +46,9 @@ class LargeIMPALANetwork(NeuralNetwork):
 
         # Create all needed sub-components.
 
-        # DictSplitter for the Env signal (dict of 4 keys: for env image, env text, previous action and reward).
-        self.splitter = DictSplitter("RGB_INTERLEAVED", "INSTR", "previous_action", "previous_reward")
+        # ContainerSplitter for the Env signal (dict of 4 keys: for env image, env text, previous action and reward).
+        self.splitter = ContainerSplitter("RGB_INTERLEAVED", "INSTR", "previous_action", "previous_reward",
+                                          scope="input-splitter")
 
         # The Image Processing Stack (left side of "Large Architecture" Figure 3 in [1]).
         # Conv2D column + ReLU + fc(256) + ReLU.
@@ -162,7 +163,7 @@ class LargeIMPALANetwork(NeuralNetwork):
         # passing it into the main LSTM.
         lstm64 = LSTMLayer(units=64, scope="lstm-64", time_major=False)
 
-        tuple_splitter = DictSplitter()
+        tuple_splitter = ContainerSplitter(tuple_length=2, scope="tuple-splitter")
 
         time_rank_unfold = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold")
 

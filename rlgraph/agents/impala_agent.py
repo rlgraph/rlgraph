@@ -19,8 +19,8 @@ from __future__ import print_function
 
 from rlgraph.agents.agent import Agent
 from rlgraph.components.common.dict_merger import DictMerger
-from rlgraph.components.common.dict_splitter import DictSplitter
-from rlgraph.components.layers.preprocessing.slice import Slice
+from rlgraph.components.common.dict_splitter import ContainerSplitter
+from rlgraph.components.common.slice import Slice
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.helpers.softmax import SoftMax
 from rlgraph.components.layers.preprocessing.reshape import ReShape
@@ -117,7 +117,7 @@ class IMPALAAgent(Agent):
             self.loss_function = None
 
             # A Dict Splitter to split things from the EnvStepper.
-            self.splitter = DictSplitter()  # TODO <- names?
+            self.splitter = ContainerSplitter(tuple_length=8)
             # Slice some data from the EnvStepper (e.g only first internal states are needed).
             self.slicer = Slice()
             # Merge back to insert into FIFO.
@@ -151,7 +151,7 @@ class IMPALAAgent(Agent):
 
             # A Dict splitter to split up items from the queue.
             self.merger = None
-            self.splitter = DictSplitter()
+            self.splitter = ContainerSplitter()
             self.slicer = None
 
             self.softmax = SoftMax()
@@ -240,7 +240,7 @@ class IMPALAAgent(Agent):
 
         Args:
             fifo_queue (FIFOQueue): The FIFOQueue Component used to enqueue env sample runs (n-step).
-            splitter (DictSplitter): The DictSplitter Component to split up a batch from the queue along its
+            splitter (ContainerSplitter): The DictSplitter Component to split up a batch from the queue along its
                 items.
             policy (Policy): The Policy Component, which to update.
             loss_function (IMPALALossFunction): The IMPALALossFunction Component.

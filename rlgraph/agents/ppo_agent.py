@@ -20,7 +20,7 @@ from __future__ import print_function
 import copy
 
 from rlgraph.agents import Agent
-from rlgraph.components import DictMerger, DictSplitter,\
+from rlgraph.components import DictMerger, ContainerSplitter,\
     Memory, PPOLossFunction, Policy
 from rlgraph.spaces import Dict, BoolBox
 
@@ -53,7 +53,7 @@ class PPOAgent(Agent):
 
         self.merger = DictMerger(output_space=self.record_space)
         splitter_input_space = copy.deepcopy(self.record_space)
-        self.splitter = DictSplitter(input_space=splitter_input_space)
+        self.splitter = ContainerSplitter(input_space=splitter_input_space)
         self.loss_function = PPOLossFunction(clip_ratio=clip_ratio, discount=self.discount)
 
         self.define_api_methods()

@@ -18,8 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-#from rlgraph.components.common.dict_merger import DictMerger
-#from rlgraph.components.common.dict_splitter import DictSplitter
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.spaces import ContainerSpace, Dict
@@ -56,9 +54,6 @@ class DictPreprocessorStack(PreprocessorStack):
                 spec, scope="preprocessor-stack-{}".format(i)
             )
 
-        #self.splitter = DictSplitter(*list(self.preprocessors.keys()))
-        #self.merger = DictMerger(*list(self.preprocessors.keys()))
-
         # NOTE: No automatic API-methods. Define them all ourselves.
         kwargs["api_methods"] = {}
         default_dict(kwargs, dict(scope=kwargs.pop("scope", "dict-preprocessor-stack")))
@@ -75,7 +70,7 @@ class DictPreprocessorStack(PreprocessorStack):
             return self.call(self.preprocessors[key].preprocess, inputs)
         # Simple pass through, no preprocessing.
         else:
-            return tf.identity(inputs)
+            return inputs
 
     def reset(self):
         # TODO: python-Components: For now, we call each preprocessor's graph_fn directly.
