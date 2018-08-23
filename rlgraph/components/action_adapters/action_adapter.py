@@ -145,9 +145,10 @@ class ActionAdapter(Component):
         probs_and_log_probs = self.call(self._graph_fn_get_parameters_log_probs, action_layer_output_reshaped)
         return (action_layer_output_reshaped,) + probs_and_log_probs
 
+    # TODO: Use a SoftMax Component instead (uses the same code as the one below).
     def _graph_fn_get_parameters_log_probs(self, logits):
         """
-        Creates properties/parameters and logits from some reshaped output.
+        Creates properties/parameters and log-probs from some reshaped output.
 
         Args:
             logits (SingleDataOp): The output of some layer that is already reshaped
