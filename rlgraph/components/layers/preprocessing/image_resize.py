@@ -22,6 +22,7 @@ import numpy as np
 from six.moves import xrange as range_
 
 from rlgraph import get_backend
+from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils.ops import unflatten_op
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 
@@ -57,6 +58,16 @@ class ImageResize(PreprocessLayer):
         self.output_spaces = None
 
     def get_preprocessed_space(self, space):
+        ## Test sending np samples to get number of return values and output spaces without having to call
+        ## the tf graph_fn.
+        #backend = self.backend
+        #self.backend = "python"
+        #sample = space.sample(size=1)
+        #out = self._graph_fn_apply(sample)
+        #new_space = get_space_from_op(out)
+        #self.backend = backend
+        #return new_space
+
         ret = dict()
         for key, value in space.flatten().items():
             # Do some sanity checking.
@@ -75,6 +86,7 @@ class ImageResize(PreprocessLayer):
         in_space = input_spaces["preprocessing_inputs"]
         self.output_spaces = self.get_preprocessed_space(in_space)
 
+    # @rlgraph.graph_fn
     def _graph_fn_apply(self, preprocessing_inputs):
         """
         Images come in with either a batch dimension or not.
@@ -82,7 +94,7 @@ class ImageResize(PreprocessLayer):
         if self.backend == "python" or get_backend() == "python":
             if isinstance(preprocessing_inputs, list):
                 preprocessing_inputs = np.asarray(preprocessing_inputs)
-            had_single_color_dim = (preprocessing_inputs.shape[3] == 1)
+            had_single_color_dim = (preprocessing_inputs.shape[-1] == 1)
             # Batch of samples.
             if preprocessing_inputs.ndim == 4:
                 resized = []
@@ -93,8 +105,9 @@ class ImageResize(PreprocessLayer):
                 resized = np.asarray(resized)
             # Single sample.
             else:
-                resized = cv2.resize(preprocessing_inputs, dsize=(self.width, self.height),
-                                     interpolation=self.cv2_interpolation)
+                resized = cv2.resize(
+                    preprocessing_inputs, dsize=(self.width, self.height), interpolation=self.cv2_interpolation
+                )
 
             # cv2.resize removes the color rank, if its dimension is 1 (e.g. grayscale), add it back here.
             if had_single_color_dim is True:
