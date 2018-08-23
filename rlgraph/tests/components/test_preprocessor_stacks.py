@@ -76,20 +76,15 @@ class TestPreprocessorStacks(unittest.TestCase):
 
     preprocessing_spec_ray_pong = [
         {
-            "type": "grayscale",
-            "keep_rank": True,
-            "scope": "grayscale"
-        },
-        {
             "type": "image_resize",
             "width": 84,
             "height": 84,
             "scope": "image_resize"
         },
         {
-            "type": "convert_type",
-            "to_dtype": "float",
-            "scope": "convert_type"
+            "type": "grayscale",
+            "keep_rank": True,
+            "scope": "grayscale"
         },
         {
             "type": "sequence",

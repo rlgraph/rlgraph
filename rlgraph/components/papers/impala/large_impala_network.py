@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components.common.tuple_splitter import TupleSplitter
+#from rlgraph.components.common.tuple_splitter import TupleSplitter
 from rlgraph.components.neural_networks import NeuralNetwork
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.nn.conv2d_layer import Conv2DLayer
@@ -162,7 +162,7 @@ class LargeIMPALANetwork(NeuralNetwork):
         # passing it into the main LSTM.
         lstm64 = LSTMLayer(units=64, scope="lstm-64", time_major=False)
 
-        tuple_splitter = TupleSplitter(2)
+        tuple_splitter = DictSplitter()
 
         time_rank_unfold = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold")
 

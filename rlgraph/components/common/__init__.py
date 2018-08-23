@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from rlgraph.components.common.dict_splitter import DictSplitter
 from rlgraph.components.common.dict_merger import DictMerger
-from rlgraph.components.common.tuple_splitter import TupleSplitter
+#from rlgraph.components.common.tuple_splitter import TupleSplitter
 from rlgraph.components.common.synchronizable import Synchronizable
 from rlgraph.components.common.decay_components import DecayComponent, LinearDecay, PolynomialDecay, ExponentialDecay
 from rlgraph.components.common.noise_components import NoiseComponent, ConstantNoise, GaussianNoise, \
@@ -47,7 +47,7 @@ NoiseComponent.__lookup_classes__ = dict(
 NoiseComponent.__default_constructor__ = GaussianNoise
 
 
-__all__ = ["DictSplitter", "DictMerger", "TupleSplitter",
+__all__ = ["DictSplitter", "DictMerger", #"TupleSplitter",
            "Synchronizable", "RepeaterStack",
            "DecayComponent", "LinearDecay", "PolynomialDecay", "ExponentialDecay",
            "NoiseComponent", "ConstantNoise", "GaussianNoise", "OrnsteinUhlenbeckNoise",

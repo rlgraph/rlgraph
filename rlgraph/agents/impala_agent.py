@@ -20,7 +20,9 @@ from __future__ import print_function
 from rlgraph.agents.agent import Agent
 from rlgraph.components.common.dict_merger import DictMerger
 from rlgraph.components.common.dict_splitter import DictSplitter
+from rlgraph.components.layers.preprocessing.slice import Slice
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
+from rlgraph.components.helpers.softmax import SoftMax
 from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.loss_functions.impala_loss_function import IMPALALossFunction
@@ -114,11 +116,16 @@ class IMPALAAgent(Agent):
 
             self.loss_function = None
 
-            # A Dict merger to merge items into a record for the queue.
+            # A Dict Splitter to split things from the EnvStepper.
+            self.splitter = DictSplitter()  # TODO <- names?
+            # Slice some data from the EnvStepper (e.g only first internal states are needed).
+            self.slicer = Slice()
+            # Merge back to insert into FIFO.
             self.merger = DictMerger(
                 "preprocessed_states", "actions", "rewards", "terminals", "action_probs", "initial_internal_states"
             )
-            self.splitter = None
+
+            self.softmax = None
 
             actor_component = ActorComponent(self.preprocessor, self.policy, self.exploration)
             state_space = self.state_space.with_batch_rank()
@@ -134,7 +141,7 @@ class IMPALAAgent(Agent):
                 add_action_probs=True,
                 action_probs_space=dummy_flattener.get_preprocessed_space(self.action_space)
             )
-            sub_components = [self.environment_stepper, self.merger, self.fifo_queue]
+            sub_components = [self.environment_stepper, self.splitter, self.slicer, self.merger, self.fifo_queue]
         else:
             # Extend input Space definitions to this Agent's specific API-methods.
             self.input_spaces.update(dict(
@@ -145,13 +152,16 @@ class IMPALAAgent(Agent):
             # A Dict splitter to split up items from the queue.
             self.merger = None
             self.splitter = DictSplitter()
+            self.slicer = None
+
+            self.softmax = SoftMax()
 
             # Create an IMPALALossFunction with some parameters.
             self.loss_function = IMPALALossFunction(
                 weight_pg=weight_pg, weight_baseline=weight_baseline, weight_entropy=weight_entropy
             )
 
-            sub_components = [self.fifo_queue, self.splitter, self.preprocessor, self.policy,
+            sub_components = [self.fifo_queue, self.splitter, self.preprocessor, self.policy, self.softmax,
                               self.loss_function, self.optimizer]
 
         # Add all the agent's sub-components to the root.
@@ -177,7 +187,7 @@ class IMPALAAgent(Agent):
         else:
             self.define_api_methods_learner(*sub_components)
 
-    def define_api_methods_explorer(self, env_stepper, merger, fifo_queue):
+    def define_api_methods_explorer(self, env_stepper, splitter, slicer, merger, fifo_queue):
         """
         Defines the API-methods used by an IMPALA explorer. Explorers only step through an environment (n-steps at
         a time), collect the results and push them into the FIFO queue. Results include: The actions actually
@@ -196,11 +206,11 @@ class IMPALAAgent(Agent):
 
             # TODO: only pass action_prob of the actually taken action into FIFO (one-hot, reduce_sum).
             preprocessed_s, actions, rewards, returns, terminals, next_states, action_log_probs, \
-                internal_states = self.call(self.splitter.split, step_results)
+                internal_states = self.call(splitter.split, step_results)
 
-            last_next_state = self.call(self.slicer.slice, next_states, -1)
-            initial_internal_states = self.call(self.slicer.slice, internal_states, 0)
-            current_internal_states = self.call(self.slicer.slice, internal_states, -1)
+            last_next_state = self.call(slicer.slice, next_states, -1)
+            initial_internal_states = self.call(slicer.slice, internal_states, 0)
+            current_internal_states = self.call(slicer.slice, internal_states, -1)
 
             record = self.call(
                 merger.merge, preprocessed_s, actions, rewards, terminals, last_next_state,
@@ -222,7 +232,7 @@ class IMPALAAgent(Agent):
 
         self.root_component.define_api_method("reset", reset)
 
-    def define_api_methods_learner(self, fifo_queue, splitter, preprocessor, policy, loss_function, optimizer):
+    def define_api_methods_learner(self, fifo_queue, splitter, preprocessor, policy, softmax, loss_function, optimizer):
         """
         Defines the API-methods used by an IMPALA learner. Its job is basically: Pull a batch from the
         FIFOQueue, split it up into its components and pass these through the loss function and into the optimizer for
@@ -239,25 +249,30 @@ class IMPALAAgent(Agent):
         def update_from_memory(self):
             records = self.call(fifo_queue.get_records, self.update_spec["batch_size"])
 
-            preprocessed_s, actions, rewards, terminals, last_s_prime, action_probs, \
+            preprocessed_s, actions, rewards, terminals, last_s_prime, action_probs_mu, \
                 initial_internal_states = self.call(splitter.split, records)
 
             preprocessed_last_s_prime = self.call(preprocessor.preprocess, last_s_prime)
+            # TODO: should we concatenate preprocessed_s and preprocessed_last_s_prime?
 
             # Get the pi-action probs AND the value for all our states.
+            state_values_pi, logits_pi, _ = \
+                self.call(policy.get_baseline_output, preprocessed_s, initial_internal_states)
 
-            # Get the different Q-values.
-            q_values_s = self.call(policy.get_q_values, preprocessed_s)
+            _, log_probabilities_pi = self.call(softmax.get_probabilities_and_log_probs, logits_pi)
 
-            loss, loss_per_item = self.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-                                             qt_values_sp, q_values_sp)
+            # Calculate the loss.
+            loss, loss_per_item = self.call(
+                loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
+                terminals
+            )
 
             policy_vars = self.call(policy._variables)
             # Pass extra args for device strategy.
-            step_op = self.call(optimizer.step, policy_vars, loss, q_values_s, actions, rewards, terminals,
-                                             qt_values_sp, q_values_sp)
+            step_op = self.call(optimizer.step, policy_vars, loss)  #, q_values_s, actions, rewards, terminals,
+                                             #qt_values_sp, q_values_sp)
 
-            return step_op, loss, loss_per_item, records, q_values_s
+            return step_op, loss, loss_per_item  #, records  #, q_values_s
 
         self.root_component.define_api_method("update_from_memory", update_from_memory)
 
