@@ -78,7 +78,7 @@ class IMPALALossFunction(LossFunction):
             log_probs_actions_pi (DataOp): The log probabilities for all possible actions coming from the learner's
                 policy (pi). Dimensions are: time x batch x action-space+categories.
             log_probs_actions_taken_mu (DataOp): The log probabilities for only the taken actions coming from the
-                explorer's policies (mu). Dimensions are: time x batch.
+                actor's policies (mu). Dimensions are: time x batch.
             values (DataOp): The state value estimates coming from baseline node of the learner's policy (pi).
                 Dimensions are: time x batch.
             actions (DataOp): The actually taken actions. Dimensions are: time x batch x action-space.

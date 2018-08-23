@@ -55,9 +55,9 @@ class TestAllCompile(unittest.TestCase):
         )
         print('Compiled apex agent')
 
-    def test_impala_agent_compilation(self):
+    def test_impala_agents_compilation(self):
         """
-        Tests IMPALA agent compilation (explorer).
+        Tests IMPALA agent compilation (actor and learner).
 
         """
         try:
@@ -71,9 +71,9 @@ class TestAllCompile(unittest.TestCase):
             level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
         )
 
-        agent = IMPALAAgent.from_spec(
+        actor_agent = IMPALAAgent.from_spec(
             agent_config,
-            type="explorer",
+            type="actor",
             state_space=env.state_space,
             action_space=env.action_space,
             internal_states_space=Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True),
@@ -81,8 +81,17 @@ class TestAllCompile(unittest.TestCase):
             execution_spec=dict(disable_monitoring=True)
         )
         # Start Specifiable Server with Env manually.
-        agent.environment_stepper.environment_server.start()
+        actor_agent.environment_stepper.environment_server.start()
+        print("Compiled IMPALA type=actor agent.")
+        actor_agent.environment_stepper.environment_server.stop()
 
-        print("Compiled IMPALA type=explorer agent.")
+        # Try compiling the learner.
+        learner_agent = IMPALAAgent.from_spec(
+            agent_config,
+            type="learner",
+            state_space=env.state_space,
+            action_space=env.action_space,
+            internal_states_space=Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True),
+        )
 
-        agent.environment_stepper.environment_server.stop()
+        print("Compiled IMPALA type=learner agent.")

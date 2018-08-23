@@ -33,7 +33,7 @@ from rlgraph.spaces import FloatBox, Tuple
 
 class IMPALAAgent(Agent):
     """
-    An Agent implementing the IMPALA algorithm described in [1]. The Agent contains both learner and explorer
+    An Agent implementing the IMPALA algorithm described in [1]. The Agent contains both learner and actor
     API-methods, which will be put into the graph depending on the type ().
 
     [1] IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures - Espeholt, Soyer,
@@ -47,16 +47,16 @@ class IMPALAAgent(Agent):
         """
         Args:
             fifo_queue_spec (Optional[dict,FIFOQueue]): The spec for the FIFOQueue to use for the IMPALA algorithm.
-            environment_spec (dict): The spec for constructing an Environment object for an explorer-type IMPALA agent.
+            environment_spec (dict): The spec for constructing an Environment object for an actor-type IMPALA agent.
             weight_pg (float): See IMPALALossFunction Component.
             weight_baseline (float): See IMPALALossFunction Component.
             weight_entropy (float): See IMPALALossFunction Component.
 
         Keyword Args:
-            type (str): One of "explorer" or "learner". Default: "explorer".
+            type (str): One of "actor" or "learner". Default: "actor".
         """
-        type_ = kwargs.pop("type", "explorer")
-        assert type_ in ["explorer", "learner"]
+        type_ = kwargs.pop("type", "actor")
+        assert type_ in ["actor", "learner"]
         self.type = type_
 
         # Network-spec by default is a "large architecture" IMPALA network.
@@ -73,7 +73,7 @@ class IMPALAAgent(Agent):
             update_spec = kwargs.pop("update_spec", None)
             environment_spec = None
             preprocessing_spec = None
-        # Explorers won't need to learn (no optimizer needed in graph).
+        # Actors won't need to learn (no optimizer needed in graph).
         else:
             optimizer_spec = None
             update_spec = kwargs.pop("update_spec", dict(do_updates=False))
@@ -99,13 +99,13 @@ class IMPALAAgent(Agent):
             **kwargs
         )
 
-        # Create our FIFOQueue (explorers will enqueue, learner(s) will dequeue).
+        # Create our FIFOQueue (actors will enqueue, learner(s) will dequeue).
         self.fifo_queue = FIFOQueue.from_spec(fifo_queue_spec, reuse_variable_scope="shared-fifo-queue")
         # Check whether we have an RNN.
         self.has_rnn = self.neural_network.has_rnn()
 
         # Add all our sub-components to the core.
-        if self.type == "explorer":
+        if self.type == "actor":
             # Extend input Space definitions to this Agent's specific API-methods.
             self.input_spaces.update(dict(
                 weights="variables:environment-stepper/actor-component/policy",
@@ -119,7 +119,8 @@ class IMPALAAgent(Agent):
             # A Dict Splitter to split things from the EnvStepper.
             self.splitter = ContainerSplitter(tuple_length=8)
             # Slice some data from the EnvStepper (e.g only first internal states are needed).
-            self.slicer = Slice()
+            self.states_slicer = Slice()
+            self.internal_states_slicer = Slice()
             # Merge back to insert into FIFO.
             self.merger = DictMerger(
                 "preprocessed_states", "actions", "rewards", "terminals", "action_probs", "initial_internal_states"
@@ -141,7 +142,8 @@ class IMPALAAgent(Agent):
                 add_action_probs=True,
                 action_probs_space=dummy_flattener.get_preprocessed_space(self.action_space)
             )
-            sub_components = [self.environment_stepper, self.splitter, self.slicer, self.merger, self.fifo_queue]
+            sub_components = [self.environment_stepper, self.splitter, self.states_slicer, self.internal_states_slicer,
+                              self.merger, self.fifo_queue]
         else:
             # Extend input Space definitions to this Agent's specific API-methods.
             self.input_spaces.update(dict(
@@ -152,7 +154,8 @@ class IMPALAAgent(Agent):
             # A Dict splitter to split up items from the queue.
             self.merger = None
             self.splitter = ContainerSplitter()
-            self.slicer = None
+            self.states_slicer = None
+            self.internal_states_slicer = None
 
             self.softmax = SoftMax()
 
@@ -182,14 +185,14 @@ class IMPALAAgent(Agent):
             "environment-stepper/actor-component/dict-preprocessor-stack"
         )
         # Assemble the specific agent.
-        if self.type == "explorer":
-            self.define_api_methods_explorer(*sub_components)
+        if self.type == "actor":
+            self.define_api_methods_actor(*sub_components)
         else:
             self.define_api_methods_learner(*sub_components)
 
-    def define_api_methods_explorer(self, env_stepper, splitter, slicer, merger, fifo_queue):
+    def define_api_methods_actor(self, env_stepper, splitter, states_slicer, internal_states_slicer, merger, fifo_queue):
         """
-        Defines the API-methods used by an IMPALA explorer. Explorers only step through an environment (n-steps at
+        Defines the API-methods used by an IMPALA actor. Actors only step through an environment (n-steps at
         a time), collect the results and push them into the FIFO queue. Results include: The actions actually
         taken, the discounted accumulated returns for each action, the probability of each taken action according to
         the behavior policy.
@@ -208,9 +211,9 @@ class IMPALAAgent(Agent):
             preprocessed_s, actions, rewards, returns, terminals, next_states, action_log_probs, \
                 internal_states = self.call(splitter.split, step_results)
 
-            last_next_state = self.call(slicer.slice, next_states, -1)
-            initial_internal_states = self.call(slicer.slice, internal_states, 0)
-            current_internal_states = self.call(slicer.slice, internal_states, -1)
+            last_next_state = self.call(states_slicer.slice, next_states, -1)
+            initial_internal_states = self.call(internal_states_slicer.slice, internal_states, 0)
+            current_internal_states = self.call(internal_states_slicer.slice, internal_states, -1)
 
             record = self.call(
                 merger.merge, preprocessed_s, actions, rewards, terminals, last_next_state,

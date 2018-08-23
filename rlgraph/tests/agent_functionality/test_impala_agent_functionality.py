@@ -328,7 +328,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         environment_stepper.environment_server.stop()
         test.terminate()
 
-    def test_impala_explorer_agent_functionality(self):
+    def test_impala_actor_agent_functionality(self):
         """
         Creates a IMPALAAgent and runs it for a few steps in a DeepMindLab Env to vigorously test
         all steps of the learning process.
@@ -340,7 +340,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         env = DeepmindLabEnv.from_spec(environment_spec)
         agent = IMPALAAgent.from_spec(
             agent_config,
-            type="explorer",
+            type="actor",
             environment_spec=environment_spec,
             state_space=env.state_space,
             action_space=env.action_space,
