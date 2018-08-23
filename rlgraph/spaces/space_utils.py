@@ -20,14 +20,14 @@ from __future__ import print_function
 from six.moves import xrange as range_
 import numpy as np
 
-from rlgraph.spaces import BoxSpace
+from rlgraph.spaces.bool_box import BoolBox
+from rlgraph.spaces.box_space import BoxSpace
+from rlgraph.spaces.containers import ContainerSpace, Dict, Tuple
+from rlgraph.spaces.float_box import FloatBox
+from rlgraph.spaces.int_box import IntBox
+from rlgraph.spaces.text_box import TextBox
 from rlgraph.utils.util import RLGraphError, dtype, get_shape
 from rlgraph.utils.ops import SingleDataOp
-from rlgraph.spaces.bool_box import BoolBox
-from rlgraph.spaces.int_box import IntBox
-from rlgraph.spaces.float_box import FloatBox
-from rlgraph.spaces.text_box import TextBox
-from rlgraph.spaces.containers import Dict, Tuple
 
 
 # TODO: replace completely by `Component.get_variable` (python-backend)
@@ -220,13 +220,20 @@ def sanity_check_space(
             raise RLGraphError("ERROR: Space ({}) must have categories (globally valid value bounds)!".format(space))
 
     if rank is not None:
+        flattened = space.flatten()
         if isinstance(rank, int):
-            if space.rank != rank:
-                raise RLGraphError("ERROR: Space ({}) has rank {}, but must have rank {}!".
-                                   format(space, space.rank, rank))
-        elif not ((rank[0] or 0) <= space.rank <= (rank[1] or float("inf"))):
-            raise RLGraphError("ERROR: Space ({}) has rank {}, but its rank must be between {} and "
-                               "{}!".format(space, space.rank, rank[0], rank[1]))
+            for key, sub_space in flattened.items():
+                if sub_space.rank != rank:
+                    raise RLGraphError(
+                        "ERROR: A Space (flat-key={}) of '{}' has rank {}, but must have rank "
+                        "{}!".format(key, space, sub_space.rank, rank)
+                    )
+        else:
+            for key, sub_space in flattened.items():
+                if not ((rank[0] or 0) <= sub_space.rank <= (rank[1] or float("inf"))):
+                    raise RLGraphError(
+                        "ERROR: A Space (flat-key={}) of '{}' has rank {}, but its rank must be between {} and "
+                        "{}!".format(key, space, sub_space.rank, rank[0], rank[1]))
 
     if num_categories is not None:
         if not isinstance(space, IntBox):
