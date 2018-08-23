@@ -33,11 +33,6 @@
       "divisor": 255,
       "scope": "divide"
     },
-      {
-      "type": "convert_type",
-      "to_dtype": "float",
-      "scope": "convert_type"
-    },
     {
       "type": "sequence",
       "sequence_length": 4,
