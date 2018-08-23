@@ -39,23 +39,34 @@ class Slice(Component):
         """
         super(Slice, self).__init__(scope=scope, **kwargs)
 
+        self.squeeze = squeeze
+
         self.define_api_method("slice", self._graph_fn_slice)
 
-    def check_input_spaces(self, input_spaces, action_space=None):
-        in_space = input_spaces["preprocessing_inputs"]
+    #def check_input_spaces(self, input_spaces, action_space=None):
+    #    in_space = input_spaces["preprocessing_inputs"]
 
-        # Must have at least rank 1.
-        sanity_check_space(in_space, rank=(1, None))
+    #    # OBSOLETE: as we can slice the batch rank as well, which is not part of `rank`.
+    #    ##Must have at least rank 1.
+    #    #sanity_check_space(in_space, rank=(1, None))
 
-    def _graph_fn_slice(self, preprocessing_inputs, start_index=0, end_index=1):
-        slice_ = preprocessing_inputs[start_index:end_index]
-        if self.backend == "python" or get_backend() == "python":
-            if end_index - start_index == 1:
-                slice_ = np.squeeze(slice_, axis=0)
-        elif get_backend() == "tf":
-            slice_ = tf.cond(
-                pred=tf.equal(end_index - start_index, 1),
-                true_fn=lambda: tf.squeeze(slice_, axis=0),
-                false_fn=lambda: slice_
-            )
+    def _graph_fn_slice(self, preprocessing_inputs, start_index=0, end_index=None):
+        if end_index is None:
+            slice_ = preprocessing_inputs[start_index]
+        else:
+            slice_ = preprocessing_inputs[start_index:end_index]
+
+        if self.squeeze is True:
+            if self.backend == "python" or get_backend() == "python":
+                if end_index is None or end_index - start_index == 1:
+                    slice_ = np.squeeze(slice_, axis=0)
+            elif get_backend() == "tf":
+                if end_index is None:
+                    slice_ = tf.squeeze(slice_, axis=0)
+                else:
+                    slice_ = tf.cond(
+                        pred=tf.equal(end_index - start_index, 1),
+                        true_fn=lambda: tf.squeeze(slice_, axis=0),
+                        false_fn=lambda: slice_
+                    )
         return slice_
