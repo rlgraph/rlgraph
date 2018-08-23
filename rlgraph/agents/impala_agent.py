@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from rlgraph.agents.agent import Agent
 from rlgraph.components.common.dict_merger import DictMerger
-from rlgraph.components.common.dict_splitter import ContainerSplitter
+from rlgraph.components.common.container_splitter import ContainerSplitter
 from rlgraph.components.common.slice import Slice
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.helpers.softmax import SoftMax

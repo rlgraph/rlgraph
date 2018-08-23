@@ -31,7 +31,7 @@ from rlgraph.components.layers.strings.string_to_hash_bucket import StringToHash
 from rlgraph.components.layers.strings.embedding_lookup import EmbeddingLookup
 from rlgraph.components.neural_networks.stack import Stack
 from rlgraph.components.common.repeater_stack import RepeaterStack
-from rlgraph.components.common.dict_splitter import ContainerSplitter
+from rlgraph.components.common.container_splitter import ContainerSplitter
 
 
 class LargeIMPALANetwork(NeuralNetwork):

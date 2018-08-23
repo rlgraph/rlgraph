@@ -20,14 +20,14 @@ from __future__ import print_function
 import numpy as np
 import unittest
 
-from rlgraph.components.common import DictSplitter, DictMerger, TupleSplitter
+from rlgraph.components.common import ContainerSplitter, DictMerger
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 
 
 class TestSplitterMergerComponents(unittest.TestCase):
     """
-    Tests the DictSplitter-, TupleSplitter- and DictMerger-Components.
+    Tests the ContainerSplitter-, TupleSplitter- and DictMerger-Components.
     """
 
     def test_dict_splitter(self):
@@ -42,7 +42,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
             add_batch_rank=True
         )
         # Define the output-order.
-        splitter = DictSplitter("g", "a", "b", "c", "d", "e", "f")
+        splitter = ContainerSplitter("g", "a", "b", "c", "d", "e", "f")
         test = ComponentTest(component=splitter, input_spaces=dict(inputs=space))
 
         # Get a batch of samples.
@@ -69,7 +69,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
             add_batch_rank=False
         )
         # Define the output-order.
-        splitter = DictSplitter("b", "c", "d", "a", "f", "e")
+        splitter = ContainerSplitter("b", "c", "d", "a", "f", "e")
         test = ComponentTest(component=splitter, input_spaces=dict(inputs=space))
 
         # Single sample (no batch rank).
@@ -88,7 +88,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
     def test_tuple_splitter(self):
         space = Tuple(FloatBox(shape=()), bool, IntBox(low=0, high=255), add_batch_rank=True)
         # Define the output-order.
-        splitter = TupleSplitter(tuple_length=len(space))
+        splitter = ContainerSplitter(tuple_length=3)
         test = ComponentTest(component=splitter, input_spaces=dict(inputs=space))
 
         # Single sample (batch size=6).

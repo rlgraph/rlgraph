@@ -23,7 +23,7 @@ from rlgraph.spaces import Dict, Tuple
 
 
 # TODO: rename to DictTupleSplitter
-class DictSplitter(Component):
+class ContainerSplitter(Component):
     """
     Splits an incoming container Space into all its single primitive Spaces.
     """
@@ -41,9 +41,14 @@ class DictSplitter(Component):
                     Example: output_order=[0, 2, 1]
                     -> split(Tuple(o1, o2, o3))
                     -> return: list(o1, o3, o2), where o1-3 are ops
+
+        Keyword Args:
+            tuple_length (Optional[int]): If no output_order is given, use this number to hint how many
+                return values our graph_fn has.
         """
-        super(DictSplitter, self).__init__(
-            scope=kwargs.pop("scope", "dict-splitter"), graph_fn_num_outputs=dict(_graph_fn_split=len(output_order)),
+        super(ContainerSplitter, self).__init__(
+            scope=kwargs.pop("scope", "container-splitter"),
+            graph_fn_num_outputs=dict(_graph_fn_split=kwargs.pop("tuple_length", len(output_order))),
             **kwargs
         )
         self.output_order = output_order
@@ -58,28 +63,33 @@ class DictSplitter(Component):
         in_space = input_spaces["inputs"]
 
         self.type = type(in_space)
+        if self.output_order is None:
+            # Auto-ordering only valid for incoming Tuples.
+            assert self.type == Tuple, \
+                "ERROR: Cannot use auto-ordering in ContainerSplitter for input Dict spaces! Only ok for Tuples."
+            self.output_order = list(range(len(in_space)))
 
         # Make sure input is a Dict (unsorted).
         assert self.type == Dict or self.type == Tuple,\
-            "ERROR: Input Space for DictSplitter ({}) must be Dict or Tuple (but is " \
+            "ERROR: Input Space for ContainerSplitter ({}) must be Dict or Tuple (but is " \
             "{})!".format(self.global_scope, in_space)
-
-        # Auto-ordering only valid for incoming Tuples.
-        assert self.output_order is not None or self.type == Tuple, \
-            "ERROR: Cannot use auto-ordering in DictSplitter for input Dict spaces! Only ok for Tuples."
 
         # Keys of in_space must all be part of `self.output_order`.
         for i, name_or_index in enumerate(self.output_order):
             if self.type == Dict and name_or_index not in in_space:
                 raise RLGraphError(
-                    "Name #{} in `output_order` (value={}) of DictSplitter '{}' is not part of the input Space "
+                    "Name #{} in `output_order` (value={}) of ContainerSplitter '{}' is not part of the input Space "
                     "({})!".format(i, name_or_index, self.scope, in_space)
                 )
             elif self.type == Tuple and name_or_index >= len(in_space):
                 raise RLGraphError(
-                    "Index #{} in `output_order` (value={}) of DictSplitter '{}' is outside the length of the input "
+                    "Index #{} in `output_order` (value={}) of ContainerSplitter '{}' is outside the length of the input "
                     "Space ({})!".format(i, name_or_index, self.scope, in_space)
                 )
+
+    def create_variables(self, input_spaces, action_space=None):
+        in_space = input_spaces["inputs"]
+        self.type = type(in_space)
 
     def _graph_fn_split(self, inputs):
         """
@@ -98,12 +108,12 @@ class DictSplitter(Component):
                 ret[self.output_order.index(key)] = value
         else:
             # No special ordering -> return as is.
-            if self.output_order is None:
-                for index, value in enumerate(inputs):
-                    ret[index] = value
-            # Custom re-ordering of the input tuple.
-            else:
-                for index, value in enumerate(inputs):
-                    ret[self.output_order.index(index)] = value
+            #if self.output_order is None:
+            #    for index, value in enumerate(inputs):
+            #        ret[index] = value
+            ## Custom re-ordering of the input tuple.
+            #else:
+            for index, value in enumerate(inputs):
+                ret[self.output_order.index(index)] = value
 
         return tuple(ret)

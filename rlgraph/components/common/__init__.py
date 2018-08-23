@@ -17,9 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components.common.dict_splitter import ContainerSplitter
+from rlgraph.components.common.container_splitter import ContainerSplitter
 from rlgraph.components.common.dict_merger import DictMerger
-#from rlgraph.components.common.tuple_splitter import TupleSplitter
 from rlgraph.components.common.synchronizable import Synchronizable
 from rlgraph.components.common.decay_components import DecayComponent, LinearDecay, PolynomialDecay, ExponentialDecay
 from rlgraph.components.common.noise_components import NoiseComponent, ConstantNoise, GaussianNoise, \

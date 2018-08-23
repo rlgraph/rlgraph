@@ -21,7 +21,7 @@ import numpy as np
 
 from rlgraph.utils.ops import FlattenedDataOp
 from rlgraph.components.component import Component
-from rlgraph.components.common.dict_splitter import ContainerSplitter
+from rlgraph.components.common.container_splitter import ContainerSplitter
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.nn.concat_layer import ConcatLayer

@@ -22,8 +22,7 @@ import numpy as np
 import os
 import unittest
 
-from rlgraph.components.layers import GrayScale, ReShape, Multiply, Divide, Clip, ImageBinary, ImageResize, ImageCrop, \
-    Slice
+from rlgraph.components.layers import GrayScale, ReShape, Multiply, Divide, Clip, ImageBinary, ImageResize, ImageCrop
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 
@@ -229,24 +228,3 @@ class TestPreprocessors(unittest.TestCase):
             [[1, 0], [0, 1]]
         ])
         test.test(("apply", input_images), expected_outputs=expected)
-
-    def test_slice(self):
-        slicer = Slice(squeeze=True)
-        input_space = FloatBox(shape=(2, 2, 3), add_batch_rank=True, add_time_rank=True, time_major=True)
-        test = ComponentTest(component=slicer, input_spaces=dict(
-            preprocessing_inputs=input_space,
-            start_index=int,
-            end_index=int
-        ))
-
-        test.test("reset")
-        # Time-steps=3, Batch=5
-        inputs = input_space.sample(size=(3, 5))
-        expected = inputs[1]
-        test.test(("apply", [inputs, 1, 2]), expected_outputs=expected)
-
-        expected = inputs[0:2]
-        test.test(("apply", [inputs, 0, 2]), expected_outputs=expected)
-
-        expected = inputs[0]
-        test.test(("apply", [inputs, 0, 1]), expected_outputs=expected)
