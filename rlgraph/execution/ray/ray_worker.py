@@ -228,10 +228,17 @@ class RayWorker(RayActor):
                                             use_exploration=use_exploration, apply_preprocessing=False)
 
             for i, env_id in enumerate(self.env_ids):
-                sample_states[env_id].append(self.preprocessed_states_buffer[i])
+                print("APPENDING SAMPLE STATE: {}".format(self.preprocessed_states_buffer[i]))
+                sample_states[env_id].append(np.array(self.preprocessed_states_buffer[i]))
+                #sample_states[env_id].append(self.preprocessed_states_buffer[i])
+
+                #print("SAMPLE STATES AFTER APPEND: {}".format(sample_states))
                 sample_actions[env_id].append(actions[i])
 
             next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
+            print("STATE WAS: {}".format(self.preprocessed_states_buffer))
+            print("ACTION WAS: {}".format(actions))
+            print("NEXT STATES: {}".format(next_states))
             # Worker frameskip not needed as done in env.
             # for _ in range_(self.worker_frameskip):
             #     next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
@@ -291,6 +298,8 @@ class RayWorker(RayActor):
 
         for i, env_id in enumerate(self.env_ids):
             env_sample_states = sample_states[env_id]
+            # print("SAMPLE STATES IN ASSEMBLE BATCH:")
+            # print(env_sample_states)
 
             # Get next states for this environment's trajectory.
             env_sample_next_states = env_sample_states[1:]
@@ -310,6 +319,13 @@ class RayWorker(RayActor):
             batch_rewards.extend(sample_rewards[env_id])
             batch_terminals.extend(sample_terminals[env_id])
 
+        print("RAY WORKER STATES:")
+        print(batch_states)
+        print("RAY WORKER ACTIONS:")
+        print(batch_actions)
+        print("RAY WORKER NEXT STATES:")
+        print(batch_next_states)
+        time.sleep(0.1)
         sample_batch, batch_size = self._process_sample_if_necessary(batch_states, batch_actions,
             batch_rewards, batch_next_states, batch_terminals)
 
