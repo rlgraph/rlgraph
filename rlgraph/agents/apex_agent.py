@@ -70,12 +70,8 @@ class ApexAgent(DQNAgent):
             return ret[1]
         else:
             # Add some additional return-ops to pull (left out normally for performance reasons).
-            # print("LEARNING BATCH INPUT:")
-            # print(batch)
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
                            batch["next_states"], batch["importance_weights"]]
-            # print(np.asarray(batch["states"]).shape)
-            # print(np.asarray(batch["next_states"]).shape)
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input), sync_call)
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
