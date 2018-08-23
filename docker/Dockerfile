@@ -10,11 +10,13 @@ RUN rm -rf python && ln -s python3 python
 
 # Install all necessary packages to run any RLgraph experiment in any RLgraph supported environment.
 RUN apt-get install -y --no-install-recommends tzdata shared-mime-info sudo vim git python3.6-dev python3-pip \
-    python3-setuptools libopencv-dev
-RUN apt-get install -y --no-install-recommends cmake clang-5.0 clang-3.8 git build-essential ca-certificates \
-    pkg-config bash-completion
-RUN apt-get install -y lua5.1 liblua5.1-0-dev libffi-dev gettext freeglut3-dev libsdl2-dev libosmesa6-dev \
-      python3-pil realpath python3-numpy
+    python3-setuptools libopencv-dev cmake clang-5.0 clang-3.8 git build-essential ca-certificates \
+    pkg-config bash-completion lua5.1 liblua5.1-0-dev libffi-dev gettext freeglut3-dev libsdl2-dev libjpeg-dev \
+    libosmesa6-dev python3-pil realpath python3-numpy
+
+# Vizdoom stuff
+RUN apt-get install -y --no-install-recommends nasm tar libbz2-dev libgtk2.0-dev libfluidsynth-dev libgme-dev \
+    libopenal-dev timidity libwildmidi-dev libboost-all-dev liblua5.1-0-dev julia
 
 # Needed for rendering openAI gym[atari]-Envs in Win Docker container using xMing.
 RUN apt-get install -y freeglut3-dev
