@@ -113,14 +113,12 @@ class MultiGpuSyncOptimizer(Optimizer):
         #   and gets gradients from each subgraph, then averages them.
         # - Apply averaged gradients to master component.
         # - Sync new weights to subgraphs.
-
-        # TODO: 1) replace all self_ by self 2) Make sure we have no fixtures (links to outer scope) in here.
         input_batches = self.call(self.batch_splitter.split_batch, *inputs)
 
         # Load to device, return.
         input_batches = self.call(self._graph_fn_load_to_device, input_batches)
 
-        # Multi gpu optimizer passes shards to the respective subg-raphs.
+        # Multi gpu optimizer passes shards to the respective sub-graphs.
         averaged_grads = self.call(self._graph_fn_calculate_gradients, input_batches)
 
         # Apply averaged grads to main policy.

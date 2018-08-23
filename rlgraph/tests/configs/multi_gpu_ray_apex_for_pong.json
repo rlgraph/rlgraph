@@ -91,6 +91,7 @@
     "disable_monitoring": true,
     "session_config": {
 		"allow_soft_placement": true,
+        "log_device_placement": true,
 		"device_count": {
 			"CPU": 1
 		},
