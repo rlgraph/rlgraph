@@ -102,14 +102,18 @@ class AdamOptimizer(LocalOptimizer):
     https://arxiv.org/abs/1412.6980
     """
     def __init__(self, learning_rate, **kwargs):
+        self.beta1 = kwargs.pop("beta_1", kwargs.pop("beta1", 0.9))
+        self.beta2 = kwargs.pop("beta_2", kwargs.pop("beta2", 0.999))
+
         super(AdamOptimizer, self).__init__(
             learning_rate=learning_rate, scope=kwargs.pop("scope", "adam-optimizer"), **kwargs
         )
+
         if get_backend() == "tf":
             self.optimizer = tf.train.AdamOptimizer(
                 learning_rate=self.learning_rate,
-                beta1=kwargs.pop("beta_1", kwargs.pop("beta1", 0.9)),
-                beta2=kwargs.pop("beta_2", kwargs.pop("beta2", 0.999))
+                beta1=self.beta1,
+                beta2=self.beta2
             )
 
 
@@ -120,6 +124,10 @@ class NadamOptimizer(LocalOptimizer):
     http://cs229.stanford.edu/proj2015/054_report.pdf
     """
     def __init__(self, learning_rate, **kwargs):
+        self.beta1 = kwargs.pop("beta_1", kwargs.pop("beta1", 0.9))
+        self.beta2 = kwargs.pop("beta_2", kwargs.pop("beta2", 0.999))
+        self.schedule_decay = kwargs.pop("schedule_decay", 0.004)
+
         super(NadamOptimizer, self).__init__(
             learning_rate=learning_rate, scope=kwargs.pop("scope", "nadam-optimizer"), **kwargs
         )
@@ -127,9 +135,9 @@ class NadamOptimizer(LocalOptimizer):
         if get_backend() == "tf":
             self.optimizer = tf.keras.optimizers.Nadam(
                 lr=self.learning_rate,
-                beta_1=kwargs.pop("beta_1", kwargs.pop("beta1", 0.9)),
-                beta_2=kwargs.pop("beta_2", kwargs.pop("beta2", 0.999)),
-                schedule_decay=kwargs.pop("schedule_decay", 0.004)
+                beta_1=self.beta1,
+                beta_2=self.beta2,
+                schedule_decay=self.schedule_decay
             )
 
 
@@ -141,6 +149,8 @@ class AdagradOptimizer(LocalOptimizer):
     http://www.jmlr.org/papers/volume12/duchi11a/duchi11a.pdf
     """
     def __init__(self, learning_rate, **kwargs):
+        self.initial_accumulator_value = kwargs.pop("initial_accumulator_value", 0.1)
+
         super(AdagradOptimizer, self).__init__(
             learning_rate=learning_rate,
             scope=kwargs.pop("scope", "adagrad-optimizer"),
@@ -150,7 +160,7 @@ class AdagradOptimizer(LocalOptimizer):
         if get_backend() == "tf":
             self.optimizer = tf.train.AdagradOptimizer(
                 learning_rate=self.learning_rate,
-                initial_accumulator_value=kwargs.pop("initial_accumulator_value", 0.1)
+                initial_accumulator_value=self.initial_accumulator_value
             )
 
 
@@ -161,12 +171,14 @@ class AdadeltaOptimizer(LocalOptimizer):
     https://arxiv.org/abs/1212.5701
     """
     def __init__(self, learning_rate, **kwargs):
+        self.rho = kwargs.pop("rho", 0.95)
+
         super(AdadeltaOptimizer, self).__init__(
             learning_rate=learning_rate, scope=kwargs.pop("scope", "adadelta-optimizer"), **kwargs
         )
 
         if get_backend() == "tf":
-            self.optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.learning_rate, rho=kwargs.pop("rho", 0.95))
+            self.optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.learning_rate, rho=self.rho)
 
 
 class SGDOptimizer(LocalOptimizer):
@@ -175,14 +187,21 @@ class SGDOptimizer(LocalOptimizer):
     learning-rate-decay and Nesterov momentum.
     """
     def __init__(self, learning_rate, **kwargs):
+        self.momentum = kwargs.pop("momentum", 0.0)
+        self.decay = kwargs.pop("decay", 0.0)
+        self.nesterov = kwargs.pop("nesterov", False)
+
         super(SGDOptimizer, self).__init__(
             learning_rate=learning_rate, scope=kwargs.pop("scope", "sgd-optimizer"), **kwargs
         )
 
         if get_backend() == "tf":
             self.optimizer = tf.keras.optimizers.SGD(
-                lr=self.learning_rate, momentum=kwargs.pop("momentum", 0.0), decay=kwargs.pop("decay", 0.0),
-                nesterov=kwargs.pop("nesterov", False))
+                lr=self.learning_rate,
+                momentum=self.momentum,
+                decay=self.decay,
+                nesterov=self.nesterov
+            )
 
 
 class RMSPropOptimizer(LocalOptimizer):
@@ -192,6 +211,10 @@ class RMSPropOptimizer(LocalOptimizer):
     https://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf
     """
     def __init__(self, learning_rate, **kwargs):
+        self.decay = kwargs.pop("decay", 0.99)
+        self.momentum = kwargs.pop("momentum", 0.0)
+        self.epsilon = kwargs.pop("epsilon", 0.1)
+
         super(RMSPropOptimizer, self).__init__(
             learning_rate=learning_rate, scope=kwargs.pop("scope", "rms-prop-optimizer"), **kwargs
         )
@@ -199,7 +222,7 @@ class RMSPropOptimizer(LocalOptimizer):
         if get_backend() == "tf":
             self.optimizer = tf.train.RMSPropOptimizer(
                 learning_rate=self.learning_rate,
-                decay=kwargs.pop("decay", 0.99),
-                momentum=kwargs.pop("momentum", 0.0),
-                epsilon=kwargs.pop("epsilon", 0.1),
+                decay=self.decay,
+                momentum=self.momentum,
+                epsilon=self.epsilon
             )
