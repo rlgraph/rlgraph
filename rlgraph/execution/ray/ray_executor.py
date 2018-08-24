@@ -105,8 +105,9 @@ class RayExecutor(object):
         cls_as_remote = cls.as_remote(num_cpus=self.num_cpus_per_worker, num_gpus=self.num_gpus_per_worker).remote
 
         # Create remote objects and schedule init tasks.
+        ray_constant_exploration = worker_spec.get("ray_constant_exploration", False)
         for i in range_(num_actors):
-            if worker_spec["ray_constant_exploration"] is True:
+            if ray_constant_exploration is True:
                 exploration_val = worker_exploration(i, num_actors)
                 worker_spec["ray_exploration"] = exploration_val
             worker = cls_as_remote(deepcopy(agent_config), worker_spec, *args)
