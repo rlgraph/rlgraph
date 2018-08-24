@@ -34,13 +34,14 @@ class DQNAgent(Agent):
     [4] https://en.wikipedia.org/wiki/Huber_loss
     """
 
-    def __init__(self, double_q=True, dueling_q=True, huber_loss=False, memory_spec=None,
+    def __init__(self, double_q=True, dueling_q=True, huber_loss=False, n_step=1, memory_spec=None,
                  store_last_memory_batch=False, store_last_q_table=False, **kwargs):
         """
         Args:
             double_q (bool): Whether to use the double DQN loss function (see [2]).
             dueling_q (bool): Whether to use a dueling layer in the ActionAdapter  (see [3]).
             huber_loss (bool) : Whether to apply a Huber loss. (see [4]).
+            n_step (Optional[int]): n-step adjustment to discounting.
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
             store_last_memory_batch (bool): Whether to store the last pulled batch from the memory in
                 `self.last_memory_batch` for debugging purposes.
@@ -100,7 +101,7 @@ class DQNAgent(Agent):
         use_importance_weights = isinstance(self.memory, PrioritizedReplay)
         self.loss_function = DQNLossFunction(
             discount=self.discount, double_q=self.double_q, huber_loss=self.huber_loss,
-            importance_weights=use_importance_weights
+            importance_weights=use_importance_weights, n_step=n_step
         )
 
         # Add all our sub-components to the core.

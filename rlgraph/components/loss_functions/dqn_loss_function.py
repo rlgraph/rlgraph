@@ -42,10 +42,10 @@ class DQNLossFunction(LossFunction):
                  scope="dqn-loss-function", **kwargs):
         """
         Args:
-            double_q (bool): Whether to use the double DQN loss function (see DQNAgent [2]).
-            huber_loss (bool): Whether to apply a huber loss correction(see DQNAgent [2]).
-            importance_weights (bool): Where to use importance weights from a prioritized replay.
-            n_step (int)
+            double_q (Optional[bool]): Whether to use the double DQN loss function (see DQNAgent [2]).
+            huber_loss (Optional[bool]): Whether to apply a huber loss correction(see DQNAgent [2]).
+            importance_weights (Optional[bool]): Where to use importance weights from a prioritized replay.
+            n_step (Optional[int]): n-step adjustment to discounting.
         """
         self.double_q = double_q
         self.huber_loss = huber_loss
@@ -54,7 +54,7 @@ class DQNLossFunction(LossFunction):
         # For Apex, this is done in the worker - do we want to move this as an in-graph option too?
         self.n_step = n_step
 
-        # Clip value, see https://en.wikipedia.org/wiki/Huber_loss
+        # Clip value, see: https://en.wikipedia.org/wiki/Huber_loss
         self.huber_delta = kwargs.get("huber_delta", 1.0)
         self.importance_weights = importance_weights
 

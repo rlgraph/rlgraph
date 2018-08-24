@@ -106,8 +106,8 @@ class TestApexExecutor(unittest.TestCase):
         agent_config = config_from_path("configs/apex_agent_cartpole.json")
 
         # Use n-step adjustments.
-        agent_config["ray_spec"]["worker_spec"]["n_step_adjustment"] = 3
-        agent_config["ray_spec"]["apex_replay_spec"]["n_step_adjustment"] = 3
+        agent_config["execution_spec"]["ray_spec"]["worker_spec"]["n_step_adjustment"] = 3
+        agent_config["execution_spec"]["ray_spec"]["apex_replay_spec"]["n_step_adjustment"] = 3
 
         executor = ApexExecutor(
             environment_spec=env_spec,
