@@ -702,7 +702,7 @@ class TensorFlowExecutor(GraphExecutor):
                     elif isinstance(cuda_visible_devices, list):
                         num_provided_cuda_devices = len(cuda_visible_devices)
                         use_names = [gpu_names[int(device_id)] for device_id in cuda_visible_devices]
-                        cuda_visible_devices = str(cuda_visible_devices)
+                        cuda_visible_devices = ",".join(cuda_visible_devices)
                     else:
                         raise ValueError("ERROR: 'cuda_devices' must be string or list of device index "
                                          "values, e.g. [0, 1] or '0,1', but is: {}".format(type(cuda_visible_devices)))
@@ -723,8 +723,8 @@ class TensorFlowExecutor(GraphExecutor):
                     for i, name in enumerate(gpu_names):
                         if len(use_names) < self.max_usable_gpus:
                             use_names.append(name)
-                            visible_devices.append(i)
-                    os.environ["CUDA_VISIBLE_DEVICES"] = str(visible_devices)
+                            visible_devices.append(str(i))
+                    os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(visible_devices)
                     self.logger.info("GPU strategy initialized with GPUs enabled: {}".format(use_names))
                     self.gpu_names = use_names
 
