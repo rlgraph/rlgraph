@@ -108,6 +108,7 @@ class TestApexExecutor(unittest.TestCase):
         # Use n-step adjustments.
         agent_config["execution_spec"]["ray_spec"]["worker_spec"]["n_step_adjustment"] = 3
         agent_config["execution_spec"]["ray_spec"]["apex_replay_spec"]["n_step_adjustment"] = 3
+        agent_config["n_step"] = 3
 
         executor = ApexExecutor(
             environment_spec=env_spec,
