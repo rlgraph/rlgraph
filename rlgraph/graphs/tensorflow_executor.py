@@ -141,8 +141,7 @@ class TensorFlowExecutor(GraphExecutor):
         elif self.device_strategy == 'multi_gpu_sync':
             assert self.gpus_enabled, "ERROR: device_strategy is 'multi_gpu_sync' but GPUs are not enabled. Please" \
                                       "check your gpu_spec and set gpus_enabled to True."
-            # Default device is CPU, executor will create extra operations and assign all visible GPUs automatically.
-            self.default_device = [x.name for x in self.local_device_protos if x.device_type == 'CPU'][0]
+            # self.default_device = [x.name for x in self.local_device_protos if x.device_type == 'CPU'][0]
 
             self.logger.info("Initializing graph executor with synchronized multi-gpu device strategy. "
                              "Default device: {}. Available gpus are: {}.".format(self.default_device, self.gpu_names))
