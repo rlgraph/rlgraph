@@ -1213,7 +1213,7 @@ class Component(Specifiable):
             properties (Optional[dict]): Dict with properties to update on subcomponents.
         """
         # TODO this should be moved to use generic method below, but checking if global scope if set
-        # does not work well within that.
+        # TODO does not work well within that.
         if sub_component is None:
             sub_component = self
         elif self.global_scope:
@@ -1224,9 +1224,9 @@ class Component(Specifiable):
         for sc in sub_component.sub_components.values():
             sub_component.propagate_scope(sc)
 
-    def update_properties_recursively(self, properties, component=None):
+    def propagate_subcomponent_properties(self, properties, component=None):
         """
-        Recursively updates properties of component and its subcomponents.
+        Recursively updates properties of component and its sub-components.
         Args:
             properties (dict): Dict with names of properties and their values to recursively update
                 sub-components with.
@@ -1237,7 +1237,7 @@ class Component(Specifiable):
         for name, value in properties.items():
             setattr(component, name, value)
         for sc in component.sub_components.values():
-            component.update_properties_recursively(properties, sc)
+            component.propagate_subcomponent_properties(properties, sc)
 
     def propagate_variables(self, keys=None):
         """
@@ -1305,14 +1305,13 @@ class Component(Specifiable):
         new_component.name = name
         new_component.scope = scope
 
-        # Propagate reusable scope.
-        if reuse_variable_scope is not None:
-            new_component.update_properties_recursively(properties=dict(reuse_variable_scope=reuse_variable_scope))
+        # Propagate reusable scope and device.
+        new_component.propagate_subcomponent_properties(
+            properties=dict(reuse_variable_scope=reuse_variable_scope, device=device))
 
         # Change global_scope for the copy and all its sub-components.
         new_component.global_scope = scope
         new_component.propagate_scope(sub_component=None)
-        new_component.device = device
         new_component.trainable = trainable
         new_component.global_component = global_component
         # Erase the parent pointer.

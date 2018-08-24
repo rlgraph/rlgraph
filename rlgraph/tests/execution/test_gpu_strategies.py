@@ -18,6 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
+from rlgraph.utils import root_logger
+from logging import DEBUG
+
 from rlgraph.agents import ApexAgent
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.execution.ray import ApexExecutor
@@ -44,6 +47,7 @@ class TestGpuStrategies(unittest.TestCase):
 
         THIS TEST REQUIRES A MULTI GPU SYSTEM.
         """
+        root_logger.setLevel(DEBUG)
         agent_config = config_from_path("configs/multi_gpu_ray_apex_for_pong.json")
         agent_config["execution_spec"].pop("ray_spec")
         environment = OpenAIGymEnv("Pong-v0", frameskip=4)
