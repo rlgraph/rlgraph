@@ -632,10 +632,12 @@ class TensorFlowExecutor(GraphExecutor):
                 # TODO only copy relevant subgraphs
                 # Copy and assign GPU to copy.
                 self.logger.info("Creating device sub-graph for device: {}.".format(device))
-                sub_graph = root_component.copy(device=device, reuse_variable_scope=shared_scope)
+                sub_graph = root_component.copy(
+                    device=device,
+                    scope="sync_copy_graph_{}".format(i),
+                    reuse_variable_scope=shared_scope
+                )
 
-                # Set name to avoid sub component clashes.
-                sub_graph.name = "sync_copy_graph_{}".format(i)
                 sub_graphs.append(sub_graph)
                 self.used_devices.append(device)
 
