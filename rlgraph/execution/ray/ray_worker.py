@@ -41,14 +41,14 @@ class RayWorker(RayActor):
     with the agent used in the worker.
     """
 
-    def __init__(self, agent_config, env_spec, worker_spec, frameskip=1, auto_build=False):
+    def __init__(self, agent_config, worker_spec, env_spec, frameskip=1, auto_build=False):
         """
         Creates agent and environment for Ray worker.
 
         Args:
             agent_config (dict): Agent configuration dict.
-            env_spec (dict): Environment config for environment to run.
             worker_spec (dict): Worker parameters.
+            env_spec (dict): Environment config for environment to run.
             frameskip (int): How often actions are repeated after retrieving them from the agent.
         """
         assert get_distributed_backend() == "ray"
@@ -70,6 +70,16 @@ class RayWorker(RayActor):
         # Then update agent config.
         agent_config['state_space'] = self.vector_env.state_space
         agent_config['action_space'] = self.vector_env.action_space
+
+        ray_exploration = worker_spec.pop("ray_exploration", None)
+        self.ray_exploration_set = False
+        if ray_exploration is not None:
+            # Update worker with worker specific constant exploration value.
+            # TODO too many levels?
+            assert agent_config["exploration_spec"]["epsilon_spec"]["decay_spec"]["type"] == "constant_decay", \
+                "ERROR: If using Ray's constant exploration, exploration type must be 'constant_decay'."
+            agent_config["exploration_spec"]["epsilon_spec"]["decay_spec"]["constant_value"] = ray_exploration
+            self.ray_exploration_set = True
 
         self.discount = agent_config.get("discount", 0.99)
         # Python based preprocessor as image resizing is broken in TF.
@@ -155,6 +165,7 @@ class RayWorker(RayActor):
         sample_exploration = worker_spec.pop("sample_exploration", False)
         # Adjust exploration for this worker.
         if sample_exploration:
+            assert self.ray_exploration_set is False, "ERROR: Cannot sample exploration if ray exploration is used."
             exploration_min_value = worker_spec.pop("exploration_min_value", 0.0)
             epsilon_spec = agent_config["exploration_spec"]["epsilon_spec"]
 
@@ -309,12 +320,6 @@ class RayWorker(RayActor):
             batch_rewards.extend(sample_rewards[env_id])
             batch_terminals.extend(sample_terminals[env_id])
 
-        # print("RAY WORKER STATES:")
-        # print(batch_states)
-        # print("RAY WORKER ACTIONS:")
-        # print(batch_actions)
-        # print("RAY WORKER NEXT STATES:")
-        # print(batch_next_states)
         time.sleep(0.1)
         sample_batch, batch_size = self._process_sample_if_necessary(batch_states, batch_actions,
             batch_rewards, batch_next_states, batch_terminals)

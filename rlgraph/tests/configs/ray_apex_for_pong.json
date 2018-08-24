@@ -73,11 +73,8 @@
   "exploration_spec": {
     "epsilon_spec": {
       "decay_spec": {
-        "type": "linear_decay",
-        "from": 1.0,
-        "to": 0.02,
-        "start_timestep": 50000,
-        "num_timesteps": 1000000
+        "type": "constant_decay",
+        "constant_value": 0.0
       }
     }
   },
@@ -130,8 +127,8 @@
         "frame_skip": 1,
         "n_step_adjustment": 3,
         "worker_computes_weights": true,
-        "sample_exploration": true,
-        "exploration_min_value": 0.5
+        "sample_exploration": false,
+        "ray_constant_exploration": true
       },
       "apex_replay_spec": {
         "memory_spec": {

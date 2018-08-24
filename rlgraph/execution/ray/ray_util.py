@@ -146,4 +146,15 @@ def ray_decompress(data):
     return data
 
 
-
+# Ray's magic constant worker explorations..
+def worker_exploration(worker_index, num_workers):
+    """
+    Computes an exploration value for a worker
+    Args:
+        worker_index (int): This worker's integer index.
+        num_workers (int): Total number of workers.
+    Returns:
+        float: Constant epsilon value to use.
+    """
+    exponent = (1.0 + worker_index / float(num_workers - 1) * 7)
+    return 0.4 ** exponent

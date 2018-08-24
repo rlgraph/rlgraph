@@ -130,7 +130,7 @@ class ApexExecutor(RayExecutor):
         self.ray_env_sample_workers = self.create_remote_workers(
             RayWorker, self.num_sample_workers, self.agent_config,
             # *args
-            self.environment_spec, self.worker_spec, self.worker_frameskip
+            self.worker_spec, self.environment_spec, self.worker_frameskip
         )
         self.init_tasks()
 

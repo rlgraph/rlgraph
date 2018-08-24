@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from copy import deepcopy
 
+from rlgraph.execution.ray.ray_util import worker_exploration
 from six.moves import xrange as range_
 import logging
 import numpy as np
@@ -84,7 +85,7 @@ class RayExecutor(object):
             num_gpus=self.executor_spec.get('num_gpus', None)
         )
 
-    def create_remote_workers(self, cls, num_actors, agent_config, *args):
+    def create_remote_workers(self, cls, num_actors, agent_config, worker_spec, *args):
         """
         Creates Ray actors for remote execution.
 
@@ -92,6 +93,7 @@ class RayExecutor(object):
             cls (RayWorker): Actor class, must be an instance of RayWorker.
             num_actors (int): Num
             agent_config (dict): Agent config.
+            worker_spec (dict): Worker spec.
             *args (any): Arguments for RayWorker class.
 
         Returns:
@@ -101,9 +103,13 @@ class RayExecutor(object):
         init_tasks = []
 
         cls_as_remote = cls.as_remote(num_cpus=self.num_cpus_per_worker, num_gpus=self.num_gpus_per_worker).remote
+
         # Create remote objects and schedule init tasks.
         for i in range_(num_actors):
-            worker = cls_as_remote(deepcopy(agent_config), *args)
+            if worker_spec["ray_constant_exploration"] is True:
+                exploration_val = worker_exploration(i, num_actors)
+                worker_spec["ray_exploration"] = exploration_val
+            worker = cls_as_remote(deepcopy(agent_config), worker_spec, *args)
             self.worker_ids[worker] = "worker_{}".format(i)
             workers.append(worker)
             build_result = worker.init_agent.remote()
