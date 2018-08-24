@@ -20,7 +20,8 @@ from __future__ import print_function
 from rlgraph.components.common.container_splitter import ContainerSplitter
 from rlgraph.components.common.dict_merger import DictMerger
 from rlgraph.components.common.synchronizable import Synchronizable
-from rlgraph.components.common.decay_components import DecayComponent, LinearDecay, PolynomialDecay, ExponentialDecay
+from rlgraph.components.common.decay_components import DecayComponent, LinearDecay, PolynomialDecay, ExponentialDecay, \
+    ConstantDecay
 from rlgraph.components.common.noise_components import NoiseComponent, ConstantNoise, GaussianNoise, \
     OrnsteinUhlenbeckNoise
 from rlgraph.components.common.fixed_loop import FixedLoop
@@ -33,6 +34,7 @@ from rlgraph.components.common.batch_splitter import BatchSplitter
 
 DecayComponent.__lookup_classes__ = dict(
     lineardecay=LinearDecay,
+    constantdecay=ConstantDecay,
     exponentialdecay=ExponentialDecay,
     polynomialdecay=PolynomialDecay
 )
@@ -49,7 +51,7 @@ NoiseComponent.__default_constructor__ = GaussianNoise
 
 __all__ = ["ContainerSplitter", "DictMerger",
            "Synchronizable", "RepeaterStack", "Slice",
-           "DecayComponent", "LinearDecay", "PolynomialDecay", "ExponentialDecay",
+           "DecayComponent", "ConstantDecay", "LinearDecay", "PolynomialDecay", "ExponentialDecay",
            "NoiseComponent", "ConstantNoise", "GaussianNoise", "OrnsteinUhlenbeckNoise",
            "FixedLoop", "Sampler", "BatchSplitter"]
 

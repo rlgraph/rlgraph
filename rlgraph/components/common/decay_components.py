@@ -135,6 +135,23 @@ class DecayComponent(Component):
         raise NotImplementedError
 
 
+class ConstantDecay(DecayComponent):
+    # TODO this naming hierarchy is not ideal, we are not decaying here.
+    """
+    Returns a constant value.
+    """
+    def __init__(self, constant_value, scope="constant-decay", **kwargs):
+        """
+        Args:
+            constant_value (float): Constant value for exploration.
+        """
+        super(ConstantDecay, self).__init__(scope=scope, **kwargs)
+        self.constant_value = constant_value
+
+    def _graph_fn_decay(self, time_steps_in_decay_window):
+        return self.constant_value
+
+
 class PolynomialDecay(DecayComponent):
     """
     Component that takes a time input and outputs a linearly decaying value (using init-, and final values).
