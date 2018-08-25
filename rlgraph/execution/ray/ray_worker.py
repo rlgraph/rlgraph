@@ -72,14 +72,19 @@ class RayWorker(RayActor):
         agent_config['action_space'] = self.vector_env.action_space
 
         ray_exploration = worker_spec.pop("ray_exploration", None)
+        self.worker_executes_exploration = worker_spec.pop("worker_executes_exploration", False)
         self.ray_exploration_set = False
         if ray_exploration is not None:
             # Update worker with worker specific constant exploration value.
             # TODO too many levels?
             assert agent_config["exploration_spec"]["epsilon_spec"]["decay_spec"]["type"] == "constant_decay", \
                 "ERROR: If using Ray's constant exploration, exploration type must be 'constant_decay'."
-            agent_config["exploration_spec"]["epsilon_spec"]["decay_spec"]["constant_value"] = ray_exploration
-            self.ray_exploration_set = True
+            if self.worker_executes_exploration:
+                agent_config["exploration_spec"] = None
+                self.exploration_epsilon = ray_exploration
+            else:
+                agent_config["exploration_spec"]["epsilon_spec"]["decay_spec"]["constant_value"] = ray_exploration
+                self.ray_exploration_set = True
 
         self.discount = agent_config.get("discount", 0.99)
         # Python based preprocessor as image resizing is broken in TF.
@@ -169,7 +174,7 @@ class RayWorker(RayActor):
             exploration_min_value = worker_spec.pop("exploration_min_value", 0.0)
             epsilon_spec = agent_config["exploration_spec"]["epsilon_spec"]
 
-            if "decay_spec" in epsilon_spec:
+            if epsilon_spec is not None and "decay_spec" in epsilon_spec:
                 decay_from = epsilon_spec["decay_spec"]["from"]
                 assert decay_from >= exploration_min_value, \
                     "Min value for exploration sampling must be smaller than" \
@@ -442,3 +447,16 @@ class RayWorker(RayActor):
             next_states=[ray_compress(next_state) for next_state in next_states],
             importance_weights=weights
         ), len(rewards)
+
+    def get_action(self, states, use_exploration):
+        if self.worker_executes_exploration:
+            # Only once for all actions otherwise we would have to call a session anyway.
+            if np.random.random() <= self.exploration_epsilon:
+                return self.agent.action_space.sample(size=(self.num_environments, ))
+            else:
+                return self.agent.get_action(states=states, use_exploration=use_exploration,
+                                             apply_preprocessing=False)
+        else:
+            return self.agent.get_action(states=states, use_exploration=use_exploration,
+                                         apply_preprocessing=False)
+
