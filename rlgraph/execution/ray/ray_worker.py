@@ -449,9 +449,12 @@ class RayWorker(RayActor):
         """
         Computes n-step truncation for exactly one episode segment of one environment.
 
-        Returns n-step truncated (shortened) version.
+        Returns:
+             n-step truncated (shortened) version.
         """
+        truncate = False
         if self.n_step_adjustment > 1:
+            """
             for i in range_(len(rewards) - self.n_step_adjustment + 1):
                 # Ignore terminals.
                 if terminals[i]:
@@ -468,8 +471,42 @@ class RayWorker(RayActor):
             new_len = len(states) - self.n_step_adjustment + 1
             for arr in [states, actions, rewards, next_states, terminals]:
                 del arr[new_len:]
+            """
+            next_terminal = -1
+            for i in range(len(rewards)):
+                if terminals[i] is True:
+                    next_terminal = i
+                for j in range(1, self.n_step_adjustment):
+                    # Outside sample data. Stop inner loop and set truncate = True
+                    if i + j >= len(next_states):
+                        truncate = True
+                        break
+                    # Normal case: No terminal ahead (so far) in n-step sequence.
+                    if next_terminal < i:
+                        next_states[i] = next_states[i + j]
+                        rewards[i] += self.discount ** j * rewards[i + j]
+                    # Terminal ahead: Don't go beyond it. Repeat it for the remaining n-steps and always assume r=0.0.
+                    else:
+                        next_states[i] = next_states[next_terminal]
+                        if i + j <= next_terminal:
+                            rewards[i] += self.discount ** j * rewards[i + j]
 
-        return states, actions, rewards, next_states, terminals
+                    if terminals[i + j] is True:
+                        next_terminal = i + j
+
+            print("r={}".format(rewards))
+            print("s'={}".format(next_states))
+            print("truncate={}".format(truncate))
+
+            if truncate:
+                rewards = rewards[:-(self.n_step_adjustment - 1)]
+                next_states = next_states[:-(self.n_step_adjustment - 1)]
+
+            print("After truncating:")
+            print("r={}".format(rewards))
+            print("s'={}".format(next_states))
+
+        return states, actions, rewards, next_states, terminals, truncate
 
     def _batch_process_sample(self, states, actions, rewards, next_states, terminals):
         """
