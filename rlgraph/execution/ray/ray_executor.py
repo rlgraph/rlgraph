@@ -319,7 +319,8 @@ class RayExecutor(object):
             results.append(dict(
                 episode_rewards=metrics["episode_rewards"],
                 episode_timesteps=metrics["episode_timesteps"],
-                episode_times=metrics["episode_times"]
+                episode_total_times=metrics["episode_total_times"],
+                episode_sample_times=metrics["episode_sample_times"]
             ))
         return results
 

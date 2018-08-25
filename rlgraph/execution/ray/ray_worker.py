@@ -101,7 +101,11 @@ class RayWorker(RayActor):
         # Save these so they can be fetched after training if desired.
         self.finished_episode_rewards = [list() for _ in range_(self.num_environments)]
         self.finished_episode_timesteps = [list() for _ in range_(self.num_environments)]
-        self.finished_episode_times = [list() for _ in range_(self.num_environments)]
+        # Total times sample the "real" wallclock time from start to end for each episode.
+        self.finished_episode_total_times = [list() for _ in range_(self.num_environments)]
+        # Sample times stop the wallclock time counter between runs, so only the sampling time is accounted for.
+        self.finished_episode_sample_times = [list() for _ in range_(self.num_environments)]
+
         self.total_worker_steps = 0
         self.episodes_executed = 0
 
@@ -122,6 +126,9 @@ class RayWorker(RayActor):
         self.last_ep_timesteps = [0 for _ in range_(self.num_environments)]
         self.last_ep_rewards = [0 for _ in range_(self.num_environments)]
         self.last_ep_start_timestamps = [0.0 for _ in range_(self.num_environments)]
+        self.last_ep_start_initialized = False  # initialize on first `execute_and_get_timesteps()` call
+        self.last_ep_sample_times = [0.0 for _ in range_(self.num_environments)]
+
         # Was the last state a terminal state so env should be reset in next call?
         self.last_terminals = [False for _ in range_(self.num_environments)]
 
@@ -209,6 +216,13 @@ class RayWorker(RayActor):
             break_on_terminal (Optional[bool]): If true, breaks when a terminal is encountered. If false,
                 executes exactly 'num_timesteps' steps.
         """
+        # Initialize start timestamps. Initializing the timestamps here should make the observed execution timestamps
+        # more accurate, as there might be delays between the worker initialization and actual sampling start.
+        if not self.last_ep_start_initialized:
+            for i, timestamp in enumerate(self.last_ep_start_timestamps):
+                self.last_ep_start_timestamps[i] = time.time()
+            self.last_ep_start_initialized = True
+
         start = time.monotonic()
 
         timesteps_executed = 0
@@ -230,16 +244,13 @@ class RayWorker(RayActor):
         current_episode_rewards = self.last_ep_rewards
         current_episode_timesteps = self.last_ep_timesteps
         current_episode_start_timestamps = self.last_ep_start_timestamps
-
-        # Initialize start timestamps. Initializing the timestamps here should make the observed execution timestamps
-        # more accurate, as there might be delays between the worker initialization and actual sampling start.
-        for i, timestamp in enumerate(current_episode_start_timestamps):
-            if timestamp == 0.0:
-                current_episode_start_timestamps[i] = time.time()
+        current_episode_sample_times = self.last_ep_sample_times
 
         # Whether the episode in each env has terminated.
         terminals = [False for _ in range_(self.num_environments)]
         while timesteps_executed < num_timesteps:
+            current_iteration_start_timestamp = time.time()
+
             # state_batch = self.agent.state_space.force_batch(env_states)
             for i, env_id in enumerate(self.env_ids):
                 state = self.agent.state_space.force_batch(env_states[i])
@@ -271,6 +282,8 @@ class RayWorker(RayActor):
             env_frames += self.num_environments
             env_states = next_states
 
+            current_iteration_time = time.time() - current_iteration_start_timestamp
+
             # Do accounting for each environment.
             for i, env_id in enumerate(self.env_ids):
                 # Update samples.
@@ -280,13 +293,16 @@ class RayWorker(RayActor):
                 sample_rewards[env_id].append(step_rewards[i])
                 sample_terminals[env_id].append(terminals[i])
 
+                current_episode_sample_times[i] += current_iteration_time
+
                 # Terminate and reset episode for that environment.
                 if terminals[i] or (0 < max_timesteps_per_episode <= current_episode_timesteps[i]):
                     # print("terminated episode with reward : {} and timestep {}".format(
                     #     episode_rewards[i], episode_timesteps[i]))
                     self.finished_episode_rewards[i].append(current_episode_rewards[i])
                     self.finished_episode_timesteps[i].append(current_episode_timesteps[i])
-                    self.finished_episode_times[i].append(time.time() - current_episode_start_timestamps[i])
+                    self.finished_episode_total_times[i].append(time.time() - current_episode_start_timestamps[i])
+                    self.finished_episode_sample_times[i].append(current_episode_sample_times[i])
                     episodes_executed[i] += 1
                     self.episodes_executed += 1
 
@@ -296,7 +312,8 @@ class RayWorker(RayActor):
                         self.preprocessors[env_id].reset()
                     current_episode_rewards[i] = 0
                     current_episode_timesteps[i] = 0
-                    current_episode_start_timestamps[i] = 0.0  # Re-initialize with the next iteration
+                    current_episode_start_timestamps[i] = time.time()
+                    current_episode_sample_times[i] = 0.0
 
             if 0 < num_timesteps <= timesteps_executed or (break_on_terminal and np.any(terminals)):
                 self.total_worker_steps += timesteps_executed
@@ -307,6 +324,7 @@ class RayWorker(RayActor):
         self.last_ep_rewards = current_episode_rewards
         self.last_ep_timesteps = current_episode_timesteps
         self.last_ep_start_timestamps = current_episode_start_timestamps
+        self.last_ep_sample_times = current_episode_sample_times
 
         total_time = (time.monotonic() - start) or 1e-10
         self.sample_steps.append(timesteps_executed)
@@ -390,7 +408,8 @@ class RayWorker(RayActor):
         return dict(
             episode_timesteps=self.finished_episode_timesteps,
             episode_rewards=self.finished_episode_rewards,
-            episode_times=self.finished_episode_times,
+            episode_total_times=self.finished_episode_total_times,
+            episode_sample_times=self.finished_episode_sample_times,
             min_episode_reward=min_episode_reward,
             max_episode_reward=max_episode_reward,
             mean_episode_reward=mean_episode_reward,
