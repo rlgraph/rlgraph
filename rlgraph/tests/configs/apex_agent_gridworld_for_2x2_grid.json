@@ -61,6 +61,14 @@
       "scope": "hidden-layer"
     }
   ],
+
+  "action_adapter_spec":
+  {
+    "type": "dueling-action-adapter",
+    "units_state_value_stream": 5,
+    "units_advantage_stream": 5
+  },
+
   "exploration_spec":
   {
     "epsilon_spec": {

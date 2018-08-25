@@ -63,13 +63,16 @@
     {
       "type": "reshape",
       "flatten": true
-    },
-    {
-      "type": "dense",
-      "units": 256,
-      "activation": "relu"
     }
   ],
+
+  "action_adapter_spec":
+  {
+    "type": "dueling-action-adapter",
+    "units_state_value_stream": 256,
+    "units_advantage_stream": 256
+  },
+
   "exploration_spec": {
     "epsilon_spec": {
       "decay_spec": {

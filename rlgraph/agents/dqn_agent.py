@@ -54,7 +54,9 @@ class DQNAgent(Agent):
         action_adapter_spec = kwargs.pop("action_adapter_spec", dict())
         # Use a DuelingActionAdapter (instead of a basic ActionAdapter) if option is set.
         if dueling_q is True:
-            action_adapter_spec["type"] = "dueling_action_adapter"
+            action_adapter_spec["type"] = "dueling-action-adapter"
+            assert "units_state_value_stream" in action_adapter_spec
+            assert "units_advantage_stream" in action_adapter_spec
         super(DQNAgent, self).__init__(
             action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "dqn-agent"), **kwargs
         )

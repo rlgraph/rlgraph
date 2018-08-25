@@ -51,7 +51,8 @@ class TestAllCompile(unittest.TestCase):
         environment = OpenAIGymEnv("Pong-v0", frameskip=4)
 
         agent = ApexAgent.from_spec(
-            agent_config, state_space=environment.state_space, action_space=environment.action_space
+            agent_config, state_space=environment.state_space,
+            action_space=environment.action_space
         )
         print('Compiled apex agent')
 
