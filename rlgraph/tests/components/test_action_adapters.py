@@ -25,7 +25,7 @@ from rlgraph.components.action_adapters.baseline_action_adapter import BaselineA
 from rlgraph.components.action_adapters.dueling_action_adapter import DuelingActionAdapter
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
-from rlgraph.utils.numpy import softmax
+from rlgraph.utils.numpy import softmax, relu
 
 
 class TestActionAdapters(unittest.TestCase):
@@ -105,26 +105,72 @@ class TestActionAdapters(unittest.TestCase):
         action_space = IntBox(4, shape=(2,))
 
         action_adapter = DuelingActionAdapter(
-            action_space=action_space, weights_spec=2.0, biases_spec=0.5, activation="linear"
+            action_space=action_space, units_state_value_stream=5, units_advantage_stream=4,
+            weights_spec_state_value_stream=1.0, weights_spec_advantage_stream=0.5,
+            activation_state_value_stream="relu", activation_advantage_stream="linear",
+            scope="aa"
         )
         test = ComponentTest(
             component=action_adapter, input_spaces=dict(nn_output=last_nn_layer_space), action_space=action_space
         )
 
         # Batch of 2 samples.
-        inputs = np.array([[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6], [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6]])
-        # 1: state value
-        # 8: advantage values for the flattened action space.
-        # 2.0 (weights) * SUM(api_methods) + 0.5 (bias) = 4.7 for first sample, 18.7 for second sample in batch.
-        expected_action_layer_output = np.array([[4.7] * (1+8), [18.7] * (1+8)], dtype=np.float32)
-        test.test(("get_action_layer_output", inputs), expected_outputs=expected_action_layer_output)
+        batch_size = 2
+        inputs = last_nn_layer_space.sample(size=batch_size)
 
-        expected_state_values = np.array([4.7, 18.7], dtype=np.float32)
-        expected_advantage_values = np.array([[[4.7] * 4] * 2, [[18.7] * 4] * 2], dtype=np.float32)
-        expected_q_values = np.array([[[4.7] * 4] * 2, [[18.7] * 4] * 2], dtype=np.float32)
-        test.test(("get_dueling_output", inputs), expected_outputs=(
-            expected_state_values, expected_advantage_values, expected_q_values
+        dueling_action_adapter_vars = test.read_variable_values(action_adapter.variables)
+
+        # Expected action layer output are the advantage nodes.
+        expected_raw_advantages = np.matmul(np.matmul(
+            inputs, dueling_action_adapter_vars["aa/dense-layer-advantage-stream/dense/kernel"]
+        ), dueling_action_adapter_vars["aa/action-layer/dense/kernel"])
+        expected_state_values = np.matmul(relu(np.matmul(
+            inputs, dueling_action_adapter_vars["aa/dense-layer-state-value-stream/dense/kernel"]
+        )), dueling_action_adapter_vars["aa/state-value-node/dense/kernel"])
+
+        test.test(("get_action_layer_output", inputs), expected_outputs=(expected_state_values, expected_raw_advantages))
+
+        expected_advantages = np.reshape(expected_raw_advantages, newshape=(batch_size, 2, 4))
+
+        # Expected q-values/logits, probabilities (softmaxed q) and log(p).
+        expanded_state_values = np.expand_dims(expected_state_values, axis=1)
+        expected_q_values = expanded_state_values + expected_advantages - \
+            np.mean(expected_advantages, axis=-1, keepdims=True)
+        expected_probs = softmax(expected_q_values)
+
+        test.test(("get_logits_parameters_log_probs", inputs), expected_outputs=(
+            expected_q_values, expected_probs, np.log(expected_probs)
         ))
+
+    """
+    def test_dueling_layer(self):
+        # Action Space is: IntBox(3, shape=(4,2)) ->
+        # Flat input space to dueling layer is then 3x4x2 + 1: FloatBox(shape=(25,)).
+        input_space = FloatBox(shape=(25,), add_batch_rank=True)
+        action_space = IntBox(3, shape=(4, 2))
+
+        dueling_layer = DuelingLayer()
+        test = ComponentTest(component=dueling_layer, input_spaces=dict(inputs=input_space), action_space=action_space)
+
+        # Batch of 1 sample.
+        inputs = np.array(
+            [[2.12345, 0.1, 0.2, 0.3, 2.1, 0.4, 0.5, 0.6, 2.2, 0.7, 0.8, 0.9, 2.3, 1.0, 1.1, 1.2, 2.4, 1.3, 1.4, 1.5,
+              2.5, 1.6, 1.7, 1.8, 2.6
+              ]]
+        )
+        ""
+         Calculation: Very 1st node is the state-value, all others are the advantages per action.
+        ""
+        expected_state_value = np.array([2.12345])  # batch-size=1
+        expected_advantage_values = np.reshape(inputs[:,1:], newshape=(1, 4, 2, 3))
+        expected_q_values = np.array([[[[ expected_state_value[0] ]]]]) + expected_advantage_values - \
+                            np.mean(expected_advantage_values, axis=-1, keepdims=True)
+        test.test(("apply", inputs),
+                  expected_outputs=[expected_state_value,
+                                    expected_advantage_values,
+                                    expected_q_values],
+                  decimals=5)
+    """
 
     def test_baseline_action_adapter(self):
         # Last NN layer.

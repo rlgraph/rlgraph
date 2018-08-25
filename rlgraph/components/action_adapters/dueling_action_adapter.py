@@ -68,16 +68,19 @@ class DuelingActionAdapter(ActionAdapter):
         self.dense_layer_state_value_stream = DenseLayer(
             units=self.units_state_value_stream, weights_spec=self.weights_spec_state_value_stream,
             biases_spec=self.biases_spec_state_value_stream,
-            activation=self.activation_state_value_stream
+            activation=self.activation_state_value_stream,
+            scope="dense-layer-state-value-stream"
         )
         self.dense_layer_advantage_stream = DenseLayer(
             units=self.units_state_value_stream, weights_spec=self.weights_spec_state_value_stream,
             biases_spec=self.biases_spec_state_value_stream,
-            activation=self.activation_state_value_stream
+            activation=self.activation_state_value_stream,
+            scope="dense-layer-advantage-stream"
         )
         self.state_value_node = DenseLayer(
             units=1,
-            activation="linear"
+            activation="linear",
+            scope="state-value-node"
         )
         # self.action_layer is our advantage layer
 

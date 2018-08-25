@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+from rlgraph.utils import RLGraphError
 from rlgraph.components.layers.nn.nn_layer import NNLayer
 from rlgraph.utils.util import get_rank
 
@@ -38,6 +39,8 @@ class DuelingLayer(NNLayer):
         apply(input_) -> state_value, advantage_values, q_values
     """
     def __init__(self, scope="dueling-layer", **kwargs):
+        raise RLGraphError("DuelingLayer has been obsoleted for the time being. "
+                           "Use dueling-action-adapter directly.")
         super(DuelingLayer, self).__init__(scope=scope, **kwargs)
 
         self.num_advantage_values = None

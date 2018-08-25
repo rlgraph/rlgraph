@@ -101,22 +101,25 @@ class Policy(Component):
 
         # Add API-method to get dueling output (if we use a dueling layer).
         if isinstance(self.action_adapter, DuelingActionAdapter):
-            def get_dueling_output(self, nn_input, internal_states=None):
-                nn_output, last_internals = unify_nn_and_rnn_api_output(
-                    self.call(self.neural_network.apply, nn_input, internal_states)
-                )
-                state_value, advantages, q_values = self.call(self.action_adapter.get_dueling_output, nn_output)
-                return (state_value, advantages, q_values, last_internals) if last_internals is not None else \
-                    (state_value, advantages, q_values)
+            #def get_dueling_output(self, nn_input, internal_states=None):
+            #    nn_output, last_internals = unify_nn_and_rnn_api_output(
+            #        self.call(self.neural_network.apply, nn_input, internal_states)
+            #    )
+            #    state_value, advantages, q_values = self.call(self.action_adapter.get_dueling_output, nn_output)
+            #    return (state_value, advantages, q_values, last_internals) if last_internals is not None else \
+            #        (state_value, advantages, q_values)
 
-            self.define_api_method("get_dueling_output", get_dueling_output)
+            #self.define_api_method("get_dueling_output", get_dueling_output)
 
             def get_q_values(self, nn_input, internal_states=None):
                 nn_output, last_internals = unify_nn_and_rnn_api_output(
                     self.call(self.neural_network.apply, nn_input, internal_states)
                 )
-                _, _, q = self.call(self.action_adapter.get_dueling_output, nn_output)
-                return (q, last_internals) if last_internals is not None else q
+                #_, _, q = self.call(self.action_adapter.get_dueling_output, nn_output)
+                #return (q, last_internals) if last_internals is not None else q
+                q_values, _, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
+                return (q_values, last_internals) if last_internals is not None else q_values
+
         # Add API-method to get baseline output (if we use an extra value function baseline node).
         elif isinstance(self.action_adapter, BaselineActionAdapter):
             def get_baseline_output(self, nn_input, internal_states=None):

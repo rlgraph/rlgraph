@@ -150,34 +150,6 @@ class TestNNLayer(unittest.TestCase):
                               [4.1, 5.1, 6.1, 4.0, 3.3, 4.3]]], dtype=np.float32)
         test.test(("apply", inputs), expected_outputs=expected)
 
-    def test_dueling_layer(self):
-        # Action Space is: IntBox(3, shape=(4,2)) ->
-        # Flat input space to dueling layer is then 3x4x2 + 1: FloatBox(shape=(25,)).
-        input_space = FloatBox(shape=(25,), add_batch_rank=True)
-        action_space = IntBox(3, shape=(4, 2))
-
-        dueling_layer = DuelingLayer()
-        test = ComponentTest(component=dueling_layer, input_spaces=dict(inputs=input_space), action_space=action_space)
-
-        # Batch of 1 sample.
-        inputs = np.array(
-            [[2.12345, 0.1, 0.2, 0.3, 2.1, 0.4, 0.5, 0.6, 2.2, 0.7, 0.8, 0.9, 2.3, 1.0, 1.1, 1.2, 2.4, 1.3, 1.4, 1.5,
-              2.5, 1.6, 1.7, 1.8, 2.6
-              ]]
-        )
-        """
-        Calculation: Very 1st node is the state-value, all others are the advantages per action.
-        """
-        expected_state_value = np.array([2.12345])  # batch-size=1
-        expected_advantage_values = np.reshape(inputs[:,1:], newshape=(1, 4, 2, 3))
-        expected_q_values = np.array([[[[ expected_state_value[0] ]]]]) + expected_advantage_values - \
-                            np.mean(expected_advantage_values, axis=-1, keepdims=True)
-        test.test(("apply", inputs),
-                  expected_outputs=[expected_state_value,
-                                    expected_advantage_values,
-                                    expected_q_values],
-                  decimals=5)
-
     def test_residual_layer(self):
         # Input space to residual layer (with 2-repeat [simple Conv2D layer]-residual-unit).
         input_space = FloatBox(shape=(2, 2, 3), add_batch_rank=True)
