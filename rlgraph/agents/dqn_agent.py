@@ -215,16 +215,31 @@ class DQNAgent(Agent):
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = self_.call(splitter.split, records)
 
             # Delegate actual update to update_from_external_batch.
-            step_op, loss, loss_per_item, q_values_s = self_.call(
-                self_.update_from_external_batch, preprocessed_s, actions, rewards, terminals, preprocessed_s_prime,
-                importance_weights
-            )
+            # TODO make multiple return vals easier:
+            sync_ops = None
+            if isinstance(optimizer, MultiGpuSyncOptimizer):
+                step_op, loss, loss_per_item, q_values_s, sync_ops = self_.call(
+                    self_.update_from_external_batch, preprocessed_s, actions, rewards,
+                    terminals, preprocessed_s_prime, importance_weights
+                )
+            else:
+                step_op, loss, loss_per_item, q_values_s = self_.call(
+                    self_.update_from_external_batch, preprocessed_s, actions, rewards,
+                    terminals, preprocessed_s_prime, importance_weights
+                )
 
+            # TODO this is really annoying..
             if isinstance(memory, PrioritizedReplay):
                 update_pr_step_op = self_.call(memory.update_records, sample_indices, loss_per_item)
-                return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
+                if isinstance(optimizer, MultiGpuSyncOptimizer):
+                    return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op, sync_ops
+                else:
+                    return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
             else:
-                return step_op, loss, loss_per_item, records, q_values_s
+                if isinstance(optimizer, MultiGpuSyncOptimizer):
+                    return step_op, loss, loss_per_item, records, q_values_s, sync_ops
+                else:
+                    return step_op, loss, loss_per_item, records, q_values_s
 
         self.root_component.define_api_method("update_from_memory", update_from_memory)
 
