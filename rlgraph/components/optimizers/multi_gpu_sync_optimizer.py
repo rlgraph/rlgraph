@@ -52,7 +52,7 @@ class MultiGpuSyncOptimizer(Optimizer):
         # Name of loss, e.g. the scope. Needed to fetch losses from subcomponents.
         self.loss_name = None
         self.define_api_method("load_to_device", self._graph_fn_load_to_device, flatten_ops=True,
-                               split_ops=True, add_auto_key_as_first_param=True)
+                               split_ops=True, add_auto_key_as_first_param=True, must_be_complete=False)
 
     def set_replicas(self, component_graphs, dict_splitter, loss_name, devices):
         """
