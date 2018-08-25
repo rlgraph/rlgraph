@@ -44,14 +44,6 @@ class TensorFlowExecutor(GraphExecutor):
     - 'custom': Completely user defined device strategy, graph executor just executes calls
     - 'multi_gpu_sync': Parallelizes updates across multiple GPUs by averaging gradients.
     """
-
-    # Valid device strategies.
-    LOCAL_DEVICE_STRATEGIES = ['default', 'custom', 'multi_gpu_sync']
-
-    # Agent api methods which are part of device strategies, i.e. which may need
-    # additional ops to be executed to transfer data to device memories.
-    DEVICE_API_METHODS = ['update']
-
     def __init__(self, **kwargs):
         super(TensorFlowExecutor, self).__init__(**kwargs)
         self.global_training_timestep = None
@@ -198,18 +190,16 @@ class TensorFlowExecutor(GraphExecutor):
         # Fetch inputs for the different API-methods.
         fetch_dict, feed_dict = self.graph_builder.get_execution_inputs(*api_methods)
 
-        # TODO: filter out fetch_dict for plain np values and do not send these into session. However, we must return them either way from this method.
-        # Expand inputs and fetch list with extra device memory init ops
-        for api_method in api_methods:
-            if api_method is None:
-                continue
-            elif isinstance(api_method, (list, tuple)):
-                params = util.force_list(api_method[1])
-                api_method = api_method[0]
-            else:
-                params = list()
-            if api_method in self.DEVICE_API_METHODS:
-                fetch_dict, feed_dict = self.update_device_inputs_if_necessary(fetch_dict, feed_dict, *params)
+        # TODO: filter out fetch_dict for plain np values and do not send these into session.
+        #  However, we must return them either way from this method.
+        # for api_method in api_methods:
+        #     if api_method is None:
+        #         continue
+        #     elif isinstance(api_method, (list, tuple)):
+        #         params = util.force_list(api_method[1])
+        #         api_method = api_method[0]
+        #     else:
+        #         params = list()
 
         ret = self.monitored_session.run(fetch_dict, feed_dict=feed_dict,
                                          options=self.session_options, run_metadata=self.run_metadata)
@@ -225,29 +215,6 @@ class TensorFlowExecutor(GraphExecutor):
             ret = ret[next(iter(ret))]
 
         return ret
-
-    def update_device_inputs_if_necessary(self, fetch_list, feed_dict, *params):
-        """
-        Adds device memory allocation operations to inputs where necessary.
-
-        Args:
-            fetch_list (list): Fetch list for api method.
-            feed_dict (dict): Input dict for api method.
-            *params (any): Values to be passed into the API-method.
-
-        Returns:
-            tuple: Fetch list and input dict with additional device ops depending on device strategy.
-        """
-        if self.device_strategy == "multi_gpu_sync":
-            # TODO probably not needed, clean up once multi gpu finished.
-            # # Request additional ops from optimizer which implements them.
-            # device_fetches, device_dict = self.optimizer.graph_builder.get_execution_inputs({"update_devices": []})
-            # fetch_list.extend(device_fetches)
-            # feed_dict.update(device_dict)
-
-            return fetch_list, feed_dict
-        else:
-            return fetch_list, feed_dict
 
     def update_profiler_if_necessary(self):
         """
