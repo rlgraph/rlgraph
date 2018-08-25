@@ -73,7 +73,7 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         worker_cls = RayWorker.as_remote().remote
         ray_spec["worker_spec"]["worker_sample_size"] = 100
-        worker = worker_cls(agent_config, self.env_spec, ray_spec["worker_spec"])
+        worker = worker_cls(agent_config, ray_spec["worker_spec"], self.env_spec,)
         build_result = worker.init_agent.remote()
         ready, not_ready = ray.wait([build_result], num_returns=1)
         result = ray.get(ready)
