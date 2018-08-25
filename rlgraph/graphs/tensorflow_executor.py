@@ -617,7 +617,7 @@ class TensorFlowExecutor(GraphExecutor):
             loss_name Optional([str]): Name of loss component. Needed by some device strategies
                 to fetch the less on graph replicas.
         """
-
+        self.optimizer = optimizer
         if self.device_strategy == "multi_gpu_sync":
             # 0. Assert we have more than one gpu.
             assert self.num_gpus > 1, "ERROR: MultiGpuSync strategy needs more than one GPU available but" \
@@ -640,20 +640,17 @@ class TensorFlowExecutor(GraphExecutor):
                 sub_graphs.append(sub_graph)
                 self.used_devices.append(device)
 
+            # TODO remove once working
             # 3. Wrap local optimizer (e.g. Adam) with multi-gpu optimizer and pass device info.
+            # # Old: root <-> local_optimizer, new: root <-> multi_gpu_optimizer <-> local_optimizer
+            # optimizer.parent_component = None
+            # root_component.remove_sub_component_by_name(optimizer.name)
+            # multi_gpu_optimizer = MultiGpuSyncOptimizer(local_optimizer=optimizer, devices=self.gpu_names)
+            # root_component.add_components(multi_gpu_optimizer)
+            # # 4. Pass the graph copies and the splitter containing the info how to split batches into tensors.
 
-            # Old: root <-> local_optimizer, new: root <-> multi_gpu_optimizer <-> local_optimizer
-            optimizer.parent_component = None
-            root_component.remove_sub_component_by_name(optimizer.name)
-            multi_gpu_optimizer = MultiGpuSyncOptimizer(local_optimizer=optimizer, devices=self.gpu_names)
-            root_component.add_components(multi_gpu_optimizer)
-            # 4. Pass the graph copies and the splitter containing the info how to split batches into tensors.
-            dict_splitter = root_component.sub_component_by_name("container-splitter")
-
-            self.optimizer = multi_gpu_optimizer
-            self.optimizer.set_replicas(sub_graphs, dict_splitter, loss_name)
-        else:
-            self.optimizer = optimizer
+            container_splitter = root_component.sub_component_by_name("container-splitter")
+            self.optimizer.set_replicas(sub_graphs, container_splitter, loss_name, self.gpu_names)
 
     def _sanity_check_devices(self):
         """

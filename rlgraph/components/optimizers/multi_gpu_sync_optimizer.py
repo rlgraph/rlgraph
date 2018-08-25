@@ -30,11 +30,10 @@ class MultiGpuSyncOptimizer(Optimizer):
     """
     The Multi-GPU optimizer parallelizes synchronous optimization across multiple GPUs.
     """
-    def __init__(self, local_optimizer, devices, scope="multi-gpu-sync-optimizer", **kwargs):
+    def __init__(self, local_optimizer, scope="multi-gpu-sync-optimizer", **kwargs):
         """
         Args:
             local_optimizer (Optimizer): Local optimizer object to wrap with the multi-gpu optimizer.
-            devices (list):
         """
         super(MultiGpuSyncOptimizer, self).__init__(scope=scope, **kwargs)
 
@@ -42,14 +41,9 @@ class MultiGpuSyncOptimizer(Optimizer):
         # Name to fetch optimizers on sub-graphs.
         self.optimizer_name = local_optimizer.name
 
-        self.gpu_devices = devices
-        self.num_gpus = len(devices)
-        assert self.num_gpus > 1, "ERROR: The MultiGPUSyncOptimizer requires as least two GPUs but only {} " \
-                                  "device ids were passed in.".format(self.num_gpus)
         # Add local Optimizer object.
         self.add_components(self.optimizer)
 
-        # Function handle used to create replicas.
         self.subgraphs = None
 
         # Device names and variables.
@@ -57,28 +51,33 @@ class MultiGpuSyncOptimizer(Optimizer):
         self.sub_graph_vars = None
         # Name of loss, e.g. the scope. Needed to fetch losses from subcomponents.
         self.loss_name = None
-
-        # Split input shards.
-        self.batch_splitter = BatchSplitter(self.num_gpus)
-        # TODO needed to add?
-        self.add_components(self.batch_splitter)
         self.define_api_method("load_to_device", self._graph_fn_load_to_device, flatten_ops=True,
                                split_ops=True, add_auto_key_as_first_param=True)
 
-    def set_replicas(self, component_graphs, dict_splitter, loss_name):
+    def set_replicas(self, component_graphs, dict_splitter, loss_name, devices):
         """
-        Provides the optimizer with a list of sub-graphs to use for splitting batches over GPUs.
+        Provides the optimizer with sub-graphs, batch splitting, name of the loss to split over,
+        and devices to split over.
 
         Args:
             component_graphs (list): List of component graphs.
             dict_splitter (ContainerSplitter): Splitter object containing the keys needed to split an input batch into
                 the shards for each device.
             loss_name (str): Name of loss component to fetch from sub graphs.
+            devices (list): List of device names.
         """
         self.subgraphs = component_graphs
         self.add_components(*component_graphs)
         self.dict_splitter = dict_splitter
         self.loss_name = loss_name
+        self.gpu_devices = devices
+        self.num_gpus = len(devices)
+
+        assert self.num_gpus > 1, "ERROR: The MultiGPUSyncOptimizer requires as least two GPUs but only {} " \
+                                  "device ids were passed in.".format(self.num_gpus)
+        # Split input shards.
+        self.batch_splitter = BatchSplitter(self.num_gpus)
+        self.add_components(self.batch_splitter)
 
     def create_variables(self, input_spaces, action_space=None):
         super(MultiGpuSyncOptimizer, self).create_variables(input_spaces, action_space)
@@ -152,6 +151,7 @@ class MultiGpuSyncOptimizer(Optimizer):
             for i, shard in enumerate(device_inputs):
                 self.sub_graph_vars[i][key] = device_inputs[i]
                 shard_vars.append(self.sub_graph_vars[i][key] )
+
             return tuple(shard_vars)
 
     def _graph_fn_calculate_gradients(self, input_batches):
