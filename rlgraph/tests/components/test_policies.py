@@ -116,13 +116,13 @@ class TestPolicies(unittest.TestCase):
         test.test(("get_nn_output", nn_input), expected_outputs=expected_nn_output)
 
         # Raw action layer output; Expected shape=(3,3): 3=batch, 2=action categories + 1 state value
-        expected_state_value = np.matmul(np.matmul(
+        expected_state_value = np.matmul(relu(np.matmul(
             expected_nn_output,
             policy_params["policy/dueling-action-adapter/dense-layer-state-value-stream/dense/kernel"]
-        ), policy_params["policy/dueling-action-adapter/state-value-node/dense/kernel"])
-        expected_raw_advantages = np.matmul(np.matmul(
+        )), policy_params["policy/dueling-action-adapter/state-value-node/dense/kernel"])
+        expected_raw_advantages = np.matmul(relu(np.matmul(
             expected_nn_output, policy_params["policy/dueling-action-adapter/dense-layer-advantage-stream/dense/kernel"]
-        ), policy_params["policy/dueling-action-adapter/action-layer/dense/kernel"])
+        )), policy_params["policy/dueling-action-adapter/action-layer/dense/kernel"])
         test.test(
             ("get_action_layer_output", nn_input), expected_outputs=(expected_state_value, expected_raw_advantages),
             decimals=5
@@ -152,15 +152,15 @@ class TestPolicies(unittest.TestCase):
         print("Probs: {}".format(expected_probabilities_output))
 
         # Stochastic sample.
-        expected_actions = np.array([0, 0, 0])
+        expected_actions = np.array([1, 1, 1])
         test.test(("get_stochastic_action", nn_input), expected_outputs=expected_actions)
 
         # Deterministic sample.
-        expected_actions = np.array([0, 0, 0])
+        expected_actions = np.array([1, 1, 1])
         test.test(("get_max_likelihood_action", nn_input), expected_outputs=expected_actions)
 
         # Distribution's entropy.
-        expected_h = np.array([0.613, 0.609, 0.642])
+        expected_h = np.array([0.447, 0.435, 0.522])
         test.test(("get_entropy", nn_input), expected_outputs=expected_h, decimals=3)
 
     def test_policy_for_discrete_action_space_with_baseline_layer(self):

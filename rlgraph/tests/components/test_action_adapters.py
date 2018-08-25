@@ -107,7 +107,7 @@ class TestActionAdapters(unittest.TestCase):
         action_adapter = DuelingActionAdapter(
             action_space=action_space, units_state_value_stream=5, units_advantage_stream=4,
             weights_spec_state_value_stream=1.0, weights_spec_advantage_stream=0.5,
-            activation_state_value_stream="relu", activation_advantage_stream="linear",
+            activation_advantage_stream="linear",
             scope="aa"
         )
         test = ComponentTest(
@@ -140,7 +140,7 @@ class TestActionAdapters(unittest.TestCase):
 
         test.test(("get_logits_parameters_log_probs", inputs), expected_outputs=(
             expected_q_values, expected_probs, np.log(expected_probs)
-        ))
+        ), decimals=5)
 
     """
     def test_dueling_layer(self):

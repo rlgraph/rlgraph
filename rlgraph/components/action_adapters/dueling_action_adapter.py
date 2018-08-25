@@ -40,9 +40,9 @@ class DuelingActionAdapter(ActionAdapter):
     """
     def __init__(self, units_state_value_stream, units_advantage_stream,
                  weights_spec_state_value_stream=None, biases_spec_state_value_stream=None,
-                 activation_state_value_stream=None,
+                 activation_state_value_stream="relu",
                  weights_spec_advantage_stream=None, biases_spec_advantage_stream=None,
-                 activation_advantage_stream=None,
+                 activation_advantage_stream="relu",
                  scope="dueling-action-adapter", **kwargs):
         # TODO: change add_units=-1 once we have a true base class for action-adapters.
         super(DuelingActionAdapter, self).__init__(add_units=0, scope=scope, **kwargs)
