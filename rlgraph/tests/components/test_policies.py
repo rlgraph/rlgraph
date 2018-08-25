@@ -108,6 +108,7 @@ class TestPolicies(unittest.TestCase):
         policy_params = test.read_variable_values(policy.variables)
 
         # Some NN inputs (3 input nodes, batch size=3).
+        np.random.seed(10)
         nn_input = nn_input_space.sample(size=3)
         # Raw NN-output (3 hidden nodes). All weights=1.5, no biases.
         expected_nn_output = relu(np.matmul(nn_input, policy_params["policy/test-network/hidden-layer/dense/kernel"]),
@@ -159,7 +160,7 @@ class TestPolicies(unittest.TestCase):
         test.test(("get_max_likelihood_action", nn_input), expected_outputs=expected_actions)
 
         # Distribution's entropy.
-        expected_h = np.array([0.587, 0.468, 0.588])
+        expected_h = np.array([0.613, 0.609, 0.642])
         test.test(("get_entropy", nn_input), expected_outputs=expected_h, decimals=3)
 
     def test_policy_for_discrete_action_space_with_baseline_layer(self):
