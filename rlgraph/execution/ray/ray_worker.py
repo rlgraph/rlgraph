@@ -304,10 +304,16 @@ class RayWorker(RayActor):
                     env_sample_states = sample_states[env_id]
                     # Get next states for this environment's trajectory.
                     env_sample_next_states = env_sample_states[1:]
-                    # Since we are terminal, this state does not matter, just so arrays have equal length.
-                    env_sample_next_states.append(self.zero_unbatched_state)
+
+                    next_state = self.agent.state_space.force_batch(next_states[i])
+                    if self.preprocessors[env_id] is not None:
+                        next_state = self.preprocessors[env_id].preprocess(next_state)
+
+                    # Extend because next state has a batch dim.
+                    env_sample_next_states.extend(next_state)
 
                     # Post-process this trajectory via n-step discounting.
+                    # print("processing terminal episode of length:", len(env_sample_states))
                     post_s, post_a, post_r, post_next_s, post_t = self._truncate_n_step(env_sample_states,
                         sample_actions[env_id], sample_rewards[env_id], env_sample_next_states,
                         sample_terminals[env_id])
@@ -439,7 +445,7 @@ class RayWorker(RayActor):
             mean_worker_env_frames_per_second=sum(adjusted_frames) / sum(self.sample_times)
         )
 
-    def _truncate_n_step(self,  states, actions, rewards, next_states, terminals):
+    def _truncate_n_step(self, states, actions, rewards, next_states, terminals):
         """
         Computes n-step truncation for exactly one episode segment of one environment.
 
