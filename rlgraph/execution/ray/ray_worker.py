@@ -119,6 +119,7 @@ class RayWorker(RayActor):
         self.agent.reset()
 
         self.zero_batched_state = np.zeros((1,) + self.agent.preprocessed_state_space.shape)
+        self.zero_unbatched_state = np.zeros(self.agent.preprocessed_state_space.shape)
         self.preprocessed_states_buffer = np.zeros(
             shape=(self.num_environments,) + self.agent.preprocessed_state_space.shape,
             dtype=self.agent.preprocessed_state_space.dtype
@@ -224,11 +225,15 @@ class RayWorker(RayActor):
             self.last_ep_start_initialized = True
 
         start = time.monotonic()
-
         timesteps_executed = 0
         episodes_executed = [0 for _ in range_(self.num_environments)]
         env_frames = 0
 
+        # Final result batch.
+        batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals = list(), list(), list(), \
+            list(), list()
+
+        # Running trajectories.
         sample_states, sample_actions, sample_rewards, sample_terminals = dict(), dict(), dict(), dict()
         next_states = [np.zeros_like(self.last_states) for _ in range_(self.num_environments)]
 
@@ -250,8 +255,6 @@ class RayWorker(RayActor):
         terminals = [False for _ in range_(self.num_environments)]
         while timesteps_executed < num_timesteps:
             current_iteration_start_timestamp = time.time()
-
-            # state_batch = self.agent.state_space.force_batch(env_states)
             for i, env_id in enumerate(self.env_ids):
                 state = self.agent.state_space.force_batch(env_states[i])
                 if self.preprocessors[env_id] is not None:
@@ -259,14 +262,8 @@ class RayWorker(RayActor):
                 else:
                     self.preprocessed_states_buffer[i] = env_states[i]
 
-            # print('states buffer before act: {}'.format(self.env_states_buffer.shape))
             actions = self.agent.get_action(states=self.preprocessed_states_buffer,
                                             use_exploration=use_exploration, apply_preprocessing=False)
-
-            for i, env_id in enumerate(self.env_ids):
-                sample_states[env_id].append(np.array(self.preprocessed_states_buffer[i]))
-                sample_actions[env_id].append(actions[i])
-
             next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
             # Worker frameskip not needed as done in env.
             # for _ in range_(self.worker_frameskip):
@@ -281,24 +278,22 @@ class RayWorker(RayActor):
             timesteps_executed += self.num_environments
             env_frames += self.num_environments
             env_states = next_states
-
             current_iteration_time = time.time() - current_iteration_start_timestamp
 
             # Do accounting for each environment.
+            state_buffer = np.array(self.preprocessed_states_buffer)
             for i, env_id in enumerate(self.env_ids):
-                # Update samples.
                 current_episode_timesteps[i] += 1
-                # Each position is the running episode reward of that episosde. Add step reward.
+                # Each position is the running episode reward of that episode. Add step reward.
                 current_episode_rewards[i] += step_rewards[i]
+                sample_states[env_id].append(state_buffer[i])
+                sample_actions[env_id].append(actions[i])
                 sample_rewards[env_id].append(step_rewards[i])
                 sample_terminals[env_id].append(terminals[i])
-
                 current_episode_sample_times[i] += current_iteration_time
 
                 # Terminate and reset episode for that environment.
                 if terminals[i] or (0 < max_timesteps_per_episode <= current_episode_timesteps[i]):
-                    # print("terminated episode with reward : {} and timestep {}".format(
-                    #     episode_rewards[i], episode_timesteps[i]))
                     self.finished_episode_rewards[i].append(current_episode_rewards[i])
                     self.finished_episode_timesteps[i].append(current_episode_timesteps[i])
                     self.finished_episode_total_times[i].append(time.time() - current_episode_start_timestamps[i])
@@ -306,7 +301,31 @@ class RayWorker(RayActor):
                     episodes_executed[i] += 1
                     self.episodes_executed += 1
 
-                    # Reset this environment and its preprocecssor stack.
+                    env_sample_states = sample_states[env_id]
+                    # Get next states for this environment's trajectory.
+                    env_sample_next_states = env_sample_states[1:]
+                    # Since we are terminal, this state does not matter, just so arrays have equal length.
+                    env_sample_next_states.append(self.zero_unbatched_state)
+
+                    # Post-process this trajectory via n-step discounting.
+                    post_s, post_a, post_r, post_next_s, post_t = self._truncate_n_step(env_sample_states,
+                        sample_actions[env_id], sample_rewards[env_id], env_sample_next_states,
+                        sample_terminals[env_id])
+
+                    # Append to final result trajectories.
+                    batch_states.extend(post_s)
+                    batch_actions.extend(post_a)
+                    batch_rewards.extend(post_r)
+                    batch_next_states.extend(post_next_s)
+                    batch_terminals.extend(post_t)
+
+                    # Reset running trajectory for this env.
+                    sample_states[env_id] = list()
+                    sample_actions[env_id] = list()
+                    sample_rewards[env_id] = list()
+                    sample_terminals[env_id] = list()
+
+                    # Reset this environment and its pre-processor stack.
                     env_states[i] = self.vector_env.reset(i)
                     if self.preprocessors[env_id] is not None:
                         self.preprocessors[env_id].reset()
@@ -331,33 +350,33 @@ class RayWorker(RayActor):
         self.sample_times.append(total_time)
         self.sample_env_frames.append(env_frames)
 
-        # Merge results into one batch.
-        batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals = list(), list(), list(),\
-            list(), list()
-
+        # We already accounted for all terminated episodes. This means we only
+        # have to do accounting for any unfinished fragments.
         for i, env_id in enumerate(self.env_ids):
-            env_sample_states = sample_states[env_id]
-            # Get next states for this environment's trajectory.
-            env_sample_next_states = env_sample_states[1:]
-            batch_states.extend(env_sample_states)
-            if terminals[i]:
-                next_state = self.zero_batched_state
-            else:
-                next_state = next_states[i]
-                next_state = self.agent.state_space.force_batch(next_state)
+            # This env was not terminal -> need to process remaining trajectory
+            if not terminals[i]:
+                env_sample_states = sample_states[env_id]
+                # Get next states for this environment's trajectory.
+                env_sample_next_states = env_sample_states[1:]
+                next_state = self.agent.state_space.force_batch(next_states[i])
                 if self.preprocessors[env_id] is not None:
                     next_state = self.preprocessors[env_id].preprocess(next_state)
 
-            # print('next state shape append: {}'.format(next_state.shape))
-            batch_next_states.extend(env_sample_next_states)
-            batch_next_states.extend(next_state)
-            batch_actions.extend(sample_actions[env_id])
-            batch_rewards.extend(sample_rewards[env_id])
-            batch_terminals.extend(sample_terminals[env_id])
+                # Extend because next state has a batch dim.
+                env_sample_next_states.extend(next_state)
+                post_s, post_a, post_r, post_next_s, post_t = self._truncate_n_step(env_sample_states,
+                    sample_actions[env_id], sample_rewards[env_id], env_sample_next_states,
+                    sample_terminals[env_id])
 
-        time.sleep(0.1)
-        sample_batch, batch_size = self._process_sample_if_necessary(batch_states, batch_actions,
-            batch_rewards, batch_next_states, batch_terminals)
+                batch_states.extend(post_s)
+                batch_actions.extend(post_a)
+                batch_rewards.extend(post_r)
+                batch_next_states.extend(post_next_s)
+                batch_terminals.extend(post_t)
+
+        # Perform final batch-processing once.
+        sample_batch, batch_size = self._batch_process_sample(batch_states, batch_actions,
+                                                              batch_rewards, batch_next_states, batch_terminals)
 
         # Note that the controller already evaluates throughput so there is no need
         # for each worker to calculate expensive statistics now.
@@ -420,20 +439,11 @@ class RayWorker(RayActor):
             mean_worker_env_frames_per_second=sum(adjusted_frames) / sum(self.sample_times)
         )
 
-    def _process_sample_if_necessary(self, states, actions, rewards, next_states, terminals):
+    def _truncate_n_step(self,  states, actions, rewards, next_states, terminals):
         """
-        Post-processes sample, e.g. by computing priority weights, compressing, applying
-        n-step corrections, ported from ray RLLib.
+        Computes n-step truncation for exactly one episode segment of one environment.
 
-        Args:
-            states (list): List of states.
-            actions (list): List of actions.
-            rewards (list): List of rewards.
-            next_states: (list): List of next_states.
-            terminals (list): List of terminals.
-
-        Returns:
-            dict: Sample batch dict.
+        Returns n-step truncated (shortened) version.
         """
         if self.n_step_adjustment > 1:
             for i in range_(len(rewards) - self.n_step_adjustment + 1):
@@ -453,6 +463,22 @@ class RayWorker(RayActor):
             for arr in [states, actions, rewards, next_states, terminals]:
                 del arr[new_len:]
 
+        return states, actions, rewards, next_states, terminals
+
+    def _batch_process_sample(self, states, actions, rewards, next_states, terminals):
+        """
+        Batch Post-processes sample, e.g. by computing priority weights, and compressing.
+
+        Args:
+            states (list): List of states.
+            actions (list): List of actions.
+            rewards (list): List of rewards.
+            next_states: (list): List of next_states.
+            terminals (list): List of terminals.
+
+        Returns:
+            dict: Sample batch dict.
+        """
         weights = np.ones_like(rewards)
 
         # Compute loss-per-item.
