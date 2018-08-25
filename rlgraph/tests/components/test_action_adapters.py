@@ -104,8 +104,9 @@ class TestActionAdapters(unittest.TestCase):
         # Action Space.
         action_space = IntBox(4, shape=(2,))
 
-        action_adapter = DuelingActionAdapter(action_space=action_space, weights_spec=2.0, biases_spec=0.5,
-                                              activation="linear")
+        action_adapter = DuelingActionAdapter(
+            action_space=action_space, weights_spec=2.0, biases_spec=0.5, activation="linear"
+        )
         test = ComponentTest(
             component=action_adapter, input_spaces=dict(nn_output=last_nn_layer_space), action_space=action_space
         )

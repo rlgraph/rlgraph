@@ -32,6 +32,7 @@ if get_backend() == "tf":
     import tensorflow as tf
 
 
+# TODO: Create a more primitive base class only defining the API-methods. Then rename this into `SingleLayerActionAdapter`.
 class ActionAdapter(Component):
     """
     A Component that cleans up a neural network's flat output and gets it ready for parameterizing a
