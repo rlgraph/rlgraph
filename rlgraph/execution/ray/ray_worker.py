@@ -101,6 +101,7 @@ class RayWorker(RayActor):
         # Save these so they can be fetched after training if desired.
         self.finished_episode_rewards = [list() for _ in range_(self.num_environments)]
         self.finished_episode_timesteps = [list() for _ in range_(self.num_environments)]
+        self.finished_episode_times = [list() for _ in range_(self.num_environments)]
         self.total_worker_steps = 0
         self.episodes_executed = 0
 
@@ -120,6 +121,7 @@ class RayWorker(RayActor):
         )
         self.last_ep_timesteps = [0 for _ in range_(self.num_environments)]
         self.last_ep_rewards = [0 for _ in range_(self.num_environments)]
+        self.last_ep_start_timestamps = [0.0 for _ in range_(self.num_environments)]
         # Was the last state a terminal state so env should be reset in next call?
         self.last_terminals = [False for _ in range_(self.num_environments)]
 
@@ -227,6 +229,13 @@ class RayWorker(RayActor):
         env_states = self.last_states
         current_episode_rewards = self.last_ep_rewards
         current_episode_timesteps = self.last_ep_timesteps
+        current_episode_start_timestamps = self.last_ep_start_timestamps
+
+        # Initialize start timestamps. Initializing the timestamps here should make the observed execution timestamps
+        # more accurate, as there might be delays between the worker initialization and actual sampling start.
+        for i, timestamp in enumerate(current_episode_start_timestamps):
+            if timestamp == 0.0:
+                current_episode_start_timestamps[i] = time.time()
 
         # Whether the episode in each env has terminated.
         terminals = [False for _ in range_(self.num_environments)]
@@ -277,6 +286,7 @@ class RayWorker(RayActor):
                     #     episode_rewards[i], episode_timesteps[i]))
                     self.finished_episode_rewards[i].append(current_episode_rewards[i])
                     self.finished_episode_timesteps[i].append(current_episode_timesteps[i])
+                    self.finished_episode_times[i].append(time.time() - current_episode_start_timestamps[i])
                     episodes_executed[i] += 1
                     self.episodes_executed += 1
 
@@ -286,6 +296,7 @@ class RayWorker(RayActor):
                         self.preprocessors[env_id].reset()
                     current_episode_rewards[i] = 0
                     current_episode_timesteps[i] = 0
+                    current_episode_start_timestamps[i] = 0.0  # Re-initialize with the next iteration
 
             if 0 < num_timesteps <= timesteps_executed or (break_on_terminal and np.any(terminals)):
                 self.total_worker_steps += timesteps_executed
@@ -295,6 +306,7 @@ class RayWorker(RayActor):
         self.last_states = env_states
         self.last_ep_rewards = current_episode_rewards
         self.last_ep_timesteps = current_episode_timesteps
+        self.last_ep_start_timestamps = current_episode_start_timestamps
 
         total_time = (time.monotonic() - start) or 1e-10
         self.sample_steps.append(timesteps_executed)
@@ -378,6 +390,7 @@ class RayWorker(RayActor):
         return dict(
             episode_timesteps=self.finished_episode_timesteps,
             episode_rewards=self.finished_episode_rewards,
+            episode_times=self.finished_episode_times,
             min_episode_reward=min_episode_reward,
             max_episode_reward=max_episode_reward,
             mean_episode_reward=mean_episode_reward,
