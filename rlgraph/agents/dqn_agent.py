@@ -20,7 +20,8 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, DictMerger, ContainerSplitter
+from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, DictMerger, \
+    ContainerSplitter, MultiGpuSyncOptimizer
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils.util import strip_list
 
@@ -243,10 +244,17 @@ class DQNAgent(Agent):
 
             # Args are passed in again because some device strategies may want to split them to different devices.
             policy_vars = self_.call(policy._variables)
-            step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item,
-                                                      q_values_s, actions, rewards, terminals,
-                                                      qt_values_sp, q_values_sp, importance_weights)
-            return step_op, loss, loss_per_item, q_values_s
+
+            # TODO this is here because multi gpu optimizer has different num of return vals.
+            if isinstance(optimizer, MultiGpuSyncOptimizer):
+                step_op, loss, loss_per_item, sync_ops = self_.call(optimizer.step, policy_vars, loss, loss_per_item,
+                                                          q_values_s, actions, rewards, terminals, qt_values_sp,
+                                                          q_values_sp, importance_weights)
+                return step_op, loss, loss_per_item, q_values_s, sync_ops
+            else:
+                step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item,
+                    q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights)
+                return step_op, loss, loss_per_item, q_values_s
 
         self.root_component.define_api_method("update_from_external_batch", update_from_external_batch)
 
