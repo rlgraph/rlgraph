@@ -28,7 +28,8 @@
       "scope": "concat"
     },
     {
-      "type": "Flatten"
+      "type": "reshape",
+      "flatten": true
     }
   ],
 
