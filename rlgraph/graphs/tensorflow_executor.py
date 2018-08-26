@@ -604,6 +604,7 @@ class TensorFlowExecutor(GraphExecutor):
                     scope="sync_copy_graph_{}".format(i),
                     reuse_variable_scope=shared_scope
                 )
+                # Unwrap optimizer
                 sub_graphs.append(sub_graph)
                 self.used_devices.append(device)
 

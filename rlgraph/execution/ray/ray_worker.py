@@ -314,7 +314,7 @@ class RayWorker(RayActor):
 
                     # Post-process this trajectory via n-step discounting.
                     # print("processing terminal episode of length:", len(env_sample_states))
-                    post_s, post_a, post_r, post_next_s, post_t = self._truncate_n_step(env_sample_states,
+                    post_s, post_a, post_r, post_next_s, post_t, truncate = self._truncate_n_step(env_sample_states,
                         sample_actions[env_id], sample_rewards[env_id], env_sample_next_states,
                         sample_terminals[env_id])
 
@@ -370,7 +370,7 @@ class RayWorker(RayActor):
 
                 # Extend because next state has a batch dim.
                 env_sample_next_states.extend(next_state)
-                post_s, post_a, post_r, post_next_s, post_t = self._truncate_n_step(env_sample_states,
+                post_s, post_a, post_r, post_next_s, post_t, truncate = self._truncate_n_step(env_sample_states,
                     sample_actions[env_id], sample_rewards[env_id], env_sample_next_states,
                     sample_terminals[env_id])
 
@@ -495,17 +495,20 @@ class RayWorker(RayActor):
                     if terminals[i + j] is True:
                         next_terminal = i + j
 
-            print("r={}".format(rewards))
-            print("s'={}".format(next_states))
-            print("truncate={}".format(truncate))
+            # print("r={}".format(rewards))
+            # print("s'={}".format(next_states))
+            # print("truncate={}".format(truncate))
 
             if truncate:
+                states = states[:-(self.n_step_adjustment - 1)]
+                actions = actions[:-(self.n_step_adjustment - 1)]
                 rewards = rewards[:-(self.n_step_adjustment - 1)]
                 next_states = next_states[:-(self.n_step_adjustment - 1)]
-
-            print("After truncating:")
-            print("r={}".format(rewards))
-            print("s'={}".format(next_states))
+                terminals = terminals[:-(self.n_step_adjustment - 1)]
+            #
+            # print("After truncating:")
+            # print("r={}".format(rewards))
+            # print("s'={}".format(next_states))
 
         return states, actions, rewards, next_states, terminals, truncate
 
