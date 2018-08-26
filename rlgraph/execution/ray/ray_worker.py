@@ -459,28 +459,23 @@ class RayWorker(RayActor):
             # we just have to move states forward and truncate.
             if was_terminal:
                 # We know the ONLY last terminal is True.
-                next_terminal = -1
+                terminal_position = len(rewards) - 1
                 for i in range(len(rewards)):
-                    if terminals[i] is True:
-                        next_terminal = i
                     for j in range(1, self.n_step_adjustment):
                         # Outside sample data. Stop inner loop and set truncate = True
                         if i + j >= len(next_states):
                             break
                         # Normal case: No terminal ahead (so far) in n-step sequence.
-                        if next_terminal < i:
+                        if i + j < terminal_position:
                             next_states[i] = next_states[i + j]
                             rewards[i] += self.discount ** j * rewards[i + j]
                         # Terminal ahead: Don't go beyond it.
                         # Repeat it for the remaining n-steps and always assume r=0.0.
                         else:
-                            next_states[i] = next_states[next_terminal]
+                            next_states[i] = next_states[terminal_position]
                             terminals[i] = True
-                            if i + j <= next_terminal:
+                            if i + j <= terminal_position:
                                 rewards[i] += self.discount ** j * rewards[i + j]
-
-                        if terminals[i + j] is True:
-                            next_terminal = i + j
             else:
                 # We know this segment does not contain any terminals so we simply have to adjust next
                 # states and rewards.
