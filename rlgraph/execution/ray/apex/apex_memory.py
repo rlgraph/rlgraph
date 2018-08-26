@@ -121,7 +121,6 @@ class ApexMemory(Specifiable):
 
     def get_records(self, num_records):
         indices = []
-        # Ensure we always have n-next states.
         prob_sum = self.merged_segment_tree.sum_segment_tree.get_sum(0, self.size)
         samples = np.random.random(size=(num_records,)) * prob_sum
         for sample in samples:
@@ -140,7 +139,6 @@ class ApexMemory(Specifiable):
 
     def update_records(self, indices, update):
         for index, loss in zip(indices, update):
-            priority = np.power(loss, self.alpha)
-            self.merged_segment_tree.insert(index, priority)
+            self.merged_segment_tree.insert(index, loss ** self.alpha)
             self.max_priority = max(self.max_priority, loss)
 
