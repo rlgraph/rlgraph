@@ -664,8 +664,12 @@ class Component(Specifiable):
         # Allow the Component to create all its variables.
         if get_backend() == "tf":
             with tf.device(device):
-                with tf.variable_scope(self.global_scope):
-                    self.create_variables(input_spaces, action_space)
+                if self.reuse_variable_scope:
+                    with tf.variable_scope(name_or_scope=self.reuse_variable_scope, reuse=tf.AUTO_REUSE):
+                        self.create_variables(input_spaces, action_space)
+                else:
+                    with tf.variable_scope(self.global_scope):
+                        self.create_variables(input_spaces, action_space)
 
         # Add all created variables up the parent/container hierarchy.
         self.propagate_variables()
@@ -799,15 +803,10 @@ class Component(Specifiable):
             else:
                 shape = None
                 initializer = np.asarray(initializer, dtype=util.dtype(dtype, "np"))
-            if self.reuse_variable_scope is not None:
-                with tf.variable_scope(name_or_scope=self.reuse_variable_scope, reuse=True):
-                    var = tf.get_variable(
-                        name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
-                    )
-            else:
-                var = tf.get_variable(
-                    name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
-                )
+
+            var = tf.get_variable(
+                name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
+            )
         elif get_backend() == "tf-eager":
             shape = tuple((() if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,))
                           + (shape or ()))
@@ -1116,11 +1115,13 @@ class Component(Specifiable):
             elif component is self:
                 raise RLGraphError("ERROR: Cannot add a Component ({}) as a sub-Component to itself!".format(self.name))
             component.parent_component = self
-
-            # Pass reusable scope to subscomponents.
-            component.reuse_variable_scope = self.reuse_variable_scope
             self.sub_components[component.name] = component
 
+            # Add own reusable scope to front of sub-components'.
+            if self.reuse_variable_scope is not None:
+                component.reuse_variable_scope = self.reuse_variable_scope + (
+                    "/"+component.reuse_variable_scope if component.reuse_variable_scope else ""
+                )
             # Fix the sub-component's (and sub-sub-component's etc..) scope(s).
             self.propagate_scope(component)
 
