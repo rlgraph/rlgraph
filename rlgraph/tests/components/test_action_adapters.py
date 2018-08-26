@@ -128,7 +128,9 @@ class TestActionAdapters(unittest.TestCase):
             inputs, dueling_action_adapter_vars["aa/dense-layer-state-value-stream/dense/kernel"]
         )), dueling_action_adapter_vars["aa/state-value-node/dense/kernel"])
 
-        test.test(("get_action_layer_output", inputs), expected_outputs=(expected_state_values, expected_raw_advantages))
+        test.test(("get_action_layer_output", inputs),
+                  expected_outputs=(expected_state_values, expected_raw_advantages),
+                  decimals=5)
 
         expected_advantages = np.reshape(expected_raw_advantages, newshape=(batch_size, 2, 4))
 
