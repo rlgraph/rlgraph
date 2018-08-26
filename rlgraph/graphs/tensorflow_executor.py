@@ -586,17 +586,14 @@ class TensorFlowExecutor(GraphExecutor):
         """
         self.optimizer = optimizer
         if self.device_strategy == "multi_gpu_sync":
-            # 0. Assert we have more than one gpu.
             assert self.num_gpus > 1, "ERROR: MultiGpuSync strategy needs more than one GPU available but" \
                                       "there are only {} GPUs visible.".format(self.num_gpus)
             self.logger.info("Building MultiGpuSync strategy with {} GPUs.".format(self.num_gpus))
-            # 1. Get the original component used by the agent to define its model.
 
-            # 2. Get a copy of the root-component.
             sub_graphs = []
             shared_scope = "shared-scope"
             for i, device in enumerate(self.gpu_names):
-                # TODO only copy relevant subgraphs
+                # TODO only copy relevant subgraphs?
                 # Copy and assign GPU to copy.
                 self.logger.info("Creating device sub-graph for device: {}.".format(device))
                 sub_graph = root_component.copy(
@@ -604,16 +601,16 @@ class TensorFlowExecutor(GraphExecutor):
                     scope="sync_copy_graph_{}".format(i),
                     reuse_variable_scope=shared_scope
                 )
-                # Unwrap optimizer. TODO unclear if unwrapping works correctly.
-                opt = sub_graph.component_by_name("multi-gpu-sync-optimizer")
+                # Unwrap optimizer.
+                opt = sub_graph.sub_component_by_name("multi-gpu-sync-optimizer")
                 local_opt = opt.optimizer
+                local_opt.parent_component = None
+
                 sub_graph.remove_sub_component_by_name(opt.name)
                 sub_graph.add_components(local_opt)
                 sub_graphs.append(sub_graph)
                 self.used_devices.append(device)
 
-            # TODO remove once working
-            # 3. Wrap local optimizer (e.g. Adam) with multi-gpu optimizer and pass device info.
             # # Old: root <-> local_optimizer, new: root <-> multi_gpu_optimizer <-> local_optimizer
             # optimizer.parent_component = None
             # root_component.remove_sub_component_by_name(optimizer.name)

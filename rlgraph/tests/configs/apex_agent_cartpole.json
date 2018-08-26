@@ -33,13 +33,15 @@
           "gpu_spec": { "gpus_enabled" : false}
         },
         "n_step_adjustment": 1,
-        "worker_computes_weights": false,
+        "worker_computes_weights": true,
         "sample_exploration": false,
         "exploration_min_value": 0.5
       },
       "apex_replay_spec": {
         "memory_spec": {
-          "capacity": 10000
+          "capacity": 1000,
+          "alpha": 0.6,
+          "beta": 0.4
         },
         "clip_rewards": false,
         "min_sample_memory_size": 200,
@@ -50,7 +52,7 @@
   "network_spec": [
     {
       "type": "dense",
-      "units": 20,
+      "units": 16,
       "activation": "tanh",
       "scope": "hidden"
     }
