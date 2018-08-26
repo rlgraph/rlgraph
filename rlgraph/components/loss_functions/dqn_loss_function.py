@@ -177,14 +177,11 @@ class DQNLossFunction(LossFunction):
             # Calculate the TD-delta (target - current estimate).
             td_delta = (rewards + (self.discount ** self.n_step) * qt_sp_ap_values) - q_s_a_values
 
+            if self.importance_weights:
+                td_delta *= importance_weights
+
             # Reduce over the composite actions, if any.
             if get_rank(td_delta) > 1:
-                if self.importance_weights:
-                    td_delta = tf.reduce_mean(
-                        input_tensor=td_delta * importance_weights,
-                        axis=list(range(1, self.ranks_to_reduce + 1))
-                    )
-                else:
                     td_delta = tf.reduce_mean(input_tensor=td_delta, axis=list(range(1, self.ranks_to_reduce + 1)))
 
             return self._apply_huber_loss_if_necessary(td_delta)
