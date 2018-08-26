@@ -234,8 +234,9 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
                 preprocessors=dict(
                     # The images from the env  are divided by 255.
                     RGB_INTERLEAVED=[dict(type="divide", divisor=255)],
-                    # The prev. actions from the env must be flattened.
-                    previous_action=[dict(type="reshape", flatten=True, flatten_categories=action_space.num_categories)]
+                    # The prev. action/reward from the env must be flattened/bumped-up-to-(1,).
+                    previous_action=[dict(type="reshape", flatten=True, flatten_categories=action_space.num_categories)],
+                    previous_reward=[dict(type="reshape", new_shape=(1,)), dict(type="convert_type", to_dtype="float32")],
                 )
             ),
             # Policy spec.
@@ -249,7 +250,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             environment_spec=env_spec,
             actor_component_spec=actor_component,
             state_space=state_space,
-            reward_space="float64",
+            reward_space="float32",
             # Add both prev-action and -reward into the state sent through the network.
             add_previous_action=True,
             add_previous_reward=True,
@@ -279,7 +280,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # Step n times through the Env and collect results.
         # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
         # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
-        time_steps = 500
+        time_steps = 2000
         time_start = time.monotonic()
         out = test.test(("step", [initial_internal_states, time_steps, 0]), expected_outputs=None)
         time_end = time.monotonic()
@@ -297,8 +298,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         self.assertTrue(out[1][0]["RGB_INTERLEAVED"].min() >= 0.0)  # make sure we have pixels / 255
         self.assertTrue(out[1][0]["RGB_INTERLEAVED"].max() <= 1.0)
         self.assertTrue(out[1][1].dtype == np.int32)  # actions
-        self.assertTrue(out[1][2].dtype == np.float64)  # rewards
-        self.assertTrue(out[1][3].dtype == np.float64)  # episode return
+        self.assertTrue(out[1][2].dtype == np.float32)  # rewards
+        self.assertTrue(out[1][3].dtype == np.float32)  # episode return
         self.assertTrue(out[1][4].dtype == np.bool_)  # next-state is terminal?
         self.assertTrue(out[1][5]["INSTR"].dtype == np.object)  # next state (raw, not preprocessed)
         self.assertTrue(out[1][5]["RGB_INTERLEAVED"].dtype == np.uint8)  # next state (raw, not preprocessed)
@@ -346,13 +347,21 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             action_space=env.action_space,
             # TODO: automate this (by lookup from NN).
             internal_states_space=IMPALAAgent.standard_internal_states_space,
-            # Make session-creation hang in docker.
-            execution_spec=dict(disable_monitoring=True)
+            # Setup distributed tf.
+            execution_spec=dict(
+                disable_monitoring=True,
+                cluster_spec=dict(
+                    mode="distributed",
+                    job="worker",
+                    cluster_spec=dict(
+                        learner=["localhost:22222"],
+                        worker=["localhost:22223"]
+                    )
+                )
+            )
         )
-
+        agent.environment_stepper.environment_server.start()
         worker = IMPALAWorker(agent=agent)
-        #test = AgentTest(worker=worker)
-
         out = worker.execute_timesteps(500)
-
+        print(out)
         agent.environment_stepper.environment_server.stop()

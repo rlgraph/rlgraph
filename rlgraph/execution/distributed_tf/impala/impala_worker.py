@@ -58,7 +58,7 @@ class IMPALAWorker(Worker):
         # The number of steps taken in the running episode.
         self.episode_timesteps = [0 for _ in range_(self.num_environments)]
         # Whether the running episode has terminated.
-        self.episode_terminals = [False for _ in range_(self.num_environments)]
+        #self.episode_terminals = [False for _ in range_(self.num_environments)]
         # Wall time of the last start of the running episode.
         self.episode_starts = [0 for _ in range_(self.num_environments)]
         # The current state of the running episode.
@@ -91,7 +91,12 @@ class IMPALAWorker(Worker):
 
         num_timesteps = num_timesteps or 0
         max_timesteps_per_episode = [max_timesteps_per_episode or 0 for _ in range_(self.num_environments)]
-        frameskip = frameskip or self.frameskip
+        #frameskip = frameskip or self.frameskip
+
+        batched_internal_states_space = self.agent.internal_states_space.with_batch_rank()
+
+        # Initial internal_states (batch=1).
+        current_internal_states = batched_internal_states_space.zeros(size=self.num_environments)
 
         # Stats.
         timesteps_executed = 0
@@ -107,11 +112,14 @@ class IMPALAWorker(Worker):
             for i in range_(self.num_environments):
                 self.episode_returns[i] = 0
                 self.episode_timesteps[i] = 0
-                self.episode_terminals[i] = False
+                #self.episode_terminals[i] = False
                 self.episode_starts[i] = time.monotonic()
+
+            current_internal_states = batched_internal_states_space.zeros(size=self.num_environments)
+
             # TODO: Fix for vectorized Envs.
-            #self.env_states[0] = self.agent.call_api_method("reset")
-            #self.agent.reset()
+            self.agent.call_api_method("reset")
+
         #elif self.env_states[0] is None:
         #    raise RLGraphError("Runner must be reset at the very beginning. Environment is in invalid state.")
 
@@ -124,64 +132,64 @@ class IMPALAWorker(Worker):
 
             #self.env_states = self.agent.state_space.force_batch(self.env_states)
 
-            # TODO insert call to env-stepper
+            # TODO right now everything comes back as single-env.
             out = self.agent.call_api_method(
-                "perform_n_steps_and_insert_into_fifo", [current_internal_states, self.num_steps, num_timesteps]
+                "perform_n_steps_and_insert_into_fifo", [current_internal_states, timesteps_executed]
             )
-            num_timesteps += self.num_steps
+            timesteps_executed += self.num_steps
+            current_internal_states = np.asarray([out[2]])  # directly add batch=1 again
+
+            # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
+            #env_rewards = [0 for _ in range_(self.num_environments)]
+            step_episode_returns = out[3]
+            terminals = out[4]
 
             #actions, preprocessed_states = self.agent.get_action(
             #    states=self.env_states, use_exploration=use_exploration, extra_returns="preprocessed_states"
             #)
-            # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
-            env_rewards = [0 for _ in range_(self.num_environments)]
-            next_states = None
-            for _ in range_(frameskip):
-                next_states, step_rewards, self.episode_terminals, infos = self.vector_env.step(actions=actions)
+            #next_states = None
+            #for _ in range_(frameskip):
+            #    next_states, step_rewards, self.episode_terminals, infos = self.vector_env.step(actions=actions)
 
 
-                self.env_frames += self.num_environments
-                for i, step_reward in enumerate(step_rewards):
-                    env_rewards[i] += step_reward
-                if np.any(self.episode_terminals):
-                    break
+            #    self.env_frames += self.num_environments
+            #    for i, step_reward in enumerate(step_rewards):
+            #        env_rewards[i] += step_reward
+            #    if np.any(self.episode_terminals):
+            #        break
 
             # Only render once per action.
             if self.render:
                 self.vector_env.environments[0].render()
 
             for i in range_(self.num_environments):
-                self.episode_returns[i] += env_rewards[i]
-                self.episode_timesteps[i] += 1
 
-                if 0 < max_timesteps_per_episode[i] <= self.episode_timesteps[i]:
-                    self.episode_terminals[i] = True
+                self.episode_timesteps[i] += self.num_steps
 
-                # Do accounting for finished episodes.
-                if self.episode_terminals[i]:
-                    episodes_executed += 1
-                    self.finished_episode_rewards.append(self.episode_returns)
-                    self.finished_episode_durations.append(time.monotonic() - self.episode_starts[i])
-                    self.finished_episode_steps.append(self.episode_timesteps)
-                    self.logger.info("Finished episode: reward={}, actions={}, duration={}s.".format(
-                        self.episode_returns, self.episode_timesteps, self.finished_episode_durations[-1]))
+                for j, terminal in enumerate(terminals):  # TODO: <- [i]
+                    self.episode_returns[i] = step_episode_returns[i]
 
-                    # Reset this environment and its preprocecssor stack.
-                    self.env_states[i] = self.vector_env.reset(i)
-                    self.episode_returns[i] = 0
-                    self.episode_timesteps[i] = 0
+                    if 0 < max_timesteps_per_episode[i] <= self.episode_timesteps[i]:
+                        terminal = True
 
-                # Observe per environment.
-                self.agent.observe(
-                    preprocessed_states=preprocessed_states[i], actions=actions[i], internals=[],
-                    rewards=env_rewards[i], terminals=self.episode_terminals[i], env_id=self.env_ids[i]
-                )
-            self.env_states = next_states
-            self.update_if_necessary()
-            timesteps_executed += self.num_environments
+                    if terminal is True:
+                        episodes_executed += 1
+                        self.finished_episode_rewards.append(self.episode_returns[i])
+                        self.finished_episode_durations.append(time.monotonic() - self.episode_starts[i])
+                        self.finished_episode_steps.append(self.episode_timesteps[i])
+                        self.logger.info("Finished episode: reward={}, actions={}, duration={}s.".format(
+                            self.episode_returns[i], self.episode_timesteps[i], self.finished_episode_durations[-1]))
+
+                        self.episode_returns[i] = 0
+                        self.episode_timesteps[i] = 0
+
+            #self.env_states = next_states
+            #self.update_if_necessary()
+            #timesteps_executed += self.num_environments
             num_timesteps_reached = (0 < num_timesteps <= timesteps_executed)
 
-            if 0 < num_episodes <= episodes_executed or num_timesteps_reached:
+            #if 0 < num_episodes <= episodes_executed or num_timesteps_reached:
+            if num_timesteps_reached:
                 break
 
         total_time = (time.monotonic() - start) or 1e-10

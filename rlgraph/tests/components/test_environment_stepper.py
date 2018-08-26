@@ -164,6 +164,8 @@ class TestEnvironmentStepper(unittest.TestCase):
         environment_stepper.environment_server.stop()
         test.terminate()
 
+    # TODO: missing test case for adding previous-action and/or previous-reward to cycle.
+
     def test_environment_stepper_on_pong(self):
         environment_spec = dict(type="openai_gym", gym_env="Pong-v0", frameskip=4, seed=10)
         dummy_env = Environment.from_spec(environment_spec)
@@ -172,14 +174,16 @@ class TestEnvironmentStepper(unittest.TestCase):
         agent_config = config_from_path("configs/dqn_agent_for_pong.json")
         actor_component = ActorComponent(
             agent_config["preprocessing_spec"],
-            dict(neural_network=agent_config["network_spec"], action_space=action_space),
+            dict(neural_network=agent_config["network_spec"],
+                 action_adapter_spec=agent_config["action_adapter_spec"],
+                 action_space=action_space),
             agent_config["exploration_spec"]
         )
         environment_stepper = EnvironmentStepper(
             environment_spec=environment_spec,
             actor_component_spec=actor_component,
             state_space=state_space,
-            reward_space="float64"
+            reward_space="float"
         )
 
         # Start Specifiable Server with Env manually.
@@ -197,7 +201,7 @@ class TestEnvironmentStepper(unittest.TestCase):
         # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
         # Reset the stepper.
         test.test("reset")
-        time_steps = 500
+        time_steps = 2000
         time_start = time.monotonic()
         out = test.test(("step", [time_steps, 0]))
         time_end = time.monotonic()
@@ -212,8 +216,8 @@ class TestEnvironmentStepper(unittest.TestCase):
         self.assertTrue(out[1][0].min() >= 0.0)  # make sure we have pixels / 255
         self.assertTrue(out[1][0].max() <= 1.0)
         self.assertTrue(out[1][1].dtype == np.int32)  # actions
-        self.assertTrue(out[1][2].dtype == np.float64)  # rewards
-        self.assertTrue(out[1][3].dtype == np.float64)  # episode return
+        self.assertTrue(out[1][2].dtype == np.float32)  # rewards
+        self.assertTrue(out[1][3].dtype == np.float32)  # episode return
         self.assertTrue(out[1][4].dtype == np.bool_)  # next-state is terminal?
         self.assertTrue(out[1][5].dtype == np.uint8)  # next state (raw, not preprocessed)
         self.assertTrue(out[1][5].min() >= 0)  # make sure we have pixels
@@ -240,7 +244,9 @@ class TestEnvironmentStepper(unittest.TestCase):
         agent_config = config_from_path("configs/dqn_agent_for_pong.json")
         actor_component = ActorComponent(
             agent_config["preprocessing_spec"],
-            dict(neural_network=agent_config["network_spec"], action_space=action_space),
+            dict(neural_network=agent_config["network_spec"],
+                 action_adapter_spec=agent_config["action_adapter_spec"],
+                 action_space=action_space),
             agent_config["exploration_spec"]
         )
         test = ComponentTest(
@@ -249,7 +255,7 @@ class TestEnvironmentStepper(unittest.TestCase):
             action_space=action_space,
         )
         s = dummy_env.reset()
-        time_steps = 500
+        time_steps = 2000
         time_start = time.monotonic()
         for i in range(time_steps):
             preprocessed_s, a = test.test(("get_preprocessed_state_and_action", np.array([s])))
