@@ -28,7 +28,7 @@ class Worker(Specifiable):
     """
     Generic worker to locally interact with simulator environments.
     """
-    def __init__(self, agent, env_spec=None, num_envs=1, frameskip=1):
+    def __init__(self, agent, env_spec=None, num_envs=1, frameskip=1, render=False):
         """
         Args:
             agent (Agent): Agent to execute environment on.
@@ -37,6 +37,8 @@ class Worker(Specifiable):
             num_envs (int): How many single Environments should be run in parallel in a SequentialVectorEnv.
             frameskip (int): How often actions are repeated after retrieving them from the agent.
                 This setting can be overwritten in the single calls to the different `execute_..` methods.
+            render (bool): Whether to render the environment after each action.
+                Default: False.
         """
         super(Worker, self).__init__()
         self.num_environments = num_envs
@@ -49,6 +51,7 @@ class Worker(Specifiable):
             self.vector_env = None
         self.agent = agent
         self.frameskip = frameskip
+        self.render = render
 
         # Update schedule if worker is performing updates.
         self.updating = None
