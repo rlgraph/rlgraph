@@ -20,7 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
 from rlgraph.spaces.space_utils import sanity_check_space
-from rlgraph.utils.ops import FlattenedDataOp
+from rlgraph.utils.ops import FlattenedDataOp, flatten_op
 from rlgraph.utils.util import dtype as dtype_
 
 if get_backend() == "tf":
@@ -31,25 +31,46 @@ class FIFOQueue(Memory):
     """
     A wrapper for a simple in-graph FIFOQueue.
     """
-    def __init__(self, **kwargs):
+    def __init__(self, record_space=None, only_insert_single_records=False, **kwargs):
+        """
+        Args:
+            record_space (Space): The Space of a single record to be pushed to or pulled from the queue.
+            only_insert_single_records (bool): Whether insertion will always only happen with single records.
+                If True, will add a batch=1 rank to each to-be-inserted sample.
+        """
         super(FIFOQueue, self).__init__(scope=kwargs.pop("scope", "fifo-queue"), **kwargs)
 
+        # The record Space must be provided for clients of the Queue that only use it for retrieving records, but never
+        # inserting any. This way, RLgraph cannot infer the input space itself.
+        self.record_space = record_space
+
+        self.only_insert_single_records = only_insert_single_records
         # Holds the actual backend-specific queue object.
         self.queue = None
 
         self.define_api_method("get_size", self._graph_fn_get_size)
+        # If record space given, overwrite the insert method as "must_be_complete=False".
+        if self.record_space is not None:
+            self.define_api_method(
+                "insert_records", self._graph_fn_insert_records, must_be_complete=False, ok_to_overwrite=True
+            )
 
     def create_variables(self, input_spaces, action_space=None):
-        # Overwrite parent version as we don't need a custom registry.
-        in_space = input_spaces["records"]
+        # Overwrite parent's method as we don't need a custom registry.
+        in_space = self.record_space if self.record_space else input_spaces["records"]
+
+        assert in_space is not None
 
         # Make sure all input-records have a batch rank and determine the shapes and dtypes.
         shapes = list()
         dtypes = list()
         names = list()
         for key, value in in_space.flatten().items():
-            sanity_check_space(value, must_have_batch_rank=True)
-            shapes.append(value.shape)
+            # TODO: what if single items come in without a time-rank? Then this check here will fail.
+            # We are expecting single items. The incoming batch-rank is actually a time-rank: Add the batch rank.
+            sanity_check_space(value, must_have_batch_rank=self.only_insert_single_records is False)
+            shape = value.get_shape(with_time_rank=value.has_time_rank)
+            shapes.append(shape)
             dtypes.append(dtype_(value.dtype))
             names.append(key)
 
@@ -63,8 +84,16 @@ class FIFOQueue(Memory):
             )
 
     def _graph_fn_insert_records(self, records):
-        # Insert the records as FlattenedDataOp (dict).
-        return self.queue.enqueue_many(records)
+        # records is just one record: Add batch rank.
+        if self.only_insert_single_records is True:
+            # TODO: simply try: self.queue.enqueue(flatten_op(records))
+            return self.queue.enqueue(flatten_op(records))
+            #records = FlattenedDataOp({
+            #    flat_key: tf.expand_dims(tensor, axis=0) for flat_key, tensor in flatten_op(records).items()
+            #})
+        else:
+            # Insert the records as FlattenedDataOp (dict).
+            return self.queue.enqueue_many(flatten_op(records))
 
     def _graph_fn_get_records(self, num_records=1):
         # Get the records as dict.
