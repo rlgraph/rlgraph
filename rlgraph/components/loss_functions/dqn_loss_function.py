@@ -42,10 +42,10 @@ class DQNLossFunction(LossFunction):
                  scope="dqn-loss-function", **kwargs):
         """
         Args:
-            double_q (Optional[bool]): Whether to use the double DQN loss function (see DQNAgent [2]).
-            huber_loss (Optional[bool]): Whether to apply a huber loss correction(see DQNAgent [2]).
-            importance_weights (Optional[bool]): Where to use importance weights from a prioritized replay.
-            n_step (Optional[int]): n-step adjustment to discounting.
+            double_q (bool): Whether to use the double DQN loss function (see DQNAgent [2]).
+            huber_loss (bool): Whether to apply a huber loss correction(see DQNAgent [2]).
+            importance_weights (bool): Where to use importance weights from a prioritized replay.
+            n_step (int): n-step adjustment to discounting.
         """
         self.double_q = double_q
         self.huber_loss = huber_loss
@@ -166,9 +166,9 @@ class DQNLossFunction(LossFunction):
             # Ignore Q(s'a') values if s' is a terminal state. Instead use 0.0 as the state-action value for s'a'.
             # Note that in that case, the next_state (s') is not the correct next state and should be disregarded.
             # See Chapter 3.4 in "RL - An Introduction" (2017 draft) by A. Barto and R. Sutton for a detailed analysis.
-            qt_sp_ap_values = tf.where(condition=terminals,
-                                       x=tf.zeros_like(qt_sp_ap_values),
-                                       y=qt_sp_ap_values)
+            qt_sp_ap_values = tf.where(
+                condition=terminals, x=tf.zeros_like(qt_sp_ap_values), y=qt_sp_ap_values
+            )
 
             # Q(s,a) -> Use the Q-value of the action actually taken before.
             one_hot = tf.one_hot(indices=actions, depth=self.action_space.num_categories)
@@ -179,8 +179,9 @@ class DQNLossFunction(LossFunction):
 
             # Reduce over the composite actions, if any.
             if get_rank(td_delta) > 1:
-                    td_delta = tf.reduce_mean(input_tensor=td_delta, axis=list(range(1, self.ranks_to_reduce + 1)))
+                td_delta = tf.reduce_mean(input_tensor=td_delta, axis=list(range(1, self.ranks_to_reduce + 1)))
 
+            # Apply importance-weights from a prioritized replay to the loss.
             if self.importance_weights:
                 return importance_weights * self._apply_huber_loss_if_necessary(td_delta)
             else:
@@ -195,7 +196,7 @@ class DQNLossFunction(LossFunction):
                     y=self.huber_delta * (np.abs(td_delta) - 0.5 * self.huber_delta)
                 )
             else:
-                return np.power(td_delta, 2)
+                return np.square(x=td_delta)
         elif get_backend() == "tf":
             if self.huber_loss:
                 return tf.where(
