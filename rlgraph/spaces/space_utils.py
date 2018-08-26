@@ -105,27 +105,46 @@ def get_space_from_op(op):
     # primitive Space -> infer from op dtype and shape
     else:
         # Simple constant value DataOp (python type or an np.ndarray).
-        if isinstance(op, SingleDataOp) and op.constant_value is not None:
-            value = op.constant_value
-            if isinstance(value, np.ndarray):
-                return BoxSpace.from_spec(spec=dtype(str(value.dtype), "np"), shape=value.shape)
+        assert not hasattr(op, "constant_value")  # we should be done with this by now
+        #if isinstance(op, SingleDataOp) and op.constant_value is not None:
+        #    value = op.constant_value
+        #    if isinstance(value, np.ndarray):
+        #        return BoxSpace.from_spec(spec=dtype(str(value.dtype), "np"), shape=value.shape)
         # Op itself is a single value, simple python type.
-        elif isinstance(op, (bool, int, float)):
+        if isinstance(op, (bool, int, float)):
             return BoxSpace.from_spec(spec=type(op), shape=())
         # No Space: e.g. the tf.no_op, a distribution (anything that's not a tensor).
         elif hasattr(op, "dtype") is False or not hasattr(op, "get_shape"):
             return 0
         # Some tensor: can be converted into a BoxSpace.
         else:
-            shape = get_shape(op)
+            shape = get_shape(op, )
             # Unknown shape (e.g. a cond op).
             if shape is None:
                 return 0
             add_batch_rank = False
             add_time_rank = False
-            # TODO: This is going to fail if time_major=True or we only have a time-rank (no batch rank)!
-            # Detect automatically whether the first rank(s) are batch and/or time rank.
-            if shape is not () and shape[0] is None:
+            new_shape = list(shape)
+            # New way: Detect via op._batch_rank and op._time_rank properties where these ranks are.
+            if hasattr(op, "_batch_rank") and isinstance(op._batch_rank, int):
+                if hasattr(op, "_batch_rank_dim") and isinstance(op._batch_rank_dim, int):
+                    assert shape[op._batch_rank] is None
+                    add_batch_rank = op._batch_rank_dim
+                else:
+                    add_batch_rank = shape[op._batch_rank] if shape[op._batch_rank] is not None else True
+                new_shape[op._batch_rank] = -1
+                shape = tuple(n for n in new_shape if n != -1)
+            if hasattr(op, "_time_rank") and isinstance(op._time_rank, int):
+                if hasattr(op, "_time_rank_dim") and isinstance(op._time_rank_dim, int):
+                    assert shape[op._time_rank] is None
+                    add_time_rank = op._time_rank_dim
+                else:
+                    add_time_rank = shape[op._time_rank] if shape[op._time_rank] is not None else True
+                new_shape[op._time_rank] = -1
+                shape = tuple(n for n in new_shape if n != -1)
+
+            # Old way: Detect automatically whether the first rank(s) are batch and/or time rank.
+            if add_batch_rank is False and add_time_rank is False and shape is not () and shape[0] is None:
                 if len(shape) > 1 and shape[1] is None:
                     shape = shape[2:]
                     add_time_rank = True
@@ -155,9 +174,10 @@ def get_space_from_op(op):
 
 
 def sanity_check_space(
-        space, allowed_types=None, non_allowed_types=None, must_have_batch_rank=None,
-        must_have_time_rank=None, must_have_categories=None,
-        rank=None, num_categories=None
+        space, allowed_types=None, non_allowed_types=None,
+        must_have_batch_rank=None, must_have_time_rank=None, must_have_batch_or_time_rank=False,
+        must_have_categories=None, num_categories=None,
+        rank=None
 ):
     """
     Sanity checks a given Space for certain criteria and raises exceptions if they are not met.
@@ -166,16 +186,18 @@ def sanity_check_space(
         space (Space): The Space object to check.
         allowed_types (Optional[List[type]]): A list of types that this Space must be an instance of.
         non_allowed_types (Optional[List[type]]): A list of type that this Space must not be an instance of.
-        must_have_batch_rank (Optional[bool]): Whether the Space  must (True) or must not (False) have the
+        must_have_batch_rank (Optional[bool]): Whether the Space must (True) or must not (False) have the
             `has_batch_rank` property set to True. None, if it doesn't matter.
-        must_have_time_rank (Optional[bool]): Whether the Space  must (True) or must not (False) have the
+        must_have_time_rank (Optional[bool]): Whether the Space must (True) or must not (False) have the
             `has_time_rank` property set to True. None, if it doesn't matter.
+        must_have_batch_or_time_rank (Optional[bool]): Whether the Space must (True) or must not (False) have either
+            the `has_batch_rank` or the `has_time_rank` property set to True.
         must_have_categories (Optional[bool]): For IntBoxes, whether the Space must (True) or must not (False) have
             global bounds with `num_categories` > 0. None, if it doesn't matter.
-        rank (Optional[int,tuple]): An int or a tuple (min,max) range within which the Space's rank must lie.
-            None if it doesn't matter.
         num_categories (Optional[int,tuple]): An int or a tuple (min,max) range within which the Space's
             `num_categories` rank must lie. Only valid for IntBoxes.
+            None if it doesn't matter.
+        rank (Optional[int,tuple]): An int or a tuple (min,max) range within which the Space's rank must lie.
             None if it doesn't matter.
 
     Raises:
@@ -189,6 +211,13 @@ def sanity_check_space(
     if non_allowed_types is not None:
         if isinstance(space, tuple(non_allowed_types)):
             raise RLGraphError("ERROR: Space ({}) must not be an instance of {}!".format(space, non_allowed_types))
+
+    if must_have_batch_or_time_rank is True:
+        if space.has_batch_rank is False and space.has_time_rank is False:
+            raise RLGraphError(
+                "ERROR: Space ({}) does not have a batch- or a time-rank, but must have either one of "
+                "these!".format(space)
+            )
 
     if must_have_batch_rank is not None:
         if space.has_batch_rank != must_have_batch_rank:
@@ -269,9 +298,11 @@ def check_space_equivalence(space1, space2):
     if space1 == space2:
         return space1
     # One has batch-rank, the other doesn't, but has one more rank.
-    elif space1.has_batch_rank and not space2.has_batch_rank and space1.rank == space2.rank - 1:
+    elif space1.has_batch_rank and not space2.has_batch_rank and \
+            (np.asarray(space1.rank) == np.asarray(space2.rank) - 1).all():
         return space1
-    elif space2.has_batch_rank and not space1.has_batch_rank and space2.rank == space1.rank - 1:
+    elif space2.has_batch_rank and not space1.has_batch_rank and \
+            (np.asarray(space2.rank) == np.asarray(space1.rank) - 1).all():
         return space2
 
     # TODO: time rank?

@@ -100,6 +100,9 @@ class Space(Specifiable):
         """
         Returns a deepcopy of this Space, but with `has_batch_rank` set to the provided value.
 
+        Args:
+            add_batch_rank (Union[bool,int]): The fixed size of the batch-rank or True or False.
+
         Returns:
             Space: The deepcopy of this Space, but with `has_batch_rank` set to True.
         """
@@ -108,6 +111,9 @@ class Space(Specifiable):
     def with_time_rank(self, add_time_rank=True):
         """
         Returns a deepcopy of this Space, but with `has_time_rank` set to the provided value.
+
+        Args:
+            add_time_rank (Union[bool,int]): The fixed size of the time-rank or True or False.
 
         Returns:
             Space: The deepcopy of this Space, but with `has_time_rank` set to True.
