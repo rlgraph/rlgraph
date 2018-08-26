@@ -45,7 +45,8 @@ class TestDeepmindLabEnv(unittest.TestCase):
         frame = 0
         for i in range(2000):
             s, r, t, _ = env.step(env.action_space.sample())
-            assert isinstance(r, float)
+            assert isinstance(r, np.ndarray)
+            assert r.dtype == np.float32
             assert isinstance(t, bool)
             # Assert we have pixels.
             self.assertGreaterEqual(np.mean(s["RGB_INTERLEAVED"]), 0)
