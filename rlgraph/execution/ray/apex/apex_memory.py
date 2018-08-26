@@ -21,6 +21,7 @@ import numpy as np
 import operator
 from six.moves import xrange as range_
 
+from rlgraph.utils import SMALL_NUMBER
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
 from rlgraph.execution.ray.ray_util import ray_decompress
@@ -127,7 +128,7 @@ class ApexMemory(Specifiable):
             indices.append(self.merged_segment_tree.sum_segment_tree.index_of_prefixsum(prefix_sum=sample))
 
         sum_prob = self.merged_segment_tree.sum_segment_tree.get_sum()
-        min_prob = self.merged_segment_tree.min_segment_tree.get_min_value() / sum_prob
+        min_prob = self.merged_segment_tree.min_segment_tree.get_min_value() / sum_prob + SMALL_NUMBER
         max_weight = (min_prob * self.size) ** (-self.beta)
         weights = []
         for index in indices:
