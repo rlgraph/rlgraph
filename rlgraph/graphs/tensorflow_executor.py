@@ -604,7 +604,11 @@ class TensorFlowExecutor(GraphExecutor):
                     scope="sync_copy_graph_{}".format(i),
                     reuse_variable_scope=shared_scope
                 )
-                # Unwrap optimizer
+                # Unwrap optimizer. TODO unclear if unwrapping works correctly.
+                opt = sub_graph.component_by_name("multi-gpu-sync-optimizer")
+                local_opt = opt.optimizer
+                sub_graph.remove_sub_component_by_name(opt.name)
+                sub_graph.add_components(local_opt)
                 sub_graphs.append(sub_graph)
                 self.used_devices.append(device)
 
