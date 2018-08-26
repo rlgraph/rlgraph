@@ -43,6 +43,10 @@ class ConcatLayer(NNLayer):
         super(ConcatLayer, self).__init__(scope=scope, **kwargs)
         self.axis = axis
 
+        # Wrapper for backend.
+        if get_backend() == "tf":
+            self.layer = tf.keras.layers.Concatenate(axis=self.axis)
+
     def check_input_spaces(self, input_spaces, action_space=None):
         super(ConcatLayer, self).check_input_spaces(input_spaces, action_space)
         # Make sure all inputs have the same shape except for the last rank.
@@ -57,13 +61,6 @@ class ConcatLayer(NNLayer):
                 "0th input's shape is {}, but {}st input's shape is {} (all shapes here are without " \
                 "batch/time-ranks).".format(in_space_0.shape, idx, input_spaces[key].shape)
             idx += 1
-
-    def create_variables(self, input_spaces, action_space=None):
-        super(ConcatLayer, self).create_variables(input_spaces, action_space=None)
-
-        # Wrapper for backend.
-        if get_backend() == "tf":
-            self.layer = tf.keras.layers.Concatenate(axis=self.axis)
 
     def _graph_fn_apply(self, *inputs):
         if get_backend() == "tf":
