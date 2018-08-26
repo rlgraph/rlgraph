@@ -56,9 +56,9 @@ class TestAllCompile(unittest.TestCase):
         )
         print('Compiled apex agent')
 
-    def test_impala_agents_compilation(self):
+    def test_impala_actor_compilation(self):
         """
-        Tests IMPALA agent compilation (actor and learner).
+        Tests IMPALA agent compilation (actor).
 
         """
         try:
@@ -86,7 +86,22 @@ class TestAllCompile(unittest.TestCase):
         print("Compiled IMPALA type=actor agent.")
         actor_agent.environment_stepper.environment_server.stop()
 
-        # Try compiling the learner.
+    def test_impala_learner_compilation(self):
+        """
+        Tests IMPALA agent compilation (learner).
+
+        """
+        try:
+            from rlgraph.environments.deepmind_lab import DeepmindLabEnv
+        except ImportError:
+            print("Deepmind Lab not installed: Will skip this test.")
+            return
+
+        agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
+        env = DeepmindLabEnv(
+            level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
+        )
+
         learner_agent = IMPALAAgent.from_spec(
             agent_config,
             type="learner",

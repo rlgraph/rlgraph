@@ -77,7 +77,7 @@ class TestFIFOQueue(unittest.TestCase):
         test = ComponentTest(component=fifo_queue, input_spaces=self.input_spaces)
 
         def run(expected_):
-            # Wait one second.
+            # Wait n seconds.
             time.sleep(2)
             # Pull something out of the queue again to continue.
             test.test(("get_records", 2), expected_outputs=expected_)

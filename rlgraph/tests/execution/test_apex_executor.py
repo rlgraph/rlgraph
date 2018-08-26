@@ -97,7 +97,7 @@ class TestApexExecutor(unittest.TestCase):
     def test_learning_cartpole_n_step(self):
         """
         Tests if apex can learn a simple environment using a single worker, thus replicating
-        dqn.
+        DQN.
         """
         env_spec = dict(
             type="openai",
