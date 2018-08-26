@@ -21,7 +21,7 @@ from rlgraph.components.layers.nn.nn_layer import NNLayer
 from rlgraph.components.layers.nn.concat_layer import ConcatLayer
 from rlgraph.components.layers.nn.conv2d_layer import Conv2DLayer
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
-from rlgraph.components.layers.nn.dueling_layer import DuelingLayer
+#from rlgraph.components.layers.nn.dueling_layer import DuelingLayer
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 from rlgraph.components.layers.nn.maxpool2d_layer import MaxPool2DLayer
 from rlgraph.components.layers.nn.residual_layer import ResidualLayer
@@ -31,7 +31,7 @@ NNLayer.__lookup_classes__ = dict(
     conv2d=Conv2DLayer,
     dense=DenseLayer,
     fc=DenseLayer,  # alias
-    dueling=DuelingLayer,
+    #dueling=DuelingLayer,
     lstm=LSTMLayer,
     maxpool2d=MaxPool2DLayer,
     residual=ResidualLayer

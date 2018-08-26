@@ -44,7 +44,7 @@ class BaselineActionAdapter(ActionAdapter):
 
     def get_state_values_and_logits(self, nn_output):
         """
-        API-method. Returns separated V, A, and Q-values from the DuelingLayer.
+        API-method. Returns separated V and logit values split from the action layer.
 
         Args:
             nn_output (DataOpRecord): The NN output of the preceding neural network.

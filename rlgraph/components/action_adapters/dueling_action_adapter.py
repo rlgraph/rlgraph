@@ -32,7 +32,7 @@ if get_backend() == "tf":
 
 class DuelingActionAdapter(ActionAdapter):
     """
-    An ActionAdapter that adds a DuelingLayer to the output of the base ActionAdapter.
+    An ActionAdapter that adds a dueling Q calculation to the flattened output of a neural network.
 
     API:
         get_dueling_output(nn_output) (Tuple[SingleDataOp x 3]): The state-value, advantage-values
