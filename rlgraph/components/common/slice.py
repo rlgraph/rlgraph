@@ -43,13 +43,6 @@ class Slice(Component):
 
         self.define_api_method("slice", self._graph_fn_slice, flatten_ops=True, split_ops=True)
 
-    #def check_input_spaces(self, input_spaces, action_space=None):
-    #    in_space = input_spaces["preprocessing_inputs"]
-
-    #    # OBSOLETE: as we can slice the batch rank as well, which is not part of `rank`.
-    #    ##Must have at least rank 1.
-    #    #sanity_check_space(in_space, rank=(1, None))
-
     def _graph_fn_slice(self, preprocessing_inputs, start_index=0, end_index=None):
         if end_index is None:
             # Return a single slice removing the rank.
@@ -57,7 +50,14 @@ class Slice(Component):
                 slice_ = preprocessing_inputs[start_index]
             # Return a single slice but embedded in the rank now with dim=1.
             else:
-                slice_ = preprocessing_inputs[start_index:(start_index+1)]
+                if self.backend == "python" or get_backend() == "python":
+                    slice_ = preprocessing_inputs[start_index:(start_index+1)]
+                elif get_backend() == "tf":
+                    # Special case: tf does not know how to do: array[-1:0] (must be array[-1:]).
+                    if isinstance(start_index, (int, np.ndarray)) and start_index == -1:
+                        slice_ = preprocessing_inputs[start_index:]
+                    else:
+                        slice_ = preprocessing_inputs[start_index:(start_index + 1)]
         else:
             slice_ = preprocessing_inputs[start_index:end_index]
 
