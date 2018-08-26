@@ -488,8 +488,8 @@ class RayWorker(RayActor):
                     for j in range_(1, self.n_step_adjustment):
                         next_states[i] = next_states[i + j]
                         rewards[i] += self.discount ** j * rewards[i + j]
-            for arr in [states, actions, rewards, next_states, terminals]:
-                del arr[new_len:]
+                for arr in [states, actions, rewards, next_states, terminals]:
+                    del arr[new_len:]
 
         return states, actions, rewards, next_states, terminals
 
