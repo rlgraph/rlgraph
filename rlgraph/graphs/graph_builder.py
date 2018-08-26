@@ -466,14 +466,14 @@ class GraphBuilder(Specifiable):
                 device = self.default_device
         # Device is specific to whether we are creating variables or ops.
         if isinstance(device, dict):
-            device = device["variables"] if variables is True else device["ops"]
+            device = device.get("variables", None) if variables is True else device.get("ops", None)
 
-        # If device is not available, use the default device (or None).
-        if device is not None and device not in self.available_devices:
+        # If device is local, but not available, use the default device (or None).
+        if device is not None and not re.match(r'^/job:', device) and device not in self.available_devices:
             device = self.device_map.get(component.name, self.default_device)
         # Device is specific to whether we are creating variables or ops.
         if isinstance(device, dict):
-            device = device["variables"] if variables is True else device["ops"]
+            device = device.get("variables", None) if variables is True else device.get("ops", None)
 
         return device
 
