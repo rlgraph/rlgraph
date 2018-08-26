@@ -200,9 +200,22 @@ def parse_observe_spec(observe_spec):
         buffer_enabled=True,
         # Fill buffer with n records before sending them through the graph.
         buffer_size=100,  # only if buffer_enabled=True
-        # The unit in which we measure frequency: one of "timesteps", "episodes", "sec".
+        # Set to > 1 if we want to post-process buffered values for n-step learning.
+        n_step=1,  # values > 1 are only allowed if buffer_enabled is True and buffer_size >> n.
     )
     observe_spec = default_dict(observe_spec, default_spec)
+
+    if observe_spec["n_step"] > 1:
+        if observe_spec["buffer_enabled"] is False:
+            raise RLGraphError(
+                "Cannot setup observations with n-step (n={}), while buffering is switched "
+                "off".format(observe_spec["n_step"])
+            )
+        elif observe_spec["buffer_size"] < 3 * observe_spec["n_step"]:
+            raise RLGraphError(
+                "Buffer must be at least 3x as large as n-step (n={}, min-buffer={})!".format(
+                    observe_spec["n_step"], 3 * observe_spec["n_step"])
+            )
 
     return observe_spec
 
