@@ -169,7 +169,7 @@ class OpenAIGymEnv(Environment):
             if self.lives > lives > 0:
                 terminal = True
             self.lives = lives
-        return state, reward, terminal, info
+        return state, np.array(reward, dtype=np.float32), terminal, info
 
     def render(self):
         self.gym_env.render("human")

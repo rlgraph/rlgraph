@@ -95,7 +95,7 @@ class DeepmindLabEnv(Environment):
         state = self.level.observations() if terminal is False else self.state_space.zeros()
 
         # Return state, reward, terminal, and None (info).
-        return state, reward, terminal, None
+        return state, np.array(reward, dtype=np.float32), terminal, None
 
     @staticmethod
     def define_actions(actions_spec=None):
