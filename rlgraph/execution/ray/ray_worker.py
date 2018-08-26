@@ -314,7 +314,7 @@ class RayWorker(RayActor):
 
                     # Post-process this trajectory via n-step discounting.
                     # print("processing terminal episode of length:", len(env_sample_states))
-                    post_s, post_a, post_r, post_next_s, post_t, truncate = self._truncate_n_step(env_sample_states,
+                    post_s, post_a, post_r, post_next_s, post_t = self._truncate_n_step(env_sample_states,
                         sample_actions[env_id], sample_rewards[env_id], env_sample_next_states,
                         sample_terminals[env_id], was_terminal=True)
 
@@ -370,7 +370,7 @@ class RayWorker(RayActor):
 
                 # Extend because next state has a batch dim.
                 env_sample_next_states.extend(next_state)
-                post_s, post_a, post_r, post_next_s, post_t, truncate = self._truncate_n_step(env_sample_states,
+                post_s, post_a, post_r, post_next_s, post_t = self._truncate_n_step(env_sample_states,
                     sample_actions[env_id], sample_rewards[env_id], env_sample_next_states,
                     sample_terminals[env_id], was_terminal=False)
 
@@ -452,10 +452,11 @@ class RayWorker(RayActor):
         Returns:
              n-step truncated (shortened) version.
         """
-        truncate = False
         if self.n_step_adjustment > 1:
-            # There are 2 cases. If the trajectory did not end in a terminal, we just have to move states forward
-            # and truncate.
+            new_len = len(states) - self.n_step_adjustment + 1
+
+            # There are 2 cases. If the trajectory did not end in a terminal,
+            # we just have to move states forward and truncate.
             if was_terminal:
                 # We know the ONLY last terminal is True.
                 next_terminal = -1
@@ -465,7 +466,6 @@ class RayWorker(RayActor):
                     for j in range(1, self.n_step_adjustment):
                         # Outside sample data. Stop inner loop and set truncate = True
                         if i + j >= len(next_states):
-                            truncate = True
                             break
                         # Normal case: No terminal ahead (so far) in n-step sequence.
                         if next_terminal < i:
@@ -481,11 +481,6 @@ class RayWorker(RayActor):
 
                         if terminals[i + j] is True:
                             next_terminal = i + j
-
-                if truncate is True:
-                    new_len = len(states) - self.n_step_adjustment + 1
-                    for arr in [states, actions, rewards, next_states, terminals]:
-                        del arr[new_len:]
             else:
                 # We know this segment does not contain any terminals so we simply have to adjust next
                 # states and rewards.
@@ -493,11 +488,10 @@ class RayWorker(RayActor):
                     for j in range_(1, self.n_step_adjustment):
                         next_states[i] = next_states[i + j]
                         rewards[i] += self.discount ** j * rewards[i + j]
-                new_len = len(states) - self.n_step_adjustment + 1
-                for arr in [states, actions, rewards, next_states, terminals]:
-                    del arr[new_len:]
+            for arr in [states, actions, rewards, next_states, terminals]:
+                del arr[new_len:]
 
-        return states, actions, rewards, next_states, terminals, truncate
+        return states, actions, rewards, next_states, terminals
 
     def _batch_process_sample(self, states, actions, rewards, next_states, terminals):
         """
