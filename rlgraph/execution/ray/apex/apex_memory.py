@@ -82,7 +82,7 @@ class ApexMemory(Specifiable):
         if record[5] is not None:
             self.merged_segment_tree.insert(self.index, record[5])
         else:
-            self.merged_segment_tree.insert(self.index, self.default_new_weight)
+            self.merged_segment_tree.insert(self.index, self.max_priority ** self.alpha)
 
         # Update indices.
         self.index = (self.index + 1) % self.capacity
@@ -122,7 +122,7 @@ class ApexMemory(Specifiable):
     def get_records(self, num_records):
         indices = []
         # Ensure we always have n-next states.
-        prob_sum = self.merged_segment_tree.sum_segment_tree.get_sum(0, self.size - 1)
+        prob_sum = self.merged_segment_tree.sum_segment_tree.get_sum(0, self.size)
         samples = np.random.random(size=(num_records,)) * prob_sum
         for sample in samples:
             indices.append(self.merged_segment_tree.sum_segment_tree.index_of_prefixsum(prefix_sum=sample))
