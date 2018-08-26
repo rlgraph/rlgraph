@@ -528,8 +528,9 @@ class Component(Specifiable):
             actual_params = actual_params[1:]
         if len(params) != len(actual_params):
             # Check whether the last arg is var_positional (e.g. *inputs; in that case it's ok if the number of params
-            # is larger than that of the actual graph_fn params).
-            if len(params) > len(actual_params) > 0 and actual_params[-1].kind == inspect.Parameter.VAR_POSITIONAL:
+            # is larger than that of the actual graph_fn params or its one smaller).
+            if actual_params[-1].kind == inspect.Parameter.VAR_POSITIONAL and (len(params) > len(actual_params) > 0 or
+                                                                               len(params) == len(actual_params) - 1):
                 pass
             # Some actual params have default values: Number of given params must be at least as large as the number
             # of non-default actual params but maximally as large as the number of actual_parameters.
@@ -1234,10 +1235,19 @@ class Component(Specifiable):
         """
         if component is None:
             component = self
+        properties_scoped = copy.deepcopy(properties)
         for name, value in properties.items():
-            setattr(component, name, value)
+            # Property is some scope (value is then that scope of the parent component).
+            # Have to align it with sub-component's local scope.
+            if value and (name == "global_scope" or name == "reuse_variable_scope"):
+                value += (("/" + component.scope) if component.scope else "")
+                properties_scoped[name] = value
+                setattr(component, name, value)
+            # Normal property: Set to static given value.
+            else:
+                setattr(component, name, value)
         for sc in component.sub_components.values():
-            component.propagate_subcomponent_properties(properties, sc)
+            component.propagate_subcomponent_properties(properties_scoped, sc)
 
     def propagate_variables(self, keys=None):
         """
