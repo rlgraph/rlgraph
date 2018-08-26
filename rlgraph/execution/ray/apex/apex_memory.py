@@ -80,7 +80,7 @@ class ApexMemory(Specifiable):
 
         # Weights. # TODO this is problematic due to index not existing.
         if record[5] is not None:
-            self.merged_segment_tree.insert(self.index, record[5])
+            self.merged_segment_tree.insert(self.index, record[5] ** self.alpha)
         else:
             self.merged_segment_tree.insert(self.index, self.max_priority ** self.alpha)
 
