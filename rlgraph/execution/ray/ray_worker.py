@@ -488,6 +488,7 @@ class RayWorker(RayActor):
                     # Terminal ahead: Don't go beyond it. Repeat it for the remaining n-steps and always assume r=0.0.
                     else:
                         next_states[i] = next_states[next_terminal]
+                        terminals[i] = True
                         if i + j <= next_terminal:
                             rewards[i] += self.discount ** j * rewards[i + j]
 
