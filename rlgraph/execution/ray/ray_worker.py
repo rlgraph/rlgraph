@@ -316,7 +316,7 @@ class RayWorker(RayActor):
                     # print("processing terminal episode of length:", len(env_sample_states))
                     post_s, post_a, post_r, post_next_s, post_t, truncate = self._truncate_n_step(env_sample_states,
                         sample_actions[env_id], sample_rewards[env_id], env_sample_next_states,
-                        sample_terminals[env_id])
+                        sample_terminals[env_id], was_terminal=True)
 
                     # Append to final result trajectories.
                     batch_states.extend(post_s)
@@ -372,7 +372,7 @@ class RayWorker(RayActor):
                 env_sample_next_states.extend(next_state)
                 post_s, post_a, post_r, post_next_s, post_t, truncate = self._truncate_n_step(env_sample_states,
                     sample_actions[env_id], sample_rewards[env_id], env_sample_next_states,
-                    sample_terminals[env_id])
+                    sample_terminals[env_id], was_terminal=False)
 
                 batch_states.extend(post_s)
                 batch_actions.extend(post_a)
@@ -445,7 +445,7 @@ class RayWorker(RayActor):
             mean_worker_env_frames_per_second=sum(adjusted_frames) / sum(self.sample_times)
         )
 
-    def _truncate_n_step(self, states, actions, rewards, next_states, terminals):
+    def _truncate_n_step(self, states, actions, rewards, next_states, terminals, was_terminal=True):
         """
         Computes n-step truncation for exactly one episode segment of one environment.
 
@@ -454,61 +454,48 @@ class RayWorker(RayActor):
         """
         truncate = False
         if self.n_step_adjustment > 1:
-            """
-            for i in range_(len(rewards) - self.n_step_adjustment + 1):
-                # Ignore terminals.
-                if terminals[i]:
-                    continue
-                for j in range_(1, self.n_step_adjustment):
-                    next_states[i] = next_states[i + j]
-                    rewards[i] += self.discount ** j * rewards[i + j]
+            # There are 2 cases. If the trajectory did not end in a terminal, we just have to move states forward
+            # and truncate.
+            if was_terminal:
+                # We know the ONLY last terminal is True.
+                next_terminal = -1
+                for i in range(len(rewards)):
+                    if terminals[i] is True:
+                        next_terminal = i
+                    for j in range(1, self.n_step_adjustment):
+                        # Outside sample data. Stop inner loop and set truncate = True
+                        if i + j >= len(next_states):
+                            truncate = True
+                            break
+                        # Normal case: No terminal ahead (so far) in n-step sequence.
+                        if next_terminal < i:
+                            next_states[i] = next_states[i + j]
+                            rewards[i] += self.discount ** j * rewards[i + j]
+                        # Terminal ahead: Don't go beyond it.
+                        # Repeat it for the remaining n-steps and always assume r=0.0.
+                        else:
+                            next_states[i] = next_states[next_terminal]
+                            terminals[i] = True
+                            if i + j <= next_terminal:
+                                rewards[i] += self.discount ** j * rewards[i + j]
 
-                    # Set remaining reward to 0.
-                    if terminals[i + j]:
-                        break
+                        if terminals[i + j] is True:
+                            next_terminal = i + j
 
-            # Truncate.
-            new_len = len(states) - self.n_step_adjustment + 1
-            for arr in [states, actions, rewards, next_states, terminals]:
-                del arr[new_len:]
-            """
-            next_terminal = -1
-            for i in range(len(rewards)):
-                if terminals[i] is True:
-                    next_terminal = i
-                for j in range(1, self.n_step_adjustment):
-                    # Outside sample data. Stop inner loop and set truncate = True
-                    if i + j >= len(next_states):
-                        truncate = True
-                        break
-                    # Normal case: No terminal ahead (so far) in n-step sequence.
-                    if next_terminal < i:
+                if truncate is True:
+                    new_len = len(states) - self.n_step_adjustment + 1
+                    for arr in [states, actions, rewards, next_states, terminals]:
+                        del arr[new_len:]
+            else:
+                # We know this segment does not contain any terminals so we simply have to adjust next
+                # states and rewards.
+                for i in range_(len(rewards) - self.n_step_adjustment + 1):
+                    for j in range_(1, self.n_step_adjustment):
                         next_states[i] = next_states[i + j]
                         rewards[i] += self.discount ** j * rewards[i + j]
-                    # Terminal ahead: Don't go beyond it. Repeat it for the remaining n-steps and always assume r=0.0.
-                    else:
-                        next_states[i] = next_states[next_terminal]
-                        terminals[i] = True
-                        if i + j <= next_terminal:
-                            rewards[i] += self.discount ** j * rewards[i + j]
-
-                    if terminals[i + j] is True:
-                        next_terminal = i + j
-
-            # print("r={}".format(rewards))
-            # print("s'={}".format(next_states))
-            # print("truncate={}".format(truncate))
-
-            if truncate:
-                states = states[:-(self.n_step_adjustment - 1)]
-                actions = actions[:-(self.n_step_adjustment - 1)]
-                rewards = rewards[:-(self.n_step_adjustment - 1)]
-                next_states = next_states[:-(self.n_step_adjustment - 1)]
-                terminals = terminals[:-(self.n_step_adjustment - 1)]
-            #
-            # print("After truncating:")
-            # print("r={}".format(rewards))
-            # print("s'={}".format(next_states))
+                new_len = len(states) - self.n_step_adjustment + 1
+                for arr in [states, actions, rewards, next_states, terminals]:
+                    del arr[new_len:]
 
         return states, actions, rewards, next_states, terminals, truncate
 
