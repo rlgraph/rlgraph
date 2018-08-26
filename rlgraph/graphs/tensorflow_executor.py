@@ -607,6 +607,8 @@ class TensorFlowExecutor(GraphExecutor):
                 # Unwrap optimizer. TODO unclear if unwrapping works correctly.
                 opt = sub_graph.sub_component_by_name("multi-gpu-sync-optimizer")
                 local_opt = opt.optimizer
+                local_opt.parent = None
+
                 sub_graph.remove_sub_component_by_name(opt.name)
                 sub_graph.add_components(local_opt)
                 sub_graphs.append(sub_graph)
