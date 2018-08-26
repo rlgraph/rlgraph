@@ -349,19 +349,20 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             internal_states_space=IMPALAAgent.standard_internal_states_space,
             # Setup distributed tf.
             execution_spec=dict(
+                #mode="distributed",
                 disable_monitoring=True,
-                cluster_spec=dict(
-                    mode="distributed",
-                    job="worker",
-                    cluster_spec=dict(
-                        learner=["localhost:22222"],
-                        worker=["localhost:22223"]
-                    )
-                )
+                #distributed_spec=dict(
+                #    job="worker",
+                #    task_index=0,
+                #    cluster_spec=dict(
+                #        learner=["localhost:22222"],
+                #        worker=["localhost:22223"]
+                #    )
+                #)
             )
         )
         agent.environment_stepper.environment_server.start()
         worker = IMPALAWorker(agent=agent)
-        out = worker.execute_timesteps(500)
+        out = worker.execute_timesteps(2000)
         print(out)
         agent.environment_stepper.environment_server.stop()

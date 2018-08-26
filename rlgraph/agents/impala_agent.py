@@ -117,7 +117,7 @@ class IMPALAAgent(Agent):
         # Manually set the reuse_variable_scope for our policies (actor: mu, learner: pi).
         self.policy.propagate_subcomponent_properties(dict(reuse_variable_scope="shared"))
         # Always use 1st learner as the parameter server for all policy variables.
-        #self.policy.propagate_subcomponent_properties(dict(device="/job:learner/task:0"))
+        #self.policy.propagate_subcomponent_properties(dict(device=dict(variables="/job:learner/task:0")))
 
         # Check whether we have an RNN.
         self.has_rnn = self.neural_network.has_rnn()

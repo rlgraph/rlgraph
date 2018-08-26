@@ -119,8 +119,9 @@ class Agent(Specifiable):
         self.neural_network = None
         if network_spec is not None:
             self.neural_network = NeuralNetwork.from_spec(network_spec)
-        self.internal_states_space = internal_states_space
         self.action_adapter_spec = action_adapter_spec
+
+        self.internal_states_space = internal_states_space
 
         # An object implementing the loss function interface is only strictly needed
         # if automatic device strategies like multi-gpu are enabled. This is because
@@ -294,6 +295,7 @@ class Agent(Specifiable):
         if self.observe_spec["buffer_enabled"] is True:
             if env_id is None:
                 env_id = self.default_env
+
             self.states_buffer[env_id].extend(preprocessed_states)
             self.actions_buffer[env_id].extend(actions)
             self.internals_buffer[env_id].extend(internals)
@@ -306,6 +308,11 @@ class Agent(Specifiable):
             # Change terminal of last record artificially to True, insert and flush the buffer.
             if buffer_is_full or self.terminals_buffer[env_id][-1]:
                 self.terminals_buffer[env_id][-1] = True
+
+                # TODO: Apply n-step post-processing if necessary.
+                # if self.observe_spec["n_step"] > 1:
+                #    pass
+
                 self._observe_graph(
                     preprocessed_states=np.asarray(self.states_buffer[env_id]),
                     actions=np.asarray(self.actions_buffer[env_id]),
