@@ -891,7 +891,7 @@ class Component(Specifiable):
             dict: A dict mapping variable names to their get_backend variables.
         """
         if get_backend() == "tf":
-            collections = kwargs.pop("collections", None) or tf.GraphKeys.VARIABLES
+            collections = kwargs.pop("collections", None) or tf.GraphKeys.GLOBAL_VARIABLES
             custom_scope_separator = kwargs.pop("custom_scope_separator", "/")
             global_scope = kwargs.pop("global_scope", True)
             assert not kwargs, "{}".format(kwargs)
