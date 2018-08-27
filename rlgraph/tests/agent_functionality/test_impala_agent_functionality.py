@@ -363,6 +363,6 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         )
         agent.environment_stepper.environment_server.start()
         worker = IMPALAWorker(agent=agent)
-        out = worker.execute_timesteps(2000)
+        out = worker.execute_timesteps(100000)
         print(out)
         agent.environment_stepper.environment_server.stop()

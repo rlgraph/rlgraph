@@ -22,7 +22,6 @@ from six.moves import xrange as range_
 import time
 
 from rlgraph.agents.impala_agent import IMPALAAgent
-from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.utils.util import default_dict
 from rlgraph.execution.worker import Worker
 
@@ -57,8 +56,6 @@ class IMPALAWorker(Worker):
 
         # The number of steps taken in the running episode.
         self.episode_timesteps = [0 for _ in range_(self.num_environments)]
-        # Whether the running episode has terminated.
-        #self.episode_terminals = [False for _ in range_(self.num_environments)]
         # Wall time of the last start of the running episode.
         self.episode_starts = [0 for _ in range_(self.num_environments)]
         # The current state of the running episode.
@@ -91,7 +88,6 @@ class IMPALAWorker(Worker):
 
         num_timesteps = num_timesteps or 0
         max_timesteps_per_episode = [max_timesteps_per_episode or 0 for _ in range_(self.num_environments)]
-        #frameskip = frameskip or self.frameskip
 
         batched_internal_states_space = self.agent.internal_states_space.with_batch_rank()
 
@@ -112,7 +108,6 @@ class IMPALAWorker(Worker):
             for i in range_(self.num_environments):
                 self.episode_returns[i] = 0
                 self.episode_timesteps[i] = 0
-                #self.episode_terminals[i] = False
                 self.episode_starts[i] = time.monotonic()
 
             current_internal_states = batched_internal_states_space.zeros(size=self.num_environments)
@@ -120,18 +115,8 @@ class IMPALAWorker(Worker):
             # TODO: Fix for vectorized Envs.
             self.agent.call_api_method("reset")
 
-        #elif self.env_states[0] is None:
-        #    raise RLGraphError("Runner must be reset at the very beginning. Environment is in invalid state.")
-
         # Only run everything for at most num_timesteps (if defined).
         while not (0 < num_timesteps <= timesteps_executed):
-
-            #if self.render:
-            #    # This renders the first underlying environment.
-            #    self.vector_env.render()
-
-            #self.env_states = self.agent.state_space.force_batch(self.env_states)
-
             # TODO right now everything comes back as single-env.
             out = self.agent.call_api_method(
                 "perform_n_steps_and_insert_into_fifo", [current_internal_states, timesteps_executed]
@@ -140,23 +125,12 @@ class IMPALAWorker(Worker):
             current_internal_states = batched_internal_states_space.force_batch(out[2])  # directly add batch=1 again
 
             # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
-            #env_rewards = [0 for _ in range_(self.num_environments)]
             step_episode_returns = out[3]
             terminals = out[4]
+            #actions = out[5]
+            #next_states = out[6]
 
-            #actions, preprocessed_states = self.agent.get_action(
-            #    states=self.env_states, use_exploration=use_exploration, extra_returns="preprocessed_states"
-            #)
-            #next_states = None
-            #for _ in range_(frameskip):
-            #    next_states, step_rewards, self.episode_terminals, infos = self.vector_env.step(actions=actions)
-
-
-            #    self.env_frames += self.num_environments
-            #    for i, step_reward in enumerate(step_rewards):
-            #        env_rewards[i] += step_reward
-            #    if np.any(self.episode_terminals):
-            #        break
+            self.env_frames += (self.num_environments * self.frameskip * self.num_steps)
 
             # Only render once per action.
             if self.render:
@@ -172,7 +146,7 @@ class IMPALAWorker(Worker):
                     if 0 < max_timesteps_per_episode[i] <= self.episode_timesteps[i]:
                         terminal = True
 
-                    if terminal is True:
+                    if terminal:
                         episodes_executed += 1
                         self.finished_episode_rewards.append(self.episode_returns[i])
                         self.finished_episode_durations.append(time.monotonic() - self.episode_starts[i])
@@ -183,12 +157,8 @@ class IMPALAWorker(Worker):
                         self.episode_returns[i] = 0
                         self.episode_timesteps[i] = 0
 
-            #self.env_states = next_states
-            #self.update_if_necessary()
-            #timesteps_executed += self.num_environments
             num_timesteps_reached = (0 < num_timesteps <= timesteps_executed)
 
-            #if 0 < num_episodes <= episodes_executed or num_timesteps_reached:
             if num_timesteps_reached:
                 break
 
