@@ -25,6 +25,11 @@
       "scope": "convert_type"
     },
     {
+      "type": "divide",
+      "divisor": 255.0,
+      "scope": "divide"
+    },
+    {
       "type": "sequence",
       "sequence_length": 4,
       "batch_size": 1,
