@@ -118,23 +118,24 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
                 "ERROR: state '{}' not expected in q-table as it's a terminal state!".format(state)
             recursive_assert_almost_equal(q_values, expected_q_values_per_state[state], decimals=0)
 
-    def test_double_dueling_dqn_on_4x4_grid_world(self):
+    def test_double_dqn_on_4x4_grid_world(self):
         """
         Creates a double DQNAgent and runs it via a Runner on a simple 2x2 GridWorld.
         """
         env = GridWorld("4x4")
         agent = DQNAgent.from_spec(
             config_from_path("configs/dqn_agent_for_4x4_grid.json"),
+            dueling_q=False,
             state_space=env.state_space,
             action_space=env.action_space,
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=10),
             update_spec=dict(update_interval=4, batch_size=32, sync_interval=32),
-            optimizer_spec=dict(type="adam", learning_rate=0.005),
+            optimizer_spec=dict(type="adam", learning_rate=0.02),
             store_last_q_table=True
         )
 
-        time_steps = 3000
+        time_steps = 5000
         worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
@@ -224,7 +225,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         )
 
         time_steps = 3000
-        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, render=False)
+        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, render=True)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         #print("STATES:\n{}".format(agent.last_q_table["states"]))
