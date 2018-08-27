@@ -71,9 +71,9 @@ class Component(Specifiable):
             device (str): Device this component will be assigned to. If None, defaults to CPU.
             trainable (Optional[bool]): Whether to make the variables of this Component always trainable or not.
                 Use None for no specific preference.
-            global_component (bool): In distributed mode, this flag indicates if the component is part of the
-                shared global model or local to the worker. Defaults to False and will be ignored if set to
-                True in non-distributed mode.
+            #global_component (bool): In distributed mode, this flag indicates if the component is part of the
+            #    shared global model or local to the worker. Defaults to False and will be ignored if set to
+            #    True in non-distributed mode.
 
             # TODO: remove when we have numpy-based Components (then we can do test calls to infer everything automatically)
             graph_fn_num_outputs (dict): A dict specifying which graph_fns have how many return values.
@@ -103,7 +103,7 @@ class Component(Specifiable):
         self.name = kwargs.pop("name", self.scope)  # if no name given, use scope
         self.device = kwargs.pop("device", None)
         self.trainable = kwargs.pop("trainable", None)
-        self.global_component = kwargs.pop("global_component", False)
+        #self.global_component = kwargs.pop("global_component", False)
         self.graph_fn_num_outputs = kwargs.pop("graph_fn_num_outputs", dict())
         self.switched_off_apis = kwargs.pop("switched_off_apis", set())
         self.backend = kwargs.pop("backend", None)
@@ -762,7 +762,7 @@ class Component(Specifiable):
         """
 
         # Overwrite the given trainable parameter, iff self.trainable is actually defined as a bool.
-        trainable = self.trainable if self.trainable is not None else trainable
+        trainable = self.trainable if self.trainable is not None else (trainable if trainable is not None else True)
 
         # Called as getter.
         if shape is None and initializer is None and from_space is None:
@@ -850,22 +850,27 @@ class Component(Specifiable):
                         return from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
                             name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
                             time_major=time_major, trainable=trainable, initializer=initializer,
-                            is_python=(self.backend == "python" or get_backend() == "python")))
+                            is_python=(self.backend == "python" or get_backend() == "python")
+                        ))
                     # Normal, nested Variables from a Space (container or primitive).
                     else:
-                        return from_space.get_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable,
-                            initializer=initializer, is_python=(self.backend == "python" or get_backend() == "python"))
+                        return from_space.get_variable(
+                            name=name, add_batch_rank=add_batch_rank, trainable=trainable, initializer=initializer,
+                            is_python=(self.backend == "python" or get_backend() == "python")
+                        )
             else:
                 if flatten:
                     return from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
                         name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
                         time_major=time_major, trainable=trainable, initializer=initializer,
-                        is_python=(self.backend == "python" or get_backend() == "python")))
+                        is_python=(self.backend == "python" or get_backend() == "python")
+                    ))
                 # Normal, nested Variables from a Space (container or primitive).
                 else:
-                    return from_space.get_variable(name=name, add_batch_rank=add_batch_rank, trainable=trainable,
-                                                   initializer=initializer,
-                                                   is_python=(self.backend == "python" or get_backend() == "python"))
+                    return from_space.get_variable(
+                        name=name, add_batch_rank=add_batch_rank, trainable=trainable, initializer=initializer,
+                        is_python=(self.backend == "python" or get_backend() == "python")
+                    )
 
     def get_variables(self, *names, **kwargs):
         """
@@ -886,7 +891,7 @@ class Component(Specifiable):
             dict: A dict mapping variable names to their get_backend variables.
         """
         if get_backend() == "tf":
-            collections = kwargs.pop("collections", None) or tf.GraphKeys.TRAINABLE_VARIABLES
+            collections = kwargs.pop("collections", None) or tf.GraphKeys.VARIABLES
             custom_scope_separator = kwargs.pop("custom_scope_separator", "/")
             global_scope = kwargs.pop("global_scope", True)
             assert not kwargs, "{}".format(kwargs)
@@ -1285,8 +1290,8 @@ class Component(Specifiable):
         # Recurse up the container hierarchy.
         self.parent_component.propagate_variables(keys)
 
-    def copy(self, name=None, scope=None, device=None, trainable=None,
-             global_component=False, reuse_variable_scope=None):
+    def copy(self, name=None, scope=None, device=None, trainable=None, #global_component=False,
+             reuse_variable_scope=None):
         """
         Copies this component and returns a new component with possibly another name and another scope.
         The new component has its own variables (they are not shared with the variables of this component as they
@@ -1299,8 +1304,8 @@ class Component(Specifiable):
             device (str): The device of the new Component. If None, use the same device as this one.
             trainable (Optional[bool]): Whether to make all variables in this component trainable or not.
                 Use None for no specific preference.
-            global_component (Optional[bool]): Whether the new Component is global or not. If None, use the same
-                setting as this one.
+            #global_component (Optional[bool]): Whether the new Component is global or not. If None, use the same
+            #    setting as this one.
             reuse_variable_scope (Optional[str]): If not None, variables of the copy will be shared under this scope.
         Returns:
             Component: The copied component object.
@@ -1317,23 +1322,22 @@ class Component(Specifiable):
             device = self.device
         if trainable is None:
             trainable = self.trainable
-        if global_component is None:
-            global_component = self.global_component
+        #if global_component is None:
+        #    global_component = self.global_component
 
         # Simply deepcopy self and change name and scope.
         new_component = copy.deepcopy(self)
         new_component.name = name
         new_component.scope = scope
-
-        # Propagate reusable scope and device.
-        new_component.propagate_subcomponent_properties(
-            properties=dict(reuse_variable_scope=reuse_variable_scope, device=device))
-
         # Change global_scope for the copy and all its sub-components.
         new_component.global_scope = scope
         new_component.propagate_scope(sub_component=None)
-        new_component.trainable = trainable
-        new_component.global_component = global_component
+
+        # Propagate reusable scope, device and other trainable.
+        new_component.propagate_subcomponent_properties(
+            properties=dict(reuse_variable_scope=reuse_variable_scope, device=device, trainable=trainable)
+        )
+        #new_component.global_component = global_component
         # Erase the parent pointer.
         new_component.parent_component = None
 
