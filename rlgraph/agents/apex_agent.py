@@ -42,16 +42,17 @@ class ApexAgent(DQNAgent):
 
         # Apex uses train time steps for syncing.
         self.steps_since_weight_sync = 0
+        self.num_updates = 0
 
     def update(self, batch=None):
         # In apex, syncing is based on num steps trained, not steps sampled.
         sync_call = None
+        self.steps_since_weight_sync += len(batch["terminals"])
         if self.steps_since_weight_sync >= self.update_spec["sync_interval"]:
             sync_call = "sync_target_qnet"
             self.steps_since_weight_sync = 0
-
         return_ops = [0, 1]
-        self.steps_since_weight_sync += len(batch["terminals"])
+        self.num_updates += 1
         if batch is None:
             # Add some additional return-ops to pull (left out normally for performance reasons).
             ret = self.graph_executor.execute(("update_from_memory", None, return_ops), sync_call)
