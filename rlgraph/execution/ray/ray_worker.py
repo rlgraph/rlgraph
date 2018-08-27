@@ -91,10 +91,12 @@ class RayWorker(RayActor):
 
         self.preprocessors = dict()
         preprocessing_spec = agent_config.get("preprocessing_spec", None)
+        self.is_preprocessed = dict()
         for env_id in self.env_ids:
             self.preprocessors[env_id] = self.setup_preprocessor(
                 preprocessing_spec, self.vector_env.state_space.with_batch_rank()
             )
+            self.is_preprocessed[env_id] = False
         self.agent = self.setup_agent(agent_config, worker_spec)
         self.worker_frameskip = frameskip
 
@@ -257,8 +259,9 @@ class RayWorker(RayActor):
             current_iteration_start_timestamp = time.time()
             for i, env_id in enumerate(self.env_ids):
                 state = self.agent.state_space.force_batch(env_states[i])
-                if self.preprocessors[env_id] is not None:
+                if self.preprocessors[env_id] is not None and self.is_preprocessed[env_id] is False:
                     self.preprocessed_states_buffer[i] = self.preprocessors[env_id].preprocess(state)
+                    self.is_preprocessed[env_id] = True
                 else:
                     self.preprocessed_states_buffer[i] = env_states[i]
 
@@ -283,6 +286,8 @@ class RayWorker(RayActor):
             # Do accounting for each environment.
             state_buffer = np.array(self.preprocessed_states_buffer)
             for i, env_id in enumerate(self.env_ids):
+                # Set is preprocessed to False because env_states are currently NOT preprocessed.
+                self.is_preprocessed[env_id] = False
                 current_episode_timesteps[i] += 1
                 # Each position is the running episode reward of that episode. Add step reward.
                 current_episode_rewards[i] += step_rewards[i]
@@ -335,6 +340,11 @@ class RayWorker(RayActor):
                     env_states[i] = self.vector_env.reset(i)
                     if self.preprocessors[env_id] is not None:
                         self.preprocessors[env_id].reset()
+                        # This re-fills the sequence with the reset state.
+                        state = self.agent.state_space.force_batch(env_states[i])
+                        # Pre - process, add to buffer
+                        self.preprocessed_states_buffer[i] = self.preprocessors[env_id].preprocess(state)
+                        self.is_preprocessed[env_id] = True
                     current_episode_rewards[i] = 0
                     current_episode_timesteps[i] = 0
                     current_episode_start_timestamps[i] = time.time()
@@ -367,6 +377,10 @@ class RayWorker(RayActor):
                 next_state = self.agent.state_space.force_batch(next_states[i])
                 if self.preprocessors[env_id] is not None:
                     next_state = self.preprocessors[env_id].preprocess(next_state)
+                    # This is the env state in the next call so avoid double preprocessing
+                    # by adding to buffer.
+                    self.preprocessed_states_buffer[i] = next_state
+                    self.is_preprocessed[env_id] = True
 
                 # Extend because next state has a batch dim.
                 env_sample_next_states.extend(next_state)
