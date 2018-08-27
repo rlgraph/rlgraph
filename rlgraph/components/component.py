@@ -739,7 +739,8 @@ class Component(Specifiable):
             shape (Optional[tuple]): The shape of the variable. Default: empty tuple.
             dtype (Union[str,type]): The dtype (as string) of this variable.
             initializer (Optional[any]): Initializer for this variable.
-            trainable (bool): Whether this variable should be trainable.
+            trainable (bool): Whether this variable should be trainable. This will be overwritten,
+                if the Component has its own `trainable` property set to either True or False.
             from_space (Optional[Space,str]): Whether to create this variable from a Space object
                 (shape and dtype are not needed then). The Space object can be given directly or via the name
                 of the in-Socket holding the Space.
@@ -759,11 +760,16 @@ class Component(Specifiable):
             DataOp: The actual variable (dependent on the backend) or - if from
                 a ContainerSpace - a FlattenedDataOp or ContainerDataOp depending on the Space.
         """
+
+        # Overwrite the given trainable parameter, iff self.trainable is actually defined as a bool.
+        trainable = self.trainable if self.trainable is not None else trainable
+
         # Called as getter.
         if shape is None and initializer is None and from_space is None:
             if name not in self.variables:
-                raise KeyError("Variable with name '{}' not found in registry of Component '{}'!".
-                               format(name, self.name))
+                raise KeyError(
+                    "Variable with name '{}' not found in registry of Component '{}'!".format(name, self.name)
+                )
             # TODO: Maybe try both the pure name AND the name with global-scope in front.
             return self.variables[name]
 
@@ -772,8 +778,9 @@ class Component(Specifiable):
 
         # We are creating the variable using a Space as template.
         if from_space is not None:
-            var = self._variable_from_space(flatten, from_space, name, add_batch_rank,
-                                            add_time_rank, time_major, trainable, initializer)
+            var = self._variable_from_space(
+                flatten, from_space, name, add_batch_rank, add_time_rank, time_major, trainable, initializer
+            )
 
         # TODO: Figure out complete concept for python/numpy based Components (including their handling of variables).
         # Assume that when using pytorch, we use Python/numpy collections to store data.
@@ -808,8 +815,10 @@ class Component(Specifiable):
                 name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
             )
         elif get_backend() == "tf-eager":
-            shape = tuple((() if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,))
-                          + (shape or ()))
+            shape = tuple(
+                (() if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,)) +
+                (shape or ())
+            )
 
             var = eager.Variable(
                 name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
