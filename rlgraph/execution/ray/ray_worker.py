@@ -259,9 +259,10 @@ class RayWorker(RayActor):
             current_iteration_start_timestamp = time.time()
             for i, env_id in enumerate(self.env_ids):
                 state = self.agent.state_space.force_batch(env_states[i])
-                if self.preprocessors[env_id] is not None and self.is_preprocessed[env_id] is False:
-                    self.preprocessed_states_buffer[i] = self.preprocessors[env_id].preprocess(state)
-                    self.is_preprocessed[env_id] = True
+                if self.preprocessors[env_id] is not None:
+                    if self.is_preprocessed[env_id] is False:
+                        self.preprocessed_states_buffer[i] = self.preprocessors[env_id].preprocess(state)
+                        self.is_preprocessed[env_id] = True
                 else:
                     self.preprocessed_states_buffer[i] = env_states[i]
 
