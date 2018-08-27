@@ -22,6 +22,7 @@ install:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'apt-get update && apt-get -y install libsm6 libxrender-dev libxext6 cmake libz-dev';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'curl https://bootstrap.pypa.io/get-pip.py | python';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U pip';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U setuptools';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U numpy';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install opencv-python psutil pytest-xdist';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install pytest-xdist';
