@@ -26,7 +26,9 @@ install:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U numpy';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install opencv-python psutil pytest-xdist';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install pytest-xdist';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install cached_property pyyaml six requests';
   # In the future, add further extra packages here, like horovod, pytorch, or ray
+  # TODO: Use our `extras_require` in setup.py, instead of specifying individual packages.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pip install gym atari_py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pip install ray';
 
