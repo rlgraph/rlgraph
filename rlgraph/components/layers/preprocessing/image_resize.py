@@ -18,11 +18,11 @@ from __future__ import division
 from __future__ import print_function
 
 import cv2
+cv2.ocl.setUseOpenCL(False)
 import numpy as np
 from six.moves import xrange as range_
 
 from rlgraph import get_backend
-from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils.ops import unflatten_op
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 
@@ -35,7 +35,7 @@ class ImageResize(PreprocessLayer):
     """
     Resizes one or more images to a new size without touching the color channel.
     """
-    def __init__(self, width, height, interpolation="bilinear", scope="image-resize", **kwargs):
+    def __init__(self, width, height, interpolation="area", scope="image-resize", **kwargs):
         """
         Args:
             width (int): The new width.
@@ -50,7 +50,7 @@ class ImageResize(PreprocessLayer):
         if interpolation == "bilinear":
             self.cv2_interpolation = cv2.INTER_LINEAR
             self.tf_interpolation = ResizeMethod.BILINEAR
-        else:
+        elif interpolation == "area":
             self.cv2_interpolation = cv2.INTER_AREA
             self.tf_interpolation = ResizeMethod.AREA
 
