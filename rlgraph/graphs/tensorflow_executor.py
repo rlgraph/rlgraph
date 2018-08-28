@@ -590,6 +590,9 @@ class TensorFlowExecutor(GraphExecutor):
                                       "there are only {} GPUs visible.".format(self.num_gpus)
             self.logger.info("Building MultiGpuSync strategy with {} GPUs.".format(self.num_gpus))
 
+            # These are the API methods we need to retain.
+            multi_gpu_api = [""]
+
             sub_graphs = []
             shared_scope = "shared-scope"
             for i, device in enumerate(self.gpu_names):
