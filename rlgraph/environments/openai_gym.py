@@ -108,10 +108,10 @@ class OpenAIGymEnv(Environment):
 
     def reset(self):
         if self.fire_after_reset:
-            state, _, terminal, _ = self.gym_env.step(1)
+            state, _, terminal, _ = self.step(1)
             if terminal:
                 self.episodic_reset()
-            state, _, terminal, _ = self.gym_env.step(2)
+            state, _, terminal, _ = self.step(2)
             if terminal:
                 self.episodic_reset()
             return state
@@ -187,7 +187,7 @@ class OpenAIGymEnv(Environment):
             if self.lives > lives > 0:
                 terminal = True
             self.lives = lives
-        return state, np.array(reward, dtype=np.float32), terminal, info
+        return state, np.asarray(reward, dtype=np.float32), terminal, info
 
     def render(self):
         self.gym_env.render("human")
