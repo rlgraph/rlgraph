@@ -108,6 +108,7 @@ class OpenAIGymEnv(Environment):
 
     def reset(self):
         if self.fire_after_reset:
+            self.episodic_reset()
             state, _, terminal, _ = self.step(1)
             if terminal:
                 self.episodic_reset()
