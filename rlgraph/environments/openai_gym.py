@@ -85,12 +85,6 @@ class OpenAIGymEnv(Environment):
             assert self.gym_env.unwrapped.get_action_meanings()[1] == 'FIRE'
             assert len(self.gym_env.unwrapped.get_action_meanings()) >= 3
 
-        # Don't trust gym's own information on dtype. Find out what the observation space really is.
-        # Gym_env.observation_space's low/high used to be float64 ndarrays, but the actual output was uint8.
-        self.action_space = self.translate_space(self.gym_env.action_space)
-        self.state_space = self.translate_space(self.gym_env.observation_space, dtype=self.reset().dtype)
-        super(OpenAIGymEnv, self).__init__(self.state_space, self.action_space, **kwargs)
-
         self.visualize = visualize
         if monitor:
             if monitor_video == 0:
@@ -99,6 +93,12 @@ class OpenAIGymEnv(Environment):
                 video_callable = (lambda x: x % monitor_video == 0)
             self.gym_env = gym.wrappers.Monitor(self.gym_env, monitor, force=not monitor_safe,
                                                 video_callable=video_callable)
+
+        # Don't trust gym's own information on dtype. Find out what the observation space really is.
+        # Gym_env.observation_space's low/high used to be float64 ndarrays, but the actual output was uint8.
+        self.action_space = self.translate_space(self.gym_env.action_space)
+        self.state_space = self.translate_space(self.gym_env.observation_space, dtype=self.reset().dtype)
+        super(OpenAIGymEnv, self).__init__(self.state_space, self.action_space, **kwargs)
 
     def seed(self, seed=None):
         if seed is None:
