@@ -33,7 +33,7 @@ class OpenAIGymEnv(Environment):
     OpenAI Gym adapter for RLgraph: https://gym.openai.com/.
     """
     def __init__(
-        self, gym_env, frameskip=None, max_num_noops=0, noop_action=0, episodic_life=False,
+        self, gym_env, frameskip=None, max_num_noops=0, noop_action=0, episodic_life=False, fire_reset=True,
         monitor=None, monitor_safe=False, monitor_video=0, visualize=False, **kwargs
     ):
         """
@@ -48,6 +48,7 @@ class OpenAIGymEnv(Environment):
             episodic_life (Optional[bool]): If true, losing a life will lead to episode end from the perspective
                 of the agent. Internally, th environment will keep stepping the game and manage the true
                 termination (end of game).
+            fire_reset (Optional[bool]): If true, fire off environment after reset.
             monitor: Output directory. Setting this to None disables monitoring.
             monitor_safe: Setting this to True prevents existing log files to be overwritten. Default False.
             monitor_video: Save a video every monitor_video steps. Setting this to 0 disables recording of videos.
@@ -78,6 +79,11 @@ class OpenAIGymEnv(Environment):
         self.episodic_life = episodic_life
         self.true_terminal = True
         self.lives = 0
+        self.fire_after_reset = fire_reset
+
+        if self.fire_after_reset:
+            assert self.gym_env.unwrapped.get_action_meanings()[1] == 'FIRE'
+            assert len(self.gym_env.unwrapped.get_action_meanings()) >= 3
 
         # Don't trust gym's own information on dtype. Find out what the observation space really is.
         # Gym_env.observation_space's low/high used to be float64 ndarrays, but the actual output was uint8.
@@ -101,19 +107,31 @@ class OpenAIGymEnv(Environment):
         return seed
 
     def reset(self):
+        if self.fire_after_reset:
+            state, _, terminal, _ = self.gym_env.step(1)
+            if terminal:
+                self.episodic_reset()
+            state, _, terminal, _ = self.gym_env.step(2)
+            if terminal:
+                self.episodic_reset()
+            return state
+        else:
+            return self.episodic_reset()
+
+    def episodic_reset(self):
         if self.episodic_life:
             # If the last terminal was actually the end of the episode.
             if self.true_terminal:
-                state = self._reset()
+                state = self.noop_reset()
             else:
                 # If not, step.
-                state, _, _, _ = self.gym_env.step(self.noop_action)
+                state, _, _, _ = self._step_and_skip(self.noop_action)
             self.lives = self.gym_env.unwrapped.ale.lives()
             return state
         else:
-            return self._reset()
+            return self.noop_reset()
 
-    def _reset(self):
+    def noop_reset(self):
         """
         Steps through reset and warm-start.
         """
