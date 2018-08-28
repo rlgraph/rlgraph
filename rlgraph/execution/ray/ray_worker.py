@@ -266,8 +266,8 @@ class RayWorker(RayActor):
                 else:
                     self.preprocessed_states_buffer[i] = env_states[i]
 
-            actions = self.agent.get_action(states=self.preprocessed_states_buffer,
-                                            use_exploration=use_exploration, apply_preprocessing=False)
+            actions = self.get_action(states=self.preprocessed_states_buffer,
+                           use_exploration=use_exploration, apply_preprocessing=False)
             next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
             # Worker frameskip not needed as done in env.
             # for _ in range_(self.worker_frameskip):
@@ -544,15 +544,15 @@ class RayWorker(RayActor):
             importance_weights=weights
         ), len(rewards)
 
-    def get_action(self, states, use_exploration):
+    def get_action(self, states, use_exploration, apply_preprocessing):
         if self.worker_executes_exploration:
             # Only once for all actions otherwise we would have to call a session anyway.
             if np.random.random() <= self.exploration_epsilon:
                 return self.agent.action_space.sample(size=(self.num_environments, ))
             else:
                 return self.agent.get_action(states=states, use_exploration=use_exploration,
-                                             apply_preprocessing=False)
+                                             apply_preprocessing=apply_preprocessing)
         else:
             return self.agent.get_action(states=states, use_exploration=use_exploration,
-                                         apply_preprocessing=False)
+                                         apply_preprocessing=apply_preprocessing)
 
