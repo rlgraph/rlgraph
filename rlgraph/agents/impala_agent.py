@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import copy
 
+from rlgraph.utils import RLGraphError
 from rlgraph.agents.agent import Agent
 from rlgraph.components.common.dict_merger import DictMerger
 from rlgraph.components.common.container_splitter import ContainerSplitter
@@ -45,10 +46,11 @@ class IMPALAAgent(Agent):
 
     standard_internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False)
 
-    def __init__(self, fifo_queue_spec=None, environment_spec=None, weight_pg=None, weight_baseline=None,
+    def __init__(self, discount=0.99, fifo_queue_spec=None, environment_spec=None, weight_pg=None, weight_baseline=None,
                  weight_entropy=None, worker_sample_size=20, **kwargs):
         """
         Args:
+            discount (float): The discount factor gamma.
             fifo_queue_spec (Optional[dict,FIFOQueue]): The spec for the FIFOQueue to use for the IMPALA algorithm.
             environment_spec (dict): The spec for constructing an Environment object for an actor-type IMPALA agent.
             weight_pg (float): See IMPALALossFunction Component.
@@ -104,6 +106,7 @@ class IMPALAAgent(Agent):
 
         # Now that we fixed the Agent's spec, call the super constructor.
         super(IMPALAAgent, self).__init__(
+            discount=discount,
             preprocessing_spec=preprocessing_spec,
             network_spec=network_spec,
             action_adapter_spec=action_adapter_spec,
@@ -147,6 +150,11 @@ class IMPALAAgent(Agent):
         self.fifo_record_space["last_next_states"] = self.fifo_record_space["last_next_states"].with_time_rank(False)
         self.fifo_record_space["initial_internal_states"] = \
             self.fifo_record_space["initial_internal_states"].with_time_rank(False)
+        # Create our FIFOQueue (actors will enqueue, learner(s) will dequeue).
+        self.fifo_queue = FIFOQueue.from_spec(
+            fifo_queue_spec, reuse_variable_scope="shared-fifo-queue", only_insert_single_records=True,
+            record_space=self.fifo_record_space
+        )
 
         # Add all our sub-components to the core.
         if self.type == "actor":
@@ -156,12 +164,6 @@ class IMPALAAgent(Agent):
                 internal_states=self.internal_states_space.with_batch_rank(),
                 time_step=int
             ))
-
-            # Create our FIFOQueue (actors will enqueue, learner(s) will dequeue).
-            self.fifo_queue = FIFOQueue.from_spec(
-                fifo_queue_spec, reuse_variable_scope="shared-fifo-queue", only_insert_single_records=True,
-                record_space=self.fifo_record_space
-            )
             # No learning, no loss function.
             self.loss_function = None
             # A Dict Splitter to split things from the EnvStepper.
@@ -189,15 +191,8 @@ class IMPALAAgent(Agent):
                               self.merger, self.fifo_queue]
         # Learner.
         else:
-            # Extend input Space definitions to this Agent's specific API-methods.
-            self.input_spaces.update(dict(
-                weights="variables:policy",
-                #internal_states=self.internal_states_space.with_batch_rank()
-                states=self.state_space.with_batch_rank()
-            ))
-            self.fifo_queue = FIFOQueue.from_spec(fifo_queue_spec, record_space=self.fifo_record_space,
-                                                  reuse_variable_scope="shared-fifo-queue")
-
+            # Remove `states` key from input_spaces: not needed.
+            del self.input_spaces["states"]
             self.environment_stepper = None
 
             # A Dict splitter to split up items from the queue.
@@ -229,12 +224,13 @@ class IMPALAAgent(Agent):
             self.graph_built = True
 
     def define_api_methods(self, *sub_components):
-        global_scope_base = "environment-stepper/actor-component/" if self.type == "actor" else ""
-
-        super(IMPALAAgent, self).define_api_methods(
-            global_scope_base+"policy",
-            global_scope_base+"dict-preprocessor-stack"
-        )
+        # TODO: Unify agents with/w/o synchronizable policy.
+        # TODO: Unify Agents with/w/o get_action method (w/ env-stepper vs w/o).
+        #global_scope_base = "environment-stepper/actor-component/" if self.type == "actor" else ""
+        #super(IMPALAAgent, self).define_api_methods(
+        #    global_scope_base+"policy",
+        #    global_scope_base+"dict-preprocessor-stack"
+        #)
 
         # Assemble the specific agent.
         if self.type == "actor":
@@ -313,17 +309,19 @@ class IMPALAAgent(Agent):
 
             preprocessed_last_s_prime = self_.call(preprocessor.preprocess, last_s_prime)
             # TODO: should we concatenate preprocessed_s and preprocessed_last_s_prime?
-
-            # Get the pi-action probs AND the value for all our states.
-            state_values_pi, logits_pi, _ = \
+            # Get the pi-action probs AND the values for all our states.
+            state_values_pi, logits_pi, current_internal_states = \
                 self_.call(policy.get_baseline_output, preprocessed_s, initial_internal_states)
+            # And the values for the last states.
+            bootstrapped_values, _, _ = \
+                self_.call(policy.get_baseline_output, preprocessed_last_s_prime, current_internal_states)
 
             _, log_probabilities_pi = self_.call(softmax.get_probabilities_and_log_probs, logits_pi)
 
             # Calculate the loss.
             loss, loss_per_item = self_.call(
                 loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
-                terminals
+                terminals, bootstrapped_values
             )
             policy_vars = self_.call(policy._variables)
             # Pass vars and loss values into optimizer.
@@ -335,48 +333,17 @@ class IMPALAAgent(Agent):
         self.root_component.define_api_method("update_from_memory", update_from_memory)
 
     def get_action(self, states, internal_states=None, use_exploration=True, extra_returns=None):
-        """
-        Args:
-            extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return
-                values (besides the actions). Possible values are:
-                - 'preprocessed_states': The preprocessed states after passing the given states
-                    through the preprocessor stack.
-                - 'internal_states': The internal states returned by the RNNs in the NN pipeline.
-                - 'used_exploration': Whether epsilon- or noise-based exploration was used or not.
-
-        Returns:
-            tuple or single value depending on `extra_returns`:
-                - action
-                - the preprocessed states
-        """
-        extra_returns = {extra_returns} if isinstance(extra_returns, str) else (extra_returns or set())
-
-        batched_states = self.state_space.force_batch(states)
-        remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
-
-        # Increase timesteps by the batch size (number of states in batch).
-        self.timesteps += len(batched_states)
-
-        # Control, which return value to "pull" (depending on `additional_returns`).
-        return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
-        ret = self.graph_executor.execute((
-            "get_preprocessed_state_and_action",
-            [batched_states, self.timesteps, use_exploration],
-            # 0=preprocessed_states, 1=action
-            return_ops
-        ))
-        if remove_batch_rank:
-            return strip_list(ret)
-        else:
-            return ret
+        pass
 
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
     def update(self, batch=None):
-        # TODO: implement logic
-        return
+        if batch is None:
+            return self.graph_executor.execute(("update_from_memory", self.update_spec["batch_size"]))
+        else:
+            raise RLGraphError("Cannot call update-from-batch on an IMPALA Agent.")
 
     def __repr__(self):
-        return "IMPALAAgent()"
+        return "IMPALAAgent(type={})".format(self.type)
 
