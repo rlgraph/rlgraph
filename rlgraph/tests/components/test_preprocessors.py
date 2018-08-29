@@ -168,7 +168,7 @@ class TestPreprocessors(unittest.TestCase):
         test.test(("apply", input_), expected_outputs=expected)
 
     def test_image_resize(self):
-        image_resize = ImageResize(width=4, height=4)
+        image_resize = ImageResize(width=4, height=4, interpolation="bilinear")
         # Some image of 16x16x3 size.
         test = ComponentTest(
             component=image_resize, input_spaces=dict(preprocessing_inputs=FloatBox(shape=(16, 16, 3), add_batch_rank=False))

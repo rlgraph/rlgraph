@@ -23,6 +23,7 @@ import numpy as np
 from six.moves import xrange as range_
 
 from rlgraph import get_backend
+from rlgraph.utils import RLGraphError
 from rlgraph.utils.ops import unflatten_op
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 
@@ -53,6 +54,9 @@ class ImageResize(PreprocessLayer):
         elif interpolation == "area":
             self.cv2_interpolation = cv2.INTER_AREA
             self.tf_interpolation = ResizeMethod.AREA
+        else:
+            raise RLGraphError("Invalid interpolation algorithm {}!. Allowed are 'bilinear' and "
+                               "'area'.".format(interpolation))
 
         # The output spaces after preprocessing (per flat-key).
         self.output_spaces = None
