@@ -744,7 +744,6 @@ class GraphBuilder(Specifiable):
                     raise RLGraphError("API-method with name '{}' only has {} input parameters! You passed in "
                                        "{}.".format(api_method, len(self.api[api_method][0]), len(params)))
 
-                # TODO placeholders are not required by PyTorch
                 placeholder = self.api[api_method][0][i].op  # 0=input op-recs; i=ith input op-rec
                 if isinstance(placeholder, DataOpTuple):
                     for ph, p in zip(placeholder, param):
@@ -757,4 +756,25 @@ class GraphBuilder(Specifiable):
                     feed_dict[placeholder] = param
 
         return fetch_dict, feed_dict
+
+    def execute_eager_op(self, api_method, params=None):
+        """
+        Eagerly executes an API method by simply calling the respective function
+        directly with its parameters to trigger an eager call-chain through the graph.
+
+        Args:
+            api_method (str): Name of api-method.
+            params (Optional[list]): Optional arguments.
+
+        Returns:
+            any: Results of executing this api-method.
+        """
+        if api_method not in self.api:
+            raise RLGraphError("No API-method with name '{}' found!".format(api_method))
+
+        if params is not None:
+            return self.root_component.api_fn_by_name[api_method](*params)
+        else:
+            return self.root_component.api_fn_by_name[api_method]()
+
 

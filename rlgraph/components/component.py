@@ -124,6 +124,10 @@ class Component(Specifiable):
         # methods into this Component and come out of it.
         # keys=API method name; values=APIMethodRecord
         self.api_methods = dict()
+
+        # Maps names to callable API functions for eager calls.
+        self.api_fn_by_name = dict()
+
         # `self.api_method_inputs`: Registry for all unique API-method input parameter names and their Spaces.
         # Two API-methods may share the same input if their input parameters have the same names.
         # keys=input parameter name; values=Space that goes into that parameter
@@ -176,6 +180,7 @@ class Component(Specifiable):
         #api_method_records = dict()
         #api_method_inputs = dict()
         # Look for all our API methods (those that use the `call` method).
+        # TODO use dict of callables -> api_fn_by_name
         for member in inspect.getmembers(self):
             name, method = (member[0], member[1])
             if name != "define_api_method" and name != "add_components" and name[0] != "_" and \
@@ -1032,7 +1037,8 @@ class Component(Specifiable):
                 raise RLGraphError("API-method with name '{}' already defined!".format(name))
             # There already is another object property with that name (avoid accidental overriding).
             elif getattr(self, name, None) is not None:
-                raise RLGraphError("Component '{}' already has a property called '{}'. Cannot define an API-method with "
+                raise RLGraphError("Component '{}' already has a property called '{}'."
+                                   " Cannot define an API-method with "
                                    "the same name!".format(self.name, name))
 
         # Do not build this API as per ctor instructions.
@@ -1063,6 +1069,8 @@ class Component(Specifiable):
             is_graph_fn_wrapper=(func_type == "graph_fn"),
             add_auto_key_as_first_param=kwargs.get("add_auto_key_as_first_param", False)
         )
+        # Direct callable for eager/define by run.
+        self.api_fn_by_name[name] = api_method
 
         # Update the api_method_inputs dict (with empty Spaces if not defined yet).
         # Note: Skip first param of graph_func's input param list if add-auto-key option is True (1st param would be
