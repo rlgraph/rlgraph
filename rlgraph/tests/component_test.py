@@ -39,7 +39,8 @@ class ComponentTest(object):
         enable_profiler=False,
         disable_monitoring=False,
         device_strategy="default",
-        device_map=None
+        device_map=None,
+        backend=None
     ):
         """
         Args:
@@ -55,6 +56,8 @@ class ComponentTest(object):
             disable_monitoring (bool): When True, will not use a monitored session. Default: False.
             device_strategy (str): Optional device-strategy to be passed into GraphExecutor.
             device_map (Optional[Dict[str,str]]): Optional device-map to be passed into GraphExecutor.
+            backend (Optional[str]): Override global backend settings for a test by passing in a specific
+                backend, convenience method.
         """
         self.seed = seed
         if logging_level is not None:
@@ -71,8 +74,10 @@ class ComponentTest(object):
             disable_monitoring=disable_monitoring,
             device_map=device_map
         ))
+
+        use_backend = backend if backend is not None else get_backend()
         self.graph_executor = GraphExecutor.from_spec(
-            get_backend(),
+            use_backend,
             graph_builder=self.graph_builder,
             execution_spec=execution_spec
         )
