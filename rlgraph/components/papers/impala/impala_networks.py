@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-#from rlgraph.components.common.tuple_splitter import TupleSplitter
 from rlgraph.components.neural_networks import NeuralNetwork
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.nn.conv2d_layer import Conv2DLayer
@@ -34,15 +33,15 @@ from rlgraph.components.common.repeater_stack import RepeaterStack
 from rlgraph.components.common.container_splitter import ContainerSplitter
 
 
-class LargeIMPALANetwork(NeuralNetwork):
+class IMPALANetwork(NeuralNetwork):
     """
-    The "large architecture" version of the network used in [1].
+    The base class for both "large and small architecture" versions of the networks used in [1].
 
     [1] IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures - Espeholt, Soyer,
         Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
     """
-    def __init__(self, scope="large-impala-network", **kwargs):
-        super(LargeIMPALANetwork, self).__init__(scope=scope, **kwargs)
+    def __init__(self, scope="impala-network", **kwargs):
+        super(IMPALANetwork, self).__init__(scope=scope, **kwargs)
 
         # Create all needed sub-components.
 
@@ -64,12 +63,105 @@ class LargeIMPALANetwork(NeuralNetwork):
 
         # The main LSTM (going into the ActionAdapter (next in the Policy Component that uses this NN Component)).
         # Use time-major as it's faster (say tf docs).
-        self.main_lstm = LSTMLayer(units=256, scope="lstm-256", time_major=True)
+        self.main_lstm = LSTMLayer(units=256, scope="lstm-256", time_major=False)
 
         # Add all sub-components to this one.
         self.add_components(
             self.splitter, self.image_processing_stack, self.text_processing_stack, self.concat_layer, self.main_lstm
         )
+
+    @staticmethod
+    def build_image_processing_stack():
+        """
+        Builds the image processing pipeline for IMPALA and returns it.
+        """
+        raise NotImplementedError
+
+    @staticmethod
+    def build_text_processing_stack():
+        """
+        Helper function to build the text processing pipeline for both the large and small architectures, consisting of:
+        - ReShape preprocessor to fold the incoming time rank into the batch rank.
+        - StringToHashBucket Layer taking a batch of sentences and converting them to an indices-table of dimensions:
+          cols=length of longest sentences in input
+          rows=number of items in the batch
+          The cols dimension could be interpreted as the time rank into a consecutive LSTM. The StringToHashBucket
+          Component returns the sequence length of each batch item for exactly that purpose.
+        - Embedding Lookup Layer of embedding size 20 and number of rows == num_hash_buckets (see previous layer).
+        - LSTM processing the batched sequences of words coming from the embedding layer as batches of rows.
+        """
+        num_hash_buckets = 1000
+
+        # Fold the time rank into the batch rank.
+        time_rank_fold = ReShape(fold_time_rank=True, scope="time-rank-fold")
+        # Create a hash bucket from the sentences and use that bucket to do an embedding lookup (instead of
+        # a vocabulary).
+        string_to_hash_bucket = StringToHashBucket(num_hash_buckets=num_hash_buckets)
+        embedding = EmbeddingLookup(embed_dim=20, vocab_size=num_hash_buckets)
+        # The time rank for the LSTM is now the sequence of words in a sentence, NOT the original env time rank.
+        # We will only use the last output of the LSTM-64 for further processing as that is the output after having
+        # seen all words in the sentence.
+        # The original env stepping time rank is currently folded into the batch rank and must be unfolded again before
+        # passing it into the main LSTM.
+        lstm64 = LSTMLayer(units=64, scope="lstm-64", time_major=False)
+
+        tuple_splitter = ContainerSplitter(tuple_length=2, scope="tuple-splitter")
+
+        # HAD TO SET TO FALSE AS WHEN PULLING SAMPLES FROM MEMORY, THEY ARE BATCH-MAJOR.
+        time_rank_unfold = ReShape(unfold_time_rank=True, time_major=False, scope="time-rank-unfold-text")
+
+        def custom_apply(self, inputs):
+            text_to_batch = self.call(self.sub_components["time-rank-fold"].apply, inputs)
+            # output=(1280,) <- is batch_rank, no time rank, nothing else
+            hash_bucket, lengths = self.call(self.sub_components["string-to-hash-bucket"].apply, text_to_batch)
+
+            embedding_output = self.call(self.sub_components["embedding-lookup"].apply, hash_bucket)
+
+            # Return only the last output (sentence of words, where we are not interested in intermediate results
+            # where the LSTM has not seen the entire sentence yet).
+            # Last output is the final internal h-state (slot 1 in the returned LSTM tuple; slot 0 is final c-state).
+            _, lstm_final_internals = self.call(
+                self.sub_components["lstm-64"].apply, embedding_output, sequence_length=lengths
+            )
+
+            # Need to split once more because the LSTM state is always a tuple of final c- and h-states.
+            _, lstm_final_h_state = self.call(self.sub_components["tuple-splitter"].split, lstm_final_internals)
+
+            # Feed the original inputs into the unfold-ReShape so can lookup the time-rank dimension to unfold.
+            unfolded = self.call(self.sub_components["time-rank-unfold-text"].apply, lstm_final_h_state, inputs)
+
+            return unfolded
+
+        text_processing_stack = Stack(
+            time_rank_fold, string_to_hash_bucket, embedding, lstm64, tuple_splitter, time_rank_unfold,
+            api_methods={("apply", custom_apply)}, scope="text-stack"
+        )
+
+        return text_processing_stack
+
+    def apply(self, input_dict, internal_states=None):
+        # Split the input dict coming directly from the Env.
+        image, text, previous_action, previous_reward = self.call(self.splitter.split, input_dict)
+
+        # Get the left-stack (image) and right-stack (text) output (see [1] for details).
+        text_processing_output = self.call(self.text_processing_stack.apply, text)
+        image_processing_output = self.call(self.image_processing_stack.apply, image)
+
+        # Concat everything together.
+        concatenated_data = self.call(
+            self.concat_layer.apply,
+            image_processing_output, text_processing_output, previous_action, previous_reward
+        )
+
+        # Feed concat'd input into main LSTM(256).
+        main_lstm_output, main_lstm_final_c_and_h = self.call(
+            self.main_lstm.apply, concatenated_data, internal_states
+        )
+
+        return main_lstm_output, main_lstm_final_c_and_h
+
+
+class LargeIMPALANetwork(NeuralNetwork):
 
     @staticmethod
     def build_image_processing_stack():
@@ -118,14 +210,25 @@ class LargeIMPALANetwork(NeuralNetwork):
             DenseLayer(units=256),  # Dense layer.
             NNLayer(activation="relu", scope="relu-2"),  # ReLU 2
         ])
+        #def TEST_custom_apply_image_stack_before_unfold(self, inputs):
+        #    ret = self.call(self.sub_components["time-rank-fold"].apply, inputs)
+
+        #    ret = self.call(self.sub_components["conv-unit-0"].apply, ret)
+        #    ret = self.call(self.sub_components["conv-unit-1"].apply, ret)
+        #    ret = self.call(self.sub_components["conv-unit-2"].apply, ret)
+        #    ret = self.call(self.sub_components["flatten"].apply, ret)
+
+        #    return ret
+
+
         stack_before_unfold = Stack(sub_components, scope="image-stack-before-unfold")
 
-        time_rank_unfold = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold")
+        time_rank_unfold = ReShape(unfold_time_rank=True, time_major=False, scope="time-rank-unfold-images")
 
         def custom_apply(self, inputs):
             image_processing_output = self.call(self.sub_components["image-stack-before-unfold"].apply, inputs)
             # Feed the original inputs into the unfold-ReShape so can lookup the time-rank dimension to unfold.
-            unfolded = self.call(self.sub_components["time-rank-unfold"].apply, image_processing_output, inputs)
+            unfolded = self.call(self.sub_components["time-rank-unfold-images"].apply, image_processing_output, inputs)
             return unfolded
 
         image_stack = Stack(
@@ -135,83 +238,58 @@ class LargeIMPALANetwork(NeuralNetwork):
 
         return image_stack
 
+
+class SmallIMPALANetwork(NeuralNetwork):
+    """
+    The "small/shallow architecture" version of the network used in [1].
+
+    [1] IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures - Espeholt, Soyer,
+        Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
+    """
+
     @staticmethod
-    def build_text_processing_stack():
+    def build_image_processing_stack():
         """
-        Builds the text processing pipeline consisting of:
-        - ReShape preprocessor to fold the incoming time rank into the batch rank.
-        - StringToHashBucket Layer taking a batch of sentences and converting them to an indices-table of dimensions:
-          cols=length of longest sentences in input
-          rows=number of items in the batch
-          The cols dimension could be interpreted as the time rank into a consecutive LSTM. The StringToHashBucket
-          Component returns the sequence length of each batch item for exactly that purpose.
-        - Embedding Lookup Layer of embedding size 20 and number of rows == num_hash_buckets (see previous layer).
-        - LSTM processing the batched sequences of words coming from the embedding layer as batches of rows.
+        Constructs a ReShape preprocessor to fold the time rank into the batch rank.
+
+        Then builds the 2 Conv2D Layers followed by ReLUs.
+
+        Then adds: fc(256) + ReLU.
         """
-        num_hash_buckets = 1000
+        # Collect components for image stack before unfolding time-rank going into main LSTM.
+        sub_components = list()
 
-        # Fold the time rank into the batch rank.
-        time_rank_fold = ReShape(fold_time_rank=True, scope="time-rank-fold")
-        # Create a hash bucket from the sentences and use that bucket to do an embedding lookup (instead of
-        # a vocabulary).
-        string_to_hash_bucket = StringToHashBucket(num_hash_buckets=num_hash_buckets)
-        embedding = EmbeddingLookup(embed_dim=20, vocab_size=num_hash_buckets)
-        # The time rank for the LSTM is now the sequence of words in a sentence, NOT the original env time rank.
-        # We will only use the last output of the LSTM-64 for further processing as that is the output after having
-        # seen all words in the sentence.
-        # The original env stepping time rank is currently folded into the batch rank and must be unfolded again before
-        # passing it into the main LSTM.
-        lstm64 = LSTMLayer(units=64, scope="lstm-64", time_major=False)
+        # Time-rank into batch-rank reshaper.
+        sub_components.append(ReShape(fold_time_rank=True, scope="time-rank-fold"))
 
-        tuple_splitter = ContainerSplitter(tuple_length=2, scope="tuple-splitter")
+        for i, (num_filters, kernel_size, stride) in enumerate(zip([16, 32], [8, 4], [4, 2])):
+            # Conv2D plus ReLU activation function.
+            conv2d = Conv2DLayer(
+                filters=num_filters, kernel_size=kernel_size, strides=stride, padding="same",
+                activation="relu", scope="conv2d-{}".format(i)
+            )
+            sub_components.append(conv2d)
 
-        time_rank_unfold = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold")
+        # A Flatten preprocessor and then an fc block (surrounded by ReLUs) and a time-rank-unfolding.
+        sub_components.extend([
+            ReShape(flatten=True, scope="flatten"),  # Flattener (to flatten Conv2D output for the fc layer).
+            DenseLayer(units=256),  # Dense layer.
+            NNLayer(activation="relu", scope="relu-before-lstm"),
+        ])
+
+        stack_before_unfold = Stack(sub_components, scope="image-stack-before-unfold")
+
+        time_rank_unfold = ReShape(unfold_time_rank=True, time_major=False, scope="time-rank-unfold-images")
 
         def custom_apply(self, inputs):
-            text_to_batch = self.call(self.sub_components["time-rank-fold"].apply, inputs)
-            hash_bucket, lengths = self.call(self.sub_components["string-to-hash-bucket"].apply, text_to_batch)
-
-            embedding_output = self.call(self.sub_components["embedding-lookup"].apply, hash_bucket)
-
-            # Return only the last output (sentence of words, where we are not interested in intermediate results
-            # where the LSTM has not seen the entire sentence yet).
-            # Last output is the final internal h-state (slot 1 in the returned LSTM tuple; slot 0 is final c-state).
-            _, lstm_final_internals = self.call(
-                self.sub_components["lstm-64"].apply, embedding_output, sequence_length=lengths
-            )
-
-            # Need to split once more because the LSTM state is always a tuple of final c- and h-states.
-            _, lstm_final_h_state = self.call(self.sub_components["tuple-splitter"].split, lstm_final_internals)
-
+            image_processing_output = self.call(self.sub_components["image-stack-before-unfold"].apply, inputs)
             # Feed the original inputs into the unfold-ReShape so can lookup the time-rank dimension to unfold.
-            unfolded = self.call(self.sub_components["time-rank-unfold"].apply, lstm_final_h_state, inputs)
-
+            unfolded = self.call(self.sub_components["time-rank-unfold-images"].apply, image_processing_output, inputs)
             return unfolded
 
-        text_processing_stack = Stack(
-            time_rank_fold, string_to_hash_bucket, embedding, lstm64, tuple_splitter, time_rank_unfold,
-            api_methods={("apply", custom_apply)}, scope="text-stack"
+        image_stack = Stack(
+            stack_before_unfold, time_rank_unfold,
+            api_methods={("apply", custom_apply)}, scope="image-stack"
         )
 
-        return text_processing_stack
-
-    def apply(self, input_dict, internal_states=None):
-        # Split the input dict coming directly from the Env.
-        image, text, previous_action, previous_reward = self.call(self.splitter.split, input_dict)
-
-        # Get the left-stack (image) and right-stack (text) output (see [1] for details).
-        image_processing_output = self.call(self.image_processing_stack.apply, image)
-        text_processing_output = self.call(self.text_processing_stack.apply, text)
-
-        # Concat everything together.
-        concatenated_data = self.call(
-            self.concat_layer.apply,
-            image_processing_output, text_processing_output, previous_action, previous_reward
-        )
-
-        # Feed concat'd input into main LSTM(256).
-        main_lstm_output, main_lstm_final_c_and_h = self.call(
-            self.main_lstm.apply, concatenated_data, internal_states
-        )
-
-        return main_lstm_output, main_lstm_final_c_and_h
+        return image_stack
