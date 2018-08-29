@@ -58,9 +58,11 @@ class IMPALALossFunction(LossFunction):
 
         self.weight_pg = weight_pg if weight_pg is not None else 1.0
         self.weight_baseline = weight_baseline if weight_baseline is not None else 0.5
-        self.weight_entropy = weight_entropy if weight_entropy is not None else 0.001
+        self.weight_entropy = weight_entropy if weight_entropy is not None else 0.00025
 
         self.action_space = None
+
+        self.add_components(self.v_trace_function)
 
     def check_input_spaces(self, input_spaces, action_space=None):
         assert action_space is not None
@@ -102,7 +104,7 @@ class IMPALALossFunction(LossFunction):
             actions (DataOp): The actually taken actions. Dimensions are: time x batch x action-space.
             rewards (DataOp): The received rewards. Dimensions are: time x batch.
             terminals (DataOp): The observed terminal signals. Dimensions are: time x batch.
-            bootstrapped_values (DataOp): The bootstrapped value
+            bootstrapped_values (DataOp): The bootstrapped values. Dimensions are 1 x batch x 1.
         Returns:
             SingleDataOp: The loss values per item in the batch, but summed over all timesteps.
         """
