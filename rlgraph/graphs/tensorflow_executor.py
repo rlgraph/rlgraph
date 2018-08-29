@@ -21,16 +21,15 @@ import os
 
 from rlgraph import get_backend
 
+import rlgraph.utils as util
 from rlgraph.utils.rlgraph_error import RLGraphError
-from rlgraph.components.optimizers.multi_gpu_sync_optimizer import MultiGpuSyncOptimizer
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph import get_distributed_backend
-from rlgraph.utils.specifiable_server import SpecifiableServer, SpecifiableServerHook
-import rlgraph.utils as util
 
 if get_backend() == "tf":
     import tensorflow as tf
     from tensorflow.python.client import device_lib
+    from rlgraph.utils.specifiable_server import SpecifiableServer, SpecifiableServerHook
 
 
 class TensorFlowExecutor(GraphExecutor):
