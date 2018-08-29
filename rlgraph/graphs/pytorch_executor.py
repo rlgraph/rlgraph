@@ -44,8 +44,7 @@ class PyTorchExecutor(GraphExecutor):
         for component in root_components:
             meta_graph = self.meta_graph_builder.build(component, input_spaces)
 
-            # TODO device strategy in pytorch?
-            self.graph_builder.build_graph(
+            self.graph_builder.build_eager_graph(
                 meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices
             )
 
@@ -58,7 +57,7 @@ class PyTorchExecutor(GraphExecutor):
             elif isinstance(api_method, (list, tuple)):
                 params = util.force_list(api_method[1])
                 api_method = api_method[0]
-                api_ret = self.graph_builder.run(api_method, params)
+                api_ret = self.graph_builder.execute_eager_op(api_method, params)
                 ret.append(api_ret)
 
         return ret
