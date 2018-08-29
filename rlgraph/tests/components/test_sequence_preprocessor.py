@@ -149,7 +149,11 @@ class TestSequencePreprocessor(unittest.TestCase):
 
     def test_sequence_preprocessor_with_container_space(self):
         # Test with no batch rank.
-        space = Tuple(FloatBox(shape=(1,)), FloatBox(shape=(2, 2)), add_batch_rank=False)
+        space = Tuple(
+            FloatBox(shape=(1,)),
+            FloatBox(shape=(2, 2)),
+            add_batch_rank=False
+        )
 
         component_to_test = Sequence(sequence_length=4, add_rank=False)
         test = ComponentTest(component=component_to_test, input_spaces=dict(preprocessing_inputs=space))

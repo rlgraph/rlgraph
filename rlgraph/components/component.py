@@ -31,7 +31,7 @@ from rlgraph.utils.specifiable import Specifiable
 
 from rlgraph.utils.ops import SingleDataOp, DataOpDict, DataOpRecord, APIMethodRecord, \
     DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn, DataOpRecordColumnIntoAPIMethod, \
-    DataOpRecordColumnFromAPIMethod, GraphFnRecord, DataOpTuple
+    DataOpRecordColumnFromAPIMethod, GraphFnRecord, DataOpTuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE
 from rlgraph.utils import util, default_dict
 from rlgraph.spaces.space_utils import get_space_from_op
 
@@ -908,7 +908,8 @@ class Component(Specifiable):
                     if lookup in self.variables:
                         if global_scope:
                             # Replace the scope separator with a custom one.
-                            ret[re.sub(r'/', custom_scope_separator, lookup)] = v
+                            ret[re.sub(r'(/|{}|{})'.format(FLAT_TUPLE_CLOSE, FLAT_TUPLE_OPEN),
+                                       custom_scope_separator, lookup)] = v
                         else:
                             ret[re.sub(r'^.+/', "", lookup)] = v
                 return ret
