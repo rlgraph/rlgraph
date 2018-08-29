@@ -75,7 +75,7 @@ class BaselineActionAdapter(ActionAdapter):
 
         Returns:
             tuple (2x SingleDataOp):
-                - The state value.
+                - The state value (as shape=(1,)).
                 - The reshaped action logits.
         """
         if get_backend() == "tf":
@@ -83,8 +83,10 @@ class BaselineActionAdapter(ActionAdapter):
             state_value, flat_logits = tf.split(
                 value=action_layer_output, num_or_size_splits=(1, self.action_layer.units - 1), axis=-1
             )
-            # Have to squeeze the state-value as it's coming from just one node anyway.
-            state_value = tf.squeeze(state_value, axis=-1)
+
+            # OBSOLETE: Don't squeeze
+            ## Have to squeeze the state-value as it's coming from just one node anyway.
+            #state_value = tf.squeeze(state_value, axis=-1)
 
             # TODO: automate this: batch in -> batch out; time in -> time out; batch+time in -> batch+time out, etc..
             # TODO: if not default behavior: have to specify in decorator (see design_problems.txt).
