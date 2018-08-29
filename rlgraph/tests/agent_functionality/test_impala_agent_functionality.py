@@ -57,7 +57,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         previous_reward=FloatBox(shape=(1,)),  # add the extra rank for proper concatenating with the other inputs.
         add_batch_rank=True,
         add_time_rank=True,
-        time_major=True
+        time_major=False
     )
     internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True)
 
@@ -118,12 +118,12 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         self.assertEquals(last_internal_states[1].shape, (1, 256))
 
         # Send time x batch states through the network to simulate agent-type=learner behavior.
-        next_nn_input = self.input_space.sample(size=(6, 1))  # time-steps=6, batch=1 (must match last-internal-states)
+        next_nn_input = self.input_space.sample(size=(1, 6))  # batch=1, time-steps=6 (must match last-internal-states)
         expected = None
         actions, last_internal_states = test.test(("get_action", [next_nn_input, last_internal_states]),
                                                   expected_outputs=expected)
         print("Actions 3 to 8: {}".format(actions))
-        self.assertEquals(actions.shape, (6, 1))
+        self.assertEquals(actions.shape, (1, 6))
         self.assertEquals(last_internal_states[0].shape, (1, 256))
         self.assertEquals(last_internal_states[1].shape, (1, 256))
 
@@ -158,14 +158,14 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         )
 
         # Send a sample through the network (sequence-length (time-rank) x batch-size).
-        nn_dict_input = self.input_space.sample(size=(1, batch_size))
+        nn_dict_input = self.input_space.sample(size=(batch_size, 1))
         initial_internal_states = self.internal_states_space.zeros(size=batch_size)
         expected = None
         preprocessed_states, actions, last_internal_states = test.test(
             ("get_preprocessed_state_and_action", [nn_dict_input, initial_internal_states]), expected_outputs=expected
         )
         print("First action: {}".format(actions))
-        self.assertEquals(actions.shape, (1, batch_size,))
+        self.assertEquals(actions.shape, (batch_size, 1))
         self.assertEquals(last_internal_states[0].shape, (batch_size, 256))
         self.assertEquals(last_internal_states[1].shape, (batch_size, 256))
         # Check preprocessed state (all the same except 'image' channel).
@@ -179,13 +179,13 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         )
 
         # Send another 1x1 sample through the network using the previous internal-state.
-        next_nn_input = self.input_space.sample(size=(1, batch_size))
+        next_nn_input = self.input_space.sample(size=(batch_size, 1))
         expected = None
         preprocessed_states, actions, last_internal_states = test.test(
             ("get_preprocessed_state_and_action", [next_nn_input, last_internal_states]), expected_outputs=expected
         )
         print("Second action: {}".format(actions))
-        self.assertEquals(actions.shape, (1, batch_size))
+        self.assertEquals(actions.shape, (batch_size, 1))
         self.assertEquals(last_internal_states[0].shape, (batch_size, 256))
         self.assertEquals(last_internal_states[1].shape, (batch_size, 256))
         # Check preprocessed state (all the same except 'image' channel, which gets divided by 255).
@@ -200,13 +200,13 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
 
         # Send time x batch states through the network to simulate agent-type=learner behavior.
         # time-steps=20, batch=1 (must match last-internal-states)
-        next_nn_input = self.input_space.sample(size=(20, batch_size))
+        next_nn_input = self.input_space.sample(size=(batch_size, 20))
         expected = None
         preprocessed_states, actions, last_internal_states = test.test(
             ("get_preprocessed_state_and_action", [next_nn_input, last_internal_states]), expected_outputs=expected
         )
         print("Actions 3 to 22: {}".format(actions))
-        self.assertEquals(actions.shape, (20, batch_size))
+        self.assertEquals(actions.shape, (batch_size, 20))
         self.assertEquals(last_internal_states[0].shape, (batch_size, 256))
         self.assertEquals(last_internal_states[1].shape, (batch_size, 256))
         # Check preprocessed state (all the same except 'image' channel).
