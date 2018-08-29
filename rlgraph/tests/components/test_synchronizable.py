@@ -60,7 +60,7 @@ class TestSynchronizableComponent(unittest.TestCase):
         # Test pulling the variable values from the sync_out socket.
         expected1 = np.zeros(shape=component_to_test.space.shape)
         expected2 = np.ones(shape=component_to_test.space.shape)
-        expected = dict(variable_to_sync1=expected1, variable_to_sync2=expected2)
+        expected = dict({"variable-to-sync1": expected1, "variable-to-sync2": expected2})
 
         test.test("_variables", expected_outputs=expected)
 
