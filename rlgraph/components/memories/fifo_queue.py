@@ -57,15 +57,14 @@ class FIFOQueue(Memory):
 
     def create_variables(self, input_spaces, action_space=None):
         # Overwrite parent's method as we don't need a custom registry.
-        in_space = self.record_space if self.record_space else input_spaces["records"]
-
-        assert in_space is not None
+        if self.record_space is None:
+            self.record_space = input_spaces["records"]
 
         # Make sure all input-records have a batch rank and determine the shapes and dtypes.
         shapes = list()
         dtypes = list()
         names = list()
-        for key, value in in_space.flatten().items():
+        for key, value in self.record_space.flatten().items():
             # TODO: what if single items come in without a time-rank? Then this check here will fail.
             # We are expecting single items. The incoming batch-rank is actually a time-rank: Add the batch rank.
             sanity_check_space(value, must_have_batch_rank=self.only_insert_single_records is False)
