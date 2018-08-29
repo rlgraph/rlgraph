@@ -279,12 +279,6 @@ class EnvironmentStepper(Component):
                     else:
                         preprocessed_s, a, action_probs = out
 
-                # Remove the prev_a, prev_r again (not really part of the state).
-                #if self.add_previous_action is True:
-                #    del preprocessed_s["previous_action"]
-                #if self.add_previous_reward is True:
-                #    del preprocessed_s["previous_reward"]
-
                 # Strip the batch (and maybe time) ranks again from the action in case the Env doesn't like it.
                 a_no_extra_ranks = a[0, 0] if self.has_rnn is True else a[0]
                 # Step through the Env and collect next state (tuple!), reward and terminal as single values
@@ -306,23 +300,10 @@ class EnvironmentStepper(Component):
                 # Add a and/or r to next_state?
                 if self.add_previous_action is True:
                     assert isinstance(s_, tuple), "ERROR: Cannot add previous action to non tuple!"
-                    #for _ in range(1 if self.has_rnn is False else 2):
-                    #    prev_a = tf.expand_dims(prev_a, axis=0)
                     s_ = s_ + (a_no_extra_ranks,)
-                    #tf.placeholder_with_default(
-                    #    a_no_extra_ranks, shape=(None,) + ((None,) if self.has_rnn is True else ()) +
-                    #                            self.action_space.shape
-                    #)
                 if self.add_previous_reward is True:
                     assert isinstance(s_, tuple), "ERROR: Cannot add previous reward to non tuple!"
-                    # Always cast rewards to float32 (to match possible other spaces when concatenating).
-                    #r = tf.cast(r, dtype=dtype_("float"))
-                    #for _ in range(2 if self.has_rnn is False else 3):  # 2=batch+value rank; 3=batch+time+value rank
-                    #    r = tf.expand_dims(r, axis=0)
                     s_ = s_ + (r,)
-                    #tf.placeholder_with_default(
-                    #    r, shape=(None,) + ((None,) if self.has_rnn is True else ()) + (1,)  # 1 node
-                    #)
 
                 # Note: Preprocessed_s and s_ are packed as tuples.
                 ret = [preprocessed_s_no_batch, a_no_extra_ranks, r, new_episode_return, t_, s_] + \
@@ -333,7 +314,6 @@ class EnvironmentStepper(Component):
                 return tuple(ret)
 
             # Initialize the tf.scan run.
-            print()
             initializer = [
                 tuple(map(lambda space: space.zeros(), self.preprocessed_state_space.flatten().values())),
                 self.action_space.zeros(),  # zero previous action (doesn't matter)
@@ -387,12 +367,9 @@ class EnvironmentStepper(Component):
             with tf.control_dependencies(control_inputs=assigns):
                 step_op = tf.no_op()
 
-            # TEST: this is how we can have a known batch/time-rank (actual number instead of ?)
-            # and still let the auto-inferal system know, which special ranks we have.
+            # Let the auto-infer system know, what time rank we have.
             step_results = DataOpTuple(step_results)
             for o in flatten_op(step_results).values():
                 o._time_rank = 0  # which position in the shape is the time-rank?
-                #o._time_rank_dim = num_steps
-            # END: TEST
 
             return step_op, step_results
