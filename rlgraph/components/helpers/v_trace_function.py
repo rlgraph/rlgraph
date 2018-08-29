@@ -58,19 +58,19 @@ class VTraceFunction(Component):
     def check_input_spaces(self, input_spaces, action_space=None):
         log_is_weight_space, discounts_space, rewards_space, values_space, bootstrap_value_space = \
             input_spaces["log_is_weights"], input_spaces["discounts"], input_spaces["rewards"], \
-            input_spaces["values"], input_spaces["bootstrapped_v"]
+            input_spaces["values"], input_spaces["bootstrapped_values"]
 
         sanity_check_space(log_is_weight_space, must_have_batch_rank=True)
         log_is_weight_rank = log_is_weight_space.rank
 
         # Sanity check our input Spaces for consistency (amongst each other).
         sanity_check_space(values_space, rank=log_is_weight_rank, must_have_batch_rank=True, must_have_time_rank=True)
-        sanity_check_space(bootstrap_value_space, must_have_batch_rank=True, must_have_time_rank=False)
+        sanity_check_space(bootstrap_value_space, must_have_batch_rank=True, must_have_time_rank=True)
         sanity_check_space(discounts_space, rank=log_is_weight_rank,
                            must_have_batch_rank=True, must_have_time_rank=True)
         sanity_check_space(rewards_space, rank=log_is_weight_rank, must_have_batch_rank=True, must_have_time_rank=True)
 
-    def _graph_fn_calc_v_trace_values(self, log_is_weights, discounts, rewards, values, bootstrapped_v):
+    def _graph_fn_calc_v_trace_values(self, log_is_weights, discounts, rewards, values, bootstrapped_values):
         """
         Returns the V-trace values calculated from log importance weights (see [1] for details).
         T=time rank
@@ -87,8 +87,8 @@ class VTraceFunction(Component):
                 through the environment (for the timesteps s=t to s=t+N-1).
             values (DataOp): DataOp (time x batch x values) holding the the value function estimates
                 wrt. the learner's policy (pi) (for the timesteps s=t to s=t+N-1).
-            bootstrapped_v: DataOp (batch x values) holding the last (bootstrapped) value estimate to use as a value
-                function estimate after n time steps (V(xs) for s=t+N).
+            bootstrapped_values: DataOp (time(1) x batch x values) holding the last (bootstrapped) value estimate to use
+                as a value function estimate after n time steps (V(xs) for s=t+N).
 
         Returns:
             DataOpTuple:
@@ -116,7 +116,7 @@ class VTraceFunction(Component):
 
             # This is the same vector as `values` except that it will be shifted by 1 timestep to the right and
             # include - as the last item - the bootstrapped V value at s=t+N.
-            values_t_plus_1 = tf.concat(values=[values[1:], tf.expand_dims(input=bootstrapped_v, axis=0)], axis=0)
+            values_t_plus_1 = tf.concat(values=[values[1:], bootstrapped_values], axis=0)
             # Calculate the temporal difference terms (delta-t-V in the paper) for each s=t to s=t+N-1.
             dt_vs = rho_t * (rewards + discounts * values_t_plus_1 - values)
 
@@ -137,7 +137,7 @@ class VTraceFunction(Component):
             vs_minus_v_xs = tf.scan(
                 fn=scan_func,
                 elems=elements,
-                initializer=tf.zeros_like(tensor=bootstrapped_v),
+                initializer=tf.zeros_like(tensor=tf.squeeze(bootstrapped_values, axis=0)),
                 parallel_iterations=1,
                 back_prop=False
             )
@@ -150,7 +150,7 @@ class VTraceFunction(Component):
             # Calculate the advantage values (for policy gradient loss term) according to:
             # A = Q - V with Q based on vs (v-trace) values: qs = rs + gamma * vs and V being the
             # approximate value function output.
-            vs_t_plus_1 = tf.concat(values=[vs[1:], tf.expand_dims(input=bootstrapped_v, axis=0)], axis=0)
+            vs_t_plus_1 = tf.concat(values=[vs[1:], bootstrapped_values], axis=0)
             pg_advantages = rho_t_pg * (rewards + discounts * vs_t_plus_1 - values)
 
             # Return v-traces and policy gradient advantage values based on: A=r+gamma*v-trace(s+1) - V(s).

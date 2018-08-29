@@ -104,7 +104,8 @@ class IMPALALossFunction(LossFunction):
             actions (DataOp): The actually taken actions. Dimensions are: time x batch x action-space.
             rewards (DataOp): The received rewards. Dimensions are: time x batch.
             terminals (DataOp): The observed terminal signals. Dimensions are: time x batch.
-            bootstrapped_values (DataOp): The bootstrapped values. Dimensions are 1 x batch x 1.
+            bootstrapped_values (DataOp): The bootstrapped values. Dimensions are 1 (time) x batch x 1 (the value node).
+
         Returns:
             SingleDataOp: The loss values per item in the batch, but summed over all timesteps.
         """

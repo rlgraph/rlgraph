@@ -31,14 +31,14 @@ class TestVTraceFunctions(unittest.TestCase):
         v_trace_function = VTraceFunction()
 
         batch_x_time_space = FloatBox(add_batch_rank=True, add_time_rank=True)
-        batch_space = FloatBox(add_batch_rank=True, add_time_rank=False)
+        #batch_space = FloatBox(add_batch_rank=True, add_time_rank=False)
         input_spaces = dict(
             # Log rhos, discounts, rewards, values, bootstrapped_value.
             log_is_weights=batch_x_time_space,
             discounts=batch_x_time_space,
             rewards=batch_x_time_space,
             values=batch_x_time_space,
-            bootstrapped_v=batch_space
+            bootstrapped_values=batch_x_time_space
         )
 
         test = ComponentTest(component=v_trace_function, input_spaces=input_spaces)
@@ -55,7 +55,7 @@ class TestVTraceFunctions(unittest.TestCase):
             # values
             np.array([[2.3, -1.1], [1.563, -2.0], [0.9, -0.3]]),
             # bootstrapped value
-            np.array([2.3, -1.0])
+            np.array([[2.3, -1.0]])
         ]
 
         """
