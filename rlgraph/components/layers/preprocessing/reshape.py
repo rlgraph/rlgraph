@@ -79,6 +79,9 @@ class ReShape(PreprocessLayer):
         self.unfold_time_rank = unfold_time_rank
         self.time_major = time_major
 
+        # The input space.
+        self.in_space = None
+
         # The output spaces after preprocessing (per flat-key).
         self.output_spaces = None
 
@@ -141,16 +144,19 @@ class ReShape(PreprocessLayer):
         if self.flatten is True and isinstance(in_space, IntBox) and self.flatten_categories is True:
             sanity_check_space(in_space, must_have_categories=True, num_categories=(2, 10000))
 
+        if input_spaces["input_before_time_rank_folding"] != "flex":
+            assert self.time_major is None or self.time_major == \
+                input_spaces["input_before_time_rank_folding"].time_major, \
+                "ERROR: Space of `input_before_time_rank_folding` to ReShape ('{}') has time-major={}, but ReShape " \
+                "has time-major={}!".format(self.global_scope, in_space.time_major, self.time_major)
+
     def create_variables(self, input_spaces, action_space=None):
-        in_space = input_spaces["preprocessing_inputs"]  # type: Space
-        #print("in_space={}".format(in_space))
+        self.in_space = input_spaces["preprocessing_inputs"]  # type: Space
 
         # Store the mapped output Spaces (per flat key).
-        #print("determining self.output_spaces for {}...".format(self.global_scope))
-        self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
-        #print("determined self.output_spaces={} for {}...".format(self.output_spaces, self.global_scope))
+        self.output_spaces = flatten_op(self.get_preprocessed_space(self.in_space))
         # Store time_major settings of incoming spaces.
-        self.in_space_time_majors = in_space.flatten(mapping=lambda key, space: space.time_major)
+        self.in_space_time_majors = self.in_space.flatten(mapping=lambda key, space: space.time_major)
 
         # Check whether we have to flatten the incoming categories of an IntBox into a FloatBox with additional
         # rank (categories rank). Store the dimension of this additional rank in the `self.num_categories` dict.
@@ -164,7 +170,7 @@ class ReShape(PreprocessLayer):
                     return space.num_categories
                 # No categories. Keep as is.
                 return 1
-            self.num_categories = in_space.flatten(mapping=mapping_func)
+            self.num_categories = self.in_space.flatten(mapping=mapping_func)
         elif self.flatten_categories is not False:
             # TODO: adjust for input ContainerSpaces. For now only support single space (flat-key=="")
             self.num_categories = {"": self.flatten_categories}
@@ -253,6 +259,14 @@ class ReShape(PreprocessLayer):
             reshaped = tf.reshape(tensor=preprocessing_inputs, shape=new_shape, name="reshaped")
             # Have to place the time rank back in as unknown (for the auto Space inference).
             if type(self.unfold_time_rank) == int:
+                # TODO: replace placeholder with default value by _batch_rank/_time_rank properties.
                 return tf.placeholder_with_default(reshaped, shape=(None, None) + new_shape[2:])
             else:
+                # TODO: add other cases of reshaping and fix batch/time rank hints.
+                if self.fold_time_rank:
+                    reshaped._batch_rank = 0
+                elif self.unfold_time_rank:
+                    reshaped._batch_rank = 0 if self.time_major is False else 1
+                    reshaped._time_rank = 0 if self.time_major is True else 1
+
                 return reshaped
