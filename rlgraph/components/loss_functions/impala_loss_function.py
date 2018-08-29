@@ -83,8 +83,8 @@ class IMPALALossFunction(LossFunction):
         total_loss = self.call(self._graph_fn_loss_average, loss_per_item)
         return total_loss, loss_per_item
 
-    def _graph_fn_loss_per_item(self, log_probs_actions_pi, log_probs_actions_taken_mu,
-                                values, actions, rewards, terminals):
+    def _graph_fn_loss_per_item(self, log_probs_actions_pi, log_probs_actions_taken_mu, values, actions,
+                                rewards, terminals, bootstrapped_values):
         """
         Calculates the loss per batch item (summed over all timesteps) using the formula described above in
         the docstring to this class.
@@ -99,7 +99,7 @@ class IMPALALossFunction(LossFunction):
             actions (DataOp): The actually taken actions. Dimensions are: time x batch x action-space.
             rewards (DataOp): The received rewards. Dimensions are: time x batch.
             terminals (DataOp): The observed terminal signals. Dimensions are: time x batch.
-
+            bootstrapped_values (DataOp): The bootstrapped value
         Returns:
             SingleDataOp: The loss values per item in the batch, but summed over all timesteps.
         """

@@ -392,7 +392,7 @@ class EnvironmentStepper(Component):
             step_results = DataOpTuple(step_results)
             for o in flatten_op(step_results).values():
                 o._time_rank = 0  # which position in the shape is the time-rank?
-                o._time_rank_dim = num_steps
+                #o._time_rank_dim = num_steps
             # END: TEST
 
             return step_op, step_results

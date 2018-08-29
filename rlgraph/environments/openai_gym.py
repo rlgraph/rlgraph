@@ -44,8 +44,8 @@ class OpenAIGymEnv(Environment):
                 Default: (2,5) -> Uniformly pull from set [2,3,4].
             max_num_noops (Optional[int]): How many no-ops to maximally perform when resetting
                 the environment before returning the reset state.
-            noop_action (Optional[bool]): The action representing no-op. 0 for Atari.
-            episodic_life (Optional[bool]): If true, losing a life will lead to episode end from the perspective
+            noop_action (any): The action representing no-op. 0 for Atari.
+            episodic_life (bool): If true, losing a life will lead to episode end from the perspective
                 of the agent. Internally, th environment will keep stepping the game and manage the true
                 termination (end of game).
             fire_reset (Optional[bool]): If true, fire off environment after reset.
@@ -127,6 +127,7 @@ class OpenAIGymEnv(Environment):
             else:
                 # If not, step.
                 state, _, _, _ = self._step_and_skip(self.noop_action)
+            # Update live property.
             self.lives = self.gym_env.unwrapped.ale.lives()
             return state
         else:

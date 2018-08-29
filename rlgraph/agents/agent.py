@@ -199,6 +199,7 @@ class Agent(Specifiable):
             pre_processor_scope (str): The global scope of the PreprocessorStack within the Agent.
             params (any): Params to be used freely by child Agent implementations.
         """
+        # Done by default.
         self.policy.add_components(Synchronizable(), expose_apis="sync")
 
         # Add api methods for syncing.

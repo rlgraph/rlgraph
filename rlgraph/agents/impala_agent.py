@@ -30,7 +30,7 @@ from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.loss_functions.impala_loss_function import IMPALALossFunction
 from rlgraph.components.memories.fifo_queue import FIFOQueue
-from rlgraph.components.papers.impala.large_impala_network import LargeIMPALANetwork
+from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork
 from rlgraph.spaces import FloatBox, Dict, Tuple
 from rlgraph.utils.util import default_dict
 
