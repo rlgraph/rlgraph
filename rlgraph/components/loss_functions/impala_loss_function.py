@@ -72,7 +72,7 @@ class IMPALALossFunction(LossFunction):
             self.action_space, allowed_types=[IntBox], must_have_categories=True
         )
 
-    def loss(self, log_probs_actions_pi, log_probs_actions_taken_mu, values, actions, rewards, terminals,
+    def loss(self, log_probs_actions_pi, action_probs_mu, values, actions, rewards, terminals,
              bootstrapped_values):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
@@ -83,12 +83,12 @@ class IMPALALossFunction(LossFunction):
         Returns:
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
-        loss_per_item = self.call(self._graph_fn_loss_per_item, log_probs_actions_pi, log_probs_actions_taken_mu,
+        loss_per_item = self.call(self._graph_fn_loss_per_item, log_probs_actions_pi, action_probs_mu,
                                   values, actions, rewards, terminals, bootstrapped_values)
         total_loss = self.call(self._graph_fn_loss_average, loss_per_item)
         return total_loss, loss_per_item
 
-    def _graph_fn_loss_per_item(self, log_probs_actions_pi, log_probs_actions_taken_mu, values, actions,
+    def _graph_fn_loss_per_item(self, log_probs_actions_pi, action_probs_mu, values, actions,
                                 rewards, terminals, bootstrapped_values):
         """
         Calculates the loss per batch item (summed over all timesteps) using the formula described above in
@@ -97,8 +97,8 @@ class IMPALALossFunction(LossFunction):
         Args:
             log_probs_actions_pi (DataOp): The log probabilities for all possible actions coming from the learner's
                 policy (pi). Dimensions are: time x batch x action-space+categories.
-            log_probs_actions_taken_mu (DataOp): The log probabilities for only the taken actions coming from the
-                actor's policies (mu). Dimensions are: time x batch.
+            action_probs_mu (DataOp): The probabilities for all actions coming from the
+                actor's policies (mu). Dimensions are: time x batch x action-space+categories.
             values (DataOp): The state value estimates coming from baseline node of the learner's policy (pi).
                 Dimensions are: time x batch.
             actions (DataOp): The actually taken actions. Dimensions are: time x batch x action-space.
@@ -112,11 +112,14 @@ class IMPALALossFunction(LossFunction):
         # Calculate the log IS-weight values via: logIS = log(pi(a|s)) - log(mu(a|s)).
         # Use the action_probs_pi values only of the actions actually taken.
         one_hot = tf.one_hot(indices=actions, depth=self.action_space.num_categories)
-        log_probs_actions_taken_pi = tf.reduce_sum(input_tensor=(log_probs_actions_pi * one_hot), axis=-1)
+        log_probs_actions_taken_pi = tf.reduce_sum(log_probs_actions_pi * one_hot, axis=-1, keepdims=True)
+        log_probs_actions_taken_mu = tf.reduce_sum(tf.log(action_probs_mu) * one_hot, axis=-1, keepdims=True)
         log_is_weights = log_probs_actions_taken_pi - log_probs_actions_taken_mu
 
         # Discounts are simply 0.0, if there is a terminal, otherwise: `discount`.
-        discounts = tf.to_float(~terminals) * self.discount
+        discounts = tf.expand_dims(tf.to_float(~terminals) * self.discount, axis=-1)
+        # Make discounts and rewards shape=(1,) instead of shape=() (not counting batch/time-ranks).
+        rewards = tf.expand_dims(rewards, axis=-1)
 
         # Let the v-trace  helper function calculate the v-trace values (vs) and the pg-advantages
         # (already multiplied by rho_t_pg): A = rho_t_pg * (rt + gamma*vt - V(t)).

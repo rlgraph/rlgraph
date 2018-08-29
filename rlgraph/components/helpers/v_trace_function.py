@@ -126,7 +126,8 @@ class VTraceFunction(Component):
             # We will thus calculate all terms: [vs - V(xs)] for all timesteps first, then add V(xs) again to get the
             # v-traces.
             elements = (
-                tf.reverse(tensor=discounts, axis=[0]), tf.reverse(tensor=c_i, axis=[0]),
+                tf.reverse(tensor=discounts, axis=[0]),
+                tf.reverse(tensor=c_i, axis=[0]),
                 tf.reverse(tensor=dt_vs, axis=[0])
             )
 
