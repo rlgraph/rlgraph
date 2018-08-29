@@ -206,7 +206,8 @@ class IMPALAAgent(Agent):
 
             # Create an IMPALALossFunction with some parameters.
             self.loss_function = IMPALALossFunction(
-                weight_pg=weight_pg, weight_baseline=weight_baseline, weight_entropy=weight_entropy
+                discount=self.discount, weight_pg=weight_pg, weight_baseline=weight_baseline,
+                weight_entropy=weight_entropy
             )
 
             sub_components = [self.fifo_queue, self.splitter, self.preprocessor, self.policy, self.softmax,
