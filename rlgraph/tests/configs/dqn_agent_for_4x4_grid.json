@@ -38,7 +38,7 @@
         "from": 1.0,
         "to": 0.2,
         "start_timestep": 0,
-        "num_timesteps": 4000
+        "num_timesteps": 3000
       }
     }
   },

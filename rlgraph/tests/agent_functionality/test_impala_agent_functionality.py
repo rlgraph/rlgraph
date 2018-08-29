@@ -26,7 +26,7 @@ from rlgraph.agents.impala_agent import IMPALAAgent
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.neural_networks.policy import Policy
 from rlgraph.components.neural_networks.actor_component import ActorComponent
-from rlgraph.components.papers.impala.large_impala_network import LargeIMPALANetwork
+from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork
 from rlgraph.components.explorations import Exploration
 from rlgraph.environments import Environment, DeepmindLabEnv
 from rlgraph.execution.distributed_tf.impala.impala_worker import IMPALAWorker
@@ -363,6 +363,6 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         )
         agent.environment_stepper.environment_server.start()
         worker = IMPALAWorker(agent=agent)
-        out = worker.execute_timesteps(100000)
+        out = worker.execute_timesteps(1000)
         print(out)
         agent.environment_stepper.environment_server.stop()

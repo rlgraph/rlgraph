@@ -131,11 +131,11 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=10),
             update_spec=dict(update_interval=4, batch_size=32, sync_interval=32),
-            optimizer_spec=dict(type="adam", learning_rate=0.02),
+            optimizer_spec=dict(type="adam", learning_rate=0.005),
             store_last_q_table=True
         )
 
-        time_steps = 5000
+        time_steps = 3000
         worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
@@ -225,7 +225,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         )
 
         time_steps = 3000
-        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, render=True)
+        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, render=False)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         #print("STATES:\n{}".format(agent.last_q_table["states"]))

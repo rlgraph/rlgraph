@@ -59,7 +59,6 @@ class TestAllCompile(unittest.TestCase):
     def test_impala_actor_compilation(self):
         """
         Tests IMPALA agent compilation (actor).
-
         """
         try:
             from rlgraph.environments.deepmind_lab import DeepmindLabEnv
@@ -89,7 +88,6 @@ class TestAllCompile(unittest.TestCase):
     def test_impala_learner_compilation(self):
         """
         Tests IMPALA agent compilation (learner).
-
         """
         try:
             from rlgraph.environments.deepmind_lab import DeepmindLabEnv
@@ -109,5 +107,7 @@ class TestAllCompile(unittest.TestCase):
             action_space=env.action_space,
             internal_states_space=Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True),
         )
+
+        #out = learner_agent.call_api_method("update_from_memory")
 
         print("Compiled IMPALA type=learner agent.")
