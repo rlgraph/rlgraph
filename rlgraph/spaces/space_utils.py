@@ -124,28 +124,26 @@ def get_space_from_op(op):
                 return 0
             add_batch_rank = False
             add_time_rank = False
+            time_major = False
             new_shape = list(shape)
             # New way: Detect via op._batch_rank and op._time_rank properties where these ranks are.
             if hasattr(op, "_batch_rank") and isinstance(op._batch_rank, int):
-                if hasattr(op, "_batch_rank_dim") and isinstance(op._batch_rank_dim, int):
-                    assert shape[op._batch_rank] is None
-                    add_batch_rank = op._batch_rank_dim
-                else:
-                    add_batch_rank = shape[op._batch_rank] if shape[op._batch_rank] is not None else True
+                add_batch_rank = True
                 new_shape[op._batch_rank] = -1
-                shape = tuple(n for n in new_shape if n != -1)
             if hasattr(op, "_time_rank") and isinstance(op._time_rank, int):
-                if hasattr(op, "_time_rank_dim") and isinstance(op._time_rank_dim, int):
-                    assert shape[op._time_rank] is None
-                    add_time_rank = op._time_rank_dim
-                else:
-                    add_time_rank = shape[op._time_rank] if shape[op._time_rank] is not None else True
+                add_time_rank = True
+                if op._time_rank == 0:
+                    time_major = True
                 new_shape[op._time_rank] = -1
-                shape = tuple(n for n in new_shape if n != -1)
+            shape = tuple(n for n in new_shape if n != -1)
 
             # Old way: Detect automatically whether the first rank(s) are batch and/or time rank.
-            if add_batch_rank is False and add_time_rank is False and shape is not () and shape[0] is None:
+            if add_batch_rank is False and add_time_rank is False and shape != () and shape[0] is None:
                 if len(shape) > 1 and shape[1] is None:
+                    #raise RLGraphError(
+                    #    "ERROR: Cannot determine time-major flag if both batch- and time-ranks are in an op w/o saying "
+                    #    "which rank goes to which position!"
+                    #)
                     shape = shape[2:]
                     add_time_rank = True
                 else:
@@ -158,17 +156,19 @@ def get_space_from_op(op):
             # FloatBox
             if "float" in base_dtype_str:
                 return FloatBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
-                                dtype=dtype(base_dtype, "np"))
+                                time_major=time_major, dtype=dtype(base_dtype, "np"))
             # IntBox
             elif "int" in base_dtype_str:
                 return IntBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
-                              dtype=dtype(base_dtype, "np"))
+                              time_major=time_major, dtype=dtype(base_dtype, "np"))
             # a BoolBox
             elif "bool" in base_dtype_str:
-                return BoolBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
+                return BoolBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
+                               time_major=time_major)
             # a TextBox
             elif "string" in base_dtype_str:
-                return TextBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
+                return TextBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
+                               time_major=time_major)
 
     raise RLGraphError("ERROR: Cannot derive Space from op '{}' (unknown type?)!".format(op))
 
@@ -220,23 +220,25 @@ def sanity_check_space(
             )
 
     if must_have_batch_rank is not None:
-        if space.has_batch_rank != must_have_batch_rank:
+        if (space.has_batch_rank is False and must_have_batch_rank is True) or \
+                (space.has_batch_rank is not False and must_have_batch_rank is False):
             # Last chance: Check for rank >= 2, that would be ok as well.
             if must_have_batch_rank is True and len(space.get_shape(with_batch_rank=True)) >= 2:
                 pass
             # Something is wrong.
-            elif space.has_batch_rank is True:
+            elif space.has_batch_rank is not False:
                 raise RLGraphError("ERROR: Space ({}) has a batch rank, but is not allowed to!".format(space))
             else:
                 raise RLGraphError("ERROR: Space ({}) does not have a batch rank, but must have one!".format(space))
 
     if must_have_time_rank is not None:
-        if space.has_time_rank != must_have_time_rank:
+        if (space.has_time_rank is False and must_have_time_rank is True) or \
+                (space.has_time_rank is not False and must_have_time_rank is False):
             # Last chance: Check for rank >= 3, that would be ok as well.
             if must_have_time_rank is True and len(space.get_shape(with_batch_rank=True, with_time_rank=True)) >= 2:
                 pass
             # Something is wrong.
-            elif space.has_time_rank is True:
+            elif space.has_time_rank is not False:
                 raise RLGraphError("ERROR: Space ({}) has a time rank, but is not allowed to!".format(space))
             else:
                 raise RLGraphError("ERROR: Space ({}) does not have a time rank, but must have one!".format(space))
