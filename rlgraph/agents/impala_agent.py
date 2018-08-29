@@ -156,11 +156,14 @@ class IMPALAAgent(Agent):
             record_space=self.fifo_record_space
         )
 
+        # Remove `states` key from input_spaces: not needed.
+        del self.input_spaces["states"]
+
         # Add all our sub-components to the core.
         if self.type == "actor":
             # Extend input Space definitions to this Agent's specific API-methods.
             self.input_spaces.update(dict(
-                weights="variables:environment-stepper/actor-component/policy",
+                #weights="variables:environment-stepper/actor-component/policy",
                 internal_states=self.internal_states_space.with_batch_rank(),
                 time_step=int
             ))
@@ -191,8 +194,6 @@ class IMPALAAgent(Agent):
                               self.merger, self.fifo_queue]
         # Learner.
         else:
-            # Remove `states` key from input_spaces: not needed.
-            del self.input_spaces["states"]
             self.environment_stepper = None
 
             # A Dict splitter to split up items from the queue.
