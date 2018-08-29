@@ -21,6 +21,7 @@ import numpy as np
 import unittest
 
 from rlgraph.components.layers import ReShape
+from rlgraph.components.neural_networks.stack import Stack
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 from rlgraph.utils.numpy import one_hot
@@ -146,7 +147,8 @@ class TestReShapePreprocessors(unittest.TestCase):
     def test_reshape_with_batch_vs_time_flipping_and_reshaping(self):
         # Flip time and batch rank AND reshape.
         in_space = FloatBox(shape=(5, 8), add_batch_rank=True, add_time_rank=True, time_major=True)
-        reshape = ReShape(time_major=False, new_shape=(4, 10))
+        # If time_major of input Space and reshaper are different, we have to set the "flip"-flag.
+        reshape = ReShape(time_major=False, flip_batch_and_time_rank=True, new_shape=(4, 10))
         test = ComponentTest(component=reshape, input_spaces=dict(
             preprocessing_inputs=in_space
         ))
@@ -163,16 +165,72 @@ class TestReShapePreprocessors(unittest.TestCase):
     def test_reshape_with_batch_vs_time_flipping_and_flattening(self):
         # Flip time and batch rank AND reshape.
         in_space = FloatBox(shape=(6, 4, 2), add_batch_rank=True, add_time_rank=True, time_major=False)
-        reshape = ReShape(time_major=True, flatten=True)
+        # If reshaper has a different time-major as input space, we must set the flip_batch_and_time_rank flag.
+        reshape = ReShape(time_major=True, flip_batch_and_time_rank=True, flatten=True)
         test = ComponentTest(component=reshape, input_spaces=dict(
             preprocessing_inputs=in_space
         ))
 
         test.test("reset")
-        # seq-len=2, batch-size=4
+        # batch-size=1, seq-len=3
         inputs = in_space.sample(size=(1, 3))
         # Flip the first two dimensions.
         expected = np.transpose(inputs, axes=(1, 0, 2, 3, 4))
         # Do the actual reshape (not touching the first two dimensions).
         expected = np.reshape(expected, newshape=(3, 1, 48))
+        test.test(("apply", inputs), expected_outputs=expected)
+
+    def test_reshape_with_batch_vs_time_flipping_with_folding_and_unfolding(self):
+        # Flip time and batch rank via folding, then unfolding.
+        in_space = FloatBox(shape=(3, 2), add_batch_rank=True, add_time_rank=True, time_major=False)
+        reshape_fold = ReShape(fold_time_rank=True, scope="fold-time-rank")
+        reshape_unfold = ReShape(
+            unfold_time_rank=True, flip_batch_and_time_rank=True, scope="unfold-time-rank-with-flip",
+            time_major=True
+        )
+
+        def custom_apply(self, inputs):
+            folded = self.call(reshape_fold.apply, inputs)
+            unfolded = self.call(reshape_unfold.apply, folded, inputs)
+            return unfolded
+
+        stack = Stack(reshape_fold, reshape_unfold, api_methods={("apply", custom_apply)})
+
+        test = ComponentTest(component=stack, input_spaces=dict(
+            inputs=in_space
+        ))
+
+        #test.test("reset")
+        # batch-size=4, seq-len=2
+        inputs = in_space.sample(size=(4, 2))
+        # Flip the first two dimensions.
+        expected = np.transpose(inputs, axes=(1, 0, 2, 3))
+
+        test.test(("apply", inputs), expected_outputs=expected)
+
+    def test_reshape_with_batch_vs_time_flipping_with_folding_and_unfolding_0D_shape(self):
+        # Flip time and batch rank via folding, then unfolding.
+        in_space = FloatBox(shape=(), add_batch_rank=True, add_time_rank=True, time_major=True)
+        reshape_fold = ReShape(fold_time_rank=True, scope="fold-time-rank")
+        reshape_unfold = ReShape(
+            unfold_time_rank=True, flip_batch_and_time_rank=True, scope="unfold-time-rank-with-flip",
+            time_major=False
+        )
+
+        def custom_apply(self, inputs):
+            folded = self.call(reshape_fold.apply, inputs)
+            unfolded = self.call(reshape_unfold.apply, folded, inputs)
+            return unfolded
+
+        stack = Stack(reshape_fold, reshape_unfold, api_methods={("apply", custom_apply)})
+
+        test = ComponentTest(component=stack, input_spaces=dict(
+            inputs=in_space
+        ))
+
+        # seq-len=16, batch-size=8
+        inputs = in_space.sample(size=(16, 8))
+        # Flip the first two dimensions.
+        expected = np.transpose(inputs, axes=(1, 0))
+
         test.test(("apply", inputs), expected_outputs=expected)

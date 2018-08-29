@@ -38,7 +38,7 @@ class ReShape(PreprocessLayer):
     (including IntBox categories).
     """
     def __init__(self, new_shape=None, flatten=False, flatten_categories=True, fold_time_rank=False,
-                 unfold_time_rank=False, time_major=None, scope="reshape", **kwargs):
+                 unfold_time_rank=False, time_major=None, flip_batch_and_time_rank=False, scope="reshape", **kwargs):
         """
         Args:
             new_shape (Optional[Dict[str,Tuple[int]],Tuple[int]]): A dict of str/tuples or a single tuple
@@ -60,9 +60,12 @@ class ReShape(PreprocessLayer):
                 The exact size of the time rank to unfold is determined automatically via the original sample.
                 Providing both `unfold_time_rank` (True) and `new_shape` is
                 allowed.
-            time_major (Optional[bool]): Only used if not None. If `unfold_time_rank` is True or `new_shape` is
-                specified, can be used to flip batch and time rank with respect to the input Space.
-                Specifies whether the time rank should come before the batch rank.
+            time_major (Optional[bool]): Only used if not None. Specifies whether the time rank should come before
+                the batch rank after(!) reshaping.
+                If `new_shape` is specified: Can be used to flip batch and time rank with respect to the input Space.
+                If `unfold_time_rank` is True: Specifies whether the shape after reshaping is time-major or not.
+            flip_batch_and_time_rank (bool): Whether to flip batch and time rank during the reshape.
+                Default: False.
         """
         super(ReShape, self).__init__(scope=scope, add_auto_key_as_first_param=True, **kwargs)
 
@@ -78,6 +81,7 @@ class ReShape(PreprocessLayer):
         self.fold_time_rank = fold_time_rank
         self.unfold_time_rank = unfold_time_rank
         self.time_major = time_major
+        self.flip_batch_and_time_rank = flip_batch_and_time_rank
 
         # The input space.
         self.in_space = None
@@ -130,7 +134,7 @@ class ReShape(PreprocessLayer):
             # Only change the actual shape (leave batch/time ranks as is).
             else:
                 ret[key] = class_(shape=new_shape, add_batch_rank=single_space.has_batch_rank,
-                                  add_time_rank=single_space.has_time_rank)
+                                  add_time_rank=single_space.has_time_rank, time_major=single_space.time_major)
         ret = unflatten_op(ret)
         #print("output of get_preprocessed_space: space={}".format(ret))
         return ret
@@ -145,10 +149,13 @@ class ReShape(PreprocessLayer):
             sanity_check_space(in_space, must_have_categories=True, num_categories=(2, 10000))
 
         if input_spaces["input_before_time_rank_folding"] != "flex":
-            assert self.time_major is None or self.time_major == \
-                input_spaces["input_before_time_rank_folding"].time_major, \
-                "ERROR: Space of `input_before_time_rank_folding` to ReShape ('{}') has time-major={}, but ReShape " \
-                "has time-major={}!".format(self.global_scope, in_space.time_major, self.time_major)
+            assert self.time_major is None or \
+                   (self.flip_batch_and_time_rank is False and
+                    self.time_major == input_spaces["input_before_time_rank_folding"].time_major) or \
+                   (self.flip_batch_and_time_rank is True and
+                    self.time_major != input_spaces["input_before_time_rank_folding"].time_major), \
+                   "ERROR: Space of `input_before_time_rank_folding` to ReShape ('{}') has time-major={}, but " \
+                   "ReShape has time-major={}!".format(self.global_scope, in_space.time_major, self.time_major)
 
     def create_variables(self, input_spaces, action_space=None):
         self.in_space = input_spaces["preprocessing_inputs"]  # type: Space
@@ -189,8 +196,6 @@ class ReShape(PreprocessLayer):
             SingleDataOp: The reshaped input.
         """
         assert self.unfold_time_rank is False or input_before_time_rank_folding is not None
-
-        #print("before one-hot: preprocessing_inputs={}".format(preprocessing_inputs))
 
         if self.backend == "python" or get_backend() == "python":
             # Create a one-hot axis for the categories at the end?
@@ -236,11 +241,13 @@ class ReShape(PreprocessLayer):
             # If both batch and time rank must be left alone OR the time rank must be unfolded from a currently common
             # batch+time 0th rank, get these two dynamically.
             # Note: We may still flip the two, if input space has a different `time_major` than output space.
-            if len(new_shape) > 2 and new_shape[0] == -1 and new_shape[1] == -1:
-                # Time rank unfolding. Get the time rank from original input.
+            flip_after_reshape = False
+            if len(new_shape) >= 2 and new_shape[0] == -1 and new_shape[1] == -1:
+                # Time rank unfolding. Get the time rank from original input (and maybe flip).
                 if self.unfold_time_rank is True:
                     original_shape = tf.shape(input_before_time_rank_folding)
                     new_shape = (original_shape[0], original_shape[1]) + new_shape[2:]
+                    flip_after_reshape = self.flip_batch_and_time_rank
                 # No time-rank unfolding, but we do have both batch- and time-rank.
                 else:
                     input_shape = tf.shape(preprocessing_inputs)
@@ -249,6 +256,7 @@ class ReShape(PreprocessLayer):
                         new_shape = (input_shape[0], input_shape[1]) + new_shape[2:]
                     # Batch and time rank need to be flipped around: Do a transpose.
                     else:
+                        assert self.flip_batch_and_time_rank is True
                         preprocessing_inputs = tf.transpose(
                             preprocessing_inputs, perm=(1, 0) + tuple(i for i in range(
                                 2, input_shape.shape.as_list()[0]
@@ -257,6 +265,10 @@ class ReShape(PreprocessLayer):
                         new_shape = (input_shape[1], input_shape[0]) + new_shape[2:]
 
             reshaped = tf.reshape(tensor=preprocessing_inputs, shape=new_shape, name="reshaped")
+
+            if flip_after_reshape and self.flip_batch_and_time_rank:
+                reshaped = tf.transpose(reshaped, (1, 0) + tuple(i for i in range(2, len(new_shape))))
+
             # Have to place the time rank back in as unknown (for the auto Space inference).
             if type(self.unfold_time_rank) == int:
                 # TODO: replace placeholder with default value by _batch_rank/_time_rank properties.
