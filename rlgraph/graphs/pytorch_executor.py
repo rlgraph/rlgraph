@@ -21,6 +21,7 @@ import os
 
 from rlgraph import get_backend
 from rlgraph.graphs import GraphExecutor
+from rlgraph.utils import util
 
 if get_backend() == "pytorch":
     import torch
@@ -49,7 +50,18 @@ class PyTorchExecutor(GraphExecutor):
             )
 
     def execute(self, *api_methods):
-        pass
+        # Have to call each method separately.
+        ret = list()
+        for api_method in api_methods:
+            if api_method is None:
+                continue
+            elif isinstance(api_method, (list, tuple)):
+                params = util.force_list(api_method[1])
+                api_method = api_method[0]
+                api_ret = self.graph_builder.run(api_method, params)
+                ret.append(api_ret)
+
+        return ret
 
     def read_variable_values(self, variables):
         pass
