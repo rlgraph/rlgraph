@@ -21,6 +21,7 @@ import logging
 import re
 import time
 
+import inspect
 from rlgraph import get_backend
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
@@ -744,7 +745,6 @@ class GraphBuilder(Specifiable):
                     raise RLGraphError("API-method with name '{}' only has {} input parameters! You passed in "
                                        "{}.".format(api_method, len(self.api[api_method][0]), len(params)))
 
-                # TODO placeholders are not required by PyTorch
                 placeholder = self.api[api_method][0][i].op  # 0=input op-recs; i=ith input op-rec
                 if isinstance(placeholder, DataOpTuple):
                     for ph, p in zip(placeholder, param):
@@ -757,4 +757,66 @@ class GraphBuilder(Specifiable):
                     feed_dict[placeholder] = param
 
         return fetch_dict, feed_dict
+
+    def execute_eager_op(self, api_method, params=None):
+        """
+        Eagerly executes an API method by simply calling the respective function
+        directly with its parameters to trigger an eager call-chain through the graph.
+
+        Args:
+            api_method (str): Name of api-method.
+            params (Optional[list]): Optional arguments.
+
+        Returns:
+            any: Results of executing this api-method.
+        """
+        if api_method not in self.api:
+            raise RLGraphError("No API-method with name '{}' found!".format(api_method))
+
+        if params is not None:
+            return self.root_component.api_fn_by_name[api_method](*params)
+        else:
+            return self.root_component.api_fn_by_name[api_method]()
+
+    def build_eager_graph(self, meta_graph, input_spaces, available_devices,
+                          device_strategy="default", default_device=None, device_map=None):
+        """
+        Builds a graph for eager execution. This primarily consists of creating variables through
+        the component hierarchy by pushing the input spaces  through the graph.
+
+          Args:
+            meta_graph (MetaGraph): MetaGraph to build to backend graph.
+            input_spaces (dict): Input spaces to build for.
+            available_devices (list): Devices which can be used to assign parts of the graph
+                during graph assembly.
+            device_strategy (Optional[str]): Device strategy.
+            default_device (Optional[str]): Default device identifier.
+            device_map (Optional[Dict]): Dict of Component names mapped to device names to place the Component's ops.
+        """
+        # Time the build procedure.
+        time_start = time.monotonic()
+        assert meta_graph.build_status, "ERROR: Meta graph must be built to build backend graph."
+        self.root_component = meta_graph.root_component
+        self.api = meta_graph.api
+        self.num_meta_ops = meta_graph.num_ops
+
+        # Set devices usable for this graph.
+        self.available_devices = available_devices
+        self.device_strategy = device_strategy
+        self.default_device = default_device
+        self.device_map = device_map or dict()
+
+        # TODO device strategy in pytorch?
+
+        # Build full registry of callable methods on root component.
+        for member in inspect.getmembers(self.root_component):
+            name, method = (member[0], member[1])
+            if name not in self.root_component.api_fn_by_name:
+                self.root_component.api_fn_by_name[name] = method
+
+        # Push input spaces through graph.
+
+        time_build = time.monotonic() - time_start
+        self.logger.info("Eeager Computation-Graph build completed in {} s.".format(time_build))
+
 
