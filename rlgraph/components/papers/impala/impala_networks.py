@@ -161,7 +161,7 @@ class IMPALANetwork(NeuralNetwork):
         return main_lstm_output, main_lstm_final_c_and_h
 
 
-class LargeIMPALANetwork(NeuralNetwork):
+class LargeIMPALANetwork(IMPALANetwork):
 
     @staticmethod
     def build_image_processing_stack():
@@ -239,7 +239,7 @@ class LargeIMPALANetwork(NeuralNetwork):
         return image_stack
 
 
-class SmallIMPALANetwork(NeuralNetwork):
+class SmallIMPALANetwork(IMPALANetwork):
     """
     The "small/shallow architecture" version of the network used in [1].
 
