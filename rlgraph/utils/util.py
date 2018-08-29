@@ -29,9 +29,9 @@ from rlgraph import get_backend
 from rlgraph.utils.rlgraph_error import RLGraphError
 
 if get_backend() == "tf":
-    import tensorflow as be
+    import tensorflow as backend
 else:
-    import pytorch as be
+    import torch as backend
 
 SMALL_NUMBER = 1e-6
 LARGE_INTEGER = 100000000
@@ -64,18 +64,18 @@ def dtype(dtype_, to="tf"):
     """
     # Bool: tensorflow.
     if get_backend() == "tf":
-        if dtype_ in ["bool", bool, np.bool_, be.bool]:
-            return np.bool_ if to == "np" else be.bool
+        if dtype_ in ["bool", bool, np.bool_, backend.bool]:
+            return np.bool_ if to == "np" else backend.bool
     # Bool: All others.
     elif dtype_ in ["bool", bool, np.bool_]:
         return np.bool_ if to == "np" else tf.bool
 
     # Generic backend.
-    if dtype_ in ["float", "float32", float, np.float32, be.float32]:
+    if dtype_ in ["float", "float32", float, np.float32, backend.float32]:
         return np.float32 if to == "np" else tf.float32
-    if dtype_ in ["float64", np.float64, be.float64]:
+    if dtype_ in ["float64", np.float64, backend.float64]:
         return np.float64 if to == "np" else tf.float64
-    elif dtype_ in ["int", "int32", int, np.int32, be.int32]:
+    elif dtype_ in ["int", "int32", int, np.int32, backend.int32]:
         return np.int32 if to == "np" else tf.int32
     elif dtype_ in ["int64", np.int64]:
         return np.int64 if to == "np" else tf.int64
