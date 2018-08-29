@@ -192,7 +192,8 @@ class BoxSpace(Space):
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and \
-               np.allclose(self.low, other.low) and np.allclose(self.high, other.high)
+               self.shape == other.shape and self.dtype == other.dtype
+               # np.allclose(self.low, other.low) and np.allclose(self.high, other.high) and \
 
     def __hash__(self):
         if self.shape == ():
