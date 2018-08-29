@@ -70,7 +70,8 @@ class IMPALALossFunction(LossFunction):
             self.action_space, allowed_types=[IntBox], must_have_categories=True
         )
 
-    def loss(self, log_probs_actions_pi, log_probs_actions_taken_mu, values, actions, rewards, terminals):
+    def loss(self, log_probs_actions_pi, log_probs_actions_taken_mu, values, actions, rewards, terminals,
+             bootstrapped_values):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -81,7 +82,7 @@ class IMPALALossFunction(LossFunction):
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
         loss_per_item = self.call(self._graph_fn_loss_per_item, log_probs_actions_pi, log_probs_actions_taken_mu,
-                                  values, actions, rewards, terminals)
+                                  values, actions, rewards, terminals, bootstrapped_values)
         total_loss = self.call(self._graph_fn_loss_average, loss_per_item)
         return total_loss, loss_per_item
 
