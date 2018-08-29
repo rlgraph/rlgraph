@@ -21,7 +21,7 @@ from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.ops import FlattenedDataOp, flatten_op
-from rlgraph.utils.util import dtype as dtype_
+from rlgraph.utils.util import dtype as dtype_, get_shape
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -99,7 +99,19 @@ class FIFOQueue(Memory):
         # Get the records as dict.
         record_dict = self.queue.dequeue_many(num_records)
         # Return a FlattenedDataOp.
-        return FlattenedDataOp(record_dict)
+        flattened_records = FlattenedDataOp(record_dict)
+        # Add batch and (possible) time rank to output ops for the auto-Space-inference.
+        flat_record_space = self.record_space.flatten()
+        for flat_key, op in record_dict.items():
+            if flat_record_space[flat_key].has_time_rank:
+                op = tf.placeholder_with_default(op, shape=(None, None) + get_shape(op)[2:])
+                op._batch_rank = 0
+                op._time_rank = 1
+                flattened_records[flat_key] = op
+            else:
+                op._batch_rank = 0
+                flattened_records[flat_key] = tf.placeholder_with_default(op, shape=(None,) + get_shape(op)[1:])
+        return flattened_records
 
     def _graph_fn_get_size(self):
         """

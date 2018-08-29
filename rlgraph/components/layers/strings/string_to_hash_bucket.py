@@ -102,4 +102,8 @@ class StringToHashBucket(StringLayer):
             if self.dtype != "int64":
                 hash_bucket = tf.cast(x=hash_bucket, dtype=dtype_(self.dtype))
 
+            # Hash-bucket output is always batch-major.
+            hash_bucket._batch_rank = 0
+            hash_bucket._time_rank = 1
+
             return hash_bucket, length

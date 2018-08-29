@@ -35,6 +35,11 @@ class BaselineActionAdapter(ActionAdapter):
         # Change the number of units in the action layer (+1 for the extra Value function node).
         super(BaselineActionAdapter, self).__init__(add_units=1, scope=scope, **kwargs)
 
+        self.input_space = None
+
+    def check_input_spaces(self, input_spaces, action_space=None):
+        self.input_space = input_spaces["nn_output"]
+
     def get_logits_parameters_log_probs(self, nn_output):
         """
         Override get_logits_parameters_log_probs API-method to not use the state-value, which must be sliced.
@@ -81,7 +86,22 @@ class BaselineActionAdapter(ActionAdapter):
             # Have to squeeze the state-value as it's coming from just one node anyway.
             state_value = tf.squeeze(state_value, axis=-1)
 
+            # TODO: automate this: batch in -> batch out; time in -> time out; batch+time in -> batch+time out, etc..
+            # TODO: if not default behavior: have to specify in decorator (see design_problems.txt).
             # Now we have to reshape the flat logits to obtain the action-shaped logits.
+            # Adjust batch/time ranks.
+            flat_logits._batch_rank = 0 if self.input_space.time_major is False else 1
+            if self.input_space.has_time_rank:
+                flat_logits._time_rank = 0 if self.input_space.time_major is True else 1
             logits = self.call(self.reshape.apply, flat_logits)
+
+            # TODO: automate this: batch in -> batch out; time in -> time out; batch+time in -> batch+time out, etc..
+            # TODO: if not default behavior: have to specify in decorator (see design_problems.txt).
+            # Adjust batch/time ranks.
+            state_value._batch_rank = 0 if self.input_space.time_major is False else 1
+            logits._batch_rank = 0 if self.input_space.time_major is False else 1
+            if self.input_space.has_time_rank:
+                state_value._time_rank = 0 if self.input_space.time_major is True else 1
+                logits._time_rank = 0 if self.input_space.time_major is True else 1
 
             return state_value, logits

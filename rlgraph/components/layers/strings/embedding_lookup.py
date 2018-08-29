@@ -20,6 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.utils.util import dtype
 from rlgraph.components.layers.layer import Layer
+from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.initializer import Initializer
 
 if get_backend() == "tf":
@@ -58,6 +59,13 @@ class EmbeddingLookup(Layer):
         # Our embedding matrix variable.
         self.embedding_matrix = None
 
+        self.ids_space = None
+
+    def check_input_spaces(self, input_spaces, action_space=None):
+        ids_space = input_spaces["ids"]
+        # For now, require both batch- and time-ranks.
+        sanity_check_space(ids_space, must_have_batch_rank=True, must_have_time_rank=True)
+
     def create_variables(self, input_spaces, action_space=None):
         # Create weights matrix and (maybe) biases vector.
         shape = (self.vocab_size, self.embed_dim)
@@ -69,8 +77,13 @@ class EmbeddingLookup(Layer):
                                                   #regularizer=self.regularizers,
                                                   trainable=self.trainable)
 
+        self.ids_space = input_spaces["ids"]
+
     def _graph_fn_apply(self, ids):
         if get_backend() == "tf":
-            return tf.nn.embedding_lookup(
+            embedding_lookup_output = tf.nn.embedding_lookup(
                 self.embedding_matrix, ids, partition_strategy=self.partition_strategy, max_norm=None
             )
+            embedding_lookup_output._batch_rank = 0 if self.ids_space.time_major is False else 1
+            embedding_lookup_output._time_rank = 0 if self.ids_space.time_major is True else 1
+            return embedding_lookup_output
