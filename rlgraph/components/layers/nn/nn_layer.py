@@ -45,6 +45,7 @@ class NNLayer(Layer):
 
         # The wrapped backend-layer object.
         self.layer = None
+        self.in_space_0 = None
 
         super(NNLayer, self).__init__(scope=kwargs.pop("scope", "nn-layer"), **kwargs)
 
@@ -53,13 +54,27 @@ class NNLayer(Layer):
         Do some sanity checking on the incoming Space:
         Must not be Container (for now) and must have a batch rank.
         """
-        idx = 0
-        while True:
-            key = "inputs[{}]".format(idx)
-            if key not in input_spaces:
-                break
-            sanity_check_space(input_spaces[key], allowed_types=[FloatBox, IntBox], must_have_batch_rank=True)
-            idx += 1
+        # Make sure all inputs have the same time/batch ranks.
+        if "inputs[0]" in input_spaces:
+            self.in_space_0 = input_spaces["inputs[0]"]
+            self.time_major = self.in_space_0.time_major
+            idx = 0
+            while True:
+                key = "inputs[{}]".format(idx)
+                if key not in input_spaces:
+                    break
+                sanity_check_space(input_spaces[key], allowed_types=[FloatBox, IntBox], must_have_batch_rank=True)
+                # Make sure all concat inputs have same batch-/time-ranks.
+                assert self.in_space_0.has_batch_rank == input_spaces[key].has_batch_rank and \
+                       self.in_space_0.has_time_rank == input_spaces[key].has_time_rank, \
+                    "ERROR: Input spaces to '{}' must have same batch-/time-rank structure! " \
+                    "0th input is batch-rank={} time-rank={}, but {}st input is batch-rank={} " \
+                    "time-rank={}.".format(
+                        self.global_scope, self.in_space_0.has_batch_rank, input_spaces[key].has_batch_rank, idx,
+                        self.in_space_0.has_time_rank, input_spaces[key].has_time_rank
+                    )
+
+                idx += 1
 
     def _graph_fn_apply(self, *inputs):
         """
@@ -83,7 +98,12 @@ class NNLayer(Layer):
         # `self.layer` already includes activation function details.
         else:
             if get_backend() == "tf":
-                return self.layer.apply(*inputs)
+                output = self.layer.apply(*inputs)
+                # Add batch-/time-rank flags.
+                output._batch_rank = 0 if self.time_major is False else 1
+                if self.in_space_0 and self.in_space_0.has_time_rank:
+                    output._time_rank = 0 if self.in_space_0.time_major is True else 1
+                return output
             elif get_backend() == "pytorch":
                 # PyTorch layers are called, not applied.
                 return self.layer(*inputs)

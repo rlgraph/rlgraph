@@ -43,6 +43,9 @@ class ConcatLayer(NNLayer):
         super(ConcatLayer, self).__init__(scope=scope, **kwargs)
         self.axis = axis
 
+        # Whether input spaces are time-major or not.
+        self.time_major = None
+
         # Wrapper for backend.
         if get_backend() == "tf":
             self.layer = tf.keras.layers.Concatenate(axis=self.axis)
@@ -50,20 +53,27 @@ class ConcatLayer(NNLayer):
     def check_input_spaces(self, input_spaces, action_space=None):
         super(ConcatLayer, self).check_input_spaces(input_spaces, action_space)
         # Make sure all inputs have the same shape except for the last rank.
-        in_space_0 = input_spaces["inputs[0]"]
+        self.in_space_0 = input_spaces["inputs[0]"]
+        self.time_major = self.in_space_0.time_major
         idx = 0
         while True:
             key = "inputs[{}]".format(idx)
             if key not in input_spaces:
                 break
-            assert in_space_0.shape[:-1] == input_spaces[key].shape[:-1], \
-                "ERROR: Input spaces to ConcatLayer must have same shape except for last rank. " \
+            # Make sure the shapes match (except for last rank).
+            assert self.in_space_0.shape[:-1] == input_spaces[key].shape[:-1], \
+                "ERROR: Input spaces to ConcatLayer must have same shape except for last rank! " \
                 "0th input's shape is {}, but {}st input's shape is {} (all shapes here are without " \
-                "batch/time-ranks).".format(in_space_0.shape, idx, input_spaces[key].shape)
+                "batch/time-ranks).".format(self.in_space_0.shape, idx, input_spaces[key].shape)
             idx += 1
 
     def _graph_fn_apply(self, *inputs):
         if get_backend() == "tf":
-            return self.layer.apply(force_list(inputs))
+            concat_output = self.layer.apply(force_list(inputs))
+            # Add batch/time-rank information.
+            concat_output._batch_rank = 0 if self.time_major is False else 1
+            if self.in_space_0.has_time_rank:
+                concat_output._time_rank = 0 if self.time_major is True else 1
+            return concat_output
         elif get_backend() == "pytorch":
             return nn.Sequential(force_list(inputs))

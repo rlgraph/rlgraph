@@ -55,8 +55,8 @@ class LSTMLayer(NNLayer):
                 prop from GPU to CPU. This allows training RNNs which would typically not fit on a single GPU,
                 with very minimal (or no) performance penalty.
                 Default: False.
-            time_major (bool): Whether the time rank is the first rank (vs the batch rank).
-                Default: False.
+            #time_major (bool): Whether the time rank is the first rank (vs the batch rank).
+            #    Default: False.
             #dtype (str): The dtype of this LSTM. Default: "float".
         """
         super(LSTMLayer, self).__init__(
@@ -73,19 +73,26 @@ class LSTMLayer(NNLayer):
 
         self.parallel_iterations = parallel_iterations
         self.swap_memory = swap_memory
-        self.time_major = time_major
+        self.in_space = None
 
         self.lstm_cell = None
 
     def check_input_spaces(self, input_spaces, action_space=None):
+        super(LSTMLayer, self).check_input_spaces(input_spaces, action_space)
+
+        # Check correct tuple-internal-states format (if not None, in which case we assume all 0.0s).
         if "internal_states" in input_spaces:
             sanity_check_space(input_spaces["internal_states"], allowed_types=[Tuple])
             assert len(input_spaces["internal_states"]) == 2,\
                 "ERROR: If internal_states are provided (which is the case), an LSTMLayer requires the len of " \
                 "this Tuple to be 2 (c- and h-states). Your Space is '{}'.".format(input_spaces["internal_states"])
 
+        # Check for batch AND time-rank.
+        self.in_space = input_spaces["inputs"]
+        sanity_check_space(self.in_space, must_have_batch_rank=True, must_have_time_rank=True)
+
     def create_variables(self, input_spaces, action_space=None):
-        in_space = input_spaces["inputs"]
+        self.in_space = input_spaces["inputs"]
 
         # Create one weight matrix: [input nodes + internal state nodes, 4 (4 internal layers) * internal state nodes]
         # weights_shape = (in_space.shape[0] + self.units, 4 * self.units)  # [0]=one past batch rank
@@ -108,12 +115,12 @@ class LSTMLayer(NNLayer):
             )
 
             # Now build the layer so that its variables get created.
-            in_space_without_time_rank = list(in_space.get_shape(with_batch_rank=True))
+            in_space_without_time_rank = list(self.in_space.get_shape(with_batch_rank=True))
             self.lstm_cell.build(tf.TensorShape(in_space_without_time_rank))
             # Register the generated variables with our registry.
             self.register_variables(*self.lstm_cell.variables)
         elif get_backend() == "pytorch":
-            self.lstm = nn.LSTM(in_space, self.units)
+            self.lstm = nn.LSTM(self.in_space, self.units)
             self.hidden_state = (torch.zeros(1, 1, self.units), torch.zeros(1, 1, self.units))
 
     def _graph_fn_apply(self, inputs, initial_c_and_h_states=None, sequence_length=None):
@@ -143,12 +150,16 @@ class LSTMLayer(NNLayer):
             lstm_out, lstm_state_tuple = tf.nn.dynamic_rnn(
                 cell=self.lstm_cell, inputs=inputs, sequence_length=sequence_length,
                 initial_state=initial_c_and_h_states,
-                parallel_iterations=self.parallel_iterations, swap_memory=self.swap_memory, time_major=self.time_major,
+                parallel_iterations=self.parallel_iterations, swap_memory=self.swap_memory,
+                time_major=self.in_space.time_major,
                 dtype="float" #self.dtype
             )
 
             # Returns: Unrolled-outputs (time series of all encountered h-states), final c- and h-states.
+            lstm_out._batch_rank = 0 if self.in_space.time_major is False else 1
+            lstm_out._time_rank = 0 if self.in_space.time_major is True else 1
             return lstm_out, DataOpTuple(lstm_state_tuple)
+
         elif get_backend() == "pytorch":
             # TODO init hidden state has to be available at create variable time to use.
             inputs = torch.cat(inputs).view(len(inputs), 1, -1)
