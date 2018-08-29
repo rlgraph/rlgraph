@@ -774,7 +774,7 @@ class GraphBuilder(Specifiable):
             raise RLGraphError("No API-method with name '{}' found!".format(api_method))
 
         if params is not None:
-            return self.root_component.api_fn_by_name[api_method](*params)
+            return self.root_component.api_fn_by_name[api_method](self.root_component, *params)
         else:
             return self.root_component.api_fn_by_name[api_method]()
 
@@ -811,7 +811,9 @@ class GraphBuilder(Specifiable):
         # Build full registry of callable methods on root component.
         for member in inspect.getmembers(self.root_component):
             name, method = (member[0], member[1])
-            if name not in self.root_component.api_fn_by_name:
+
+            # N.b. this means _graph_fns are not directly callable here, just api functions.
+            if name not in self.root_component.api_fn_by_name and name in self.api:
                 self.root_component.api_fn_by_name[name] = method
 
         # Push input spaces through graph.

@@ -34,12 +34,13 @@ class TestPytorchBackend(unittest.TestCase):
     """
     root_logger.setLevel(level=logging.INFO)
 
-    def test_component_with_sub_component(self):
-        a = DummyWithSubComponents(scope="A")
-        test = ComponentTest(component=a, input_spaces=dict(input_=float),
-                             backend="pytorch")
+    def test_api_call_no_variables(self):
+        """
+        Tests define-by-run call of api method via defined_api method on a
+        component without variables.
+        """
+        a = Dummy2To1()
+        test = ComponentTest(component=a, input_spaces=dict(input1=float, input2=float), backend="pytorch")
 
-        # Expected: (1): in + 2.0  (2): [result of (1)] + 1.0
-        test.test(("run1", 1.1), expected_outputs=[3.1, 4.1], decimals=4)
-        # Expected: in - 2.0 + 1.0
-        test.test(("run2", 1.1), expected_outputs=0.1, decimals=4)
+        output = test.test(("run", [1.0, 2.0]), expected_outputs=None, decimals=4)
+        print(output)
