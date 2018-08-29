@@ -147,7 +147,7 @@ class IMPALAAgent(Agent):
             }, add_batch_rank=False, add_time_rank=self.worker_sample_size
         )
         # Take away again time-rank from initial-states and last-next-state (these come in only for one time-step)
-        self.fifo_record_space["last_next_states"] = self.fifo_record_space["last_next_states"].with_time_rank(False)
+        self.fifo_record_space["last_next_states"] = self.fifo_record_space["last_next_states"].with_time_rank(1)
         self.fifo_record_space["initial_internal_states"] = \
             self.fifo_record_space["initial_internal_states"].with_time_rank(False)
         # Create our FIFOQueue (actors will enqueue, learner(s) will dequeue).
@@ -172,7 +172,7 @@ class IMPALAAgent(Agent):
             # A Dict Splitter to split things from the EnvStepper.
             self.splitter = ContainerSplitter(tuple_length=8)
             # Slice some data from the EnvStepper (e.g only first internal states are needed).
-            self.states_slicer = Slice(scope="states-slicer", squeeze=True)
+            self.next_states_slicer = Slice(scope="next-states-slicer", squeeze=False)
             self.internal_states_slicer = Slice(scope="internal-states-slicer", squeeze=True)
             # Merge back to insert into FIFO.
             self.merger = DictMerger(*self.fifo_queue_keys)
@@ -190,7 +190,7 @@ class IMPALAAgent(Agent):
                 add_action_probs=True,
                 action_probs_space=dummy_flattener.get_preprocessed_space(self.action_space)
             )
-            sub_components = [self.environment_stepper, self.splitter, self.states_slicer, self.internal_states_slicer,
+            sub_components = [self.environment_stepper, self.splitter, self.next_states_slicer, self.internal_states_slicer,
                               self.merger, self.fifo_queue]
         # Learner.
         else:
@@ -199,7 +199,7 @@ class IMPALAAgent(Agent):
             # A Dict splitter to split up items from the queue.
             self.merger = None
             self.splitter = ContainerSplitter(*self.fifo_queue_keys)
-            self.states_slicer = None
+            self.next_states_slicer = None
             self.internal_states_slicer = None
 
             self.softmax = SoftMax()
@@ -240,7 +240,7 @@ class IMPALAAgent(Agent):
         else:
             self.define_api_methods_learner(*sub_components)
 
-    def define_api_methods_actor(self, env_stepper, splitter, states_slicer, internal_states_slicer, merger,
+    def define_api_methods_actor(self, env_stepper, splitter, next_states_slicer, internal_states_slicer, merger,
                                  fifo_queue):
         """
         Defines the API-methods used by an IMPALA actor. Actors only step through an environment (n-steps at
@@ -264,15 +264,16 @@ class IMPALAAgent(Agent):
             preprocessed_s, actions, rewards, returns, terminals, next_states, action_log_probs, \
                 internal_states = self_.call(splitter.split, step_results)
 
-            last_next_state = self_.call(states_slicer.slice, next_states, -1)
+            last_next_state = self_.call(next_states_slicer.slice, next_states, -1)
             initial_internal_states = self_.call(internal_states_slicer.slice, internal_states, 0)
             current_internal_states = self_.call(internal_states_slicer.slice, internal_states, -1)
 
             # TODO: concat preprocessed_s with last_next_state?
 
-            record = self_.call(merger.merge,
-                               preprocessed_s, actions, rewards, terminals, last_next_state,
-                               action_log_probs, initial_internal_states)
+            record = self_.call(
+                merger.merge, preprocessed_s, actions, rewards, terminals, last_next_state,
+                action_log_probs, initial_internal_states
+            )
 
             # Insert results into the FIFOQueue.
             insert_op = self_.call(fifo_queue.insert_records, record)
