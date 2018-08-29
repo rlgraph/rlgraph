@@ -51,19 +51,19 @@ class IMPALANetwork(NeuralNetwork):
 
         # The Image Processing Stack (left side of "Large Architecture" Figure 3 in [1]).
         # Conv2D column + ReLU + fc(256) + ReLU.
-        self.image_processing_stack = self.build_image_processing_stack()  #self.num_timesteps
+        self.image_processing_stack = self.build_image_processing_stack()
 
         # The text processing pipeline: Takes a batch of string tensors as input, creates a hash-bucket thereof,
         # and passes the output of the hash bucket through an embedding-lookup(20) layer. The output of the embedding
         # lookup is then passed through an LSTM(64).
-        self.text_processing_stack = self.build_text_processing_stack()  #self.num_timesteps
+        self.text_processing_stack = self.build_text_processing_stack()
 
         # The concatenation layer (concatenates outputs from image/text processing stacks, previous action/reward).
         self.concat_layer = ConcatLayer()
 
         # The main LSTM (going into the ActionAdapter (next in the Policy Component that uses this NN Component)).
         # Use time-major as it's faster (say tf docs).
-        self.main_lstm = LSTMLayer(units=256, scope="lstm-256", time_major=False)
+        self.main_lstm = LSTMLayer(units=256, scope="lstm-256", time_major=True)
 
         # Add all sub-components to this one.
         self.add_components(
@@ -107,8 +107,10 @@ class IMPALANetwork(NeuralNetwork):
 
         tuple_splitter = ContainerSplitter(tuple_length=2, scope="tuple-splitter")
 
-        # HAD TO SET TO FALSE AS WHEN PULLING SAMPLES FROM MEMORY, THEY ARE BATCH-MAJOR.
-        time_rank_unfold = ReShape(unfold_time_rank=True, time_major=False, scope="time-rank-unfold-text")
+        ### HAD TO SET TO FALSE AS WHEN PULLING SAMPLES FROM MEMORY, THEY ARE BATCH-MAJOR.
+        time_rank_unfold = ReShape(
+            unfold_time_rank=True, flip_batch_and_time_rank=True, time_major=True, scope="time-rank-unfold-text"
+        )
 
         def custom_apply(self, inputs):
             text_to_batch = self.call(self.sub_components["time-rank-fold"].apply, inputs)
@@ -223,7 +225,9 @@ class LargeIMPALANetwork(IMPALANetwork):
 
         stack_before_unfold = Stack(sub_components, scope="image-stack-before-unfold")
 
-        time_rank_unfold = ReShape(unfold_time_rank=True, time_major=False, scope="time-rank-unfold-images")
+        time_rank_unfold = ReShape(
+            unfold_time_rank=True, flip_batch_and_time_rank=True, time_major=True, scope="time-rank-unfold-images"
+        )
 
         def custom_apply(self, inputs):
             image_processing_output = self.call(self.sub_components["image-stack-before-unfold"].apply, inputs)
@@ -279,7 +283,7 @@ class SmallIMPALANetwork(IMPALANetwork):
 
         stack_before_unfold = Stack(sub_components, scope="image-stack-before-unfold")
 
-        time_rank_unfold = ReShape(unfold_time_rank=True, time_major=False, scope="time-rank-unfold-images")
+        time_rank_unfold = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold-images")
 
         def custom_apply(self, inputs):
             image_processing_output = self.call(self.sub_components["image-stack-before-unfold"].apply, inputs)
