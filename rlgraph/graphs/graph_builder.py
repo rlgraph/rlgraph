@@ -363,6 +363,9 @@ class GraphBuilder(Specifiable):
         if get_backend() == "tf":
             with tf.device(device):
                 placeholder = space.get_variable(name=name, is_input_feed=True)
+        elif get_backend() == "pytorch":
+            # Placeholder are empty tensors of a certain shape that enable shape inference.
+                placeholder = space.get_variable(name=name, is_input_feed=True, is_python=True)
         return placeholder
 
     def build_component_when_input_complete(self, component):
@@ -776,7 +779,7 @@ class GraphBuilder(Specifiable):
         if params is not None:
             return self.root_component.api_fn_by_name[api_method](self.root_component, *params)
         else:
-            return self.root_component.api_fn_by_name[api_method]()
+            return self.root_component.api_fn_by_name[api_method](self.root_component)
 
     def build_eager_graph(self, meta_graph, input_spaces, available_devices,
                           device_strategy="default", default_device=None, device_map=None):
@@ -816,9 +819,14 @@ class GraphBuilder(Specifiable):
             if name not in self.root_component.api_fn_by_name and name in self.api:
                 self.root_component.api_fn_by_name[name] = method
 
-        # TODO Push input spaces through graph for variable creation.
+        # Proceed with normal build logic where numpy arrays are used as placeholders for
+        # space inference.
 
-        # Set execution mode in components to define `call` behaviour.
+
+        # Delete op-records as we do not need them for define-by-run.
+
+
+        # Set execution mode in components to change `call` behaviour to direct function evaluation.
         self.root_component.propagate_subcomponent_properties(properties=dict(execution_mode="define_by_run"))
         time_build = time.monotonic() - time_start
         self.logger.info("Define-by-run computation-graph build completed in {} s.".format(time_build))

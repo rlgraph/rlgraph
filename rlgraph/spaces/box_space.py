@@ -164,7 +164,12 @@ class BoxSpace(Space):
                 var = [0 for _ in range_(add_time_rank)]
             else:
                 var = []
-            return var
+
+            if get_backend() == "pytorch" and is_input_feed:
+                # Use as fake placeholder
+                return np.asarray(var)
+            else:
+                return var
 
         elif get_backend() == "tf":
             import tensorflow as tf
@@ -181,8 +186,7 @@ class BoxSpace(Space):
                 return tf.get_variable(name, shape=shape, dtype=dtype(self.dtype),
                                        initializer=rlgraph_initializer.initializer,
                                        **kwargs)
-        else:
-            raise RLGraphError("ERROR: Pytorch not supported yet!")
+
 
     def __repr__(self):
         return "{}({} {} {}{})".format(
