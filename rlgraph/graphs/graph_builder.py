@@ -150,140 +150,9 @@ class GraphBuilder(Specifiable):
         op_records_list = sorted(self.op_records_to_process, key=lambda rec: rec.id)
 
         # Re-iterate until our bag of op-recs to process is empty.
-        loop_counter = 0
-        while len(op_records_list) > 0:
-            # Collect op-recs to process in the next iteration.
-            self.op_records_to_process = set()
-
-            # Set of Components that have been tried last to get input-complete. If build gets stuck, it'll be because
-            # of the Components in this set.
-            non_complete_components = set()
-
-            for op_rec in op_records_list:  # type: DataOpRecord
-                # There are next records:
-                if len(op_rec.next) > 0:
-                    # Push actual op and Space forward one op-rec at a time.
-                    for next_op_rec in sorted(op_rec.next, key=lambda rec: rec.id):  # type: DataOpRecord
-                        # Assert that next-record's `previous` field points back to op_rec.
-                        assert next_op_rec.previous is op_rec,\
-                            "ERROR: Op-rec {} in meta-graph has {} as next, but {}'s previous field points to {}!".\
-                            format(op_rec, next_op_rec, next_op_rec, next_op_rec.previous)
-                        # If not last op in this API-method -> continue.
-                        if next_op_rec.is_terminal_op is False:
-                            assert next_op_rec.op is None
-                            self.op_records_to_process.add(next_op_rec)
-                        # Push op and Space into next op-record.
-                        next_op_rec.op = op_rec.op
-                        next_op_rec.space = op_rec.space
-
-                        # Also push Space into possible API-method record if slot's Space is still None.
-                        if isinstance(op_rec.column, DataOpRecordColumnIntoAPIMethod):
-                            api_method_component = op_rec.column.api_method_rec.component
-                            # Get param name for var-positional arg: "[param_name][idx]".
-                            if api_method_component.api_method_inputs[op_rec.column.api_method_rec.input_names[-1]] == \
-                                    "*flex" and op_rec.position >= len(op_rec.column.api_method_rec.input_names) - 1:
-                                param_name = "{}[{}]".format(
-                                    op_rec.column.api_method_rec.input_names[-1], str(op_rec.position - (
-                                            len(op_rec.column.api_method_rec.input_names) - 1))
-                                )
-                            # Get param name directly from op-rec's kwarg OR - if None - by its position.
-                            else:
-                                param_name = op_rec.kwarg or op_rec.column.api_method_rec.input_names[op_rec.position]
-                            # Place Space for this input-param name (valid for all input params of same name even of
-                            # different API-method of the same Component).
-                            if api_method_component.api_method_inputs[param_name] is None or \
-                                    api_method_component.api_method_inputs[param_name] == "flex":
-                                api_method_component.api_method_inputs[param_name] = next_op_rec.space
-                            # Sanity check, whether Spaces are equivalent.
-                            else:
-                                generic_space = check_space_equivalence(
-                                    api_method_component.api_method_inputs[param_name], next_op_rec.space
-                                )
-                                # Spaces are not equivalent.
-                                if generic_space is False:
-                                    raise RLGraphError(
-                                        "ERROR: op-rec '{}' has Space '{}', but input-param '{}' already has Space "
-                                        "'{}'!".format(next_op_rec, next_op_rec.space, param_name,
-                                                       api_method_component.api_method_inputs[param_name])
-                                    )
-                                # Overwrite both entries with the more generic Space.
-                                else:
-                                    next_op_rec.space = api_method_component.api_method_inputs[param_name] = \
-                                        generic_space
-
-                        # Did we enter a new Component? If yes, check input-completeness and
-                        # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
-                        # placeholder).
-                        next_component = next_op_rec.column.component
-                        if op_rec.column is None or op_rec.column.component is not next_component:
-                            self.build_component_when_input_complete(next_component)
-                            if next_component.input_complete is False:
-                                non_complete_components.add(next_component.global_scope)
-
-                # No next records:
-                # - Op belongs to a column going into a graph_fn.
-                elif isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn):
-                    # If column complete AND has not been sent through the graph_fn yet -> Call the graph_fn.
-                    if op_rec.column.is_complete() and op_rec.column.already_sent is False:
-                        # Only call the graph_fn if the Component is already input-complete.
-                        if op_rec.column.component.input_complete:
-                            # Call the graph_fn with the given column and call-options.
-                            self.run_through_graph_fn_with_device_and_scope(op_rec.column)
-                            # Store all resulting op_recs (returned by the graph_fn) to be processed next.
-                            self.op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
-                        # Component not input-complete. Keep coming back with this op.
-                        else:
-                            self.build_component_when_input_complete(op_rec.column.component)
-                            self.op_records_to_process.add(op_rec)
-                            if op_rec.column.component.input_complete is False:
-                                non_complete_components.add(op_rec.column.component.global_scope)
-                    # - Op column is not complete yet: Discard this one (as others will keep coming in anyway).
-                    # - Op column has already been sent (sibling ops may have arrive in same iteration).
-                # - Op belongs to a column coming from a graph_fn or an API-method, but the op is no longer used.
-                # -> Ignore Op.
-
-            # Sanity check, whether we are stuck.
-            new_op_records_list = sorted(self.op_records_to_process, key=lambda rec: rec.id)
-            if op_records_list == new_op_records_list:
-                # Ok for some
-                if loop_counter > 10000:
-                    raise RLGraphError("Build procedure is deadlocked. Most likely, you are having a circularly "
-                                       "dependent Component in your meta-graph. The following Components are still "
-                                       "input-incomplete:\n{}".format(non_complete_components))
-
-            op_records_list = new_op_records_list
-
-            # If we are done with the build, check for API-methods' ops that are dependent on variables
-            # generated during the build and build these now.
-            if len(op_records_list) == 0 and self.op_records_to_process_later is not None and \
-                    len(self.op_records_to_process_later) > 0:
-                op_records_list = list(self.op_records_to_process_later)
-                # Invalidate later-set.
-                self.op_records_to_process_later = None  # type: set
-
-                # Loop through the op_records list and sanity check for "variables"-dependent Spaces, then get these
-                # Spaces, create the placeholders and keep building.
-                for op_rec in op_records_list:
-                    space_desc = op_rec.space
-                    mo = re.search(r'^variables:(.+)', space_desc)
-                    assert mo
-                    component_path = mo.group(1).split("/")
-                    component = self.root_component
-                    for level in component_path:
-                        assert level in component.sub_components,\
-                            "ERROR: `component_path` ('{}') contains non-existent Components!".format(component_path)
-                        component = component.sub_components[level]
-                    var_spaces = {key: get_space_from_op(value) for key, value in sorted(
-                        component.get_variables(custom_scope_separator="-").items()
-                    )}
-                    var_space = Dict(var_spaces)
-                    op_rec.space = var_space
-                    op_rec.op = self.get_placeholder("api-", space=var_space, component=self.root_component)
-
-            loop_counter += 1
-
+        iterations = self._build(op_records_list)
         time_build = time.monotonic() - time_start
-        self.logger.info("Computation-Graph build completed in {} s ({} iterations).".format(time_build, loop_counter))
+        self.logger.info("Computation-Graph build completed in {} s ({} iterations).".format(time_build, iterations))
 
         # Get some stats on the graph and report.
         self.num_ops = self.count_ops()
@@ -430,17 +299,22 @@ class GraphBuilder(Specifiable):
                         op_rec_column, create_new_out_column=create_new_out_column
                     )
                     op_rec_column.out_graph_fn_column = out_op_rec_column
+            # Store assigned names for debugging.
+            if device is not None:
+                if device not in self.device_component_assignments:
+                    self.device_component_assignments[device] = [str(op_rec_column.graph_fn.__name__)]
+                else:
+                    self.device_component_assignments[device].append(str(op_rec_column.graph_fn.__name__))
+
+        elif get_backend() == "pytorch":
+            # No device handling via decorators.
+            out_op_rec_column = self.run_through_graph_fn(
+                op_rec_column, create_new_out_column=create_new_out_column
+            )
+            op_rec_column.out_graph_fn_column = out_op_rec_column
 
         # Tag column as already sent through graph_fn.
         op_rec_column.already_sent = True  # TODO: assert is False before this?
-
-        # Store assigned names for debugging.
-        if device is not None:
-            if device not in self.device_component_assignments:
-                self.device_component_assignments[device] = [str(op_rec_column.graph_fn.__name__)]
-            else:
-                self.device_component_assignments[device].append(str(op_rec_column.graph_fn.__name__))
-
         return op_rec_column.out_graph_fn_column
 
     def get_device(self, component, variables=False):
@@ -836,9 +710,11 @@ class GraphBuilder(Specifiable):
 
         op_records_list = sorted(self.op_records_to_process, key=lambda rec: rec.id)
 
-        # Re-iterate until our bag of op-recs to process is empty.
-        loop_counter = 0
-
+        # TODO this build loop should NOT Be duplicated between eager and static build.
+        # -> factor out once working for pytorch.
+        iterations = self._build(op_records_list)
+        time_build = time.monotonic() - time_start
+        self.logger.info("Computation-Graph build completed in {} s ({} iterations).".format(time_build, iterations))
 
         # Delete op-records as we do not need them for define-by-run.
         self.purge_op_records(component=self.root_component)
@@ -847,6 +723,143 @@ class GraphBuilder(Specifiable):
         self.root_component.propagate_subcomponent_properties(properties=dict(execution_mode="define_by_run"))
         time_build = time.monotonic() - time_start
         self.logger.info("Define-by-run computation-graph build completed in {} s.".format(time_build))
+
+    def _build(self, op_records_list):
+        """
+        Private implementation of the main build loop, for docs see the respective build
+        methods.
+        """
+        loop_counter = 0
+        while len(op_records_list) > 0:
+            # Collect op-recs to process in the next iteration.
+            self.op_records_to_process = set()
+
+            # Set of Components that have been tried last to get input-complete. If build gets stuck, it'll be because
+            # of the Components in this set.
+            non_complete_components = set()
+            for op_rec in op_records_list:  # type: DataOpRecord
+                # There are next records:
+                if len(op_rec.next) > 0:
+                    # Push actual op and Space forward one op-rec at a time.
+                    for next_op_rec in sorted(op_rec.next, key=lambda rec: rec.id):  # type: DataOpRecord
+                        # Assert that next-record's `previous` field points back to op_rec.
+                        assert next_op_rec.previous is op_rec, \
+                            "ERROR: Op-rec {} in meta-graph has {} as next, but {}'s previous field points to {}!". \
+                                format(op_rec, next_op_rec, next_op_rec, next_op_rec.previous)
+                        # If not last op in this API-method -> continue.
+                        if next_op_rec.is_terminal_op is False:
+                            assert next_op_rec.op is None
+                            self.op_records_to_process.add(next_op_rec)
+                        # Push op and Space into next op-record.
+                        next_op_rec.op = op_rec.op
+                        next_op_rec.space = op_rec.space
+
+                        # Also push Space into possible API-method record if slot's Space is still None.
+                        if isinstance(op_rec.column, DataOpRecordColumnIntoAPIMethod):
+                            api_method_component = op_rec.column.api_method_rec.component
+                            # Get param name for var-positional arg: "[param_name][idx]".
+                            if api_method_component.api_method_inputs[op_rec.column.api_method_rec.input_names[-1]] == \
+                                    "*flex" and op_rec.position >= len(op_rec.column.api_method_rec.input_names) - 1:
+                                param_name = "{}[{}]".format(
+                                    op_rec.column.api_method_rec.input_names[-1], str(op_rec.position - (
+                                            len(op_rec.column.api_method_rec.input_names) - 1))
+                                )
+                            # Get param name directly from op-rec's kwarg OR - if None - by its position.
+                            else:
+                                param_name = op_rec.kwarg or op_rec.column.api_method_rec.input_names[op_rec.position]
+                            # Place Space for this input-param name (valid for all input params of same name even of
+                            # different API-method of the same Component).
+                            if api_method_component.api_method_inputs[param_name] is None or \
+                                    api_method_component.api_method_inputs[param_name] == "flex":
+                                api_method_component.api_method_inputs[param_name] = next_op_rec.space
+                            # Sanity check, whether Spaces are equivalent.
+                            else:
+                                generic_space = check_space_equivalence(
+                                    api_method_component.api_method_inputs[param_name], next_op_rec.space
+                                )
+                                # Spaces are not equivalent.
+                                if generic_space is False:
+                                    raise RLGraphError(
+                                        "ERROR: op-rec '{}' has Space '{}', but input-param '{}' already has Space "
+                                        "'{}'!".format(next_op_rec, next_op_rec.space, param_name,
+                                                       api_method_component.api_method_inputs[param_name])
+                                    )
+                                # Overwrite both entries with the more generic Space.
+                                else:
+                                    next_op_rec.space = api_method_component.api_method_inputs[param_name] = \
+                                        generic_space
+
+                        # Did we enter a new Component? If yes, check input-completeness and
+                        # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
+                        # placeholder).
+                        next_component = next_op_rec.column.component
+                        if op_rec.column is None or op_rec.column.component is not next_component:
+                            self.build_component_when_input_complete(next_component)
+                            if next_component.input_complete is False:
+                                non_complete_components.add(next_component.global_scope)
+
+                # No next records:
+                # - Op belongs to a column going into a graph_fn.
+                elif isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn):
+                    # If column complete AND has not been sent through the graph_fn yet -> Call the graph_fn.
+                    if op_rec.column.is_complete() and op_rec.column.already_sent is False:
+                        # Only call the graph_fn if the Component is already input-complete.
+                        if op_rec.column.component.input_complete:
+                            # Call the graph_fn with the given column and call-options.
+                            self.run_through_graph_fn_with_device_and_scope(op_rec.column)
+                            # Store all resulting op_recs (returned by the graph_fn) to be processed next.
+                            self.op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
+                        # Component not input-complete. Keep coming back with this op.
+                        else:
+                            self.build_component_when_input_complete(op_rec.column.component)
+                            self.op_records_to_process.add(op_rec)
+                            if op_rec.column.component.input_complete is False:
+                                non_complete_components.add(op_rec.column.component.global_scope)
+                    # - Op column is not complete yet: Discard this one (as others will keep coming in anyway).
+                    # - Op column has already been sent (sibling ops may have arrive in same iteration).
+                # - Op belongs to a column coming from a graph_fn or an API-method, but the op is no longer used.
+                # -> Ignore Op.
+
+            # Sanity check, whether we are stuck.
+            new_op_records_list = sorted(self.op_records_to_process, key=lambda rec: rec.id)
+            if op_records_list == new_op_records_list:
+                # Ok for some
+                if loop_counter > 10000:
+                    raise RLGraphError("Build procedure is deadlocked. Most likely, you are having a circularly "
+                                       "dependent Component in your meta-graph. The following Components are still "
+                                       "input-incomplete:\n{}".format(non_complete_components))
+
+            op_records_list = new_op_records_list
+
+            # If we are done with the build, check for API-methods' ops that are dependent on variables
+            # generated during the build and build these now.
+            if len(op_records_list) == 0 and self.op_records_to_process_later is not None and \
+                    len(self.op_records_to_process_later) > 0:
+                op_records_list = list(self.op_records_to_process_later)
+                # Invalidate later-set.
+                self.op_records_to_process_later = None  # type: set
+
+                # Loop through the op_records list and sanity check for "variables"-dependent Spaces, then get these
+                # Spaces, create the placeholders and keep building.
+                for op_rec in op_records_list:
+                    space_desc = op_rec.space
+                    mo = re.search(r'^variables:(.+)', space_desc)
+                    assert mo
+                    component_path = mo.group(1).split("/")
+                    component = self.root_component
+                    for level in component_path:
+                        assert level in component.sub_components, \
+                            "ERROR: `component_path` ('{}') contains non-existent Components!".format(component_path)
+                        component = component.sub_components[level]
+                    var_spaces = {key: get_space_from_op(value) for key, value in sorted(
+                        component.get_variables(custom_scope_separator="-").items()
+                    )}
+                    var_space = Dict(var_spaces)
+                    op_rec.space = var_space
+                    op_rec.op = self.get_placeholder("api-", space=var_space, component=self.root_component)
+
+            loop_counter += 1
+        return loop_counter
 
     def purge_op_records(self, component):
         """

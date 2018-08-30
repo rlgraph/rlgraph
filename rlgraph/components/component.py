@@ -343,7 +343,7 @@ class Component(Specifiable):
         self.graph_fns[method.__name__].in_op_columns.append(in_graph_fn_column)
 
         # We are already building: Actually call the graph_fn after asserting that its Component is input-complete.
-        if self.graph_builder and self.graph_builder.build_phase == "building":
+        if self.graph_builder and self.graph_builder.phase == "building":
             # Populate in-op-column with actual ops, Space, kwarg-name.
             for i, in_op in enumerate(params):
                 if isinstance(in_op, DataOpRecord):
@@ -469,7 +469,7 @@ class Component(Specifiable):
                 key += "[{}]".format(i - flex)
 
             # We are already in building phase (params may be coming from inside graph_fn).
-            if self.graph_builder is not None and self.graph_builder.build_phase == "building":
+            if self.graph_builder is not None and self.graph_builder.phase == "building":
                 # Params are op-records -> link AND pass on actual ops/Spaces.
                 if isinstance(op_rec, DataOpRecord):
                     in_op_column.op_records[i].op = op_rec.op
@@ -521,7 +521,7 @@ class Component(Specifiable):
         for i, op_rec in enumerate(out_op_recs):
             # If we already have actual op(s) and Space(s), push them already into the
             # DataOpRecordColumnFromAPIMethod's records.
-            if self.graph_builder is not None and self.graph_builder.build_phase == "building":
+            if self.graph_builder is not None and self.graph_builder.phase == "building":
                 out_op_column.op_records[i].op = op_rec.op
                 out_op_column.op_records[i].space = op_rec.space
             op_rec.next.add(out_op_column.op_records[i])
