@@ -822,13 +822,42 @@ class GraphBuilder(Specifiable):
         # Proceed with normal build logic where numpy arrays are used as placeholders for
         # space inference.
 
+        # Create the first actual ops based on the input-spaces.
+        # Some ops can only be created later when variable-based-Spaces are known (op_records_to_process_later).
+        self.build_input_space_ops(input_spaces)
+
+        # Collect all components and add those op-recs to the set that are constant.
+        components = self.root_component.get_all_sub_components()
+        for component in components:
+            component.graph_builder = self  # point to us.
+            self.op_records_to_process.update(component.constant_op_records)
+            # Check whether the Component is input-complete (and build already if it is).
+            self.build_component_when_input_complete(component)
+
+        op_records_list = sorted(self.op_records_to_process, key=lambda rec: rec.id)
+
+        # Re-iterate until our bag of op-recs to process is empty.
+        loop_counter = 0
+
 
         # Delete op-records as we do not need them for define-by-run.
-
+        self.purge_op_records(component=self.root_component)
 
         # Set execution mode in components to change `call` behaviour to direct function evaluation.
         self.root_component.propagate_subcomponent_properties(properties=dict(execution_mode="define_by_run"))
         time_build = time.monotonic() - time_start
         self.logger.info("Define-by-run computation-graph build completed in {} s.".format(time_build))
+
+    def purge_op_records(self, component):
+        """
+        Recursively deletes op records which are not needed after building
+        variables for define-by-run execution.
+        """
+        # Purge this components op records -> still use keys for lookups of names.
+        for name in component.api_methods.keys():
+            component.api_methods[name] = None
+        # Recurse:
+        for component in component.sub_components.values():
+            self.purge_op_records(component)
 
 
