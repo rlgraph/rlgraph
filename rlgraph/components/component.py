@@ -655,11 +655,11 @@ class Component(Specifiable):
     def when_input_complete(self, input_spaces=None, action_space=None, device=None, summary_regexp=None):
         """
         Wrapper that calls both `self.check_input_spaces` and `self.create_variables` in sequence and passes
-        the dict with the input_spaces for each in-Socket (key=Socket's name) and the action_space as parameter.
+        the dict with the input_spaces for each argument (key=arg name) and the action_space as parameter.
 
         Args:
             input_spaces (Optional[Dict[str,Space]]): A dict with Space/shape information.
-                keys=in-Socket name (str); values=the associated Space.
+                keys=in-argument name (str); values=the associated Space.
                 Use None to take `self.api_method_inputs` instead.
             action_space (Optional[Space]): The action Space of the Agent/GraphBuilder. Can be used to construct and connect
                 more Components (which rely on this information). This eliminates the need to pass the action Space
@@ -684,7 +684,9 @@ class Component(Specifiable):
                 else:
                     with tf.variable_scope(self.global_scope):
                         self.create_variables(input_spaces, action_space)
-
+        elif get_backend() == "pytorch":
+            # No scoping/devices here, handled at tensor level.
+            self.create_variables(input_spaces, action_space)
         # Add all created variables up the parent/container hierarchy.
         self.propagate_variables()
 
@@ -1307,7 +1309,7 @@ class Component(Specifiable):
             if key in self.parent_component.variables:
                 if self.variables[key] is not self.parent_component.variables[key]:
                     raise RLGraphError("ERROR: Variable registry of '{}' already has a variable under key '{}'!". \
-                                    format(self.parent_component.name, key))
+                          format(self.parent_component.name, key))
             self.parent_component.variables[key] = self.variables[key]
 
         # Recurse up the container hierarchy.

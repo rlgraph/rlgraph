@@ -40,16 +40,5 @@ class TestPytorchBackend(unittest.TestCase):
         component without variables.
         """
         a = Dummy2To1()
-        test = ComponentTest(component=a, input_spaces=dict(input1=float, input2=float), backend="pytorch")
+        test = ComponentTest(component=a, input_spaces=dict(input1=float, input2=float))
         test.test(("run", [1.0, 2.0]), expected_outputs=3.0, decimals=4)
-
-    def test_2to1_component(self):
-        """
-        Adds a single component with 2-to-1 graph_fn to the core and passes 2 values through it.
-        """
-        component = Dummy2To1(scope="dummy")
-        test = ComponentTest(component=component, input_spaces=dict(input1=float, input2=float))
-
-        # Expected output: input1 + input2
-        result = test.test(("run", [1.0, 2.9]), expected_outputs=3.9)
-        #test.test(("run", [4.9, -0.1]), expected_outputs=np.array(4.8, dtype=np.float32))
