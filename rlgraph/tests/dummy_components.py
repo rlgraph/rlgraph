@@ -216,6 +216,7 @@ class SimpleDummyWithVar(Component):
         return result
 
     def _graph_fn_1(self, input_):
+
         return input_ + self.constant_variable
 
 

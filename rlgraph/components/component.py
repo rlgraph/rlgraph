@@ -127,6 +127,8 @@ class Component(Specifiable):
 
         # Maps names to callable API functions for eager calls.
         self.api_fn_by_name = dict()
+        # Maps names of methods to synthetically defined methods.
+        self.synthetic_methods = set()
 
         # How this component executes its 'call' method.
         self.execution_mode = "static_graph"
@@ -801,7 +803,7 @@ class Component(Specifiable):
         # TODO: Figure out complete concept for python/numpy based Components (including their handling of variables).
         # Assume that when using pytorch, we use Python/numpy collections to store data.
         elif self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
-            if isinstance(add_batch_rank, int):
+            if add_batch_rank is not False and isinstance(add_batch_rank, int):
                 if isinstance(add_time_rank, int):
                     if time_major:
                         var = [[initializer for _ in range_(add_batch_rank)] for _ in range_(add_time_rank)]
@@ -809,8 +811,11 @@ class Component(Specifiable):
                         var = [[initializer for _ in range_(add_time_rank)] for _ in range_(add_batch_rank)]
                 else:
                     var = [initializer for _ in range_(add_batch_rank)]
-            elif isinstance(add_time_rank, int):
+            elif add_time_rank is not False and isinstance(add_time_rank, int):
                 var = [initializer for _ in range_(add_time_rank)]
+            elif initializer is not None:
+                # Return
+                var = initializer
             else:
                 var = []
             return var
@@ -1078,6 +1083,7 @@ class Component(Specifiable):
         else:
             api_method = func
 
+        self.synthetic_methods.add(name)
         setattr(self, name, api_method.__get__(self, self.__class__))
         setattr(api_method, "__self__", self)
         setattr(api_method, "__name__", name)
@@ -1425,6 +1431,9 @@ class Component(Specifiable):
                 return tf.gather(params=variable, indices=indices)
             else:
                 return variable
+        elif get_backend() == "pytorch":
+            # This is not a useful call but for interop in some components
+            return variable
 
     def _graph_fn__variables(self):
         """

@@ -44,7 +44,7 @@ class PyTorchExecutor(GraphExecutor):
         for component in root_components:
             meta_graph = self.meta_graph_builder.build(component, input_spaces)
 
-            self.graph_builder.build_eager_graph(
+            self.graph_builder.build_define_by_run_graph(
                 meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices
             )
 

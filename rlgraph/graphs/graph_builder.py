@@ -651,12 +651,18 @@ class GraphBuilder(Specifiable):
             raise RLGraphError("No API-method with name '{}' found!".format(api_method))
 
         if params is not None:
-            return self.root_component.api_fn_by_name[api_method](self.root_component, *params)
+            if api_method in self.root_component.synthetic_methods:
+                return self.root_component.api_fn_by_name[api_method](self.root_component, *params)
+            else:
+                return self.root_component.api_fn_by_name[api_method](*params)
         else:
-            return self.root_component.api_fn_by_name[api_method](self.root_component)
+            if api_method in self.root_component.synthetic_methods:
+                return self.root_component.api_fn_by_name[api_method]()
+            else:
+                return self.root_component.api_fn_by_name[api_method](self.root_component)
 
-    def build_eager_graph(self, meta_graph, input_spaces, available_devices,
-                          device_strategy="default", default_device=None, device_map=None):
+    def build_define_by_run_graph(self, meta_graph, input_spaces, available_devices,
+                                  device_strategy="default", default_device=None, device_map=None):
         """
         Builds a graph for eager execution. This primarily consists of creating variables through
         the component hierarchy by pushing the input spaces  through the graph.
@@ -692,9 +698,6 @@ class GraphBuilder(Specifiable):
             # N.b. this means _graph_fns are not directly callable here, just api functions.
             if name not in self.root_component.api_fn_by_name and name in self.api:
                 self.root_component.api_fn_by_name[name] = method
-
-        # Proceed with normal build logic where numpy arrays are used as placeholders for
-        # space inference.
 
         # Create the first actual ops based on the input-spaces.
         # Some ops can only be created later when variable-based-Spaces are known (op_records_to_process_later).
