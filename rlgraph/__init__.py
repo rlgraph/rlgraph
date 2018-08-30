@@ -91,10 +91,22 @@ if not os.path.exists(config_path):
         # Except permission denied.
         pass
 
+# Overwrite backend if set in ENV.
 if 'RLGRAPH_BACKEND' in os.environ:
     backend = os.environ.get('RLGRAPH_BACKEND', None)
     if backend is not None:
+        logging.info("Setting BACKEND to '{}' per environment variable 'RLGRAPH_BACKEND'.".format(backend))
         BACKEND = backend
+
+# Overwrite distributed-backend if set in ENV.
+if 'RLGRAPH_DISTRIBUTED_BACKEND' in os.environ:
+    distributed_backend = os.environ.get('RLGRAPH_DISTRIBUTED_BACKEND', None)
+    if distributed_backend is not None:
+        logging.info(
+            "Setting DISTRIBUTED_BACKEND to '{}' per environment variable "
+            "'RLGRAPH_DISTRIBUTED_BACKEND'.".format(backend)
+        )
+        DISTRIBUTED_BACKEND = distributed_backend
 
 
 # Test compatible backend.
