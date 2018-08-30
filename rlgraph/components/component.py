@@ -128,6 +128,9 @@ class Component(Specifiable):
         # Maps names to callable API functions for eager calls.
         self.api_fn_by_name = dict()
 
+        # How this component executes its 'call' method.
+        self.execution_mode = "static_graph"
+
         # `self.api_method_inputs`: Registry for all unique API-method input parameter names and their Spaces.
         # Two API-methods may share the same input if their input parameters have the same names.
         # keys=input parameter name; values=Space that goes into that parameter
@@ -251,14 +254,17 @@ class Component(Specifiable):
 
         return_ops = kwargs.pop("return_ops", False)
 
-        # Method is an API method.
-        if method.__name__ in method_owner.api_methods:
-            # Make the API call.
-            op_recs = self.call_api(method, method_owner, *params, **kwargs)
-
-        # Method is a graph_fn.
+        if self.execution_mode == "define_by_run":
+            return method(*params, **kwargs)
         else:
-            op_recs = self.call_graph_fn(method, method_owner, *params, **kwargs)
+            # Method is an API method.
+            if method.__name__ in method_owner.api_methods:
+                # Make the API call.
+                op_recs = self.call_api(method, method_owner, *params, **kwargs)
+
+            # Method is a graph_fn.
+            else:
+                op_recs = self.call_graph_fn(method, method_owner, *params, **kwargs)
 
         # Do we need to return the raw ops or the op-recs?
         # Direct parent caller is a `_graph_fn_...`: Return raw ops.
@@ -1049,16 +1055,30 @@ class Component(Specifiable):
 
         # Function is a graph_fn: Build a simple wrapper API-method around it and name it `name`.
         if func_type == "graph_fn":
-
             def api_method(self, *inputs_, **kwargs_):
                 # Mix in user provided kwargs with the setting ones from the original `define_api_method` call.
                 default_dict(kwargs_, kwargs)
                 func_ = getattr(self, func.__name__)
+
                 return self.call(func_, *inputs_, **kwargs_)
+
+            # if get_backend() == "pytorch":
+            #     # Additionally define an eager callable.
+            #     def eager_api_method(self, *inputs_, **kwargs_):
+            #         default_dict(kwargs_, kwargs)
+            #         func_ = getattr(self, func.__name__)
+            #         return func_(self, *inputs_, **kwargs_)
 
         # Function is a (custom) API-method. Register it with this Component.
         else:
             api_method = func
+            eager_api_method = func
+
+        # # Register eager wrapper.
+        # eager_name = "eager_{}".format(name)
+        # setattr(self, eager_name, eager_api_method.__get__(self, self.__class__))
+        # setattr(eager_api_method, "__self__", self)
+        # setattr(eager_api_method, "__name__", name)
 
         setattr(self, name, api_method.__get__(self, self.__class__))
         setattr(api_method, "__self__", self)
@@ -1069,6 +1089,7 @@ class Component(Specifiable):
             is_graph_fn_wrapper=(func_type == "graph_fn"),
             add_auto_key_as_first_param=kwargs.get("add_auto_key_as_first_param", False)
         )
+
         # Direct callable for eager/define by run.
         self.api_fn_by_name[name] = api_method
 
@@ -1147,6 +1168,10 @@ class Component(Specifiable):
                 )
             # Fix the sub-component's (and sub-sub-component's etc..) scope(s).
             self.propagate_scope(component)
+
+            # Execution modes must be coherent within one component subgraph.
+            self.propagate_subcomponent_properties(properties=dict(execution_mode=component.execution_mode),
+                                                   component=component)
 
             # Should we expose some API-methods of the child?
             for api_method_name, api_method_rec in component.api_methods.items():

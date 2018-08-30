@@ -74,7 +74,7 @@ class GraphBuilder(Specifiable):
         # Build status/phase. Can take values
         # None: Build has not started yet.
         # "building": actual graph is being built from meta-graph.
-        self.build_phase = None
+        self.phase = None
 
         # Some build stats:
         # Number of meta op-records.
@@ -127,7 +127,7 @@ class GraphBuilder(Specifiable):
         self.num_meta_ops = meta_graph.num_ops
 
         # Set the build phase to `building`.
-        self.build_phase = "building"
+        self.phase = "building"
 
         # Set devices usable for this graph.
         self.available_devices = available_devices
@@ -816,8 +816,10 @@ class GraphBuilder(Specifiable):
             if name not in self.root_component.api_fn_by_name and name in self.api:
                 self.root_component.api_fn_by_name[name] = method
 
-        # Push input spaces through graph.
+        # TODO Push input spaces through graph for variable creation.
 
+        # Set execution mode.
+        self.root_component.propagate_subcomponent_properties(properties=dict(execution_mode="define_by_run"))
         time_build = time.monotonic() - time_start
         self.logger.info("Eeager Computation-Graph build completed in {} s.".format(time_build))
 
