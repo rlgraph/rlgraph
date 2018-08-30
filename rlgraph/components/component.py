@@ -934,6 +934,13 @@ class Component(Specifiable):
                 return self.get_variables_by_name(
                     *names, custom_scope_separator=custom_scope_separator, global_scope=global_scope
                 )
+        elif get_backend() == "pytorch":
+            # Just return variables for this component.
+            custom_scope_separator = kwargs.pop("custom_scope_separator", "/")
+            global_scope = kwargs.pop("global_scope", True)
+            return self.get_variables_by_name(
+                *names, custom_scope_separator=custom_scope_separator, global_scope=global_scope
+            )
 
     def get_variables_by_name(self, *names, **kwargs):
         """

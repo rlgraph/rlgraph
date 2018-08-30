@@ -709,12 +709,7 @@ class GraphBuilder(Specifiable):
             self.build_component_when_input_complete(component)
 
         op_records_list = sorted(self.op_records_to_process, key=lambda rec: rec.id)
-
-        # TODO this build loop should NOT Be duplicated between eager and static build.
-        # -> factor out once working for pytorch.
         iterations = self._build(op_records_list)
-        time_build = time.monotonic() - time_start
-        self.logger.info("Computation-Graph build completed in {} s ({} iterations).".format(time_build, iterations))
 
         # Delete op-records as we do not need them for define-by-run.
         self.purge_op_records(component=self.root_component)
@@ -722,7 +717,8 @@ class GraphBuilder(Specifiable):
         # Set execution mode in components to change `call` behaviour to direct function evaluation.
         self.root_component.propagate_subcomponent_properties(properties=dict(execution_mode="define_by_run"))
         time_build = time.monotonic() - time_start
-        self.logger.info("Define-by-run computation-graph build completed in {} s.".format(time_build))
+        self.logger.info("Define-by-run computation-graph build completed in {} s ({} iterations).".
+                         format(time_build, iterations))
 
     def _build(self, op_records_list):
         """
@@ -833,30 +829,32 @@ class GraphBuilder(Specifiable):
 
             # If we are done with the build, check for API-methods' ops that are dependent on variables
             # generated during the build and build these now.
-            if len(op_records_list) == 0 and self.op_records_to_process_later is not None and \
-                    len(self.op_records_to_process_later) > 0:
-                op_records_list = list(self.op_records_to_process_later)
-                # Invalidate later-set.
-                self.op_records_to_process_later = None  # type: set
+            # TODO is this loop necessary for define by run?
+            if get_backend() == "tf":
+                if len(op_records_list) == 0 and self.op_records_to_process_later is not None and \
+                        len(self.op_records_to_process_later) > 0:
+                    op_records_list = list(self.op_records_to_process_later)
+                    # Invalidate later-set.
+                    self.op_records_to_process_later = None  # type: set
 
-                # Loop through the op_records list and sanity check for "variables"-dependent Spaces, then get these
-                # Spaces, create the placeholders and keep building.
-                for op_rec in op_records_list:
-                    space_desc = op_rec.space
-                    mo = re.search(r'^variables:(.+)', space_desc)
-                    assert mo
-                    component_path = mo.group(1).split("/")
-                    component = self.root_component
-                    for level in component_path:
-                        assert level in component.sub_components, \
-                            "ERROR: `component_path` ('{}') contains non-existent Components!".format(component_path)
-                        component = component.sub_components[level]
-                    var_spaces = {key: get_space_from_op(value) for key, value in sorted(
-                        component.get_variables(custom_scope_separator="-").items()
-                    )}
-                    var_space = Dict(var_spaces)
-                    op_rec.space = var_space
-                    op_rec.op = self.get_placeholder("api-", space=var_space, component=self.root_component)
+                    # Loop through the op_records list and sanity check for "variables"-dependent Spaces, then get these
+                    # Spaces, create the placeholders and keep building.
+                    for op_rec in op_records_list:
+                        space_desc = op_rec.space
+                        mo = re.search(r'^variables:(.+)', space_desc)
+                        assert mo
+                        component_path = mo.group(1).split("/")
+                        component = self.root_component
+                        for level in component_path:
+                            assert level in component.sub_components, \
+                                "ERROR: `component_path` ('{}') contains non-existent Components!".format(component_path)
+                            component = component.sub_components[level]
+                        var_spaces = {key: get_space_from_op(value) for key, value in sorted(
+                            component.get_variables(custom_scope_separator="-").items()
+                        )}
+                        var_space = Dict(var_spaces)
+                        op_rec.space = var_space
+                        op_rec.op = self.get_placeholder("api-", space=var_space, component=self.root_component)
 
             loop_counter += 1
         return loop_counter
