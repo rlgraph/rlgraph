@@ -818,9 +818,9 @@ class GraphBuilder(Specifiable):
 
         # TODO Push input spaces through graph for variable creation.
 
-        # Set execution mode.
+        # Set execution mode in components to define `call` behaviour.
         self.root_component.propagate_subcomponent_properties(properties=dict(execution_mode="define_by_run"))
         time_build = time.monotonic() - time_start
-        self.logger.info("Eeager Computation-Graph build completed in {} s.".format(time_build))
+        self.logger.info("Define-by-run computation-graph build completed in {} s.".format(time_build))
 
 

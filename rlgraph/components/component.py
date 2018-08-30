@@ -254,9 +254,12 @@ class Component(Specifiable):
 
         return_ops = kwargs.pop("return_ops", False)
 
+        # Direct evaluation of function.
         if self.execution_mode == "define_by_run":
             return method(*params, **kwargs)
-        else:
+        elif self.execution_mode == "static_graph":
+            # Graph construction.
+
             # Method is an API method.
             if method.__name__ in method_owner.api_methods:
                 # Make the API call.
@@ -1062,23 +1065,9 @@ class Component(Specifiable):
 
                 return self.call(func_, *inputs_, **kwargs_)
 
-            # if get_backend() == "pytorch":
-            #     # Additionally define an eager callable.
-            #     def eager_api_method(self, *inputs_, **kwargs_):
-            #         default_dict(kwargs_, kwargs)
-            #         func_ = getattr(self, func.__name__)
-            #         return func_(self, *inputs_, **kwargs_)
-
         # Function is a (custom) API-method. Register it with this Component.
         else:
             api_method = func
-            eager_api_method = func
-
-        # # Register eager wrapper.
-        # eager_name = "eager_{}".format(name)
-        # setattr(self, eager_name, eager_api_method.__get__(self, self.__class__))
-        # setattr(eager_api_method, "__self__", self)
-        # setattr(eager_api_method, "__name__", name)
 
         setattr(self, name, api_method.__get__(self, self.__class__))
         setattr(api_method, "__self__", self)

@@ -111,7 +111,7 @@ def recursive_assert_almost_equal(x, y, decimals=7):
     elif x is None or y is None:
         assert x == y, "ERROR: x ({}) is not the same as y ({})!".format(x, y)
     # String comparison.
-    elif x.dtype == np.object:
+    elif hasattr(x, 'dtype') and x.dtype == np.object:
         np.testing.assert_array_equal(x, y)
     # Everything else (assume numeric).
     else:

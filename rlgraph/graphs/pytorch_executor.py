@@ -60,6 +60,8 @@ class PyTorchExecutor(GraphExecutor):
                 api_ret = self.graph_builder.execute_eager_op(api_method, params)
                 ret.append(api_ret)
 
+        # Unwrap if len 1.
+        ret = ret[0] if len(ret) == 1 else ret
         return ret
 
     def read_variable_values(self, variables):
