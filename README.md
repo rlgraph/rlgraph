@@ -5,12 +5,15 @@
 Flexible computation graphs for deep reinforcement learning.
 
 RLgraph is a framework to quickly prototype, define and execute reinforcement learning
-algorithms both in research and practice.
+algorithms both in research and practice. RLgraph is different from most other libraries as it can support
+TensorFlow (or static graphs in general) or eager/define-by run execution (PyTorch) through
+a single component interface.
  
 RLgraph exposes a well defined API for using agents, and offers a novel component concept
 for testing and assembly of components. By separating graph definition, compilation and execution,
 multiple distributed backends and device execution strategies can be accessed without modifying
 agent definitions.
+
 
 ## Install
 
@@ -25,6 +28,12 @@ Note that some backends (e.g. ray) need additional dependencies (see setup.py). 
 To successfully run tests, please also install OpenAI gym, e.g.
 
 ```pip install gym[all]```
+
+Upon calling RLgraph, a config JSON is created under ~.rlgraph/rlgraph.json
+which can be used to change backend settings. The current default stable
+backend is TensorFlow ("tf"), the PyTorch backend ("pytorch") supports
+component build and execution but not all utilities support all backends yet
+in pre-alpha phase.
 
 ## Import and use agents
 
