@@ -99,3 +99,46 @@ class TestFIFOQueue(unittest.TestCase):
         print("Dequeued some items in another thread. Unblocked.")
 
         thread.join()
+
+    def test_fifo_queue_with_distributed_tf(self):
+        """
+        Tests if FIFO is correctly shared between two processes running in distributed tf.
+        """
+        cluster_spec = dict(source=["localhost:22222"], target=["localhost:22223"])
+
+        def run1():
+            fifo_queue_1 = FIFOQueue(capacity=self.capacity, device="/job:source/task:0/cpu")
+            test_1 = ComponentTest(component=fifo_queue_1, input_spaces=self.input_spaces, execution_spec=dict(
+                mode="distributed",
+                distributed_spec=dict(job="source", task_index=0, cluster_spec=cluster_spec)
+            ))
+            # Insert elements from source.
+            records = self.record_space.sample(size=self.capacity)
+            print("inserting into source-side queue ...")
+            test_1.test(("insert_records", records), expected_outputs=None)
+            print("size of source-side queue:")
+            print(test_1.test("get_size", expected_outputs=None))
+            # Pull one sample out.
+            print("pulling from source-side queue:")
+            print(test_1.test(("get_records", 2), expected_outputs=None))
+
+        def run2():
+            fifo_queue_2 = FIFOQueue(capacity=self.capacity, device="/job:source/task:0/cpu")
+            test_2 = ComponentTest(component=fifo_queue_2, input_spaces=self.input_spaces, execution_spec=dict(
+                mode="distributed",
+                distributed_spec=dict(job="target", task_index=0, cluster_spec=cluster_spec)
+            ))
+            # Dequeue elements in target.
+            print("size of target-side queue:")
+            print(test_2.test("get_size", expected_outputs=None))
+            print("pulling from target-side queue:")
+            print(test_2.test(("get_records", 5), expected_outputs=None))
+
+        # Start thread to save this one from getting stuck due to capacity overflow.
+        thread_1 = threading.Thread(target=run1)
+        thread_2 = threading.Thread(target=run2)
+        thread_1.start()
+        thread_2.start()
+
+        thread_1.join()
+        thread_2.join()
