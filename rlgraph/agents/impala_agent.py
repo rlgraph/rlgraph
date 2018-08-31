@@ -86,8 +86,10 @@ class IMPALAAgent(Agent):
         # Learners won't need to explore (act) or observe (insert into Queue).
         else:
             # Add prev-a/r to Dict state space.
-            kwargs["state_space"]["previous_action"] = kwargs["action_space"]
-            kwargs["state_space"]["previous_reward"] = FloatBox()
+            state_space = copy.deepcopy(kwargs["state_space"])
+            state_space["previous_action"] = kwargs["action_space"]
+            state_space["previous_reward"] = FloatBox()
+            kwargs["state_space"] = state_space
             exploration_spec = None
             observe_spec = None
             update_spec = kwargs.pop("update_spec", None)
@@ -120,7 +122,8 @@ class IMPALAAgent(Agent):
         # Manually set the reuse_variable_scope for our policies (actor: mu, learner: pi).
         self.policy.propagate_subcomponent_properties(dict(reuse_variable_scope="shared"))
         # Always use 1st learner as the parameter server for all policy variables.
-        #self.policy.propagate_subcomponent_properties(dict(device=dict(variables="/job:learner/task:0")))
+        if self.execution_spec["mode"] == "distributed" and self.type == "actor":
+            self.policy.propagate_subcomponent_properties(dict(device=dict(variables="/job:learner/task:0")))
 
         # Check whether we have an RNN.
         self.has_rnn = self.neural_network.has_rnn()
@@ -153,7 +156,8 @@ class IMPALAAgent(Agent):
         # Create our FIFOQueue (actors will enqueue, learner(s) will dequeue).
         self.fifo_queue = FIFOQueue.from_spec(
             fifo_queue_spec, reuse_variable_scope="shared-fifo-queue", only_insert_single_records=True,
-            record_space=self.fifo_record_space
+            record_space=self.fifo_record_space,
+            device="/job:learner/task:0" if self.execution_spec["mode"] == "distributed" and self.type == "actor" else None
         )
 
         # Remove `states` key from input_spaces: not needed.
@@ -190,8 +194,10 @@ class IMPALAAgent(Agent):
                 add_action_probs=True,
                 action_probs_space=dummy_flattener.get_preprocessed_space(self.action_space)
             )
-            sub_components = [self.environment_stepper, self.splitter, self.next_states_slicer, self.internal_states_slicer,
-                              self.merger, self.fifo_queue]
+            sub_components = [
+                self.environment_stepper, self.splitter, self.next_states_slicer, self.internal_states_slicer,
+                self.merger, self.fifo_queue
+            ]
         # Learner.
         else:
             self.environment_stepper = None
