@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 import copy
-import numpy as np
 
 from rlgraph.utils import RLGraphError
 from rlgraph.agents.agent import Agent
@@ -186,7 +185,7 @@ class IMPALAAgent(Agent):
             # Create a queue runner that takes care of pushing items into the queue from our actors.
 
             # TODO: backend specific
-            tf.train.add_queue_runner(tf.train.QueueRunner(self.fifo_queue.queue, enqueue_ops??))
+            #tf.train.add_queue_runner(tf.train.QueueRunner(self.fifo_queue.queue, enqueue_ops??))
 
             # Extend input Space definitions to this Agent's specific API-methods.
             self.input_spaces.update(dict(
