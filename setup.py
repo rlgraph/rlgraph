@@ -41,7 +41,7 @@ setup_requires = []
 extras_require = {
     'gym': ['gym', 'atari-py'],
     'horovod': 'horovod',
-    'pytorch': ['torch, torchvision'],  # TODO platform dependent.
+    'pytorch': ['torch', 'torchvision'],  # TODO platform dependent.
     'ray': ['ray', 'lz4', 'pyarrow']
 }
 
