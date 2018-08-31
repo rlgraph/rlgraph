@@ -46,7 +46,7 @@ else:
 BACKEND = "tf"
 
 # Default distributed backend is distributed ray.
-DISTRIBUTED_BACKEND = "distributed_tf"
+DISTRIBUTED_BACKEND = "ray"
 
 distributed_compatible_backends = dict(
     tf=["distributed_tf", "ray", "horovod"],
@@ -104,7 +104,7 @@ if 'RLGRAPH_DISTRIBUTED_BACKEND' in os.environ:
     if distributed_backend is not None:
         logging.info(
             "Setting DISTRIBUTED_BACKEND to '{}' per environment variable "
-            "'RLGRAPH_DISTRIBUTED_BACKEND'.".format(backend)
+            "'RLGRAPH_DISTRIBUTED_BACKEND'.".format(distributed_backend)
         )
         DISTRIBUTED_BACKEND = distributed_backend
 
