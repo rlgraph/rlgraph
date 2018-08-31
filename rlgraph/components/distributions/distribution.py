@@ -49,6 +49,11 @@ class Distribution(Component):
         self.seed = kwargs.pop("seed", None)
         super(Distribution, self).__init__(scope=scope, **kwargs)
 
+        # TEST: Try setting components that don't have variables to input_complete AND variable_complete right away.
+        self.input_complete = True
+        self.variable_complete = True
+        # END: TEST
+
         # Define our interface.
         self.define_api_method(name="get_distribution", func=self._graph_fn_get_distribution)
 
