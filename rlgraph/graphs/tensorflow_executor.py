@@ -262,16 +262,21 @@ class TensorFlowExecutor(GraphExecutor):
         Sets up distributed TensorFlow.
         """
         self.logger.info("Setting up distributed TensorFlow execution mode.")
-        # Create the Server object.
-        self.server = tf.train.Server(
-            server_or_cluster_def=self.distributed_spec["cluster_spec"],
-            job_name=self.distributed_spec["job"],
-            task_index=self.distributed_spec["task_index"],
-            protocol=self.distributed_spec["protocol"],
-            # TODO do we need other device settings here?
-            config=self.tf_session_config,
-            start=True
-        )
+        # Create a local server.
+        if self.distributed_spec["cluster_spec"] is None:
+            self.server = tf.train.Server.create_local_server()
+        # Create an actual distributed Server.
+        else:
+            self.server = tf.train.Server(
+                server_or_cluster_def=self.distributed_spec["cluster_spec"],
+                job_name=self.distributed_spec["job"],
+                task_index=self.distributed_spec["task_index"],
+                protocol=self.distributed_spec["protocol"],
+                # TODO do we need other device settings here?
+                config=self.tf_session_config,
+                start=True
+            )
+
         if self.distributed_spec["job"] == "ps":
             # Just join and be done.
             self.logger.info("Job is parameter server, joining and waiting.")
@@ -470,7 +475,6 @@ class TensorFlowExecutor(GraphExecutor):
         # TODO: So when the Graph gets entered, the registry (with the SpecifiableServer in it) is gone.
         if len(SpecifiableServer.INSTANCES) > 0:
             hooks.append(SpecifiableServerHook())
-        #pass
 
     def setup_session(self, hooks):
         """
@@ -485,26 +489,36 @@ class TensorFlowExecutor(GraphExecutor):
                 raise RLGraphError(
                     "TensorflowGraphExecutor's Server is None! It could be that your DISTRIBUTED_BACKEND (currently "
                     "set to '{}') is not set to 'distributed_tf'. You can do so via the RLGraph config file in your "
-                    "home directory or an ENV variable 'RLGRAPH_DISTRIBUTED_BACKEND=distributed_tf'.".
+                    "home directory or the ENV variable 'RLGRAPH_DISTRIBUTED_BACKEND=distributed_tf'.".
                     format(get_distributed_backend())
                 )
-            #session_creator = tf.train.ChiefSessionCreator(
-            #    scaffold=self.scaffold,
-            #    master=self.server.target,
-            #    config=self.tf_session_config,
-            #    checkpoint_dir=None,
-            #    checkpoint_filename_with_path=None
-            #)
-            self.monitored_session = tf.train.MonitoredTrainingSession(
-                master=self.server.target,
-                is_chief=self.execution_spec["distributed_spec"]["task_index"] == 0,
-                checkpoint_dir=None,  # TODO: specify?
+            session_creator = tf.train.ChiefSessionCreator(
                 scaffold=self.scaffold,
-                #session_creator=session_creator,
-                hooks=hooks,
+                master=self.server.target,
                 config=self.tf_session_config,
+                checkpoint_dir=None,
+                checkpoint_filename_with_path=None
+            )
+            self.monitored_session = tf.train.MonitoredSession(
+                #master=self.server.target,
+                #is_chief=self.execution_spec["distributed_spec"]["task_index"] == 0,
+                #checkpoint_dir=None,  # TODO: specify?
+                #scaffold=self.scaffold,
+                session_creator=session_creator,
+                hooks=hooks,
+                #config=self.tf_session_config,
                 stop_grace_period_secs=120  # Default value.
             )
+            #self.monitored_session = tf.train.MonitoredTrainingSession(
+            #    master=self.server.target,
+            #    is_chief=self.execution_spec["distributed_spec"]["task_index"] == 0,
+            #    checkpoint_dir=None,  # TODO: specify?
+            #    scaffold=self.scaffold,
+            #    #session_creator=session_creator,
+            #    hooks=hooks,
+            #    config=self.tf_session_config,
+            #    stop_grace_period_secs=120  # Default value.
+            #)
         else:
             self.global_training_timestep = tf.get_variable(
                 name="global-timestep", dtype=util.dtype("int"), trainable=False, initializer=0,
