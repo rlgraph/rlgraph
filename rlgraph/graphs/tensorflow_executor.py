@@ -19,12 +19,10 @@ from __future__ import print_function
 
 import os
 
-from rlgraph import get_backend
-
+from rlgraph import get_backend, get_distributed_backend
 import rlgraph.utils as util
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.graphs.graph_executor import GraphExecutor
-from rlgraph import get_distributed_backend
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -55,6 +53,11 @@ class TensorFlowExecutor(GraphExecutor):
 
         # tf.Scaffold.
         self.scaffold = None
+        # Ops used by the scaffold to initialize variables and check variables for initialization.
+        self.init_op = None
+        self.local_init_op = None
+        self.ready_op = None
+        self.ready_for_local_init_op = None
 
         # # The tf.Server object (if any).
         self.server = None
@@ -401,20 +404,29 @@ class TensorFlowExecutor(GraphExecutor):
         and summaries.
         Assigns the scaffold object to `self.scaffold`.
         """
+        # Determine init_op and ready_op.
+        var_list = list(self.graph_builder.root_component.variables.values())
+        # We can not fetch optimizer vars.
+        # self.logger.info("optimizer vars before init :")
+        # self.logger.info(self.optimizer.optimizer.variables())
+        # TODO let graph builder do this
+        if self.optimizer is not None:
+            var_list.extend(self.optimizer.get_optimizer_variables())
+
         if self.execution_mode == "single":
-            var_list = list(self.graph_builder.root_component.variables.values())
-            # We can not fetch optimizer vars.
-            # self.logger.info("optimizer vars before init :")
-            # self.logger.info(self.optimizer.optimizer.variables())
-            # TODO let graph builder do this
-            if self.optimizer is not None:
-                var_list.extend(self.optimizer.get_optimizer_variables())
             self.init_op = tf.variables_initializer(var_list=var_list)
             self.ready_op = tf.report_uninitialized_variables(var_list=var_list)
         else:
-            # TODO: Distributed tf scaffold.
-            self.init_op = None
-            self.ready_op = None
+            assert self.execution_mode == "distributed",\
+                "ERROR: execution_mode can only be 'single' or 'distributed'! Is '{}'.".format(self.execution_mode)
+            local_job_and_task = "/job:{}/task:{}".format(self.execution_spec["distributed_spec"]["job"],
+                                                          self.execution_spec["distributed_spec"]["task_index"])
+            var_list_local = [var for var in var_list if not var.device or var.device == local_job_and_task]
+            var_list_remote = [var for var in var_list if var.device and var.device != local_job_and_task]
+            self.init_op = tf.variables_initializer(var_list=var_list_remote)
+            self.ready_for_local_init_op = tf.report_uninitialized_variables(var_list=var_list_remote)
+            self.local_init_op = tf.variables_initializer(var_list=var_list_local)
+            self.ready_op = tf.report_uninitialized_variables(var_list=var_list)
 
         def init_fn(scaffold, session):
             # NOTE: `self.load_from_file` is either True or a string value.
@@ -444,8 +456,8 @@ class TensorFlowExecutor(GraphExecutor):
                 init_feed_dict=None,
                 init_fn=init_fn if self.load_from_file else None,
                 ready_op=self.ready_op,
-                ready_for_local_init_op=None,
-                local_init_op=None,
+                ready_for_local_init_op=self.ready_for_local_init_op,
+                local_init_op=self.local_init_op,
                 summary_op=self.summary_op,
                 saver=self.saver,
                 copy_from_scaffold=None
@@ -458,6 +470,7 @@ class TensorFlowExecutor(GraphExecutor):
         # TODO: So when the Graph gets entered, the registry (with the SpecifiableServer in it) is gone.
         if len(SpecifiableServer.INSTANCES) > 0:
             hooks.append(SpecifiableServerHook())
+        #pass
 
     def setup_session(self, hooks):
         """
@@ -468,16 +481,28 @@ class TensorFlowExecutor(GraphExecutor):
         """
         if self.execution_mode == "distributed":
             self.logger.info("Setting up distributed TensorFlow session.")
-            session_creator = tf.train.ChiefSessionCreator(
-                scaffold=self.scaffold,
+            if self.server is None:
+                raise RLGraphError(
+                    "TensorflowGraphExecutor's Server is None! It could be that your DISTRIBUTED_BACKEND (currently "
+                    "set to '{}') is not set to 'distributed_tf'. You can do so via the RLGraph config file in your "
+                    "home directory or an ENV variable 'RLGRAPH_DISTRIBUTED_BACKEND=distributed_tf'.".
+                    format(get_distributed_backend())
+                )
+            #session_creator = tf.train.ChiefSessionCreator(
+            #    scaffold=self.scaffold,
+            #    master=self.server.target,
+            #    config=self.tf_session_config,
+            #    checkpoint_dir=None,
+            #    checkpoint_filename_with_path=None
+            #)
+            self.monitored_session = tf.train.MonitoredTrainingSession(
                 master=self.server.target,
-                config=self.tf_session_config,
-                checkpoint_dir=None,
-                checkpoint_filename_with_path=None
-            )
-            self.monitored_session = tf.train.MonitoredSession(
-                session_creator=session_creator,
+                is_chief=self.execution_spec["distributed_spec"]["task_index"] == 0,
+                checkpoint_dir=None,  # TODO: specify?
+                scaffold=self.scaffold,
+                #session_creator=session_creator,
                 hooks=hooks,
+                config=self.tf_session_config,
                 stop_grace_period_secs=120  # Default value.
             )
         else:

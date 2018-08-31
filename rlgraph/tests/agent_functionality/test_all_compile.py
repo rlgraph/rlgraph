@@ -108,6 +108,4 @@ class TestAllCompile(unittest.TestCase):
             internal_states_space=Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True),
         )
 
-        #out = learner_agent.call_api_method("update_from_memory")
-
         print("Compiled IMPALA type=learner agent.")
