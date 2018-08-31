@@ -36,6 +36,8 @@ class ComponentTest(object):
         action_space=None,
         seed=10,
         logging_level=None,
+        execution_spec=None,
+        # TODO: Move all the below into execution_spec just like for Agent class.
         enable_profiler=False,
         disable_monitoring=False,
         device_strategy="default",
@@ -52,6 +54,7 @@ class ComponentTest(object):
             seed (Optional[int]): The seed to use for random-seeding the Model object.
                 If None, do not seed the Graph (things may behave non-deterministically).
             logging_level (Optional[int]): When provided, sets RLGraph's root_logger's logging level to this value.
+            execution_spec (Optional[dict]): Specification dict for execution settings.
             enable_profiler (bool): When enabled, activates backend profiling. Default: False.
             disable_monitoring (bool): When True, will not use a monitored session. Default: False.
             device_strategy (str): Optional device-strategy to be passed into GraphExecutor.
@@ -67,14 +70,13 @@ class ComponentTest(object):
         self.graph_builder = GraphBuilder(action_space=action_space)
 
         # Build the model.
-        execution_spec = parse_execution_spec(dict(
+        execution_spec = parse_execution_spec(execution_spec or dict(
             seed=self.seed,
             enable_profiler=enable_profiler,
             device_strategy=device_strategy,
             disable_monitoring=disable_monitoring,
             device_map=device_map
         ))
-
         use_backend = backend if backend is not None else get_backend()
         self.graph_executor = GraphExecutor.from_spec(
             use_backend,
