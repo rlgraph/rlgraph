@@ -536,12 +536,12 @@ class RayWorker(RayActor):
             weights = np.abs(loss_per_item) + SMALL_NUMBER
 
         return dict(
-            states=[ray_compress(state) for state in states],
-            actions=actions,
-            rewards=rewards,
-            terminals=terminals,
-            next_states=[ray_compress(next_state) for next_state in next_states],
-            importance_weights=weights
+            states=np.array([ray_compress(state) for state in states]),
+            actions=np.array(actions),
+            rewards=np.array(rewards),
+            terminals=np.array(terminals),
+            next_states=np.array([ray_compress(next_state) for next_state in next_states]),
+            importance_weights=np.array(weights)
         ), len(rewards)
 
     def get_action(self, states, use_exploration, apply_preprocessing):
