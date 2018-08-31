@@ -18,8 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
+import multiprocessing
 import numpy as np
-import threading
 import time
 import unittest
 
@@ -345,6 +345,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         agent = IMPALAAgent.from_spec(
             agent_config,
             type="actor",
+            architecture="small",
             environment_spec=environment_spec,
             state_space=env.state_space,
             action_space=env.action_space,

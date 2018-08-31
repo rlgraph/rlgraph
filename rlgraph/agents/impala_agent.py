@@ -30,7 +30,7 @@ from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.loss_functions.impala_loss_function import IMPALALossFunction
 from rlgraph.components.memories.fifo_queue import FIFOQueue
-from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork
+from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork, SmallIMPALANetwork
 from rlgraph.spaces import FloatBox, Dict, Tuple
 from rlgraph.utils.util import default_dict
 
@@ -46,11 +46,13 @@ class IMPALAAgent(Agent):
 
     standard_internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False)
 
-    def __init__(self, discount=0.99, fifo_queue_spec=None, environment_spec=None, weight_pg=None, weight_baseline=None,
-                 weight_entropy=None, worker_sample_size=20, **kwargs):
+    def __init__(self, discount=0.99, architecture="large", fifo_queue_spec=None, environment_spec=None,
+                 weight_pg=None, weight_baseline=None, weight_entropy=None, worker_sample_size=20, **kwargs):
         """
         Args:
             discount (float): The discount factor gamma.
+            architecture (str): Which IMPALA architecture to use. One of "small" or "large". Will be ignored if
+                `network_spec` is given explicitly in kwargs. Default: "large".
             fifo_queue_spec (Optional[dict,FIFOQueue]): The spec for the FIFOQueue to use for the IMPALA algorithm.
             environment_spec (dict): The spec for constructing an Environment object for an actor-type IMPALA agent.
             weight_pg (float): See IMPALALossFunction Component.
@@ -67,7 +69,9 @@ class IMPALAAgent(Agent):
         self.worker_sample_size = worker_sample_size
 
         # Network-spec by default is a "large architecture" IMPALA network.
-        network_spec = kwargs.pop("network_spec", LargeIMPALANetwork())
+        network_spec = kwargs.pop(
+            "network_spec", LargeIMPALANetwork() if architecture == "large" else SmallIMPALANetwork()
+        )
         action_adapter_spec = kwargs.pop("action_adapter_spec", dict(type="baseline-action-adapter"))
 
         # Depending on the job-type, remove the pieces from the Agent-spec/graph we won't need.
