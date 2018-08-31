@@ -42,10 +42,12 @@ class IMPALALossFunction(LossFunction):
     [1] IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures - Espeholt, Soyer,
         Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
     """
-    def __init__(self, discount=0.99, weight_pg=None, weight_baseline=None, weight_entropy=None, **kwargs):
+    def __init__(self, discount=0.99, reward_clipping="clamp_one",
+                 weight_pg=None, weight_baseline=None, weight_entropy=None, **kwargs):
         """
         Args:
             discount (float): The discount factor (gamma) to use.
+            reward_clipping (Optional[str]): One of None, "clamp_one" or "soft_asymmetric". Default: "clamp_one".
             weight_pg (float): The coefficient used for the policy gradient loss term (L[PG]).
             weight_baseline (float): The coefficient used for the Value-function baseline term (L[V]).
             weight_entropy (float): The coefficient used for the entropy regularization term (L[E]).
@@ -55,6 +57,8 @@ class IMPALALossFunction(LossFunction):
 
         self.discount = discount
         self.v_trace_function = VTraceFunction(decive="/cpu")  # type: VTraceFunction
+
+        self.reward_clipping = reward_clipping
 
         self.weight_pg = weight_pg if weight_pg is not None else 1.0
         self.weight_baseline = weight_baseline if weight_baseline is not None else 0.5
@@ -119,6 +123,13 @@ class IMPALALossFunction(LossFunction):
 
             # Discounts are simply 0.0, if there is a terminal, otherwise: `discount`.
             discounts = tf.expand_dims(tf.to_float(~terminals) * self.discount, axis=-1)
+            # `clamp_one`: Clamp rewards between -1.0 and 1.0.
+            if self.reward_clipping == "clamp_one":
+                rewards = tf.clip_by_value(rewards, -1, 1)
+            # `soft_asymmetric`: Negative rewards are less negative than positive rewards are positive.
+            elif self.reward_clipping == "soft_asymmetric":
+                squeezed = tf.tanh(rewards / 5.0)
+                rewards = tf.where(rewards < 0.0, 0.3 * squeezed, squeezed) * 5.0
             # Make discounts and rewards shape=(1,) instead of shape=() (not counting batch/time-ranks).
             rewards = tf.expand_dims(rewards, axis=-1)
 
