@@ -3,7 +3,7 @@
 
   "fifo_queue_spec":
   {
-    "capacity": 10000
+    "capacity": 1000
   },
 
   "preprocessing_spec": {
@@ -29,6 +29,10 @@
         "num_timesteps": 100
       }
     }
+  },
+
+  "update_spec": {
+    "batch_size": 64
   },
 
   "optimizer_spec": {

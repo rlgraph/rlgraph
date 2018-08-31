@@ -46,7 +46,7 @@ else:
 BACKEND = "tf"
 
 # Default distributed backend is distributed ray.
-DISTRIBUTED_BACKEND = "ray"
+DISTRIBUTED_BACKEND = "distributed_tf"
 
 distributed_compatible_backends = dict(
     tf=["distributed_tf", "ray", "horovod"],
