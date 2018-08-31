@@ -127,7 +127,7 @@ class IMPALAAgent(Agent):
         self.policy.propagate_subcomponent_properties(dict(reuse_variable_scope="shared"))
         # Always use 1st learner as the parameter server for all policy variables.
         if self.execution_spec["mode"] == "distributed" and self.type == "actor":
-            self.policy.propagate_subcomponent_properties(dict(device=dict(variables="/job:learner/task:0")))
+            self.policy.propagate_subcomponent_properties(dict(device=dict(variables="/job:learner/task:0/cpu")))
 
         # Check whether we have an RNN.
         self.has_rnn = self.neural_network.has_rnn()
