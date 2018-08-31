@@ -56,7 +56,7 @@ class IMPALALossFunction(LossFunction):
         super(IMPALALossFunction, self).__init__(scope=kwargs.pop("scope", "impala-loss-func"), **kwargs)
 
         self.discount = discount
-        self.v_trace_function = VTraceFunction(decive="/cpu")  # type: VTraceFunction
+        self.v_trace_function = VTraceFunction(device="/cpu")  # type: VTraceFunction
 
         self.reward_clipping = reward_clipping
 
