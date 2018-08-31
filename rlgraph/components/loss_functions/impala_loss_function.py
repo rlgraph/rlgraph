@@ -109,38 +109,41 @@ class IMPALALossFunction(LossFunction):
         Returns:
             SingleDataOp: The loss values per item in the batch, but summed over all timesteps.
         """
-        # Calculate the log IS-weight values via: logIS = log(pi(a|s)) - log(mu(a|s)).
-        # Use the action_probs_pi values only of the actions actually taken.
-        one_hot = tf.one_hot(indices=actions, depth=self.action_space.num_categories)
-        log_probs_actions_taken_pi = tf.reduce_sum(log_probs_actions_pi * one_hot, axis=-1, keepdims=True)
-        log_probs_actions_taken_mu = tf.reduce_sum(tf.log(action_probs_mu) * one_hot, axis=-1, keepdims=True)
-        log_is_weights = log_probs_actions_taken_pi - log_probs_actions_taken_mu
-
-        # Discounts are simply 0.0, if there is a terminal, otherwise: `discount`.
-        discounts = tf.expand_dims(tf.to_float(~terminals) * self.discount, axis=-1)
-        # Make discounts and rewards shape=(1,) instead of shape=() (not counting batch/time-ranks).
-        rewards = tf.expand_dims(rewards, axis=-1)
-
-        # Let the v-trace  helper function calculate the v-trace values (vs) and the pg-advantages
-        # (already multiplied by rho_t_pg): A = rho_t_pg * (rt + gamma*vt - V(t)).
-        # Both vs and pg_advantages will block the gradient as they should be treated as constants by the gradient
-        # calculator of this loss func.
-        vs, pg_advantages = self.call(
-            self.v_trace_function.calc_v_trace_values, log_is_weights, discounts, rewards, values, bootstrapped_values
-        )
-
         if get_backend() == "tf":
+            # Calculate the log IS-weight values via: logIS = log(pi(a|s)) - log(mu(a|s)).
+            # Use the action_probs_pi values only of the actions actually taken.
+            one_hot = tf.one_hot(indices=actions, depth=self.action_space.num_categories)
+            log_probs_actions_taken_pi = tf.reduce_sum(log_probs_actions_pi * one_hot, axis=-1, keepdims=True)
+            log_probs_actions_taken_mu = tf.reduce_sum(tf.log(action_probs_mu) * one_hot, axis=-1, keepdims=True)
+            log_is_weights = log_probs_actions_taken_pi - log_probs_actions_taken_mu
+
+            # Discounts are simply 0.0, if there is a terminal, otherwise: `discount`.
+            discounts = tf.expand_dims(tf.to_float(~terminals) * self.discount, axis=-1)
+            # Make discounts and rewards shape=(1,) instead of shape=() (not counting batch/time-ranks).
+            rewards = tf.expand_dims(rewards, axis=-1)
+
+            # Let the v-trace  helper function calculate the v-trace values (vs) and the pg-advantages
+            # (already multiplied by rho_t_pg): A = rho_t_pg * (rt + gamma*vt - V(t)).
+            # Both vs and pg_advantages will block the gradient as they should be treated as constants by the gradient
+            # calculator of this loss func.
+            vs, pg_advantages = self.call(
+                self.v_trace_function.calc_v_trace_values, log_is_weights, discounts, rewards, values, bootstrapped_values
+            )
+
             # Make sure vs and advantage values are treated as constants for the gradient calculation.
             vs = tf.stop_gradient(vs)
             pg_advantages = tf.stop_gradient(pg_advantages)
 
             # The policy gradient loss.
             loss_pg = pg_advantages * log_probs_actions_taken_pi
+            loss_pg = tf.reduce_sum(loss_pg, axis=0)  # reduce over the time-rank
 
             # The value-function baseline loss.
             loss_baseline = 0.5 * tf.square(x=tf.subtract(vs, values))
+            loss_baseline = tf.reduce_sum(loss_baseline, axis=0)  # reduce over the time-rank
 
             # The entropy regularizer term.
-            loss_entropy = - tf.reduce_sum(tf.exp(log_probs_actions_pi) * log_probs_actions_pi)
+            loss_entropy = - tf.reduce_sum(tf.exp(log_probs_actions_pi) * log_probs_actions_pi, axis=-1)
+            loss_entropy = tf.reduce_sum(loss_entropy, axis=0)  # reduce over the time-rank
 
             return self.weight_pg * loss_pg + self.weight_baseline * loss_baseline + self.weight_entropy * loss_entropy
