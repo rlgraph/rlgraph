@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import copy
+import numpy as np
 
 from rlgraph.utils import RLGraphError
 from rlgraph.agents.agent import Agent
@@ -61,11 +62,16 @@ class IMPALAAgent(Agent):
             worker_sample_size (int): How many steps the actor will perform in the environment each sample-run.
 
         Keyword Args:
-            type (str): One of "actor" or "learner". Default: "actor".
+            type (str): One of "single", "actor" or "learner". Default: "single".
+            num_actors (int): If type is "single", how many actors should be run in separate threads.
         """
-        type_ = kwargs.pop("type", "actor")
-        assert type_ in ["actor", "learner"]
+        type_ = kwargs.pop("type", "single")
+        assert type_ in ["single", "actor", "learner"]
         self.type = type_
+        if self.type == "single":
+            self.num_actors = kwargs.pop("num_actors", 1)
+        else:
+            self.num_actors = 0
         self.worker_sample_size = worker_sample_size
 
         # Network-spec by default is a "large architecture" IMPALA network.
@@ -79,8 +85,15 @@ class IMPALAAgent(Agent):
         optimizer_spec = kwargs.pop("optimizer_spec", None)
         observe_spec = kwargs.pop("observe_spec", None)
 
+        # Run everything in a single process.
+        if self.type == "single":
+            environment_spec = environment_spec or dict(
+                type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
+                frameskip=4
+            )
+            update_spec = kwargs.pop("update_spec", None)
         # Actors won't need to learn (no optimizer needed in graph).
-        if self.type == "actor":
+        elif self.type == "actor":
             optimizer_spec = None
             update_spec = kwargs.pop("update_spec", dict(do_updates=False))
             environment_spec = environment_spec or dict(
@@ -90,10 +103,10 @@ class IMPALAAgent(Agent):
         # Learners won't need to explore (act) or observe (insert into Queue).
         else:
             # Add prev-a/r to Dict state space.
-            state_space = copy.deepcopy(kwargs["state_space"])
-            state_space["previous_action"] = kwargs["action_space"]
-            state_space["previous_reward"] = FloatBox()
-            kwargs["state_space"] = state_space
+            #state_space = copy.deepcopy(kwargs["state_space"])
+            #state_space["previous_action"] = kwargs["action_space"]
+            #state_space["previous_reward"] = FloatBox()
+            #kwargs["state_space"] = state_space
             exploration_spec = None
             observe_spec = None
             update_spec = kwargs.pop("update_spec", None)
@@ -126,7 +139,7 @@ class IMPALAAgent(Agent):
         # Manually set the reuse_variable_scope for our policies (actor: mu, learner: pi).
         self.policy.propagate_subcomponent_properties(dict(reuse_variable_scope="shared"))
         # Always use 1st learner as the parameter server for all policy variables.
-        if self.execution_spec["mode"] == "distributed" and self.type == "actor":
+        if self.execution_spec["mode"] == "distributed":
             self.policy.propagate_subcomponent_properties(dict(device=dict(variables="/job:learner/task:0/cpu")))
 
         # Check whether we have an RNN.
@@ -139,7 +152,8 @@ class IMPALAAgent(Agent):
             {
                 "preprocessed_states": self.preprocessor.get_preprocessed_space(
                     default_dict(copy.deepcopy(self.state_space), dict(
-                        previous_action=self.action_space, previous_reward=FloatBox()
+                        previous_action=self.action_space,
+                        previous_reward=FloatBox()
                     ))
                 ),
                 "actions": self.action_space,
@@ -161,14 +175,61 @@ class IMPALAAgent(Agent):
         self.fifo_queue = FIFOQueue.from_spec(
             fifo_queue_spec, reuse_variable_scope="shared-fifo-queue", only_insert_single_records=True,
             record_space=self.fifo_record_space,
-            device="/job:learner/task:0" if self.execution_spec["mode"] == "distributed" and self.type == "actor" else None
+            device="/job:learner/task:0" if self.execution_spec["mode"] == "distributed" else None
         )
 
         # Remove `states` key from input_spaces: not needed.
         del self.input_spaces["states"]
 
         # Add all our sub-components to the core.
-        if self.type == "actor":
+        if self.type == "single":
+            # Create a queue runner that takes care of pushing items into the queue from our actors.
+
+            # TODO: backend specific
+            tf.train.add_queue_runner(tf.train.QueueRunner(self.fifo_queue.queue, enqueue_ops??))
+
+            # Extend input Space definitions to this Agent's specific API-methods.
+            self.input_spaces.update(dict(
+                internal_states=self.internal_states_space.with_batch_rank(),
+                time_step=int
+            ))
+            self.env_output_splitter = ContainerSplitter(tuple_length=8)
+            self.fifo_output_splitter = ContainerSplitter(*self.fifo_queue_keys)
+
+            # Slice some data from the EnvStepper (e.g only first internal states are needed).
+            self.next_states_slicer = Slice(scope="next-states-slicer", squeeze=False)
+            self.internal_states_slicer = Slice(scope="internal-states-slicer", squeeze=True)
+
+            self.softmax = SoftMax()
+
+            # Create an IMPALALossFunction with some parameters.
+            self.loss_function = IMPALALossFunction(
+                discount=self.discount, weight_pg=weight_pg, weight_baseline=weight_baseline,
+                weight_entropy=weight_entropy
+            )
+
+            # Merge back to insert into FIFO.
+            self.fifo_input_merger = DictMerger(*self.fifo_queue_keys)
+
+            dummy_flattener = ReShape(flatten=True)  # dummy Flattener to calculate action-probs space
+            self.environment_steppers = [EnvironmentStepper(
+                environment_spec=environment_spec,
+                actor_component_spec=ActorComponent(self.preprocessor, self.policy, self.exploration),
+                state_space=self.state_space.with_batch_rank(),
+                reward_space=float,  # TODO <- float64 for deepmind? may not work for other envs
+                add_previous_action=True,
+                add_previous_reward=True,
+                add_action_probs=True,
+                action_probs_space=dummy_flattener.get_preprocessed_space(self.action_space),
+                scope="env-stepper-{}".format(i)
+            ) for i in range(self.num_actors)]
+            sub_components = [
+                self.env_output_splitter, self.fifo_output_splitter, self.next_states_slicer,
+                self.internal_states_slicer, self.fifo_input_merger, self.fifo_queue
+            ]
+            sub_components.extend(self.environment_steppers)
+
+        elif self.type == "actor":
             # Extend input Space definitions to this Agent's specific API-methods.
             self.input_spaces.update(dict(
                 #weights="variables:environment-stepper/actor-component/policy",
@@ -178,12 +239,12 @@ class IMPALAAgent(Agent):
             # No learning, no loss function.
             self.loss_function = None
             # A Dict Splitter to split things from the EnvStepper.
-            self.splitter = ContainerSplitter(tuple_length=8)
+            self.env_output_splitter = ContainerSplitter(tuple_length=8)
             # Slice some data from the EnvStepper (e.g only first internal states are needed).
             self.next_states_slicer = Slice(scope="next-states-slicer", squeeze=False)
             self.internal_states_slicer = Slice(scope="internal-states-slicer", squeeze=True)
             # Merge back to insert into FIFO.
-            self.merger = DictMerger(*self.fifo_queue_keys)
+            self.fifo_input_merger = DictMerger(*self.fifo_queue_keys)
 
             self.softmax = None
 
@@ -199,16 +260,16 @@ class IMPALAAgent(Agent):
                 action_probs_space=dummy_flattener.get_preprocessed_space(self.action_space)
             )
             sub_components = [
-                self.environment_stepper, self.splitter, self.next_states_slicer, self.internal_states_slicer,
-                self.merger, self.fifo_queue
+                self.environment_stepper, self.env_output_splitter, self.next_states_slicer,
+                self.internal_states_slicer, self.fifo_input_merger, self.fifo_queue
             ]
         # Learner.
         else:
             self.environment_stepper = None
 
             # A Dict splitter to split up items from the queue.
-            self.merger = None
-            self.splitter = ContainerSplitter(*self.fifo_queue_keys)
+            self.fifo_input_merger = None
+            self.fifo_output_splitter = ContainerSplitter(*self.fifo_queue_keys)
             self.next_states_slicer = None
             self.internal_states_slicer = None
 
@@ -220,8 +281,8 @@ class IMPALAAgent(Agent):
                 weight_entropy=weight_entropy
             )
 
-            sub_components = [self.fifo_queue, self.splitter, self.preprocessor, self.policy, self.softmax,
-                              self.loss_function, self.optimizer]
+            sub_components = [self.fifo_queue, self.fifo_output_splitter, self.preprocessor, self.policy,
+                              self.softmax, self.loss_function, self.optimizer]
 
         # Add all the agent's sub-components to the root.
         self.root_component.add_components(*sub_components)
@@ -245,10 +306,18 @@ class IMPALAAgent(Agent):
         #)
 
         # Assemble the specific agent.
-        if self.type == "actor":
+        if self.type == "single":
+            self.define_api_methods_single(*sub_components)
+        elif self.type == "actor":
             self.define_api_methods_actor(*sub_components)
         else:
             self.define_api_methods_learner(*sub_components)
+
+    def define_api_methods_single(self, env_output_splitter, fifo_output_splitter,
+                                  next_states_slicer, internal_states_slicer, fifo_input_merger, fifo_queue,
+                                  *environment_steppers):
+        def all_actors_perform_n_steps_and_insert_into_fifo():
+            pass
 
     def define_api_methods_actor(self, env_stepper, splitter, next_states_slicer, internal_states_slicer, merger,
                                  fifo_queue):
@@ -270,15 +339,12 @@ class IMPALAAgent(Agent):
                 env_stepper.step, internal_states, self.worker_sample_size, time_step
             )
 
-            # TODO: only pass action_prob of the actually taken action into FIFO (one-hot, reduce_sum).
             preprocessed_s, actions, rewards, returns, terminals, next_states, action_log_probs, \
                 internal_states = self_.call(splitter.split, step_results)
 
             last_next_state = self_.call(next_states_slicer.slice, next_states, -1)
             initial_internal_states = self_.call(internal_states_slicer.slice, internal_states, 0)
             current_internal_states = self_.call(internal_states_slicer.slice, internal_states, -1)
-
-            # TODO: concat preprocessed_s with last_next_state?
 
             record = self_.call(
                 merger.merge, preprocessed_s, actions, rewards, terminals, last_next_state,
@@ -344,6 +410,18 @@ class IMPALAAgent(Agent):
             return step_op, loss, loss_per_item
 
         self.root_component.define_api_method("update_from_memory", update_from_memory)
+
+        #def _graph_fn_test_assign(self):
+        #    ref = self.policy.variables["shared/policy/impala-network/text-stack/lstm-64/lstm-cell/kernel"]
+        #    return self.assign_variable(ref, np.ones(shape=ref.shape, dtype=np.float32))
+
+        #self.root_component.define_api_method("test_assign", _graph_fn_test_assign)
+
+        def insert_dummy_records(self_):
+            insert_op = self_.call(fifo_queue.insert_dummy_records)
+            return insert_op
+
+        self.root_component.define_api_method("insert_dummy_records", insert_dummy_records)
 
     def get_action(self, states, internal_states=None, use_exploration=True, extra_returns=None):
         pass
