@@ -277,11 +277,11 @@ class TensorFlowExecutor(GraphExecutor):
                 start=True
             )
 
-        if self.distributed_spec["job"] == "ps":
-            # Just join and be done.
-            self.logger.info("Job is parameter server, joining and waiting.")
-            self.server.join()
-            quit()
+            if self.distributed_spec["job"] == "ps":
+                # Just join and be done.
+                self.logger.info("Job is parameter server, joining and waiting.")
+                self.server.join()
+                quit()
 
     def setup_horovod_execution(self):
         """
