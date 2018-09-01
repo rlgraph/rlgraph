@@ -18,14 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 from collections import OrderedDict
-import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.environments.environment import Environment
 from rlgraph.utils.ops import DataOpTuple, DataOpDict, flatten_op, unflatten_op
-from rlgraph.spaces import Space
+from rlgraph.spaces import Space, Dict
 from rlgraph.utils.specifiable_server import SpecifiableServer
 from rlgraph.utils.util import force_tuple
 
@@ -48,6 +47,7 @@ class EnvironmentStepper(Component):
     """
 
     def __init__(self, environment_spec, actor_component_spec, num_steps=20, state_space=None, reward_space=None,
+                 internal_states_space=None,
                  add_action_probs=False, action_probs_space=None, add_previous_action=False, add_previous_reward=False,
                  **kwargs):
         """
@@ -61,6 +61,8 @@ class EnvironmentStepper(Component):
                 environment to get the state Space from there.
             reward_space (Optional[Space]): The reward Space of the Environment. If None, will construct a dummy
                 environment to get the reward Space from there.
+            internal_states_space (Optional[Space]): The internal states Space (when using an RNN inside the
+                ActorComponent).
             add_action_probs (bool): Whether to add all action probabilities for each step to the ActionComponent's
                 outputs at each step. These will be added as additional tensor inside the
                 Default: False.
@@ -112,13 +114,17 @@ class EnvironmentStepper(Component):
         # Need to flatten the state-space in case it's a ContainerSpace for the return dtypes.
         self.state_space_env_list = list(self.state_space_env_flattened.values())
 
-        # TODO: automate this
-        #self.internal_state_space =
+        # TODO: automate this by lookup from the NN Component
+        self.internal_states_space = internal_states_space
 
         # Add the action/reward spaces to the state space (must be Dict).
         if self.add_previous_action is True:
+            assert isinstance(self.state_space_actor, Dict),\
+                "ERROR: If `add_previous_action` is True as input, state_space must be a Dict!"
             self.state_space_actor["previous_action"] = self.action_space
         if self.add_previous_reward is True:
+            assert isinstance(self.state_space_actor, Dict),\
+                "ERROR: If `add_previous_reward` is True as input, state_space must be a Dict!"
             self.state_space_actor["previous_reward"] = self.reward_space
         self.state_space_actor_flattened = self.state_space_actor.flatten()
         self.state_space_actor_list = list(self.state_space_actor_flattened.values())
@@ -168,7 +174,7 @@ class EnvironmentStepper(Component):
                                                flatten=True, trainable=False)
         if self.has_rnn:
             self.current_internal_states = self.get_variable(
-                name="current-internal-states", from_space=self.internal_state_space, initializer=0.0,
+                name="current-internal-states", from_space=self.internal_states_space, initializer=0.0,
                 flatten=True, trainable=False
             )
 
@@ -193,7 +199,7 @@ class EnvironmentStepper(Component):
                 var_list=[self.episode_return, self.current_terminal]
             ))
             if self.has_rnn:
-                assigns.append(tf.variables_initializer(var_list=[self.current_internal_states]))
+                assigns.append(tf.variables_initializer(var_list=list(self.current_internal_states.values())))
 
             # Note: self.time_step never gets reset.
 
