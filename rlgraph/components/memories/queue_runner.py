@@ -62,7 +62,8 @@ class QueueRunner(Component):
                 enqueue_op = self.call(getattr(sub_component, self.api_method_name))
                 enqueue_ops.append(enqueue_op)
 
-            self.queue_runner = tf.train.QueueRunner(self.queue, enqueue_ops)
+            self.queue_runner = tf.train.QueueRunner(self.queue.queue, enqueue_ops)
+            # Add to standard collection, so all queue-runners will be started after session creation.
             tf.train.add_queue_runner(self.queue_runner)
 
             return tf.no_op()
