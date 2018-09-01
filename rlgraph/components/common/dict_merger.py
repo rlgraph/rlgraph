@@ -59,9 +59,9 @@ class DictMerger(Component):
             spaces.append(input_spaces[key])
             idx += 1
 
-        assert len(spaces) == len(self.input_names),\
-            "ERROR: Number of incoming Spaces ({}) does not match number of given `input_names` in DictMerger Component " \
-            "'{}'!".format(len(spaces), len(self.input_names), self.global_scope)
+        #assert len(spaces) == len(self.input_names),\
+        #    "ERROR: Number of incoming Spaces ({}) does not match number of given `input_names` in DictMerger Component " \
+        #    "'{}'!".format(len(spaces), len(self.input_names), self.global_scope)
 
     #    #for space in spaces:
     #    #    assert not isinstance(space, ContainerSpace),\
