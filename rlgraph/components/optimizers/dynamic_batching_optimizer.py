@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components import LocalOptimizer, Component
-from rlgraph.components.optimizers.optimizer import Optimizer
+from rlgraph.components.helpers import dynamic_batching
 from rlgraph.utils.ops import DataOpTuple
 
 if get_backend() == "tf":
@@ -43,7 +43,13 @@ class DynamicBatchingOptimizer(Component):
         pass
 
     def _graph_fn_step(self, variables, loss, loss_per_item, *inputs):
-        pass
+
+        # Wrap dynamic batching module
+        @dynamic_batching.batch_fn
+        def step(variables, loss, loss_per_item, *inputs):
+            # TODO potentially assign device
+            return self.call(self.optimizer.step, variables, loss, loss_per_item, *inputs)
+        return step(variables, loss, loss_per_item, *inputs)
 
     def _graph_fn_calculate_gradients(self, variables, loss):
         """
@@ -51,10 +57,10 @@ class DynamicBatchingOptimizer(Component):
             variables (DataOpTuple): A list of variables to calculate gradients for.
             loss (SingeDataOp): The total loss over a batch to be minimized.
         """
-        return self.optimizer._graph_fn_calculate_gradients(variables, loss)
+        return self.call(self.optimizer._graph_fn_calculate_gradients(variables, loss))
 
     def _graph_fn_apply_gradients(self, grads_and_vars):
-        return self.optimizer._graph_fn_apply_gradients(grads_and_vars)
+        return self.call(self.optimizer._graph_fn_apply_gradients(grads_and_vars))
 
     def get_optimizer_variables(self):
         return self.optimizer.variables()
