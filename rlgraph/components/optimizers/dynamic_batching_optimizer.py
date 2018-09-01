@@ -18,7 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components import LocalOptimizer, Component
+from rlgraph.components import Component
+from rlgraph.components.optimizers import LocalOptimizer
 from rlgraph.components.helpers import dynamic_batching
 from rlgraph.utils.ops import DataOpTuple
 

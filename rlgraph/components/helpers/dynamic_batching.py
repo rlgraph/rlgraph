@@ -22,7 +22,11 @@ import functools
 
 import tensorflow as tf
 
-batcher_ops = tf.load_op_library('./batcher.so')
+# TODO handle this?
+try:
+    batcher_ops = tf.load_op_library('./batcher.so')
+except:
+    pass
 
 nest = tf.contrib.framework.nest
 

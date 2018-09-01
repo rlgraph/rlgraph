@@ -203,5 +203,5 @@ class MinSumSegmentTree(object):
             self.sum_segment_tree.values[index] = self.sum_segment_tree.values[update_index] +\
                 self.sum_segment_tree.values[update_index + 1]
             self.min_segment_tree.values[index] = min(self.min_segment_tree.values[update_index],
-                 self.min_segment_tree.values[update_index + 1])
+                self.min_segment_tree.values[update_index + 1])
             index = index >> 1
