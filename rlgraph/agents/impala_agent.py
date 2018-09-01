@@ -30,6 +30,7 @@ from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.loss_functions.impala_loss_function import IMPALALossFunction
 from rlgraph.components.memories.fifo_queue import FIFOQueue
+from rlgraph.components.memories.queue_runner import QueueRunner
 from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork, SmallIMPALANetwork
 from rlgraph.spaces import FloatBox, Dict, Tuple
 from rlgraph.utils.util import default_dict
@@ -138,7 +139,7 @@ class IMPALAAgent(Agent):
         # Manually set the reuse_variable_scope for our policies (actor: mu, learner: pi).
         self.policy.propagate_subcomponent_properties(dict(reuse_variable_scope="shared"))
         # Always use 1st learner as the parameter server for all policy variables.
-        if self.execution_spec["mode"] == "distributed":
+        if self.execution_spec["mode"] == "distributed" and self.execution_spec["distributed_spec"]["cluster_spec"]:
             self.policy.propagate_subcomponent_properties(dict(device=dict(variables="/job:learner/task:0/cpu")))
 
         # Check whether we have an RNN.
@@ -174,7 +175,8 @@ class IMPALAAgent(Agent):
         self.fifo_queue = FIFOQueue.from_spec(
             fifo_queue_spec, reuse_variable_scope="shared-fifo-queue", only_insert_single_records=True,
             record_space=self.fifo_record_space,
-            device="/job:learner/task:0" if self.execution_spec["mode"] == "distributed" else None
+            device="/job:learner/task:0" if self.execution_spec["mode"] == "distributed" and
+                                            self.execution_spec["distributed_spec"]["cluster_spec"] else None
         )
 
         # Remove `states` key from input_spaces: not needed.
@@ -185,15 +187,10 @@ class IMPALAAgent(Agent):
             # Create a queue runner that takes care of pushing items into the queue from our actors.
 
             # TODO: backend specific
-            #tf.train.add_queue_runner(tf.train.QueueRunner(self.fifo_queue.queue, []))
+            self.queue_runner = QueueRunner(self.fifo_queue, "")
 
-            # Extend input Space definitions to this Agent's specific API-methods.
-            self.input_spaces.update(dict(
-                internal_states=self.internal_states_space.with_batch_rank(),
-                time_step=int
-            ))
-            self.env_output_splitter = ContainerSplitter(tuple_length=8)
-            self.fifo_output_splitter = ContainerSplitter(*self.fifo_queue_keys)
+            self.env_output_splitter = ContainerSplitter(tuple_length=8, scope="env-output-splitter")
+            self.fifo_output_splitter = ContainerSplitter(*self.fifo_queue_keys, scope="fifo-output-splitter")
 
             # Slice some data from the EnvStepper (e.g only first internal states are needed).
             self.next_states_slicer = Slice(scope="next-states-slicer", squeeze=False)
@@ -229,12 +226,6 @@ class IMPALAAgent(Agent):
             sub_components.extend(self.environment_steppers)
 
         elif self.type == "actor":
-            # Extend input Space definitions to this Agent's specific API-methods.
-            self.input_spaces.update(dict(
-                #weights="variables:environment-stepper/actor-component/policy",
-                internal_states=self.internal_states_space.with_batch_rank(),
-                time_step=int
-            ))
             # No learning, no loss function.
             self.loss_function = None
             # A Dict Splitter to split things from the EnvStepper.

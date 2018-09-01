@@ -152,7 +152,7 @@ class LSTMLayer(NNLayer):
                 initial_state=initial_c_and_h_states,
                 parallel_iterations=self.parallel_iterations, swap_memory=self.swap_memory,
                 time_major=self.in_space.time_major,
-                dtype="float" #self.dtype
+                dtype="float"
             )
 
             # Returns: Unrolled-outputs (time series of all encountered h-states), final c- and h-states.
