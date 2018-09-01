@@ -24,7 +24,7 @@ import unittest
 from rlgraph.environments.environment import Environment
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
-from rlgraph.spaces import FloatBox, IntBox
+from rlgraph.spaces import FloatBox, IntBox, Tuple
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils.ops import DataOpTuple
@@ -55,13 +55,8 @@ class TestEnvironmentStepper(unittest.TestCase):
 
         test = ComponentTest(
             component=environment_stepper,
-            #input_spaces=dict(num_steps=int, time_step=int),
             action_space=action_space,
-            #disable_monitoring=True  # Make session-creation hang in docker.
         )
-
-        # Start Specifiable Server with Env manually.
-        #environment_stepper.environment_server.start()
 
         # Reset the stepper.
         test.test("reset")
@@ -93,7 +88,6 @@ class TestEnvironmentStepper(unittest.TestCase):
         test.test("step", expected_outputs=expected)
 
         # Make sure we close the session (to shut down the Env on the server).
-        #environment_stepper.environment_server.stop()
         test.terminate()
 
     def test_environment_stepper_on_random_env_with_returning_action_probs(self):
@@ -119,13 +113,8 @@ class TestEnvironmentStepper(unittest.TestCase):
 
         test = ComponentTest(
             component=environment_stepper,
-            #input_spaces=dict(num_steps=int, time_step=int),
             action_space=action_space,
-            #disable_monitoring=True  # Make session-creation hang in docker.
         )
-
-        # Start Specifiable Server with Env manually.
-        #environment_stepper.environment_server.start()
 
         # Reset the stepper.
         test.test("reset")
@@ -163,10 +152,58 @@ class TestEnvironmentStepper(unittest.TestCase):
         test.test("step", expected_outputs=expected, decimals=5)
 
         # Make sure we close the session (to shut down the Env on the server).
-        #environment_stepper.environment_server.stop()
         test.terminate()
 
-    # TODO: missing test case for adding previous-action and/or previous-reward to cycle.
+    def test_environment_stepper_on_random_env_with_action_probs_lstm(self):
+        state_space = FloatBox(shape=(2,))
+        action_space = IntBox(4)
+        internal_states_space = Tuple(FloatBox(shape=(10,)), FloatBox(shape=(10,)))
+        preprocessor_spec = [dict(type="multiply", factor=3)]
+        neural_network_spec = config_from_path("configs/test_lstm_nn.json")
+        exploration_spec = None
+        actor_component = ActorComponent(
+            preprocessor_spec, dict(neural_network=neural_network_spec, action_space=action_space), exploration_spec
+        )
+        environment_stepper = EnvironmentStepper(
+            environment_spec=dict(
+                type="random_env", state_space=state_space, action_space=action_space, deterministic=True
+            ),
+            actor_component_spec=actor_component,
+            state_space=state_space,
+            reward_space="float32",
+            internal_states_space=internal_states_space,
+            add_action_probs=True,
+            action_probs_space=FloatBox(shape=(4,), add_batch_rank=True),
+            num_steps=3,
+        )
+
+        test = ComponentTest(
+            component=environment_stepper,
+            action_space=action_space,
+        )
+
+        # Reset the stepper.
+        test.test("reset")
+
+        # Step 3 times through the Env and collect results.
+        # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
+        # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
+        expected_r = np.array([0.19806287, 0.68535984, 0.81262094])
+        expected = (None, (
+            np.array([[2.313962 , 0.06225585], [1.4955211, 0.67438996], [0.5073325, 0.26501945]]),  # p(s)
+            np.array([0, 0, 0]),  # a
+            expected_r,  # r
+            np.array([expected_r[:1].sum(), expected_r[:2].sum(), expected_r[:3].sum()]),  # episode's accumulated returns
+            np.array([False, False, False]),
+            np.array([[0.49850702, 0.22479665], [0.16911083, 0.08833981], [0.00394827, 0.51219225]]),  # s' (raw)
+            np.array([[0.3300916, 0.1521335, 0.3016182, 0.2161567],
+                      [0.4281767, 0.1859898, 0.163224, 0.2226095],
+                      [0.311745, 0.2305052, 0.2134148, 0.2443351]])  # action probs
+        ))
+        test.test("step", expected_outputs=expected)
+
+        # Make sure we close the session (to shut down the Env on the server).
+        test.terminate()
 
     def test_environment_stepper_on_pong(self):
         environment_spec = dict(type="openai_gym", gym_env="Pong-v0", frameskip=4, seed=10)
@@ -189,14 +226,9 @@ class TestEnvironmentStepper(unittest.TestCase):
             num_steps=2000
         )
 
-        # Start Specifiable Server with Env manually.
-        #environment_stepper.environment_server.start()
-
         test = ComponentTest(
             component=environment_stepper,
-            #input_spaces=dict(num_steps=int, time_step=int),
             action_space=action_space,
-            #disable_monitoring=True,  # Make session-creation hang in docker.
         )
 
         # Step 30 times through the Env and collect results.
@@ -204,7 +236,6 @@ class TestEnvironmentStepper(unittest.TestCase):
         # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
         # Reset the stepper.
         test.test("reset")
-        #time_steps = 2000
         time_start = time.monotonic()
         out = test.test("step")
         time_end = time.monotonic()
@@ -238,7 +269,6 @@ class TestEnvironmentStepper(unittest.TestCase):
                 episode_returns = 0.0
 
         # Make sure we close the session (to shut down the Env on the server).
-        #environment_stepper.environment_server.stop()
         test.terminate()
 
     def test_compare_with_non_env_stepper(self):
@@ -270,4 +300,4 @@ class TestEnvironmentStepper(unittest.TestCase):
                 s = dummy_env.reset()
         time_end = time.monotonic()
         print("Done running {} steps in bare-metal env in {}sec.".format(time_steps, time_end - time_start))
-
+        test.terminate()
