@@ -341,8 +341,10 @@ class TensorFlowExecutor(GraphExecutor):
 
         # Finalize our graph, create and enter the session.
         self.setup_session(hooks)
+
+        # NOT NECESSARY: SEEMS TO BE DONE AUTOMATICALLY BY SESSION
         # Start Queue Runners (if any).
-        self.start_queue_runners()
+        #self.start_queue_runners()
 
     def setup_saver(self, hooks):
         """
@@ -571,14 +573,14 @@ class TensorFlowExecutor(GraphExecutor):
         if self.profiling_enabled and not self.disable_monitoring:
             self.profiler = tf.profiler.Profiler(graph=self.session.graph)
 
-    def start_queue_runners(self):
-        """
-        Starts all Queue Runner objects registered under collection tf.GraphKeys.QUEUE_RUNNERS.
+    #def start_queue_runners(self):
+    #    """
+    #    Starts all Queue Runner objects registered under collection tf.GraphKeys.QUEUE_RUNNERS.
 
-        Returns:
-            list: The list of Thread objects that were created (one for each queue runner).
-        """
-        return tf.train.start_queue_runners(sess=self.monitored_session)
+    #    Returns:
+    #        list: The list of Thread objects that were created (one for each queue runner).
+    #    """
+    #    return tf.train.start_queue_runners(sess=self.monitored_session)
 
     def load_model(self, path=None):
         self.logger.info("Attempting to restore model from path: {}.".format(path))
