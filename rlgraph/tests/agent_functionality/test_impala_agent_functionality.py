@@ -356,6 +356,9 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
                 distributed_spec=dict(cluster_spec=None)
             )
         )
+        time.sleep(10)
+        # Count items in the queue.
+        print("Items in queue: {}".format(agent.call_api_method("get_queue_size")))
         #worker = IMPALAWorker(agent=agent)
         #out = worker.execute_timesteps(1000)
         print()

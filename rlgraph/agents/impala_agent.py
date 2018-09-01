@@ -215,6 +215,7 @@ class IMPALAAgent(Agent):
                                                     exploration_spec=exploration_spec),
                 state_space=self.state_space.with_batch_rank(),
                 reward_space=float,  # TODO <- float64 for deepmind? may not work for other envs
+                internal_states_space=self.internal_states_space,
                 add_previous_action=True,
                 add_previous_reward=True,
                 add_action_probs=True,
@@ -223,12 +224,22 @@ class IMPALAAgent(Agent):
             ) for i in range(self.num_actors)]
 
             # Create the QueueRunners (one for each env-stepper).
-            self.queue_runner = QueueRunner(self.fifo_queue, "step", *self.environment_steppers)
+            # - Take return value 1 of API-method step as record to insert.
+            self.queue_runner = QueueRunner(self.fifo_queue, "step", 1, self.env_output_splitter,
+                                            self.fifo_input_merger, self.next_states_slicer,
+                                            self.internal_states_slicer,
+                                            *self.environment_steppers)
+            self.softmax = SoftMax()
+
+            # Create an IMPALALossFunction with some parameters.
+            self.loss_function = IMPALALossFunction(
+                discount=self.discount, weight_pg=weight_pg, weight_baseline=weight_baseline,
+                weight_entropy=weight_entropy
+            )
 
             sub_components = [
-                self.env_output_splitter, self.fifo_output_splitter, self.next_states_slicer,
-                self.internal_states_slicer, self.fifo_input_merger, self.fifo_queue,
-                self.queue_runner
+                self.fifo_output_splitter, self.fifo_queue, self.queue_runner, self.softmax,
+                self.loss_function
             ]
 
         elif self.type == "actor":
@@ -309,10 +320,18 @@ class IMPALAAgent(Agent):
         else:
             self.define_api_methods_learner(*sub_components)
 
-    def define_api_methods_single(self, env_output_splitter, fifo_output_splitter,
-                                  next_states_slicer, internal_states_slicer, fifo_input_merger, fifo_queue,
-                                  *environment_steppers):
-        def all_actors_perform_n_steps_and_insert_into_fifo():
+    def define_api_methods_single(self, fifo_output_splitter, fifo_queue, queue_runner, softmax, loss_func):
+        def setup_queue_runners(self):
+            return self.call(queue_runner.setup)
+
+        self.root_component.define_api_method("setup_queue_runners", setup_queue_runners)
+
+        def get_queue_size(self):
+            return self.call(fifo_queue.get_size)
+
+        self.root_component.define_api_method("get_queue_size", get_queue_size)
+
+        def update_from_memory():
             pass
 
     def define_api_methods_actor(self, env_stepper, splitter, next_states_slicer, internal_states_slicer, merger,

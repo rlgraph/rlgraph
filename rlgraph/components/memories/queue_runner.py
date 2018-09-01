@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.component import Component
+from rlgraph.utils.ops import flatten_op
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -33,23 +34,44 @@ class QueueRunner(Component):
     enqueue() -> Returns a noop, but creates the enqueue ops for enqueuing data into the queue and hands these
         to the underlying queue-runner object.
     """
-    def __init__(self, queue, api_method_name, *sub_components, **kwargs):
+    def __init__(self, queue, api_method_name, return_slot,
+                 # TODO: move these into data_producing_components-wrapper components
+                 env_output_splitter,
+                 fifo_input_merger,
+                 next_states_slicer,
+                 internal_states_slicer,
+                 *data_producing_components, **kwargs):
         """
         Args:
             queue (Queue-like): The Queue (FIFOQueue), whose underlying `queue` object to use to enqueue item into.
             api_method_name (str): The name of the API method to call on all `sub_components` to get ops from
                 which we will create enqueue ops for the queue.
-            sub_components (Component): The sub-components of this QueueRunner.
+            return_slot (int): The slot of the returned values to use as to-be-inserted record into the queue.
+                Set to -1 if only one value is expected.
+            #input_merger (Component): The record input-merger to use for merging things into a dict-record
+            #    before inserting it into the queue.
+            data_producing_components (Component): The components of this QueueRunner that produce the data to
+                be enqueued.
         """
         super(QueueRunner, self).__init__(scope=kwargs.pop("scope", "queue-runner"), **kwargs)
 
         self.queue = queue
         self.api_method_name = api_method_name
+        self.return_slot = return_slot
 
+        self.env_output_splitter = env_output_splitter
+        self.fifo_input_merger = fifo_input_merger
+        self.next_states_slicer = next_states_slicer
+        self.internal_states_slicer = internal_states_slicer
+
+        # The actual backend-dependent queue object.
         self.queue_runner = None
 
-        # Add our sub-components.
-        self.add_components(*sub_components)
+        self.data_producing_components = data_producing_components
+
+        # Add our sub-components (not the queue!).
+        self.add_components(self.env_output_splitter, self.fifo_input_merger, self.next_states_slicer,
+                            self.internal_states_slicer, *self.data_producing_components)
 
         self.define_api_method("setup", self._graph_fn_setup)
 
@@ -57,8 +79,34 @@ class QueueRunner(Component):
         enqueue_ops = list()
 
         if get_backend() == "tf":
-            for sub_component in self.sub_components.values():
-                enqueue_op = self.call(getattr(sub_component, self.api_method_name))
+            for data_producing_component in self.data_producing_components:
+                record = self.call(getattr(data_producing_component, self.api_method_name))
+                if self.return_slot != -1:
+                    # Only care about one slot of the return values.
+                    record = record[self.return_slot]
+                # Create dict record from tuple return.
+                #record = self.call(self.input_merger.merge, *record)
+
+                # TODO: specific for IMPALA problem: needs to be generalized.
+                preprocessed_s, actions, rewards, returns, terminals, next_states, action_log_probs, \
+                    internal_states = self.call(self.env_output_splitter.split, record)
+
+                last_next_state = self.call(self.next_states_slicer.slice, next_states, -1)
+                initial_internal_states = self.call(self.internal_states_slicer.slice, internal_states, 0)
+                #current_internal_states = self.call(self.internal_states_slicer.slice, internal_states, -1)
+
+                record = self.call(
+                    self.fifo_input_merger.merge, preprocessed_s, actions, rewards, terminals, last_next_state,
+                    action_log_probs, initial_internal_states
+                )
+
+                # Insert results into the FIFOQueue.
+                #insert_op = self_.call(fifo_queue.insert_records, record)
+                #return step_op, insert_op, current_internal_states, returns, terminals
+
+                # Create enqueue_op from api_return.
+                # TODO: This is kind of cheating, as we are producing an op from a component that's not ours.
+                enqueue_op = self.queue.queue.enqueue(flatten_op(record))
                 enqueue_ops.append(enqueue_op)
 
             self.queue_runner = tf.train.QueueRunner(self.queue.queue, enqueue_ops)

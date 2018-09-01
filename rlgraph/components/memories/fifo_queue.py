@@ -54,6 +54,9 @@ class FIFOQueue(Memory):
             self.define_api_method(
                 "insert_records", self._graph_fn_insert_records, must_be_complete=False, ok_to_overwrite=True
             )
+            #self.define_api_method(
+            #    "insert_dummy_records", self._graph_fn_insert_dummy_records, must_be_complete=False
+            #)
 
     def create_variables(self, input_spaces, action_space=None):
         # Overwrite parent's method as we don't need a custom registry.
@@ -93,6 +96,10 @@ class FIFOQueue(Memory):
         else:
             # Insert the records as FlattenedDataOp (dict).
             return self.queue.enqueue_many(flatten_op(records))
+
+    #def _graph_fn_insert_dummy_records(self):
+    #    records = self.record_space.sample(size=(10, 20))
+    #    return self.queue.enqueue_many(flatten_op(records))
 
     def _graph_fn_get_records(self, num_records=1):
         # Get the records as dict.
