@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import time
 
 from rlgraph import get_backend, get_distributed_backend
 import rlgraph.utils as util
@@ -162,6 +163,7 @@ class TensorFlowExecutor(GraphExecutor):
             raise RLGraphError("Invalid device_strategy ('{}') for TensorFlowExecutor!".format(self.device_strategy))
 
     def build(self, root_components, input_spaces, optimizer=None, loss_name=None):
+        start = time.monotonic()
         # 0. Init phase: Component construction and nesting (child/parent Components).
         # Components can still be modified and re-arranged after this.
         self.init_execution()
@@ -171,22 +173,33 @@ class TensorFlowExecutor(GraphExecutor):
         # thereby calling other API-methods (of sub-Components). These API-method calls then build the meta-graph
         # (generating empty op-record columns around API methods and graph_fns).
         # TODO make compatible for multiple roots in graph builder.
+        meta_build_times = []
+        build_times = []
         for component in root_components:
             self._build_device_strategy(component, optimizer, loss_name)
+            start = time.monotonic()
             meta_graph = self.meta_graph_builder.build(component, input_spaces)
+            meta_build_times.append(time.monotonic() - start)
 
             # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
             # -> Inputs/Operations/variables
-            self.graph_builder.build_graph(
+            build_time = self.graph_builder.build_graph(
                 meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices,
                 device_strategy=self.device_strategy, default_device=self.default_device, device_map=self.device_map
             )
+            build_times.append(build_time)
 
         # Check device assignments for inconsistencies or unused devices.
         self._sanity_check_devices()
 
         # Set up any remaining session or monitoring configurations.
         self.finish_graph_setup()
+
+        return dict(
+            total_build_time=time.monotonic() - start,
+            meta_graph_build_times=meta_build_times,
+            build_times=build_times,
+        )
 
     def execute(self, *api_methods):
         # Fetch inputs for the different API-methods.

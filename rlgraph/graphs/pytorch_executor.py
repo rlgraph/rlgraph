@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import time
 
 from rlgraph import get_backend
 from rlgraph.graphs import GraphExecutor
@@ -41,12 +42,24 @@ class PyTorchExecutor(GraphExecutor):
         self.available_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
 
     def build(self, root_components, input_spaces, *args):
+        start = time.monotonic()
+        meta_build_times = []
+        build_times = []
         for component in root_components:
+            start = time.monotonic()
             meta_graph = self.meta_graph_builder.build(component, input_spaces)
+            meta_build_times.append(time.monotonic() - start)
 
-            self.graph_builder.build_define_by_run_graph(
+            build_time = self.graph_builder.build_define_by_run_graph(
                 meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices
             )
+            build_times.append(build_time)
+
+        return dict(
+            total_build_time=time.monotonic() - start,
+            meta_graph_build_times=meta_build_times,
+            build_times=build_times,
+        )
 
     def execute(self, *api_methods):
         # Have to call each method separately.

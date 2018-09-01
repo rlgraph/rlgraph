@@ -160,6 +160,7 @@ class GraphBuilder(Specifiable):
 
         self.num_trainable_parameters = self.count_trainable_parameters()
         self.logger.info("Number of trainable parameters: {}".format(self.num_trainable_parameters))
+        return time_build
 
     def build_input_space_ops(self, input_spaces):
         """

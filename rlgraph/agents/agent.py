@@ -227,7 +227,7 @@ class Agent(Specifiable):
         """
         Builds the internal graph from the RLGraph meta-graph via the graph executor..
         """
-        self.graph_executor.build(root_components, input_spaces, *args)
+        return self.graph_executor.build(root_components, input_spaces, *args)
 
     def build(self):
         """
@@ -238,7 +238,7 @@ class Agent(Specifiable):
                                      "auto_build parameter is set to False (was {}), and" \
                                      "method has not been called twice".format(self.auto_build)
         # TODO let agent have a list of root-components
-        self._build_graph([self.root_component], self.input_spaces, self.optimizer, self.loss_function.name)
+        return self._build_graph([self.root_component], self.input_spaces, self.optimizer, self.loss_function.name)
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
