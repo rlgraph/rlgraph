@@ -73,6 +73,7 @@ class Policy(Component):
                         layer.
                     logits (SingleDataOp): The (action-space reshaped, but otherwise raw) logits.
     """
+    # TODO: change `neural_network` into unified name `network_spec`.
     def __init__(self, neural_network, action_space=None, writable=False, action_adapter_spec=None,
                  max_likelihood=True, scope="policy", **kwargs):
         """

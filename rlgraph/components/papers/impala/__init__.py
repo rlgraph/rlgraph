@@ -20,3 +20,5 @@ from __future__ import print_function
 from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork
 from rlgraph.components.papers.impala.impala_networks import SmallIMPALANetwork
 
+
+__all__ = ["LargeIMPALANetwork", "SmallIMPALANetwork"]

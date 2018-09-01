@@ -76,7 +76,8 @@ class IMPALAAgent(Agent):
 
         # Network-spec by default is a "large architecture" IMPALA network.
         network_spec = kwargs.pop(
-            "network_spec", LargeIMPALANetwork() if architecture == "large" else SmallIMPALANetwork()
+            "network_spec", "rlgraph.components.papers.impala.impala_networks.{}IMPALANetwork".
+            format("Large" if architecture == "large" else "Small")
         )
         action_adapter_spec = kwargs.pop("action_adapter_spec", dict(type="baseline-action-adapter"))
 
@@ -186,9 +187,6 @@ class IMPALAAgent(Agent):
         if self.type == "single":
             # Create a queue runner that takes care of pushing items into the queue from our actors.
 
-            # TODO: backend specific
-            self.queue_runner = QueueRunner(self.fifo_queue, "")
-
             self.env_output_splitter = ContainerSplitter(tuple_length=8, scope="env-output-splitter")
             self.fifo_output_splitter = ContainerSplitter(*self.fifo_queue_keys, scope="fifo-output-splitter")
 
@@ -208,9 +206,13 @@ class IMPALAAgent(Agent):
             self.fifo_input_merger = DictMerger(*self.fifo_queue_keys)
 
             dummy_flattener = ReShape(flatten=True)  # dummy Flattener to calculate action-probs space
+
             self.environment_steppers = [EnvironmentStepper(
                 environment_spec=environment_spec,
-                actor_component_spec=ActorComponent(self.preprocessor, self.policy, self.exploration),
+                actor_component_spec=ActorComponent(preprocessor_spec=preprocessing_spec,
+                                                    policy_spec=dict(neural_network=network_spec,
+                                                                     action_space=self.action_space),
+                                                    exploration_spec=exploration_spec),
                 state_space=self.state_space.with_batch_rank(),
                 reward_space=float,  # TODO <- float64 for deepmind? may not work for other envs
                 add_previous_action=True,
@@ -219,11 +221,15 @@ class IMPALAAgent(Agent):
                 action_probs_space=dummy_flattener.get_preprocessed_space(self.action_space),
                 scope="env-stepper-{}".format(i)
             ) for i in range(self.num_actors)]
+
+            # Create the QueueRunners (one for each env-stepper).
+            self.queue_runner = QueueRunner(self.fifo_queue, "step", *self.environment_steppers)
+
             sub_components = [
                 self.env_output_splitter, self.fifo_output_splitter, self.next_states_slicer,
-                self.internal_states_slicer, self.fifo_input_merger, self.fifo_queue
+                self.internal_states_slicer, self.fifo_input_merger, self.fifo_queue,
+                self.queue_runner
             ]
-            sub_components.extend(self.environment_steppers)
 
         elif self.type == "actor":
             # No learning, no loss function.

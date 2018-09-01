@@ -49,7 +49,6 @@ class QueueRunner(Component):
         self.queue_runner = None
 
         # Add our sub-components.
-        self.sub_components = sub_components
         self.add_components(*sub_components)
 
         self.define_api_method("setup", self._graph_fn_setup)
@@ -58,7 +57,7 @@ class QueueRunner(Component):
         enqueue_ops = list()
 
         if get_backend() == "tf":
-            for sub_component in self.sub_components:
+            for sub_component in self.sub_components.values():
                 enqueue_op = self.call(getattr(sub_component, self.api_method_name))
                 enqueue_ops.append(enqueue_op)
 
