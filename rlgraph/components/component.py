@@ -275,7 +275,7 @@ class Component(Specifiable):
         # Direct parent caller is a `_graph_fn_...`: Return raw ops.
         stack = inspect.stack()
         if return_ops is True or re.match(r'^_graph_fn_.+$', stack[1][3]):
-            return (o.op for o in op_recs) if isinstance(op_recs, tuple) else op_recs.op
+            return tuple(o.op for o in op_recs) if isinstance(op_recs, tuple) else op_recs.op
         # Parent caller is non-graph_fn: Return op-recs.
         else:
             return op_recs
