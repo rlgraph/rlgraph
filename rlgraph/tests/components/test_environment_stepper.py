@@ -49,18 +49,19 @@ class TestEnvironmentStepper(unittest.TestCase):
             ),
             actor_component_spec=actor_component,
             state_space=state_space,
-            reward_space="float32"
+            reward_space="float32",
+            num_steps=3
         )
 
         test = ComponentTest(
             component=environment_stepper,
-            input_spaces=dict(num_steps=int, time_step=int),
+            #input_spaces=dict(num_steps=int, time_step=int),
             action_space=action_space,
-            disable_monitoring=True  # Make session-creation hang in docker.
+            #disable_monitoring=True  # Make session-creation hang in docker.
         )
 
         # Start Specifiable Server with Env manually.
-        environment_stepper.environment_server.start()
+        #environment_stepper.environment_server.start()
 
         # Reset the stepper.
         test.test("reset")
@@ -77,7 +78,7 @@ class TestEnvironmentStepper(unittest.TestCase):
             np.array([False, False, False]),
             np.array([[0.74880385], [0.19806287], [0.08833981]]),  # s' (raw)
         ))
-        test.test(("step", 3), expected_outputs=expected)
+        test.test("step", expected_outputs=expected)
 
         # Step again, check whether stitching of states/etc.. works.
         expected_r2 = np.array([0.51219225, 0.7217553, 0.71457577])
@@ -89,10 +90,10 @@ class TestEnvironmentStepper(unittest.TestCase):
             np.array([False, False, False]),
             np.array([[0.00394827], [0.61252606], [0.91777414]]),  # s' (raw)
         ))
-        test.test(("step", 3), expected_outputs=expected)
+        test.test("step", expected_outputs=expected)
 
         # Make sure we close the session (to shut down the Env on the server).
-        environment_stepper.environment_server.stop()
+        #environment_stepper.environment_server.stop()
         test.terminate()
 
     def test_environment_stepper_on_random_env_with_returning_action_probs(self):
@@ -112,18 +113,19 @@ class TestEnvironmentStepper(unittest.TestCase):
             state_space=state_space,
             reward_space="float32",
             add_action_probs=True,
-            action_probs_space=FloatBox(shape=(4,), add_batch_rank=True)
+            action_probs_space=FloatBox(shape=(4,), add_batch_rank=True),
+            num_steps=3
         )
 
         test = ComponentTest(
             component=environment_stepper,
-            input_spaces=dict(num_steps=int, time_step=int),
+            #input_spaces=dict(num_steps=int, time_step=int),
             action_space=action_space,
-            disable_monitoring=True  # Make session-creation hang in docker.
+            #disable_monitoring=True  # Make session-creation hang in docker.
         )
 
         # Start Specifiable Server with Env manually.
-        environment_stepper.environment_server.start()
+        #environment_stepper.environment_server.start()
 
         # Reset the stepper.
         test.test("reset")
@@ -139,11 +141,11 @@ class TestEnvironmentStepper(unittest.TestCase):
             np.array([expected_r[:1].sum(), expected_r[:2].sum(), expected_r[:3].sum()]),  # episode's accumulated returns
             np.array([False, False, False]),
             np.array([[0.49850702, 0.22479665], [0.16911083, 0.08833981], [0.00394827, 0.51219225]]),  # s' (raw)
-            np.array([[0.6712843, 0.0684626, 0.0618327, 0.1984205],
-                      [0.6271601, 0.0846988, 0.0771056, 0.2110356],
-                      [0.3777738, 0.1858639, 0.1797463, 0.2566161]])  # action probs
+            np.array([[0.3300916, 0.1521335, 0.3016182, 0.2161567],
+                      [0.4281767, 0.1859898, 0.163224, 0.2226095],
+                      [0.311745, 0.2305052, 0.2134148, 0.2443351]])  # action probs
         ))
-        test.test(("step", [3, 0]), expected_outputs=expected)
+        test.test("step", expected_outputs=expected)
 
         # Step again, check whether stitching of states/etc.. works.
         expected_r2 = np.array([0.91777414, 0.37334076, 0.617767])
@@ -154,14 +156,14 @@ class TestEnvironmentStepper(unittest.TestCase):
             np.array([expected_r.sum() + expected_r2[0], expected_r.sum() + expected_r2[:2].sum(), expected_r.sum() + expected_r2[:3].sum()]),
             np.array([False, False, False]),
             np.array([[0.7217553, 0.29187608], [0.54254436, 0.14217004], [0.44183317, 0.434014]]),  # s' (raw)
-            np.array([[0.49692, 0.13713, 0.12804, 0.23791],
-                      [0.75235, 0.04507, 0.03951, 0.16307],
-                      [0.61219, 0.08943, 0.08184, 0.21655]])
+            np.array([[0.51214, 0.22756, 0.057, 0.2033],
+                      [0.49673, 0.1566, 0.14199, 0.20468],
+                      [0.3835, 0.18188, 0.20831, 0.22631]])
         ))
-        test.test(("step", [3, 50]), expected_outputs=expected, decimals=5)
+        test.test("step", expected_outputs=expected, decimals=5)
 
         # Make sure we close the session (to shut down the Env on the server).
-        environment_stepper.environment_server.stop()
+        #environment_stepper.environment_server.stop()
         test.terminate()
 
     # TODO: missing test case for adding previous-action and/or previous-reward to cycle.
@@ -183,17 +185,18 @@ class TestEnvironmentStepper(unittest.TestCase):
             environment_spec=environment_spec,
             actor_component_spec=actor_component,
             state_space=state_space,
-            reward_space="float"
+            reward_space="float",
+            num_steps=2000
         )
 
         # Start Specifiable Server with Env manually.
-        environment_stepper.environment_server.start()
+        #environment_stepper.environment_server.start()
 
         test = ComponentTest(
             component=environment_stepper,
-            input_spaces=dict(num_steps=int, time_step=int),
+            #input_spaces=dict(num_steps=int, time_step=int),
             action_space=action_space,
-            disable_monitoring=True,  # Make session-creation hang in docker.
+            #disable_monitoring=True,  # Make session-creation hang in docker.
         )
 
         # Step 30 times through the Env and collect results.
@@ -201,11 +204,13 @@ class TestEnvironmentStepper(unittest.TestCase):
         # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
         # Reset the stepper.
         test.test("reset")
-        time_steps = 2000
+        #time_steps = 2000
         time_start = time.monotonic()
-        out = test.test(("step", [time_steps, 0]))
+        out = test.test("step")
         time_end = time.monotonic()
-        print("Done running {} steps in env-stepper env in {}sec.".format(time_steps, time_end - time_start))
+        print("Done running {} steps in env-stepper env in {}sec.".format(
+            environment_stepper.num_steps, time_end - time_start
+        ))
 
         # Check types of outputs.
         self.assertTrue(out[0] is None)  # the step op (no_op).
@@ -225,7 +230,7 @@ class TestEnvironmentStepper(unittest.TestCase):
 
         # Check whether episode returns match single rewards (including resetting after each terminal signal).
         episode_returns = 0.0
-        for i in range(time_steps):
+        for i in range(environment_stepper.num_steps):
             episode_returns += out[1][2][i]
             self.assertAlmostEqual(episode_returns, out[1][3][i])
             # Terminal: Reset accumulated episode-return before next step.
@@ -233,7 +238,7 @@ class TestEnvironmentStepper(unittest.TestCase):
                 episode_returns = 0.0
 
         # Make sure we close the session (to shut down the Env on the server).
-        environment_stepper.environment_server.stop()
+        #environment_stepper.environment_server.stop()
         test.terminate()
 
     def test_compare_with_non_env_stepper(self):
