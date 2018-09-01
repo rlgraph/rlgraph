@@ -359,9 +359,9 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         time.sleep(10)
         # Count items in the queue.
         print("Items in queue: {}".format(agent.call_api_method("get_queue_size")))
-        #worker = IMPALAWorker(agent=agent)
-        #out = worker.execute_timesteps(1000)
-        print()
+
+        print("Updating from queue ...")
+        out = agent.update()
 
     def test_isolated_impala_actor_agent_functionality(self):
         """

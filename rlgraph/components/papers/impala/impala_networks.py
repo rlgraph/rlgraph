@@ -283,7 +283,9 @@ class SmallIMPALANetwork(IMPALANetwork):
 
         stack_before_unfold = Stack(sub_components, scope="image-stack-before-unfold")
 
-        time_rank_unfold = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold-images")
+        time_rank_unfold = ReShape(
+            unfold_time_rank=True, flip_batch_and_time_rank=True, time_major=True, scope="time-rank-unfold-images"
+        )
 
         def custom_apply(self, inputs):
             image_processing_output = self.call(self.sub_components["image-stack-before-unfold"].apply, inputs)

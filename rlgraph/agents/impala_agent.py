@@ -238,8 +238,8 @@ class IMPALAAgent(Agent):
             )
 
             sub_components = [
-                self.fifo_output_splitter, self.fifo_queue, self.queue_runner, self.softmax,
-                self.loss_function
+                self.fifo_output_splitter, self.fifo_queue, self.queue_runner, self.preprocessor, self.policy,
+                self.softmax, self.loss_function, self.optimizer
             ]
 
         elif self.type == "actor":
@@ -320,7 +320,8 @@ class IMPALAAgent(Agent):
         else:
             self.define_api_methods_learner(*sub_components)
 
-    def define_api_methods_single(self, fifo_output_splitter, fifo_queue, queue_runner, softmax, loss_func):
+    def define_api_methods_single(self, fifo_output_splitter, fifo_queue, queue_runner, preprocessor, policy, softmax,
+                                  loss_function, optimizer):
         def setup_queue_runners(self):
             return self.call(queue_runner.setup)
 
@@ -331,8 +332,36 @@ class IMPALAAgent(Agent):
 
         self.root_component.define_api_method("get_queue_size", get_queue_size)
 
-        def update_from_memory():
-            pass
+        def update_from_memory(self_):
+            records = self_.call(fifo_queue.get_records, self.update_spec["batch_size"])
+
+            preprocessed_s, actions, rewards, terminals, last_s_prime, action_probs_mu, \
+                initial_internal_states = self_.call(fifo_output_splitter.split, records)
+
+            preprocessed_last_s_prime = self_.call(preprocessor.preprocess, last_s_prime)
+            # TODO: should we concatenate preprocessed_s and preprocessed_last_s_prime?
+            # Get the pi-action probs AND the values for all our states.
+            state_values_pi, logits_pi, current_internal_states = \
+                self_.call(policy.get_baseline_output, preprocessed_s, initial_internal_states)
+            # And the values for the last states.
+            bootstrapped_values, _, _ = \
+                self_.call(policy.get_baseline_output, preprocessed_last_s_prime, current_internal_states)
+
+            _, log_probabilities_pi = self_.call(softmax.get_probabilities_and_log_probs, logits_pi)
+
+            # Calculate the loss.
+            loss, loss_per_item = self_.call(
+                loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
+                terminals, bootstrapped_values
+            )
+            policy_vars = self_.call(policy._variables)
+            # Pass vars and loss values into optimizer.
+            step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
+
+            # Return optimizer op and all loss values.
+            return step_op, loss, loss_per_item
+
+        self.root_component.define_api_method("update_from_memory", update_from_memory)
 
     def define_api_methods_actor(self, env_stepper, splitter, next_states_slicer, internal_states_slicer, merger,
                                  fifo_queue):
@@ -426,17 +455,11 @@ class IMPALAAgent(Agent):
 
         self.root_component.define_api_method("update_from_memory", update_from_memory)
 
-        #def _graph_fn_test_assign(self):
-        #    ref = self.policy.variables["shared/policy/impala-network/text-stack/lstm-64/lstm-cell/kernel"]
-        #    return self.assign_variable(ref, np.ones(shape=ref.shape, dtype=np.float32))
+        #def insert_dummy_records(self_):
+        #    insert_op = self_.call(fifo_queue.insert_dummy_records)
+        #    return insert_op
 
-        #self.root_component.define_api_method("test_assign", _graph_fn_test_assign)
-
-        def insert_dummy_records(self_):
-            insert_op = self_.call(fifo_queue.insert_dummy_records)
-            return insert_op
-
-        self.root_component.define_api_method("insert_dummy_records", insert_dummy_records)
+        #self.root_component.define_api_method("insert_dummy_records", insert_dummy_records)
 
     def get_action(self, states, internal_states=None, use_exploration=True, extra_returns=None):
         pass
@@ -446,7 +469,7 @@ class IMPALAAgent(Agent):
 
     def update(self, batch=None):
         if batch is None:
-            return self.graph_executor.execute(("update_from_memory", self.update_spec["batch_size"]))
+            return self.graph_executor.execute("update_from_memory")
         else:
             raise RLGraphError("Cannot call update-from-batch on an IMPALA Agent.")
 
