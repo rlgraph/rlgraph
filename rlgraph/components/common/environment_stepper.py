@@ -115,7 +115,9 @@ class EnvironmentStepper(Component):
         self.state_space_env_list = list(self.state_space_env_flattened.values())
 
         # TODO: automate this by lookup from the NN Component
-        self.internal_states_space = internal_states_space
+        self.internal_states_space = None
+        if internal_states_space is not None:
+            self.internal_states_space = internal_states_space.with_batch_rank(add_batch_rank=1)
 
         # Add the action/reward spaces to the state space (must be Dict).
         if self.add_previous_action is True:
@@ -169,7 +171,7 @@ class EnvironmentStepper(Component):
         self.episode_return = self.get_variable(name="episode-return", dtype="float32",
                                                 initializer=0.0, trainable=False)
         self.current_terminal = self.get_variable(name="current-terminal", dtype="bool",
-                                                  initializer=False, trainable=False)
+                                                  initializer=True, trainable=False)
         self.current_state = self.get_variable(name="current-state", from_space=self.state_space_actor,
                                                flatten=True, trainable=False)
         if self.has_rnn:
@@ -287,6 +289,7 @@ class EnvironmentStepper(Component):
                     (self.actor_component.get_preprocessed_state_and_action if self.add_action_probs is False else
                      self.actor_component.get_preprocessed_state_action_and_action_probs),
                     state,
+                    # Add simple batch rank to internal_states.
                     None if internal_states is None else DataOpTuple(internal_states),  # <- None for non-RNN systems
                     time_step=self.time_step + time_delta,
                     return_ops=True
@@ -336,7 +339,7 @@ class EnvironmentStepper(Component):
                 ret = [preprocessed_s_no_batch, a_no_extra_ranks, r, new_episode_return, t_, s_] + \
                     ([(action_probs[0][0] if self.has_rnn is True else action_probs[0])] if
                      self.add_action_probs is True else []) + \
-                    ([current_internal_states] if self.has_rnn is True else [])
+                    ([tuple(current_internal_states)] if self.has_rnn is True else [])
 
                 return tuple(ret)
 
@@ -354,7 +357,11 @@ class EnvironmentStepper(Component):
                 initializer.append(self.action_probs_space.zeros())  # zero action probs (don't matter)
             # Append internal states if needed.
             if self.current_internal_states is not None:
-                initializer.append(tuple(self.current_internal_states.values()))
+                initializer.append(tuple(
+                    tf.placeholder_with_default(
+                        tf.expand_dims(internal_s, axis=0), shape=(None,) + tuple(internal_s.shape.as_list())
+                    ) for internal_s in self.current_internal_states.values()
+                ))
 
             # Scan over n time-steps (tf.range produces the time_delta with respect to the current time_step).
             step_results = list(tf.scan(fn=scan_func, elems=tf.range(self.num_steps, dtype="int32"),
