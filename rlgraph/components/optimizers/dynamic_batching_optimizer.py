@@ -28,8 +28,9 @@ if get_backend() == "tf":
 
 class DynamicBatchingOptimizer(Component):
     """
-    A local optimizer performs optimization irrespective of any distributed semantics, i.e.
-    it has no knowledge of other machines and does not implement any communications with them.
+    A dynamic batching optimizer wraps a local optimizer with DeepMind's custom
+    dynamic batching ops which are provided as part of their IMPALA open source
+    implementation.
     """
     def __init__(self, optimizer_spec, **kwargs):
         super(DynamicBatchingOptimizer, self).__init__(scope=kwargs.pop("scope", "dynamic-batching-optimizer"), **kwargs)
@@ -37,18 +38,24 @@ class DynamicBatchingOptimizer(Component):
         # The wrapped, backend-specific optimizer object.
         self.optimizer = LocalOptimizer.from_spec(optimizer_spec)
 
+        # Dynamic batching options.
+        self.minimum_batch_size = optimizer_spec.get("minimum_batch_size", 1)
+        self.maximum_batch_size = optimizer_spec.get("maximum_batch_size", 1024)
+        self.timeout_ms = optimizer_spec.get("timeout_ms", 100)
+
     def create_variables(self, input_spaces, action_space=None):
         # Must register the Optimizer's variables with the Component.
         # self.register_variables(*self.optimizer.variables())
         pass
 
     def _graph_fn_step(self, variables, loss, loss_per_item, *inputs):
-
-        # Wrap dynamic batching module
-        @dynamic_batching.batch_fn
-        def step(variables, loss, loss_per_item, *inputs):
+        # Wrap in dynamic batching module.
+        @dynamic_batching.batch_fn_with_options(minimum_batch_size=self.minimum_batch_size,
+                                                maximum_batch_size=self.maximum_batch_size,
+                                                timeout_ms=self.timeout_ms)
+        def step(*step_args):
             # TODO potentially assign device
-            return self.call(self.optimizer.step, variables, loss, loss_per_item, *inputs)
+            return self.call(self.optimizer.step, *step_args)
         return step(variables, loss, loss_per_item, *inputs)
 
     def _graph_fn_calculate_gradients(self, variables, loss):
