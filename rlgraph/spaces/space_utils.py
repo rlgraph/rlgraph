@@ -96,7 +96,10 @@ def get_space_from_op(op):
         add_batch_rank = False
         add_time_rank = False
         for i in op:
-            spec.append(get_space_from_op(i))
+            space = get_space_from_op(i)
+            if space == 0:
+                return 0
+            spec.append(space)
             if spec[-1].has_batch_rank:
                 add_batch_rank = True
             if spec[-1].has_time_rank:
