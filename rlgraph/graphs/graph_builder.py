@@ -164,7 +164,14 @@ class GraphBuilder(Specifiable):
         self.logger.info("Number of trainable parameters: {}".format(self.num_trainable_parameters))
         # The build here is the actual build overhead, so build time minus the tensorflow calls and variable
         # creations which would have to happen either way.
-        return time_build - sum(self.graph_call_times) - sum(self.var_call_times)
+        build_overhead = time_build - sum(self.graph_call_times) - sum(self.var_call_times)
+
+        return dict(
+            build_overhead=build_overhead,
+            total_build_time=time_build,
+            graph_calls=sum(self.graph_call_times),
+            variable_creation=sum(self.var_call_times)
+        )
 
     def build_input_space_ops(self, input_spaces):
         """
@@ -746,7 +753,13 @@ class GraphBuilder(Specifiable):
         time_build = time.perf_counter() - time_start
         self.logger.info("Define-by-run computation-graph build completed in {} s ({} iterations).".
                          format(time_build, iterations))
-        return time_build - sum(self.graph_call_times) - sum(self.var_call_times)
+        build_overhead = time_build - sum(self.graph_call_times) - sum(self.var_call_times)
+        return dict(
+            build_overhead=build_overhead,
+            total_build_time=time_build,
+            graph_calls=sum(self.graph_call_times),
+            variable_creation=sum(self.var_call_times)
+        )
 
     def _build(self, op_records_list):
         """

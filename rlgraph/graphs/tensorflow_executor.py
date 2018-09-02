@@ -188,6 +188,7 @@ class TensorFlowExecutor(GraphExecutor):
                 meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices,
                 device_strategy=self.device_strategy, default_device=self.default_device, device_map=self.device_map
             )
+            # Build time is a dict containing the cost of different parts of the build.
             build_times.append(build_time)
 
         # Check device assignments for inconsistencies or unused devices.
