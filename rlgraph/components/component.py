@@ -847,7 +847,8 @@ class Component(Specifiable):
 
         # TODO: what about python variables?
         # Registers the new variable with this Component.
-        key = ((self.global_scope + "/") if self.global_scope else "") + name
+        key = ((self.reuse_variable_scope + "/") if self.reuse_variable_scope else
+               (self.global_scope + "/") if self.global_scope else "") + name
         # Container-var: Save individual Variables.
         # TODO: What about a var from Tuple space?
         if isinstance(var, OrderedDict):
@@ -1167,15 +1168,17 @@ class Component(Specifiable):
 
             # Add own reusable scope to front of sub-components'.
             if self.reuse_variable_scope is not None:
-                component.reuse_variable_scope = self.reuse_variable_scope + (
-                    "/"+component.reuse_variable_scope if component.reuse_variable_scope else ""
+                # Propagate reuse_variable_scope down to the added Component's sub-components.
+                component.propagate_subcomponent_properties(
+                    properties=dict(reuse_variable_scope=self.reuse_variable_scope)
                 )
             # Fix the sub-component's (and sub-sub-component's etc..) scope(s).
             self.propagate_scope(component)
 
             # Execution modes must be coherent within one component subgraph.
-            self.propagate_subcomponent_properties(properties=dict(execution_mode=component.execution_mode),
-                                                   component=component)
+            self.propagate_subcomponent_properties(
+                properties=dict(execution_mode=component.execution_mode), component=component
+            )
 
             # Should we expose some API-methods of the child?
             for api_method_name, api_method_rec in component.api_methods.items():
