@@ -198,7 +198,7 @@ class TestActionAdapters(unittest.TestCase):
 
         test.test(("get_action_layer_output", nn_output), expected_outputs=expected_action_layer_output, decimals=5)
 
-        expected_state_values = expected_action_layer_output[:, 0]
+        expected_state_values = expected_action_layer_output[:, 0:1]
         expected_action_logits = np.reshape(expected_action_layer_output[:, 1:], newshape=(-1, 2, 2, 2))
 
         test.test(("get_state_values_and_logits", nn_output), expected_outputs=(
