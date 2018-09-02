@@ -71,11 +71,11 @@ class EmbeddingLookup(Layer):
         shape = (self.vocab_size, self.embed_dim)
         self.initializer = Initializer.from_spec(shape=shape, specification=self.initializer_spec)
         # TODO: For IMPALA partitioner is not needed. Do this later.
-        self.embedding_matrix = self.get_variable(shape=shape, dtype=dtype("float"),
-                                                  initializer=self.initializer.initializer,
-                                                  #partitioner=self.partitioners,
-                                                  #regularizer=self.regularizers,
-                                                  trainable=self.trainable)
+        self.embedding_matrix = self.get_variable(
+            name="embedding-matrix", shape=shape, dtype=dtype("float"), initializer=self.initializer.initializer,
+            #partitioner=self.partitioners, regularizer=self.regularizers,
+            trainable=self.trainable
+        )
 
         self.ids_space = input_spaces["ids"]
 
