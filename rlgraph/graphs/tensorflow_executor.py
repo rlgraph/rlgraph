@@ -163,7 +163,8 @@ class TensorFlowExecutor(GraphExecutor):
             raise RLGraphError("Invalid device_strategy ('{}') for TensorFlowExecutor!".format(self.device_strategy))
 
     def build(self, root_components, input_spaces, optimizer=None, loss_name=None):
-        start = time.monotonic()
+        # Use perf_counter for short tasks.
+        start = time.perf_counter()
         # 0. Init phase: Component construction and nesting (child/parent Components).
         # Components can still be modified and re-arranged after this.
         self.init_execution()
@@ -177,9 +178,9 @@ class TensorFlowExecutor(GraphExecutor):
         build_times = []
         for component in root_components:
             self._build_device_strategy(component, optimizer, loss_name)
-            start = time.monotonic()
+            start = time.perf_counter()
             meta_graph = self.meta_graph_builder.build(component, input_spaces)
-            meta_build_times.append(time.monotonic() - start)
+            meta_build_times.append(time.perf_counter() - start)
 
             # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
             # -> Inputs/Operations/variables
@@ -194,9 +195,8 @@ class TensorFlowExecutor(GraphExecutor):
 
         # Set up any remaining session or monitoring configurations.
         self.finish_graph_setup()
-
         return dict(
-            total_build_time=time.monotonic() - start,
+            total_build_time=time.perf_counter() - start,
             meta_graph_build_times=meta_build_times,
             build_times=build_times,
         )

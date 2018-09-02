@@ -120,7 +120,7 @@ class GraphBuilder(Specifiable):
             device_map (Optional[Dict]): Dict of Component names mapped to device names to place the Component's ops.
         """
         # Time the build procedure.
-        time_start = time.monotonic()
+        time_start = time.perf_counter()
         assert meta_graph.build_status, "ERROR: Meta graph must be built to build backend graph."
         self.root_component = meta_graph.root_component
         self.graph_call_times = list()
@@ -153,7 +153,7 @@ class GraphBuilder(Specifiable):
 
         # Re-iterate until our bag of op-recs to process is empty.
         iterations = self._build(op_records_list)
-        time_build = time.monotonic() - time_start
+        time_build = time.perf_counter() - time_start
         self.logger.info("Computation-Graph build completed in {} s ({} iterations).".format(time_build, iterations))
 
         # Get some stats on the graph and report.
@@ -252,9 +252,9 @@ class GraphBuilder(Specifiable):
                                   format(component.name, component.api_method_inputs))
                 device = self.get_device(component, variables=True)
                 # This builds variables which would have to be done either way:
-                call_time = time.monotonic()
+                call_time = time.perf_counter()
                 component.when_input_complete(input_spaces=None, action_space=self.action_space, device=device)
-                self.var_call_times.append(time.monotonic() - call_time)
+                self.var_call_times.append(time.perf_counter() - call_time)
                 # Call all no-input graph_fns of the new Component.
                 for no_in_col in component.no_input_graph_fn_columns:
                     # Do not call _variables (only later, when Component is also variable-complete).
@@ -461,10 +461,10 @@ class GraphBuilder(Specifiable):
                         params_args = [p for p in params if not isinstance(p, tuple)]
                         params_kwargs = {p[0]: p[1] for p in params if isinstance(p, tuple)}
                         if create_new_out_column is False:
-                            call_time = time.monotonic()
+                            call_time = time.perf_counter()
                         ops[key] = force_tuple(op_rec_column.graph_fn(*params_args, *params_kwargs))
                         if create_new_out_column is False:
-                            self.graph_call_times.append(time.monotonic() - call_time)
+                            self.graph_call_times.append(time.perf_counter() - call_time)
                         if num_return_values >= 0 and num_return_values != len(ops[key]):
                             raise RLGraphError(
                                 "Different split-runs through {} do not return the same number of values!".
@@ -484,23 +484,23 @@ class GraphBuilder(Specifiable):
                 else:
                     split_args, split_kwargs = split_args_and_kwargs[0], split_args_and_kwargs[1]
                     if create_new_out_column is False:
-                        call_time = time.monotonic()
+                        call_time = time.perf_counter()
                     ops = op_rec_column.graph_fn(*split_args, **split_kwargs)
                     if create_new_out_column is False:
-                        self.graph_call_times.append(time.monotonic() - call_time)
+                        self.graph_call_times.append(time.perf_counter() - call_time)
             else:
                 if create_new_out_column is False:
-                    call_time = time.monotonic()
+                    call_time = time.perf_counter()
                 ops = op_rec_column.graph_fn(*flattened_args, **flattened_kwargs)
                 if create_new_out_column is False:
-                    self.graph_call_times.append(time.monotonic() - call_time)
+                    self.graph_call_times.append(time.perf_counter() - call_time)
         # Just pass in everything as-is.
         else:
             if create_new_out_column is False:
-                call_time = time.monotonic()
+                call_time = time.perf_counter()
             ops = op_rec_column.graph_fn(*args, **kwargs)
             if create_new_out_column is False:
-                self.graph_call_times.append(time.monotonic() - call_time)
+                self.graph_call_times.append(time.perf_counter() - call_time)
 
         # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
         ops = force_tuple(ops)
@@ -700,7 +700,7 @@ class GraphBuilder(Specifiable):
             device_map (Optional[Dict]): Dict of Component names mapped to device names to place the Component's ops.
         """
         # Time the build procedure.
-        time_start = time.monotonic()
+        time_start = time.perf_counter()
         assert meta_graph.build_status, "ERROR: Meta graph must be built to build backend graph."
         self.root_component = meta_graph.root_component
         self.graph_call_times = list()
@@ -743,7 +743,7 @@ class GraphBuilder(Specifiable):
 
         # Set execution mode in components to change `call` behaviour to direct function evaluation.
         self.root_component.propagate_subcomponent_properties(properties=dict(execution_mode="define_by_run"))
-        time_build = time.monotonic() - time_start
+        time_build = time.perf_counter() - time_start
         self.logger.info("Define-by-run computation-graph build completed in {} s ({} iterations).".
                          format(time_build, iterations))
         return time_build - sum(self.graph_call_times) - sum(self.var_call_times)
