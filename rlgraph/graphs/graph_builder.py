@@ -492,7 +492,7 @@ class GraphBuilder(Specifiable):
         else:
             call_time = time.monotonic()
             ops = op_rec_column.graph_fn(*args, **kwargs)
-            self.graph_call_times.append(call_time)
+            self.graph_call_times.append(time.monotonic() - call_time)
 
         # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
         ops = force_tuple(ops)
