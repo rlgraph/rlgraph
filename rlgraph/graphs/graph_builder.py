@@ -123,6 +123,8 @@ class GraphBuilder(Specifiable):
         time_start = time.monotonic()
         assert meta_graph.build_status, "ERROR: Meta graph must be built to build backend graph."
         self.root_component = meta_graph.root_component
+        self.graph_call_times = list()
+        self.var_call_times = list()
         self.api = meta_graph.api
         self.num_meta_ops = meta_graph.num_ops
 
@@ -160,7 +162,9 @@ class GraphBuilder(Specifiable):
 
         self.num_trainable_parameters = self.count_trainable_parameters()
         self.logger.info("Number of trainable parameters: {}".format(self.num_trainable_parameters))
-        return time_build
+        # The build here is the actual build overhead, so build time minus the tensorflow calls and variable
+        # creations which would have to happen either way.
+        return time_build - sum(self.graph_call_times) - sum(self.var_call_times)
 
     def build_input_space_ops(self, input_spaces):
         """
@@ -247,7 +251,10 @@ class GraphBuilder(Specifiable):
                 self.logger.debug("Component {} is input-complete; Spaces per API-method input parameter are: {}".
                                   format(component.name, component.api_method_inputs))
                 device = self.get_device(component, variables=True)
+                # This builds variables which would have to be done either way:
+                call_time = time.monotonic()
                 component.when_input_complete(input_spaces=None, action_space=self.action_space, device=device)
+                self.var_call_times.append(time.monotonic() - call_time)
                 # Call all no-input graph_fns of the new Component.
                 for no_in_col in component.no_input_graph_fn_columns:
                     # Do not call _variables (only later, when Component is also variable-complete).
@@ -414,8 +421,7 @@ class GraphBuilder(Specifiable):
                 loop_counter += 1
         return subgraph_container
 
-    @staticmethod
-    def run_through_graph_fn(op_rec_column, create_new_out_column=False):
+    def run_through_graph_fn(self, op_rec_column, create_new_out_column=False):
         """
         Pushes all ops in the column through the respective graph_fn (graph_fn-spec and call-options are part of
         the column).
@@ -454,7 +460,9 @@ class GraphBuilder(Specifiable):
                     for key, params in split_args_and_kwargs.items():
                         params_args = [p for p in params if not isinstance(p, tuple)]
                         params_kwargs = {p[0]: p[1] for p in params if isinstance(p, tuple)}
+                        call_time = time.monotonic()
                         ops[key] = force_tuple(op_rec_column.graph_fn(*params_args, *params_kwargs))
+                        self.graph_call_times.append(time.monotonic() - call_time)
                         if num_return_values >= 0 and num_return_values != len(ops[key]):
                             raise RLGraphError(
                                 "Different split-runs through {} do not return the same number of values!".
@@ -473,12 +481,18 @@ class GraphBuilder(Specifiable):
                 # No splitting to do: Pass everything as-is.
                 else:
                     split_args, split_kwargs = split_args_and_kwargs[0], split_args_and_kwargs[1]
+                    call_time = time.monotonic()
                     ops = op_rec_column.graph_fn(*split_args, **split_kwargs)
+                    self.graph_call_times.append(time.monotonic() - call_time)
             else:
+                call_time = time.monotonic()
                 ops = op_rec_column.graph_fn(*flattened_args, **flattened_kwargs)
+                self.graph_call_times.append(time.monotonic() - call_time)
         # Just pass in everything as-is.
         else:
+            call_time = time.monotonic()
             ops = op_rec_column.graph_fn(*args, **kwargs)
+            self.graph_call_times.append(call_time)
 
         # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
         ops = force_tuple(ops)
@@ -681,6 +695,8 @@ class GraphBuilder(Specifiable):
         time_start = time.monotonic()
         assert meta_graph.build_status, "ERROR: Meta graph must be built to build backend graph."
         self.root_component = meta_graph.root_component
+        self.graph_call_times = list()
+        self.var_call_times = list()
         self.api = meta_graph.api
         self.num_meta_ops = meta_graph.num_ops
 
@@ -691,7 +707,6 @@ class GraphBuilder(Specifiable):
         self.device_map = device_map or dict()
 
         # TODO device strategy in pytorch?
-
         # Build full registry of callable methods on root component.
         for member in inspect.getmembers(self.root_component):
             name, method = (member[0], member[1])
@@ -723,6 +738,7 @@ class GraphBuilder(Specifiable):
         time_build = time.monotonic() - time_start
         self.logger.info("Define-by-run computation-graph build completed in {} s ({} iterations).".
                          format(time_build, iterations))
+        return time_build - sum(self.graph_call_times) - sum(self.var_call_times)
 
     def _build(self, op_records_list):
         """
