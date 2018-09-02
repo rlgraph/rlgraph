@@ -42,13 +42,13 @@ class PyTorchExecutor(GraphExecutor):
         self.available_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
 
     def build(self, root_components, input_spaces, *args):
-        start = time.monotonic()
+        start = time.perf_counter()
         meta_build_times = []
         build_times = []
         for component in root_components:
-            start = time.monotonic()
+            start = time.perf_counter()
             meta_graph = self.meta_graph_builder.build(component, input_spaces)
-            meta_build_times.append(time.monotonic() - start)
+            meta_build_times.append(time.perf_counter() - start)
 
             build_time = self.graph_builder.build_define_by_run_graph(
                 meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices
@@ -56,7 +56,7 @@ class PyTorchExecutor(GraphExecutor):
             build_times.append(build_time)
 
         return dict(
-            total_build_time=time.monotonic() - start,
+            total_build_time=time.perf_counter() - start,
             meta_graph_build_times=meta_build_times,
             build_times=build_times,
         )
