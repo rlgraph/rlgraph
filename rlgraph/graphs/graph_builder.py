@@ -169,8 +169,8 @@ class GraphBuilder(Specifiable):
         return dict(
             build_overhead=build_overhead,
             total_build_time=time_build,
-            graph_calls=sum(self.graph_call_times),
-            variable_creation=sum(self.var_call_times)
+            op_creation=sum(self.graph_call_times),
+            var_creation=sum(self.var_call_times)
         )
 
     def build_input_space_ops(self, input_spaces):
@@ -757,8 +757,8 @@ class GraphBuilder(Specifiable):
         return dict(
             build_overhead=build_overhead,
             total_build_time=time_build,
-            graph_calls=sum(self.graph_call_times),
-            variable_creation=sum(self.var_call_times)
+            op_creation=sum(self.graph_call_times),
+            var_creation=sum(self.var_call_times)
         )
 
     def _build(self, op_records_list):
