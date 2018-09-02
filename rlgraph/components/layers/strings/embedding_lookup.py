@@ -35,7 +35,7 @@ class EmbeddingLookup(Layer):
     tensor of row indices.
     """
     def __init__(self, embed_dim, vocab_size, initializer_spec="truncated_normal", partition_strategy="mod",
-                 trainable=True, **kwargs):
+                 trainable=True, pad_empty=False, **kwargs):
         """
         Args:
             embed_dim (int): The number of values (number of columns) to use for the encoding of each vocab. One vocab
@@ -46,6 +46,9 @@ class EmbeddingLookup(Layer):
             partition_strategy (str): One of "mod" or "div". Default: "mod".
             trainable (bool): Whether the Variable(s) representing the embedding matrix should be trainable or not.
                 Default: True.
+            pad_empty (bool): Whether to pad the output if no lookups take place and the embedding would otherwise
+                return a shape=(embed_dim, 0) output. If True, would then return shape=(embed_dim, 1).
+
         """
         super(EmbeddingLookup, self).__init__(scope=kwargs.pop("scope", "embedding-lookup"), **kwargs)
 
@@ -55,6 +58,7 @@ class EmbeddingLookup(Layer):
         self.initializer = None
         self.partition_strategy = partition_strategy
         self.trainable = trainable
+        self.pad_empty = pad_empty
 
         # Our embedding matrix variable.
         self.embedding_matrix = None
@@ -84,6 +88,11 @@ class EmbeddingLookup(Layer):
             embedding_lookup_output = tf.nn.embedding_lookup(
                 self.embedding_matrix, ids, partition_strategy=self.partition_strategy, max_norm=None
             )
+            # Do we need to CONSTANT-pad (with 0s) if empty?
+            if self.pad_empty:
+                padding = tf.to_int32(tf.equal(tf.shape(embedding_lookup_output)[1], 0))
+                embedding_lookup_output = tf.pad(embedding_lookup_output, [[0, 0], [0, padding], [0, 0]])
+
             embedding_lookup_output._batch_rank = 0 if self.ids_space.time_major is False else 1
             embedding_lookup_output._time_rank = 0 if self.ids_space.time_major is True else 1
             return embedding_lookup_output
