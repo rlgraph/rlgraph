@@ -460,9 +460,11 @@ class GraphBuilder(Specifiable):
                     for key, params in split_args_and_kwargs.items():
                         params_args = [p for p in params if not isinstance(p, tuple)]
                         params_kwargs = {p[0]: p[1] for p in params if isinstance(p, tuple)}
-                        call_time = time.monotonic()
+                        if create_new_out_column is False:
+                            call_time = time.monotonic()
                         ops[key] = force_tuple(op_rec_column.graph_fn(*params_args, *params_kwargs))
-                        self.graph_call_times.append(time.monotonic() - call_time)
+                        if create_new_out_column is False:
+                            self.graph_call_times.append(time.monotonic() - call_time)
                         if num_return_values >= 0 and num_return_values != len(ops[key]):
                             raise RLGraphError(
                                 "Different split-runs through {} do not return the same number of values!".
@@ -481,18 +483,24 @@ class GraphBuilder(Specifiable):
                 # No splitting to do: Pass everything as-is.
                 else:
                     split_args, split_kwargs = split_args_and_kwargs[0], split_args_and_kwargs[1]
-                    call_time = time.monotonic()
+                    if create_new_out_column is False:
+                        call_time = time.monotonic()
                     ops = op_rec_column.graph_fn(*split_args, **split_kwargs)
-                    self.graph_call_times.append(time.monotonic() - call_time)
+                    if create_new_out_column is False:
+                        self.graph_call_times.append(time.monotonic() - call_time)
             else:
-                call_time = time.monotonic()
+                if create_new_out_column is False:
+                    call_time = time.monotonic()
                 ops = op_rec_column.graph_fn(*flattened_args, **flattened_kwargs)
-                self.graph_call_times.append(time.monotonic() - call_time)
+                if create_new_out_column is False:
+                    self.graph_call_times.append(time.monotonic() - call_time)
         # Just pass in everything as-is.
         else:
-            call_time = time.monotonic()
+            if create_new_out_column is False:
+                call_time = time.monotonic()
             ops = op_rec_column.graph_fn(*args, **kwargs)
-            self.graph_call_times.append(time.monotonic() - call_time)
+            if create_new_out_column is False:
+                self.graph_call_times.append(time.monotonic() - call_time)
 
         # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
         ops = force_tuple(ops)
