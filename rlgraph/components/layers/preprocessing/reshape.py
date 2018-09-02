@@ -133,8 +133,13 @@ class ReShape(PreprocessLayer):
                 )
             # Only change the actual shape (leave batch/time ranks as is).
             else:
-                ret[key] = class_(shape=new_shape, add_batch_rank=single_space.has_batch_rank,
-                                  add_time_rank=single_space.has_time_rank, time_major=single_space.time_major)
+                # Do we flip batch and time ranks?
+                time_major = single_space.time_major if self.flip_batch_and_time_rank is False else \
+                    not single_space.time_major
+
+                ret[key] = class_(shape=single_space.shape if new_shape is None else new_shape,
+                                  add_batch_rank=single_space.has_batch_rank,
+                                  add_time_rank=single_space.has_time_rank, time_major=time_major)
         ret = unflatten_op(ret)
         #print("output of get_preprocessed_space: space={}".format(ret))
         return ret
@@ -167,20 +172,21 @@ class ReShape(PreprocessLayer):
 
         # Check whether we have to flatten the incoming categories of an IntBox into a FloatBox with additional
         # rank (categories rank). Store the dimension of this additional rank in the `self.num_categories` dict.
-        if self.flatten_categories is True:
-            def mapping_func(key, space):
-                if isinstance(space, IntBox):
-                    # Must have global bounds (bounds valid for all axes).
-                    if space.num_categories is False:
-                        raise RLGraphError("ERROR: Cannot flatten categories if one of the IntBox spaces ({}={}) does "
-                                           "not have global bounds (its `num_categories` is False)!".format(key, space))
-                    return space.num_categories
-                # No categories. Keep as is.
-                return 1
-            self.num_categories = self.in_space.flatten(mapping=mapping_func)
-        elif self.flatten_categories is not False:
-            # TODO: adjust for input ContainerSpaces. For now only support single space (flat-key=="")
-            self.num_categories = {"": self.flatten_categories}
+        if self.flatten is True:
+            if self.flatten_categories is True:
+                def mapping_func(key, space):
+                    if isinstance(space, IntBox):
+                        # Must have global bounds (bounds valid for all axes).
+                        if space.num_categories is False:
+                            raise RLGraphError("ERROR: Cannot flatten categories if one of the IntBox spaces ({}={}) does "
+                                               "not have global bounds (its `num_categories` is False)!".format(key, space))
+                        return space.num_categories
+                    # No categories. Keep as is.
+                    return 1
+                self.num_categories = self.in_space.flatten(mapping=mapping_func)
+            elif self.flatten_categories is not False:
+                # TODO: adjust for input ContainerSpaces. For now only support single space (flat-key=="")
+                self.num_categories = {"": self.flatten_categories}
 
     def _graph_fn_apply(self, key, preprocessing_inputs, input_before_time_rank_folding=None):
         """
@@ -277,7 +283,7 @@ class ReShape(PreprocessLayer):
                 # TODO: add other cases of reshaping and fix batch/time rank hints.
                 if self.fold_time_rank:
                     reshaped._batch_rank = 0
-                elif self.unfold_time_rank:
+                elif self.unfold_time_rank or self.flip_batch_and_time_rank:
                     reshaped._batch_rank = 0 if self.time_major is False else 1
                     reshaped._time_rank = 0 if self.time_major is True else 1
 
