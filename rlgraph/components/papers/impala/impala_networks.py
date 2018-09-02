@@ -58,6 +58,9 @@ class IMPALANetwork(NeuralNetwork):
         # lookup is then passed through an LSTM(64).
         self.text_processing_stack = self.build_text_processing_stack()
 
+        # The transposer to flip batch and time rank for the FIFO pulled previous actions and rewards.
+        self.previous_a_and_r_transpose = ReShape(flip_batch_and_time_rank=True, time_major=True)
+
         # The concatenation layer (concatenates outputs from image/text processing stacks, previous action/reward).
         self.concat_layer = ConcatLayer()
 
@@ -67,7 +70,8 @@ class IMPALANetwork(NeuralNetwork):
 
         # Add all sub-components to this one.
         self.add_components(
-            self.splitter, self.image_processing_stack, self.text_processing_stack, self.concat_layer, self.main_lstm
+            self.splitter, self.image_processing_stack, self.text_processing_stack,
+            self.previous_a_and_r_transpose, self.concat_layer, self.main_lstm
         )
 
     @staticmethod
@@ -148,6 +152,10 @@ class IMPALANetwork(NeuralNetwork):
         # Get the left-stack (image) and right-stack (text) output (see [1] for details).
         text_processing_output = self.call(self.text_processing_stack.apply, text)
         image_processing_output = self.call(self.image_processing_stack.apply, image)
+
+        # Flip batch- and time-rank for previous actions and rewards.
+        previous_action = self.call(self.previous_a_and_r_transpose.apply, previous_action)
+        previous_reward = self.call(self.previous_a_and_r_transpose.apply, previous_reward)
 
         # Concat everything together.
         concatenated_data = self.call(
