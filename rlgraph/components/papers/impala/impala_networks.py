@@ -58,8 +58,11 @@ class IMPALANetwork(NeuralNetwork):
         # lookup is then passed through an LSTM(64).
         self.text_processing_stack = self.build_text_processing_stack()
 
-        # The transposer to flip batch and time rank for the FIFO pulled previous actions and rewards.
-        self.previous_a_and_r_transpose = ReShape(flip_batch_and_time_rank=True, time_major=True)
+        # The transposers to flip batch and time rank for the FIFO pulled previous actions and rewards.
+        self.transpose_previous_a = ReShape(flip_batch_and_time_rank=True, time_major=True,
+                                            scope="transpose-previous-a")
+        self.transpose_previous_r = ReShape(flip_batch_and_time_rank=True, time_major=True,
+                                            scope="transpose-previous-r")
 
         # The concatenation layer (concatenates outputs from image/text processing stacks, previous action/reward).
         self.concat_layer = ConcatLayer()
@@ -70,8 +73,9 @@ class IMPALANetwork(NeuralNetwork):
 
         # Add all sub-components to this one.
         self.add_components(
+            self.transpose_previous_a, self.transpose_previous_r,
             self.splitter, self.image_processing_stack, self.text_processing_stack,
-            self.previous_a_and_r_transpose, self.concat_layer, self.main_lstm
+            self.concat_layer, self.main_lstm
         )
 
     @staticmethod
@@ -101,7 +105,7 @@ class IMPALANetwork(NeuralNetwork):
         # Create a hash bucket from the sentences and use that bucket to do an embedding lookup (instead of
         # a vocabulary).
         string_to_hash_bucket = StringToHashBucket(num_hash_buckets=num_hash_buckets)
-        embedding = EmbeddingLookup(embed_dim=20, vocab_size=num_hash_buckets)
+        embedding = EmbeddingLookup(embed_dim=20, vocab_size=num_hash_buckets, pad_empty=True)
         # The time rank for the LSTM is now the sequence of words in a sentence, NOT the original env time rank.
         # We will only use the last output of the LSTM-64 for further processing as that is the output after having
         # seen all words in the sentence.
@@ -111,7 +115,6 @@ class IMPALANetwork(NeuralNetwork):
 
         tuple_splitter = ContainerSplitter(tuple_length=2, scope="tuple-splitter")
 
-        ### HAD TO SET TO FALSE AS WHEN PULLING SAMPLES FROM MEMORY, THEY ARE BATCH-MAJOR.
         time_rank_unfold = ReShape(
             unfold_time_rank=True, flip_batch_and_time_rank=True, time_major=True, scope="time-rank-unfold-text"
         )
@@ -154,8 +157,8 @@ class IMPALANetwork(NeuralNetwork):
         image_processing_output = self.call(self.image_processing_stack.apply, image)
 
         # Flip batch- and time-rank for previous actions and rewards.
-        previous_action = self.call(self.previous_a_and_r_transpose.apply, previous_action)
-        previous_reward = self.call(self.previous_a_and_r_transpose.apply, previous_reward)
+        previous_action = self.call(self.transpose_previous_a.apply, previous_action)
+        previous_reward = self.call(self.transpose_previous_r.apply, previous_reward)
 
         # Concat everything together.
         concatenated_data = self.call(
@@ -220,16 +223,6 @@ class LargeIMPALANetwork(IMPALANetwork):
             DenseLayer(units=256),  # Dense layer.
             NNLayer(activation="relu", scope="relu-2"),  # ReLU 2
         ])
-        #def TEST_custom_apply_image_stack_before_unfold(self, inputs):
-        #    ret = self.call(self.sub_components["time-rank-fold"].apply, inputs)
-
-        #    ret = self.call(self.sub_components["conv-unit-0"].apply, ret)
-        #    ret = self.call(self.sub_components["conv-unit-1"].apply, ret)
-        #    ret = self.call(self.sub_components["conv-unit-2"].apply, ret)
-        #    ret = self.call(self.sub_components["flatten"].apply, ret)
-
-        #    return ret
-
 
         stack_before_unfold = Stack(sub_components, scope="image-stack-before-unfold")
 

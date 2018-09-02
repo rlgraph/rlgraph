@@ -121,7 +121,8 @@ class IMPALAAgent(Agent):
         ]
         # Bump reward and convert to float32, so that it can be concatenated by the Concat layer.
         preprocessing_spec["preprocessors"]["previous_reward"] = [
-            dict(type="reshape", new_shape=(1,)), dict(type="convert_type", to_dtype="float32")
+            dict(type="reshape", new_shape=(1,)),
+            dict(type="convert_type", to_dtype="float32")
         ]
 
         # Now that we fixed the Agent's spec, call the super constructor.
@@ -194,6 +195,15 @@ class IMPALAAgent(Agent):
             self.next_states_slicer = Slice(scope="next-states-slicer", squeeze=False)
             self.internal_states_slicer = Slice(scope="internal-states-slicer", squeeze=True)
 
+            self.transpose_actions = ReShape(flip_batch_and_time_rank=True, time_major=True,
+                                             scope="transpose-a", flatten_categories=False)
+            self.transpose_rewards = ReShape(flip_batch_and_time_rank=True, time_major=True,
+                                             scope="transpose-r")
+            self.transpose_terminals = ReShape(flip_batch_and_time_rank=True, time_major=True,
+                                               scope="transpose-t")
+            self.transpose_action_probs = ReShape(flip_batch_and_time_rank=True, time_major=True,
+                                                  scope="transpose-a-probs-mu")
+
             self.softmax = SoftMax()
 
             # Create an IMPALALossFunction with some parameters.
@@ -211,7 +221,8 @@ class IMPALAAgent(Agent):
                 environment_spec=environment_spec,
                 actor_component_spec=ActorComponent(preprocessor_spec=preprocessing_spec,
                                                     policy_spec=dict(neural_network=network_spec,
-                                                                     action_space=self.action_space),
+                                                                     action_space=self.action_space,
+                                                                     reuse_variable_scope="shared/policy"),
                                                     exploration_spec=exploration_spec),
                 state_space=self.state_space.with_batch_rank(),
                 reward_space=float,  # TODO <- float64 for deepmind? may not work for other envs
@@ -238,8 +249,9 @@ class IMPALAAgent(Agent):
             )
 
             sub_components = [
-                self.fifo_output_splitter, self.fifo_queue, self.queue_runner, self.preprocessor, self.policy,
-                self.softmax, self.loss_function, self.optimizer
+                self.fifo_output_splitter, self.fifo_queue, self.queue_runner, self.transpose_actions,
+                self.transpose_rewards, self.transpose_terminals, self.transpose_action_probs, self.preprocessor,
+                self.policy, self.softmax, self.loss_function, self.optimizer
             ]
 
         elif self.type == "actor":
@@ -320,8 +332,9 @@ class IMPALAAgent(Agent):
         else:
             self.define_api_methods_learner(*sub_components)
 
-    def define_api_methods_single(self, fifo_output_splitter, fifo_queue, queue_runner, preprocessor, policy, softmax,
-                                  loss_function, optimizer):
+    def define_api_methods_single(self, fifo_output_splitter, fifo_queue, queue_runner, transpose_actions,
+                                  transpose_rewards, transpose_terminals, transpose_action_probs, preprocessor,
+                                  policy, softmax, loss_function, optimizer):
         def setup_queue_runners(self):
             return self.call(queue_runner.setup)
 
@@ -333,16 +346,31 @@ class IMPALAAgent(Agent):
         self.root_component.define_api_method("get_queue_size", get_queue_size)
 
         def update_from_memory(self_):
+            # Pull n records from the queue.
+            # Note that everything will come out as batch-major and must be transposed before the main-LSTM.
+            # This is done by the network itself for all network inputs:
+            # - preprocessed_s
+            # - preprocessed_last_s_prime
+            # But must still be done for actions, rewards, terminals here in this API-method via separate ReShapers.
             records = self_.call(fifo_queue.get_records, self.update_spec["batch_size"])
 
             preprocessed_s, actions, rewards, terminals, last_s_prime, action_probs_mu, \
                 initial_internal_states = self_.call(fifo_output_splitter.split, records)
 
             preprocessed_last_s_prime = self_.call(preprocessor.preprocess, last_s_prime)
-            # TODO: should we concatenate preprocessed_s and preprocessed_last_s_prime?
+
+            # Flip actions, rewards, terminals to time-major.
+            # TODO: Create components that are less input-space sensitive (those that have no variables should
+            # TODO: be reused for any kind of processing)
+            actions = self_.call(transpose_actions.apply, actions)
+            rewards = self_.call(transpose_rewards.apply, rewards)
+            terminals = self_.call(transpose_terminals.apply, terminals)
+            action_probs_mu = self_.call(transpose_action_probs.apply, action_probs_mu)
+
             # Get the pi-action probs AND the values for all our states.
             state_values_pi, logits_pi, current_internal_states = \
                 self_.call(policy.get_baseline_output, preprocessed_s, initial_internal_states)
+
             # And the values for the last states.
             bootstrapped_values, _, _ = \
                 self_.call(policy.get_baseline_output, preprocessed_last_s_prime, current_internal_states)
@@ -355,6 +383,7 @@ class IMPALAAgent(Agent):
                 terminals, bootstrapped_values
             )
             policy_vars = self_.call(policy._variables)
+
             # Pass vars and loss values into optimizer.
             step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
 

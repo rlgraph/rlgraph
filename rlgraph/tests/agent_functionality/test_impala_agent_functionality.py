@@ -356,12 +356,13 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
                 distributed_spec=dict(cluster_spec=None)
             )
         )
-        time.sleep(10)
+        time.sleep(5)
         # Count items in the queue.
         print("Items in queue: {}".format(agent.call_api_method("get_queue_size")))
 
         print("Updating from queue ...")
         out = agent.update()
+        print(out)
 
     def test_isolated_impala_actor_agent_functionality(self):
         """
