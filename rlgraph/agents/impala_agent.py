@@ -48,7 +48,8 @@ class IMPALAAgent(Agent):
     standard_internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False)
 
     def __init__(self, discount=0.99, architecture="large", fifo_queue_spec=None, environment_spec=None,
-                 weight_pg=None, weight_baseline=None, weight_entropy=None, worker_sample_size=20, **kwargs):
+                 weight_pg=None, weight_baseline=None, weight_entropy=None, worker_sample_size=20,
+                 dynamic_batching=False, **kwargs):
         """
         Args:
             discount (float): The discount factor gamma.
@@ -60,6 +61,9 @@ class IMPALAAgent(Agent):
             weight_baseline (float): See IMPALALossFunction Component.
             weight_entropy (float): See IMPALALossFunction Component.
             worker_sample_size (int): How many steps the actor will perform in the environment each sample-run.
+            dynamic_batching (bool): Whether to use the deepmind's custom dynamic batching op for wrapping the
+                optimizer's step call. The batcher.so file must be compiled for this to work (see Docker file).
+                Default: False.
 
         Keyword Args:
             type (str): One of "single", "actor" or "learner". Default: "single".
@@ -73,6 +77,7 @@ class IMPALAAgent(Agent):
         else:
             self.num_actors = 0
         self.worker_sample_size = worker_sample_size
+        self.dynamic_batching = dynamic_batching
 
         # Network-spec by default is a "large architecture" IMPALA network.
         network_spec = kwargs.pop(
@@ -93,6 +98,11 @@ class IMPALAAgent(Agent):
                 frameskip=4
             )
             update_spec = kwargs.pop("update_spec", None)
+            # Change the optimizer spec to put in a dynamic_
+            if self.dynamic_batching:
+                local_optimizer_spec = copy.deepcopy(optimizer_spec["optimizer"])
+                optimizer_spec["optimizer"] = dict(type="dynamic-batching", optimizer=local_optimizer_spec)
+
         # Actors won't need to learn (no optimizer needed in graph).
         elif self.type == "actor":
             optimizer_spec = None
@@ -103,11 +113,6 @@ class IMPALAAgent(Agent):
             )
         # Learners won't need to explore (act) or observe (insert into Queue).
         else:
-            # Add prev-a/r to Dict state space.
-            #state_space = copy.deepcopy(kwargs["state_space"])
-            #state_space["previous_action"] = kwargs["action_space"]
-            #state_space["previous_reward"] = FloatBox()
-            #kwargs["state_space"] = state_space
             exploration_spec = None
             observe_spec = None
             update_spec = kwargs.pop("update_spec", None)
@@ -483,12 +488,6 @@ class IMPALAAgent(Agent):
             return step_op, loss, loss_per_item
 
         self.root_component.define_api_method("update_from_memory", update_from_memory)
-
-        #def insert_dummy_records(self_):
-        #    insert_op = self_.call(fifo_queue.insert_dummy_records)
-        #    return insert_op
-
-        #self.root_component.define_api_method("insert_dummy_records", insert_dummy_records)
 
     def get_action(self, states, internal_states=None, use_exploration=True, extra_returns=None):
         pass
