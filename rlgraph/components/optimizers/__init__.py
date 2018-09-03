@@ -28,7 +28,7 @@ from rlgraph.components.optimizers.dynamic_batching_optimizer import DynamicBatc
 
 Optimizer.__lookup_classes__ = dict(
     horovod=HorovodOptimizer,
-    dynamic_batching=DynamicBatchingOptimizer,
+    dynamicbatching=DynamicBatchingOptimizer,
     multigpu=MultiGpuSyncOptimizer,
     multigpusync=MultiGpuSyncOptimizer,
     # LocalOptimizers.

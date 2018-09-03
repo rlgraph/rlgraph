@@ -33,8 +33,15 @@ class DynamicBatchingOptimizer(Component):
     dynamic batching ops which are provided as part of their IMPALA open source
     implementation.
     """
-    def __init__(self, optimizer_spec, **kwargs):
-        super(DynamicBatchingOptimizer, self).__init__(scope=kwargs.pop("scope", "dynamic-batching-optimizer"), **kwargs)
+    def __init__(self, optimizer_spec, minimum_batch_size=1, maximum_batch_size=1024, timeout_ms=100,
+                 scope="dynamic-batching-optimizer", **kwargs):
+        """
+        Args:
+            optimizer_spec (Union[Optimizer,dict]): A spec dict to construct the local optimizer that is wrraped by this
+                DynamicBatchingOptimizer or an Optimizer object directly.
+            minimum_batch_size (int): The minimum =1, maximum_batch_size=1024, timeout_ms=100
+        """
+        super(DynamicBatchingOptimizer, self).__init__(scope=scope, **kwargs)
 
         # The wrapped, backend-specific optimizer object.
         self.optimizer = LocalOptimizer.from_spec(optimizer_spec)
@@ -43,6 +50,8 @@ class DynamicBatchingOptimizer(Component):
         self.minimum_batch_size = optimizer_spec.get("minimum_batch_size", 1)
         self.maximum_batch_size = optimizer_spec.get("maximum_batch_size", 1024)
         self.timeout_ms = optimizer_spec.get("timeout_ms", 100)
+
+        self.add_components(self.optimizer)
 
     def create_variables(self, input_spaces, action_space=None):
         # Must register the Optimizer's variables with the Component.
@@ -65,10 +74,10 @@ class DynamicBatchingOptimizer(Component):
             variables (DataOpTuple): A list of variables to calculate gradients for.
             loss (SingeDataOp): The total loss over a batch to be minimized.
         """
-        return self.call(self.optimizer._graph_fn_calculate_gradients(variables, loss))
+        return self.call(self.optimizer.calculate_gradients(variables, loss))
 
     def _graph_fn_apply_gradients(self, grads_and_vars):
-        return self.call(self.optimizer._graph_fn_apply_gradients(grads_and_vars))
+        return self.call(self.optimizer.apply_gradients(grads_and_vars))
 
     def get_optimizer_variables(self):
         return self.optimizer.variables()
