@@ -26,6 +26,8 @@ from rlgraph.execution.ray.ray_util import ray_compress
 from rlgraph.spaces import Dict, IntBox, BoolBox, FloatBox
 
 
+# TODO (Michael): Clean up memory semantics and tests re:
+# next states, python memories.
 class TestPythonPrioritizedReplay(unittest.TestCase):
     """
     Tests sampling and insertion behaviour of the mem_prioritized_replay module.
@@ -64,6 +66,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         update=FloatBox(add_batch_rank=True)
     )
 
+    # TODO These methods are all graph fns now -> unify backend tests.
     def test_insert(self):
         """
         Simply tests insert op without checking internal logic.
@@ -96,6 +99,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
                 observation['actions'][i],
                 observation['reward'][i],
                 observation['terminals'][i],
+                observation['states'][i],
                 observation["weights"][i]
             ))
 
