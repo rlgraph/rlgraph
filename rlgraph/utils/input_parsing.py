@@ -94,7 +94,7 @@ def parse_summary_spec(summary_spec):
         directory=os.path.expanduser("~/rlgraph_summaries/"),  # default=home dir
         # A regexp pattern that a summary op (including its global scope) has to match in order for it to
         # be included in the graph's summaries.
-        summaries_regexp="",
+        summary_regexp="",
         # Every how many seconds do we save a summary? None if saving frequency should be step based.
         save_secs=120,
         # Every how many steps do we save a summary? None if saving frequency should be time (seconds) based.

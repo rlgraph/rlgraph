@@ -178,8 +178,7 @@ class Agent(Specifiable):
         Resets an environment buffer for buffered `observe` calls.
 
         Args:
-            env_id (Optional[str]): Environment id to reset. Defaults to a default environment
-                if None provided.
+            env_id (Optional[str]): Environment id to reset. Defaults to a default environment if None provided.
         """
         if env_id is None:
             env_id = self.default_env
