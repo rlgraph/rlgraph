@@ -20,6 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.utils.ops import flatten_op
+from rlgraph.utils.util import dtype as dtype_
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -41,25 +42,56 @@ class StagingArea(Component):
         self.flat_keys = list()
 
         self.define_api_method(name="stage", func=self._graph_fn_stage)
-        self.define_api_method(name="unstage", func=self._graph_fn_unstage)
+        #self.define_api_method(name="unstage", func=self._graph_fn_unstage)
 
     def create_variables(self, input_spaces, action_space=None):
+        # Store the original structure for later recovery.
+        dtypes = list()
+        shapes = list()
+        idx = 0
+        while True:
+            key = "inputs[{}]".format(idx)
+            if key not in input_spaces:
+                break
+            dtypes.append(dtype_(input_spaces[key].dtype))
+            shapes.append(input_spaces[key].get_shape(with_batch_rank=True, with_time_rank=True))
+            idx += 1
+
         if get_backend() == "tf":
-            self.area = tf.contrib.staging.StagingArea()
+            self.area = tf.contrib.staging.StagingArea(dtypes, shapes)
 
     def _graph_fn_stage(self, *inputs):
         """
         Stages all incoming ops (after flattening them).
 
         Args:
-            inputs (DataOp): The incoming ops to be staged.
+            inputs (DataOp): The incoming ops to be (flattened and) staged.
 
         Returns:
-            : The tuple of the sub-Spaces (may still be Containers) sorted by `self.output_order`.
+            DataOp: The staging op.
         """
         # Flatten inputs and stage them.
-        flattened_ops = [list(flatten_op(i).values()) for i in inputs]
+        # TODO: Build equivalent to nest.flatten ()
+        flattened_ops = list()
+        for input_ in inputs:
+            flat_list = list(flatten_op(input_).values())
+            flattened_ops.extend(flat_list)
         return self.area.put(flattened_ops)
 
+    """
     def _graph_fn_unstage(self):
-        return self.area.get()
+        ""
+        Unstages (and unflattens) all staged data.
+
+        Returns:
+            Tuple[DataOp]: All previously staged ops.
+        ""
+        unstaged_data = self.area.get()
+        unflattened_data = list()
+        # Unflatten all data and return.
+        for flat_key_list, item in zip(self.flat_keys, unstaged_data):
+            flat_data_op = FlattenedDataOp()
+            unflattened_data.append(unflatten_op())
+
+        return tuple(unflattened_data)
+    """

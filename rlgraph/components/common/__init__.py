@@ -27,6 +27,7 @@ from rlgraph.components.common.noise_components import NoiseComponent, ConstantN
 from rlgraph.components.common.fixed_loop import FixedLoop
 from rlgraph.components.common.sampler import Sampler
 from rlgraph.components.common.slice import Slice
+from rlgraph.components.common.staging_area import StagingArea
 from rlgraph.components.common.repeater_stack import RepeaterStack
 from rlgraph.components.common.batch_splitter import BatchSplitter
 #from rlgraph.components.common.environment_stepper import EnvironmentStepper
