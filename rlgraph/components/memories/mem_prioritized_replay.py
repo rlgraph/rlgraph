@@ -19,15 +19,16 @@ from __future__ import print_function
 
 import numpy as np
 import operator
+
 from six.moves import xrange as range_
 
-from rlgraph.utils.specifiable import Specifiable
+from rlgraph.components import Component
 from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
 from rlgraph.spaces.space_utils import get_list_registry
 from rlgraph.spaces import Dict
 
 
-class MemPrioritizedReplay(Specifiable):
+class MemPrioritizedReplay(Component):
     """
     Implements an in-memory  prioritized replay.
 

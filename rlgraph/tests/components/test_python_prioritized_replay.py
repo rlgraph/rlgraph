@@ -26,6 +26,8 @@ from rlgraph.execution.ray.ray_util import ray_compress
 from rlgraph.spaces import Dict, IntBox, BoolBox, FloatBox
 
 
+# TODO (Michael): Clean up memory semantics and tests re:
+# next states, python memories.
 class TestPythonPrioritizedReplay(unittest.TestCase):
     """
     Tests sampling and insertion behaviour of the mem_prioritized_replay module.
@@ -96,6 +98,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
                 observation['actions'][i],
                 observation['reward'][i],
                 observation['terminals'][i],
+                observation['states'][i],
                 observation["weights"][i]
             ))
 
