@@ -32,7 +32,7 @@
   },
 
   "update_spec": {
-    "batch_size": 64
+    "batch_size": 2
   },
 
   "optimizer_spec": {

@@ -338,7 +338,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         """
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
         environment_spec = dict(
-            type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
+            type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_NTERLEAVED", "INSTR"], frameskip=4
         )
         env = DeepmindLabEnv.from_spec(environment_spec)
 
@@ -355,10 +355,11 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
                 mode="distributed",
                 distributed_spec=dict(cluster_spec=None)
             ),
-            update_spec=dict(batch_size=5),
+            #update_spec=dict(batch_size=2),
             # Summarize time-steps to have an overview of the env-stepping speed.
             summary_spec=dict(summary_regexp="time-step"),
-            dynamic_batching=False
+            dynamic_batching=True,
+            num_actors=1
         )
         # Count items in the queue.
         print("Items in queue: {}".format(agent.call_api_method("get_queue_size")))

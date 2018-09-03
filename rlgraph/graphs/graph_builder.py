@@ -304,7 +304,7 @@ class GraphBuilder(Specifiable):
             # Assign proper device to all ops created in this context manager.
             with tf.device(device):
                 # Name ops correctly according to our Component hierarchy.
-                with tf.name_scope(op_rec_column.component.global_scope+
+                with tf.name_scope(op_rec_column.component.global_scope +
                                    ('/' if op_rec_column.component.global_scope else "")):
                     self.logger.debug(
                         "Assigning device '{}' to graph_fn '{}' (scope '{}').".
