@@ -88,7 +88,7 @@ class ComponentTest(object):
             execution_spec=execution_spec
         )
         if auto_build:
-            self.graph_executor.build([component], input_spaces)
+            self.build()
         else:
             print("Auto-build false, did not build. Waiting for manual build..")
 
