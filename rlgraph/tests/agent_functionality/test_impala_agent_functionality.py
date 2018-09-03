@@ -357,7 +357,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             ),
             update_spec=dict(batch_size=5),
             # Summarize time-steps to have an overview of the env-stepping speed.
-            summary_spec=dict(summary_regexp="time-step")
+            summary_spec=dict(summary_regexp="time-step"),
+            dynamic_batching=False
         )
         # Count items in the queue.
         print("Items in queue: {}".format(agent.call_api_method("get_queue_size")))

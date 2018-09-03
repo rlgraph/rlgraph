@@ -42,7 +42,8 @@ class ComponentTest(object):
         disable_monitoring=False,
         device_strategy="default",
         device_map=None,
-        backend=None
+        backend=None,
+        auto_build=True
     ):
         """
         Args:
@@ -61,6 +62,7 @@ class ComponentTest(object):
             device_map (Optional[Dict[str,str]]): Optional device-map to be passed into GraphExecutor.
             backend (Optional[str]): Override global backend settings for a test by passing in a specific
                 backend, convenience method.
+            auto_build (Optional[bool]): If false, build has to be triggered manually to eval build stats.
         """
         self.seed = seed
         if logging_level is not None:
@@ -68,6 +70,8 @@ class ComponentTest(object):
 
         # Create a GraphBuilder.
         self.graph_builder = GraphBuilder(action_space=action_space)
+        self.component = component
+        self.input_spaces = input_spaces
 
         # Build the model.
         execution_spec = parse_execution_spec(execution_spec or dict(
@@ -83,7 +87,13 @@ class ComponentTest(object):
             graph_builder=self.graph_builder,
             execution_spec=execution_spec
         )
-        self.graph_executor.build([component], input_spaces)
+        if auto_build:
+            self.build()
+        else:
+            print("Auto-build false, did not build. Waiting for manual build..")
+
+    def build(self):
+        return self.graph_executor.build([self.component], self.input_spaces)
 
     def test(self, *api_methods, **kwargs):
         """
