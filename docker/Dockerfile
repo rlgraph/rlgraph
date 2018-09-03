@@ -43,8 +43,18 @@ RUN echo 'cc_library(name = "python",hdrs = glob(["include/python3.6/**/*.h"]),'
 
 # Bazel-build and install deepmind Lab.
 RUN bazel build -c opt python/pip_package:build_pip_package
+
+# TODO: Why do we need to do this again here?: Create proper softlink to py3
+WORKDIR /usr/bin
+RUN rm -rf python && ln -s python3 python
+WORKDIR /root/lab/
+
 RUN ./bazel-bin/python/pip_package/build_pip_package /tmp/dmlab_pkg
 RUN pip3 install /tmp/dmlab_pkg/DeepMind_Lab-1.0-py3-none-any.whl --force-reinstall
 
+# Compile the batcher.cc file into batcher.so
+RUN TF_INC="$(python -c 'import tensorflow as tf; print(tf.sysconfig.get_include())')" && \
+    TF_LIB="$(python -c 'import tensorflow as tf; print(tf.sysconfig.get_lib())')" && \
+    g++-4.8 -std=c++11 -shared batcher.cc -o batcher.so -fPIC -I $TF_INC -O2 -D_GLIBCXX_USE_CXX11_ABI=0 -L$TF_LIB -ltensorflow_framework
 
 CMD ["bash"]
