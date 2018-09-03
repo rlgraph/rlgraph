@@ -66,6 +66,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         update=FloatBox(add_batch_rank=True)
     )
 
+    # TODO These methods are all graph fns now -> unify backend tests.
     def test_insert(self):
         """
         Simply tests insert op without checking internal logic.

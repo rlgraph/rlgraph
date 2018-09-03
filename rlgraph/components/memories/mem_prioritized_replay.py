@@ -22,13 +22,13 @@ import operator
 
 from six.moves import xrange as range_
 
-from rlgraph.components import Component
+from rlgraph.components import Memory
 from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
 from rlgraph.spaces.space_utils import get_list_registry
 from rlgraph.spaces import Dict
 
 
-class MemPrioritizedReplay(Component):
+class MemPrioritizedReplay(Memory):
     """
     Implements an in-memory  prioritized replay.
 
@@ -50,6 +50,12 @@ class MemPrioritizedReplay(Component):
         self.next_states = next_states
 
         self.default_new_weight = np.power(self.max_priority, self.alpha)
+        self.define_api_method(
+            name="update_records",
+            func=self._graph_fn_update_records,
+            flatten_ops=False,
+            must_be_complete=False
+        )
 
     # TODO this needs manual calling atm
     def create_variables(self, input_spaces, action_space=None):
@@ -84,7 +90,7 @@ class MemPrioritizedReplay(Component):
             # as this would cause extra memory overhead.
             self.flat_state_keys = [k for k in self.record_registry.keys() if k[:7] == "states-"]
 
-    def insert_records(self, records):
+    def _graph_fn_insert_records(self, records):
         num_records = len(records[self.fixed_key])
 
         if num_records == 1:
@@ -193,7 +199,7 @@ class MemPrioritizedReplay(Component):
                     records[flat_next_state_key].append(next_record[flat_state_key])
         return records
 
-    def get_records(self, num_records):
+    def _graph_fn_get_records(self, num_records):
         indices = []
         prob_sum = self.merged_segment_tree.sum_segment_tree.get_sum(0, self.size - 1)
         samples = np.random.random(size=(num_records,)) * prob_sum
@@ -212,7 +218,7 @@ class MemPrioritizedReplay(Component):
         indices = np.asarray(indices)
         return self.read_records(indices=indices), indices, np.asarray(weights)
 
-    def update_records(self, indices, update):
+    def _graph_fn_update_records(self, indices, update):
         for index, loss in zip(indices, update):
             priority = np.power(loss, self.alpha)
             self.merged_segment_tree.insert(index, priority)
