@@ -209,6 +209,8 @@ class Component(Specifiable):
         a) An assembly run through another API method (will actually call this API method for further assembly).
         b) A dry run through a graph_fn (without calling it) just generating the empty op-record-columns around the
             graph_fn (incoming and outgoing).
+        c) A define-by-run execution of the method where the method is evaluated like a normal python function.
+            Define-by-run execution is enabled via setting the `execution_mode` during the build.
 
         Args:
             method (callable): The method (graph_fn or API method) to call.
@@ -258,7 +260,7 @@ class Component(Specifiable):
 
         # Direct evaluation of function.
         if self.execution_mode == "define_by_run":
-            return method(*params, **kwargs)
+            return method(*params)
         elif self.execution_mode == "static_graph":
             # Graph construction.
 
