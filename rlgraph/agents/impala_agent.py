@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 import copy
-import tensorflow.contrib.staging
 
 from rlgraph.utils import RLGraphError
 from rlgraph.agents.agent import Agent
@@ -27,6 +26,7 @@ from rlgraph.components.common.container_splitter import ContainerSplitter
 from rlgraph.components.common.slice import Slice
 from rlgraph.components.common.staging_area import StagingArea
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
+from rlgraph.components.helpers import dynamic_batching
 from rlgraph.components.helpers.softmax import SoftMax
 from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.neural_networks.actor_component import ActorComponent
@@ -145,6 +145,10 @@ class IMPALAAgent(Agent):
             name=kwargs.pop("name", "impala-{}-agent".format(self.type)),
             **kwargs
         )
+        # If we use dynamic batching, wrap the dynamic batcher around the policy's graph_fn that we
+        # actually call below during our build.
+        if self.dynamic_batching:
+            self.policy._graph_fn_
         # Manually set the reuse_variable_scope for our policies (actor: mu, learner: pi).
         self.policy.propagate_subcomponent_properties(dict(reuse_variable_scope="shared"))
         # Always use 1st learner as the parameter server for all policy variables.

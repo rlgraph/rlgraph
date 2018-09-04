@@ -23,12 +23,10 @@ from rlgraph.components.optimizers.horovod_optimizer import HorovodOptimizer
 from rlgraph.components.optimizers.local_optimizers import *
 from rlgraph.components.optimizers.multi_gpu_sync_optimizer import MultiGpuSyncOptimizer
 from rlgraph.components.optimizers.optimizer import Optimizer
-from rlgraph.components.optimizers.dynamic_batching_optimizer import DynamicBatchingOptimizer
 
 
 Optimizer.__lookup_classes__ = dict(
     horovod=HorovodOptimizer,
-    dynamicbatching=DynamicBatchingOptimizer,
     multigpu=MultiGpuSyncOptimizer,
     multigpusync=MultiGpuSyncOptimizer,
     # LocalOptimizers.
