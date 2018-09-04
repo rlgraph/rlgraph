@@ -82,5 +82,5 @@ class DenseLayer(NNLayer):
             self.layer = nn.Linear(
                 in_features=in_space.get_shape(with_batch_rank=True),
                 out_features=self.units,
-                bias=(self.biases_spec is not False),
+                bias=(self.biases_spec is not False)
             )

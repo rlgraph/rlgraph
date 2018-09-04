@@ -75,6 +75,7 @@ class PyTorchExecutor(GraphExecutor):
                 params = util.force_list(api_method[1])
                 api_method = api_method[0]
                 # TODO check if necessary for every arg?
+                # TODO we could also convert at the level of components?
                 tensor_params = [torch.tensor(param) for param in params]
                 api_ret = self.graph_builder.execute_eager_op(api_method, tensor_params)
 
