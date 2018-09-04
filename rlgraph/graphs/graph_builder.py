@@ -245,8 +245,9 @@ class GraphBuilder(Specifiable):
             with tf.device(device):
                 placeholder = space.get_variable(name=name, is_input_feed=True)
         elif get_backend() == "pytorch":
-            # Placeholder are empty tensors of a certain shape that enable shape inference.
-                placeholder = space.get_variable(name=name, is_input_feed=True, is_python=True)
+                # Batch rank 1 because PyTorch does not allow None shapes.
+                placeholder = space.get_variable(name=name, add_batch_rank=1,
+                    is_input_feed=True, is_python=True)
         return placeholder
 
     def build_component_when_input_complete(self, component):

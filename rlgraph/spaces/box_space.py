@@ -28,6 +28,10 @@ from rlgraph.utils.util import dtype
 from rlgraph.utils.initializer import Initializer
 from rlgraph.spaces.space import Space
 
+if get_backend() == "pytorch":
+    import torch
+
+
 
 class BoxSpace(Space):
     """
@@ -165,10 +169,12 @@ class BoxSpace(Space):
             else:
                 var = []
 
+            # Un-indent and just directly construct pytorch?
             if get_backend() == "pytorch" and is_input_feed:
-                # Use as fake placeholder
-                return np.asarray(var)
+                # Convert to PyTorch tensor because PyTorch cannot use
+                return torch.zeros(shape)
             else:
+                # TODO also convert?
                 return var
 
         elif get_backend() == "tf":
