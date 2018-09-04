@@ -74,7 +74,9 @@ class PyTorchExecutor(GraphExecutor):
             elif isinstance(api_method, (list, tuple)):
                 params = util.force_list(api_method[1])
                 api_method = api_method[0]
-                api_ret = self.graph_builder.execute_eager_op(api_method, params)
+                # TODO check if necessary for every arg?
+                tensor_params = [torch.tensor(param) for param in params]
+                api_ret = self.graph_builder.execute_eager_op(api_method, tensor_params)
 
                 if self.remove_batch_dims:
                     ret.append(np.squeeze(api_ret))
