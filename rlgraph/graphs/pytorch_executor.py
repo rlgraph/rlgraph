@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import os
 import time
+import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.graphs import GraphExecutor
@@ -40,6 +41,9 @@ class PyTorchExecutor(GraphExecutor):
         # In PyTorch, tensors are default created on the CPU unless assigned to a visible CUDA device,
         # e.g. via x = tensor([0, 0], device="cuda:0") for the first GPU.
         self.available_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
+
+        # Squeeze result dims, often necessary in tests.
+        self.remove_batch_dims = True
 
     def build(self, root_components, input_spaces, *args):
         start = time.perf_counter()
@@ -71,10 +75,15 @@ class PyTorchExecutor(GraphExecutor):
                 params = util.force_list(api_method[1])
                 api_method = api_method[0]
                 api_ret = self.graph_builder.execute_eager_op(api_method, params)
-                ret.append(api_ret)
+
+                if self.remove_batch_dims:
+                    ret.append(np.squeeze(api_ret))
+                else:
+                    ret.append(api_ret)
 
         # Unwrap if len 1.
         ret = ret[0] if len(ret) == 1 else ret
+
         return ret
 
     def read_variable_values(self, variables):
