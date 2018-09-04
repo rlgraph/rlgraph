@@ -28,17 +28,29 @@ from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 class TestStagingArea(unittest.TestCase):
 
     def test_staging_area(self):
-        staging_area = StagingArea()
         input_spaces = Tuple(
             FloatBox(shape=(3, 2)),
-            FloatBox(shape=(1,)),
+            Dict(a=FloatBox(shape=(1,)), b=bool),
             bool,
-            IntBox(shape=(2,)),
-            add_batch_rank=True
+            IntBox(shape=(2,))
         )
-        test = ComponentTest(component=staging_area, input_spaces=dict(inputs=[i for i in input_spaces]))
+        staging_area = StagingArea(num_data=len(input_spaces))
+        test = ComponentTest(component=staging_area, input_spaces=dict(inputs=[i for i in input_spaces]),
+                             auto_build=False)
 
-        inputs = input_spaces.sample(size=2)
+        inputs = input_spaces.sample()
 
-        out = test.test(("stage", [i for i in inputs]))
-        print(out)
+        # Build manually, then do one step_fn for the initial staging.
+        test.build()
+        stage_op = test.graph_builder.api["stage"][1][0].op  # first (0) output (1) of stage API.
+        test.graph_executor.monitored_session.run_step_fn(lambda step_context: step_context.session.run(
+            stage_op, feed_dict={
+                test.graph_builder.api["stage"][0][0].op: inputs[0],
+                test.graph_builder.api["stage"][0][1].op: inputs[1],
+                test.graph_builder.api["stage"][0][2].op: inputs[2],
+                test.graph_builder.api["stage"][0][3].op: inputs[3],
+            }
+        ))
+
+        # Unstage the inputs.
+        test.test("unstage", expected_outputs=inputs)

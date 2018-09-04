@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.component import Component
-from rlgraph.utils.ops import flatten_op
+from rlgraph.utils.ops import flatten_op, unflatten_op, FlattenedDataOp
 from rlgraph.utils.util import dtype as dtype_
 
 if get_backend() == "tf":
@@ -33,8 +33,15 @@ class StagingArea(Component):
     be prepared and then staged while a training step is still taking place, the next training step can then
     immediately take the staged data, aso.asf..
     """
-    def __init__(self, scope="staging-area", **kwargs):
-        super(StagingArea, self).__init__(scope=scope, **kwargs)
+    def __init__(self, num_data=1, scope="staging-area", **kwargs):
+        """
+        Args:
+            num_data (int): The number of data items to stage. Each item can be a ContainerDataOp (which
+                will be flattened (stage) and unflattened (unstage) automatically).
+        """
+        super(StagingArea, self).__init__(graph_fn_num_outputs=dict(_graph_fn_unstage=num_data), scope=scope, **kwargs)
+
+        #self.num_data = num_data
 
         # The actual backend-dependent StagingArea object.
         self.area = None
@@ -42,7 +49,7 @@ class StagingArea(Component):
         self.flat_keys = list()
 
         self.define_api_method(name="stage", func=self._graph_fn_stage)
-        #self.define_api_method(name="unstage", func=self._graph_fn_unstage)
+        self.define_api_method(name="unstage", func=self._graph_fn_unstage)
 
     def create_variables(self, input_spaces, action_space=None):
         # Store the original structure for later recovery.
@@ -53,8 +60,12 @@ class StagingArea(Component):
             key = "inputs[{}]".format(idx)
             if key not in input_spaces:
                 break
-            dtypes.append(dtype_(input_spaces[key].dtype))
-            shapes.append(input_spaces[key].get_shape(with_batch_rank=True, with_time_rank=True))
+            flat_keys = list()
+            for flat_key, flat_space in input_spaces[key].flatten().items():
+                dtypes.append(dtype_(flat_space.dtype))
+                shapes.append(flat_space.get_shape(with_batch_rank=True, with_time_rank=True))
+                flat_keys.append(flat_key)
+            self.flat_keys.append(flat_keys)
             idx += 1
 
         if get_backend() == "tf":
@@ -76,22 +87,23 @@ class StagingArea(Component):
         for input_ in inputs:
             flat_list = list(flatten_op(input_).values())
             flattened_ops.extend(flat_list)
-        return self.area.put(flattened_ops)
+        stage_op = self.area.put(flattened_ops)
+        return stage_op
 
-    """
     def _graph_fn_unstage(self):
-        ""
+        """
         Unstages (and unflattens) all staged data.
 
         Returns:
             Tuple[DataOp]: All previously staged ops.
-        ""
+        """
         unstaged_data = self.area.get()
         unflattened_data = list()
+        idx = 0
         # Unflatten all data and return.
-        for flat_key_list, item in zip(self.flat_keys, unstaged_data):
-            flat_data_op = FlattenedDataOp()
-            unflattened_data.append(unflatten_op())
+        for flat_key_list in self.flat_keys:
+            flat_dict = FlattenedDataOp({flat_key: item for flat_key, item in zip(flat_key_list, unstaged_data[idx:idx + len(flat_key_list)])})
+            unflattened_data.append(unflatten_op(flat_dict))
+            idx += len(flat_key_list)
 
         return tuple(unflattened_data)
-    """
