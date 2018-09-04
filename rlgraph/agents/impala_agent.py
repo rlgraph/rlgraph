@@ -18,12 +18,14 @@ from __future__ import division
 from __future__ import print_function
 
 import copy
+import tensorflow.contrib.staging
 
 from rlgraph.utils import RLGraphError
 from rlgraph.agents.agent import Agent
 from rlgraph.components.common.dict_merger import DictMerger
 from rlgraph.components.common.container_splitter import ContainerSplitter
 from rlgraph.components.common.slice import Slice
+from rlgraph.components.common.staging_area import StagingArea
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.helpers.softmax import SoftMax
 from rlgraph.components.layers.preprocessing.reshape import ReShape
@@ -31,7 +33,6 @@ from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.loss_functions.impala_loss_function import IMPALALossFunction
 from rlgraph.components.memories.fifo_queue import FIFOQueue
 from rlgraph.components.memories.queue_runner import QueueRunner
-from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork, SmallIMPALANetwork
 from rlgraph.spaces import FloatBox, Dict, Tuple
 from rlgraph.utils.util import default_dict
 
@@ -46,9 +47,10 @@ class IMPALAAgent(Agent):
     """
 
     standard_internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False)
+    #nest = tensorflow.contrib.framework.nest
 
     def __init__(self, discount=0.99, architecture="large", fifo_queue_spec=None, environment_spec=None,
-                 weight_pg=None, weight_baseline=None, weight_entropy=None, worker_sample_size=20,
+                 weight_pg=None, weight_baseline=None, weight_entropy=None, worker_sample_size=100,
                  dynamic_batching=False, **kwargs):
         """
         Args:
@@ -98,10 +100,10 @@ class IMPALAAgent(Agent):
                 frameskip=4
             )
             update_spec = kwargs.pop("update_spec", None)
-            # Change the optimizer spec to put in a dynamic_
+            # Change the optimizer spec to put in a dynamic_batching_optimizer wrapping the local one.
             if self.dynamic_batching:
-                local_optimizer_spec = copy.deepcopy(optimizer_spec["optimizer"])
-                optimizer_spec["optimizer"] = dict(type="dynamic-batching", optimizer=local_optimizer_spec)
+                local_optimizer_spec = optimizer_spec
+                optimizer_spec = dict(type="dynamic-batching", optimizer_spec=local_optimizer_spec)
 
         # Actors won't need to learn (no optimizer needed in graph).
         elif self.type == "actor":
@@ -151,6 +153,9 @@ class IMPALAAgent(Agent):
 
         # Check whether we have an RNN.
         self.has_rnn = self.neural_network.has_rnn()
+        # Check, whether we are running with GPU.
+        self.has_gpu = self.execution_spec["gpu_spec"]["gpus_enabled"] is True and \
+                       self.execution_spec["gpu_spec"]["num_gpus"] > 0
 
         # Some FIFO-queue specs.
         self.fifo_queue_keys = ["preprocessed_states", "actions", "rewards", "terminals", "last_next_states",
@@ -196,6 +201,8 @@ class IMPALAAgent(Agent):
             self.env_output_splitter = ContainerSplitter(tuple_length=8, scope="env-output-splitter")
             self.fifo_output_splitter = ContainerSplitter(*self.fifo_queue_keys, scope="fifo-output-splitter")
 
+            self.staging_area = StagingArea(num_data=len(self.fifo_queue_keys))
+
             # Slice some data from the EnvStepper (e.g only first internal states are needed).
             self.next_states_slicer = Slice(scope="next-states-slicer", squeeze=False)
             self.internal_states_slicer = Slice(scope="internal-states-slicer", squeeze=True)
@@ -232,6 +239,7 @@ class IMPALAAgent(Agent):
                 state_space=self.state_space.with_batch_rank(),
                 reward_space=float,  # TODO <- float64 for deepmind? may not work for other envs
                 internal_states_space=self.internal_states_space,
+                num_steps=self.worker_sample_size,
                 add_previous_action=True,
                 add_previous_reward=True,
                 add_action_probs=True,
@@ -256,7 +264,7 @@ class IMPALAAgent(Agent):
             sub_components = [
                 self.fifo_output_splitter, self.fifo_queue, self.queue_runner, self.transpose_actions,
                 self.transpose_rewards, self.transpose_terminals, self.transpose_action_probs, self.preprocessor,
-                self.policy, self.softmax, self.loss_function, self.optimizer
+                self.staging_area, self.policy, self.softmax, self.loss_function, self.optimizer
             ]
 
         elif self.type == "actor":
@@ -320,6 +328,12 @@ class IMPALAAgent(Agent):
             self._build_graph([self.root_component], self.input_spaces, self.optimizer)
             self.graph_built = True
 
+            #if self.has_gpu:
+            # Get 1st return op of API-method `stage` of sub-component `staging-area` (which is the stage-op).
+            self.stage_op = self.root_component.sub_components["staging-area"].api_methods["stage"].out_op_columns[0].op_records[0].op
+            # Initialize the stage.
+            self.graph_executor.monitored_session.run_step_fn(lambda step_context: step_context.session.run(self.stage_op))
+
     def define_api_methods(self, *sub_components):
         # TODO: Unify agents with/w/o synchronizable policy.
         # TODO: Unify Agents with/w/o get_action method (w/ env-stepper vs w/o).
@@ -339,14 +353,14 @@ class IMPALAAgent(Agent):
 
     def define_api_methods_single(self, fifo_output_splitter, fifo_queue, queue_runner, transpose_actions,
                                   transpose_rewards, transpose_terminals, transpose_action_probs, preprocessor,
-                                  policy, softmax, loss_function, optimizer):
-        def setup_queue_runners(self):
-            return self.call(queue_runner.setup)
+                                  staging_area, policy, softmax, loss_function, optimizer):
+        def setup_queue_runners(self_):
+            return self_.call(queue_runner.setup)
 
         self.root_component.define_api_method("setup_queue_runners", setup_queue_runners)
 
-        def get_queue_size(self):
-            return self.call(fifo_queue.get_size)
+        def get_queue_size(self_):
+            return self_.call(fifo_queue.get_size)
 
         self.root_component.define_api_method("get_queue_size", get_queue_size)
 
@@ -372,6 +386,17 @@ class IMPALAAgent(Agent):
             terminals = self_.call(transpose_terminals.apply, terminals)
             action_probs_mu = self_.call(transpose_action_probs.apply, action_probs_mu)
 
+            # Put everything on staging area (adds 1 time step policy lag, but makes copying data into GPU more
+            # efficient).
+
+            #if self.has_gpu:
+            stage_op = self_.call(staging_area.stage, preprocessed_s, actions, rewards, terminals,
+                                  action_probs_mu, preprocessed_last_s_prime, initial_internal_states)
+            # Get data from stage again and continue.
+            preprocessed_s, actions, rewards, terminals, action_probs_mu, preprocessed_last_s_prime, \
+                initial_internal_states = self_.call(staging_area.unstage)
+            # endif.
+
             # Get the pi-action probs AND the values for all our states.
             state_values_pi, logits_pi, current_internal_states = \
                 self_.call(policy.get_baseline_output, preprocessed_s, initial_internal_states)
@@ -393,9 +418,21 @@ class IMPALAAgent(Agent):
             step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
 
             # Return optimizer op and all loss values.
-            return step_op, loss, loss_per_item
+            return step_op, stage_op, loss, loss_per_item
 
         self.root_component.define_api_method("update_from_memory", update_from_memory)
+
+        # TEST: define a graph_fn for the root component.
+        #def _graph_fn_stage_dequeued_output(self, *dequeued):
+        #    flattened_output = self.nest.flatten(dequeued)
+        #    area = tensorflow.contrib.staging.StagingArea(
+        #        [t.dtype for t in flattened_output],
+        #        [t.shape for t in flattened_output]
+        #    )
+        #    stage_op = area.put(flattened_output)
+        #    return stage_op
+
+        #self.root_component._graph_fn_stage_dequeued_output = _graph_fn_stage_dequeued_output
 
     def define_api_methods_actor(self, env_stepper, splitter, next_states_slicer, internal_states_slicer, merger,
                                  fifo_queue):

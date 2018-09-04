@@ -701,7 +701,7 @@ class GraphBuilder(Specifiable):
             meta_graph (MetaGraph): MetaGraph to build to backend graph.
             input_spaces (dict): Input spaces to build for.
             available_devices (list): Devices which can be used to assign parts of the graph
-                during graph assembly.
+                during the graph build.
             device_strategy (Optional[str]): Device strategy.
             default_device (Optional[str]): Default device identifier.
             device_map (Optional[Dict]): Dict of Component names mapped to device names to place the Component's ops.

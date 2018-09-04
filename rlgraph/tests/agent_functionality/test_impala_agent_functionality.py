@@ -338,14 +338,14 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         """
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
         environment_spec = dict(
-            type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_NTERLEAVED", "INSTR"], frameskip=4
+            type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
         )
         env = DeepmindLabEnv.from_spec(environment_spec)
 
         agent = IMPALAAgent.from_spec(
             agent_config,
             type="single",
-            architecture="large",
+            architecture="small",
             environment_spec=environment_spec,
             state_space=env.state_space,
             action_space=env.action_space,
@@ -358,7 +358,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             #update_spec=dict(batch_size=2),
             # Summarize time-steps to have an overview of the env-stepping speed.
             summary_spec=dict(summary_regexp="time-step"),
-            dynamic_batching=True,
+            #dynamic_batching=False,
             num_actors=1
         )
         # Count items in the queue.
@@ -369,7 +369,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         print("Updating from queue ...")
         for _ in range(updates):
             start_time = time.monotonic()
-            agent.update()
+            print(agent.update())
             update_times.append(time.monotonic() - start_time)
 
         print("Updates per second (including waiting for enqueued items): {}/s".format(updates / np.sum(update_times)))
