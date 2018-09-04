@@ -45,4 +45,4 @@ Optimizer.__default_constructor__ = partial(GradientDescentOptimizer, learning_r
 __all__ = ["Optimizer", "LocalOptimizer", "HorovodOptimizer", "MultiGpuSyncOptimizer",
            "GradientDescentOptimizer", "SGDOptimizer",
            "AdagradOptimizer", "AdadeltaOptimizer", "AdamOptimizer", "NadamOptimizer",
-           "RMSPropOptimizer", "DynamicBatchingOptimizer"]
+           "RMSPropOptimizer"]
