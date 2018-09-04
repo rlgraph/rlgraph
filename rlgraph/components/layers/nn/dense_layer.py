@@ -79,8 +79,9 @@ class DenseLayer(NNLayer):
             self.register_variables(*self.layer.variables)
         elif get_backend() == "pytorch":
             # N.b. activation must be added as a separate 'layer' when assembling a network.
+            # In features is the num of input channels.
             self.layer = nn.Linear(
-                in_features=in_space.get_shape(with_batch_rank=True),
+                in_features=in_space.get_shape(with_batch_rank=False)[0],
                 out_features=self.units,
                 bias=(self.biases_spec is not False)
             )
