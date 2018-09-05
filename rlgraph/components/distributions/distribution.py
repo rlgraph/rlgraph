@@ -135,6 +135,11 @@ class Distribution(Component):
                 true_fn=lambda: self._graph_fn_sample_deterministic(distribution),
                 false_fn=lambda: self._graph_fn_sample_stochastic(distribution)
             )
+        elif get_backend() == "pytorch":
+            if max_likelihood:
+                return self._graph_fn_sample_deterministic(distribution)
+            else:
+                self._graph_fn_sample_stochastic(distribution)
 
     def _graph_fn_sample_deterministic(self, distribution):
         """
@@ -174,8 +179,7 @@ class Distribution(Component):
         Returns:
             DataOp: The log probability of the given values.
         """
-        if get_backend() == "tf":
-            return distribution.log_prob(value=values)
+        return distribution.log_prob(value=values)
 
     def _graph_fn_entropy(self, distribution):
         """
