@@ -51,4 +51,3 @@ class Normal(Distribution):
 
     def _graph_fn_sample_deterministic(self, distribution):
             return distribution.mean()
-
