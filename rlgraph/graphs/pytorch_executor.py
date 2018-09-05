@@ -100,7 +100,8 @@ class PyTorchExecutor(GraphExecutor):
         return ret
 
     def read_variable_values(self, variables):
-        pass
+        # For test compatibility.
+        return variables
 
     def init_execution(self): \
         # Nothing to do here for PyTorch.
