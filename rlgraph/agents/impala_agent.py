@@ -260,7 +260,8 @@ class IMPALAAgent(Agent):
                     env_stepper.actor_component.policy.parent_component = None
                     env_stepper.actor_component.policy = DynamicBatchingPolicy(policy_spec=env_stepper.actor_component.policy, scope="")
                     env_stepper.actor_component.add_components(env_stepper.actor_component.policy)
-                    env_stepper.actor_component.policy.propagate_subcomponent_properties(dict(reuse_variable_scope="shared"))
+
+                env_stepper.actor_component.policy.propagate_subcomponent_properties(dict(reuse_variable_scope="shared"))
                 self.environment_steppers.append(env_stepper)
 
             # Switch all policies by DynamicBatchingPolicies.
