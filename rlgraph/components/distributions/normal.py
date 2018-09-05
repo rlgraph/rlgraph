@@ -23,6 +23,8 @@ from rlgraph.components.distributions.distribution import Distribution
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class Normal(Distribution):
@@ -44,7 +46,9 @@ class Normal(Distribution):
     def _graph_fn_get_distribution(self, parameters):
         if get_backend() == "tf":
             return tf.distributions.Normal(loc=parameters[0], scale=parameters[1])
+        elif get_backend() == "pytorch":
+            return torch.normal(parameters[0], parameters[1])
 
     def _graph_fn_sample_deterministic(self, distribution):
-        return distribution.mean()
+            return distribution.mean()
 
