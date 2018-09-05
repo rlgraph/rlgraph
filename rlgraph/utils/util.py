@@ -23,15 +23,13 @@ import numpy as np
 import inspect
 import re
 import sys
-import tensorflow as tf
-
 from rlgraph import get_backend
 from rlgraph.utils.rlgraph_error import RLGraphError
 
 if get_backend() == "tf":
-    import tensorflow as backend
-else:
-    import torch as backend
+    import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 SMALL_NUMBER = 1e-6
 LARGE_INTEGER = 100000000
@@ -64,27 +62,39 @@ def dtype(dtype_, to="tf"):
     """
     # Bool: tensorflow.
     if get_backend() == "tf":
-        if dtype_ in ["bool", bool, np.bool_, backend.bool]:
-            return np.bool_ if to == "np" else backend.bool
-    # Bool: All others.
-    elif dtype_ in ["bool", bool, np.bool_]:
-        return np.bool_ if to == "np" else tf.bool
-
-    # Generic backend.
-    if dtype_ in ["float", "float32", float, np.float32, backend.float32]:
-        return np.float32 if to == "np" else tf.float32
-    if dtype_ in ["float64", np.float64, backend.float64]:
-        return np.float64 if to == "np" else tf.float64
-    elif dtype_ in ["int", "int32", int, np.int32, backend.int32]:
-        return np.int32 if to == "np" else tf.int32
-    elif dtype_ in ["int64", np.int64]:
-        return np.int64 if to == "np" else tf.int64
-    elif dtype_ in ["uint8", np.uint8]:
-        return np.uint8 if to == "np" else tf.uint8
-    elif dtype_ in ["str", np.str_]:
-        return np.unicode_ if to == "np" else tf.string
-    elif dtype_ in ["int16", np.int16]:
-        return np.int16 if to == "np" else tf.int16
+        if dtype_ in ["bool", bool, np.bool_, tf.bool]:
+            return np.bool_ if to == "np" else tf.bool
+        elif dtype_ in ["float", "float32", float, np.float32, tf.float32]:
+            return np.float32 if to == "np" else tf.float32
+        if dtype_ in ["float64", np.float64, tf.float64]:
+            return np.float64 if to == "np" else tf.float64
+        elif dtype_ in ["int", "int32", int, np.int32, tf.int32]:
+            return np.int32 if to == "np" else tf.int32
+        elif dtype_ in ["int64", np.int64]:
+            return np.int64 if to == "np" else tf.int64
+        elif dtype_ in ["uint8", np.uint8]:
+            return np.uint8 if to == "np" else tf.uint8
+        elif dtype_ in ["str", np.str_]:
+            return np.unicode_ if to == "np" else tf.string
+        elif dtype_ in ["int16", np.int16]:
+            return np.int16 if to == "np" else tf.int16
+    elif get_backend() == "pytorch":
+        # N.b. this behaves differently than other bools, careful with Python bool comparisons.
+        if dtype_ in ["bool", bool, np.bool_, torch.uint8]:
+            return np.bool_ if to == "np" else torch.uint8
+        elif dtype_ in ["float", "float32", float, np.float32, torch.float32]:
+            return np.float32 if to == "np" else torch.float32
+        if dtype_ in ["float64", np.float64, torch.float64]:
+            return np.float64 if to == "np" else torch.float64
+        elif dtype_ in ["int", "int32", int, np.int32, torch.int32]:
+            return np.int32 if to == "np" else torch.int32
+        elif dtype_ in ["int64", np.int64]:
+            return np.int64 if to == "np" else torch.int64
+        elif dtype_ in ["uint8", np.uint8]:
+            return np.uint8 if to == "np" else torch.uint8
+        elif dtype_ in ["int16", np.int16]:
+            return np.int16 if to == "np" else torch.int16
+        # N.b. no string tensor type.
 
     raise RLGraphError("Error: Type conversion to '{}' for type '{}' not supported.".format(to, str(dtype_)))
 
@@ -160,7 +170,8 @@ def get_batch_size(tensor):
     """
     if get_backend() == "tf":
         return tf.shape(tensor)[0]
-
+    elif get_backend() == "pytorch":
+        return tensor.shape[0]
 
 def force_list(elements, to_tuple=False):
     """
