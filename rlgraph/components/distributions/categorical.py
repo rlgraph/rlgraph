@@ -23,6 +23,8 @@ from rlgraph.components.distributions.distribution import Distribution
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class Categorical(Distribution):
@@ -36,7 +38,13 @@ class Categorical(Distribution):
     def _graph_fn_get_distribution(self, parameters):
         if get_backend() == "tf":
             return tf.distributions.Categorical(probs=parameters, dtype=util.dtype("int"))
+        elif get_backend() == "pytorch":
+            if self.dist_object is None:
+                self.dist_object = torch.distributions.Categorical(probs=parameters)
+            return self.dist_object
 
     def _graph_fn_sample_deterministic(self, distribution):
         if get_backend() == "tf":
             return tf.argmax(input=distribution.probs, axis=-1, output_type=util.dtype("int"))
+        elif get_backend() == "pytorch":
+            return torch.argmax(distribution.probs, dim=-1).int()
