@@ -41,6 +41,11 @@ class PyTorchExecutor(GraphExecutor):
         # In PyTorch, tensors are default created on the CPU unless assigned to a visible CUDA device,
         # e.g. via x = tensor([0, 0], device="cuda:0") for the first GPU.
         self.available_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
+        # TODO handle cuda tensors
+
+        self.default_torch_tensor_type = self.execution_spec.get("dtype", "torch.FloatTensor")
+        if self.default_torch_tensor_type is not None:
+            torch.set_default_tensor_type(self.default_torch_tensor_type)
 
         # Squeeze result dims, often necessary in tests.
         self.remove_batch_dims = True
@@ -76,6 +81,9 @@ class PyTorchExecutor(GraphExecutor):
                 api_method = api_method[0]
                 # TODO check if necessary for every arg?
                 # TODO we could also convert at the level of components?
+                # TODO set if grad required?
+                # tensor_params
+
                 tensor_params = [torch.tensor(param) for param in params]
                 api_ret = self.graph_builder.execute_eager_op(api_method, tensor_params)
 
