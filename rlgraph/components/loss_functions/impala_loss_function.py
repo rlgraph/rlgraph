@@ -76,8 +76,8 @@ class IMPALALossFunction(LossFunction):
             self.action_space, allowed_types=[IntBox], must_have_categories=True
         )
 
-    def loss(self, log_probs_actions_pi, action_probs_mu, values, actions, rewards, terminals,
-             bootstrapped_values):
+    def loss(self, log_probs_actions_pi, action_probs_mu, values, actions, rewards, terminals):  #,
+             #bootstrapped_values):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -88,32 +88,36 @@ class IMPALALossFunction(LossFunction):
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
         loss_per_item = self.call(self._graph_fn_loss_per_item, log_probs_actions_pi, action_probs_mu,
-                                  values, actions, rewards, terminals, bootstrapped_values)
+                                  values, actions, rewards, terminals)  #, bootstrapped_values)
         total_loss = self.call(self._graph_fn_loss_average, loss_per_item)
         return total_loss, loss_per_item
 
     def _graph_fn_loss_per_item(self, log_probs_actions_pi, action_probs_mu, values, actions,
-                                rewards, terminals, bootstrapped_values):
+                                rewards, terminals):  #, bootstrapped_values):
         """
         Calculates the loss per batch item (summed over all timesteps) using the formula described above in
         the docstring to this class.
 
         Args:
             log_probs_actions_pi (DataOp): The log probabilities for all possible actions coming from the learner's
-                policy (pi). Dimensions are: time x batch x action-space+categories.
+                policy (pi). Dimensions are: (time+1) x batch x action-space+categories.
+                +1 b/c last-next-state (aka "bootstrapped" value).
             action_probs_mu (DataOp): The probabilities for all actions coming from the
                 actor's policies (mu). Dimensions are: time x batch x action-space+categories.
             values (DataOp): The state value estimates coming from baseline node of the learner's policy (pi).
-                Dimensions are: time x batch.
+                Dimensions are: (time+1) x batch. +1 b/c last-next-state (aka "bootstrapped" value).
             actions (DataOp): The actually taken actions. Dimensions are: time x batch x action-space.
             rewards (DataOp): The received rewards. Dimensions are: time x batch.
             terminals (DataOp): The observed terminal signals. Dimensions are: time x batch.
-            bootstrapped_values (DataOp): The bootstrapped values. Dimensions are 1 (time) x batch x 1 (the value node).
+            #bootstrapped_values (DataOp): The bootstrapped values. Dimensions are 1 (time) x batch x 1 (the value node).
 
         Returns:
             SingleDataOp: The loss values per item in the batch, but summed over all timesteps.
         """
         if get_backend() == "tf":
+            values, bootstrapped_values = values[:-1], values[-1:]
+            log_probs_actions_pi = log_probs_actions_pi[:-1]
+
             # Calculate the log IS-weight values via: logIS = log(pi(a|s)) - log(mu(a|s)).
             # Use the action_probs_pi values only of the actions actually taken.
             one_hot = tf.one_hot(indices=actions, depth=self.action_space.num_categories)
