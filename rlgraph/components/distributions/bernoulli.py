@@ -23,6 +23,8 @@ from rlgraph.components.distributions.distribution import Distribution
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class Bernoulli(Distribution):
@@ -39,6 +41,10 @@ class Bernoulli(Distribution):
         """
         if get_backend() == "tf":
             return tf.distributions.Bernoulli(probs=parameters, dtype=util.dtype("bool"))
+        elif get_backend() == "pytorch":
+            if self.dist_object is None:
+                self.dist_object = torch.distributions.Bernoulli(probs=parameters)
+            return self.dist_object
 
     def _graph_fn_sample_deterministic(self, distribution):
         return distribution.prob(True) >= 0.5
