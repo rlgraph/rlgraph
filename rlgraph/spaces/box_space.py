@@ -111,8 +111,13 @@ class BoxSpace(Space):
 
     def get_shape(self, with_batch_rank=False, with_time_rank=False, time_major=None, **kwargs):
         if with_batch_rank is not False:
-            batch_rank = (((None,) if with_batch_rank is True else (with_batch_rank,))
-                          if self.has_batch_rank else ())
+            # None shapes are typically only allowed in static graphs.
+            if get_backend() == "tf":
+                batch_rank = (((None,) if with_batch_rank is True else (with_batch_rank,))
+                              if self.has_batch_rank else ())
+            elif get_backend() == "pytorch":
+                batch_rank = (((1,) if with_batch_rank is True else (with_batch_rank,))
+                              if self.has_batch_rank else ())
         else:
             batch_rank = ()
 
