@@ -28,7 +28,10 @@ import numpy as np
 
 class TestDistributions(unittest.TestCase):
 
+
     # TODO these are all not portable to CI.
+
+    # TODO also not portable to PyTorch due to batch shapes.
 
     pass
 
