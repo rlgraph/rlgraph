@@ -54,6 +54,9 @@ class Distribution(Component):
         self.variable_complete = True
         # END: TEST
 
+        # For define-by-run to avoid creating new objects when calling `get_distribution`.
+        self.dist_object = None
+
         # Define our interface.
         self.define_api_method(name="get_distribution", func=self._graph_fn_get_distribution)
 

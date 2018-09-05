@@ -47,7 +47,9 @@ class Normal(Distribution):
         if get_backend() == "tf":
             return tf.distributions.Normal(loc=parameters[0], scale=parameters[1])
         elif get_backend() == "pytorch":
-            return torch.normal(parameters[0], parameters[1])
+            if self.dist_object is None:
+                self.dist_object = torch.distributions.Normal(parameters[0], parameters[1])
+            return self.dist_object
 
     def _graph_fn_sample_deterministic(self, distribution):
             return distribution.mean()
