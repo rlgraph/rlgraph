@@ -21,6 +21,8 @@ import logging
 import unittest
 
 from rlgraph import spaces
+from rlgraph.environments import Environment
+from rlgraph.spaces import FloatBox
 from rlgraph.tests import ComponentTest
 from rlgraph.utils import root_logger
 from rlgraph.tests.dummy_components import *
@@ -93,6 +95,46 @@ class TestPytorchBackend(unittest.TestCase):
         # Expected output: (input + 1.0) + 1.1
         test.test(("run", 78.4), expected_outputs=80.5)
         test.test(("run", -5.2), expected_outputs=-3.1)
+
+    # TODO delete after debugging.
+    def test_layer_passes(self):
+        import torch
+        torch.set_default_tensor_type("torch.FloatTensor")
+        env_spec = dict(
+            type="openai",
+            gym_env="CartPole-v0",
+            fire_reset=False
+        )
+        env = Environment.from_spec(env_spec)
+        space = env.state_space
+        print(space.shape)
+
+        # This works
+        self.fc1 = torch.nn.Linear(space.get_shape()[0], 1, bias=False)
+
+        # Test single forward pass.
+        space_sample = space.sample()
+        print(space_sample)
+        from_numpy_in = torch.tensor(space_sample, dtype=torch.float32, requires_grad=False)
+        print(self.fc1(from_numpy_in))
+
+        # Test batch forward pass
+        space_sample = space.sample(size=10)
+        from_numpy_in = torch.tensor(space_sample, dtype=torch.float32, requires_grad=False)
+        print(self.fc1(from_numpy_in))
+
+    def test_dense_layer(self):
+        # Space must contain batch dimension (otherwise, NNLayer will complain).
+        space = FloatBox(shape=(2,), add_batch_rank=True)
+
+        # - fixed 1.0 weights, no biases
+        dense_layer = DenseLayer(units=2, weights_spec=1.0, biases_spec=False)
+        test = ComponentTest(component=dense_layer, input_spaces=dict(inputs=space))
+
+        # Batch of size=1 (can increase this to any larger number).
+        input_ = np.array([0.5, 2.0])
+        expected = np.array([2.5, 2.5])
+        test.test(("apply", input_), expected_outputs=expected)
 
     def test_2_containers_flattening_splitting(self):
         """

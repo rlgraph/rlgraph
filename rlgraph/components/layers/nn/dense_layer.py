@@ -80,8 +80,20 @@ class DenseLayer(NNLayer):
         elif get_backend() == "pytorch":
             # N.b. activation must be added as a separate 'layer' when assembling a network.
             # In features is the num of input channels.
+            apply_bias = (self.biases_spec is not False)
             self.layer = nn.Linear(
-                in_features=in_space.get_shape(with_batch_rank=False)[0],
+                in_features=in_space.shape[0],
                 out_features=self.units,
-                bias=(self.biases_spec is not False)
+                bias=apply_bias
             )
+            # Apply weight initializer
+            if self.weights_init.initializer is not None:
+                # Must be a callable in PyTorch
+                self.weights_init.initializer(self.layer.weight)
+            if apply_bias:
+                if self.biases_init.initializer is not None:
+                    self.biases_init.initializer(self.layer.bias)
+                else:
+                    # Fill with zeros.
+                    self.layer.bias.data.fill_(0)
+

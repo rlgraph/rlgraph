@@ -24,6 +24,7 @@ import numpy as np
 from rlgraph import get_backend
 from rlgraph.graphs import GraphExecutor
 from rlgraph.utils import util
+from rlgraph.utils.util import force_torch_tensors
 
 if get_backend() == "pytorch":
     import torch
@@ -82,11 +83,12 @@ class PyTorchExecutor(GraphExecutor):
                 # TODO check if necessary for every arg?
                 # TODO we could also convert at the level of components?
                 # TODO set if grad required?
-                # tensor_params
-
-                tensor_params = [torch.tensor(param) for param in params]
+                tensor_params = force_torch_tensors(params=params)
                 api_ret = self.graph_builder.execute_eager_op(api_method, tensor_params)
 
+                # Detach results.
+                if isinstance(api_ret, torch.Tensor):
+                    api_ret = api_ret.detach().numpy()
                 if self.remove_batch_dims:
                     ret.append(np.squeeze(api_ret))
                 else:
