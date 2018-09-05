@@ -24,14 +24,15 @@ from rlgraph.agents.agent import Agent
 from rlgraph.components.common.dict_merger import DictMerger
 from rlgraph.components.common.container_splitter import ContainerSplitter
 from rlgraph.components.common.slice import Slice
+from rlgraph.components.common.staging_area import StagingArea
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
-from rlgraph.components.helpers.softmax import SoftMax
 from rlgraph.components.layers.preprocessing.reshape import ReShape
+from rlgraph.components.layers.preprocessing.concat import Concat
 from rlgraph.components.neural_networks.actor_component import ActorComponent
+from rlgraph.components.neural_networks.dynamic_batching_policy import DynamicBatchingPolicy
 from rlgraph.components.loss_functions.impala_loss_function import IMPALALossFunction
 from rlgraph.components.memories.fifo_queue import FIFOQueue
 from rlgraph.components.memories.queue_runner import QueueRunner
-from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork, SmallIMPALANetwork
 from rlgraph.spaces import FloatBox, Dict, Tuple
 from rlgraph.utils.util import default_dict
 
@@ -48,7 +49,7 @@ class IMPALAAgent(Agent):
     standard_internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False)
 
     def __init__(self, discount=0.99, architecture="large", fifo_queue_spec=None, environment_spec=None,
-                 weight_pg=None, weight_baseline=None, weight_entropy=None, worker_sample_size=20,
+                 weight_pg=None, weight_baseline=None, weight_entropy=None, worker_sample_size=100,
                  dynamic_batching=False, **kwargs):
         """
         Args:
@@ -98,10 +99,6 @@ class IMPALAAgent(Agent):
                 frameskip=4
             )
             update_spec = kwargs.pop("update_spec", None)
-            # Change the optimizer spec to put in a dynamic_
-            if self.dynamic_batching:
-                local_optimizer_spec = copy.deepcopy(optimizer_spec["optimizer"])
-                optimizer_spec["optimizer"] = dict(type="dynamic-batching", optimizer=local_optimizer_spec)
 
         # Actors won't need to learn (no optimizer needed in graph).
         elif self.type == "actor":
@@ -143,6 +140,11 @@ class IMPALAAgent(Agent):
             name=kwargs.pop("name", "impala-{}-agent".format(self.type)),
             **kwargs
         )
+        # If we use dynamic batching, wrap the dynamic batcher around the policy's graph_fn that we
+        # actually call below during our build.
+        if self.dynamic_batching:
+            #self.policy.parent_component = None  # TODO: this is a hack
+            self.policy = DynamicBatchingPolicy(policy_spec=self.policy, scope="")
         # Manually set the reuse_variable_scope for our policies (actor: mu, learner: pi).
         self.policy.propagate_subcomponent_properties(dict(reuse_variable_scope="shared"))
         # Always use 1st learner as the parameter server for all policy variables.
@@ -151,6 +153,9 @@ class IMPALAAgent(Agent):
 
         # Check whether we have an RNN.
         self.has_rnn = self.neural_network.has_rnn()
+        # Check, whether we are running with GPU.
+        self.has_gpu = self.execution_spec["gpu_spec"]["gpus_enabled"] is True and \
+                       self.execution_spec["gpu_spec"]["num_gpus"] > 0
 
         # Some FIFO-queue specs.
         self.fifo_queue_keys = ["preprocessed_states", "actions", "rewards", "terminals", "last_next_states",
@@ -196,6 +201,10 @@ class IMPALAAgent(Agent):
             self.env_output_splitter = ContainerSplitter(tuple_length=8, scope="env-output-splitter")
             self.fifo_output_splitter = ContainerSplitter(*self.fifo_queue_keys, scope="fifo-output-splitter")
 
+            # Note: `-1` because we already concat preprocessed last-next-state to the other preprocessed-states.
+            # (this saves one run through the NN).
+            self.staging_area = StagingArea(num_data=len(self.fifo_queue_keys) - 1)
+
             # Slice some data from the EnvStepper (e.g only first internal states are needed).
             self.next_states_slicer = Slice(scope="next-states-slicer", squeeze=False)
             self.internal_states_slicer = Slice(scope="internal-states-slicer", squeeze=True)
@@ -209,7 +218,7 @@ class IMPALAAgent(Agent):
             self.transpose_action_probs = ReShape(flip_batch_and_time_rank=True, time_major=True,
                                                   scope="transpose-a-probs-mu")
 
-            self.softmax = SoftMax()
+            self.concat = Concat(axis=1)  # 1=the time rank (at the time of the concat, we are still batch-major)
 
             # Create an IMPALALossFunction with some parameters.
             self.loss_function = IMPALALossFunction(
@@ -222,22 +231,45 @@ class IMPALAAgent(Agent):
 
             dummy_flattener = ReShape(flatten=True)  # dummy Flattener to calculate action-probs space
 
-            self.environment_steppers = [EnvironmentStepper(
-                environment_spec=environment_spec,
-                actor_component_spec=ActorComponent(preprocessor_spec=preprocessing_spec,
-                                                    policy_spec=dict(neural_network=network_spec,
-                                                                     action_space=self.action_space,
-                                                                     reuse_variable_scope="shared/policy"),
-                                                    exploration_spec=exploration_spec),
-                state_space=self.state_space.with_batch_rank(),
-                reward_space=float,  # TODO <- float64 for deepmind? may not work for other envs
-                internal_states_space=self.internal_states_space,
-                add_previous_action=True,
-                add_previous_reward=True,
-                add_action_probs=True,
-                action_probs_space=dummy_flattener.get_preprocessed_space(self.action_space),
-                scope="env-stepper-{}".format(i)
-            ) for i in range(self.num_actors)]
+            self.environment_steppers = list()
+            for i in range(self.num_actors):
+                policy_spec = dict(
+                    neural_network=network_spec,
+                    action_adapter_spec=dict(type="baseline-action-adapter"),
+                    action_space=self.action_space
+                )
+
+                env_stepper = EnvironmentStepper(
+                    environment_spec=environment_spec,
+                    actor_component_spec=ActorComponent(
+                        preprocessor_spec=preprocessing_spec,
+                        policy_spec=policy_spec,
+                        exploration_spec=exploration_spec
+                    ),
+                    state_space=self.state_space.with_batch_rank(),
+                    reward_space=float,  # TODO <- float64 for deepmind? may not work for other envs
+                    internal_states_space=self.internal_states_space,
+                    num_steps=self.worker_sample_size,
+                    add_previous_action=True,
+                    add_previous_reward=True,
+                    add_action_probs=True,
+                    action_probs_space=dummy_flattener.get_preprocessed_space(self.action_space),
+                    scope="env-stepper-{}".format(i)
+                )
+                if self.dynamic_batching:
+                    env_stepper.actor_component.policy.parent_component = None
+                    env_stepper.actor_component.policy = DynamicBatchingPolicy(policy_spec=env_stepper.actor_component.policy, scope="")
+                    env_stepper.actor_component.add_components(env_stepper.actor_component.policy)
+
+                env_stepper.actor_component.policy.propagate_subcomponent_properties(dict(reuse_variable_scope="shared"))
+                self.environment_steppers.append(env_stepper)
+
+            # Switch all policies by DynamicBatchingPolicies.
+            #if self.dynamic_batching:
+            #    for i in range(self.num_actors):
+            #        self.environment_steppers[i].actor_component.policy = DynamicBatchingPolicy(
+            #            policy_spec=self.environment_steppers[i].actor_component.policy
+            #        )
 
             # Create the QueueRunners (one for each env-stepper).
             # - Take return value 1 of API-method step as record to insert.
@@ -245,7 +277,6 @@ class IMPALAAgent(Agent):
                                             self.fifo_input_merger, self.next_states_slicer,
                                             self.internal_states_slicer,
                                             *self.environment_steppers)
-            self.softmax = SoftMax()
 
             # Create an IMPALALossFunction with some parameters.
             self.loss_function = IMPALALossFunction(
@@ -256,7 +287,7 @@ class IMPALAAgent(Agent):
             sub_components = [
                 self.fifo_output_splitter, self.fifo_queue, self.queue_runner, self.transpose_actions,
                 self.transpose_rewards, self.transpose_terminals, self.transpose_action_probs, self.preprocessor,
-                self.policy, self.softmax, self.loss_function, self.optimizer
+                self.staging_area, self.concat, self.policy, self.loss_function, self.optimizer
             ]
 
         elif self.type == "actor":
@@ -269,8 +300,6 @@ class IMPALAAgent(Agent):
             self.internal_states_slicer = Slice(scope="internal-states-slicer", squeeze=True)
             # Merge back to insert into FIFO.
             self.fifo_input_merger = DictMerger(*self.fifo_queue_keys)
-
-            self.softmax = None
 
             dummy_flattener = ReShape(flatten=True)  # dummy Flattener to calculate action-probs space
             self.environment_stepper = EnvironmentStepper(
@@ -297,8 +326,6 @@ class IMPALAAgent(Agent):
             self.next_states_slicer = None
             self.internal_states_slicer = None
 
-            self.softmax = SoftMax()
-
             # Create an IMPALALossFunction with some parameters.
             self.loss_function = IMPALALossFunction(
                 discount=self.discount, weight_pg=weight_pg, weight_baseline=weight_baseline,
@@ -306,7 +333,7 @@ class IMPALAAgent(Agent):
             )
 
             sub_components = [self.fifo_queue, self.fifo_output_splitter, self.preprocessor, self.policy,
-                              self.softmax, self.loss_function, self.optimizer]
+                              self.loss_function, self.optimizer]
 
         # Add all the agent's sub-components to the root.
         self.root_component.add_components(*sub_components)
@@ -319,6 +346,12 @@ class IMPALAAgent(Agent):
         if self.auto_build:
             self._build_graph([self.root_component], self.input_spaces, self.optimizer)
             self.graph_built = True
+
+            #if self.has_gpu:
+            # Get 1st return op of API-method `stage` of sub-component `staging-area` (which is the stage-op).
+            self.stage_op = self.root_component.sub_components["staging-area"].api_methods["stage"].out_op_columns[0].op_records[0].op
+            # Initialize the stage.
+            self.graph_executor.monitored_session.run_step_fn(lambda step_context: step_context.session.run(self.stage_op))
 
     def define_api_methods(self, *sub_components):
         # TODO: Unify agents with/w/o synchronizable policy.
@@ -339,14 +372,14 @@ class IMPALAAgent(Agent):
 
     def define_api_methods_single(self, fifo_output_splitter, fifo_queue, queue_runner, transpose_actions,
                                   transpose_rewards, transpose_terminals, transpose_action_probs, preprocessor,
-                                  policy, softmax, loss_function, optimizer):
-        def setup_queue_runners(self):
-            return self.call(queue_runner.setup)
+                                  staging_area, concat, policy, loss_function, optimizer):
+        def setup_queue_runners(self_):
+            return self_.call(queue_runner.setup)
 
         self.root_component.define_api_method("setup_queue_runners", setup_queue_runners)
 
-        def get_queue_size(self):
-            return self.call(fifo_queue.get_size)
+        def get_queue_size(self_):
+            return self_.call(fifo_queue.get_size)
 
         self.root_component.define_api_method("get_queue_size", get_queue_size)
 
@@ -364,6 +397,9 @@ class IMPALAAgent(Agent):
 
             preprocessed_last_s_prime = self_.call(preprocessor.preprocess, last_s_prime)
 
+            # Append last-next-state to the rest before sending it through the network.
+            preprocessed_s_all = self_.call(concat.apply, preprocessed_s, preprocessed_last_s_prime)
+
             # Flip actions, rewards, terminals to time-major.
             # TODO: Create components that are less input-space sensitive (those that have no variables should
             # TODO: be reused for any kind of processing)
@@ -372,20 +408,31 @@ class IMPALAAgent(Agent):
             terminals = self_.call(transpose_terminals.apply, terminals)
             action_probs_mu = self_.call(transpose_action_probs.apply, action_probs_mu)
 
+            # Put everything on staging area (adds 1 time step policy lag, but makes copying data into GPU more
+            # efficient).
+
+            #if self.has_gpu:
+            stage_op = self_.call(staging_area.stage, preprocessed_s_all, actions, rewards, terminals,
+                                  action_probs_mu, initial_internal_states)  # preprocessed_last_s_prime
+            # Get data from stage again and continue.
+            preprocessed_s_all, actions, rewards, terminals, action_probs_mu, \
+                initial_internal_states = self_.call(staging_area.unstage)  # preprocessed_last_s_prime
+            # endif.
+
             # Get the pi-action probs AND the values for all our states.
-            state_values_pi, logits_pi, current_internal_states = \
-                self_.call(policy.get_baseline_output, preprocessed_s, initial_internal_states)
+            state_values_pi, logits_pi, probs_pi, log_probabilities_pi, current_internal_states = \
+                self_.call(policy.get_state_values_logits_parameters_log_probs, preprocessed_s_all,
+                           initial_internal_states)
 
             # And the values for the last states.
-            bootstrapped_values, _, _ = \
-                self_.call(policy.get_baseline_output, preprocessed_last_s_prime, current_internal_states)
-
-            _, log_probabilities_pi = self_.call(softmax.get_probabilities_and_log_probs, logits_pi)
+            #bootstrapped_values, _, _, _, _ = \
+            #    self_.call(policy.get_state_values_logits_parameters_log_probs, preprocessed_last_s_prime,
+            #               current_internal_states)
 
             # Calculate the loss.
             loss, loss_per_item = self_.call(
                 loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
-                terminals, bootstrapped_values
+                terminals  #, bootstrapped_values
             )
             policy_vars = self_.call(policy._variables)
 
@@ -393,9 +440,21 @@ class IMPALAAgent(Agent):
             step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
 
             # Return optimizer op and all loss values.
-            return step_op, loss, loss_per_item
+            return step_op, stage_op, loss, loss_per_item
 
         self.root_component.define_api_method("update_from_memory", update_from_memory)
+
+        # TEST: define a graph_fn for the root component.
+        #def _graph_fn_stage_dequeued_output(self, *dequeued):
+        #    flattened_output = self.nest.flatten(dequeued)
+        #    area = tensorflow.contrib.staging.StagingArea(
+        #        [t.dtype for t in flattened_output],
+        #        [t.shape for t in flattened_output]
+        #    )
+        #    stage_op = area.put(flattened_output)
+        #    return stage_op
+
+        #self.root_component._graph_fn_stage_dequeued_output = _graph_fn_stage_dequeued_output
 
     def define_api_methods_actor(self, env_stepper, splitter, next_states_slicer, internal_states_slicer, merger,
                                  fifo_queue):

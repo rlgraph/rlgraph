@@ -27,6 +27,8 @@ from rlgraph.utils.util import dtype
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class Initializer(Specifiable):
@@ -52,10 +54,17 @@ class Initializer(Specifiable):
                 # Use the first dimension (num_rows or batch rank) to figure out the stddev.
                 stddev = 1 / math.sqrt(shape[0] if isinstance(shape, (tuple, list)) and len(shape) > 0 else 1.0)
                 self.initializer = tf.truncated_normal_initializer(stddev=stddev)
+            elif get_backend() =="pytorch":
+                stddev = 1 / math.sqrt(shape[0] if isinstance(shape, (tuple, list)) and len(shape) > 0 else 1.0)
+                self.initializer = lambda t: torch.nn.init.normal_(tensor=t, std=stddev)
 
-        # No spec -> Leave initializer as None (will then use default; e.g. for tf weights: Xavier uniform).
+        # No spec -> Leave initializer as None for TF (will then use default;
+        #  e.g. for tf weights: Xavier uniform). For PyTorch, still have to set Xavier.
         elif specification is None or specification is False:
-            pass
+            if get_backend() == "tf":
+                pass
+            elif get_backend() == "pytorch":
+                self.initializer = torch.nn.init.xavier_uniform
 
         # Fixed values spec -> Use them, just do sanity checking.
         else:
@@ -80,3 +89,5 @@ class Initializer(Specifiable):
             # Create the backend initializer object.
             if get_backend() == "tf":
                 self.initializer = tf.constant_initializer(value=specification, dtype=dtype("float32"))
+            elif get_backend() == "pytorch":
+                self.initializer = lambda t: torch.nn.init.constant_(tensor=t, val=specification)

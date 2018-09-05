@@ -28,6 +28,10 @@ from rlgraph.utils.util import dtype
 from rlgraph.utils.initializer import Initializer
 from rlgraph.spaces.space import Space
 
+if get_backend() == "pytorch":
+    import torch
+
+
 
 class BoxSpace(Space):
     """
@@ -107,8 +111,13 @@ class BoxSpace(Space):
 
     def get_shape(self, with_batch_rank=False, with_time_rank=False, time_major=None, **kwargs):
         if with_batch_rank is not False:
-            batch_rank = (((None,) if with_batch_rank is True else (with_batch_rank,))
-                          if self.has_batch_rank else ())
+            # None shapes are typically only allowed in static graphs.
+            if get_backend() == "tf":
+                batch_rank = (((None,) if with_batch_rank is True else (with_batch_rank,))
+                              if self.has_batch_rank else ())
+            elif get_backend() == "pytorch":
+                batch_rank = (((1,) if with_batch_rank is True else (with_batch_rank,))
+                              if self.has_batch_rank else ())
         else:
             batch_rank = ()
 
@@ -165,10 +174,12 @@ class BoxSpace(Space):
             else:
                 var = []
 
+            # Un-indent and just directly construct pytorch?
             if get_backend() == "pytorch" and is_input_feed:
-                # Use as fake placeholder
-                return np.asarray(var)
+                # Convert to PyTorch tensor because PyTorch cannot use
+                return torch.zeros(shape)
             else:
+                # TODO also convert?
                 return var
 
         elif get_backend() == "tf":

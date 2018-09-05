@@ -355,10 +355,11 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
                 mode="distributed",
                 distributed_spec=dict(cluster_spec=None)
             ),
-            update_spec=dict(batch_size=5),
+            #update_spec=dict(batch_size=2),
             # Summarize time-steps to have an overview of the env-stepping speed.
-            summary_spec=dict(summary_regexp="time-step"),
-            dynamic_batching=False
+            summary_spec=dict(summary_regexp="time-step", directory="/opt/project/"),
+            dynamic_batching=False,
+            num_actors=4
         )
         # Count items in the queue.
         print("Items in queue: {}".format(agent.call_api_method("get_queue_size")))
@@ -368,11 +369,13 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         print("Updating from queue ...")
         for _ in range(updates):
             start_time = time.monotonic()
-            agent.update()
+            print(agent.update())
             update_times.append(time.monotonic() - start_time)
 
         print("Updates per second (including waiting for enqueued items): {}/s".format(updates / np.sum(update_times)))
         #print("Env-steps per second: {}".format(agent.update_spec["batch_size"]*20*updates / np.sum(update_times)))
+
+        agent.terminate()
 
     def test_isolated_impala_actor_agent_functionality(self):
         """

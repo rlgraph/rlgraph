@@ -132,6 +132,16 @@ class Policy(Component):
 
             self.define_api_method("get_baseline_output", get_baseline_output)
 
+            def get_state_values_logits_parameters_log_probs(self, nn_input, internal_states=None):
+                nn_output, last_internals = unify_nn_and_rnn_api_output(
+                    self.call(self.neural_network.apply, nn_input, internal_states)
+                )
+                state_values, logits, probs, log_probs = self.call(self.action_adapter.get_state_values_logits_parameters_log_probs, nn_output)
+                return state_values, logits, probs, log_probs, last_internals
+
+            self.define_api_method("get_state_values_logits_parameters_log_probs",
+                                   get_state_values_logits_parameters_log_probs)
+
             def get_q_values(self, nn_input, internal_states=None):
                 nn_output, last_internals = unify_nn_and_rnn_api_output(
                     self.call(self.neural_network.apply, nn_input, internal_states)

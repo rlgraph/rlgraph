@@ -102,9 +102,8 @@ class Stack(Component):
 
                 def method(self_, *inputs):
                     result = inputs
-
                     for sub_component in self_.sub_components.values():  # type: Component
-                        num_allowed_inputs =  sub_component.get_number_of_allowed_inputs(components_api_method_name)
+                        num_allowed_inputs = sub_component.get_number_of_allowed_inputs(components_api_method_name)
                         num_actual_inputs = len(result) if isinstance(result, (tuple, list)) else 1
                         # Check whether number of inputs to this sub-component's API-method is ok.
                         if num_allowed_inputs[0] > num_actual_inputs:
@@ -113,14 +112,15 @@ class Stack(Component):
                                 "be at least {}.".format(num_actual_inputs, stack_api_method_name,
                                                          num_allowed_inputs[0])
                             )
-                        elif num_allowed_inputs[1] is not None and  num_allowed_inputs[1] < num_actual_inputs:
+                        elif num_allowed_inputs[1] is not None and num_allowed_inputs[1] < num_actual_inputs:
                             raise RLGraphError(
                                 "Number of given input args ({}) to Stack's API-method '{}' is too high! Needs to "
                                 "be at most {}.".format(num_actual_inputs, stack_api_method_name, num_allowed_inputs[1])
                             )
 
-                        # TODO: python-Components: For now, we call each preprocessor's graph_fn directly (assuming that inputs are not ContainerSpaces).
-                        if self_.backend == "python" or get_backend() == "python":
+                        # TODO: python-Components: For now, we call each preprocessor's graph_fn
+                        #  directly (assuming that inputs are not ContainerSpaces).
+                        if self_.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
                             graph_fn = getattr(sub_component, "_graph_fn_"+components_api_method_name)
                             if sub_component.api_methods[components_api_method_name].add_auto_key_as_first_param:
                                 result = graph_fn("", *force_tuple(result))

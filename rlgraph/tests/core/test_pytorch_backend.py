@@ -21,8 +21,12 @@ import logging
 import unittest
 
 from rlgraph import spaces
+from rlgraph.components import Policy
+from rlgraph.environments import Environment
+from rlgraph.spaces import FloatBox, IntBox
 from rlgraph.tests import ComponentTest
-from rlgraph.utils import root_logger
+from rlgraph.tests.test_util import config_from_path
+from rlgraph.utils import root_logger, softmax
 from rlgraph.tests.dummy_components import *
 
 
@@ -93,6 +97,120 @@ class TestPytorchBackend(unittest.TestCase):
         # Expected output: (input + 1.0) + 1.1
         test.test(("run", 78.4), expected_outputs=80.5)
         test.test(("run", -5.2), expected_outputs=-3.1)
+
+    # TODO delete most of these after debugging. Unify tests.
+    def test_layer_passes(self):
+        import torch
+        torch.set_default_tensor_type("torch.FloatTensor")
+        env_spec = dict(
+            type="openai",
+            gym_env="CartPole-v0",
+            fire_reset=False
+        )
+        env = Environment.from_spec(env_spec)
+        space = env.state_space
+        print(space.shape)
+
+        # This works
+        self.fc1 = torch.nn.Linear(space.get_shape()[0], 1, bias=False)
+
+        # Test single forward pass.
+        space_sample = space.sample()
+        print(space_sample)
+        from_numpy_in = torch.tensor(space_sample, dtype=torch.float32, requires_grad=False)
+        print(self.fc1(from_numpy_in))
+
+        # Test batch forward pass
+        space_sample = space.sample(size=10)
+        from_numpy_in = torch.tensor(space_sample, dtype=torch.float32, requires_grad=False)
+        print(self.fc1(from_numpy_in))
+
+    # TODO -> batch dim works differently in pytorch -> have to squeeze.
+    def test_dense_layer(self):
+        # Space must contain batch dimension (otherwise, NNLayer will complain).
+        space = FloatBox(shape=(2,), add_batch_rank=True)
+
+        # - fixed 1.0 weights, no biases
+        dense_layer = DenseLayer(units=2, weights_spec=1.0, biases_spec=False)
+        test = ComponentTest(component=dense_layer, input_spaces=dict(inputs=space))
+
+        # Batch of size=1 (can increase this to any larger number).
+        input_ = np.array([0.5, 2.0])
+        expected = np.array([2.5, 2.5])
+        test.test(("apply", input_), expected_outputs=expected)
+
+    def test_nn_assembly_from_file(self):
+        # Space must contain batch dimension (otherwise, NNlayer will complain).
+        space = FloatBox(shape=(3,), add_batch_rank=True)
+
+        # Create a simple neural net from json.
+        neural_net = NeuralNetwork.from_spec(config_from_path("configs/test_simple_nn.json"))  # type: NeuralNetwork
+
+        # Do not seed, we calculate expectations manually.
+        test = ComponentTest(component=neural_net, input_spaces=dict(inputs=space), seed=None)
+
+        # Batch of size=3.
+        input_ = np.array([[0.1, 0.2, 0.3], [1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])
+
+        # Cant fetch variables here.
+
+        out = test.test(("apply", input_), decimals=5)
+        print(out)
+
+
+    def test_policy_for_discrete_action_space(self):
+        # state_space (NN is a simple single fc-layer relu network (2 units), random biases, random weights).
+        state_space = FloatBox(shape=(4,), add_batch_rank=True)
+
+        # action_space (5 possible actions).
+        action_space = IntBox(5, add_batch_rank=True)
+
+        policy = Policy(neural_network=config_from_path("configs/test_simple_nn.json"), action_space=action_space)
+        test = ComponentTest(
+            component=policy,
+            input_spaces=dict(nn_input=state_space),
+            action_space=action_space
+        )
+        policy_params = test.read_variable_values(policy.variables)
+
+        # Some NN inputs (4 input nodes, batch size=2).
+        states = np.array([[-0.08, 0.4, -0.05, -0.55], [13.0, -14.0, 10.0, -16.0]])
+        # Raw NN-output.
+        expected_nn_output = np.matmul(states, policy_params["policy/test-network/hidden-layer/dense/kernel"])
+        test.test(("get_nn_output", states), expected_outputs=expected_nn_output, decimals=6)
+
+        # Raw action layer output; Expected shape=(2,5): 2=batch, 5=action categories
+        expected_action_layer_output = np.matmul(
+            expected_nn_output, policy_params["policy/action-adapter/action-layer/dense/kernel"]
+        )
+        expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(2, 5))
+        test.test(("get_action_layer_output", states), expected_outputs=expected_action_layer_output,
+                  decimals=5)
+
+        expected_actions = np.argmax(expected_action_layer_output, axis=-1)
+        test.test(("get_action", states), expected_outputs=expected_actions)
+
+        # Logits, parameters (probs) and skip log-probs (numerically unstable for small probs).
+        expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
+        test.test(("get_logits_parameters_log_probs", states, [0, 1]), expected_outputs=[
+            expected_action_layer_output,
+            np.array(expected_probabilities_output, dtype=np.float32)
+            # np.log(expected_probabilities_output)
+        ], decimals=5)
+
+        print("Probs: {}".format(expected_probabilities_output))
+
+        # Stochastic sample.
+        expected_actions = np.array([3, 4])
+        test.test(("get_stochastic_action", states), expected_outputs=expected_actions)
+
+        # Deterministic sample.
+        expected_actions = np.array([4, 4])
+        test.test(("get_max_likelihood_action", states), expected_outputs=expected_actions)
+
+        # Distribution's entropy.
+        expected_h = np.array([1.572, 0.003])
+        test.test(("get_entropy", states), expected_outputs=expected_h, decimals=3)
 
     def test_2_containers_flattening_splitting(self):
         """

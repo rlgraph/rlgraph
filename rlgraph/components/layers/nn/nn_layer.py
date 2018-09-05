@@ -43,6 +43,9 @@ class NNLayer(Layer):
         self.activation = kwargs.pop("activation", None)
         self.activation_params = kwargs.pop("activation_params", [])
 
+        # Activation fn for define-by-run execution.
+        self.activation_fn = None
+
         # The wrapped backend-layer object.
         self.layer = None
         self.in_space_0 = None
@@ -106,4 +109,9 @@ class NNLayer(Layer):
                 return output
             elif get_backend() == "pytorch":
                 # PyTorch layers are called, not applied.
-                return self.layer(*inputs)
+                out = self.layer(*inputs)
+                if self.activation_fn is None:
+                    return out
+                else:
+                    # Apply activation fn.
+                    return self.activation_fn(out)

@@ -19,10 +19,12 @@ from __future__ import print_function
 
 import os
 import time
+import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.graphs import GraphExecutor
 from rlgraph.utils import util
+from rlgraph.utils.util import force_torch_tensors
 
 if get_backend() == "pytorch":
     import torch
@@ -40,6 +42,14 @@ class PyTorchExecutor(GraphExecutor):
         # In PyTorch, tensors are default created on the CPU unless assigned to a visible CUDA device,
         # e.g. via x = tensor([0, 0], device="cuda:0") for the first GPU.
         self.available_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
+        # TODO handle cuda tensors
+
+        self.default_torch_tensor_type = self.execution_spec.get("dtype", "torch.FloatTensor")
+        if self.default_torch_tensor_type is not None:
+            torch.set_default_tensor_type(self.default_torch_tensor_type)
+
+        # Squeeze result dims, often necessary in tests.
+        self.remove_batch_dims = True
 
     def build(self, root_components, input_spaces, *args):
         start = time.perf_counter()
@@ -70,15 +80,28 @@ class PyTorchExecutor(GraphExecutor):
             elif isinstance(api_method, (list, tuple)):
                 params = util.force_list(api_method[1])
                 api_method = api_method[0]
-                api_ret = self.graph_builder.execute_eager_op(api_method, params)
-                ret.append(api_ret)
+                # TODO check if necessary for every arg?
+                # TODO we could also convert at the level of components?
+                # TODO set if grad required?
+                tensor_params = force_torch_tensors(params=params)
+                api_ret = self.graph_builder.execute_define_by_run_op(api_method, tensor_params)
+
+                # Detach results.
+                if isinstance(api_ret, torch.Tensor):
+                    api_ret = api_ret.detach().numpy()
+                if self.remove_batch_dims:
+                    ret.append(np.squeeze(api_ret))
+                else:
+                    ret.append(api_ret)
 
         # Unwrap if len 1.
         ret = ret[0] if len(ret) == 1 else ret
+
         return ret
 
     def read_variable_values(self, variables):
-        pass
+        # For test compatibility.
+        return variables
 
     def init_execution(self): \
         # Nothing to do here for PyTorch.

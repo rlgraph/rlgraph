@@ -91,10 +91,12 @@ def get_activation_function(activation_function=None, *other_parameters):
         # Have to instantiate objects here.
         if activation_function is None or callable(activation_function):
             return activation_function
+        elif activation_function == "linear":
+            # Do nothing.
+            return lambda t: t
         # Rectifier linear unit (ReLU) : 0 if x < 0 else x
         elif activation_function == "relu":
             return nn.ReLU()
-        # TODO note that there is no linear activation, just use a linear layer
         # Exponential linear: exp(x) - 1 if x < 0 else x
         elif activation_function == "elu":
             return nn.ELU()

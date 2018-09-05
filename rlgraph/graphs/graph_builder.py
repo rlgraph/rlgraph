@@ -245,8 +245,9 @@ class GraphBuilder(Specifiable):
             with tf.device(device):
                 placeholder = space.get_variable(name=name, is_input_feed=True)
         elif get_backend() == "pytorch":
-            # Placeholder are empty tensors of a certain shape that enable shape inference.
-                placeholder = space.get_variable(name=name, is_input_feed=True, is_python=True)
+                # Batch rank 1 because PyTorch does not allow None shapes.
+                placeholder = space.get_variable(name=name, add_batch_rank=1,
+                                                 is_input_feed=True, is_python=True)
         return placeholder
 
     def build_component_when_input_complete(self, component):
@@ -304,7 +305,7 @@ class GraphBuilder(Specifiable):
             # Assign proper device to all ops created in this context manager.
             with tf.device(device):
                 # Name ops correctly according to our Component hierarchy.
-                with tf.name_scope(op_rec_column.component.global_scope+
+                with tf.name_scope(op_rec_column.component.global_scope +
                                    ('/' if op_rec_column.component.global_scope else "")):
                     self.logger.debug(
                         "Assigning device '{}' to graph_fn '{}' (scope '{}').".
@@ -665,9 +666,9 @@ class GraphBuilder(Specifiable):
 
         return fetch_dict, feed_dict
 
-    def execute_eager_op(self, api_method, params=None):
+    def execute_define_by_run_op(self, api_method, params=None):
         """
-        Eagerly executes an API method by simply calling the respective function
+        Executes an API method by simply calling the respective function
         directly with its parameters to trigger an eager call-chain through the graph.
 
         Args:
@@ -701,7 +702,7 @@ class GraphBuilder(Specifiable):
             meta_graph (MetaGraph): MetaGraph to build to backend graph.
             input_spaces (dict): Input spaces to build for.
             available_devices (list): Devices which can be used to assign parts of the graph
-                during graph assembly.
+                during the graph build.
             device_strategy (Optional[str]): Device strategy.
             default_device (Optional[str]): Default device identifier.
             device_map (Optional[Dict]): Dict of Component names mapped to device names to place the Component's ops.
@@ -746,7 +747,7 @@ class GraphBuilder(Specifiable):
         iterations = self._build(op_records_list)
 
         # Delete op-records as we do not need them for define-by-run.
-        self.purge_op_records(component=self.root_component)
+        # self.purge_op_records(component=self.root_component)
 
         # Set execution mode in components to change `call` behaviour to direct function evaluation.
         self.root_component.propagate_subcomponent_properties(properties=dict(execution_mode="define_by_run"))
