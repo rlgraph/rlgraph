@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.spaces import IntBox, FloatBox
@@ -31,7 +33,8 @@ from rlgraph.utils.util import unify_nn_and_rnn_api_output
 
 if get_backend() == "tf":
     import tensorflow as tf
-
+elif get_backend() == "pytorch":
+    import torch
 
 class Policy(Component):
     """
@@ -249,3 +252,15 @@ class Policy(Component):
         """
         if get_backend() == "tf":
             return tf.argmax(logits, axis=-1, output_type=tf.int32)
+        elif get_backend() == "pytorch":
+            # TODO not entirely clear if these operations should use numpy or torch.
+            # This depends on the device -> if on GPU, we shouldnt use numpy or data
+            # would have to be transferred back.
+
+            # TODO better way to check this.
+            # Idea:
+            if "GPU" in self.device:
+                # Convert to int32 here.
+                return torch.argmax(logits, dim=1).int()
+            else:
+                return np.argmax(logits, axis=-1)
