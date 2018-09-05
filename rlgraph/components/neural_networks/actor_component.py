@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph.components.action_adapters.baseline_action_adapter import BaselineActionAdapter
 from rlgraph.components.component import Component
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.components.neural_networks.policy import Policy
@@ -113,9 +114,16 @@ class ActorComponent(Component):
 
         preprocessed_states = self.call(self.preprocessor.preprocess, states)
 
-        _, action_probs, _, last_internal_states = unify_nn_and_rnn_api_output(self.call(
-            self.policy.get_logits_parameters_log_probs, preprocessed_states, internal_states
-        ), return_values_wo_internal_state=3)
+        # TODO: IMPALA specific code. state-value is not really needed, but dynamic batching requires us to run through
+        # TODO: the exact same partial-graph as the learner (which does need the extra state-value output).
+        if isinstance(self.policy.action_adapter, BaselineActionAdapter):
+            _, _, action_probs, _, last_internal_states = unify_nn_and_rnn_api_output(self.call(
+                self.policy.get_state_values_logits_parameters_log_probs, preprocessed_states, internal_states
+            ), return_values_wo_internal_state=4)
+        else:
+            _, action_probs, _, last_internal_states = unify_nn_and_rnn_api_output(self.call(
+                self.policy.get_logits_parameters_log_probs, preprocessed_states, internal_states
+            ), return_values_wo_internal_state=3)
 
         if max_likelihood is True:
             action_sample = self.call(self.policy.distribution.sample_deterministic, action_probs)

@@ -357,8 +357,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             ),
             #update_spec=dict(batch_size=2),
             # Summarize time-steps to have an overview of the env-stepping speed.
-            summary_spec=dict(summary_regexp="time-step"),
-            #dynamic_batching=False,
+            summary_spec=dict(summary_regexp="time-step", directory="/opt/project/"),
+            dynamic_batching=True,
             num_actors=1
         )
         # Count items in the queue.
@@ -374,6 +374,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
 
         print("Updates per second (including waiting for enqueued items): {}/s".format(updates / np.sum(update_times)))
         #print("Env-steps per second: {}".format(agent.update_spec["batch_size"]*20*updates / np.sum(update_times)))
+
+        agent.terminate()
 
     def test_isolated_impala_actor_agent_functionality(self):
         """

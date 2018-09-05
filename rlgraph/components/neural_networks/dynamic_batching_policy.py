@@ -17,18 +17,19 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph.components.component import Component
 from rlgraph.components.neural_networks.policy import Policy
 from rlgraph.components.helpers import dynamic_batching
 
 
-class DynamicBatchingPolicy(Policy):
+class DynamicBatchingPolicy(Component):
     """
     A dynamic batching optimizer wraps a local optimizer with DeepMind's custom
     dynamic batching ops which are provided as part of their IMPALA open source
     implementation.
     """
     def __init__(self, policy_spec, minimum_batch_size=1, maximum_batch_size=1024, timeout_ms=100,
-                 scope="dynamic-batching-optimizer", **kwargs):
+                 scope="dynamic-batching-policy", **kwargs):
         """
         Args:
             policy_spec (Union[Optimizer,dict]): A spec dict to construct the Policy that is wrraped by this
@@ -39,12 +40,17 @@ class DynamicBatchingPolicy(Policy):
                 Default: 100ms.
         """
         super(DynamicBatchingPolicy, self).__init__(
-            graph_fn_num_outputs=dict(_graph_fn_step=3, _graph_fn_calculate_gradients=1, _graph_fn_apply_gradients=1),
-            scope=scope, **kwargs
+            # 3=states, logits, internal_states
+            graph_fn_num_outputs=dict(_graph_fn_get_state_values_logits_parameters_log_probs=5), scope=scope, **kwargs
         )
 
         # The wrapped, backend-specific optimizer object.
         self.policy = Policy.from_spec(policy_spec)
+
+        # hack: link in case parent components call APIs of the distribution directly
+        self.action_adapter = self.policy.action_adapter
+        self.distribution = self.policy.distribution
+        self.max_likelihood = True
 
         # Dynamic batching options.
         self.minimum_batch_size = minimum_batch_size
@@ -53,16 +59,32 @@ class DynamicBatchingPolicy(Policy):
 
         self.add_components(self.policy)
 
-        # TODO: for now, only define thie one API-method as this is the only one used in IMPALA.
+        # TODO: for now, only define this one API-method as this is the only one used in IMPALA.
         # TODO: Generalize this component so it can wrap arbitrary other components and simulate their API.
-        self.define_api_method(name="get_baseline_output", func=self._graph_fn_get_baseline_output)
+        self.define_api_method("get_state_values_logits_parameters_log_probs",
+                               self._graph_fn_get_state_values_logits_parameters_log_probs)
 
-    def _graph_fn_get_baseline_output(self, nn_input, internal_states=None):
+    def _graph_fn_get_state_values_logits_parameters_log_probs(self, nn_input, internal_states=None):
         # Wrap in dynamic batching module.
         @dynamic_batching.batch_fn_with_options(minimum_batch_size=self.minimum_batch_size,
                                                 maximum_batch_size=self.maximum_batch_size,
                                                 timeout_ms=self.timeout_ms)
-        def get_baseline_output(nn_input_, internal_states_):
-            # TODO potentially assign device
-            return self.call(self.policy.get_baseline_output, nn_input_, internal_states_)
-        return get_baseline_output(nn_input, internal_states)
+        def get_state_values_logits_parameters_log_probs(nn_input_, internal_states_):
+            return self.call(
+                self.policy.get_state_values_logits_parameters_log_probs, nn_input_, internal_states_, return_ops=True
+            )
+
+        out = get_state_values_logits_parameters_log_probs(nn_input, internal_states)
+        return out
+
+    #def _graph_fn_get_logits_parameters_log_probs(self, nn_input, internal_states=None):
+    #    # Wrap in dynamic batching module.
+    #    @dynamic_batching.batch_fn_with_options(minimum_batch_size=self.minimum_batch_size,
+    #                                            maximum_batch_size=self.maximum_batch_size,
+    #                                            timeout_ms=self.timeout_ms)
+    #    def get_logits_parameters_log_probs(nn_input_, internal_states_):
+    #        # TODO potentially assign device
+    #        ret = self.call(self.policy.get_logits_parameters_log_probs, nn_input_, internal_states_, return_ops=True)
+    #        return ret
+    #    out = get_logits_parameters_log_probs(nn_input, internal_states)
+    #    return out
