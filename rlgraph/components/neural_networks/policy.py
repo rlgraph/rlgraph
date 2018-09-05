@@ -36,6 +36,7 @@ if get_backend() == "tf":
 elif get_backend() == "pytorch":
     import torch
 
+
 class Policy(Component):
     """
     A Policy is a Component without own graph_fns that contains a NeuralNetwork with an attached ActionAdapter
