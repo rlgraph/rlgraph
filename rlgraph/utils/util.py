@@ -80,13 +80,14 @@ def dtype(dtype_, to="tf"):
             return np.int16 if to == "np" else tf.int16
     elif get_backend() == "pytorch":
         # N.b. this behaves differently than other bools, careful with Python bool comparisons.
-        if dtype_ in ["bool", bool, np.bool_, torch.uint8]:
+        print(dtype_)
+        if dtype_ in ["bool", bool, np.bool_] or dtype_ is torch.uint8:
             return np.bool_ if to == "np" else torch.uint8
-        elif dtype_ in ["float", "float32", float, np.float32, torch.float32]:
+        elif dtype_ in ["float", "float32", float, np.float32] or dtype_ is torch.float32:
             return np.float32 if to == "np" else torch.float32
-        if dtype_ in ["float64", np.float64, torch.float64]:
+        if dtype_ in ["float64", np.float64] or dtype_ is torch.float64:
             return np.float64 if to == "np" else torch.float64
-        elif dtype_ in ["int", "int32", int, np.int32, torch.int32]:
+        elif dtype_ in ["int", "int32", int, np.int32] or dtype_ is torch.int32:
             return np.int32 if to == "np" else torch.int32
         elif dtype_ in ["int64", np.int64]:
             return np.int64 if to == "np" else torch.int64
@@ -94,6 +95,7 @@ def dtype(dtype_, to="tf"):
             return np.uint8 if to == "np" else torch.uint8
         elif dtype_ in ["int16", np.int16]:
             return np.int16 if to == "np" else torch.int16
+
         # N.b. no string tensor type.
 
     raise RLGraphError("Error: Type conversion to '{}' for type '{}' not supported.".format(to, str(dtype_)))
@@ -382,3 +384,28 @@ def unify_nn_and_rnn_api_output(nn_output, return_values_wo_internal_state=1):
     # Output without internal-state.
     else:
         return nn_output + (None,)
+
+
+def force_torch_tensors(params, requires_grad=False):
+    """
+    Converts input params to torch tensors
+    Args:
+        params (list): Input args.
+        requires_grad (bool): If gradients need to be computed from these arguments.
+
+    Returns:
+        list: List of Torch tensors.
+    """
+    if get_backend() == "pytorch":
+        tensor_params = list()
+        for param in params:
+            if isinstance(param, np.ndarray):
+                type_ = param.dtype
+            else:
+                type_ = type(param)
+            tensor_params.append(
+                torch.tensor(param, dtype=dtype(type_, to="pytorch"), requires_grad=requires_grad)
+            )
+
+        return tensor_params
+
