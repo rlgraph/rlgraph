@@ -666,9 +666,9 @@ class GraphBuilder(Specifiable):
 
         return fetch_dict, feed_dict
 
-    def execute_eager_op(self, api_method, params=None):
+    def execute_define_by_run_op(self, api_method, params=None):
         """
-        Eagerly executes an API method by simply calling the respective function
+        Executes an API method by simply calling the respective function
         directly with its parameters to trigger an eager call-chain through the graph.
 
         Args:
@@ -747,7 +747,7 @@ class GraphBuilder(Specifiable):
         iterations = self._build(op_records_list)
 
         # Delete op-records as we do not need them for define-by-run.
-        self.purge_op_records(component=self.root_component)
+        # self.purge_op_records(component=self.root_component)
 
         # Set execution mode in components to change `call` behaviour to direct function evaluation.
         self.root_component.propagate_subcomponent_properties(properties=dict(execution_mode="define_by_run"))

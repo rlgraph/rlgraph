@@ -84,7 +84,7 @@ class PyTorchExecutor(GraphExecutor):
                 # TODO we could also convert at the level of components?
                 # TODO set if grad required?
                 tensor_params = force_torch_tensors(params=params)
-                api_ret = self.graph_builder.execute_eager_op(api_method, tensor_params)
+                api_ret = self.graph_builder.execute_define_by_run_op(api_method, tensor_params)
 
                 # Detach results.
                 if isinstance(api_ret, torch.Tensor):
