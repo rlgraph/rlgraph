@@ -98,12 +98,23 @@ class Conv2DLayer(NNLayer):
                 num_channels = shape[-1]
             else:
                 num_channels = shape[0]
+
+            apply_bias = (self.biases_spec is not False)
             self.layer = nn.Conv2d(
                 in_channels=num_channels,
                 out_channels=self.filters,
                 kernel_size=self.kernel_size,
                 stride=self.strides,
                 padding=self.padding,
-                bias=(self.biases_spec is not False)
+                bias=apply_bias
             )
-
+            # Apply weight initializer
+            if self.kernel_init.initializer is not None:
+                # Must be a callable in PyTorch
+                self.kernel_init.initializer(self.layer.weight)
+            if apply_bias:
+                if self.biases_init.initializer is not None:
+                    self.biases_init.initializer(self.layer.bias)
+                else:
+                    # Fill with zeros.
+                    self.layer.bias.data.fill_(0)
