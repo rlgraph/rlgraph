@@ -24,6 +24,7 @@ from rlgraph import spaces
 from rlgraph.environments import Environment
 from rlgraph.spaces import FloatBox
 from rlgraph.tests import ComponentTest
+from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import root_logger
 from rlgraph.tests.dummy_components import *
 
@@ -135,6 +136,24 @@ class TestPytorchBackend(unittest.TestCase):
         input_ = np.array([0.5, 2.0])
         expected = np.array([2.5, 2.5])
         test.test(("apply", input_), expected_outputs=expected)
+
+    def test_nn_assembly_from_file(self):
+        # Space must contain batch dimension (otherwise, NNlayer will complain).
+        space = FloatBox(shape=(3,), add_batch_rank=True)
+
+        # Create a simple neural net from json.
+        neural_net = NeuralNetwork.from_spec(config_from_path("configs/test_simple_nn.json"))  # type: NeuralNetwork
+
+        # Do not seed, we calculate expectations manually.
+        test = ComponentTest(component=neural_net, input_spaces=dict(inputs=space), seed=None)
+
+        # Batch of size=3.
+        input_ = np.array([[0.1, 0.2, 0.3], [1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])
+
+        # Cant fetch variables here.
+
+        out = test.test(("apply", input_), decimals=5)
+        print(out)
 
     def test_2_containers_flattening_splitting(self):
         """

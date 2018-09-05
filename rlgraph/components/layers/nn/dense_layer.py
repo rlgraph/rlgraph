@@ -96,4 +96,7 @@ class DenseLayer(NNLayer):
                 else:
                     # Fill with zeros.
                     self.layer.bias.data.fill_(0)
+            if self.activation is not None:
+                # Activation function will be used in apply.
+                self.activation_fn = get_activation_function(self.activation, *self.activation_params)
 
