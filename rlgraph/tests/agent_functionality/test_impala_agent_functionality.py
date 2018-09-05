@@ -345,7 +345,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         agent = IMPALAAgent.from_spec(
             agent_config,
             type="single",
-            architecture="small",
+            architecture="large",
             environment_spec=environment_spec,
             state_space=env.state_space,
             action_space=env.action_space,
@@ -359,7 +359,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             # Summarize time-steps to have an overview of the env-stepping speed.
             summary_spec=dict(summary_regexp="time-step", directory="/opt/project/"),
             dynamic_batching=False,
-            num_actors=2
+            num_actors=4
         )
         # Count items in the queue.
         print("Items in queue: {}".format(agent.call_api_method("get_queue_size")))
