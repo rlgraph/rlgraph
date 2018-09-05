@@ -198,7 +198,7 @@ class ActionAdapter(Component):
                 log_probs = torch.log(parameters)
             elif isinstance(self.action_space, FloatBox):
                 # Continuous actions.
-                mean, log_sd = torch.split(tensor=logits, split_size_or_sections=2, dim=1)
+                mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=1)
                 # Remove moments rank.
                 mean = torch.squeeze(mean, dim=1)
                 log_sd = torch.squeeze(log_sd, dim=1)
