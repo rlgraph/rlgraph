@@ -238,7 +238,6 @@ class EnvironmentStepper(Component):
                 - internal_states: The internal-states outputs of an RNN.
         """
         if get_backend() == "tf":
-
             def scan_func(accum, time_delta):
                 # Not needed: preprocessed-previous-states (tuple!)
                 # `state` is a tuple as well. See comment in ctor for why tf cannot use ContainerSpaces here.
@@ -253,7 +252,6 @@ class EnvironmentStepper(Component):
                         _, _, _, episode_return, terminal, state, internal_states = accum
                     else:
                         _, _, _, episode_return, terminal, state, _, internal_states = accum
-
 
                 # Removed (Michael) to avoid lock.
 
@@ -368,8 +366,11 @@ class EnvironmentStepper(Component):
                 ))
 
             # Scan over n time-steps (tf.range produces the time_delta with respect to the current time_step).
-            step_results = list(tf.scan(fn=scan_func, elems=tf.range(self.num_steps, dtype="int32"),
-                                        initializer=tuple(initializer)))
+            # NOTE: Changed parallel to 1, to resolve parallel issues.
+            step_results = list(tf.scan(
+                fn=scan_func, elems=tf.range(self.num_steps, dtype="int32"), initializer=tuple(initializer),
+                parallel_iterations=1, back_prop=False
+            ))
 
             # Store the time-step increment, return so far, current terminal and current state.
             assigns = [
@@ -402,12 +403,13 @@ class EnvironmentStepper(Component):
                     internal_states_wo_batch.append(tf.squeeze(step_results[-1][i], axis=1))
                 step_results[slot] = DataOpTuple(internal_states_wo_batch)
 
-            with tf.control_dependencies(control_inputs=assigns):
-                step_op = tf.no_op()
+            # TODO set parallel scans 10 -> 1, check if this removes need for sync.
+            # with tf.control_dependencies(control_inputs=assigns):
+            #     step_op = tf.no_op()
 
             # Let the auto-infer system know, what time rank we have.
             step_results = DataOpTuple(step_results)
             for o in flatten_op(step_results).values():
                 o._time_rank = 0  # which position in the shape is the time-rank?
 
-            return step_op, step_results
+            return tf.no_op(), step_results
