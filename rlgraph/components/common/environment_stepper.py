@@ -254,19 +254,23 @@ class EnvironmentStepper(Component):
                     else:
                         _, _, _, episode_return, terminal, state, _, internal_states = accum
 
+
+                # Removed (Michael) to avoid lock.
+
                 # Add control dependency to make sure we don't step parallelly through the Env.
-                terminal = tf.convert_to_tensor(value=terminal)
-                with tf.control_dependencies(control_inputs=[terminal]):
-                    # If state (s) was terminal, reset the env (in this case, we will never need s (or a preprocessed
-                    # version thereof for any NN runs (q-values, probs, values, etc..) as no actions are taken from s).
-                    state = force_tuple(tf.cond(
-                        pred=terminal,
-                        true_fn=lambda: tuple(force_tuple(self.environment_server.reset()) +
-                                              ((self.action_space.zeros(),) if self.add_previous_action else ()) +
-                                              ((self.reward_space.zeros(),) if self.add_previous_reward else ())
-                                              ),
-                        false_fn=lambda: tuple(tf.convert_to_tensor(s) for s in state)
-                    ))
+                #terminal = tf.convert_to_tensor(value=terminal)
+                #with tf.control_dependencies(control_inputs=[terminal]):
+
+                # If state (s) was terminal, reset the env (in this case, we will never need s (or a preprocessed
+                # version thereof for any NN runs (q-values, probs, values, etc..) as no actions are taken from s).
+                state = force_tuple(tf.cond(
+                    pred=tf.convert_to_tensor(value=terminal),
+                    true_fn=lambda: tuple(force_tuple(self.environment_server.reset()) +
+                                          ((self.action_space.zeros(),) if self.add_previous_action else ()) +
+                                          ((self.reward_space.zeros(),) if self.add_previous_reward else ())
+                                          ),
+                    false_fn=lambda: tuple(tf.convert_to_tensor(value=s) for s in state)
+                ))
 
                 flat_state = OrderedDict()
                 for i, flat_key in enumerate(self.state_space_actor_flattened.keys()):
