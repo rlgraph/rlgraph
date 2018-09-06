@@ -25,13 +25,13 @@ from .nn_layer import NNLayer
 if get_backend() == "tf":
     import tensorflow as tf
 elif get_backend() == "pytorch":
-    import torch.nn as nn
+    import torch
 
 
 class ConcatLayer(NNLayer):
     """
     A simple concatenation layer wrapper. The ConcatLayer is a Layer without sub-components but with n
-    api_methods and 1 output, where the in-Sockets's data are concatenated into one out-Socket by its GraphFunction.
+    api_methods and 1 output, where input data is concatenated into one output by its GraphFunction.
     """
     def __init__(self, axis=-1, scope="concat-layer", **kwargs):
         """
@@ -76,4 +76,4 @@ class ConcatLayer(NNLayer):
                 concat_output._time_rank = 0 if self.time_major is True else 1
             return concat_output
         elif get_backend() == "pytorch":
-            return nn.Sequential(force_list(inputs))
+            return torch.cat(force_list(inputs))
