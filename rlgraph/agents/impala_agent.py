@@ -307,6 +307,8 @@ class IMPALAAgent(Agent):
                 actor_component_spec=ActorComponent(self.preprocessor, self.policy, self.exploration),
                 state_space=self.state_space.with_batch_rank(),
                 reward_space=float,  # TODO <- float64 for deepmind? may not work for other envs
+                internal_states_space=self.internal_states_space,
+                num_steps=self.worker_sample_size,
                 add_previous_action=True,
                 add_previous_reward=True,
                 add_action_probs=True,
@@ -439,7 +441,10 @@ class IMPALAAgent(Agent):
                 loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
                 terminals  #, bootstrapped_values
             )
-            policy_vars = self_.call(policy._variables)
+            if self.dynamic_batching:
+                policy_vars = self_.call(queue_runner.data_producing_components[0].actor_component.policy._variables)
+            else:
+                policy_vars = self_.call(policy._variables)
 
             # Pass vars and loss values into optimizer.
             step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
@@ -476,10 +481,10 @@ class IMPALAAgent(Agent):
             fifo_queue (FIFOQueue): The FIFOQueue Component used to enqueue env sample runs (n-step).
         """
         # Perform n-steps in the env and insert the results into our FIFO-queue.
-        def perform_n_steps_and_insert_into_fifo(self_, internal_states=None, time_step=0):
+        def perform_n_steps_and_insert_into_fifo(self_):  #, internal_states, time_step=0):
             # Take n steps in the environment.
             step_op, step_results = self_.call(
-                env_stepper.step, internal_states, self.worker_sample_size, time_step
+                env_stepper.step  #, internal_states, self.worker_sample_size, time_step
             )
 
             preprocessed_s, actions, rewards, returns, terminals, next_states, action_log_probs, \
@@ -530,20 +535,23 @@ class IMPALAAgent(Agent):
                 initial_internal_states = self_.call(splitter.split, records)
 
             preprocessed_last_s_prime = self_.call(preprocessor.preprocess, last_s_prime)
-            # TODO: should we concatenate preprocessed_s and preprocessed_last_s_prime?
+
+            # Append last-next-state to the rest before sending it through the network.
+            preprocessed_s_all = self_.call(concat.apply, preprocessed_s, preprocessed_last_s_prime)
+
             # Get the pi-action probs AND the values for all our states.
             state_values_pi, logits_pi, current_internal_states = \
                 self_.call(policy.get_baseline_output, preprocessed_s, initial_internal_states)
             # And the values for the last states.
-            bootstrapped_values, _, _ = \
-                self_.call(policy.get_baseline_output, preprocessed_last_s_prime, current_internal_states)
+            #bootstrapped_values, _, _ = \
+            #    self_.call(policy.get_baseline_output, preprocessed_last_s_prime, current_internal_states)
 
-            _, log_probabilities_pi = self_.call(softmax.get_probabilities_and_log_probs, logits_pi)
+            #_, log_probabilities_pi = self_.call(softmax.get_probabilities_and_log_probs, logits_pi)
 
             # Calculate the loss.
             loss, loss_per_item = self_.call(
                 loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
-                terminals, bootstrapped_values
+                terminals  #, bootstrapped_values
             )
             policy_vars = self_.call(policy._variables)
             # Pass vars and loss values into optimizer.

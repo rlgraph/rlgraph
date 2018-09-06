@@ -764,7 +764,7 @@ class GraphBuilder(Specifiable):
 
     def _build(self, op_records_list):
         """
-        Private implementation of the main build loop, for docs see the respective build
+        Private implementation of the main build loop. For docs, see the respective build
         methods.
         """
         loop_counter = 0

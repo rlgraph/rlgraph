@@ -256,13 +256,13 @@ class EnvironmentStepper(Component):
                 # Removed (Michael) to avoid lock.
 
                 # Add control dependency to make sure we don't step parallelly through the Env.
-                #terminal = tf.convert_to_tensor(value=terminal)
+                terminal = tf.convert_to_tensor(value=terminal)
                 #with tf.control_dependencies(control_inputs=[terminal]):
 
                 # If state (s) was terminal, reset the env (in this case, we will never need s (or a preprocessed
                 # version thereof for any NN runs (q-values, probs, values, etc..) as no actions are taken from s).
                 state = force_tuple(tf.cond(
-                    pred=tf.convert_to_tensor(value=terminal),
+                    pred=terminal,
                     true_fn=lambda: tuple(force_tuple(self.environment_server.reset()) +
                                           ((self.action_space.zeros(),) if self.add_previous_action else ()) +
                                           ((self.reward_space.zeros(),) if self.add_previous_reward else ())

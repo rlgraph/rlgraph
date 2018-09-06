@@ -362,7 +362,6 @@ class Component(Specifiable):
             # Check Spaces and create variables.
             self.graph_builder.build_component_when_input_complete(self)
             assert self.input_complete
-
             # Call the graph_fn.
             out_graph_fn_column = self.graph_builder.run_through_graph_fn_with_device_and_scope(
                 in_graph_fn_column, create_new_out_column=True

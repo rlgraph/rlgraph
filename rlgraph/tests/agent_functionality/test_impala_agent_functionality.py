@@ -391,15 +391,18 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         agent = IMPALAAgent.from_spec(
             agent_config,
             type="actor",
-            architecture="small",
+            architecture="large",
             environment_spec=environment_spec,
             state_space=env.state_space,
             action_space=env.action_space,
             # TODO: automate this (by lookup from NN).
             internal_states_space=IMPALAAgent.standard_internal_states_space,
         )
-        worker = IMPALAWorker(agent=agent)
-        out = worker.execute_timesteps(1000)
+        agent.call_api_method("reset")
+        out = None
+        for _ in range(50):
+            print(".", end="")
+            out = agent.call_api_method("perform_n_steps_and_insert_into_fifo")
         print(out)
 
     def test_isolated_impala_learner_agent_functionality(self):
@@ -433,16 +436,13 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
         environment_spec = dict(
             type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
-            #type="random-env", state_space=Dict(dict(RGB_INTERLEAVED=IntBox(shape=(96, 72, 3), dtype="uint8"),
-            #                                         INSTR=TextBox())),
-            #action_space=IntBox(4)
         )
         env = DeepmindLabEnv.from_spec(environment_spec)
-        #env = RandomEnv.from_spec(environment_spec)
 
-        actor_agent = IMPALAAgent.from_spec(
+        agent = IMPALAAgent.from_spec(
             agent_config,
             type="actor",
+            architecture="large",
             environment_spec=environment_spec,
             state_space=env.state_space,
             action_space=env.action_space,
@@ -451,21 +451,16 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             # Setup distributed tf.
             execution_spec=dict(
                 mode="distributed",
-                # disable_monitoring=True,
                 distributed_spec=dict(job="actor", task_index=0, cluster_spec=self.cluster_spec)
             )
         )
         # Start the specifiable-server with the environment in it.
-        #print("IMPALA actor compiled .. starting env server.")
-        #actor_agent.environment_stepper.environment_server.start()
-        #print("... env server started.")
-        worker = IMPALAWorker(agent=actor_agent)
+        print("IMPALA actor compiled.")
+        worker = IMPALAWorker(agent=agent)
         # Run a few steps to produce data and start filling up the FIFO.
         out = worker.execute_timesteps(80)
         print("IMPALA actor produced some data:\n{}".format(out))
-        #actor_agent.environment_stepper.environment_server.stop()
-
-        time.sleep(600)
+        agent.terminate()
 
     def test_impala_actor_plus_learner_agent_functionality_learner_part(self):
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
