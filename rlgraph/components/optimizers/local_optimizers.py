@@ -23,6 +23,8 @@ from rlgraph.utils.ops import DataOpTuple
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class LocalOptimizer(Optimizer):
@@ -95,7 +97,6 @@ class GradientDescentOptimizer(LocalOptimizer):
         if get_backend() == "tf":
             self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
 
-
 class AdamOptimizer(LocalOptimizer):
     """
     Adaptive momentum optimizer:
@@ -115,6 +116,14 @@ class AdamOptimizer(LocalOptimizer):
                 beta1=self.beta1,
                 beta2=self.beta2
             )
+        elif get_backend() == "pytorch":
+            # Cannot instantiate yet without weights.
+            self.optimizer = lambda parameters: torch.optim.Adam(
+                parameters,
+                lr=self.learning_rate,
+                betas=(self.beta1, self.beta2)
+            )
+
 
 
 class NadamOptimizer(LocalOptimizer):
@@ -162,6 +171,13 @@ class AdagradOptimizer(LocalOptimizer):
                 learning_rate=self.learning_rate,
                 initial_accumulator_value=self.initial_accumulator_value
             )
+        elif get_backend() == "pytorch":
+            # Cannot instantiate yet without weights.
+            self.optimizer = lambda parameters: torch.optim.Adagrad(
+                parameters,
+                lr=self.learning_rate,
+                initial_accumulator_value=self.initial_accumulator_value
+            )
 
 
 class AdadeltaOptimizer(LocalOptimizer):
@@ -179,7 +195,13 @@ class AdadeltaOptimizer(LocalOptimizer):
 
         if get_backend() == "tf":
             self.optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.learning_rate, rho=self.rho)
-
+        elif get_backend() == "pytorch":
+            # Cannot instantiate yet without weights.
+            self.optimizer = lambda parameters: torch.optim.Adadelta(
+                parameters,
+                lr=self.learning_rate,
+                rho=self.rho
+            )
 
 class SGDOptimizer(LocalOptimizer):
     """
@@ -200,6 +222,15 @@ class SGDOptimizer(LocalOptimizer):
                 lr=self.learning_rate,
                 momentum=self.momentum,
                 decay=self.decay,
+                nesterov=self.nesterov
+            )
+        elif get_backend() == "pytorch":
+            # Cannot instantiate yet without weights.
+            self.optimizer = lambda parameters: torch.optim.SGD(
+                parameters,
+                lr=self.learning_rate,
+                momentum=self.momentum,
+                weight_decay=self.decay,
                 nesterov=self.nesterov
             )
 
@@ -226,3 +257,12 @@ class RMSPropOptimizer(LocalOptimizer):
                 momentum=self.momentum,
                 epsilon=self.epsilon
             )
+        elif get_backend() == "pytorch":
+            # Cannot instantiate yet without weights.
+            self.optimizer = lambda parameters: torch.optim.RMSprop(
+                parameters,
+                lr=self.learning_rate,
+                momentum=self.momentum,
+                weight_decay=self.decay,
+            )
+
