@@ -53,7 +53,7 @@ class MaxPool2DLayer(NNLayer):
                 pool_size=self.pool_size,
                 strides=self.strides,
                 padding=self.padding,
-                data_format=self.data_format,
+                data_format=self.data_format
             )
         elif get_backend() == "pytorch":
             self.layer = nn.MaxPool2d(

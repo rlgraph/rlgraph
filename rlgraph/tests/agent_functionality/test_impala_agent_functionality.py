@@ -357,7 +357,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             ),
             #update_spec=dict(batch_size=2),
             # Summarize time-steps to have an overview of the env-stepping speed.
-            summary_spec=dict(summary_regexp="time-step", directory="/opt/project/"),
+            summary_spec=dict(summary_regexp="time-step", directory="/home/rlgraph/"),
             dynamic_batching=False,
             num_actors=4
         )

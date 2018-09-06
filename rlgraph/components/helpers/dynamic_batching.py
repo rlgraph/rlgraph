@@ -24,7 +24,7 @@ import tensorflow as tf
 
 # TODO handle this?
 try:
-    batcher_ops = tf.load_op_library('/root/scalable_agent/batcher.so')
+    batcher_ops = tf.load_op_library('/home/rlgraph/deepmind/deepmind-scalable-agent/batcher.so')
 except:
     pass
 
@@ -112,6 +112,9 @@ def batch_fn_with_options(minimum_batch_size=1, maximum_batch_size=1024, timeout
         def wrapper(*args):
             """Wrapper."""
 
+            self_arg = args[0]
+            args = args[1:]
+
             flat_args = [tf.convert_to_tensor(arg) for arg in nest.flatten(args)]
             #flat_args = nest.flatten(args)
 
@@ -137,7 +140,7 @@ def batch_fn_with_options(minimum_batch_size=1, maximum_batch_size=1024, timeout
                     )
 
                     # Compute result.
-                    result = f(*nest.pack_sequence_as(args, inputs))
+                    result = f(self_arg, *nest.pack_sequence_as(args, inputs))
                     batched_output[0] = result
                     flat_result = nest.flatten(result)
 

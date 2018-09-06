@@ -23,6 +23,8 @@ from rlgraph.spaces import Tuple
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class Beta(Distribution):
@@ -47,6 +49,10 @@ class Beta(Distribution):
                 concentration0=parameters[0],
                 concentration1=parameters[1]
             )
+        elif get_backend() == "pytorch":
+            if self.dist_object is None:
+                self.dist_object = torch.distributions.Beta(parameters[0], parameters[1])
+            return self.dist_object
 
     def _graph_fn_sample_deterministic(self, distribution):
         return distribution.mean()

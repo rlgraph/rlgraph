@@ -28,6 +28,8 @@ from rlgraph.utils.util import dtype
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class Exploration(Component):
@@ -54,6 +56,9 @@ class Exploration(Component):
 
         self.epsilon_exploration = None
         self.noise_component = None
+
+        # For define-by-run sampling.
+        self.sample_obj = None
 
         # Don't allow both epsilon and noise component
         if epsilon_spec and noise_spec:
@@ -137,6 +142,20 @@ class Exploration(Component):
                     x=random_actions,
                     y=sample
                 )
+        elif get_backend() == "pytorch":
+            # N.b. different order versus TF because we dont want to execute the sampling below.
+            if use_exploration is False:
+                    return sample
+
+            if self.sample_obj is None:
+                # Don't create new sample objects very time.
+                self.sample_obj = torch.distributions.Uniform(0, self.action_space.num_categories)
+
+            random_actions = self.sample_obj.sample(sample.shape).int()
+            if use_exploration is True:
+                return torch.where(epsilon_decisions, random_actions, sample)
+            else:
+                return torch.where(use_exploration & epsilon_decisions, random_actions, sample)
 
     def _graph_fn_add_noise(self, use_exploration, noise, sample):
         """
@@ -156,3 +175,8 @@ class Exploration(Component):
             return tf.cond(
                 use_exploration, true_fn=lambda: sample + noise, false_fn=lambda: sample
             )
+        elif get_backend() == "pytorch":
+            if use_exploration:
+                return sample + noise
+            else:
+                return sample
