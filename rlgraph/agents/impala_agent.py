@@ -347,11 +347,14 @@ class IMPALAAgent(Agent):
             self._build_graph([self.root_component], self.input_spaces, self.optimizer)
             self.graph_built = True
 
-            #if self.has_gpu:
-            # Get 1st return op of API-method `stage` of sub-component `staging-area` (which is the stage-op).
-            self.stage_op = self.root_component.sub_components["staging-area"].api_methods["stage"].out_op_columns[0].op_records[0].op
-            # Initialize the stage.
-            self.graph_executor.monitored_session.run_step_fn(lambda step_context: step_context.session.run(self.stage_op))
+            if self.has_gpu:
+                # Get 1st return op of API-method `stage` of sub-component `staging-area` (which is the stage-op).
+                self.stage_op = self.root_component.sub_components["staging-area"].api_methods["stage"]. \
+                    out_op_columns[0].op_records[0].op
+                # Initialize the stage.
+                self.graph_executor.monitored_session.run_step_fn(
+                    lambda step_context: step_context.session.run(self.stage_op)
+                )
 
     def define_api_methods(self, *sub_components):
         # TODO: Unify agents with/w/o synchronizable policy.
@@ -373,10 +376,10 @@ class IMPALAAgent(Agent):
     def define_api_methods_single(self, fifo_output_splitter, fifo_queue, queue_runner, transpose_actions,
                                   transpose_rewards, transpose_terminals, transpose_action_probs, preprocessor,
                                   staging_area, concat, policy, loss_function, optimizer):
-        def setup_queue_runners(self_):
+        def setup_queue_runner(self_):
             return self_.call(queue_runner.setup)
 
-        self.root_component.define_api_method("setup_queue_runners", setup_queue_runners)
+        self.root_component.define_api_method("setup_queue_runner", setup_queue_runner)
 
         def get_queue_size(self_):
             return self_.call(fifo_queue.get_size)
@@ -408,16 +411,18 @@ class IMPALAAgent(Agent):
             terminals = self_.call(transpose_terminals.apply, terminals)
             action_probs_mu = self_.call(transpose_action_probs.apply, action_probs_mu)
 
-            # Put everything on staging area (adds 1 time step policy lag, but makes copying data into GPU more
-            # efficient).
-
-            #if self.has_gpu:
-            stage_op = self_.call(staging_area.stage, preprocessed_s_all, actions, rewards, terminals,
-                                  action_probs_mu, initial_internal_states)  # preprocessed_last_s_prime
-            # Get data from stage again and continue.
-            preprocessed_s_all, actions, rewards, terminals, action_probs_mu, \
-                initial_internal_states = self_.call(staging_area.unstage)  # preprocessed_last_s_prime
-            # endif.
+            # If we use a GPU: Put everything on staging area (adds 1 time step policy lag, but makes copying
+            # data into GPU more efficient).
+            if self.has_gpu:
+                stage_op = self_.call(staging_area.stage, preprocessed_s_all, actions, rewards, terminals,
+                                      action_probs_mu, initial_internal_states)  # preprocessed_last_s_prime
+                # Get data from stage again and continue.
+                preprocessed_s_all, actions, rewards, terminals, action_probs_mu, \
+                    initial_internal_states = self_.call(staging_area.unstage)  # preprocessed_last_s_prime
+                # endif.
+            else:
+                # TODO: No-op component?
+                stage_op = None
 
             # Get the pi-action probs AND the values for all our states.
             state_values_pi, logits_pi, probs_pi, log_probabilities_pi, current_internal_states = \
@@ -440,7 +445,8 @@ class IMPALAAgent(Agent):
             step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
 
             # Return optimizer op and all loss values.
-            return step_op, stage_op, loss, loss_per_item
+            # TODO: Make it possible to return None from API-method without messing with the meta-graph.
+            return step_op, (stage_op if stage_op else step_op), loss, loss_per_item
 
         self.root_component.define_api_method("update_from_memory", update_from_memory)
 
@@ -556,7 +562,10 @@ class IMPALAAgent(Agent):
 
     def update(self, batch=None):
         if batch is None:
-            return self.graph_executor.execute("update_from_memory")
+            if self.has_gpu:
+                return self.graph_executor.execute("update_from_memory")
+            else:
+                return self.graph_executor.execute(("update_from_memory", None, ([0, 2, 3])))
         else:
             raise RLGraphError("Cannot call update-from-batch on an IMPALA Agent.")
 

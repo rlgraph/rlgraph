@@ -44,7 +44,7 @@ class ResidualLayer(NNLayer):
         self.residual_unit = residual_unit
         self.repeats = repeats
 
-        # Deep copy the repeat_units n times and add them to this Component.
+        # Copy the repeat_units n times and add them to this Component.
         self.residual_units = [self.residual_unit] + [
             self.residual_unit.copy(scope=self.residual_unit.scope+"-rep"+str(i+1)) for i in range(repeats - 1)
         ]

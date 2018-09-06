@@ -278,7 +278,7 @@ class GraphBuilder(Specifiable):
             # The graph_fn _variables has some in-op-columns that need to be run through the function.
             if "_graph_fn__variables" in component.graph_fns:
                 graph_fn_rec = component.graph_fns["_graph_fn__variables"]
-                # TODO: Think about only running through no-input-graph-fn once no matter how many in-op-columns it has.
+                # TODO: Think about only running through no-input-graph-fn once, no matter how many in-op-columns it has.
                 # TODO: Then link the first in-op-column (empty) to all out-op-columns.
                 for i, in_op_col in enumerate(graph_fn_rec.in_op_columns):
                     self.run_through_graph_fn_with_device_and_scope(in_op_col)
