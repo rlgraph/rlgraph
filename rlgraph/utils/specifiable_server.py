@@ -287,7 +287,7 @@ if get_backend() == "tf":
 
             # Erase all SpecifiableServers as we open the Session (after having started all of them),
             # so new ones can get registered.
-            self.specifiable_buffer = SpecifiableServer.INSTANCES[:]  # deepcopy items
+            self.specifiable_buffer = SpecifiableServer.INSTANCES[:]  # copy list
             SpecifiableServer.INSTANCES.clear()
 
             #tp.close()
@@ -298,8 +298,8 @@ if get_backend() == "tf":
             #tp.map(lambda server: server.stop(), self.specifiable_buffer)
             #tp.close()
             #tp.join()
-            for server in SpecifiableServer.INSTANCES:
-                server.close()
+            for server in self.specifiable_buffer:
+                server.stop()
 
 
 
