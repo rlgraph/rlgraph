@@ -91,19 +91,6 @@ class Optimizer(Component):
         """
         raise NotImplementedError
 
-    def get_device_ops(self, *params):
-        """
-        Utility method to fetch any optimizer specific ops, e.g. to split the optimization across
-        devices.
-
-        Args:
-            *params (any): Values to generate inputs.
-
-        Returns:
-            Tuple: Fetch list and feed dict for device ops.
-        """
-        pass
-
     def get_optimizer_variables(self):
         """
         Returns this optimizer's variables. This extra utility function is necessary because
