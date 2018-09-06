@@ -44,16 +44,31 @@ class LocalOptimizer(Optimizer):
         # The wrapped, backend-specific optimizer object.
         self.optimizer = None
 
+        # For define-by-run instances.
+        self.optimizer_obj = None
+
     def create_variables(self, input_spaces, action_space=None):
         # Must register the Optimizer's variables with the Component.
         # self.register_variables(*self.optimizer.variables())
         pass
 
     def _graph_fn_step(self, variables, loss, loss_per_item, *inputs):
-        grads_and_vars = self.call(self._graph_fn_calculate_gradients, variables, loss)
-        step_op = self.call(self._graph_fn_apply_gradients, grads_and_vars)
+        # TODO n.b. PyTorch does not call api functions because other optization semantics.
+        if get_backend() == "tf":
+            grads_and_vars = self.call(self._graph_fn_calculate_gradients, variables, loss)
+            step_op = self.call(self._graph_fn_apply_gradients, grads_and_vars)
+            return step_op, loss, loss_per_item
+        elif get_backend() == "pytorch":
+            # Instantiate optimizer with variables.
+            if self.optimizer_obj is None:
+                # self.optimizer is a lambda creating the respective optimizer
+                # with params prefilled.
+                self.optimizer_obj = self.optimizer(variables)
+            # Reset gradients.
+            self.optimizer_obj.zero_grad()
+            loss.backward()
 
-        return step_op, loss, loss_per_item
+            return self.optimizer.step(), loss, loss_per_item
 
     def _graph_fn_calculate_gradients(self, variables, loss):
         """
@@ -79,7 +94,11 @@ class LocalOptimizer(Optimizer):
             )
 
     def get_optimizer_variables(self):
-        return self.optimizer.variables()
+        if get_backend() == "tf":
+            return self.optimizer.variables()
+        elif get_backend() == "pytorch":
+            # TODO
+            pass
 
 
 class GradientDescentOptimizer(LocalOptimizer):
