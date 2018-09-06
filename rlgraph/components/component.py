@@ -358,15 +358,17 @@ class Component(Specifiable):
                     in_graph_fn_column.op_records[i].op = in_op
                     in_graph_fn_column.op_records[i].space = get_space_from_op(in_op)
             # Assert input-completeness of Component (if not already, then after this graph_fn/Space update).
-            if self.input_complete is False:
-                # Check Spaces and create variables.
-                self.graph_builder.build_component_when_input_complete(self)
-                assert self.input_complete
+            #if self.input_complete is False:
+            # Check Spaces and create variables.
+            self.graph_builder.build_component_when_input_complete(self)
+            assert self.input_complete
 
             # Call the graph_fn.
             out_graph_fn_column = self.graph_builder.run_through_graph_fn_with_device_and_scope(
                 in_graph_fn_column, create_new_out_column=True
             )
+            # Check again, in case we are now also variable-complete.
+            self.graph_builder.build_component_when_input_complete(self)
 
         # We are still in the assembly phase: Don't actually call the graph_fn. Only generate op-rec-columns
         # around it (in-coming and out-going).
