@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import numpy as np
 from rlgraph import get_backend
+from rlgraph.utils import pytorch_one_hot
 from rlgraph.utils.util import get_rank
 from rlgraph.components.loss_functions import LossFunction
 from rlgraph.spaces import IntBox
@@ -26,6 +27,8 @@ from rlgraph.spaces.space_utils import sanity_check_space
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class DQNLossFunction(LossFunction):
@@ -111,6 +114,7 @@ class DQNLossFunction(LossFunction):
         Returns:
             SingleDataOp: The loss values vector (one single value for each batch item).
         """
+        # Numpy backend primarily for testing purposes.
         if self.backend == "python" or get_backend() == "python":
             from rlgraph.utils.numpy import one_hot
 
@@ -142,7 +146,6 @@ class DQNLossFunction(LossFunction):
                     td_delta = np.mean(td_delta, axis=list(range(1, self.ranks_to_reduce + 1)))
 
             return self._apply_huber_loss_if_necessary(td_delta)
-
         elif get_backend() == "tf":
             # Make sure the target policy's outputs are treated as constant when calculating gradients.
             qt_values_sp = tf.stop_gradient(qt_values_sp)
@@ -186,6 +189,50 @@ class DQNLossFunction(LossFunction):
                 return importance_weights * self._apply_huber_loss_if_necessary(td_delta)
             else:
                 return self._apply_huber_loss_if_necessary(td_delta)
+        elif get_backend() == "pytorch":
+
+            # Make sure the target policy's outputs are treated as constant when calculating gradients.
+            qt_values_sp = qt_values_sp.detach()
+
+            if self.double_q:
+                # For double-Q, we no longer use the max(a')Qt(s'a') value.
+                # Instead, the a' used to get the Qt(s'a') is given by argmax(a') Q(s',a') <- Q=q-net, not target net!
+                a_primes = torch.argmax(q_values_sp, dim=-1)
+
+                # Now lookup Q(s'a') with the calculated a'.
+                one_hot = pytorch_one_hot(a_primes, depth=self.action_space.num_categories)
+                qt_sp_ap_values = torch.sum(qt_values_sp * one_hot, dim=-1)
+            else:
+                # Qt(s',a') -> Use the max(a') value (from the target network).
+                qt_sp_ap_values = torch.max(qt_values_sp, dim=-1)
+
+            # Make sure the rewards vector (batch) is broadcast correctly.
+            for _ in range(get_rank(qt_sp_ap_values) - 1):
+                rewards = torch.unsqueeze(rewards, dim=1)
+
+            # Ignore Q(s'a') values if s' is a terminal state. Instead use 0.0 as the state-action value for s'a'.
+            # Note that in that case, the next_state (s') is not the correct next state and should be disregarded.
+            # See Chapter 3.4 in "RL - An Introduction" (2017 draft) by A. Barto and R. Sutton for a detailed analysis.
+            qt_sp_ap_values = torch.where(
+                condition=terminals, x=torch.zeros_like(qt_sp_ap_values), y=qt_sp_ap_values
+            )
+
+            # Q(s,a) -> Use the Q-value of the action actually taken before.
+            one_hot = pytorch_one_hot(actions, depth=self.action_space.num_categories)
+            q_s_a_values = torch.sum((q_values_s * one_hot), -1)
+
+            # Calculate the TD-delta (target - current estimate).
+            td_delta = (rewards + (torch.pow(self.discount, self.n_step)) * qt_sp_ap_values) - q_s_a_values
+
+            # Reduce over the composite actions, if any.
+            if get_rank(td_delta) > 1:
+                td_delta = torch.mean(td_delta, list(range(1, self.ranks_to_reduce + 1)))
+
+            # Apply importance-weights from a prioritized replay to the loss.
+            if self.importance_weights:
+                return importance_weights * self._apply_huber_loss_if_necessary(td_delta)
+            else:
+                return self._apply_huber_loss_if_necessary(td_delta)
 
     def _apply_huber_loss_if_necessary(self, td_delta):
         if self.backend == "python" or get_backend() == "python":
@@ -206,3 +253,12 @@ class DQNLossFunction(LossFunction):
                 )
             else:
                 return tf.square(x=td_delta)
+        elif get_backend() == "pytorch":
+            if self.huber_loss:
+                # Not certain if arithmetics need to be expressed via torch operators.
+                return torch.where(
+                    torch.abs(td_delta) < self.huber_delta,
+                    # PyTorch has no `square`
+                    x=torch.pow(td_delta, 2) * 0.5,
+                    y=self.huber_delta * (torch.abs(td_delta) - 0.5 * self.huber_delta)
+                )
