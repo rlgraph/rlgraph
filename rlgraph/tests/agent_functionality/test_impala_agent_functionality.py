@@ -454,7 +454,6 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
                 distributed_spec=dict(job="actor", task_index=0, cluster_spec=self.cluster_spec)
             )
         )
-        # Start the specifiable-server with the environment in it.
         print("IMPALA actor compiled.")
         worker = IMPALAWorker(agent=agent)
         # Run a few steps to produce data and start filling up the FIFO.
@@ -468,9 +467,10 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
         )
         env = DeepmindLabEnv.from_spec(environment_spec)
-        learner_agent = IMPALAAgent.from_spec(
+        agent = IMPALAAgent.from_spec(
             agent_config,
             type="learner",
+            architecture="large",
             state_space=env.state_space,
             action_space=env.action_space,
             # TODO: automate this (by lookup from NN).
@@ -481,11 +481,11 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
                 distributed_spec=dict(job="learner", task_index=0, cluster_spec=self.cluster_spec)
             )
         )
+        print("IMPALA learner compiled.")
         # Take one batch from the filled up queue and run an update_from_memory with the learner.
-        learner_agent.call_api_method("update_from_memory")
-        print("Updated from memory ... sleeping 60s.")
-        time.sleep(60)
-        print()
+        agent.call_api_method("update_from_memory")
+        print("IMPALA actor consumed some data.")
+        agent.terminate()
 
     def test_impala_actor_plus_learner_agent_functionality_both_agent_types(self):
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
