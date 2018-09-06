@@ -22,6 +22,14 @@ from rlgraph.components.neural_networks.policy import Policy
 from rlgraph.components.helpers import dynamic_batching
 
 
+# Wrap in dynamic batching module.
+@dynamic_batching.batch_fn
+def get_state_values_logits_parameters_log_probs(self_, nn_input_, internal_states_):
+    return self_.call(
+        self_.policy.get_state_values_logits_parameters_log_probs, nn_input_, internal_states_, return_ops=True
+    )
+
+
 class DynamicBatchingPolicy(Component):
     """
     A dynamic batching optimizer wraps a local optimizer with DeepMind's custom
@@ -65,16 +73,7 @@ class DynamicBatchingPolicy(Component):
                                self._graph_fn_get_state_values_logits_parameters_log_probs)
 
     def _graph_fn_get_state_values_logits_parameters_log_probs(self, nn_input, internal_states=None):
-        # Wrap in dynamic batching module.
-        @dynamic_batching.batch_fn_with_options(minimum_batch_size=self.minimum_batch_size,
-                                                maximum_batch_size=self.maximum_batch_size,
-                                                timeout_ms=self.timeout_ms)
-        def get_state_values_logits_parameters_log_probs(nn_input_, internal_states_):
-            return self.call(
-                self.policy.get_state_values_logits_parameters_log_probs, nn_input_, internal_states_, return_ops=True
-            )
-
-        out = get_state_values_logits_parameters_log_probs(nn_input, internal_states)
+        out = get_state_values_logits_parameters_log_probs(self, nn_input, internal_states)
         return out
 
     #def _graph_fn_get_logits_parameters_log_probs(self, nn_input, internal_states=None):
