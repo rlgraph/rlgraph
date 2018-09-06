@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+from rlgraph.utils import PyTorchVariable
 from rlgraph.utils.initializer import Initializer
 from rlgraph.components.layers.nn.nn_layer import NNLayer
 from rlgraph.components.layers.nn.activation_functions import get_activation_function
@@ -121,4 +122,5 @@ class Conv2DLayer(NNLayer):
             if self.activation is not None:
                 # Activation function will be used in apply.
                 self.activation_fn = get_activation_function(self.activation, *self.activation_params)
+            self.register_variables(PyTorchVariable(name=self.global_scope, parameters=self.layer.parameters()))
 

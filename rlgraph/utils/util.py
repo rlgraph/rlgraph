@@ -178,6 +178,7 @@ def get_batch_size(tensor):
     elif get_backend() == "pytorch":
         return tensor.shape[0]
 
+
 def force_list(elements, to_tuple=False):
     """
     Makes sure `elements` is returned as a list, whether `elements` is a single item, already a list, or a tuple.

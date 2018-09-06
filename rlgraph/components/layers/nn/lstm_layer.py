@@ -20,6 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 
 from rlgraph.components.layers.nn.nn_layer import NNLayer
+from rlgraph.utils import PyTorchVariable
 from rlgraph.utils.ops import DataOpTuple
 from rlgraph.spaces import Tuple
 from rlgraph.spaces.space_utils import sanity_check_space
@@ -122,6 +123,7 @@ class LSTMLayer(NNLayer):
         elif get_backend() == "pytorch":
             self.lstm = nn.LSTM(self.in_space, self.units)
             self.hidden_state = (torch.zeros(1, 1, self.units), torch.zeros(1, 1, self.units))
+            self.register_variables(PyTorchVariable(name=self.global_scope, parameters=self.lstm.parameters()))
 
     def _graph_fn_apply(self, inputs, initial_c_and_h_states=None, sequence_length=None):
         """

@@ -734,7 +734,8 @@ class Component(Specifiable):
         Also auto-creates summaries (regulated by `self.summary_regexp`) for the given variables.
 
         Args:
-            variables (SingleDataOp): The Variable objects to register.
+            # TODO check if we warp PytorchVariable
+            variables (Union[PyTorchVariable, SingleDataOp]): The Variable objects to register.
         """
         for var in variables:
             # Use our global_scope plus the var's name without anything in between.
