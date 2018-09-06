@@ -68,7 +68,7 @@ class LocalOptimizer(Optimizer):
             self.optimizer_obj.zero_grad()
             loss.backward()
 
-            return self.optimizer.step(), loss, loss_per_item
+            return self.optimizer_obj.step(), loss, loss_per_item
 
     def _graph_fn_calculate_gradients(self, variables, loss):
         """
@@ -116,6 +116,7 @@ class GradientDescentOptimizer(LocalOptimizer):
         if get_backend() == "tf":
             self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
 
+
 class AdamOptimizer(LocalOptimizer):
     """
     Adaptive momentum optimizer:
@@ -142,7 +143,6 @@ class AdamOptimizer(LocalOptimizer):
                 lr=self.learning_rate,
                 betas=(self.beta1, self.beta2)
             )
-
 
 
 class NadamOptimizer(LocalOptimizer):
