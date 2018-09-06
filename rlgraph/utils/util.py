@@ -106,7 +106,7 @@ def get_rank(tensor):
     Returns the rank (as a single int) of an input tensor.
 
     Args:
-        tensor (Union[tf.Tensor,np.ndarray]): The input tensor.
+        tensor (Union[tf.Tensor,torch.Tensor,np.ndarray]): The input tensor.
 
     Returns:
         int: The rank of the given tensor.
@@ -115,6 +115,9 @@ def get_rank(tensor):
         return tensor.ndim
     elif get_backend() == "tf":
         return tensor.get_shape().ndims
+    elif get_backend() == "pytorch":
+        # No rank or ndim in PyTorch apparently.
+        return len(tensor.shape)
 
 
 def get_shape(op, flat=False, no_batch=False):
