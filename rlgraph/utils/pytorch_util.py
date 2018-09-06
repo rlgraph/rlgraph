@@ -23,6 +23,25 @@ if get_backend() == "pytorch":
     import torch
 
 
+class PyTorchVariable(object):
+    """
+    Wrapper to connect PyTorch parameters to names so they can be included
+    in variable registries.
+    """
+    def __init__(self, name, parameters):
+        """
+
+        Args:
+            name (str): Name of this variable.
+            parameters (Union[generator, list]): List of parameters or generator yielding parameters.
+        """
+        self.name = name
+        if isinstance(parameters, list):
+            self.parameters = parameters
+        else:
+            self.parameters = list(parameters)
+
+
 def pytorch_one_hot(tensor, depth=0):
     """
     One-hot utility function for PyTorch.
