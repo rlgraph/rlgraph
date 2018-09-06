@@ -24,6 +24,7 @@ from rlgraph.utils.initializer import Initializer
 from rlgraph.utils.util import dtype, get_shape, get_rank, force_tuple, force_list, LARGE_INTEGER, SMALL_NUMBER, \
     tf_logger, print_logging_handler, root_logger, logging_formatter, default_dict, unify_nn_and_rnn_api_output
 from rlgraph.utils.numpy import softmax, relu, one_hot
+from rlgraph.utils.pytorch_util import pytorch_one_hot
 # from rlgraph.utils.specifiable_server import SpecifiableServer, SpecifiableServerHook
 
 
@@ -31,7 +32,7 @@ __all__ = [
     "RLGraphError",
     "Initializer", "Specifiable", "dtype", "get_shape", "get_rank", "force_tuple", "force_list",
     "logging_formatter", "root_logger", "tf_logger", "print_logging_handler", "softmax", "relu", "one_hot",
-    "DataOp", "SingleDataOp", "DataOpDict", "DataOpTuple", "ContainerDataOp", "FlattenedDataOp",
+    "DataOp", "SingleDataOp", "DataOpDict", "DataOpTuple", "ContainerDataOp", "FlattenedDataOp", "pytorch_one_hot",
     "LARGE_INTEGER", "SMALL_NUMBER"
 ]
 
