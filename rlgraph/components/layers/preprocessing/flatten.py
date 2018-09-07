@@ -29,6 +29,9 @@ from rlgraph.utils.numpy import one_hot
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
+    from rlgraph.utils.pytorch_util import pytorch_one_hot
 
 
 # OBSOLETE: use more powerful `ReShape(flatten=True)` instead.
@@ -95,7 +98,7 @@ class Flatten(PreprocessLayer):
             self.num_categories = in_space.flatten(mapping=mapping_func)
 
     def _graph_fn_apply(self, key, preprocessing_inputs):
-        if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
+        if self.backend == "python" or get_backend() == "python" or get_backend():
             # Create a one-hot axis for the categories at the end?
             if self.num_categories[key] > 1:
                 preprocessing_inputs = one_hot(preprocessing_inputs, depth=self.num_categories[key])
@@ -105,7 +108,16 @@ class Flatten(PreprocessLayer):
                 newshape=self.output_spaces[key].get_shape(with_batch_rank=with_batch_rank)
             )
             return reshaped
-
+        elif get_backend() == "pytorch":
+            # Create a one-hot axis for the categories at the end?
+            if self.num_categories[key] > 1:
+                preprocessing_inputs = pytorch_one_hot(preprocessing_inputs, depth=self.num_categories[key])
+            with_batch_rank = self.output_spaces[key].has_batch_rank
+            reshaped = torch.reshape(
+                preprocessing_inputs,
+                shape=self.output_spaces[key].get_shape(with_batch_rank=with_batch_rank)
+            )
+            return reshaped
         elif get_backend() == "tf":
             # Create a one-hot axis for the categories at the end?
             if self.num_categories[key] > 1:
