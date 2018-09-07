@@ -28,6 +28,8 @@ from rlgraph.utils.util import get_rank, get_shape, dtype as dtype_
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class GrayScale(PreprocessLayer):
@@ -89,8 +91,7 @@ class GrayScale(PreprocessLayer):
         assert images_shape[-1] == self.last_rank,\
             "ERROR: Given image's shape ({}) does not match number of weights (last rank must be {})!".\
             format(images_shape, self.last_rank)
-
-        if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
+        if self.backend == "python" or get_backend() == "python":
             if preprocessing_inputs.ndim == 4:
                 grayscaled = []
                 for i in range_(len(preprocessing_inputs)):
@@ -106,7 +107,21 @@ class GrayScale(PreprocessLayer):
                 scaled_images = cv2.cvtColor(preprocessing_inputs, cv2.COLOR_RGB2GRAY)
 
             return scaled_images
+        elif get_backend() == "pytorch":
+            if len(preprocessing_inputs.shape) == 4:
+                grayscaled = []
+                for i in range_(len(preprocessing_inputs)):
+                    scaled = cv2.cvtColor(preprocessing_inputs[i].numpy(), cv2.COLOR_RGB2GRAY)
+                    grayscaled.append(scaled)
+                scaled_images = np.asarray(grayscaled)
+                # Keep last dim.
+                if self.keep_rank:
+                    scaled_images = scaled_images[:, :, :, np.newaxis]
+            else:
+                # Sample by sample.
+                scaled_images = cv2.cvtColor(preprocessing_inputs.numpy(), cv2.COLOR_RGB2GRAY)
 
+            return torch.tensor(scaled_images)
         elif get_backend() == "tf":
             weights_reshaped = np.reshape(
                 self.weights, newshape=tuple([1] * (get_rank(preprocessing_inputs) - 1)) + (self.last_rank,)
