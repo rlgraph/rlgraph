@@ -78,7 +78,7 @@ class ImageCrop(PreprocessLayer):
         """
         Images come in with either a batch dimension or not.
         """
-        if self.backend == "python" or get_backend() == "python":
+        if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
             if isinstance(preprocessing_inputs, list):
                 preprocessing_inputs = np.asarray(preprocessing_inputs)
             # Preserve batch dimension.

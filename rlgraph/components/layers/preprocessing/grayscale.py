@@ -90,7 +90,7 @@ class GrayScale(PreprocessLayer):
             "ERROR: Given image's shape ({}) does not match number of weights (last rank must be {})!".\
             format(images_shape, self.last_rank)
 
-        if self.backend == "python" or get_backend() == "python":
+        if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
             if preprocessing_inputs.ndim == 4:
                 grayscaled = []
                 for i in range_(len(preprocessing_inputs)):
