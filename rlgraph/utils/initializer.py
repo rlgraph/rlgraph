@@ -66,7 +66,7 @@ class Initializer(Specifiable):
             if get_backend() == "tf":
                 pass
             elif get_backend() == "pytorch":
-                self.initializer = torch.nn.init.xavier_uniform
+                self.initializer = torch.nn.init.xavier_uniform_
 
         # Fixed values spec -> Use them, just do sanity checking.
         else:
