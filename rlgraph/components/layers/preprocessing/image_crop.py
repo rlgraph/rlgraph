@@ -26,6 +26,8 @@ from rlgraph.components.layers.preprocessing import PreprocessLayer
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class ImageCrop(PreprocessLayer):
@@ -78,9 +80,17 @@ class ImageCrop(PreprocessLayer):
         """
         Images come in with either a batch dimension or not.
         """
-        if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
+        if self.backend == "python" or get_backend() == "python":
             if isinstance(preprocessing_inputs, list):
                 preprocessing_inputs = np.asarray(preprocessing_inputs)
+            # Preserve batch dimension.
+            if self.output_spaces[key].has_batch_rank is True:
+                return preprocessing_inputs[:, self.y:self.y + self.height, self.x:self.x + self.width]
+            else:
+                return preprocessing_inputs[self.y:self.y + self.height, self.x:self.x + self.width]
+        elif get_backend() == "pytorch":
+            if isinstance(preprocessing_inputs, list):
+                preprocessing_inputs = torch.tensor(preprocessing_inputs)
             # Preserve batch dimension.
             if self.output_spaces[key].has_batch_rank is True:
                 return preprocessing_inputs[:, self.y:self.y + self.height, self.x:self.x + self.width]
