@@ -101,12 +101,13 @@ class Conv2DLayer(NNLayer):
                 num_channels = shape[0]
 
             apply_bias = (self.biases_spec is not False)
+            # TODO there is no 'same' or 'valid' padding for PyTorch.
             self.layer = nn.Conv2d(
                 in_channels=num_channels,
                 out_channels=self.filters,
                 kernel_size=self.kernel_size,
                 stride=self.strides,
-                padding=self.padding,
+                padding=0,
                 bias=apply_bias
             )
             # Apply weight initializer
