@@ -92,7 +92,7 @@ class DenseLayer(NNLayer):
                 # Must be a callable in PyTorch
                 self.weights_init.initializer(self.layer.weight)
             if apply_bias:
-                if self.biases_init.initializer is not None:
+                if self.biases_spec is not None and self.biases_init.initializer is not None:
                     self.biases_init.initializer(self.layer.bias)
                 else:
                     # Fill with zeros.
