@@ -1241,14 +1241,22 @@ class Component(Specifiable):
 
     def remove_sub_component_by_name(self, name):
         """
-        Removes a sub-component by its name. Raises an error if the sub-component does not exist.
+        Removes a sub-component from this one by its name. Thereby sets the `parent_component` property of the
+        removed Component to None.
+        Raises an error if the sub-component does not exist.
 
         Args:
-            name (str):
+            name (str): The name of the sub-component to be removed.
+
+        Returns:
+            Component: The removed component.
         """
         assert name in self.sub_components, "ERROR: Component {} cannot be removed because it is not" \
             "a sub-component. Sub-components by name are: {}.".format(name, list(self.sub_components.keys()))
-        self.sub_components.pop(name)
+        removed_component = self.sub_components.pop(name)
+        # Set parent of the removed component to None.
+        removed_component.parent_component = None
+        return removed_component
 
     def get_parents(self):
         """
@@ -1460,19 +1468,21 @@ class Component(Specifiable):
 
     def sub_component_by_name(self, scope_name):
         """
-        Returns a subcomponent of this component by its name.
+        Returns a sub-component of this component by its name.
         Args:
             scope_name (str): Name of the component. This is typically its scope.
 
         Returns:
-            Component: Subcomponent if it exists.
+            Component: Sub-component if it exists.
 
         Raises:
-            ValueError: Error if no subcomponent with this name exists.
+            ValueError: Error if no sub-component with this name exists.
         """
         if scope_name not in self.sub_components:
-            raise RLGraphError("Name {} is not a valid subcomponent name for component {}. Subcomponents "
-                               "are: {}".format(scope_name, self.__str__(), self.sub_components.keys()))
+            raise RLGraphError(
+                "Name {} is not a valid sub-component name for component {}. Sub-Components are: {}".
+                format(scope_name, self.__str__(), self.sub_components.keys())
+            )
         return self.sub_components[scope_name]
 
     def __str__(self):

@@ -21,9 +21,10 @@ import unittest
 from rlgraph.utils import root_logger
 from logging import DEBUG
 
-from rlgraph.agents import ApexAgent
-from rlgraph.environments import OpenAIGymEnv
+from rlgraph.agents import ApexAgent, DQNAgent
+from rlgraph.environments import OpenAIGymEnv, RandomEnv
 from rlgraph.execution.ray import ApexExecutor
+from rlgraph.spaces import *
 from rlgraph.tests.test_util import config_from_path
 
 
@@ -40,8 +41,24 @@ class TestGpuStrategies(unittest.TestCase):
         max_num_noops=30,
         episodic_life=True
     )
+    random_env_spec = dict(type="random", state_space=FloatBox(shape=(2,)), action_space=IntBox(2))
 
-    def test_multi_gpu_agent_compilation(self):
+    def test_multi_gpu_dqn_agent_compilation(self):
+        """
+        Tests if the multi gpu strategy can compile successfully on a multi gpu system.
+
+        THIS TEST REQUIRES A MULTI GPU SYSTEM.
+        """
+        root_logger.setLevel(DEBUG)
+        agent_config = config_from_path("configs/multi_gpu_dqn_for_random_env.json")
+        environment = RandomEnv.from_spec(self.random_env_spec)
+
+        agent = DQNAgent.from_spec(
+            agent_config, state_space=environment.state_space, action_space=environment.action_space
+        )
+        print("Compiled DQN agent on multi-GPU system")
+
+    def test_multi_gpu_apex_agent_compilation(self):
         """
         Tests if the multi gpu strategy can compile successfully on a multi gpu system.
 

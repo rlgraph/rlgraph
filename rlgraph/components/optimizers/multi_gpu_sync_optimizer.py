@@ -45,12 +45,16 @@ class MultiGpuSyncOptimizer(Optimizer):
         self.add_components(self.optimizer)
 
         self.subgraphs = None
+        self.dict_splitter = None
 
         # Device names and variables.
         self.gpu_devices = None
+        self.num_gpus = 0
+        self.batch_splitter = None
         self.sub_graph_vars = None
         # Name of loss, e.g. the scope. Needed to fetch losses from subcomponents.
         self.loss_name = None
+
         self.define_api_method("load_to_device", self._graph_fn_load_to_device, flatten_ops=True,
                                split_ops=True, add_auto_key_as_first_param=True, must_be_complete=False)
 
@@ -150,7 +154,7 @@ class MultiGpuSyncOptimizer(Optimizer):
             shard_vars = []
             for i, shard in enumerate(device_inputs):
                 self.sub_graph_vars[i][key] = device_inputs[i]
-                shard_vars.append(self.sub_graph_vars[i][key] )
+                shard_vars.append(self.sub_graph_vars[i][key])
 
             return tuple(shard_vars)
 

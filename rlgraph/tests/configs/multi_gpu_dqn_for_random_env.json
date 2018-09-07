@@ -1,0 +1,63 @@
+{
+  "type": "dqn",
+  "dueling_q": false,
+  "discount": 0.99,
+  "memory_spec": {
+    "type": "replay_buffer",
+    "capacity": 10
+  },
+  "preprocessing_spec": [
+    {
+      "type": "multiply",
+      "factor": 2.0
+    }
+  ],
+  "network_spec": [
+    {
+      "type": "dense",
+      "units": 10
+    }
+  ],
+
+  "exploration_spec": {
+    "epsilon_spec": {
+      "decay_spec": {
+        "type": "constant_decay",
+        "constant_value": 0.0
+      }
+    }
+  },
+  "execution_spec": {
+    "device_strategy": "multi_gpu_sync",
+    "gpu_spec": {
+      "gpus_enabled" : true,
+      "max_usable_gpus": 2,
+      "per_process_gpu_memory_fraction": 0.5,
+      "allow_memory_growth": true
+    },
+    "disable_monitoring": true,
+    "session_config": {
+		"allow_soft_placement": true,
+        "log_device_placement": true,
+		"device_count": {
+			"CPU": 1
+		},
+		"inter_op_parallelism_threads": 1,
+		"intra_op_parallelism_threads": 1
+    }
+  },
+  "observe_spec": {
+    "buffer_size": 50
+  },
+  "update_spec": {
+    "do_updates": true,
+    "update_interval": 4,
+    "steps_before_update": 0,
+    "batch_size": 32,
+    "sync_interval": 16
+  },
+  "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.001
+  }
+}

@@ -22,6 +22,7 @@ import time
 
 from rlgraph import get_backend, get_distributed_backend
 import rlgraph.utils as util
+from rlgraph.components.optimizers.multi_gpu_sync_optimizer import MultiGpuSyncOptimizer
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.graphs.graph_executor import GraphExecutor
 
@@ -630,7 +631,7 @@ class TensorFlowExecutor(GraphExecutor):
         # Close the tf.Session.
         self.monitored_session.close()
 
-    def _build_device_strategy(self,root_component, optimizer, loss_name=None):
+    def _build_device_strategy(self, root_component, optimizer, loss_name=None):
         """
         When using multiple GPUs or other special devices, additional graph components
         may be required to split up incoming data, load it to device memories, and aggregate
@@ -649,7 +650,6 @@ class TensorFlowExecutor(GraphExecutor):
             loss_name Optional([str]): Name of loss component. Needed by some device strategies
                 to fetch the less on graph replicas.
         """
-        self.optimizer = optimizer
         if self.device_strategy == "multi_gpu_sync":
             assert self.num_gpus > 1, "ERROR: MultiGpuSync strategy needs more than one GPU available but" \
                                       "there are only {} GPUs visible.".format(self.num_gpus)
@@ -666,20 +666,26 @@ class TensorFlowExecutor(GraphExecutor):
                 self.logger.info("Creating device sub-graph for device: {}.".format(device))
                 sub_graph = root_component.copy(
                     device=device,
-                    scope="sync_copy_graph_{}".format(i),
+                    scope="tower-{}".format(i),
                     reuse_variable_scope=shared_scope
                 )
                 # Unwrap optimizer.
-                opt = sub_graph.sub_component_by_name("multi-gpu-sync-optimizer")
-                local_opt = opt.optimizer
-                local_opt.parent_component = None
+                #opt = sub_graph.sub_component_by_name("multi-gpu-sync-optimizer")
+                #local_opt = opt.optimizer
+                #local_opt.parent_component = None
 
-                sub_graph.remove_sub_component_by_name(opt.name)
-                sub_graph.add_components(local_opt)
-                sub_graphs.append(sub_graph)
-                self.used_devices.append(device)
+                #sub_graph.remove_sub_component_by_name(opt.name)
+                #sub_graph.add_components(local_opt)
+                #sub_graphs.append(sub_graph)
+                #self.used_devices.append(device)
 
             # # Old: root <-> local_optimizer, new: root <-> multi_gpu_optimizer <-> local_optimizer
+            # Wrap the optimizer in the root component with a MultiGpuSyncOptimizer.
+            #optimizer.parent_component = None
+            root_component.remove_sub_component_by_name(optimizer.name)
+            self.optimizer = MultiGpuSyncOptimizer(local_optimizer=optimizer, devices=self.gpu_names)
+            root_component.add_components(self.optimizer)
+
             # optimizer.parent_component = None
             # root_component.remove_sub_component_by_name(optimizer.name)
             # multi_gpu_optimizer = MultiGpuSyncOptimizer(local_optimizer=optimizer, devices=self.gpu_names)
