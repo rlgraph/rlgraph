@@ -120,13 +120,14 @@ class Stack(Component):
 
                         # TODO: python-Components: For now, we call each preprocessor's graph_fn
                         #  directly (assuming that inputs are not ContainerSpaces).
-                        if self_.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
-                            graph_fn = getattr(sub_component, "_graph_fn_"+components_api_method_name)
+                        if self_.backend == "python" or get_backend() == "python":
+                            graph_fn = getattr(sub_component, "_graph_fn_" + components_api_method_name)
                             if sub_component.api_methods[components_api_method_name].add_auto_key_as_first_param:
                                 result = graph_fn("", *force_tuple(result))
                             else:
                                 result = graph_fn(*force_tuple(result))
-                        elif get_backend() == "tf":
+                        # TODO where does pytorch fit in here
+                        elif get_backend() == "tf" or get_backend() == "pytorch":
                             result = self_.call(
                                 getattr(sub_component, components_api_method_name), *force_tuple(result)
                             )
