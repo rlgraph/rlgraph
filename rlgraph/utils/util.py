@@ -145,12 +145,15 @@ def get_shape(op, flat=False, no_batch=False):
         shape = op.shape
     # Primitive op (e.g. tensorflow)
     else:
-        op_shape = op.get_shape()
-        # Unknown shape (e.g. a cond op).
-        if op_shape.ndims is None:
-            return None
-        shape = tuple(op_shape.as_list())
-
+        if get_backend() == "tf":
+            op_shape = op.get_shape()
+            # Unknown shape (e.g. a cond op).
+            if op_shape.ndims is None:
+                return None
+            shape = tuple(op_shape.as_list())
+        elif get_backend() == "pytorch":
+            op_shape = op.shape
+            shape = list(op_shape)
     # Remove batch rank?
     if no_batch is True and shape[0] is None:
         shape = shape[1:]

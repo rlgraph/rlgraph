@@ -119,7 +119,7 @@ def get_space_from_op(op):
             return BoxSpace.from_spec(spec=type(op), shape=())
         # No Space: e.g. the tf.no_op, a distribution (anything that's not a tensor).
         # PyTorch Tensors do not have get_shape so must check backend.
-        elif hasattr(op, "dtype") is False or (get_backend == "tf" and not hasattr(op, "get_shape")):
+        elif hasattr(op, "dtype") is False or (get_backend() == "tf" and not hasattr(op, "get_shape")):
             return 0
         # Some tensor: can be converted into a BoxSpace.
         else:
