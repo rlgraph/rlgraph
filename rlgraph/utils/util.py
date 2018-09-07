@@ -80,7 +80,6 @@ def dtype(dtype_, to="tf"):
             return np.int16 if to == "np" else tf.int16
     elif get_backend() == "pytorch":
         # N.b. this behaves differently than other bools, careful with Python bool comparisons.
-        print(dtype_)
         if dtype_ in ["bool", bool, np.bool_] or dtype_ is torch.uint8:
             return np.bool_ if to == "np" else torch.uint8
         elif dtype_ in ["float", "float32", float, np.float32] or dtype_ is torch.float32:
