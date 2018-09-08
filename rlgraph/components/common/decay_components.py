@@ -150,7 +150,7 @@ class DecayComponent(Component):
                         return self.to_
                     else:
                         return self._graph_fn_decay(
-                            torch.FLoatTensor([time_step - self.start_timestep])
+                            torch.FloatTensor([time_step - self.start_timestep])
                         )
 
     def _graph_fn_decay(self, time_steps_in_decay_window):
@@ -217,6 +217,10 @@ class PolynomialDecay(DecayComponent):
                 end_learning_rate=self.to_,
                 power=self.power
             )
+        elif get_backend() == "pytorch":
+            decay_steps = self.num_timesteps * torch.ceil(time_steps_in_decay_window / self.num_timesteps)
+            return (self.from_ - self.to_) \
+                * torch.pow((1.0 - time_steps_in_decay_window / decay_steps), self.power) + self.to_
 
 
 # Create an alias for LinearDecay
@@ -260,3 +264,6 @@ class ExponentialDecay(DecayComponent):
                 decay_steps=self.half_life_timesteps,
                 decay_rate=0.5
             )
+        elif get_backend() == "pytorch":
+            power = time_steps_in_decay_window / self.half_life_timesteps
+            return self.from_ * torch.pow(0.5, power)
