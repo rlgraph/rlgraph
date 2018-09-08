@@ -22,6 +22,7 @@ from rlgraph.utils import PyTorchVariable
 from rlgraph.utils.initializer import Initializer
 from rlgraph.components.layers.nn.nn_layer import NNLayer
 from rlgraph.components.layers.nn.activation_functions import get_activation_function
+from rlgraph.utils.pytorch_util import get_input_channels
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -95,13 +96,7 @@ class Conv2DLayer(NNLayer):
             self.register_variables(*self.layer.variables)
         elif get_backend() == "pytorch":
             shape = in_space.shape
-            # if self.data_format == "channels_last":
-            #     num_channels = shape[-1]
-            # else:
-
-            # Always channels first for PyTorch -> Preprocessor must ensure this
-            #
-            num_channels = shape[0]
+            num_channels = get_input_channels(shape)
             apply_bias = (self.biases_spec is not False)
 
             # N.b. there is no 'same' or 'valid' padding for PyTorch.
