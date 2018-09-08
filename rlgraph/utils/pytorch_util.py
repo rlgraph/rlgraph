@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+import numpy as np
 
 if get_backend() == "pytorch":
     import torch
@@ -59,3 +60,22 @@ def pytorch_one_hot(tensor, depth=0):
         tensor_one_hot.scatter_(1, tensor, 1)
 
         return tensor_one_hot
+
+
+def pytorch_tile(tensor, dim, n_tile):
+    """
+    Tile utility as there is not `torch.tile`.
+    Args:
+        tensor (torch.Tensor): Tensor to tile.
+        dim (int): Dim to tile.
+        n_tile (int(: Num tiles.
+
+    Returns:
+        torch.Tensor: Tiled tensor.
+    """
+    init_dim = tensor.size(dim)
+    repeat_idx = [1] * tensor.dim()
+    repeat_idx[dim] = n_tile
+    tensor = tensor.repeat(*(repeat_idx))
+    order_index = torch.LongTensor(np.concatenate([init_dim * np.arange(n_tile) + i for i in range(init_dim)]))
+    return torch.index_select(tensor, dim, order_index)
