@@ -95,13 +95,16 @@ class Conv2DLayer(NNLayer):
             self.register_variables(*self.layer.variables)
         elif get_backend() == "pytorch":
             shape = in_space.shape
-            if self.data_format == "channels_last":
-                num_channels = shape[-1]
-            else:
-                num_channels = shape[0]
+            # if self.data_format == "channels_last":
+            #     num_channels = shape[-1]
+            # else:
 
+            # Always channels first for PyTorch -> Preprocessor must ensure this
+            #
+            num_channels = shape[0]
             apply_bias = (self.biases_spec is not False)
-            # TODO there is no 'same' or 'valid' padding for PyTorch.
+
+            # N.b. there is no 'same' or 'valid' padding for PyTorch.
             self.layer = nn.Conv2d(
                 in_channels=num_channels,
                 out_channels=self.filters,

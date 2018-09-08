@@ -86,8 +86,6 @@ class Sequence(PreprocessLayer):
                 ret[key] = value.__class__(shape=tuple(shape), add_batch_rank=value.has_batch_rank)
             else:
                 ret[key] = value.__class__(shape=tuple(shape), add_batch_rank=value.has_batch_rank)
-
-        print("get preprocessed space:" , ret)
         return unflatten_op(ret)
 
     def check_input_spaces(self, input_spaces, action_space=None):
