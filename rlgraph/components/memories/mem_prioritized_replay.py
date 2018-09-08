@@ -23,7 +23,7 @@ import operator
 from rlgraph.utils import SMALL_NUMBER
 from six.moves import xrange as range_
 
-from rlgraph.components import Memory
+from rlgraph.components.memories.memory import Memory
 from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
 from rlgraph.spaces.space_utils import get_list_registry
 from rlgraph.spaces import Dict
