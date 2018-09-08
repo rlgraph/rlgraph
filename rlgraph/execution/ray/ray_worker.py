@@ -89,9 +89,9 @@ class RayWorker(RayActor):
         self.discount = agent_config.get("discount", 0.99)
         # Python based preprocessor as image resizing is broken in TF.
 
-        self.preprocessors = dict()
+        self.preprocessors = {}
         preprocessing_spec = agent_config.get("preprocessing_spec", None)
-        self.is_preprocessed = dict()
+        self.is_preprocessed = {}
         for env_id in self.env_ids:
             self.preprocessors[env_id] = self.setup_preprocessor(
                 preprocessing_spec, self.vector_env.state_space.with_batch_rank()
@@ -101,20 +101,20 @@ class RayWorker(RayActor):
         self.worker_frameskip = frameskip
 
         # Save these so they can be fetched after training if desired.
-        self.finished_episode_rewards = [list() for _ in range_(self.num_environments)]
-        self.finished_episode_timesteps = [list() for _ in range_(self.num_environments)]
+        self.finished_episode_rewards = [[] for _ in range_(self.num_environments)]
+        self.finished_episode_timesteps = [[] for _ in range_(self.num_environments)]
         # Total times sample the "real" wallclock time from start to end for each episode.
-        self.finished_episode_total_times = [list() for _ in range_(self.num_environments)]
+        self.finished_episode_total_times = [[] for _ in range_(self.num_environments)]
         # Sample times stop the wallclock time counter between runs, so only the sampling time is accounted for.
-        self.finished_episode_sample_times = [list() for _ in range_(self.num_environments)]
+        self.finished_episode_sample_times = [[] for _ in range_(self.num_environments)]
 
         self.total_worker_steps = 0
         self.episodes_executed = 0
 
         # Step time and steps done per call to execute_and_get to measure throughput of this worker.
-        self.sample_times = list()
-        self.sample_steps = list()
-        self.sample_env_frames = list()
+        self.sample_times = []
+        self.sample_steps = []
+        self.sample_env_frames = []
 
         # To continue running through multiple exec calls.
         self.last_states = self.vector_env.reset_all()
@@ -232,20 +232,19 @@ class RayWorker(RayActor):
         env_frames = 0
 
         # Final result batch.
-        batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals = list(), list(), list(), \
-            list(), list()
+        batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals = [], [], [], [], []
 
         # Running trajectories.
-        sample_states, sample_actions, sample_rewards, sample_terminals = dict(), dict(), dict(), dict()
+        sample_states, sample_actions, sample_rewards, sample_terminals = {}, {}, {}, {}
         next_states = [np.zeros_like(self.last_states) for _ in range_(self.num_environments)]
 
         # Reset envs and Agent either if finished an episode in current loop or if last state
         # from previous execution was terminal for that environment.
         for i, env_id in enumerate(self.env_ids):
-            sample_states[env_id] = list()
-            sample_actions[env_id] = list()
-            sample_rewards[env_id] = list()
-            sample_terminals[env_id] = list()
+            sample_states[env_id] = []
+            sample_actions[env_id] = []
+            sample_rewards[env_id] = []
+            sample_terminals[env_id] = []
 
         env_states = self.last_states
         current_episode_rewards = self.last_ep_rewards
@@ -332,10 +331,10 @@ class RayWorker(RayActor):
                     batch_terminals.extend(post_t)
 
                     # Reset running trajectory for this env.
-                    sample_states[env_id] = list()
-                    sample_actions[env_id] = list()
-                    sample_rewards[env_id] = list()
-                    sample_terminals[env_id] = list()
+                    sample_states[env_id] = []
+                    sample_actions[env_id] = []
+                    sample_rewards[env_id] = []
+                    sample_terminals[env_id] = []
 
                     # Reset this environment and its pre-processor stack.
                     env_states[i] = self.vector_env.reset(i)
