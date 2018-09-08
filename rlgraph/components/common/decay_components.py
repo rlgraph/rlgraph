@@ -24,9 +24,12 @@ from rlgraph.utils import util
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.components import Component
+from rlgraph.utils.pytorch_util import pytorch_tile
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class DecayComponent(Component):
@@ -115,10 +118,40 @@ class DecayComponent(Component):
                         false_fn=lambda: self._graph_fn_decay(
                             tf.cast(x=time_step - self.start_timestep, dtype=util.dtype("float"))
                         ),
-                        name="cond-past-end-time"
                     ),
-                    name="cond-before-start-time"
                 )
+        elif get_backend() == "pytorch":
+            smaller_than_start = time_step <= self.start_timestep
+
+            shape = time_step.shape
+            # time_step comes in as a time-sequence of time-steps.
+            if shape[0] > 0:
+                return torch.where(
+                    condition=smaller_than_start,
+                    # We are still in pre-decay time.
+                    x=pytorch_tile(torch.tensor([self.from_]), shape),
+                    # We are past pre-decay time.
+                    y=torch.where(
+                        condition=(time_step >= self.start_timestep + self.num_timesteps),
+                        # We are in post-decay time.
+                        x=pytorch_tile(torch.tensor([self.to]), shape),
+                        # We are inside the decay time window.
+                        y=self._graph_fn_decay(
+                            torch.FloatTensor([time_step - self.start_timestep])
+                        ),
+                    ),
+                )
+            # Single 0D time step.
+            else:
+                if smaller_than_start:
+                    return self.from_
+                else:
+                    if time_step >= self.start_timestep + self.num_timesteps:
+                        return self.to_
+                    else:
+                        return self._graph_fn_decay(
+                            torch.FLoatTensor([time_step - self.start_timestep])
+                        )
 
     def _graph_fn_decay(self, time_steps_in_decay_window):
         """

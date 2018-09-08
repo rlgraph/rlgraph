@@ -62,13 +62,13 @@ def pytorch_one_hot(tensor, depth=0):
         return tensor_one_hot
 
 
-def pytorch_tile(tensor, dim, n_tile):
+def pytorch_tile(tensor, n_tile, dim=0):
     """
     Tile utility as there is not `torch.tile`.
     Args:
         tensor (torch.Tensor): Tensor to tile.
+        n_tile (int): Num tiles.
         dim (int): Dim to tile.
-        n_tile (int(: Num tiles.
 
     Returns:
         torch.Tensor: Tiled tensor.
