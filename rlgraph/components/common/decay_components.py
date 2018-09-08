@@ -128,20 +128,19 @@ class DecayComponent(Component):
 
             # TODO tile shape is confusing -> num tiles should be shape[0] not shape?
             if shape[0] > 0:
+                past_decay = torch.where(
+                    (time_step >= self.start_timestep + self.num_timesteps),
+                    # We are in post-decay time.
+                    pytorch_tile(torch.tensor([self.to_]), shape),
+                    # We are inside the decay time window.
+                    self._graph_fn_decay(torch.FloatTensor([time_step - self.start_timestep]))
+                )
                 return torch.where(
-                    condition=smaller_than_start,
+                    smaller_than_start,
                     # We are still in pre-decay time.
-                    x=pytorch_tile(torch.tensor([self.from_]), shape),
+                    pytorch_tile(torch.tensor([self.from_]), shape),
                     # We are past pre-decay time.
-                    y=torch.where(
-                        condition=(time_step >= self.start_timestep + self.num_timesteps),
-                        # We are in post-decay time.
-                        x=pytorch_tile(torch.tensor([self.to_]), shape),
-                        # We are inside the decay time window.
-                        y=self._graph_fn_decay(
-                            torch.FloatTensor([time_step - self.start_timestep])
-                        ),
-                    ),
+                    past_decay
                 )
             # Single 0D time step.
             else:
