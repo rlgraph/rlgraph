@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 import operator
 
-from rlgraph.utils import SMALL_NUMBER
+from rlgraph.utils import SMALL_NUMBER, get_rank
 from six.moves import xrange as range_
 
 from rlgraph.components.memories.memory import Memory
@@ -62,13 +62,11 @@ class MemPrioritizedReplay(Memory):
     def create_variables(self, input_spaces, action_space=None):
         # Store our record-space for convenience.
         self.record_space = input_spaces["records"]
-        self.record_space_flat = Dict(self.record_space.flatten(custom_scope_separator="-",
-                                                                scope_separator_at_start=False),
-                                      add_batch_rank=True)
+        self.record_space_flat = Dict(self.record_space.flatten(
+            custom_scope_separator="-", scope_separator_at_start=False), add_batch_rank=True)
 
         # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
         self.record_registry = get_list_registry(self.record_space_flat)
-        self.fixed_key = list(self.record_registry.keys())[0]
 
         self.priority_capacity = 1
         while self.priority_capacity < self.capacity:
@@ -91,10 +89,10 @@ class MemPrioritizedReplay(Memory):
             # as this would cause extra memory overhead.
             self.flat_state_keys = [k for k in self.record_registry.keys() if k[:7] == "states-"]
 
-    def _graph_fn_insert_records(self, records=None):
-        if records is None or len(records['/reward'][0]) == 0:
+    def _graph_fn_insert_records(self, records):
+        if records is None or get_rank(records['/rewards']) == 0:
             return
-        num_records = len(records[self.fixed_key])
+        num_records = len(records['/rewards'])
 
         if num_records == 1:
             if self.index >= self.size:
