@@ -180,7 +180,7 @@ class MemPrioritizedReplay(Memory):
         Returns:
              dict: Record value dict.
         """
-        records = dict()
+        records = {}
         if self.size > 0:
             for name in self.record_registry.keys():
                 records[name] = []
