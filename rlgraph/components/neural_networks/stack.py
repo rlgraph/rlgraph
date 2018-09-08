@@ -126,7 +126,6 @@ class Stack(Component):
                                 result = graph_fn("", *force_tuple(result))
                             else:
                                 result = graph_fn(*force_tuple(result))
-                        # TODO where does pytorch fit in here
                         elif get_backend() == "tf" or get_backend() == "pytorch":
                             result = self_.call(
                                 getattr(sub_component, components_api_method_name), *force_tuple(result)
