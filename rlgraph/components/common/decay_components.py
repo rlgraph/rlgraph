@@ -125,6 +125,8 @@ class DecayComponent(Component):
 
             shape = time_step.shape
             # time_step comes in as a time-sequence of time-steps.
+
+            # TODO tile shape is confusing -> num tiles should be shape[0] not shape?
             if shape[0] > 0:
                 return torch.where(
                     condition=smaller_than_start,
@@ -134,7 +136,7 @@ class DecayComponent(Component):
                     y=torch.where(
                         condition=(time_step >= self.start_timestep + self.num_timesteps),
                         # We are in post-decay time.
-                        x=pytorch_tile(torch.tensor([self.to]), shape),
+                        x=pytorch_tile(torch.tensor([self.to_]), shape),
                         # We are inside the decay time window.
                         y=self._graph_fn_decay(
                             torch.FloatTensor([time_step - self.start_timestep])
