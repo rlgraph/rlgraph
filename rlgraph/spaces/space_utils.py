@@ -81,7 +81,7 @@ def get_space_from_op(op):
     """
     # a Dict
     if isinstance(op, dict):  # DataOpDict
-        spec = dict()
+        spec = {}
         add_batch_rank = False
         add_time_rank = False
         for key, value in op.items():
@@ -93,7 +93,7 @@ def get_space_from_op(op):
         return Dict(spec, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
     # a Tuple
     elif isinstance(op, tuple):  # DataOpTuple
-        spec = list()
+        spec = []
         add_batch_rank = False
         add_time_rank = False
         for i in op:
