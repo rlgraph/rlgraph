@@ -27,6 +27,8 @@ from rlgraph.utils import util
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class ConvertType(PreprocessLayer):
@@ -48,7 +50,7 @@ class ConvertType(PreprocessLayer):
         # TODO map of allowed conversions in utils?
         if isinstance(space, IntBox):
             if self.to_dtype == "float" or self.to_dtype == "float32" or self.to_dtype == "np.float"\
-                    or self.to_dtype == "tf.float32":
+                    or self.to_dtype == "tf.float32" or self.to_dtype == "torch.float32":
                 return FloatBox(shape=space.shape, low=space.low, high=space.high,
                                 add_batch_rank=space.has_batch_rank, add_time_rank=space.has_time_rank)
             elif self.to_dtype == "bool":
@@ -60,16 +62,16 @@ class ConvertType(PreprocessLayer):
                                        "high is not 1.")
         elif isinstance(space, BoolBox):
             if self.to_dtype == "float" or self.to_dtype == "float32" or self.to_dtype == "np.float" \
-                 or self.to_dtype == "tf.float32":
+                 or self.to_dtype == "tf.float32" or self.to_dtype == "torch.float32":
                 return FloatBox(shape=space.shape, low=0.0, high=1.0,
                                 add_batch_rank=space.has_batch_rank, add_time_rank=space.has_time_rank)
             elif self.to_dtype == "int" or self.to_dtype == "int32" or self.to_dtype  == "np.int32" or \
-                    self.to_dtype == "tf.int32":
+                    self.to_dtype == "tf.int32" or self.to_dtype == "torch.int32":
                 return IntBox(shape=space.shape, low=0, high=1,
                               add_batch_rank=space.has_batch_rank, add_time_rank=space.has_time_rank)
         elif isinstance(space, FloatBox):
             if self.to_dtype == "int" or self.to_dtype == "int32" or self.to_dtype  == "np.int32" or \
-                 self.to_dtype == "tf.int32":
+                 self.to_dtype == "tf.int32" or self.to_dtype == "torch.int32":
                 return IntBox(shape=space.shape, low=space.low, high=space.high,
                               add_batch_rank=space.has_batch_rank, add_time_rank=space.has_time_rank)
 
@@ -87,6 +89,8 @@ class ConvertType(PreprocessLayer):
             if isinstance(preprocessing_inputs, list):
                 preprocessing_inputs = np.asarray(preprocessing_inputs)
             return preprocessing_inputs.astype(dtype=util.dtype(self.to_dtype, to="np"))
+        elif get_backend() == "pytorch":
+            return torch.tensor(preprocessing_inputs, dtype=util.dtype(self.to_dtype, to="pytorch"))
         elif get_backend() == "tf":
             to_dtype = util.dtype(self.to_dtype, to="tf")
             if preprocessing_inputs.dtype != to_dtype:

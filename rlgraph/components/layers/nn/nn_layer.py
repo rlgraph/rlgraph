@@ -108,7 +108,7 @@ class NNLayer(Layer):
                     output._time_rank = 0 if self.in_space_0.time_major is True else 1
                 return output
             elif get_backend() == "pytorch":
-                # PyTorch layers are called, not applied.
+                # PyTorch layers are called, not `applied`.
                 out = self.layer(*inputs)
                 if self.activation_fn is None:
                     return out

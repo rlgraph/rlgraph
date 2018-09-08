@@ -20,6 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph import get_backend
+from rlgraph.utils import pytorch_one_hot
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.spaces import IntBox, FloatBox
@@ -29,6 +30,8 @@ from rlgraph.utils.numpy import one_hot
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class ReShape(PreprocessLayer):
@@ -203,6 +206,7 @@ class ReShape(PreprocessLayer):
         """
         assert self.unfold_time_rank is False or input_before_time_rank_folding is not None
 
+        # TODO pytorch
         if self.backend == "python" or get_backend() == "python":
             # Create a one-hot axis for the categories at the end?
             if self.num_categories.get(key, 0) > 1:
@@ -232,7 +236,35 @@ class ReShape(PreprocessLayer):
                         new_shape = (input_shape[1], input_shape[0]) + new_shape[2:]
 
             return np.reshape(preprocessing_inputs, newshape=new_shape)
+        elif get_backend() == "pytorch":
+            # Create a one-hot axis for the categories at the end?
+            if self.num_categories.get(key, 0) > 1:
+                preprocessing_inputs = pytorch_one_hot(preprocessing_inputs, depth=self.num_categories[key])
 
+            new_shape = self.output_spaces[key].get_shape(
+                with_batch_rank=-1, with_time_rank=-1, time_major=self.time_major
+            )
+            # Dynamic new shape inference:
+            # If both batch and time rank must be left alone OR the time rank must be unfolded from a currently common
+            # batch+time 0th rank, get these two dynamically.
+            # Note: We may still flip the two, if input space has a different `time_major` than output space.
+            if len(new_shape) > 2 and new_shape[0] == -1 and new_shape[1] == -1:
+                # Time rank unfolding. Get the time rank from original input.
+                if self.unfold_time_rank is True:
+                    original_shape = input_before_time_rank_folding.shape
+                    new_shape = (original_shape[0], original_shape[1]) + new_shape[2:]
+                # No time-rank unfolding, but we do have both batch- and time-rank.
+                else:
+                    input_shape = preprocessing_inputs.shape
+                    # Batch and time rank stay as is.
+                    if self.time_major is None or self.time_major is self.in_space_time_majors[key]:
+                        new_shape = (input_shape[0], input_shape[1]) + new_shape[2:]
+                    # Batch and time rank need to be flipped around: Do a transpose.
+                    else:
+                        preprocessing_inputs = torch.transpose(preprocessing_inputs, (1, 0) + input_shape[2:])
+                        new_shape = (input_shape[1], input_shape[0]) + new_shape[2:]
+
+            return torch.reshape(preprocessing_inputs, new_shape)
         elif get_backend() == "tf":
             # Create a one-hot axis for the categories at the end?
             if self.num_categories.get(key, 0) > 1:

@@ -48,7 +48,7 @@ class MetaGraphBuilder(Specifiable):
         """
 
         # Time the meta-graph build:
-        time_start = time.monotonic()
+        time_start = time.perf_counter()
         api = dict()
 
         # Sanity check input_spaces dict.
@@ -94,7 +94,8 @@ class MetaGraphBuilder(Specifiable):
                     # A var-positional param.
                     if root_component.api_method_inputs[param_name] == "*flex":
                         assert use_named is False
-                        in_ops_records.extend([DataOpRecord(position=i + j) for j in range(len(force_list(input_spaces[param_name])))])
+                        in_ops_records.extend([DataOpRecord(position=i + j)
+                                               for j in range(len(force_list(input_spaces[param_name])))])
                     else:
                         in_ops_records.append(DataOpRecord(position=i, kwarg=param_name if use_named else None))
 
@@ -110,7 +111,7 @@ class MetaGraphBuilder(Specifiable):
             for op_rec in api_method_rec.out_op_columns[-1].op_records:
                 op_rec.is_terminal_op = True
 
-        time_build = time.monotonic() - time_start
+        time_build = time.perf_counter() - time_start
         self.logger.info("Meta-graph build completed in {} s.".format(time_build))
 
         # Sanity check the meta-graph.

@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+from rlgraph.utils import PyTorchVariable
 
 from rlgraph.utils.initializer import Initializer
 from rlgraph.components.layers.nn.nn_layer import NNLayer
@@ -91,7 +92,7 @@ class DenseLayer(NNLayer):
                 # Must be a callable in PyTorch
                 self.weights_init.initializer(self.layer.weight)
             if apply_bias:
-                if self.biases_init.initializer is not None:
+                if self.biases_spec is not None and self.biases_init.initializer is not None:
                     self.biases_init.initializer(self.layer.bias)
                 else:
                     # Fill with zeros.
@@ -99,4 +100,5 @@ class DenseLayer(NNLayer):
             if self.activation is not None:
                 # Activation function will be used in apply.
                 self.activation_fn = get_activation_function(self.activation, *self.activation_params)
-
+            # Use unique scope as name.
+            self.register_variables(PyTorchVariable(name=self.global_scope, parameters=self.layer.parameters()))

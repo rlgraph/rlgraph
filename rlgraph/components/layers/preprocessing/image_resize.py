@@ -30,6 +30,8 @@ from rlgraph.components.layers.preprocessing import PreprocessLayer
 if get_backend() == "tf":
     import tensorflow as tf
     from tensorflow.python.ops.image_ops_impl import ResizeMethod
+elif get_backend() == "pytorch":
+    import torch
 
 
 class ImageResize(PreprocessLayer):
@@ -81,13 +83,19 @@ class ImageResize(PreprocessLayer):
         for key, value in space.flatten().items():
             # Do some sanity checking.
             rank = value.rank
-            assert rank == 2 or rank == 3, \
-                "ERROR: Given image's rank (which is {}{}, not counting batch rank) must be either 2 or 3!".\
-                format(rank, ("" if key == "" else " for key '{}'".format(key)))
-            # Determine the output shape.
-            shape = list(value.shape)
-            shape[0] = self.width
-            shape[1] = self.height
+            if get_backend() == "tf":
+                assert rank == 2 or rank == 3, \
+                    "ERROR: Given image's rank (which is {}{}, not counting batch rank) must be either 2 or 3!".\
+                    format(rank, ("" if key == "" else " for key '{}'".format(key)))
+                # Determine the output shape.
+                shape = list(value.shape)
+                shape[0] = self.width
+                shape[1] = self.height
+            elif get_backend() == "pytorch":
+                # Determine the output shape.
+                shape = list(value.shape)
+                shape[1] = self.width
+                shape[2] = self.height
             ret[key] = value.__class__(shape=tuple(shape), add_batch_rank=value.has_batch_rank)
         return unflatten_op(ret)
 
@@ -123,7 +131,32 @@ class ImageResize(PreprocessLayer):
                 resized = np.expand_dims(resized, axis=-1)
 
             return resized
+        elif get_backend() == "pytorch":
+            if isinstance(preprocessing_inputs, list):
+                preprocessing_inputs = torch.tensor(preprocessing_inputs)
 
+            had_single_color_dim = (preprocessing_inputs.shape[-1] == 1)
+            # Batch of samples.
+            if len(preprocessing_inputs.shape) == 4:
+                resized = []
+                for i in range_(len(preprocessing_inputs)):
+                    # Get numpy array.
+                    resized.append(cv2.resize(
+                        preprocessing_inputs[i].numpy(), dsize=(self.width, self.height),
+                        interpolation=self.cv2_interpolation)
+                    )
+                resized = torch.tensor(resized)
+            # Single sample.
+            else:
+                resized = cv2.resize(
+                    preprocessing_inputs.numpy(), dsize=(self.width, self.height), interpolation=self.cv2_interpolation
+                )
+
+            # cv2.resize removes the color rank, if its dimension is 1 (e.g. grayscale), add it back here.
+            if had_single_color_dim is True:
+                resized = torch.unsqueeze(resized, dim=-1)
+
+            return resized
         elif get_backend() == "tf":
             return tf.image.resize_images(
                 images=preprocessing_inputs, size=(self.width, self.height), method=self.tf_interpolation

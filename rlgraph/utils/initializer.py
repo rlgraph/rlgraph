@@ -54,17 +54,19 @@ class Initializer(Specifiable):
                 # Use the first dimension (num_rows or batch rank) to figure out the stddev.
                 stddev = 1 / math.sqrt(shape[0] if isinstance(shape, (tuple, list)) and len(shape) > 0 else 1.0)
                 self.initializer = tf.truncated_normal_initializer(stddev=stddev)
-            elif get_backend() =="pytorch":
+            elif get_backend() == "pytorch":
                 stddev = 1 / math.sqrt(shape[0] if isinstance(shape, (tuple, list)) and len(shape) > 0 else 1.0)
                 self.initializer = lambda t: torch.nn.init.normal_(tensor=t, std=stddev)
 
         # No spec -> Leave initializer as None for TF (will then use default;
         #  e.g. for tf weights: Xavier uniform). For PyTorch, still have to set Xavier.
+        # TODO this is None or is False is very unclean because TF and PT have different defaults ->
+        # change to clean default values for weights and biases.
         elif specification is None or specification is False:
             if get_backend() == "tf":
                 pass
             elif get_backend() == "pytorch":
-                self.initializer = torch.nn.init.xavier_uniform
+                self.initializer = torch.nn.init.xavier_uniform_
 
         # Fixed values spec -> Use them, just do sanity checking.
         else:

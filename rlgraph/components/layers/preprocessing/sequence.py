@@ -30,6 +30,8 @@ from rlgraph.components.layers.preprocessing import PreprocessLayer
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class Sequence(PreprocessLayer):
@@ -38,12 +40,15 @@ class Sequence(PreprocessLayer):
     problems to create the Markov property (velocity of game objects as they move across the screen).
     """
 
-    def __init__(self, sequence_length=2, batch_size=1, add_rank=True, scope="sequence", **kwargs):
+    def __init__(self, sequence_length=2, batch_size=1, add_rank=True, data_format="channels_last",
+                 scope="sequence",  **kwargs):
         """
         Args:
             sequence_length (int): The number of records to always concatenate together within the last rank or
                 in an extra (added) rank.
             batch_size (int): The batch size for incoming records so multiple inputs can be passed through at once.
+            data_format (str): One of 'channels_last' (default) or 'channels_first'. Specifies which rank (first or
+                last) is the color-channel. If the input Space is with batch, the batch always has the first rank.
             add_rank (bool): Whether to add another rank to the end of the input with dim=length-of-the-sequence.
                 If False, concatenates the sequence within the last rank.
                 Default: True.
@@ -62,8 +67,9 @@ class Sequence(PreprocessLayer):
         self.index = None
         # The output spaces after preprocessing (per flat-key).
         self.output_spaces = None
-        if self.backend == "python" or get_backend() == "python":
+        if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
             self.deque = deque([], maxlen=self.sequence_length)
+            self.data_format = data_format
 
     def get_preprocessed_space(self, space):
         ret = dict()
@@ -73,7 +79,13 @@ class Sequence(PreprocessLayer):
                 shape.append(self.sequence_length)
             else:
                 shape[-1] *= self.sequence_length
-            ret[key] = value.__class__(shape=tuple(shape), add_batch_rank=value.has_batch_rank)
+
+            if get_backend() == "pytorch" and self.data_format == "channels_last":
+                # TODO Generic tranpose component for pytorch channels
+                shape.reverse()
+                ret[key] = value.__class__(shape=tuple(shape), add_batch_rank=value.has_batch_rank)
+            else:
+                ret[key] = value.__class__(shape=tuple(shape), add_batch_rank=value.has_batch_rank)
         return unflatten_op(ret)
 
     def check_input_spaces(self, input_spaces, action_space=None):
@@ -94,13 +106,13 @@ class Sequence(PreprocessLayer):
             add_batch_rank=self.batch_size if in_space.has_batch_rank is not False else False,
             add_time_rank=self.sequence_length, time_major=True, flatten=True
         )
-        if self.backend == "python" or get_backend() == "python":
+        if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
             # TODO get variable does not return an int for python
             self.index = -1
             self.buffer = self.buffer[""]
 
     def _graph_fn_reset(self):
-        if self.backend == "python" or get_backend() == "python":
+        if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
             self.index = -1
         elif get_backend() == "tf":
             return tf.variables_initializer([self.index])
@@ -120,29 +132,6 @@ class Sequence(PreprocessLayer):
         """
         # A normal (index != -1) assign op.
         if self.backend == "python" or get_backend() == "python":
-            #   for key_, value in inputs.items():
-            # Insert the input at the correct index or fill empty buffer entirely with input.
-            # if self.index == -1:
-            #     reps = (self.sequence_length,) + tuple([1] * get_rank(preprocessing_inputs))
-            #     input_ = np.expand_dims(preprocessing_inputs, 0)
-            #     self.buffer = np.tile(input_, reps=reps)
-            # else:
-            #     self.buffer[self.index] = preprocessing_inputs
-            #
-            # self.index = (self.index + 1) % self.sequence_length
-            #
-            # #sequences = FlattenedDataOp()
-            # # Collect the correct previous inputs from the buffer to form the output sequence.
-            # #for key in inputs.keys():
-            # n_in = [self.buffer[(self.index + n) % self.sequence_length]
-            #         for n in range_(self.sequence_length)]
-            #
-            # # Add the sequence-rank to the end of our inputs.
-            # if self.add_rank:
-            #     sequence = np.stack(n_in, axis=-1)
-            # # Concat the sequence items in the last rank.
-            # else:
-            #     sequence = np.concatenate(n_in, axis=-1)
             if self.index == -1:
                 for _ in range_(self.sequence_length):
                     self.deque.append(preprocessing_inputs)
@@ -156,7 +145,27 @@ class Sequence(PreprocessLayer):
             else:
                 sequence = np.concatenate(self.deque, axis=-1)
             return sequence
+        elif get_backend() == "pytorch":
+            if self.index == -1:
+                for _ in range_(self.sequence_length):
+                    self.deque.append(preprocessing_inputs)
+            else:
+                self.deque.append(preprocessing_inputs)
+            self.index = (self.index + 1) % self.sequence_length
 
+            if self.add_rank:
+                sequence = torch.stack(self.deque, dim=-1)
+            # Concat the sequence items in the last rank.
+            else:
+                sequence = torch.cat(self.deque, dim=-1)
+
+            # TODO remove when transpose component implemented.
+            if self.data_format == "channels_last":
+                # Problem: PyTorch does not have data format options in conv layers ->
+                # only channels first supported.
+                # -> Confusingly have to transpose.
+                sequence = sequence.permute(3, 2, 1, 0)
+            return sequence
         elif get_backend() == "tf":
             # Assigns the input_ into the buffer at the current time index.
             def normal_assign():

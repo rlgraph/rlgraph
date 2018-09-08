@@ -80,7 +80,6 @@ def dtype(dtype_, to="tf"):
             return np.int16 if to == "np" else tf.int16
     elif get_backend() == "pytorch":
         # N.b. this behaves differently than other bools, careful with Python bool comparisons.
-        print(dtype_)
         if dtype_ in ["bool", bool, np.bool_] or dtype_ is torch.uint8:
             return np.bool_ if to == "np" else torch.uint8
         elif dtype_ in ["float", "float32", float, np.float32] or dtype_ is torch.float32:
@@ -106,7 +105,7 @@ def get_rank(tensor):
     Returns the rank (as a single int) of an input tensor.
 
     Args:
-        tensor (Union[tf.Tensor,np.ndarray]): The input tensor.
+        tensor (Union[tf.Tensor,torch.Tensor,np.ndarray]): The input tensor.
 
     Returns:
         int: The rank of the given tensor.
@@ -115,6 +114,9 @@ def get_rank(tensor):
         return tensor.ndim
     elif get_backend() == "tf":
         return tensor.get_shape().ndims
+    elif get_backend() == "pytorch":
+        # No rank or ndim in PyTorch apparently.
+        return tensor.dim()
 
 
 def get_shape(op, flat=False, no_batch=False):
@@ -143,12 +145,15 @@ def get_shape(op, flat=False, no_batch=False):
         shape = op.shape
     # Primitive op (e.g. tensorflow)
     else:
-        op_shape = op.get_shape()
-        # Unknown shape (e.g. a cond op).
-        if op_shape.ndims is None:
-            return None
-        shape = tuple(op_shape.as_list())
-
+        if get_backend() == "tf":
+            op_shape = op.get_shape()
+            # Unknown shape (e.g. a cond op).
+            if op_shape.ndims is None:
+                return None
+            shape = tuple(op_shape.as_list())
+        elif get_backend() == "pytorch":
+            op_shape = op.shape
+            shape = list(op_shape)
     # Remove batch rank?
     if no_batch is True and shape[0] is None:
         shape = shape[1:]
@@ -174,6 +179,7 @@ def get_batch_size(tensor):
         return tf.shape(tensor)[0]
     elif get_backend() == "pytorch":
         return tensor.shape[0]
+
 
 def force_list(elements, to_tuple=False):
     """

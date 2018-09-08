@@ -21,8 +21,9 @@ import logging
 import unittest
 
 from rlgraph import spaces
+from rlgraph.agents import DQNAgent
 from rlgraph.components import Policy
-from rlgraph.environments import Environment
+from rlgraph.environments import Environment, OpenAIGymEnv
 from rlgraph.spaces import FloatBox, IntBox
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path
@@ -124,6 +125,20 @@ class TestPytorchBackend(unittest.TestCase):
         space_sample = space.sample(size=10)
         from_numpy_in = torch.tensor(space_sample, dtype=torch.float32, requires_grad=False)
         print(self.fc1(from_numpy_in))
+
+    def test_dqn_compilation(self):
+        """
+        Creates a DQNAgent and runs it via a Runner on an openAI Pong Env.
+        """
+        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
+        agent_config = config_from_path("configs/dqn_pytorch_test.json")
+        agent = DQNAgent.from_spec(
+            # Uses 2015 DQN parameters as closely as possible.
+            agent_config,
+            state_space=env.state_space,
+            # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
+            action_space=env.action_space
+        )
 
     # TODO -> batch dim works differently in pytorch -> have to squeeze.
     def test_dense_layer(self):

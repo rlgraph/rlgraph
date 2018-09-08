@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph import get_backend
 from six.moves import xrange as range_
 import numpy as np
 
@@ -80,7 +81,7 @@ def get_space_from_op(op):
     """
     # a Dict
     if isinstance(op, dict):  # DataOpDict
-        spec = dict()
+        spec = {}
         add_batch_rank = False
         add_time_rank = False
         for key, value in op.items():
@@ -92,7 +93,7 @@ def get_space_from_op(op):
         return Dict(spec, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
     # a Tuple
     elif isinstance(op, tuple):  # DataOpTuple
-        spec = list()
+        spec = []
         add_batch_rank = False
         add_time_rank = False
         for i in op:
@@ -117,7 +118,8 @@ def get_space_from_op(op):
         if isinstance(op, (bool, int, float)):
             return BoxSpace.from_spec(spec=type(op), shape=())
         # No Space: e.g. the tf.no_op, a distribution (anything that's not a tensor).
-        elif hasattr(op, "dtype") is False or not hasattr(op, "get_shape"):
+        # PyTorch Tensors do not have get_shape so must check backend.
+        elif hasattr(op, "dtype") is False or (get_backend() == "tf" and not hasattr(op, "get_shape")):
             return 0
         # Some tensor: can be converted into a BoxSpace.
         else:

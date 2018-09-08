@@ -32,7 +32,7 @@ def get_state_values_logits_parameters_log_probs(self_, nn_input_, internal_stat
 
 class DynamicBatchingPolicy(Component):
     """
-    A dynamic batching optimizer wraps a local optimizer with DeepMind's custom
+    A dynamic batching policy wraps a policy with DeepMind's custom
     dynamic batching ops which are provided as part of their IMPALA open source
     implementation.
     """
@@ -52,7 +52,7 @@ class DynamicBatchingPolicy(Component):
             graph_fn_num_outputs=dict(_graph_fn_get_state_values_logits_parameters_log_probs=5), scope=scope, **kwargs
         )
 
-        # The wrapped, backend-specific optimizer object.
+        # The wrapped, backend-specific policy object.
         self.policy = Policy.from_spec(policy_spec)
 
         # hack: link in case parent components call APIs of the distribution directly

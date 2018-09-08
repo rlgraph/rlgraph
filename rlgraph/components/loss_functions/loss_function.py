@@ -22,7 +22,8 @@ from rlgraph.components import Component
 
 if get_backend() == "tf":
     import tensorflow as tf
-
+elif get_backend() == "pytorch":
+    import torch
 
 class LossFunction(Component):
     """
@@ -70,4 +71,5 @@ class LossFunction(Component):
         """
         if get_backend() == "tf":
             return tf.reduce_mean(input_tensor=loss_per_item, axis=0)
-
+        elif get_backend() == "pytorch":
+            return torch.mean(loss_per_item, 0)

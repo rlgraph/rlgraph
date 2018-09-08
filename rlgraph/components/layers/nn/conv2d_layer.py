@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+from rlgraph.utils import PyTorchVariable
 from rlgraph.utils.initializer import Initializer
 from rlgraph.components.layers.nn.nn_layer import NNLayer
 from rlgraph.components.layers.nn.activation_functions import get_activation_function
@@ -94,18 +95,22 @@ class Conv2DLayer(NNLayer):
             self.register_variables(*self.layer.variables)
         elif get_backend() == "pytorch":
             shape = in_space.shape
-            if self.data_format == "channels_last":
-                num_channels = shape[-1]
-            else:
-                num_channels = shape[0]
+            # if self.data_format == "channels_last":
+            #     num_channels = shape[-1]
+            # else:
 
+            # Always channels first for PyTorch -> Preprocessor must ensure this
+            #
+            num_channels = shape[0]
             apply_bias = (self.biases_spec is not False)
+
+            # N.b. there is no 'same' or 'valid' padding for PyTorch.
             self.layer = nn.Conv2d(
                 in_channels=num_channels,
                 out_channels=self.filters,
                 kernel_size=self.kernel_size,
                 stride=self.strides,
-                padding=self.padding,
+                padding=0,
                 bias=apply_bias
             )
             # Apply weight initializer
@@ -113,7 +118,7 @@ class Conv2DLayer(NNLayer):
                 # Must be a callable in PyTorch
                 self.kernel_init.initializer(self.layer.weight)
             if apply_bias:
-                if self.biases_init.initializer is not None:
+                if self.biases_spec is not None and self.biases_init.initializer is not None:
                     self.biases_init.initializer(self.layer.bias)
                 else:
                     # Fill with zeros.
@@ -121,4 +126,5 @@ class Conv2DLayer(NNLayer):
             if self.activation is not None:
                 # Activation function will be used in apply.
                 self.activation_fn = get_activation_function(self.activation, *self.activation_params)
+            self.register_variables(PyTorchVariable(name=self.global_scope, parameters=self.layer.parameters()))
 
