@@ -116,7 +116,7 @@ def get_rank(tensor):
         return tensor.get_shape().ndims
     elif get_backend() == "pytorch":
         # No rank or ndim in PyTorch apparently.
-        return len(tensor.shape)
+        return tensor.dim()
 
 
 def get_shape(op, flat=False, no_batch=False):
