@@ -120,7 +120,6 @@ class GrayScale(PreprocessLayer):
             else:
                 # Sample by sample.
                 scaled_images = cv2.cvtColor(preprocessing_inputs.numpy(), cv2.COLOR_RGB2GRAY)
-
             return torch.tensor(scaled_images)
         elif get_backend() == "tf":
             weights_reshaped = np.reshape(

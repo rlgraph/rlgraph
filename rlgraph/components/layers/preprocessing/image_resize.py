@@ -83,13 +83,19 @@ class ImageResize(PreprocessLayer):
         for key, value in space.flatten().items():
             # Do some sanity checking.
             rank = value.rank
-            assert rank == 2 or rank == 3, \
-                "ERROR: Given image's rank (which is {}{}, not counting batch rank) must be either 2 or 3!".\
-                format(rank, ("" if key == "" else " for key '{}'".format(key)))
-            # Determine the output shape.
-            shape = list(value.shape)
-            shape[0] = self.width
-            shape[1] = self.height
+            if get_backend() == "tf":
+                assert rank == 2 or rank == 3, \
+                    "ERROR: Given image's rank (which is {}{}, not counting batch rank) must be either 2 or 3!".\
+                    format(rank, ("" if key == "" else " for key '{}'".format(key)))
+                # Determine the output shape.
+                shape = list(value.shape)
+                shape[0] = self.width
+                shape[1] = self.height
+            elif get_backend() == "pytorch":
+                # Determine the output shape.
+                shape = list(value.shape)
+                shape[1] = self.width
+                shape[2] = self.height
             ret[key] = value.__class__(shape=tuple(shape), add_batch_rank=value.has_batch_rank)
         return unflatten_op(ret)
 
