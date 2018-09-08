@@ -109,7 +109,10 @@ class NNLayer(Layer):
                 return output
             elif get_backend() == "pytorch":
                 # PyTorch layers are called, not `applied`.
+                # v = lambda x: print("input shape", x.shape)
+                # v(*inputs)
                 out = self.layer(*inputs)
+                # print("layer output shape = ", out.shape)
                 if self.activation_fn is None:
                     return out
                 else:

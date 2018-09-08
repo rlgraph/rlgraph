@@ -81,3 +81,23 @@ def pytorch_tile(tensor, n_tile, dim=0):
     tensor = tensor.repeat(*(repeat_idx))
     order_index = torch.LongTensor(np.concatenate([init_dim * np.arange(n_tile) + i for i in range(init_dim)]))
     return torch.index_select(tensor, dim, order_index)
+
+
+# TODO remove when we have handled pytorch placeholder inference better.
+def get_input_channels(shape):
+    """
+    Helper for temporary issues with PyTorch shape inference.
+
+    Args:
+        shape (Tuple): Shape tuple.
+
+    Returns:
+        int: Num input channels.
+    """
+    # Have batch rank from placeholder space reconstruction:
+    if len(shape) == 4:
+        # Batch rank and channels first.
+        return shape[1]
+    elif len(shape) == 3:
+        # No batch rank and channels first.
+        return shape[0]

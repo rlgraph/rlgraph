@@ -97,19 +97,18 @@ class Sequence(PreprocessLayer):
 
     def create_variables(self, input_spaces, action_space=None):
         in_space = input_spaces["preprocessing_inputs"]
-
         self.output_spaces = self.get_preprocessed_space(in_space)
 
         self.index = self.get_variable(name="index", dtype="int", initializer=-1, trainable=False)
-        self.buffer = self.get_variable(
-            name="buffer", trainable=False, from_space=in_space,
-            add_batch_rank=self.batch_size if in_space.has_batch_rank is not False else False,
-            add_time_rank=self.sequence_length, time_major=True, flatten=True
-        )
         if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
             # TODO get variable does not return an int for python
             self.index = -1
-            self.buffer = self.buffer[""]
+        else:
+            self.buffer = self.get_variable(
+                name="buffer", trainable=False, from_space=in_space,
+                add_batch_rank=self.batch_size if in_space.has_batch_rank is not False else False,
+                add_time_rank=self.sequence_length, time_major=True, flatten=True
+            )
 
     def _graph_fn_reset(self):
         if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
@@ -165,6 +164,7 @@ class Sequence(PreprocessLayer):
                 # only channels first supported.
                 # -> Confusingly have to transpose.
                 sequence = sequence.permute(3, 2, 1, 0)
+            print("output sequence shape = ", sequence.shape)
             return sequence
         elif get_backend() == "tf":
             # Assigns the input_ into the buffer at the current time index.

@@ -92,10 +92,16 @@ class ImageResize(PreprocessLayer):
                 shape[0] = self.width
                 shape[1] = self.height
             elif get_backend() == "pytorch":
-                # Determine the output shape.
                 shape = list(value.shape)
-                shape[1] = self.width
-                shape[2] = self.height
+
+                # Determine the output shape.
+                if rank == 3:
+                    shape[0] = self.width
+                    shape[1] = self.height
+                elif rank == 4:
+                    # TODO PyTorch shape inference issue.
+                    shape[1] = self.width
+                    shape[2] = self.height
             ret[key] = value.__class__(shape=tuple(shape), add_batch_rank=value.has_batch_rank)
         return unflatten_op(ret)
 
