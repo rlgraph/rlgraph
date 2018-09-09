@@ -216,9 +216,9 @@ class DuelingActionAdapter(ActionAdapter):
         elif get_backend() == "pytorch":
             if isinstance(self.action_space, IntBox):
                 # Discrete actions.
-                parameters = torch.max(torch.softmax(logits, dim=-1), SMALL_NUMBER)
+                parameters = torch.max(torch.softmax(logits, dim=-1), torch.tensor(SMALL_NUMBER))
                 # Log probs.
-                log_probs = torch.log(x=parameters)
+                log_probs = torch.log(parameters)
             elif isinstance(self.action_space, FloatBox):
                 # Continuous actions.
                 mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=1)
