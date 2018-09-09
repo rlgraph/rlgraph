@@ -212,6 +212,7 @@ class DuelingActionAdapter(ActionAdapter):
                 log_probs = DataOpTuple(tf.log(x=mean), log_sd)
             else:
                 raise NotImplementedError
+            return parameters, log_probs
         elif get_backend() == "pytorch":
             if isinstance(self.action_space, IntBox):
                 # Discrete actions.
@@ -237,8 +238,8 @@ class DuelingActionAdapter(ActionAdapter):
                 log_probs = DataOpTuple(torch.log(mean), log_sd)
             else:
                 raise NotImplementedError
-
             return parameters, log_probs
+
 
     #def get_logits_parameters_log_probs(self, nn_output):
     #    """

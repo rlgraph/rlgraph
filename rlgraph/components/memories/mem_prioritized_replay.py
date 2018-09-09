@@ -183,18 +183,12 @@ class MemPrioritizedReplay(Memory):
         """
         records = {}
         for name in self.record_registry.keys():
-            if get_backend() == "pytorch":
-                records[name] = torch.tensor([])
-            else:
-                records[name] = []
+            records[name] = []
 
         if self.next_states:
             for flat_state_key in self.flat_state_keys:
                 flat_next_state_key = "next_states" + flat_state_key[len("states"):]
-                if get_backend() == "pytorch":
-                    records[flat_next_state_key] = torch.tensor([])
-                else:
-                    records[flat_next_state_key] = []
+                records[flat_next_state_key] = []
 
         if self.size > 0:
             for index in indices:
@@ -209,6 +203,22 @@ class MemPrioritizedReplay(Memory):
                         next_record = self.memory_values[next_index]
                         flat_next_state_key = "next_states"+flat_state_key[len("states"):]
                         records[flat_next_state_key].append(next_record[flat_state_key])
+        else:
+            # TODO figure out how to do default handling in pytorch builds.
+            # Fill with default vals for build.
+            for name in self.record_registry.keys():
+                if get_backend() == "pytorch":
+                    records[name] = torch.zeros(self.record_space_flat[name].shape)
+                else:
+                    records[name] = np.zeros(self.record_space_flat[name].shape)
+
+            if self.next_states:
+                for flat_state_key in self.flat_state_keys:
+                    flat_next_state_key = "next_states" + flat_state_key[len("states"):]
+                    if get_backend() == "pytorch":
+                        records[flat_next_state_key] = torch.zeros(self.record_space_flat["states"].shape)
+                    else:
+                        records[flat_next_state_key] = np.zeros(self.record_space_flat["states"].shape)
         return records
 
     def _graph_fn_get_records(self, num_records=1):
