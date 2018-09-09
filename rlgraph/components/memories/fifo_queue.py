@@ -78,11 +78,17 @@ class FIFOQueue(Memory):
 
         # Construct the wrapped FIFOQueue object.
         if get_backend() == "tf":
+            if self.reuse_variable_scope:
+                shared_name = self.reuse_variable_scope + ("/" + self.scope if self.scope else "")
+            else:
+                shared_name = self.global_scope
+
             self.queue = tf.FIFOQueue(
                 capacity=self.capacity,
                 dtypes=dtypes,
                 shapes=shapes,
-                names=names
+                names=names,
+                shared_name=shared_name
             )
 
     def _graph_fn_insert_records(self, records):
