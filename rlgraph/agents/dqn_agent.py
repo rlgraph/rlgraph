@@ -255,7 +255,7 @@ class DQNAgent(Agent):
                 q_values_sp = self_.call(policy.get_q_values, preprocessed_next_states)
 
             loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-                qt_values_sp, q_values_sp, importance_weights)
+                                             qt_values_sp, q_values_sp, importance_weights)
 
             # Args are passed in again because some device strategies may want to split them to different devices.
             policy_vars = self_.call(policy._variables)

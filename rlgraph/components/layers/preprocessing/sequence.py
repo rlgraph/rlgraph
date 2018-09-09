@@ -172,7 +172,8 @@ class Sequence(PreprocessLayer):
                 # Problem: PyTorch does not have data format options in conv layers ->
                 # only channels first supported.
                 # -> Confusingly have to transpose.
-                sequence = sequence.permute(3, 2, 1, 0)
+                sequence = sequence.permute(0, 3, 2, 1)
+
             return sequence
         elif get_backend() == "tf":
             # Assigns the input_ into the buffer at the current time index.
