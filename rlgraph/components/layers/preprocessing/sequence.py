@@ -145,19 +145,27 @@ class Sequence(PreprocessLayer):
                 sequence = np.concatenate(self.deque, axis=-1)
             return sequence
         elif get_backend() == "pytorch":
-
             if self.index == -1:
                 for _ in range_(self.sequence_length):
-                    self.deque.append(preprocessing_inputs)
+                    if isinstance(preprocessing_inputs, dict):
+                        for key, value in preprocessing_inputs.items():
+                            self.deque.append(value)
+                    else:
+                        self.deque.append(preprocessing_inputs)
             else:
-                self.deque.append(preprocessing_inputs)
-            self.index = (self.index + 1) % self.sequence_length
+                if isinstance(preprocessing_inputs, dict):
+                    for key, value in preprocessing_inputs.items():
+                        self.deque.append(value)
+                        self.index = (self.index + 1) % self.sequence_length
+                else:
+                    self.deque.append(preprocessing_inputs)
+                    self.index = (self.index + 1) % self.sequence_length
 
             if self.add_rank:
                 sequence = torch.stack(torch.tensor(self.deque), dim=-1)
             # Concat the sequence items in the last rank.
             else:
-                sequence = torch.cat(torch.tensor(self.deque), dim=-1)
+                sequence = torch.cat([torch.tensor(t) for t in self.deque], dim=-1)
 
             # TODO remove when transpose component implemented.
             if self.data_format == "channels_last":
