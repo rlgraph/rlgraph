@@ -20,6 +20,7 @@ from __future__ import print_function
 import numpy as np
 import operator
 
+from rlgraph import get_backend
 from rlgraph.utils import SMALL_NUMBER, get_rank
 from six.moves import xrange as range_
 
@@ -27,6 +28,9 @@ from rlgraph.components.memories.memory import Memory
 from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
 from rlgraph.spaces.space_utils import get_list_registry
 from rlgraph.spaces import Dict
+
+if get_backend() == "pytorch":
+    import torch
 
 
 class MemPrioritizedReplay(Memory):
@@ -67,7 +71,6 @@ class MemPrioritizedReplay(Memory):
 
         # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
         self.record_registry = get_list_registry(self.record_space_flat)
-
         self.priority_capacity = 1
         while self.priority_capacity < self.capacity:
             self.priority_capacity *= 2
@@ -87,7 +90,7 @@ class MemPrioritizedReplay(Memory):
             assert 'states' in self.record_space
             # Next states are not represented as explicit keys in the registry
             # as this would cause extra memory overhead.
-            self.flat_state_keys = [k for k in self.record_registry.keys() if k[:7] == "states-"]
+            self.flat_state_keys = [k for k in self.record_registry.keys() if k[:7] == "states"]
 
     def _graph_fn_insert_records(self, records):
         if records is None or get_rank(records['/rewards']) == 0:
@@ -179,14 +182,15 @@ class MemPrioritizedReplay(Memory):
              dict: Record value dict.
         """
         records = {}
-        if self.size > 0:
-            for name in self.record_registry.keys():
-                records[name] = []
-            if self.next_states:
-                for flat_state_key in self.flat_state_keys:
-                    flat_next_state_key = "next_states" + flat_state_key[len("states"):]
-                    records[flat_next_state_key] = []
+        for name in self.record_registry.keys():
+            records[name] = []
 
+        if self.next_states:
+            for flat_state_key in self.flat_state_keys:
+                flat_next_state_key = "next_states" + flat_state_key[len("states"):]
+                records[flat_next_state_key] = []
+
+        if self.size > 0:
             for index in indices:
                 record = self.memory_values[index]
                 for name in self.record_registry.keys():
@@ -199,6 +203,22 @@ class MemPrioritizedReplay(Memory):
                         next_record = self.memory_values[next_index]
                         flat_next_state_key = "next_states"+flat_state_key[len("states"):]
                         records[flat_next_state_key].append(next_record[flat_state_key])
+        else:
+            # TODO figure out how to do default handling in pytorch builds.
+            # Fill with default vals for build.
+            for name in self.record_registry.keys():
+                if get_backend() == "pytorch":
+                    records[name] = torch.zeros(self.record_space_flat[name].shape)
+                else:
+                    records[name] = np.zeros(self.record_space_flat[name].shape)
+
+            if self.next_states:
+                for flat_state_key in self.flat_state_keys:
+                    flat_next_state_key = "next_states" + flat_state_key[len("states"):]
+                    if get_backend() == "pytorch":
+                        records[flat_next_state_key] = torch.zeros(self.record_space_flat["states"].shape)
+                    else:
+                        records[flat_next_state_key] = np.zeros(self.record_space_flat["states"].shape)
         return records
 
     def _graph_fn_get_records(self, num_records=1):
