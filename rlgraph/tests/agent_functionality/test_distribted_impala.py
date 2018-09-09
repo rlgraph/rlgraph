@@ -128,7 +128,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             out = agent.call_api_method("perform_n_steps_and_insert_into_fifo")
         print(out)
 
-    def test_impala_distributed_functionality_actor_part(self):
+    def test_distributed_impala_agent_functionality_actor_part(self):
         """
         Creates two IMPALAAgents (actor and learner) and runs it for a few steps in a DeepMindLab Env to test
         communication between the two processes.
@@ -151,19 +151,18 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             # Setup distributed tf.
             execution_spec=dict(
                 mode="distributed",
-                distributed_spec=dict(job="actor", task_index=0, cluster_spec=self.cluster_spec)
+                distributed_spec=dict(job="actor", task_index=0, cluster_spec=self.cluster_spec),
+                session_config=dict(type="monitored-training-session")
             )
         )
         print("IMPALA actor compiled.")
-        agent.call_api_method("reset")
-        out = None
-        for _ in range(50):
-            print(".", end="")
-            out = agent.call_api_method("perform_n_steps_and_insert_into_fifo")
-        print(out)
+        worker = IMPALAWorker(agent=agent)
+        # Run a few steps to produce data and start filling up the FIFO.
+        out = worker.execute_timesteps(80)
+        print("IMPALA actor produced some data:\n{}".format(out))
         agent.terminate()
 
-    def test_impala_distributed_functionality_learner_part(self):
+    def test_distributed_impala_agent_functionality_learner_part(self):
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
         environment_spec = dict(
             type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
@@ -180,15 +179,12 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             # Setup distributed tf.
             execution_spec=dict(
                 mode="distributed",
-                distributed_spec=dict(job="learner", task_index=0, cluster_spec=self.cluster_spec)
-            )
+                distributed_spec=dict(job="learner", task_index=0, cluster_spec=self.cluster_spec),
+                session_config=dict(type="monitored-training-session")
+        )
         )
         print("IMPALA learner compiled.")
         # Take one batch from the filled up queue and run an update_from_memory with the learner.
-        for _ in range(50):
-            print(".", end="")
-            agent.call_api_method("update_from_memory")
-        print("IMPALA learner consumed some data.")
-
+        agent.call_api_method("update_from_memory")
+        print("IMPALA actor consumed some data.")
         agent.terminate()
-
