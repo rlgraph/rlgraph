@@ -26,8 +26,11 @@ from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.utils.util import SMALL_NUMBER, get_rank
 from rlgraph.utils.ops import DataOpTuple
 
+
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class DuelingActionAdapter(ActionAdapter):
@@ -156,6 +159,18 @@ class DuelingActionAdapter(ActionAdapter):
             # q-values
             return q_values
             #tf.squeeze(state_value, axis=-1), advantages,
+        elif get_backend() == "pytorch":
+            mean_advantages = torch.mean(advantage_values, dim=-1, keepdim=True)
+
+            # Make sure we broadcast the state_value correctly for the upcoming q_value calculation.
+            state_value_expanded = state_value
+            for _ in range(get_rank(advantage_values) - 2):
+                state_value_expanded = torch.unsqueeze(state_value_expanded, dim=1)
+            q_values = state_value_expanded + advantage_values - mean_advantages
+
+            ## state-value, advantages, q_values
+            # q-values
+            return q_values
 
     # TODO: Use a SoftMax Component instead (uses the same code as the one below).
     def _graph_fn_get_parameters_log_probs(self, logits):
@@ -195,6 +210,31 @@ class DuelingActionAdapter(ActionAdapter):
 
                 parameters = DataOpTuple(mean, sd)
                 log_probs = DataOpTuple(tf.log(x=mean), log_sd)
+            else:
+                raise NotImplementedError
+        elif get_backend() == "pytorch":
+            if isinstance(self.action_space, IntBox):
+                # Discrete actions.
+                parameters = torch.max(torch.softmax(logits, dim=-1), SMALL_NUMBER)
+                # Log probs.
+                log_probs = torch.log(x=parameters)
+            elif isinstance(self.action_space, FloatBox):
+                # Continuous actions.
+                mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=1)
+                # Remove moments rank.
+                mean = torch.squeeze(mean, dim=1)
+                log_sd = torch.squeeze(log_sd, dim=1)
+
+                # Clip log_sd. log(SMALL_NUMBER) is negative.
+                log_sd = torch.clamp(
+                    log_sd, min=math.log(SMALL_NUMBER), max=-math.log(SMALL_NUMBER)
+                )
+
+                # Turn log sd into sd.
+                sd = torch.exp(log_sd)
+
+                parameters = DataOpTuple(mean, sd)
+                log_probs = DataOpTuple(torch.log(mean), log_sd)
             else:
                 raise NotImplementedError
 
