@@ -145,6 +145,7 @@ class Sequence(PreprocessLayer):
                 sequence = np.concatenate(self.deque, axis=-1)
             return sequence
         elif get_backend() == "pytorch":
+
             if self.index == -1:
                 for _ in range_(self.sequence_length):
                     self.deque.append(preprocessing_inputs)
@@ -153,10 +154,10 @@ class Sequence(PreprocessLayer):
             self.index = (self.index + 1) % self.sequence_length
 
             if self.add_rank:
-                sequence = torch.stack(self.deque, dim=-1)
+                sequence = torch.stack(torch.tensor(self.deque), dim=-1)
             # Concat the sequence items in the last rank.
             else:
-                sequence = torch.cat(self.deque, dim=-1)
+                sequence = torch.cat(torch.tensor(self.deque), dim=-1)
 
             # TODO remove when transpose component implemented.
             if self.data_format == "channels_last":
@@ -164,7 +165,6 @@ class Sequence(PreprocessLayer):
                 # only channels first supported.
                 # -> Confusingly have to transpose.
                 sequence = sequence.permute(3, 2, 1, 0)
-            print("output sequence shape = ", sequence.shape)
             return sequence
         elif get_backend() == "tf":
             # Assigns the input_ into the buffer at the current time index.
