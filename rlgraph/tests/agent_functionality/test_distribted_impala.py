@@ -69,25 +69,27 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         agent = IMPALAAgent.from_spec(
             agent_config,
             type="single",
-            architecture="large",
+            architecture="small",
             environment_spec=environment_spec,
             state_space=env.state_space,
             action_space=env.action_space,
             # TODO: automate this (by lookup from NN).
             internal_states_space=IMPALAAgent.standard_internal_states_space,
             execution_spec=dict(
+                enable_profiler=True,
+                profiler_frequency=1,
                 mode="distributed",
                 distributed_spec=dict(cluster_spec=None)
             ),
             # Summarize time-steps to have an overview of the env-stepping speed.
-            summary_spec=dict(summary_regexp="time-step", directory="/home/rlgraph/"),
-            dynamic_batching=False,
-            num_actors=4
+            summary_spec=dict(summary_regexp="time-step", directory="/opt/project/"),
+            dynamic_batching=True,
+            num_actors=1
         )
         # Count items in the queue.
         print("Items in queue: {}".format(agent.call_api_method("get_queue_size")))
 
-        updates = 1
+        updates = 50
         update_times = list()
         print("Updating from queue ...")
         for _ in range(updates):
@@ -120,6 +122,10 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             action_space=env.action_space,
             # TODO: automate this (by lookup from NN).
             internal_states_space=IMPALAAgent.standard_internal_states_space,
+            execution_spec=dict(
+                enable_profiler=True,
+                profiler_frequency=1,
+            )
         )
         agent.call_api_method("reset")
         out = None

@@ -77,7 +77,7 @@ def parse_saver_spec(saver_spec):
 #    else:
 #        raise RLGraphError("Device strategy {} is not allowed. Allowed strategies are 'default', 'custom',"
 #                           "and 'multi_gpu_sync'".format(device_strategy))
-#
+
 
 def parse_summary_spec(summary_spec):
     """

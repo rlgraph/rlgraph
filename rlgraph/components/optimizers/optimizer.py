@@ -49,21 +49,21 @@ class Optimizer(Component):
         self.define_api_method(name="apply_gradients", func=self._graph_fn_apply_gradients, must_be_complete=False)
         self.define_api_method(name="step", func=self._graph_fn_step, must_be_complete=False)
 
-    def _graph_fn_step(self, variables, loss, loss_per_item, *inputs):
+    def _graph_fn_step(self, *inputs):  #variables, loss, loss_per_item, *inputs):
         """
         Applies an optimization step to a list of variables via a loss.
 
         Args:
-            variables (SingleDataOp): Variables to optimize.
-            loss (SingleDataOp): Loss vakye.
-            loss_per_item (SingleDataOp) : Loss per item.
-            *inputs (SingleDataOp): Any other args to optimization. For example, a multi-device optimizer may use
-                this to pass the input batch and split it ti other devices.
+            #variables (SingleDataOp): Variables to optimize.
+            #loss (SingleDataOp): Loss value.
+            #loss_per_item (SingleDataOp) : Loss per item.
+            *inputs (SingleDataOp): Any args to the optimizer to be able to perform gradient calculations from
+                losses and then apply these gradients to some variables.
 
         Returns:
 
         """
-        pass
+        raise NotImplementedError  # pass
 
     def _graph_fn_calculate_gradients(self, *inputs):
         """

@@ -53,7 +53,7 @@ class LocalOptimizer(Optimizer):
         pass
 
     def _graph_fn_step(self, variables, loss, loss_per_item, *inputs):
-        # TODO n.b. PyTorch does not call api functions because other optization semantics.
+        # TODO n.b. PyTorch does not call api functions because other optimization semantics.
         if get_backend() == "tf":
             grads_and_vars = self.call(self._graph_fn_calculate_gradients, variables, loss)
             step_op = self.call(self._graph_fn_apply_gradients, grads_and_vars)

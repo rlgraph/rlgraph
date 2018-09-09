@@ -631,7 +631,7 @@ class TensorFlowExecutor(GraphExecutor):
         # Close the tf.Session.
         self.monitored_session.close()
 
-    def _build_device_strategy(self, root_component, optimizer, loss_name=None):
+    def _build_device_strategy(self, root_component, root_optimizer, loss_name=None):
         """
         When using multiple GPUs or other special devices, additional graph components
         may be required to split up incoming data, load it to device memories, and aggregate
@@ -645,18 +645,26 @@ class TensorFlowExecutor(GraphExecutor):
         This method expands the meta graph according to the given device strategy if necessary.
 
         Args:
-            root_component (Component):
-            optimizer (Optimizer): Optimizer object.
-            loss_name Optional([str]): Name of loss component. Needed by some device strategies
-                to fetch the less on graph replicas.
+            root_component (Component): The root Component (will be used to create towers via `Component.copy()`).
+            root_optimizer (Optimizer): The optimizer Object of the root Component.
+            loss_name (Optional[str]): Name of loss component. Needed by some device strategies
+                to fetch the loss on graph replicas.
         """
         if self.device_strategy == "multi_gpu_sync":
             assert self.num_gpus > 1, "ERROR: MultiGpuSync strategy needs more than one GPU available but" \
                                       "there are only {} GPUs visible.".format(self.num_gpus)
             self.logger.info("Building MultiGpuSync strategy with {} GPUs.".format(self.num_gpus))
 
+            # Replacement API-method for the root update_from_external_batch method.
+            # Simply feeds everything into the multi-GPU sync optimizer's step method and returns.
+            def update_from_external_batch_for_root(self_, *inputs):
+                variables = self_.call(self_.policy._variables)
+                return self_.call(self_.optimizer.step, variables, loss, loss_per_item, *inputs)
+
+            #self.optimizer = optimizer
+
             # These are the API methods we need to retain.
-            multi_gpu_api = [""]
+            #multi_gpu_api = [""]
 
             sub_graphs = []
             shared_scope = "shared-scope"
@@ -669,29 +677,37 @@ class TensorFlowExecutor(GraphExecutor):
                     scope="tower-{}".format(i),
                     reuse_variable_scope=shared_scope
                 )
+
+                # Override `update_from_external_batch` method.
+                sub_graph.define_api_method(
+                    "update_from_external_batch", update_from_external_batch_for_root, ok_to_overwrite=True
+                )
+                # TODO: what about `from_memory`?
+
                 # Unwrap optimizer.
-                #opt = sub_graph.sub_component_by_name("multi-gpu-sync-optimizer")
+                #opt = sub_graph.sub_component_by_name(optimizer.name)  # "multi-gpu-sync-optimizer"
                 #local_opt = opt.optimizer
                 #local_opt.parent_component = None
 
                 #sub_graph.remove_sub_component_by_name(opt.name)
                 #sub_graph.add_components(local_opt)
-                #sub_graphs.append(sub_graph)
-                #self.used_devices.append(device)
+                sub_graphs.append(sub_graph)
+                self.used_devices.append(device)
 
-            # # Old: root <-> local_optimizer, new: root <-> multi_gpu_optimizer <-> local_optimizer
+            # Old: root <-> local_optimizer, new: root <-> multi_gpu_optimizer <-> local_optimizer
             # Wrap the optimizer in the root component with a MultiGpuSyncOptimizer.
-            #optimizer.parent_component = None
-            root_component.remove_sub_component_by_name(optimizer.name)
-            self.optimizer = MultiGpuSyncOptimizer(local_optimizer=optimizer, devices=self.gpu_names)
+            removed_root_optimizer = root_component.remove_sub_component_by_name(root_optimizer.name)
+            # Make sure we removed the correct Component.
+            assert removed_root_optimizer is root_optimizer
+            self.optimizer = MultiGpuSyncOptimizer(local_optimizer=root_optimizer)  #, devices=self.gpu_names)
             root_component.add_components(self.optimizer)
 
             # optimizer.parent_component = None
             # root_component.remove_sub_component_by_name(optimizer.name)
             # multi_gpu_optimizer = MultiGpuSyncOptimizer(local_optimizer=optimizer, devices=self.gpu_names)
             # root_component.add_components(multi_gpu_optimizer)
-            # # 4. Pass the graph copies and the splitter containing the info how to split batches into tensors.
 
+            # 4. Pass the graph copies and the splitter containing the info how to split batches into tensors.
             container_splitter = root_component.sub_component_by_name("container-splitter")
             self.optimizer.set_replicas(sub_graphs, container_splitter, loss_name, self.gpu_names)
 

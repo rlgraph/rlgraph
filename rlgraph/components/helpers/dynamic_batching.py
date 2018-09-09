@@ -26,7 +26,10 @@ import tensorflow as tf
 try:
     batcher_ops = tf.load_op_library('/home/rlgraph/deepmind/deepmind-scalable-agent/batcher.so')
 except:
-    pass
+    try:
+        batcher_ops = tf.load_op_library('/root/scalable_agent/batcher.so')
+    except:
+        pass
 
 nest = tf.contrib.framework.nest
 
