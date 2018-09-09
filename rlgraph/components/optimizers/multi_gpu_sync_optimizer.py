@@ -164,11 +164,13 @@ class MultiGpuSyncOptimizer(Optimizer):
 
     def _graph_fn_calculate_gradients_and_losses(self, input_batches):
         """
-        The multi-gpu-sync optimizer calculates gradients by averaging them across
-        replicas.
+        Calculates gradients (by variable), losses and losses_per_item by averaging them across (GPU) replicas.
 
         Args:
             input_batches(list): List of FlattenedDataOps containing input batch shard per item.
+
+        Returns:
+            tuple:
         """
         all_grads_and_vars = list()
         all_loss = list()
@@ -186,16 +188,16 @@ class MultiGpuSyncOptimizer(Optimizer):
 
             # Fetch by name, e.g. "dqn-loss-function", passed in by agent.
             sub_graph_loss_fn = self.subgraphs[i].sub_component_by_name(self.loss_name)
-            loss, loss_per_item = self.call(sub_graph_loss_fn.loss, *device_inputs)
-            all_loss.append(loss)
-            all_loss_per_item.append(loss_per_item)
+            tower_loss, tower_loss_per_item = self.call(sub_graph_loss_fn.loss, *device_inputs)
+            all_loss.append(tower_loss)
+            all_loss_per_item.append(tower_loss_per_item)
 
             # Obtain gradients for this shard.
-            tower_grads = self.call(sub_graph_opt.calculate_gradients, variables, loss)
-            all_grads_and_vars.append(tower_grads)
+            tower_grads_and_vars = self.call(sub_graph_opt.calculate_gradients, variables, tower_loss)
+            all_grads_and_vars.append(tower_grads_and_vars)
 
         # Return averaged gradients.
-        return self._average_gradients(all_grads_and_vars)
+        return self._average_gradients_and_losses(all_grads_and_vars, all_loss, all_loss_per_item)
 
     def _graph_fn_apply_gradients(self, grads_and_vars):
         """
@@ -205,7 +207,7 @@ class MultiGpuSyncOptimizer(Optimizer):
         return self.optimizer._graph_fn_apply_gradients(grads_and_vars=grads_and_vars)
 
     @staticmethod
-    def _average_gradients(gpu_gradients):
+    def _average_gradients_and_losses(gpu_gradients, gpu_losses, gpu_losses_per_item):
         """
         Utility to average gradients across replicas.
 
@@ -213,12 +215,17 @@ class MultiGpuSyncOptimizer(Optimizer):
 
         Args:
             gpu_gradients (list): List grads_and_vars lists.
+            gpu_losses (list): Lists of losses.
+            gpu_losses_per_item (list): Lists of losses per batch item.
 
         Returns:
             list: List of grads_and_vars tuples averaged across GPUs.
         """
-        gpu_averages = []
+        gpu_grad_averages = []
+        gpu_loss_averages = []
+        gpu_loss_per_item_averages = []
         if get_backend() == "tf":
+            # TODO: don't understand this block?
             for grads_and_vars in zip(*gpu_gradients):
                 gpu_grads = []
 
@@ -237,8 +244,12 @@ class MultiGpuSyncOptimizer(Optimizer):
                 mean_grad = tf.reduce_mean(input_tensor=aggregate_grads, axis=0)
                 # Don't need all vars because they are shared.
                 var = grads_and_vars[0][1]
-                gpu_averages.append((mean_grad, var))
-        return gpu_averages
+                gpu_grad_averages.append((mean_grad, var))
+
+            gpu_loss_averages = tf.reduce_mean(tf.concat(axis=0, values=gpu_losses), axis=0)
+            gpu_loss_per_item_averages = tf.reduce_mean(tf.concat(axis=0, values=gpu_losses_per_item), axis=0)
+
+        return gpu_grad_averages, gpu_loss_averages, gpu_loss_per_item_averages
 
     def get_optimizer_variables(self):
         # Fetch variables both from local optimizer and sub graphs.
