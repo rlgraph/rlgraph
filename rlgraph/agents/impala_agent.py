@@ -140,10 +140,16 @@ class IMPALAAgent(Agent):
             name=kwargs.pop("name", "impala-{}-agent".format(self.type)),
             **kwargs
         )
+        # Limit communication in distributed mode between each actor and the learner (never between actors).
+        if self.execution_spec["mode"] == "distributed":
+            default_dict(self.execution_spec["session_config"], dict(device_filters=["/job:learner/task:0"] + (
+                    ["/job:actor/task:{}".format(self.execution_spec["distributed_spec"]["task_index"])] if
+                    self.type == "actor" else []
+            )))
+
         # If we use dynamic batching, wrap the dynamic batcher around the policy's graph_fn that we
         # actually call below during our build.
         if self.dynamic_batching:
-            #self.policy.parent_component = None  # TODO: this is a hack
             self.policy = DynamicBatchingPolicy(policy_spec=self.policy, scope="")
         # Manually set the reuse_variable_scope for our policies (actor: mu, learner: pi).
         self.policy.propagate_subcomponent_properties(dict(reuse_variable_scope="shared"))
@@ -155,7 +161,7 @@ class IMPALAAgent(Agent):
         self.has_rnn = self.neural_network.has_rnn()
         # Check, whether we are running with GPU.
         self.has_gpu = self.execution_spec["gpu_spec"]["gpus_enabled"] is True and \
-                       self.execution_spec["gpu_spec"]["num_gpus"] > 0
+            self.execution_spec["gpu_spec"]["num_gpus"] > 0
 
         # Some FIFO-queue specs.
         self.fifo_queue_keys = ["preprocessed_states", "actions", "rewards", "terminals", "last_next_states",
@@ -188,7 +194,7 @@ class IMPALAAgent(Agent):
             fifo_queue_spec, reuse_variable_scope="shared-fifo-queue", only_insert_single_records=True,
             record_space=self.fifo_record_space,
             device="/job:learner/task:0" if self.execution_spec["mode"] == "distributed" and
-                                            self.execution_spec["distributed_spec"]["cluster_spec"] else None
+            self.execution_spec["distributed_spec"]["cluster_spec"] else None
         )
 
         # Remove `states` key from input_spaces: not needed.
