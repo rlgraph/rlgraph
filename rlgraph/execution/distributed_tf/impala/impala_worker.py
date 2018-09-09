@@ -28,11 +28,11 @@ from rlgraph.execution.worker import Worker
 
 class IMPALAWorker(Worker):
 
-    def __init__(self, agent, num_steps=20, **kwargs):
+    def __init__(self, agent, **kwargs):
         """
         Args:
             agent (IMPALAAgent): The IMPALAAgent object to use.
-            num_steps (int): The number of steps (actions) to perform in the environment each rollout.
+            #num_steps (int): The number of steps (actions) to perform in the environment each rollout.
         """
         assert isinstance(agent, IMPALAAgent)
 
@@ -43,7 +43,7 @@ class IMPALAWorker(Worker):
             "component.".format(self.agent.type, self.agent.environment_stepper.environment_spec)
         )
 
-        self.num_steps = num_steps
+        #agent.worker_sample_size
 
         # Global statistics.
         self.env_frames = 0
@@ -89,10 +89,10 @@ class IMPALAWorker(Worker):
         num_timesteps = num_timesteps or 0
         max_timesteps_per_episode = [max_timesteps_per_episode or 0 for _ in range_(self.num_environments)]
 
-        batched_internal_states_space = self.agent.internal_states_space.with_batch_rank()
+        #batched_internal_states_space = self.agent.internal_states_space.with_batch_rank()
 
         # Initial internal_states (batch=1).
-        current_internal_states = batched_internal_states_space.zeros(size=self.num_environments)
+        #current_internal_states = batched_internal_states_space.zeros(size=self.num_environments)
 
         # Stats.
         timesteps_executed = 0
@@ -110,7 +110,7 @@ class IMPALAWorker(Worker):
                 self.episode_timesteps[i] = 0
                 self.episode_starts[i] = time.monotonic()
 
-            current_internal_states = batched_internal_states_space.zeros(size=self.num_environments)
+            #current_internal_states = batched_internal_states_space.zeros(size=self.num_environments)
 
             # TODO: Fix for vectorized Envs.
             self.agent.call_api_method("reset")
@@ -119,10 +119,10 @@ class IMPALAWorker(Worker):
         while not (0 < num_timesteps <= timesteps_executed):
             # TODO right now everything comes back as single-env.
             out = self.agent.call_api_method(
-                "perform_n_steps_and_insert_into_fifo", [current_internal_states, timesteps_executed]
+                "perform_n_steps_and_insert_into_fifo"  #, [current_internal_states, timesteps_executed]
             )
-            timesteps_executed += self.num_steps
-            current_internal_states = batched_internal_states_space.force_batch(out[2])  # directly add batch=1 again
+            timesteps_executed += self.agent.worker_sample_size
+            #current_internal_states = batched_internal_states_space.force_batch(out[2])  # directly add batch=1 again
 
             # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
             step_episode_returns = out[3]
@@ -130,7 +130,7 @@ class IMPALAWorker(Worker):
             #actions = out[5]
             #next_states = out[6]
 
-            self.env_frames += (self.num_environments * self.frameskip * self.num_steps)
+            self.env_frames += (self.num_environments * self.frameskip * self.agent.worker_sample_size)
 
             # Only render once per action.
             if self.render:
@@ -138,7 +138,7 @@ class IMPALAWorker(Worker):
 
             for i in range_(self.num_environments):
 
-                self.episode_timesteps[i] += self.num_steps
+                self.episode_timesteps[i] += self.agent.worker_sample_size
 
                 for j, terminal in enumerate(terminals):  # TODO: <- [i]
                     self.episode_returns[i] = step_episode_returns[j]
