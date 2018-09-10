@@ -547,7 +547,11 @@ class RayWorker(RayActor):
         if self.worker_executes_exploration:
             # Only once for all actions otherwise we would have to call a session anyway.
             if np.random.random() <= self.exploration_epsilon:
-                return self.agent.action_space.sample(size=self.num_environments)
+                if self.num_environments == 1:
+                    # Sample returns without batch dim -> wrap.
+                    return [self.agent.action_space.sample(size=self.num_environments)]
+                else:
+                    return self.agent.action_space.sample(size=self.num_environments)
             else:
                 return self.agent.get_action(states=states, use_exploration=use_exploration,
                                              apply_preprocessing=apply_preprocessing)
