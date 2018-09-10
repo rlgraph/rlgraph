@@ -167,7 +167,7 @@ class MultiGpuSyncOptimizer(Optimizer):
         Calculates gradients (by variable), losses and losses_per_item by averaging them across (GPU) replicas.
 
         Args:
-            input_batches(list): List of FlattenedDataOps containing input batch shard per item.
+            input_batches (list): List of FlattenedDataOps containing input batch shard per item.
 
         Returns:
             tuple:

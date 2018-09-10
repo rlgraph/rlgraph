@@ -211,41 +211,41 @@ class DQNAgent(Agent):
         self.root_component.define_api_method("sync_target_qnet", sync_target_qnet)
 
         # Learn from memory.
-        #def update_from_memory(self_):
-        #    # Non prioritized memory will just return weight 1.0 for all samples.
-        #    records, sample_indices, importance_weights = self_.call(
-        #            memory.get_records, self.update_spec["batch_size"]
-        #        )
-        #    preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = self_.call(splitter.split, records)
+        def update_from_memory(self_):
+            # Non prioritized memory will just return weight 1.0 for all samples.
+            records, sample_indices, importance_weights = self_.call(
+                    memory.get_records, self.update_spec["batch_size"]
+                )
+            preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = self_.call(splitter.split, records)
 
-        #    # Delegate actual update to update_from_external_batch.
-        #    # TODO make multiple return vals easier (via dict?):
-        #    sync_ops = None
-        #    if isinstance(optimizer, MultiGpuSyncOptimizer):
-        #        step_op, loss, loss_per_item, q_values_s, sync_ops = self_.call(
-        #            self_.update_from_external_batch, preprocessed_s, actions, rewards,
-        #            terminals, preprocessed_s_prime, importance_weights
-        #        )
-        #    else:
-        #        step_op, loss, loss_per_item, q_values_s = self_.call(
-        #            self_.update_from_external_batch, preprocessed_s, actions, rewards,
-        #            terminals, preprocessed_s_prime, importance_weights
-        #        )
+            # Delegate actual update to update_from_external_batch.
+            # TODO make multiple return vals easier (via dict?):
+            #sync_ops = None
+            #if isinstance(optimizer, MultiGpuSyncOptimizer):
+            #    step_op, loss, loss_per_item, q_values_s, sync_ops = self_.call(
+            #        self_.update_from_external_batch, preprocessed_s, actions, rewards,
+            #        terminals, preprocessed_s_prime, importance_weights
+            #    )
+            #else:
+            step_op, loss, loss_per_item, q_values_s = self_.call(
+                self_.update_from_external_batch, preprocessed_s, actions, rewards,
+                terminals, preprocessed_s_prime, importance_weights
+            )
 
-        #    # TODO this is really annoying..
-        #    if isinstance(memory, PrioritizedReplay):
-        #        update_pr_step_op = self_.call(memory.update_records, sample_indices, loss_per_item)
-        #        if isinstance(optimizer, MultiGpuSyncOptimizer):
-        #            return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op, sync_ops
-        #        else:
-        #            return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
-        #    else:
-        #        if isinstance(optimizer, MultiGpuSyncOptimizer):
-        #            return step_op, loss, loss_per_item, records, q_values_s, sync_ops
-        #        else:
-        #            return step_op, loss, loss_per_item, records, q_values_s
+            # TODO this is really annoying..
+            if isinstance(memory, PrioritizedReplay):
+                update_pr_step_op = self_.call(memory.update_records, sample_indices, loss_per_item)
+                #if isinstance(optimizer, MultiGpuSyncOptimizer):
+                #    return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op, sync_ops
+                #else:
+                return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
+            else:
+                #if isinstance(optimizer, MultiGpuSyncOptimizer):
+                #    return step_op, loss, loss_per_item, records, q_values_s, sync_ops
+                #else:
+                return step_op, loss, loss_per_item, records, q_values_s
 
-        #self.root_component.define_api_method("update_from_memory", update_from_memory)
+        self.root_component.define_api_method("update_from_memory", update_from_memory)
 
         #def TEST_get_memory_batch(self_):
         #    # Non prioritized memory will just return weight 1.0 for all samples.
@@ -325,13 +325,12 @@ class DQNAgent(Agent):
         def update_from_external_batch(
                 self_, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights
         ):
-            ## This component is the root component of a multi-GPU setup -> Feed all inputs into the multi-gpu-optimizer.
-            #if isinstance(self.optimizer, MultiGpuSyncOptimizer):
-            #    step_op, loss, loss_per_item = self_.call(
-            #        self_.optimizer.step, preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
-            #        importance_weights
-            #    )
-            #    return step_op, loss, loss_per_item
+            # If we are a multi-GPU root:
+            # Simply feeds everything into the multi-GPU sync optimizer's step method and return.
+            if isinstance(self.optimizer, MultiGpuSyncOptimizer):
+                # TODO: hack, this may be called differently in other agents (replace by root-policy).
+                variables = self_.call(self.policy._variables)
+                return self_.call(self_.sub_components["multi-gpu-sync-optimizer"].step, variables, *inputs)
 
             # Get the different Q-values.
             q_values_s = self_.call(policy.get_q_values, preprocessed_states)
@@ -349,7 +348,7 @@ class DQNAgent(Agent):
             # Args are passed in again because some device strategies may want to split them to different devices.
             policy_vars = self_.call(policy._variables)
 
-            if self.is_multi_gpu_tower is True:
+            if hasattr(self_, "is_multi_gpu_tower") and self_.is_multi_gpu_tower is True:
                 step_op, loss, loss_per_item = self_.call(
                     optimizer.calculate_gradients, policy_vars, loss, loss_per_item, q_values_s, actions, rewards, terminals,
                     qt_values_sp, q_values_sp, importance_weights

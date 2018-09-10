@@ -656,13 +656,6 @@ class TensorFlowExecutor(GraphExecutor):
                                       "there are only {} GPUs visible.".format(self.num_gpus)
             self.logger.info("Building MultiGpuSync strategy with {} GPUs.".format(self.num_gpus))
 
-            # Replacement API-method for the root update_from_external_batch method.
-            # Simply feeds everything into the multi-GPU sync optimizer's step method and returns.
-            def update_from_external_batch_for_root(self_, *inputs):
-                # TODO: hack, this may be called differently in other agents (replace by root-policy).
-                variables = self_.call(self_.sub_components["policy"]._variables)
-                return self_.call(root_optimizer.step, variables, *inputs)
-
             #self.optimizer = optimizer
 
             # These are the API methods we need to retain.
@@ -679,6 +672,7 @@ class TensorFlowExecutor(GraphExecutor):
                     scope="tower-{}".format(i),
                     reuse_variable_scope=shared_scope
                 )
+                sub_graph.is_multi_gpu_tower = True
 
                 ## Override `update_from_external_batch` method.
                 #sub_graph.define_api_method(
@@ -704,9 +698,9 @@ class TensorFlowExecutor(GraphExecutor):
             self.optimizer = MultiGpuSyncOptimizer(local_optimizer=root_optimizer)  #, devices=self.gpu_names)
             root_component.add_components(self.optimizer)
 
-            root_component.define_api_method(
-                "update_from_external_batch", update_from_external_batch_for_root, ok_to_overwrite=True
-            )
+            #root_component.define_api_method(
+            #    "update_from_external_batch", update_from_external_batch_for_root, ok_to_overwrite=True
+            #)
 
             # optimizer.parent_component = None
             # root_component.remove_sub_component_by_name(optimizer.name)
