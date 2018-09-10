@@ -20,6 +20,7 @@ from __future__ import print_function
 import numpy as np
 from rlgraph import get_backend
 from rlgraph.utils import pytorch_one_hot
+from rlgraph.utils.pytorch_util import pytorch_reduce_mean
 from rlgraph.utils.util import get_rank
 from rlgraph.components.loss_functions import LossFunction
 from rlgraph.spaces import IntBox
@@ -117,7 +118,6 @@ class DQNLossFunction(LossFunction):
         # Numpy backend primarily for testing purposes.
         if self.backend == "python" or get_backend() == "python":
             from rlgraph.utils.numpy import one_hot
-
             if self.double_q:
                 a_primes = np.argmax(q_values_sp, axis=-1)
                 a_primes_one_hot = one_hot(a_primes, depth=self.action_space.num_categories)
@@ -190,6 +190,18 @@ class DQNLossFunction(LossFunction):
             else:
                 return self._apply_huber_loss_if_necessary(td_delta)
         elif get_backend() == "pytorch":
+            if not isinstance(terminals, torch.ByteTensor):
+                terminals = terminals.byte()
+            # Add batch dim in case of single sample.
+            if q_values_s.dim() == 1:
+                #pass
+                q_values_s = q_values_s.unsqueeze(-1)
+                actions = actions.unsqueeze(-1)
+                rewards = rewards.unsqueeze(-1)
+                terminals = terminals.unsqueeze(-1)
+                q_values_sp = q_values_sp.unsqueeze(-1)
+                qt_values_sp = qt_values_sp.unsqueeze(-1)
+                importance_weights = importance_weights.unsqueeze(-1)
 
             # Make sure the target policy's outputs are treated as constant when calculating gradients.
             qt_values_sp = qt_values_sp.detach()
@@ -197,7 +209,9 @@ class DQNLossFunction(LossFunction):
             if self.double_q:
                 # For double-Q, we no longer use the max(a')Qt(s'a') value.
                 # Instead, the a' used to get the Qt(s'a') is given by argmax(a') Q(s',a') <- Q=q-net, not target net!
-                a_primes = torch.argmax(q_values_sp, dim=-1)
+                # print("q_values_sp = {}, shape = {}".format(q_values_sp, q_values_sp.shape))
+
+                a_primes = torch.argmax(q_values_sp, dim=-1, keepdim=True)
 
                 # Now lookup Q(s'a') with the calculated a'.
                 one_hot = pytorch_one_hot(a_primes, depth=self.action_space.num_categories)
@@ -214,7 +228,7 @@ class DQNLossFunction(LossFunction):
             # Note that in that case, the next_state (s') is not the correct next state and should be disregarded.
             # See Chapter 3.4 in "RL - An Introduction" (2017 draft) by A. Barto and R. Sutton for a detailed analysis.
             qt_sp_ap_values = torch.where(
-                condition=terminals, x=torch.zeros_like(qt_sp_ap_values), y=qt_sp_ap_values
+                terminals, torch.zeros_like(qt_sp_ap_values), qt_sp_ap_values
             )
 
             # Q(s,a) -> Use the Q-value of the action actually taken before.
@@ -222,11 +236,11 @@ class DQNLossFunction(LossFunction):
             q_s_a_values = torch.sum((q_values_s * one_hot), -1)
 
             # Calculate the TD-delta (target - current estimate).
-            td_delta = (rewards + (torch.pow(self.discount, self.n_step)) * qt_sp_ap_values) - q_s_a_values
+            td_delta = (rewards + (self.discount ** self.n_step) * qt_sp_ap_values) - q_s_a_values
 
             # Reduce over the composite actions, if any.
             if get_rank(td_delta) > 1:
-                td_delta = torch.mean(td_delta, list(range(1, self.ranks_to_reduce + 1)))
+                td_delta = pytorch_reduce_mean(td_delta, list(range(1, self.ranks_to_reduce + 1)), keepdims=False)
 
             # Apply importance-weights from a prioritized replay to the loss.
             if self.importance_weights:
@@ -259,6 +273,6 @@ class DQNLossFunction(LossFunction):
                 return torch.where(
                     torch.abs(td_delta) < self.huber_delta,
                     # PyTorch has no `square`
-                    x=torch.pow(td_delta, 2) * 0.5,
-                    y=self.huber_delta * (torch.abs(td_delta) - 0.5 * self.huber_delta)
+                    torch.pow(td_delta, 2) * 0.5,
+                    self.huber_delta * (torch.abs(td_delta) - 0.5 * self.huber_delta)
                 )
