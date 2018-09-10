@@ -34,7 +34,8 @@ class VTraceFunction(Component):
         Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
     """
 
-    def __init__(self, rho_bar=1.0, rho_bar_pg=1.0, c_bar=1.0, **kwargs):
+    def __init__(self, rho_bar=1.0, rho_bar_pg=1.0, c_bar=1.0, device="/device:CPU:0",
+                 scope="v-trace-function", **kwargs):
         """
         Args:
             rho_bar (float): The maximum values of the IS-weights for the temporal differences of V.
@@ -45,7 +46,7 @@ class VTraceFunction(Component):
             c_bar (float): The maximum values of the IS-weights for the time trace.
                 Use None for not applying any clipping.
         """
-        super(VTraceFunction, self).__init__(scope=kwargs.pop("scope", "v-trace-function"), **kwargs)
+        super(VTraceFunction, self).__init__(device=device, scope=scope, **kwargs)
 
         self.rho_bar = rho_bar
         self.rho_bar_pg = rho_bar_pg
