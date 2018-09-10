@@ -21,7 +21,7 @@ import numpy as np
 import operator
 
 from rlgraph import get_backend
-from rlgraph.utils import SMALL_NUMBER, get_rank
+from rlgraph.utils import SMALL_NUMBER, get_rank, util
 from six.moves import xrange as range_
 
 from rlgraph.components.memories.memory import Memory
@@ -208,7 +208,8 @@ class MemPrioritizedReplay(Memory):
             # Fill with default vals for build.
             for name in self.record_registry.keys():
                 if get_backend() == "pytorch":
-                    records[name] = torch.zeros(self.record_space_flat[name].shape)
+                    records[name] = torch.zeros(self.record_space_flat[name].shape,
+                                                dtype=util.dtype(self.record_space_flat[name].dtype, "pytorch"))
                 else:
                     records[name] = np.zeros(self.record_space_flat[name].shape)
 
@@ -237,8 +238,13 @@ class MemPrioritizedReplay(Memory):
             weight = (sample_prob * self.size) ** (-self.beta)
             weights.append(weight / max_weight)
 
-        indices = np.asarray(indices)
-        return self.read_records(indices=indices), indices, np.asarray(weights)
+        if get_backend() == "pytorch":
+            indices = torch.tensor(indices)
+            weights = torch.tensor(weights)
+        else:
+            indices = np.asarray(indices)
+            weights = np.asarray(weights)
+        return self.read_records(indices=indices), indices, weights
 
     def _graph_fn_update_records(self, indices, update):
         if len(indices) > 0 and indices[0]:
