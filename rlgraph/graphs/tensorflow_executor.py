@@ -97,7 +97,7 @@ class TensorFlowExecutor(GraphExecutor):
             self.session_options = None
 
         # Local session config which needs to be updated with device options during setup.
-        self.tf_session_type = self.session_config.pop("session_type", "monitored-training-session")
+        self.tf_session_type = self.session_config.pop("type", "monitored-training-session")
         self.tf_session_config = tf.ConfigProto(**self.session_config)
 
         self.run_metadata = tf.RunMetadata()
