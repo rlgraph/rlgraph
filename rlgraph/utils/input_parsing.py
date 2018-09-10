@@ -174,7 +174,7 @@ def parse_execution_spec(execution_spec):
 
     # Session config.
     default_session_config = dict(
-        session_type="monitored-training-session",
+        type="monitored-training-session",
         allow_soft_placement=True,
         log_device_placement=False,
         device_filters=None
