@@ -125,6 +125,10 @@ class DataOpRecord(object):
         DataOpRecord._ID += 1
         return DataOpRecord._ID
 
+    @staticmethod
+    def reset():
+        DataOpRecord._ID = -1
+
     def __str__(self):
         return "DataOpRec(id={} {}{})".format(
             self.id,"pos="+str(self.position) if self.kwarg is None else "kwarg="+self.kwarg,

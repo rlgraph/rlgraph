@@ -48,6 +48,7 @@ class MetaGraphBuilder(Specifiable):
         """
 
         # Time the meta-graph build:
+        DataOpRecord.reset()
         time_start = time.perf_counter()
         api = dict()
 
