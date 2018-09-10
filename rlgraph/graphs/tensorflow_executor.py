@@ -97,6 +97,7 @@ class TensorFlowExecutor(GraphExecutor):
             self.session_options = None
 
         # Local session config which needs to be updated with device options during setup.
+        self.tf_session_type = self.session_config.pop("type", "monitored-training-session")
         self.tf_session_config = tf.ConfigProto(**self.session_config)
 
         self.run_metadata = tf.RunMetadata()
@@ -510,33 +511,32 @@ class TensorFlowExecutor(GraphExecutor):
                     "home directory or the ENV variable 'RLGRAPH_DISTRIBUTED_BACKEND=distributed_tf'.".
                     format(get_distributed_backend())
                 )
-            session_creator = tf.train.ChiefSessionCreator(
-                scaffold=self.scaffold,
-                master=self.server.target,
-                config=self.tf_session_config,
-                checkpoint_dir=None,
-                checkpoint_filename_with_path=None
-            )
-            self.monitored_session = tf.train.MonitoredSession(
-                #master=self.server.target,
-                #is_chief=self.execution_spec["distributed_spec"]["task_index"] == 0,
-                #checkpoint_dir=None,  # TODO: specify?
-                #scaffold=self.scaffold,
-                session_creator=session_creator,
-                hooks=hooks,
-                #config=self.tf_session_config,
-                stop_grace_period_secs=120  # Default value.
-            )
-            #self.monitored_session = tf.train.MonitoredTrainingSession(
-            #    master=self.server.target,
-            #    is_chief=self.execution_spec["distributed_spec"]["task_index"] == 0,
-            #    checkpoint_dir=None,  # TODO: specify?
-            #    scaffold=self.scaffold,
-            #    #session_creator=session_creator,
-            #    hooks=hooks,
-            #    config=self.tf_session_config,
-            #    stop_grace_period_secs=120  # Default value.
-            #)
+            if self.tf_session_type == "monitored-session":
+                session_creator = tf.train.ChiefSessionCreator(
+                    scaffold=self.scaffold,
+                    master=self.server.target,
+                    config=self.tf_session_config,
+                    checkpoint_dir=None,
+                    checkpoint_filename_with_path=None
+                )
+                self.monitored_session = tf.train.MonitoredSession(
+                    #is_chief=self.execution_spec["distributed_spec"]["task_index"] == 0,
+                    session_creator=session_creator,
+                    hooks=hooks,
+                    stop_grace_period_secs=120  # Default value.
+                )
+            else:
+                assert self.tf_session_type == "monitored-training-session",\
+                    "ERROR: Invalid session type: {}!".format(self.tf_session_type)
+                self.monitored_session = tf.train.MonitoredTrainingSession(
+                    master=self.server.target,
+                    is_chief=self.execution_spec["distributed_spec"]["task_index"] == 0,
+                    checkpoint_dir=None,  # TODO: specify?
+                    scaffold=self.scaffold,
+                    hooks=hooks,
+                    config=self.tf_session_config,
+                    stop_grace_period_secs=120  # Default value.
+                )
         else:
             self.global_training_timestep = tf.get_variable(
                 name="global-timestep", dtype=util.dtype("int"), trainable=False, initializer=0,
