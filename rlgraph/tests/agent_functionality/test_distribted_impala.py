@@ -30,7 +30,7 @@ from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import root_logger
 
 
-class TestIMPALAAgentFunctionality(unittest.TestCase):
+class TestDistributedIMPALA(unittest.TestCase):
     """
     Tests the LargeIMPALANetwork functionality and IMPALAAgent assembly on the RandomEnv.
     For details on the IMPALA algorithm, see [1]:
