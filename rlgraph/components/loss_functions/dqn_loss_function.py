@@ -276,3 +276,5 @@ class DQNLossFunction(LossFunction):
                     torch.pow(td_delta, 2) * 0.5,
                     self.huber_delta * (torch.abs(td_delta) - 0.5 * self.huber_delta)
                 )
+            else:
+                return td_delta * td_delta
