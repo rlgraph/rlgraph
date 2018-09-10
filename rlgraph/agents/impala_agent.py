@@ -647,6 +647,11 @@ class IMPALAAgent(Agent):
 
         self.root_component.define_api_method("update_from_memory", update_from_memory)
 
+        def get_queue_size(self_):
+            return self_.call(fifo_queue.get_size)
+
+        self.root_component.define_api_method("get_queue_size", get_queue_size)
+
     def get_action(self, states, internal_states=None, use_exploration=True, extra_returns=None):
         pass
 

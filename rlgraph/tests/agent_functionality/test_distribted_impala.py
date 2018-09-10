@@ -158,7 +158,7 @@ class TestDistributedIMPALA(unittest.TestCase):
         print("IMPALA actor compiled.")
         worker = IMPALAWorker(agent=agent)
         # Run a few steps to produce data and start filling up the FIFO.
-        out = worker.execute_timesteps(80)
+        out = worker.execute_timesteps(2000)
         print("IMPALA actor produced some data:\n{}".format(out))
         agent.terminate()
 
