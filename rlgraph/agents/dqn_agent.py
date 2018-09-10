@@ -330,7 +330,11 @@ class DQNAgent(Agent):
             if isinstance(self.optimizer, MultiGpuSyncOptimizer):
                 # TODO: hack, this may be called differently in other agents (replace by root-policy).
                 variables = self_.call(self.policy._variables)
-                return self_.call(self_.sub_components["multi-gpu-sync-optimizer"].step, variables, *inputs)
+                return self_.call(
+                    self_.sub_components["multi-gpu-sync-optimizer"].step, variables,
+                    # *inputs.
+                    preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights
+                )
 
             # Get the different Q-values.
             q_values_s = self_.call(policy.get_q_values, preprocessed_states)
