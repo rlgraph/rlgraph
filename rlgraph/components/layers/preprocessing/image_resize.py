@@ -53,14 +53,13 @@ class ImageResize(PreprocessLayer):
         if interpolation == "bilinear":
             if get_backend() == "tf":
                 self.tf_interpolation = ResizeMethod.BILINEAR
-            else:
                 # All other backends use cv2 currently.
-                self.cv2_interpolation = cv2.INTER_LINEAR
+            # Sometimes we mix python preprocessor stack with tf backend -> always need this.
+            self.cv2_interpolation = cv2.INTER_LINEAR
         elif interpolation == "area":
             if get_backend() == "tf":
                 self.tf_interpolation = ResizeMethod.AREA
-            else:
-                self.cv2_interpolation = cv2.INTER_AREA
+            self.cv2_interpolation = cv2.INTER_AREA
         else:
             raise RLGraphError("Invalid interpolation algorithm {}!. Allowed are 'bilinear' and "
                                "'area'.".format(interpolation))
