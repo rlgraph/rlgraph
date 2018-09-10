@@ -55,6 +55,12 @@ def pytorch_one_hot(tensor, depth=0):
         torch.Tensor: The one-hot encoded equivalent of the input array.
     """
     if get_backend() == "pytorch":
+        if isinstance(tensor, torch.FloatTensor):
+            tensor = tensor.long()
+        # print("one hot input: {}, dim: {}, shape {}, type {}".format(
+        #     tensor, tensor.dim(), tensor.shape, tensor.dtype
+        # ))
+        # print("tensor.shape[0]", tensor.shape[0])
         tensor_one_hot = torch.FloatTensor(tensor.shape[0], depth)
         tensor_one_hot.zero_()
         tensor_one_hot.scatter_(1, tensor, 1)
@@ -101,3 +107,24 @@ def get_input_channels(shape):
     elif len(shape) == 3:
         # No batch rank and channels first.
         return shape[0]
+
+
+# TODO remove when new PyTorch versions support multi dim reductions/
+def pytorch_reduce_mean(tensor, axes, keepdims):
+    """
+    Reduces a tensor along multiple axes as this is not natively supported.
+    Args:
+        tensor (torch.Tensor): Tensor to reduce.
+        axes (list): Axes to reduce.
+        keepdims (bool): If to keep dims.
+
+    Returns:
+        torch.Tensor: Result of reduction.
+    """
+    if keepdims:
+        for axis in axes:
+            tensor = tensor.mean(axis, keepdim=True)
+    else:
+        for axis in sorted(axes, reverse=True):
+            tensor = tensor.mean(axis, keepdim=False)
+    return tensor

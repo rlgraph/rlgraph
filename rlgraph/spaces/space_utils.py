@@ -23,12 +23,14 @@ import numpy as np
 
 from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.spaces.box_space import BoxSpace
-from rlgraph.spaces.containers import ContainerSpace, Dict, Tuple
+from rlgraph.spaces.containers import Dict, Tuple
 from rlgraph.spaces.float_box import FloatBox
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.text_box import TextBox
 from rlgraph.utils.util import RLGraphError, dtype, get_shape
-from rlgraph.utils.ops import SingleDataOp
+
+if get_backend() == "pytorch":
+    import torch
 
 
 # TODO: replace completely by `Component.get_variable` (python-backend)
@@ -131,10 +133,17 @@ def get_space_from_op(op):
             add_time_rank = False
             time_major = False
             new_shape = list(shape)
+
             # New way: Detect via op._batch_rank and op._time_rank properties where these ranks are.
             if hasattr(op, "_batch_rank") and isinstance(op._batch_rank, int):
                 add_batch_rank = True
                 new_shape[op._batch_rank] = -1
+
+            # elif get_backend() == "pytorch":
+            #     if isinstance(op, torch.Tensor):
+            #         if op.dim() > 1 and shape[0] == 1:
+            #             add_batch_rank = True
+            #             new_shape[0] = 1
             if hasattr(op, "_time_rank") and isinstance(op._time_rank, int):
                 add_time_rank = True
                 if op._time_rank == 0:
