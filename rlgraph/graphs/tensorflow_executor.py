@@ -528,9 +528,12 @@ class TensorFlowExecutor(GraphExecutor):
             else:
                 assert self.tf_session_type == "monitored-training-session",\
                     "ERROR: Invalid session type: {}!".format(self.tf_session_type)
+                is_chief = self.execution_spec["distributed_spec"].get(
+                    "is_chief", self.execution_spec["distributed_spec"]["task_index"] == 0
+                )
                 self.monitored_session = tf.train.MonitoredTrainingSession(
                     master=self.server.target,
-                    is_chief=self.execution_spec["distributed_spec"]["task_index"] == 0,
+                    is_chief=is_chief,
                     checkpoint_dir=None,  # TODO: specify?
                     scaffold=self.scaffold,
                     hooks=hooks,

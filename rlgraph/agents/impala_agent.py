@@ -146,6 +146,9 @@ class IMPALAAgent(Agent):
                     ["/job:actor/task:{}".format(self.execution_spec["distributed_spec"]["task_index"])] if
                     self.type == "actor" else []
             )))
+            # If Actor, make non-chief in either case (even if task idx == 0).
+            if self.type == "actor":
+                self.execution_spec["distributed_spec"]["is_chief"] = False
 
         # If we use dynamic batching, wrap the dynamic batcher around the policy's graph_fn that we
         # actually call below during our build.
