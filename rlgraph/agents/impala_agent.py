@@ -459,6 +459,9 @@ class IMPALAAgent(Agent):
             else:
                 policy_vars = self_.call(policy._variables)
 
+            # TODO: dynbatching tboard check
+            return loss, loss, loss, loss
+
             # Pass vars and loss values into optimizer.
             step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
 

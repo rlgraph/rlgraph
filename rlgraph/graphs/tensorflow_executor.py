@@ -646,7 +646,8 @@ class TensorFlowExecutor(GraphExecutor):
 
         Args:
             root_component (Component): The root Component (will be used to create towers via `Component.copy()`).
-            root_optimizer (Optimizer): The optimizer Object of the root Component.
+            root_optimizer (Optimizer): The Optimizer object of the root Component.
+            #root_policy (Policy): The Policy object of the root Component.
             loss_name (Optional[str]): Name of loss component. Needed by some device strategies
                 to fetch the loss on graph replicas.
         """
@@ -658,8 +659,9 @@ class TensorFlowExecutor(GraphExecutor):
             # Replacement API-method for the root update_from_external_batch method.
             # Simply feeds everything into the multi-GPU sync optimizer's step method and returns.
             def update_from_external_batch_for_root(self_, *inputs):
-                variables = self_.call(self_.policy._variables)
-                return self_.call(self_.optimizer.step, variables, loss, loss_per_item, *inputs)
+                # TODO: hack, this may be called differently in other agents (replace by root-policy).
+                variables = self_.call(self_.sub_components["policy"]._variables)
+                return self_.call(root_optimizer.step, variables, *inputs)
 
             #self.optimizer = optimizer
 
@@ -678,10 +680,10 @@ class TensorFlowExecutor(GraphExecutor):
                     reuse_variable_scope=shared_scope
                 )
 
-                # Override `update_from_external_batch` method.
-                sub_graph.define_api_method(
-                    "update_from_external_batch", update_from_external_batch_for_root, ok_to_overwrite=True
-                )
+                ## Override `update_from_external_batch` method.
+                #sub_graph.define_api_method(
+                #    "update_from_external_batch", update_from_external_batch_for_root, ok_to_overwrite=True
+                #)
                 # TODO: what about `from_memory`?
 
                 # Unwrap optimizer.
@@ -701,6 +703,10 @@ class TensorFlowExecutor(GraphExecutor):
             assert removed_root_optimizer is root_optimizer
             self.optimizer = MultiGpuSyncOptimizer(local_optimizer=root_optimizer)  #, devices=self.gpu_names)
             root_component.add_components(self.optimizer)
+
+            root_component.define_api_method(
+                "update_from_external_batch", update_from_external_batch_for_root, ok_to_overwrite=True
+            )
 
             # optimizer.parent_component = None
             # root_component.remove_sub_component_by_name(optimizer.name)
