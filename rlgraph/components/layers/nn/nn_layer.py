@@ -58,26 +58,28 @@ class NNLayer(Layer):
         Must not be Container (for now) and must have a batch rank.
         """
         # Make sure all inputs have the same time/batch ranks.
-        if "inputs[0]" in input_spaces:
-            self.in_space_0 = input_spaces["inputs[0]"]
-            self.time_major = self.in_space_0.time_major
-            idx = 0
-            while True:
-                key = "inputs[{}]".format(idx)
-                if key not in input_spaces:
-                    break
-                sanity_check_space(input_spaces[key], allowed_types=[FloatBox, IntBox], must_have_batch_rank=True)
-                # Make sure all concat inputs have same batch-/time-ranks.
-                assert self.in_space_0.has_batch_rank == input_spaces[key].has_batch_rank and \
-                       self.in_space_0.has_time_rank == input_spaces[key].has_time_rank, \
-                    "ERROR: Input spaces to '{}' must have same batch-/time-rank structure! " \
-                    "0th input is batch-rank={} time-rank={}, but {}st input is batch-rank={} " \
-                    "time-rank={}.".format(
-                        self.global_scope, self.in_space_0.has_batch_rank, input_spaces[key].has_batch_rank, idx,
-                        self.in_space_0.has_time_rank, input_spaces[key].has_time_rank
-                    )
+        # TODO also check spaces for pytorch once unified space management
+        if get_backend() == "tf":
+            if "inputs[0]" in input_spaces:
+                self.in_space_0 = input_spaces["inputs[0]"]
+                self.time_major = self.in_space_0.time_major
+                idx = 0
+                while True:
+                    key = "inputs[{}]".format(idx)
+                    if key not in input_spaces:
+                        break
+                    sanity_check_space(input_spaces[key], allowed_types=[FloatBox, IntBox], must_have_batch_rank=True)
+                    # Make sure all concat inputs have same batch-/time-ranks.
+                    assert self.in_space_0.has_batch_rank == input_spaces[key].has_batch_rank and \
+                           self.in_space_0.has_time_rank == input_spaces[key].has_time_rank, \
+                        "ERROR: Input spaces to '{}' must have same batch-/time-rank structure! " \
+                        "0th input is batch-rank={} time-rank={}, but {}st input is batch-rank={} " \
+                        "time-rank={}.".format(
+                            self.global_scope, self.in_space_0.has_batch_rank, input_spaces[key].has_batch_rank, idx,
+                            self.in_space_0.has_time_rank, input_spaces[key].has_time_rank
+                        )
 
-                idx += 1
+                    idx += 1
 
     def _graph_fn_apply(self, *inputs):
         """

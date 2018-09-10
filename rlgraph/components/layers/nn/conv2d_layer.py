@@ -100,6 +100,9 @@ class Conv2DLayer(NNLayer):
             apply_bias = (self.biases_spec is not False)
 
             # N.b. there is no 'same' or 'valid' padding for PyTorch.
+            # print("Defining conv2d layer with shape = {} and channels {}".format(
+            #     shape, num_channels
+            # ))
             self.layer = nn.Conv2d(
                 in_channels=num_channels,
                 out_channels=self.filters,
