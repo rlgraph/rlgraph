@@ -152,7 +152,9 @@ class TestDistributedIMPALA(unittest.TestCase):
             execution_spec=dict(
                 mode="distributed",
                 distributed_spec=dict(job="actor", task_index=0, cluster_spec=self.cluster_spec),
-                session_config=dict(type="monitored-training-session")
+                session_config=dict(
+                    type="monitored-training-session"
+                )
             )
         )
         print("IMPALA actor compiled.")
@@ -179,9 +181,18 @@ class TestDistributedIMPALA(unittest.TestCase):
             # Setup distributed tf.
             execution_spec=dict(
                 mode="distributed",
+                gpu_spec=dict(
+                    gpus_enabled=True,
+                    max_usable_gpus=1,
+                    num_gpus=1
+                ),
                 distributed_spec=dict(job="learner", task_index=0, cluster_spec=self.cluster_spec),
-                session_config=dict(type="monitored-training-session")
-        )
+                session_config=dict(
+                    type="monitored-training-session",
+                    allow_soft_placement=True,
+                    log_device_placement=True
+                )
+            )
         )
         print("IMPALA learner compiled.")
         # Take one batch from the filled up queue and run an update_from_memory with the learner.
