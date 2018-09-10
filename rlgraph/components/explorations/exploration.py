@@ -94,7 +94,9 @@ class Exploration(Component):
 
     def check_input_spaces(self, input_spaces, action_space=None):
         action_sample_space = input_spaces["actions"]
-        sanity_check_space(action_sample_space, must_have_batch_rank=True)
+
+        if get_backend() == "tf":
+            sanity_check_space(action_sample_space, must_have_batch_rank=True)
 
         assert action_space is not None
         self.action_space = action_space
@@ -155,6 +157,10 @@ class Exploration(Component):
             if use_exploration is True:
                 return torch.where(epsilon_decisions, random_actions, sample)
             else:
+                if not isinstance(use_exploration, torch.ByteTensor):
+                    use_exploration = use_exploration.byte()
+                if not isinstance(epsilon_decisions, torch.ByteTensor):
+                    epsilon_decisions = epsilon_decisions.byte()
                 return torch.where(use_exploration & epsilon_decisions, random_actions, sample)
 
     def _graph_fn_add_noise(self, use_exploration, noise, sample):
