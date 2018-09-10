@@ -88,11 +88,11 @@ def dtype(dtype_, to="tf"):
             return np.float64 if to == "np" else torch.float64
         elif dtype_ in ["int", "int32", int, np.int32] or dtype_ is torch.int32:
             return np.int32 if to == "np" else torch.int32
-        elif dtype_ in ["int64", np.int64]:
+        elif dtype_ in ["int64", np.int64] or dtype_ is torch.int64:
             return np.int64 if to == "np" else torch.int64
-        elif dtype_ in ["uint8", np.uint8]:
+        elif dtype_ in ["uint8", np.uint8] or dtype_ is torch.uint8:
             return np.uint8 if to == "np" else torch.uint8
-        elif dtype_ in ["int16", np.int16]:
+        elif dtype_ in ["int16", np.int16] or dtype_ is torch.uint16:
             return np.int16 if to == "np" else torch.int16
 
         # N.b. no string tensor type.

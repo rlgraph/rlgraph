@@ -165,6 +165,10 @@ def get_space_from_op(op):
                 add_batch_rank = True
 
             base_dtype = op.dtype.base_dtype if hasattr(op.dtype, "base_dtype") else op.dtype
+            # PyTorch does not have a bool type
+            if get_backend() == "pytorch":
+                if op.dtype is torch.uint8:
+                    base_dtype = bool
             base_dtype_str = str(base_dtype)
 
             # FloatBox
