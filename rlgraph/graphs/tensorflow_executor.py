@@ -538,7 +538,7 @@ class TensorFlowExecutor(GraphExecutor):
                     log_step_count_steps=50000,
                     # scaffold=self.scaffold,
                     # Ignore other hooks
-                    hooks=hooks[-1] if hooks else None,
+                    hooks=[hooks[-1]] if hooks else None,
                     config=self.tf_session_config,
                     stop_grace_period_secs=120  # Default value.
                 )
