@@ -196,7 +196,7 @@ class IMPALAAgent(Agent):
         self.fifo_queue = FIFOQueue.from_spec(
             fifo_queue_spec, reuse_variable_scope="shared-fifo-queue", only_insert_single_records=True,
             record_space=self.fifo_record_space,
-            device="/job:learner/task:0" if self.execution_spec["mode"] == "distributed" and
+            device="/job:learner/task:0/cpu" if self.execution_spec["mode"] == "distributed" and
             self.execution_spec["distributed_spec"]["cluster_spec"] else None
         )
 
@@ -330,18 +330,27 @@ class IMPALAAgent(Agent):
             self.next_states_slicer = None
             self.internal_states_slicer = None
 
+            self.transpose_actions = ReShape(
+                flip_batch_and_time_rank=True, time_major=True, scope="transpose-a", flatten_categories=False,
+                device=dict(ops="/job:learner/task:0/cpu")
+            )
+            self.transpose_rewards = ReShape(
+                flip_batch_and_time_rank=True, time_major=True, scope="transpose-r",
+                device=dict(ops="/job:learner/task:0/cpu")
+            )
+            self.transpose_terminals = ReShape(
+                flip_batch_and_time_rank=True, time_major=True, scope="transpose-t",
+                device=dict(ops="/job:learner/task:0/cpu")
+            )
+
+            self.transpose_action_probs = ReShape(
+                flip_batch_and_time_rank=True, time_major=True, scope="transpose-a-probs-mu",
+                device=dict(ops="/job:learner/task:0/cpu")
+            )
+
             # Note: `-1` because we already concat preprocessed last-next-state to the other preprocessed-states.
             # (this saves one run through the NN).
             self.staging_area = StagingArea(num_data=len(self.fifo_queue_keys) - 1)
-
-            self.transpose_actions = ReShape(flip_batch_and_time_rank=True, time_major=True,
-                                             scope="transpose-a", flatten_categories=False)
-            self.transpose_rewards = ReShape(flip_batch_and_time_rank=True, time_major=True,
-                                             scope="transpose-r")
-            self.transpose_terminals = ReShape(flip_batch_and_time_rank=True, time_major=True,
-                                               scope="transpose-t")
-            self.transpose_action_probs = ReShape(flip_batch_and_time_rank=True, time_major=True,
-                                                  scope="transpose-a-probs-mu")
 
             self.concat = Concat(axis=1)  # 1=the time rank (at the time of the concat, we are still batch-major)
 
