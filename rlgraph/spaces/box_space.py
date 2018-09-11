@@ -22,7 +22,6 @@ import numpy as np
 from six.moves import xrange as range_
 import re
 
-from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph import get_backend
 from rlgraph.utils.util import dtype
 from rlgraph.utils.initializer import Initializer
@@ -30,7 +29,6 @@ from rlgraph.spaces.space import Space
 
 if get_backend() == "pytorch":
     import torch
-
 
 
 class BoxSpace(Space):

@@ -40,15 +40,18 @@ class Sequence(PreprocessLayer):
     problems to create the Markov property (velocity of game objects as they move across the screen).
     """
 
-    def __init__(self, sequence_length=2, batch_size=1, add_rank=True, data_format="channels_last",
-                 scope="sequence",  **kwargs):
+    def __init__(self, sequence_length=2, batch_size=1, add_rank=True, in_data_format="channels_last",
+                 out_data_format="channels_last", scope="sequence",  **kwargs):
         """
         Args:
             sequence_length (int): The number of records to always concatenate together within the last rank or
                 in an extra (added) rank.
             batch_size (int): The batch size for incoming records so multiple inputs can be passed through at once.
-            data_format (str): One of 'channels_last' (default) or 'channels_first'. Specifies which rank (first or
+            in_data_format (str): One of 'channels_last' (default) or 'channels_first'. Specifies which rank (first or
                 last) is the color-channel. If the input Space is with batch, the batch always has the first rank.
+            out_data_format (str): One of 'channels_last' (default) or 'channels_first'. Specifies which rank (first or
+                last) is the color-channel in output. If the input Space is with batch,
+                 the batch always has the first rank.
             add_rank (bool): Whether to add another rank to the end of the input with dim=length-of-the-sequence.
                 If False, concatenates the sequence within the last rank.
                 Default: True.
@@ -61,6 +64,13 @@ class Sequence(PreprocessLayer):
         self.batch_size = batch_size
         self.add_rank = add_rank
 
+        self.in_data_format = in_data_format
+        if get_backend() == "pytorch":
+            # Always channels first for PyTorch.
+            self.out_data_format = "channels_first"
+        else:
+            self.out_data_format = out_data_format
+
         # The sequence-buffer where we store previous inputs.
         self.buffer = None
         # The index into the buffer's.
@@ -69,7 +79,6 @@ class Sequence(PreprocessLayer):
         self.output_spaces = None
         if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
             self.deque = deque([], maxlen=self.sequence_length)
-            self.data_format = data_format
 
     def get_preprocessed_space(self, space):
         ret = dict()
@@ -80,8 +89,9 @@ class Sequence(PreprocessLayer):
             else:
                 shape[-1] *= self.sequence_length
 
-            if get_backend() == "pytorch" and self.data_format == "channels_last":
-                # TODO Generic tranpose component for pytorch channels
+            # TODO move to transpose component.
+            # Transpose.
+            if self.in_data_format == "channels_last" and self.out_data_format == "channels_first":
                 shape.reverse()
                 ret[key] = value.__class__(shape=tuple(shape), add_batch_rank=value.has_batch_rank)
             else:
@@ -143,6 +153,11 @@ class Sequence(PreprocessLayer):
             # Concat the sequence items in the last rank.
             else:
                 sequence = np.concatenate(self.deque, axis=-1)
+
+            # TODO move into transpose component.
+            if self.in_data_format == "channels_last" and self.out_data_format == "channels_first":
+                sequence = sequence.transpose((0, 3, 2, 1))
+
             return sequence
         elif get_backend() == "pytorch":
             if self.index == -1:
@@ -168,10 +183,12 @@ class Sequence(PreprocessLayer):
                 sequence = torch.cat([torch.tensor(t) for t in self.deque], dim=-1)
 
             # TODO remove when transpose component implemented.
-            if self.data_format == "channels_last":
+            if self.in_data_format == "channels_last" and self.out_data_format == "channels_first":
                 # Problem: PyTorch does not have data format options in conv layers ->
                 # only channels first supported.
                 # -> Confusingly have to transpose.
+                # B W H C -> B C W H
+                # e.g. atari: [4 84 84 4] -> [4 4 84 84]
                 sequence = sequence.permute(0, 3, 2, 1)
 
             return sequence
@@ -224,6 +241,6 @@ class Sequence(PreprocessLayer):
                     sequences[key] = tf.placeholder_with_default(
                         sequence, shape=(None,) + tuple(get_shape(sequence)[1:])
                     )
-
+            # TODO implement transpose
                 return sequences
 
