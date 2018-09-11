@@ -130,30 +130,31 @@ def pytorch_reduce_mean(tensor, axes, keepdims):
     return tensor
 
 
-class SamePaddedConv2d(torch.nn.Module):
-    """
-    Implements a Conv2d layer with padding 'same' as PyTorch does not have
-    padding options like TF.
-    """
-    def __init__(self, in_channels, out_channels, kernel_size, bias=True, stride=1,
-                 padding_layer=torch.nn.ReflectionPad2d):
-        super().__init__()
-        ka = kernel_size // 2
-        kb = ka - 1 if kernel_size % 2 == 0 else ka
+if get_backend() == "pytorch":
+    class SamePaddedConv2d(torch.nn.Module):
+        """
+        Implements a Conv2d layer with padding 'same' as PyTorch does not have
+        padding options like TF.
+        """
+        def __init__(self, in_channels, out_channels, kernel_size, bias=True, stride=1,
+                     padding_layer=torch.nn.ReflectionPad2d):
+            super().__init__()
+            ka = kernel_size // 2
+            kb = ka - 1 if kernel_size % 2 == 0 else ka
 
-        self.layer = torch.nn.Conv2d(in_channels, out_channels, kernel_size, bias=bias, stride=stride)
-        self.net = torch.nn.Sequential(
-            padding_layer((ka,kb,ka,kb)),
-            self.layer
-        )
+            self.layer = torch.nn.Conv2d(in_channels, out_channels, kernel_size, bias=bias, stride=stride)
+            self.net = torch.nn.Sequential(
+                padding_layer((ka,kb,ka,kb)),
+                self.layer
+            )
 
-        self.weight = self.layer.weight
-        self.bias = self.layer.bias
+            self.weight = self.layer.weight
+            self.bias = self.layer.bias
 
-    def forward(self, x):
-        return self.net(x)
+        def forward(self, x):
+            return self.net(x)
 
-    def parameters(self):
-        return self.layer.parameters()
+        def parameters(self):
+            return self.layer.parameters()
 
 

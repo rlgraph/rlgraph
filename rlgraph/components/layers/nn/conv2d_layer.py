@@ -22,12 +22,12 @@ from rlgraph.utils import PyTorchVariable
 from rlgraph.utils.initializer import Initializer
 from rlgraph.components.layers.nn.nn_layer import NNLayer
 from rlgraph.components.layers.nn.activation_functions import get_activation_function
-from rlgraph.utils.pytorch_util import get_input_channels, SamePaddedConv2d
 
 if get_backend() == "tf":
     import tensorflow as tf
 elif get_backend() == "pytorch":
     import torch.nn as nn
+    from rlgraph.utils.pytorch_util import get_input_channels, SamePaddedConv2d
 
 
 class Conv2DLayer(NNLayer):
