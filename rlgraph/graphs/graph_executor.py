@@ -58,6 +58,9 @@ class GraphExecutor(Specifiable):
         self.saver_spec = parse_saver_spec(saver_spec)
         self.summary_spec = self.graph_builder.summary_spec
         self.execution_spec = parse_execution_spec(execution_spec)  # sanitize again (after Agent); one never knows
+
+        self.logger.info("Execution spec is: {}".format(self.execution_spec))
+
         self.load_from_file = load_from_file
 
         self.seed = self.execution_spec.get("seed")
