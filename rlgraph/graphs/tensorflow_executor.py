@@ -445,10 +445,11 @@ class TensorFlowExecutor(GraphExecutor):
                                                           self.execution_spec["distributed_spec"]["task_index"])
             var_list_local = [var for var in var_list if not var.device or var.device == local_job_and_task]
             var_list_remote = [var for var in var_list if var.device and var.device != local_job_and_task]
-            self.init_op = tf.variables_initializer(var_list=var_list_remote)
-            self.ready_for_local_init_op = tf.report_uninitialized_variables(var_list=var_list_remote)
-            self.local_init_op = tf.variables_initializer(var_list=var_list_local)
-            self.ready_op = tf.report_uninitialized_variables(var_list=var_list)
+            # TODO move back in after fix.
+            # self.init_op = tf.variables_initializer(var_list=var_list_remote)
+            # self.ready_for_local_init_op = tf.report_uninitialized_variables(var_list=var_list_remote)
+            # self.local_init_op = tf.variables_initializer(var_list=var_list_local)
+            # self.ready_op = tf.report_uninitialized_variables(var_list=var_list)
 
         def init_fn(scaffold, session):
             # NOTE: `self.load_from_file` is either True or a string value.
