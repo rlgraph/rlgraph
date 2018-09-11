@@ -22,7 +22,7 @@ from rlgraph.utils import PyTorchVariable
 from rlgraph.utils.initializer import Initializer
 from rlgraph.components.layers.nn.nn_layer import NNLayer
 from rlgraph.components.layers.nn.activation_functions import get_activation_function
-from rlgraph.utils.pytorch_util import get_input_channels
+from rlgraph.utils.pytorch_util import get_input_channels, SamePaddedConv2d
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -99,18 +99,28 @@ class Conv2DLayer(NNLayer):
             num_channels = get_input_channels(shape)
             apply_bias = (self.biases_spec is not False)
 
-            # N.b. there is no 'same' or 'valid' padding for PyTorch.
             # print("Defining conv2d layer with shape = {} and channels {}".format(
             #     shape, num_channels
             # ))
-            self.layer = nn.Conv2d(
-                in_channels=num_channels,
-                out_channels=self.filters,
-                kernel_size=self.kernel_size,
-                stride=self.strides,
-                padding=0,
-                bias=apply_bias
-            )
+            if self.padding == "same":
+                # N.b. there is no 'same' or 'valid' padding for PyTorch so need custom layer.
+                self.layer = SamePaddedConv2d(
+                    in_channels=num_channels,
+                    out_channels=self.filters,
+                    # Only support square kernels.
+                    kernel_size=self.kernel_size[0],
+                    stride=self.strides,
+                    bias=apply_bias
+                )
+            else:
+                self.layer = nn.Conv2d(
+                    in_channels=num_channels,
+                    out_channels=self.filters,
+                    kernel_size=self.kernel_size,
+                    stride=self.strides,
+                    padding=0,
+                    bias=apply_bias
+                )
             # Apply weight initializer
             if self.kernel_init.initializer is not None:
                 # Must be a callable in PyTorch
