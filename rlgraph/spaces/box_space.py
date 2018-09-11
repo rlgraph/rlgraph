@@ -200,7 +200,6 @@ class BoxSpace(Space):
                     **kwargs
                 )
 
-
     def __repr__(self):
         return "{}({} {} {}{})".format(
             type(self).__name__.title(), self.shape, str(self.dtype), "; +batch" if self.has_batch_rank else

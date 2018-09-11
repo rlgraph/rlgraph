@@ -167,17 +167,22 @@ class EnvironmentStepper(Component):
         self.define_api_method("step", self._graph_fn_step)
 
     def create_variables(self, input_spaces, action_space=None):
-        self.time_step = self.get_variable(name="time-step", dtype="int32", initializer=0, trainable=False)
-        self.episode_return = self.get_variable(name="episode-return", dtype="float32",
-                                                initializer=0.0, trainable=False)
-        self.current_terminal = self.get_variable(name="current-terminal", dtype="bool",
-                                                  initializer=True, trainable=False)
-        self.current_state = self.get_variable(name="current-state", from_space=self.state_space_actor,
-                                               flatten=True, trainable=False)
+        self.time_step = self.get_variable(
+            name="time-step", dtype="int32", initializer=0, trainable=False, local=True
+        )
+        self.episode_return = self.get_variable(
+            name="episode-return", dtype="float32", initializer=0.0, trainable=False, local=True
+        )
+        self.current_terminal = self.get_variable(
+            name="current-terminal", dtype="bool", initializer=True, trainable=False, local=True
+        )
+        self.current_state = self.get_variable(
+            name="current-state", from_space=self.state_space_actor, flatten=True, trainable=False, local=True
+        )
         if self.has_rnn:
             self.current_internal_states = self.get_variable(
                 name="current-internal-states", from_space=self.internal_states_space, initializer=0.0,
-                flatten=True, trainable=False
+                flatten=True, trainable=False, local=True
             )
 
     def _graph_fn_reset(self):
