@@ -287,8 +287,6 @@ class TensorFlowExecutor(GraphExecutor):
                 job_name=self.distributed_spec["job"],
                 task_index=self.distributed_spec["task_index"],
                 protocol=self.distributed_spec["protocol"],
-                # TODO do we need other device settings here?
-                config=self.tf_session_config,
                 start=True
             )
 
@@ -535,8 +533,12 @@ class TensorFlowExecutor(GraphExecutor):
                     master=self.server.target,
                     is_chief=is_chief,
                     checkpoint_dir=None,  # TODO: specify?
-                    scaffold=self.scaffold,
-                    hooks=hooks,
+                    save_checkpoint_secs=600,
+                    save_summaries_secs=30,
+                    log_step_count_steps=50000,
+                    # scaffold=self.scaffold,
+                    # Ignore other hooks
+                    hooks=hooks[-1],
                     config=self.tf_session_config,
                     stop_grace_period_secs=120  # Default value.
                 )
@@ -562,7 +564,9 @@ class TensorFlowExecutor(GraphExecutor):
         # Exit the graph-context and finalize the graph.
         if self.graph_default_context is not None:
             self.graph_default_context.__exit__(None, None, None)
-        self.graph.finalize()
+
+        # TODO back in
+        # self.graph.finalize()
 
         if self.disable_monitoring:
             # If no monitoring, both just end up being simple sessions.
