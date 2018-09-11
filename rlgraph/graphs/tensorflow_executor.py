@@ -177,26 +177,30 @@ class TensorFlowExecutor(GraphExecutor):
         # TODO make compatible for multiple roots in graph builder.
         meta_build_times = []
         build_times = []
-        for component in root_components:
-            self._build_device_strategy(component, optimizer, loss_name)
-            start = time.perf_counter()
-            meta_graph = self.meta_graph_builder.build(component, input_spaces)
-            meta_build_times.append(time.perf_counter() - start)
 
-            # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
-            # -> Inputs/Operations/variables
-            build_time = self.graph_builder.build_graph(
-                meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices,
-                device_strategy=self.device_strategy, default_device=self.default_device, device_map=self.device_map
-            )
-            # Build time is a dict containing the cost of different parts of the build.
-            build_times.append(build_time)
+        # Use default device to be safe.
+        with tf.device(self.default_device):
+            for component in root_components:
+                self._build_device_strategy(component, optimizer, loss_name)
+                start = time.perf_counter()
+                meta_graph = self.meta_graph_builder.build(component, input_spaces)
+                meta_build_times.append(time.perf_counter() - start)
 
-        # Check device assignments for inconsistencies or unused devices.
-        self._sanity_check_devices()
+                # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
+                # -> Inputs/Operations/variables
+                build_time = self.graph_builder.build_graph(
+                    meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices,
+                    device_strategy=self.device_strategy, default_device=self.default_device, device_map=self.device_map
+                )
+                # Build time is a dict containing the cost of different parts of the build.
+                build_times.append(build_time)
 
-        # Set up any remaining session or monitoring configurations.
-        self.finish_graph_setup()
+                # Check device assignments for inconsistencies or unused devices.
+                self._sanity_check_devices()
+
+                # Set up any remaining session or monitoring configurations.
+                self.finish_graph_setup()
+
         return dict(
             total_build_time=time.perf_counter() - start,
             meta_graph_build_times=meta_build_times,
