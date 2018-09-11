@@ -127,6 +127,26 @@ class IMPALAAgent(Agent):
             dict(type="convert_type", to_dtype="float32")
         ]
 
+        # Limit communication in distributed mode between each actor and the learner (never between actors).
+        execution_spec = kwargs.get("execution_spec")
+        if execution_spec is not None and execution_spec.get("mode") == "distributed":
+            execution_spec["session_config"] = dict(
+                type="monitored-training-session",
+                allow_soft_placement=True,
+                log_device_placement=False,
+                device_filters=["/job:learner/task:0"] + (
+                    ["/job:actor/task:{}".format(execution_spec["distributed_spec"]["task_index"])] if
+                    self.type == "actor" else []
+                )
+            )
+            #default_dict(execution_spec["session_config"], )
+            # If Actor, make non-chief in either case (even if task idx == 0).
+            if self.type == "actor":
+                execution_spec["distributed_spec"]["is_chief"] = False
+            # Set device strategy to a default device.
+            execution_spec["device_strategy"] = "custom"
+            execution_spec["default_device"] = "/job:{}/task:{}/cpu".format(self.type, self.execution_spec["distributed_spec"]["task_index"])
+
         # Now that we fixed the Agent's spec, call the super constructor.
         super(IMPALAAgent, self).__init__(
             discount=discount,
@@ -137,21 +157,10 @@ class IMPALAAgent(Agent):
             optimizer_spec=optimizer_spec,
             observe_spec=observe_spec,
             update_spec=update_spec,
+            execution_spec=execution_spec,
             name=kwargs.pop("name", "impala-{}-agent".format(self.type)),
             **kwargs
         )
-        # Limit communication in distributed mode between each actor and the learner (never between actors).
-        if self.execution_spec["mode"] == "distributed":
-            default_dict(self.execution_spec["session_config"], dict(device_filters=["/job:learner/task:0"] + (
-                    ["/job:actor/task:{}".format(self.execution_spec["distributed_spec"]["task_index"])] if
-                    self.type == "actor" else []
-            )))
-            # If Actor, make non-chief in either case (even if task idx == 0).
-            if self.type == "actor":
-                self.execution_spec["distributed_spec"]["is_chief"] = False
-            # Set device strategy to a default device.
-            self.execution_spec["device_strategy"] = "custom"
-            self.execution_spec["default_device"] = "/job:{}/task:{}/cpu".format(self.type, self.execution_spec["distributed_spec"]["task_index"])
 
         # If we use dynamic batching, wrap the dynamic batcher around the policy's graph_fn that we
         # actually call below during our build.
