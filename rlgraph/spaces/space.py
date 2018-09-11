@@ -190,7 +190,7 @@ class Space(Specifiable):
         raise NotImplementedError
 
     def get_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None,
-                     time_major=False, is_python=False, **kwargs):
+                     time_major=False, is_python=False, local=False, **kwargs):
         """
         Returns a backend-specific variable/placeholder that matches the space's shape.
 
@@ -211,6 +211,8 @@ class Space(Specifiable):
                 Otherwise, batch-rank will be 0th and time-rank will be 1st.
                 Default: False.
             is_python (bool): Whether to create a python-based variable (list) or a backend-specific one.
+            local (bool): Whether the variable must not be shared across the network.
+                Default: False.
 
         Keyword Args:
             To be passed on to backend-specific methods (e.g. trainable, initializer, etc..).

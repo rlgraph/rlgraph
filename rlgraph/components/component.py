@@ -750,7 +750,8 @@ class Component(Specifiable):
             self.create_summary(summary_name, var)
 
     def get_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True,
-                     from_space=None, add_batch_rank=False, add_time_rank=False, time_major=False, flatten=False):
+                     from_space=None, add_batch_rank=False, add_time_rank=False, time_major=False, flatten=False,
+                     local=False):
         """
         Generates or returns a variable to use in the selected backend.
         The generated variable is automatically registered in this component's (and all parent components')
@@ -777,6 +778,8 @@ class Component(Specifiable):
                 Otherwise, batch-rank will be 0th and time-rank will be 1st.
                 Default: False.
             flatten (bool): Whether to produce a FlattenedDataOp with auto-keys.
+            local (bool): Whether the variable must not be shared across the network.
+                Default: False.
 
         Returns:
             DataOp: The actual variable (dependent on the backend) or - if from
@@ -801,7 +804,7 @@ class Component(Specifiable):
         # We are creating the variable using a Space as template.
         if from_space is not None:
             var = self._variable_from_space(
-                flatten, from_space, name, add_batch_rank, add_time_rank, time_major, trainable, initializer
+                flatten, from_space, name, add_batch_rank, add_time_rank, time_major, trainable, initializer, local
             )
 
         # TODO: Figure out complete concept for python/numpy based Components (including their handling of variables).
@@ -837,7 +840,8 @@ class Component(Specifiable):
                 initializer = np.asarray(initializer, dtype=util.dtype(dtype, "np"))
 
             var = tf.get_variable(
-                name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
+                name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable,
+                collections=[tf.GraphKeys.GLOBAL_VARIABLES if local is False else tf.GraphKeys.LOCAL_VARIABLES]
             )
         elif get_backend() == "tf-eager":
             shape = tuple(
@@ -846,7 +850,8 @@ class Component(Specifiable):
             )
 
             var = eager.Variable(
-                name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
+                name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable,
+                collections=[tf.GraphKeys.GLOBAL_VARIABLES if local is False else tf.GraphKeys.LOCAL_VARIABLES]
             )
 
         # TODO: what about python variables?
@@ -864,7 +869,7 @@ class Component(Specifiable):
         return var
 
     def _variable_from_space(self, flatten, from_space, name, add_batch_rank, add_time_rank, time_major, trainable,
-                             initializer):
+                             initializer, local=False):
         """
         Private variable from space helper, see 'get_variable' for API.
         """
@@ -882,7 +887,7 @@ class Component(Specifiable):
                     else:
                         return from_space.get_variable(
                             name=name, add_batch_rank=add_batch_rank, trainable=trainable, initializer=initializer,
-                            is_python=(self.backend == "python" or get_backend() == "python")
+                            is_python=(self.backend == "python" or get_backend() == "python"), local=local
                         )
             else:
                 if flatten:
@@ -895,7 +900,7 @@ class Component(Specifiable):
                 else:
                     return from_space.get_variable(
                         name=name, add_batch_rank=add_batch_rank, trainable=trainable, initializer=initializer,
-                        is_python=(self.backend == "python" or get_backend() == "python")
+                        is_python=(self.backend == "python" or get_backend() == "python"), local=local
                     )
 
     def get_variables(self, *names, **kwargs):

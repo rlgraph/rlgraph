@@ -146,7 +146,7 @@ class BoxSpace(Space):
         return self.low, self.high
 
     def get_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None,
-                     time_major=None, is_python=False, **kwargs):
+                     time_major=None, is_python=False, local=False, **kwargs):
         add_batch_rank = self.has_batch_rank if add_batch_rank is None else add_batch_rank
         batch_rank = () if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,)
 
@@ -194,9 +194,11 @@ class BoxSpace(Space):
                 if self.dtype == np.bool_ and isinstance(init_spec, (int, float)):
                     init_spec = (init_spec != 0)
                 rlgraph_initializer = Initializer.from_spec(shape=shape, specification=init_spec)
-                return tf.get_variable(name, shape=shape, dtype=dtype(self.dtype),
-                                       initializer=rlgraph_initializer.initializer,
-                                       **kwargs)
+                return tf.get_variable(
+                    name, shape=shape, dtype=dtype(self.dtype), initializer=rlgraph_initializer.initializer,
+                    collections=[tf.GraphKeys.GLOBAL_VARIABLES if local is False else tf.GraphKeys.LOCAL_VARIABLES],
+                    **kwargs
+                )
 
 
     def __repr__(self):
