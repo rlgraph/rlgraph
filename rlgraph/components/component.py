@@ -881,26 +881,30 @@ class Component(Specifiable):
                         return from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
                             name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
                             time_major=time_major, trainable=trainable, initializer=initializer,
-                            is_python=(self.backend == "python" or get_backend() == "python")
+                            is_python=(self.backend == "python" or get_backend() == "python"),
+                            local=local
                         ))
                     # Normal, nested Variables from a Space (container or primitive).
                     else:
                         return from_space.get_variable(
                             name=name, add_batch_rank=add_batch_rank, trainable=trainable, initializer=initializer,
-                            is_python=(self.backend == "python" or get_backend() == "python"), local=local
+                            is_python=(self.backend == "python" or get_backend() == "python"),
+                            local=local
                         )
             else:
                 if flatten:
                     return from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
                         name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
                         time_major=time_major, trainable=trainable, initializer=initializer,
-                        is_python=(self.backend == "python" or get_backend() == "python")
+                        is_python=(self.backend == "python" or get_backend() == "python"),
+                        local=local
                     ))
                 # Normal, nested Variables from a Space (container or primitive).
                 else:
                     return from_space.get_variable(
                         name=name, add_batch_rank=add_batch_rank, trainable=trainable, initializer=initializer,
-                        is_python=(self.backend == "python" or get_backend() == "python"), local=local
+                        is_python=(self.backend == "python" or get_backend() == "python"),
+                        local=local
                     )
 
     def get_variables(self, *names, **kwargs):
