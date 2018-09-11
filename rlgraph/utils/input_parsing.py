@@ -144,7 +144,7 @@ def parse_execution_spec(execution_spec):
         # Device placement settings.
         device_strategy="default",
         default_device=None,
-        device_map=None,
+        device_map={},
 
         session_config=None,
         # Random seed for the tf graph.
@@ -236,7 +236,7 @@ def parse_update_spec(update_spec):
         # Whether to perform calls to `Agent.update()` at all.
         do_updates=True,
         # The unit in which we measure frequency: one of "timesteps", "episodes", "sec".
-        #unit="timesteps", # TODO: not supporting any other than timesteps
+        # unit="timesteps", # TODO: not supporting any other than timesteps
         # The number of 'units' to wait before we do any updating at all.
         steps_before_update=0,
         # The frequency with which we update (given in `unit`).
