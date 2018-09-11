@@ -110,9 +110,15 @@ class NNLayer(Layer):
                     output._time_rank = 0 if self.in_space_0.time_major is True else 1
                 return output
             elif get_backend() == "pytorch":
+                # Strip empty internal states:
+                inputs = [v for v in inputs if v is not None]
+
                 # PyTorch layers are called, not `applied`.
-                # v = lambda x: print("input shape", x.shape)
-                # v(*inputs)
+                # print("network inputs type", type(inputs))
+                # for inp in inputs:
+                #     print("per input type = {} ".format(type(inp) ))
+                #     if isinstance(inp, torch.Tensor):
+                #         print("input shape = ", inp.shape)
                 out = self.layer(*inputs)
                 # print("layer output shape = ", out.shape)
                 if self.activation_fn is None:
