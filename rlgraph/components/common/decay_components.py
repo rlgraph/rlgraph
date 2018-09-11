@@ -133,7 +133,7 @@ class DecayComponent(Component):
                     # We are in post-decay time.
                     pytorch_tile(torch.tensor([self.to_]), shape),
                     # We are inside the decay time window.
-                    self._graph_fn_decay(torch.FloatTensor([time_step - self.start_timestep]))
+                    torch.tensor(self._graph_fn_decay(torch.FloatTensor([time_step - self.start_timestep])))
                 )
                 return torch.where(
                     smaller_than_start,
