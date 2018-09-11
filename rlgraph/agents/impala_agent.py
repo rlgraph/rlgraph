@@ -139,13 +139,13 @@ class IMPALAAgent(Agent):
                     self.type == "actor" else []
                 )
             )
-            #default_dict(execution_spec["session_config"], )
+            # default_dict(execution_spec["session_config"], )
             # If Actor, make non-chief in either case (even if task idx == 0).
             if self.type == "actor":
                 execution_spec["distributed_spec"]["is_chief"] = False
             # Set device strategy to a default device.
             execution_spec["device_strategy"] = "custom"
-            execution_spec["default_device"] = "/job:{}/task:{}/cpu".format(self.type, self.execution_spec["distributed_spec"]["task_index"])
+            execution_spec["default_device"] = "/job:{}/task:{}/cpu".format(self.type, execution_spec["distributed_spec"]["task_index"])
 
         # Now that we fixed the Agent's spec, call the super constructor.
         super(IMPALAAgent, self).__init__(
