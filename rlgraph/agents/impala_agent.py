@@ -149,6 +149,9 @@ class IMPALAAgent(Agent):
             # If Actor, make non-chief in either case (even if task idx == 0).
             if self.type == "actor":
                 self.execution_spec["distributed_spec"]["is_chief"] = False
+            # Set device strategy to a default device.
+            self.execution_spec["device_strategy"] = "custom"
+            self.execution_spec["default_device"] = "/job:{}/task:{}/cpu".format(self.type, self.execution_spec["distributed_spec"]["task_index"])
 
         # If we use dynamic batching, wrap the dynamic batcher around the policy's graph_fn that we
         # actually call below during our build.
