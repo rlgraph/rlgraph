@@ -298,14 +298,15 @@ if get_backend() == "tf":
         A hook for a tf.MonitoredSession that takes care of automatically starting and stopping
         SpecifiableServer objects.
         """
-        def __init__(self):
-            self.specifiable_buffer = list()
+        # def __init__(self):
+        #     self.specifiable_buffer = list()
 
         def begin(self):
             """
             Starts all registered RLGraphProxyProcess processes.
             """
-            tf.logging.info('Starting specifiable server hooks.')
+            tf.logging.info('Starting specifiable server hooks from collection: {}'.format(
+                tf.get_collection(SpecifiableServer.COLLECTION)))
 
             tp = multiprocessing.pool.ThreadPool()
             tp.map(lambda server: server.start(), tf.get_collection(SpecifiableServer.COLLECTION))
