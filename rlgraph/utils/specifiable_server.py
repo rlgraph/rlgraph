@@ -300,6 +300,8 @@ if get_backend() == "tf":
             """
             Starts all registered RLGraphProxyProcess processes.
             """
+            tf.logging.info('Starting specifiable server hooks.')
+
             tp = multiprocessing.pool.ThreadPool()
             tp.map(lambda server: server.start(), SpecifiableServer.INSTANCES)
 
@@ -308,11 +310,12 @@ if get_backend() == "tf":
 
             # Erase all SpecifiableServers as we open the Session (after having started all of them),
             # so new ones can get registered.
-            self.specifiable_buffer = SpecifiableServer.INSTANCES[:]  # copy list
-            SpecifiableServer.INSTANCES.clear()
+            # self.specifiable_buffer = SpecifiableServer.INSTANCES[:]  # copy list
+            # SpecifiableServer.INSTANCES.clear()
 
             tp.close()
             tp.join()
+            tf.logging.info('Started all server hooks.')
 
         def end(self, session):
             tp = multiprocessing.pool.ThreadPool()
