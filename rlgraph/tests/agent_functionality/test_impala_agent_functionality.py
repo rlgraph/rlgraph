@@ -253,6 +253,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             actor_component_spec=actor_component,
             state_space=state_space,
             reward_space="float32",
+            internal_states_space=self.internal_states_space,
+            num_steps=100,
             # Add both prev-action and -reward into the state sent through the network.
             add_previous_action=True,
             add_previous_reward=True,
@@ -262,32 +264,28 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
 
         test = ComponentTest(
             component=environment_stepper,
-            input_spaces=dict(
-                internal_states=self.internal_states_space,
-                num_steps=int,
-                time_step=int
-            ),
+            #input_spaces=dict(
+                #internal_states=self.internal_states_space,
+                #num_steps=int,
+                #time_step=int
+            #),
             action_space=action_space,
-            disable_monitoring=True,  # Make session-creation hang in docker.
         )
-
-        # Start Specifiable Server with Env manually.
-        environment_stepper.environment_server.start()
-
         # Reset the stepper.
         test.test("reset")
 
-        initial_internal_states = self.internal_states_space.zeros(size=1)
+        #initial_internal_states = self.internal_states_space.zeros(size=1)
 
         # Step n times through the Env and collect results.
         # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
         # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
-        time_steps = 2000
+        #time_steps = 2000
         time_start = time.monotonic()
-        out = test.test(("step", [initial_internal_states, time_steps, 0]), expected_outputs=None)
+        #out = test.test(("step", [initial_internal_states, time_steps, 0]), expected_outputs=None)
+        out = test.test("step")
         time_end = time.monotonic()
         print("Done running {} steps in Deepmind Lab env using IMPALA network in {}sec.".format(
-            time_steps, time_end - time_start)
+            environment_stepper.num_steps, time_end - time_start)
         )
 
         # Check types of outputs.
@@ -315,115 +313,39 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # internal states (c- and h-state)
         self.assertTrue(out[1][7][0].dtype == np.float32)
         self.assertTrue(out[1][7][1].dtype == np.float32)
-        self.assertTrue(out[1][7][0].shape == (time_steps, 256))
-        self.assertTrue(out[1][7][1].shape == (time_steps, 256))
+        self.assertTrue(out[1][7][0].shape == (environment_stepper.num_steps, 256))
+        self.assertTrue(out[1][7][1].shape == (environment_stepper.num_steps, 256))
 
         # Check whether episode returns match single rewards (including terminal signals).
         episode_returns = 0.0
-        for i in range(time_steps):
+        for i in range(environment_stepper.num_steps):
             episode_returns += out[1][2][i]
             self.assertAlmostEqual(episode_returns, out[1][3][i])
             # Terminal: Reset for next step.
             if out[1][4][i] is np.bool_(True):
                 episode_returns = 0.0
 
-        # Make sure we close the specifiable server (as we have started it manually and have no monitored session).
-        environment_stepper.environment_server.stop()
         test.terminate()
 
-    def test_single_impala_agent_functionality(self):
-        """
-        Creates a single IMPALAAgent and runs it for a few steps in a DeepMindLab Env to test
-        all steps of the actor and learning process.
-        """
-        agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
-        environment_spec = dict(
-            type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
-        )
-        env = DeepmindLabEnv.from_spec(environment_spec)
+    #def test_isolated_impala_learner_agent_functionality(self):
+    #    """
+    #    Creates a IMPALAAgent (learner), inserts some dummy records and "learns" from them.
+    #    """
+    #    agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
+    #    environment_spec = dict(
+    #        type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
+    #    )
+    #    env = DeepmindLabEnv.from_spec(environment_spec)
 
-        agent = IMPALAAgent.from_spec(
-            agent_config,
-            type="single",
-            architecture="large",
-            environment_spec=environment_spec,
-            state_space=env.state_space,
-            action_space=env.action_space,
-            # TODO: automate this (by lookup from NN).
-            internal_states_space=IMPALAAgent.standard_internal_states_space,
-            execution_spec=dict(
-                mode="distributed",
-                distributed_spec=dict(cluster_spec=None)
-            ),
-            #update_spec=dict(batch_size=2),
-            # Summarize time-steps to have an overview of the env-stepping speed.
-            summary_spec=dict(summary_regexp="time-step", directory="/home/rlgraph/"),
-            dynamic_batching=False,
-            num_actors=4
-        )
-        # Count items in the queue.
-        print("Items in queue: {}".format(agent.call_api_method("get_queue_size")))
-
-        updates = 1
-        update_times = list()
-        print("Updating from queue ...")
-        for _ in range(updates):
-            start_time = time.monotonic()
-            print(agent.update())
-            update_times.append(time.monotonic() - start_time)
-
-        print("Updates per second (including waiting for enqueued items): {}/s".format(updates / np.sum(update_times)))
-        #print("Env-steps per second: {}".format(agent.update_spec["batch_size"]*20*updates / np.sum(update_times)))
-
-        agent.terminate()
-
-    def test_isolated_impala_actor_agent_functionality(self):
-        """
-        Creates a IMPALAAgent and runs it for a few steps in a DeepMindLab Env to test
-        all steps of the learning process.
-        """
-        agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
-        environment_spec = dict(
-            type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
-        )
-        env = DeepmindLabEnv.from_spec(environment_spec)
-
-        agent = IMPALAAgent.from_spec(
-            agent_config,
-            type="actor",
-            architecture="large",
-            environment_spec=environment_spec,
-            state_space=env.state_space,
-            action_space=env.action_space,
-            # TODO: automate this (by lookup from NN).
-            internal_states_space=IMPALAAgent.standard_internal_states_space,
-        )
-        agent.call_api_method("reset")
-        out = None
-        for _ in range(50):
-            print(".", end="")
-            out = agent.call_api_method("perform_n_steps_and_insert_into_fifo")
-        print(out)
-
-    def test_isolated_impala_learner_agent_functionality(self):
-        """
-        Creates a IMPALAAgent (learner), inserts some dummy records and "learns" from them.
-        """
-        agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
-        environment_spec = dict(
-            type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
-        )
-        env = DeepmindLabEnv.from_spec(environment_spec)
-
-        agent = IMPALAAgent.from_spec(
-            agent_config,
-            type="learner",
-            architecture="small",
-            environment_spec=environment_spec,
-            state_space=env.state_space,
-            action_space=env.action_space,
-            # TODO: automate this (by lookup from NN).
-            internal_states_space=IMPALAAgent.standard_internal_states_space,
-        )
-        agent.call_api_method("insert_dummy_records")
-        agent.call_api_method("update_from_memory")
+    #    agent = IMPALAAgent.from_spec(
+    #        agent_config,
+    #        type="learner",
+    #        architecture="small",
+    #        environment_spec=environment_spec,
+    #        state_space=env.state_space,
+    #        action_space=env.action_space,
+    #        # TODO: automate this (by lookup from NN).
+    #        internal_states_space=IMPALAAgent.standard_internal_states_space,
+    #    )
+    #    agent.call_api_method("insert_dummy_records")
+    #    agent.call_api_method("update_from_memory")

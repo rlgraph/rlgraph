@@ -135,7 +135,7 @@ class TestDistributedIMPALA(unittest.TestCase):
         """
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
         environment_spec = dict(
-            type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
+            type="deepmind-lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
         )
         env = DeepmindLabEnv.from_spec(environment_spec)
 
@@ -153,8 +153,11 @@ class TestDistributedIMPALA(unittest.TestCase):
                 mode="distributed",
                 distributed_spec=dict(job="actor", task_index=0, cluster_spec=self.cluster_spec),
                 session_config=dict(
-                    type="monitored-training-session"
-                )
+                    type="monitored-training-session",
+                    #log_device_placement=True
+                ),
+                enable_profiler=True,
+                profiler_frequency=1
             )
         )
         print("IMPALA actor compiled.")
@@ -167,7 +170,7 @@ class TestDistributedIMPALA(unittest.TestCase):
     def test_distributed_impala_agent_functionality_learner_part(self):
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
         environment_spec = dict(
-            type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
+            type="deepmind-lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
         )
         env = DeepmindLabEnv.from_spec(environment_spec)
         agent = IMPALAAgent.from_spec(
