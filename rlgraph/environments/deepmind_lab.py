@@ -84,7 +84,12 @@ class DeepmindLabEnv(Environment):
 
     def reset(self):
         self.level.reset()
-        return self.level.observations()
+        state = self.level.observations()
+        return state
+
+    def reset_for_env_stepper(self):
+        state = self.reset()
+        return [state[key] for key in self.state_space]
 
     def step(self, actions):
         # Do the actual step.
@@ -96,6 +101,19 @@ class DeepmindLabEnv(Environment):
 
         # Return state, reward, terminal, and None (info).
         return state, np.array(reward, dtype=np.float32), terminal, None
+
+    def step_for_env_stepper(self, actions):
+        # Do the actual step.
+        reward = self.level.step(action=self.action_list[actions], num_steps=self.frameskip)
+        terminal = not self.level.is_running()
+        # Flow Env logic.
+        if terminal is True:
+            state = self.reset()
+        else:
+            state = self.level.observations()
+
+        # Return state, reward, terminal, and None (info).
+        return [state[key] for key in self.state_space] + [np.array(reward, dtype=np.float32), terminal]
 
     @staticmethod
     def define_actions(actions_spec=None):
