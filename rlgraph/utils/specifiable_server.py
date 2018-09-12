@@ -41,7 +41,9 @@ class SpecifiableServer(Specifiable):
     """
 
     # Class instances get registered/deregistered here.
+    # TODO remove one of these when init works.
     INSTANCES = list()
+    COLLECTION = 'specifiable_server_processes'
 
     def __init__(self, class_, spec, output_spaces, shutdown_method=None):
         """
@@ -84,6 +86,9 @@ class SpecifiableServer(Specifiable):
 
         # Register this object with the class.
         self.INSTANCES.append(self)
+
+        # Alternative init way by dm.
+        tf.add_to_collection(SpecifiableServer.COLLECTION, self)
 
     def __getattr__(self, method_name):
         """
@@ -303,7 +308,7 @@ if get_backend() == "tf":
             tf.logging.info('Starting specifiable server hooks.')
 
             tp = multiprocessing.pool.ThreadPool()
-            tp.map(lambda server: server.start(), SpecifiableServer.INSTANCES)
+            tp.map(lambda server: server.start(), tf.get_collection(SpecifiableServer.COLLECTION))
 
             #for server in SpecifiableServer.INSTANCES:
             #    server.start()
@@ -319,7 +324,7 @@ if get_backend() == "tf":
 
         def end(self, session):
             tp = multiprocessing.pool.ThreadPool()
-            tp.map(lambda server: server.stop(), self.specifiable_buffer)
+            tp.map(lambda server: server.stop(), tf.get_collection(SpecifiableServer.COLLECTION))
             tp.close()
             tp.join()
             #for server in self.specifiable_buffer:
