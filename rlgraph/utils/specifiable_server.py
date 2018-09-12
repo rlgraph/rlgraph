@@ -243,8 +243,7 @@ class SpecifiableServer(Specifiable):
             pass
         self.process.join()
 
-    @staticmethod
-    def run(class_, spec, in_pipe, shutdown_method=None):
+    def run(self, class_, spec, in_pipe, shutdown_method=None):
         proxy_object = None
         tf.logging.info("Attempting to init loop.")
         try:
