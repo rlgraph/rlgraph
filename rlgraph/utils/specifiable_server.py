@@ -41,9 +41,7 @@ class SpecifiableServer(Specifiable):
     """
 
     # Class instances get registered/deregistered here.
-    # TODO remove one of these when init works.
     INSTANCES = list()
-    COLLECTION = 'specifiable_server_processes'
 
     def __init__(self, class_, spec, output_spaces, shutdown_method=None):
         """
@@ -86,9 +84,6 @@ class SpecifiableServer(Specifiable):
 
         # Register this object with the class.
         self.INSTANCES.append(self)
-
-        # Alternative init way by dm.
-        tf.add_to_collection(SpecifiableServer.COLLECTION, self)
 
     def __getattr__(self, method_name):
         """
@@ -298,8 +293,8 @@ if get_backend() == "tf":
         A hook for a tf.MonitoredSession that takes care of automatically starting and stopping
         SpecifiableServer objects.
         """
-        # def __init__(self):
-        #     self.specifiable_buffer = list()
+        def __init__(self):
+            self.specifiable_buffer = list()
 
         def begin(self):
             """
@@ -314,18 +309,18 @@ if get_backend() == "tf":
             #for server in SpecifiableServer.INSTANCES:
             #    server.start()
 
-            # Erase all SpecifiableServers as we open the Session (after having started all of them),
-            # so new ones can get registered.
-            # self.specifiable_buffer = SpecifiableServer.INSTANCES[:]  # copy list
-            # SpecifiableServer.INSTANCES.clear()
-
             tp.close()
             tp.join()
             tf.logging.info('Started all server hooks.')
 
+            # Erase all SpecifiableServers as we open the Session (after having started all of them),
+            # so new ones can get registered.
+            self.specifiable_buffer = SpecifiableServer.INSTANCES[:]  # copy list
+            SpecifiableServer.INSTANCES.clear()
+
         def end(self, session):
             tp = multiprocessing.pool.ThreadPool()
-            tp.map(lambda server: server.stop(), tf.get_collection(SpecifiableServer.COLLECTION))
+            tp.map(lambda server: server.stop(), self.specifiable_buffer)
             tp.close()
             tp.join()
             #for server in self.specifiable_buffer:
