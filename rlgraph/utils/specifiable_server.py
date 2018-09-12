@@ -302,28 +302,29 @@ if get_backend() == "tf":
             """
             tf.logging.info('Starting specifiable server hooks from registry: {}'.format(SpecifiableServer.INSTANCES))
 
-            tp = multiprocessing.pool.ThreadPool()
-            tp.map(lambda server: server.start(), SpecifiableServer.INSTANCES)
+            #tp = multiprocessing.pool.ThreadPool()
+            #tp.map(lambda server: server.start(), SpecifiableServer.INSTANCES)
 
-            #for server in SpecifiableServer.INSTANCES:
-            #    server.start()
+            for server in SpecifiableServer.INSTANCES:
+                server.start()
 
-            tp.close()
-            tp.join()
+            #tp.close()
+            #tp.join()
             tf.logging.info('Started all server hooks.')
 
             # Erase all SpecifiableServers as we open the Session (after having started all of them),
             # so new ones can get registered.
-            self.specifiable_buffer = SpecifiableServer.INSTANCES[:]  # copy list
-            SpecifiableServer.INSTANCES.clear()
+            #self.specifiable_buffer = SpecifiableServer.INSTANCES[:]  # copy list
+            #SpecifiableServer.INSTANCES.clear()
 
         def end(self, session):
-            tp = multiprocessing.pool.ThreadPool()
-            tp.map(lambda server: server.stop(), self.specifiable_buffer)
-            tp.close()
-            tp.join()
+            #tp = multiprocessing.pool.ThreadPool()
+            #tp.map(lambda server: server.stop(), self.specifiable_buffer)
+            #tp.close()
+            #tp.join()
             #for server in self.specifiable_buffer:
-            #    server.stop()
+            for server in SpecifiableServer.INSTANCES:
+                server.stop()
 
 
 
