@@ -223,13 +223,17 @@ class SpecifiableServer(Specifiable):
             target=self.run, args=(self.class_, self.spec, self.in_pipe, self.shutdown_method)
         )
         self.process.start()
+        tf.logging.info("Started run process in specifiable server.")
 
         # Wait for the "ready" signal (which is None).
         result = self.out_pipe.recv()
+        tf.logging.info("Waiting for pipe ready signal.")
 
         # Check whether there were construction errors.
         if isinstance(result, Exception):
+            tf.logging.error("Received error: {}".format(result))
             raise result
+        tf.logging.info("Got ready signal, proceeding.")
 
     def stop(self):  #, session):
         try:
