@@ -28,6 +28,8 @@ from rlgraph.utils.util import force_list, dtype
 
 if get_backend() == "tf":
     import tensorflow as tf
+    #nest = tf.contrib.framework.nest
+    #from tensorflow.python.util import function_utils
 
 
 class SpecifiableServer(Specifiable):
@@ -98,6 +100,13 @@ class SpecifiableServer(Specifiable):
                 (running inside the SpecifiableServer).
         """
         def call(*args):
+            #kwargs = dict(zip(function_utils.fn_args(getattr(self.class_, method_name))[1:], args))
+            #specs = self.class_._tensor_specs(method_name, kwargs, self._constructor_kwargs)
+
+            #if specs is None:
+            #    raise ValueError(
+            #        'No tensor specifications were provided for: %s' % method_name)
+
             if isinstance(self.output_spaces, dict):
                 assert method_name in self.output_spaces, "ERROR: Method '{}' not specified in output_spaces: {}!".\
                     format(method_name, self.output_spaces)
@@ -109,6 +118,12 @@ class SpecifiableServer(Specifiable):
                 raise RLGraphError(
                     "No Space information received for method '{}:{}'".format(self.class_.__name__, method_name)
                 )
+
+            # TODO: build tensor-specs
+            tensor_specs = None  # self.class_._tensor_specs(method_name, kwargs, self._constructor_kwargs)
+
+            #flat_dtypes = nest.flatten(nest.map_structure(lambda s: s.dtype, specs))
+            #flat_shapes = nest.flatten(nest.map_structure(lambda s: s.shape, specs))
 
             dtypes = list()
             shapes = list()
@@ -127,16 +142,15 @@ class SpecifiableServer(Specifiable):
                     return_slots.append(i)
 
             if get_backend() == "tf":
+                #def quick_flatten_dict(dict_, start_slot):
+                #    ret = tuple(res for slot, (key, res) in enumerate(sorted(dict_.items())) if slot + start_slot in
+                #                return_slots)
+                #    # print("after quick flatten dict: returning {}".format(ret))
+                #    return ret
+
                 # This function will send the method-call-comment via the out-pipe to the remote (server) Specifiable
                 # object - all in-graph - and return the results to be used further by other graph ops.
                 def py_call(*args_):
-
-                    def quick_flatten_dict(dict_, start_slot):
-                        ret = tuple(res for slot, (key, res) in enumerate(sorted(dict_.items())) if slot+start_slot in
-                                    return_slots)
-                        #print("after quick flatten dict: returning {}".format(ret))
-                        return ret
-
                     try:
                         #print("Sending args '{}' through pipe!".format(args))
                         self.out_pipe.send(args_)
@@ -146,35 +160,42 @@ class SpecifiableServer(Specifiable):
                         # If an error occurred, it'll be passed back through the pipe.
                         if isinstance(result_, Exception):
                             raise result_
+                        elif result_ is not None:
+                            return result_
+
                         # Dict output. Flatten to tuple, then filter out the return
                         # values according to return_slots.
-                        elif isinstance(result_, dict):
-                            return quick_flatten_dict(result_, 0)
-                        # Regular result. Filter out the return values according to return_slots.
-                        elif isinstance(result_, tuple):
-                            #return tuple((np.asarray(r, dtype=np.float32, order="C") if type(r) == float else r) for slot, r in enumerate(result_) if slot in return_slots)
-                            #print("return slots={}".format(return_slots))
-                            ret = list()
-                            slot = 0
-                            for i, r in enumerate(result_):
-                                if slot in return_slots:
-                                    if not isinstance(r, dict):
-                                        #print("no dict, append {}".format(r))
-                                        ret.append(r)
-                                        slot += 1
-                                    else:
-                                        #print("QUICK flattening. {}".format(r))
-                                        flat_dict = quick_flatten_dict(r, slot)
-                                        ret.extend(flat_dict)
-                                        slot += len(flat_dict)
-                                else:
-                                    #print("skipped slot={}".format(slot))
-                                    slot += 1
-                            #print("returning {}".format(ret))
-                            return tuple(ret)
-                        else:
-                            #return np.asarray(result_, dtype=np.float32, order="C") if type(result_) == float else result_
-                            return result_
+                        #elif isinstance(result_, dict):
+                        #    return tuple(res for slot, (key, res) in enumerate(sorted(result_.items())) if slot in
+                        #                 return_slots) #quick_flatten_dict(result_, 0)
+                        ## Regular result. Filter out the return values according to return_slots.
+                        #elif isinstance(result_, tuple):
+                        #    #return tuple((np.asarray(r, dtype=np.float32, order="C") if type(r) == float else r) for slot, r in enumerate(result_) if slot in return_slots)
+                        #    #print("return slots={}".format(return_slots))
+                        #    ret = list()
+                        #    slot = 0
+                        #    for i, r in enumerate(result_):
+                        #        if slot in return_slots:
+                        #            if not isinstance(r, dict):
+                        #                #print("no dict, append {}".format(r))
+                        #                ret.append(r)
+                        #                slot += 1
+                        #            else:
+                        #                #print("QUICK flattening. {}".format(r))
+                        #                flat_dict = tuple(
+                        #                    res for s, (key, res) in enumerate(sorted(r.items())) if
+                        #                    s + slot in return_slots
+                        #                )  #quick_flatten_dict(r, slot)
+                        #                ret.extend(flat_dict)
+                        #                slot += len(flat_dict)
+                        #        else:
+                        #            #print("skipped slot={}".format(slot))
+                        #            slot += 1
+                        #    #print("returning {}".format(ret))
+                        #    return tuple(ret)
+                        #else:
+                        #    #return np.asarray(result_, dtype=np.float32, order="C") if type(result_) == float else result_
+                        #    return result_
                     except Exception as e:
                         if isinstance(e, IOError):
                             raise StopIteration()  # Clean exit.
