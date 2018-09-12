@@ -314,8 +314,8 @@ if get_backend() == "tf":
 
             # Erase all SpecifiableServers as we open the Session (after having started all of them),
             # so new ones can get registered.
-            self.specifiable_buffer = SpecifiableServer.INSTANCES[:]  # copy list
-            SpecifiableServer.INSTANCES.clear()
+            # self.specifiable_buffer = SpecifiableServer.INSTANCES[:]  # copy list
+            # SpecifiableServer.INSTANCES.clear()
 
         def end(self, session):
             tp = multiprocessing.pool.ThreadPool()
