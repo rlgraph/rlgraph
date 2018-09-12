@@ -99,7 +99,6 @@ class ReShape(PreprocessLayer):
 
     def get_preprocessed_space(self, space):
         ret = dict()
-        #print("input to get_preprocessed_space ({}): space={}".format(self.global_scope, space))
         for key, single_space in space.flatten().items():
             class_ = type(single_space)
 
@@ -144,7 +143,6 @@ class ReShape(PreprocessLayer):
                                   add_batch_rank=single_space.has_batch_rank,
                                   add_time_rank=single_space.has_time_rank, time_major=time_major)
         ret = unflatten_op(ret)
-        #print("output of get_preprocessed_space: space={}".format(ret))
         return ret
 
     def check_input_spaces(self, input_spaces, action_space=None):
@@ -206,7 +204,6 @@ class ReShape(PreprocessLayer):
         """
         assert self.unfold_time_rank is False or input_before_time_rank_folding is not None
 
-        # TODO pytorch
         if self.backend == "python" or get_backend() == "python":
             # Create a one-hot axis for the categories at the end?
             if self.num_categories.get(key, 0) > 1:
@@ -240,7 +237,6 @@ class ReShape(PreprocessLayer):
             # Create a one-hot axis for the categories at the end?
             if self.num_categories.get(key, 0) > 1:
                 preprocessing_inputs = pytorch_one_hot(preprocessing_inputs, depth=self.num_categories[key])
-
             new_shape = self.output_spaces[key].get_shape(
                 with_batch_rank=-1, with_time_rank=-1, time_major=self.time_major
             )
@@ -264,7 +260,14 @@ class ReShape(PreprocessLayer):
                         preprocessing_inputs = torch.transpose(preprocessing_inputs, (1, 0) + input_shape[2:])
                         new_shape = (input_shape[1], input_shape[0]) + new_shape[2:]
 
-            return torch.reshape(preprocessing_inputs, new_shape)
+            if self.flatten:
+                # TODO remove when PyTorch inference works for all ops:
+                # The problem here is the following: Input has dim e.g. [4, 256, 1, 1]
+                # -> If shape inference in spaces failed, output dim is not correct -> reshape will attempt
+                # something like reshaping to [256].
+                return preprocessing_inputs.squeeze()
+            else:
+                return torch.reshape(preprocessing_inputs, new_shape)
         elif get_backend() == "tf":
             # Create a one-hot axis for the categories at the end?
             if self.num_categories.get(key, 0) > 1:
