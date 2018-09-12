@@ -246,6 +246,7 @@ class SpecifiableServer(Specifiable):
     @staticmethod
     def run(class_, spec, in_pipe, shutdown_method=None):
         proxy_object = None
+        tf.logging.info("Attempting to init loop.")
         try:
             # Construct the Specifiable object.
             tf.logging.info("SpecifiableServer: Constructing Specifiable object. ...")
@@ -283,6 +284,8 @@ class SpecifiableServer(Specifiable):
         # If something happens during the construction and proxy run phase, pass the exception back through our pipe.
         except Exception as e:
             # Try to clean up.
+            tf.logging.info("Caught exception during init: {}".format(e))
+
             if proxy_object is not None and shutdown_method is not None and hasattr(proxy_object, shutdown_method):
                 try:
                     getattr(proxy_object, shutdown_method)()
