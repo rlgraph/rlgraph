@@ -126,17 +126,7 @@ class Stack(Component):
                                 result = graph_fn("", *force_tuple(result))
                             else:
                                 result = graph_fn(*force_tuple(result))
-                        elif get_backend() == "pytorch":
-                            if self.execution_mode == "define_by_run" and \
-                               sub_component.api_methods[components_api_method_name].add_auto_key_as_first_param:
-                                result = self_.call(
-                                    getattr(sub_component, components_api_method_name), "", *force_tuple(result)
-                                )
-                            else:
-                                result = self_.call(
-                                    getattr(sub_component, components_api_method_name), *force_tuple(result)
-                                )
-                        elif get_backend() == "tf":
+                        elif get_backend() == "tf" or get_backend() == "pytorch":
                             result = self_.call(
                                 getattr(sub_component, components_api_method_name), *force_tuple(result)
                             )
