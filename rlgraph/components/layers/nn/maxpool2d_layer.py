@@ -42,22 +42,30 @@ class MaxPool2DLayer(NNLayer):
         """
         super(MaxPool2DLayer, self).__init__(scope=kwargs.pop("scope", "maxpool-2d"), **kwargs)
 
-        self.pool_size = pool_size
+        self.pool_size = pool_size if isinstance(pool_size, (tuple, list)) else (pool_size, pool_size)
         self.strides = strides if isinstance(strides, (tuple, list)) else (strides, strides)
         self.padding = padding
         self.data_format = data_format
 
         # Create MaxPool layer right away as it doesn't have variables anyway.
-        if get_backend() == "tf":
-            self.layer = tf.layers.MaxPooling2D(
-                pool_size=self.pool_size,
-                strides=self.strides,
-                padding=self.padding,
-                data_format=self.data_format
-            )
-        elif get_backend() == "pytorch":
+        #if get_backend() == "tf":
+        #    #self.layer = tf.layers.MaxPooling2D(
+        #    self.layer = tf.nn.pool(
+        #        pool_size=self.pool_size,
+        #        strides=self.strides,
+        #        padding=self.padding,
+        #        data_format=self.data_format
+        #    )
+        if get_backend() == "pytorch":
             self.layer = nn.MaxPool2d(
                 kernel_size=self.pool_size,
                 stride=self.strides,
                 padding=self.padding
+            )
+
+    def _graph_fn_apply(self, *inputs):
+        if get_backend() == "tf":
+            return tf.nn.pool(
+                inputs[0], window_shape=self.pool_size, pooling_type="MAX", padding=self.padding.upper(),
+                strides=self.strides
             )
