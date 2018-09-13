@@ -18,23 +18,20 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
-import multiprocessing
 import numpy as np
 import time
 import unittest
 
-from rlgraph.agents.impala_agent import IMPALAAgent
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.neural_networks.policy import Policy
 from rlgraph.components.neural_networks.actor_component import ActorComponent
-from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork, SmallIMPALANetwork
+from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork
 from rlgraph.components.explorations import Exploration
-from rlgraph.environments import Environment, DeepmindLabEnv
-from rlgraph.execution.distributed_tf.impala.impala_worker import IMPALAWorker
+from rlgraph.environments import Environment
 from rlgraph.spaces import *
 from rlgraph.utils.ops import DataOpTuple
 from rlgraph.tests.component_test import ComponentTest
-from rlgraph.tests.test_util import recursive_assert_almost_equal, config_from_path
+from rlgraph.tests.test_util import recursive_assert_almost_equal
 from rlgraph.utils import root_logger
 
 
@@ -348,7 +345,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
                 )
             ),
             # Policy spec.
-            dict(neural_network=SmallIMPALANetwork(), action_space=action_space),
+            dict(neural_network=LargeIMPALANetwork(), action_space=action_space),
             # Exploration spec.
             Exploration(epsilon_spec=dict(decay_spec=dict(
                 type="linear_decay", from_=1.0, to_=0.1, start_timestep=0, num_timesteps=100)

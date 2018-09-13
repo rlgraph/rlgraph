@@ -124,9 +124,9 @@ class SpecifiableServer(Specifiable):
             #flat_dtypes = nest.flatten(nest.map_structure(lambda s: s.dtype, specs))
             #flat_shapes = nest.flatten(nest.map_structure(lambda s: s.shape, specs))
 
-            dtypes = list()
-            shapes = list()
-            return_slots = list()
+            dtypes = []
+            shapes = []
+            return_slots = []
             for i, space in enumerate(force_list(specs)):
                 assert not isinstance(space, ContainerSpace)
                 # Expecting an op (space 0).
