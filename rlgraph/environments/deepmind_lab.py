@@ -63,7 +63,7 @@ class DeepmindLabEnv(Environment):
         observations = force_list(observations)
         config = config or dict(width='96', height='72', fps='60')  # Default config.
         self.level = deepmind_lab.Lab(
-            level_id, observations, config=config, renderer=renderer, level_cache=level_cache
+            self.level_id, observations, config=config, renderer=renderer, level_cache=level_cache
         )
 
         # Dict mapping a discrete action (int) - we don't support continuous actions yet - into a
@@ -89,7 +89,10 @@ class DeepmindLabEnv(Environment):
 
     def reset_for_env_stepper(self):
         state = self.reset()
-        return [state[key] for key in self.state_space]
+        if isinstance(self.state_space, Dict):
+            return [state[key] for key in self.state_space]
+        else:
+            return state[next(iter(state))]
 
     def step(self, actions):
         # Do the actual step.
@@ -113,7 +116,10 @@ class DeepmindLabEnv(Environment):
             state = self.level.observations()
 
         # Return state, reward, terminal, and None (info).
-        return [state[key] for key in self.state_space] + [np.array(reward, dtype=np.float32), terminal]
+        if isinstance(self.state_space, Dict):
+            return [state[key] for key in self.state_space] + [np.array(reward, dtype=np.float32), terminal]
+        else:
+            return [state[next(iter(state))], np.array(reward, dtype=np.float32), terminal]
 
     @staticmethod
     def define_actions(actions_spec=None):

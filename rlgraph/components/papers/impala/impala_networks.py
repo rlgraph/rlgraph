@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components.neural_networks import NeuralNetwork
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.nn.conv2d_layer import Conv2DLayer
 from rlgraph.components.layers.nn.nn_layer import NNLayer
@@ -29,6 +28,7 @@ from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.layers.strings.string_to_hash_bucket import StringToHashBucket
 from rlgraph.components.layers.strings.embedding_lookup import EmbeddingLookup
 from rlgraph.components.neural_networks.stack import Stack
+from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.common.repeater_stack import RepeaterStack
 from rlgraph.components.common.container_splitter import ContainerSplitter
 

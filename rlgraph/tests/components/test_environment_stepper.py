@@ -22,11 +22,13 @@ import time
 import unittest
 
 from rlgraph.environments.environment import Environment
+from rlgraph.components.explorations.exploration import Exploration
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
+from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork
 from rlgraph.spaces import FloatBox, IntBox, Tuple
 from rlgraph.tests import ComponentTest
-from rlgraph.tests.test_util import config_from_path
+from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 from rlgraph.utils.ops import DataOpTuple
 
 
@@ -34,6 +36,9 @@ class TestEnvironmentStepper(unittest.TestCase):
     """
     Tests for the EnvironmentStepper Component using a simple RandomEnv.
     """
+    internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True)
+    internal_states_space_test_lstm = Tuple(FloatBox(shape=(3,)), FloatBox(shape=(3,)), add_batch_rank=True)
+
     def test_environment_stepper_on_random_env(self):
         state_space = FloatBox(shape=(1,))
         action_space = IntBox(2)
@@ -309,4 +314,99 @@ class TestEnvironmentStepper(unittest.TestCase):
                 s = dummy_env.reset()
         time_end = time.monotonic()
         print("Done running {} steps in bare-metal env in {}sec.".format(time_steps, time_end - time_start))
+        test.terminate()
+
+    def test_environment_stepper_on_deepmind_lab(self):
+        env_spec = dict(
+            type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED"], frameskip=4
+        )
+        dummy_env = Environment.from_spec(env_spec)
+        state_space = dummy_env.state_space
+        action_space = dummy_env.action_space
+        actor_component = ActorComponent(
+            # Preprocessor spec (only divide and flatten the image).
+            [
+                {
+                    "type": "divide",
+                    "divisor": 255
+                },
+                {
+                    "type": "reshape",
+                    "flatten": True
+                }
+            ],
+            # Policy spec.
+            dict(neural_network="../configs/test_lstm_nn.json", action_space=action_space),
+            # Exploration spec.
+            Exploration(epsilon_spec=dict(decay_spec=dict(
+                type="linear_decay", from_=1.0, to_=0.1, start_timestep=0, num_timesteps=100)
+            ))
+        )
+        environment_stepper = EnvironmentStepper(
+            environment_spec=env_spec,
+            actor_component_spec=actor_component,
+            state_space=state_space,
+            reward_space="float32",
+            internal_states_space=self.internal_states_space_test_lstm,
+            num_steps=100,
+            # Add both prev-action and -reward into the state sent through the network.
+            #add_previous_action=True,
+            #add_previous_reward=True,
+            #add_action_probs=True,
+            #action_probs_space=self.action_probs_space
+        )
+
+        test = ComponentTest(
+            component=environment_stepper,
+            action_space=action_space,
+        )
+        # Reset the stepper.
+        test.test("reset")
+
+        # Step n times through the Env and collect results.
+        # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
+        # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
+        time_start = time.monotonic()
+        out = test.test("step")
+        time_end = time.monotonic()
+        print("Done running {} steps in Deepmind Lab env using IMPALA network in {}sec.".format(
+            environment_stepper.num_steps, time_end - time_start)
+        )
+
+        # Check types of outputs.
+        self.assertTrue(out[0] is None)  # the step op (no_op).
+        self.assertTrue(isinstance(out[1], DataOpTuple))  # the step results as a tuple (see below)
+
+        # Check types of single data.
+        self.assertTrue(out[1][0].dtype == np.float32)
+        self.assertTrue(out[1][0].min() >= 0.0)  # make sure we have pixels / 255
+        self.assertTrue(out[1][0].max() <= 1.0)
+        self.assertTrue(out[1][1].dtype == np.int32)  # actions
+        self.assertTrue(out[1][2].dtype == np.float32)  # rewards
+        self.assertTrue(out[1][3].dtype == np.float32)  # episode return
+        self.assertTrue(out[1][4].dtype == np.bool_)  # next-state is terminal?
+        self.assertTrue(out[1][5].dtype == np.uint8)  # next state (raw, not preprocessed)
+        self.assertTrue(out[1][5].min() >= 0)  # make sure we have pixels
+        self.assertTrue(out[1][5].max() <= 255)
+        # action probs (test whether sum to one).
+        #self.assertTrue(out[1][6].dtype == np.float32)
+        #self.assertTrue(out[1][6].min() >= 0.0)
+        #self.assertTrue(out[1][6].max() <= 1.0)
+        #recursive_assert_almost_equal(out[1][6].sum(axis=-1, keepdims=False),
+        #                              np.ones(shape=(environment_stepper.num_steps,)), decimals=4)
+        # internal states (c- and h-state)
+        self.assertTrue(out[1][6][0].dtype == np.float32)
+        self.assertTrue(out[1][6][1].dtype == np.float32)
+        self.assertTrue(out[1][6][0].shape == (environment_stepper.num_steps, 3))
+        self.assertTrue(out[1][6][1].shape == (environment_stepper.num_steps, 3))
+
+        # Check whether episode returns match single rewards (including terminal signals).
+        episode_returns = 0.0
+        for i in range(environment_stepper.num_steps):
+            episode_returns += out[1][2][i]
+            self.assertAlmostEqual(episode_returns, out[1][3][i])
+            # Terminal: Reset for next step.
+            if out[1][4][i] is np.bool_(True):
+                episode_returns = 0.0
+
         test.terminate()

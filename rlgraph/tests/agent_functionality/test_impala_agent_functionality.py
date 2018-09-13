@@ -27,7 +27,7 @@ from rlgraph.agents.impala_agent import IMPALAAgent
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.neural_networks.policy import Policy
 from rlgraph.components.neural_networks.actor_component import ActorComponent
-from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork
+from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork, SmallIMPALANetwork
 from rlgraph.components.explorations import Exploration
 from rlgraph.environments import Environment, DeepmindLabEnv
 from rlgraph.execution.distributed_tf.impala.impala_worker import IMPALAWorker
@@ -326,6 +326,54 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
                 episode_returns = 0.0
 
         test.terminate()
+
+    def test_to_find_out_what_breaks_specifiable_server_start_via_thread_pools(self):
+        env_spec = dict(
+            type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
+            frameskip=4
+        )
+        dummy_env = Environment.from_spec(env_spec)
+        state_space = dummy_env.state_space
+        action_space = dummy_env.action_space
+        actor_component = ActorComponent(
+            # Preprocessor spec (only for image and prev-action channel).
+            dict(
+                type="dict-preprocessor-stack",
+                preprocessors=dict(
+                    # The images from the env  are divided by 255.
+                    RGB_INTERLEAVED=[dict(type="divide", divisor=255)],
+                    # The prev. action/reward from the env must be flattened/bumped-up-to-(1,).
+                    previous_action=[dict(type="reshape", flatten=True, flatten_categories=action_space.num_categories)],
+                    previous_reward=[dict(type="reshape", new_shape=(1,)), dict(type="convert_type", to_dtype="float32")],
+                )
+            ),
+            # Policy spec.
+            dict(neural_network=SmallIMPALANetwork(), action_space=action_space),
+            # Exploration spec.
+            Exploration(epsilon_spec=dict(decay_spec=dict(
+                type="linear_decay", from_=1.0, to_=0.1, start_timestep=0, num_timesteps=100)
+            ))
+        )
+        environment_stepper = EnvironmentStepper(
+            environment_spec=env_spec,
+            actor_component_spec=actor_component,
+            state_space=state_space,
+            reward_space="float32",
+            internal_states_space=self.internal_states_space,
+            num_steps=100,
+            # Add both prev-action and -reward into the state sent through the network.
+            add_previous_action=True,
+            add_previous_reward=True,
+            add_action_probs=True,
+            action_probs_space=self.action_probs_space
+        )
+
+        test = ComponentTest(
+            component=environment_stepper,
+            action_space=action_space,
+        )
+        # Reset the stepper.
+        test.test("reset")
 
     #def test_isolated_impala_learner_agent_functionality(self):
     #    """
