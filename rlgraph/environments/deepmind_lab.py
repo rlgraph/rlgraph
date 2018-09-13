@@ -23,7 +23,7 @@ import deepmind_lab
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.environments.environment import Environment
 from rlgraph.spaces import *
-from rlgraph.utils.util import force_list, dtype
+from rlgraph.utils.util import force_list
 
 
 class DeepmindLabEnv(Environment):

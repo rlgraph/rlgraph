@@ -28,8 +28,6 @@ from rlgraph.utils.util import force_list, dtype
 
 if get_backend() == "tf":
     import tensorflow as tf
-    #nest = tf.contrib.framework.nest
-    #from tensorflow.python.util import function_utils
 
 
 class SpecifiableServer(Specifiable):
