@@ -52,6 +52,9 @@ class RandomEnv(Environment):
     def reset(self):
         return self.step()[0]  # 0=state
 
+    def reset_for_env_stepper(self):
+        return self.reset()
+
     def step(self, actions=None):
         if actions is not None:
             assert self.action_space.contains(actions), \

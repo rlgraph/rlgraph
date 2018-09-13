@@ -196,7 +196,7 @@ class EnvironmentStepper(Component):
             SingleDataOp: The assign op that stores the state after the Env reset in `last_state` variable.
         """
         if get_backend() == "tf":
-            state_after_reset = self.environment_server.proxy.reset_for_env_stepper()
+            state_after_reset = self.environment_server.reset_for_env_stepper()
             # Reset current state (support ContainerSpaces as well) via our variable(s)' initializer.
             assigns = [self.assign_variable(var, s) for var, s in zip(
                     self.current_state.values(), force_tuple(state_after_reset)
@@ -321,7 +321,7 @@ class EnvironmentStepper(Component):
                 a_no_extra_ranks = a[0, 0] if self.has_rnn is True else a[0]
                 # Step through the Env and collect next state (tuple!), reward and terminal as single values
                 # (not batched).
-                out = self.environment_server.proxy.step_for_env_stepper(a_no_extra_ranks)
+                out = self.environment_server.step_for_env_stepper(a_no_extra_ranks)
                 s_, r, t_ = out[:-2], out[-2], out[-1]
                 r = tf.cast(r, dtype="float32")
 
@@ -410,12 +410,12 @@ class EnvironmentStepper(Component):
                 step_results[slot] = DataOpTuple(internal_states_wo_batch)
 
             # TODO set parallel scans 10 -> 1, check if this removes need for sync.
-            # with tf.control_dependencies(control_inputs=assigns):
-            #     step_op = tf.no_op()
+            with tf.control_dependencies(control_inputs=assigns):
+                step_op = tf.no_op()
 
             # Let the auto-infer system know, what time rank we have.
             step_results = DataOpTuple(step_results)
             for o in flatten_op(step_results).values():
                 o._time_rank = 0  # which position in the shape is the time-rank?
 
-            return tf.no_op(), step_results
+            return step_op, step_results

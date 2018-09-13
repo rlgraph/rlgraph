@@ -46,7 +46,7 @@ else:
 BACKEND = "tf"
 
 # Default distributed backend is distributed ray.
-DISTRIBUTED_BACKEND = "ray"
+DISTRIBUTED_BACKEND = "distributed_tf"
 
 distributed_compatible_backends = dict(
     tf=["distributed_tf", "ray", "horovod"],
@@ -55,7 +55,7 @@ distributed_compatible_backends = dict(
 
 
 config_path = os.path.expanduser(os.path.join(rl_graph_dir, 'rlgraph.json'))
-if os.path.exists(config_path):
+if False:  #os.path.exists(config_path):
     try:
         with open(config_path) as f:
             config = json.load(f)

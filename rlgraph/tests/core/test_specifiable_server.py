@@ -36,8 +36,6 @@ class TestSpecifiableServer(unittest.TestCase):
         state_space = FloatBox()
         env_spec = dict(type="random_env", state_space=state_space, action_space=action_space, deterministic=True)
         # Create the server, but don't start it yet. This will be done fully automatically by the tf-Session.
-        #pyprocess = PyProcess(Environment, env_spec, dict(step=[state_space, float, bool, None]),
-        #                                       "terminate")
         specifiable_server = SpecifiableServer(Environment, env_spec, dict(
             step_for_env_stepper=[state_space, float, bool]
         ), "terminate")

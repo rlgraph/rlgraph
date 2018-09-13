@@ -85,7 +85,7 @@ class TestEnvironmentStepper(unittest.TestCase):
             np.array([False, False, False]),
             np.array([[0.00394827], [0.61252606], [0.91777414]]),  # s' (raw)
         ))
-        test.test("step", expected_outputs=expected)
+        out = test.test("step", expected_outputs=expected)
 
         # Make sure we close the session (to shut down the Env on the server).
         test.terminate()
