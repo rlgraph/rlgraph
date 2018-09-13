@@ -19,10 +19,11 @@ from __future__ import print_function
 
 import multiprocessing
 
-from rlgraph.utils.rlgraph_error import RLGraphError
+#from rlgraph.environments.deepmind_lab import DeepmindLabEnv
 from rlgraph import get_backend
 from rlgraph.spaces.space import Space
 from rlgraph.spaces.containers import ContainerSpace
+from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.util import force_list, dtype
 
@@ -221,17 +222,17 @@ class SpecifiableServer(Specifiable):
             target=self.run, args=(self.class_, self.spec, self.in_pipe, self.shutdown_method)
         )
         self.process.start()
-        tf.logging.info("Started run process in specifiable server.")
+        #tf.logging.info("Started run process in specifiable server.")
 
         # Wait for the "ready" signal (which is None).
+        #tf.logging.info("Waiting for pipe ready signal ...")
         result = self.out_pipe.recv()
-        tf.logging.info("Waiting for pipe ready signal.")
 
         # Check whether there were construction errors.
         if isinstance(result, Exception):
-            tf.logging.error("Received error: {}".format(result))
+            #tf.logging.error("Received error: {}".format(result))
             raise result
-        tf.logging.info("Got ready signal, proceeding.")
+        #tf.logging.info("Got ready signal, proceeding.")
 
     def stop(self):  #, session):
         try:
@@ -243,17 +244,22 @@ class SpecifiableServer(Specifiable):
 
     def run(self, class_, spec, in_pipe, shutdown_method=None):
         proxy_object = None
-        tf.logging.info("Attempting to init loop.")
+        #tf.logging.info("Attempting to init loop.")
         try:
+
             # Construct the Specifiable object.
-            tf.logging.info("SpecifiableServer: Constructing Specifiable object. ...")
+            #tf.logging.info("SpecifiableServer: Constructing Specifiable object. ...")
+
+            # TODO: Remove this hardcoding. Just for testing, why threadpools do not manage to bring up env-processes.
+            #proxy_object = DeepmindLabEnv("seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4)
+
             proxy_object = class_.from_spec(spec)
-            tf.logging.info("SpecifiableServer: Done constructing Specifiable object '{}'. Sending 'ready' signal "
-                            "...".format(proxy_object))
+            #tf.logging.info("SpecifiableServer: Done constructing Specifiable object '{}'. Sending 'ready' signal "
+            #                "...".format(proxy_object))
 
             # Send the ready signal (no errors).
             in_pipe.send(None)
-            tf.logging.info("Sent init signal to pipe, start main server loop.")
+            #tf.logging.info("Sent init signal to pipe, start main server loop.")
 
             # Start a server-loop waiting for method call requests.
             while True:
@@ -263,9 +269,9 @@ class SpecifiableServer(Specifiable):
                 if command is None:
                     # Give the proxy_object a chance to clean up via some `shutdown_method`.
                     if shutdown_method is not None and hasattr(proxy_object, shutdown_method):
-                        tf.logging.info("SpecifiableServer: Calling shutdown method '{}'. ...".format(shutdown_method))
+                        #tf.logging.info("SpecifiableServer: Calling shutdown method '{}'. ...".format(shutdown_method))
                         getattr(proxy_object, shutdown_method)()
-                    tf.logging.info("SpecifiableServer: Closing pipe.")
+                    #tf.logging.info("SpecifiableServer: Closing pipe.")
                     in_pipe.close()
                     return
 
@@ -281,7 +287,7 @@ class SpecifiableServer(Specifiable):
         # If something happens during the construction and proxy run phase, pass the exception back through our pipe.
         except Exception as e:
             # Try to clean up.
-            tf.logging.info("Caught exception during init: {}".format(e))
+            #tf.logging.info("Caught exception during init: {}".format(e))
 
             if proxy_object is not None and shutdown_method is not None and hasattr(proxy_object, shutdown_method):
                 try:
@@ -290,6 +296,34 @@ class SpecifiableServer(Specifiable):
                     pass
             # Send the exception back so the main process knows what's going on.
             in_pipe.send(e)
+
+
+# TODO: this may be a necessary indirection
+class PyProcess(object):
+    INSTANCES = list()  #COLLECTION = 'py_process_processes'
+
+    def __init__(self, class_, spec, output_spaces, shutdown_method):  # *constructor_args, **constructor_kwargs):
+        self.class_ = class_
+        #self._constructor_kwargs = dict(
+        #    zip(function_utils.fn_args(type_.__init__)[1:], constructor_args))
+        #self._constructor_kwargs.update(constructor_kwargs)
+
+        #tf.add_to_collection(PyProcess.COLLECTION, self)
+
+        self._proxy = SpecifiableServer(self.class_, spec, output_spaces, shutdown_method)  # self._constructor_kwargs)
+        # Register this object with the class.
+        self.INSTANCES.append(self)
+
+    @property
+    def proxy(self):
+        """A proxy that creates TensorFlow operations for each method call."""
+        return self._proxy
+
+    def close(self, session):
+        self._proxy.close(session)
+
+    def start(self):
+        self._proxy.start()
 
 
 if get_backend() == "tf":
@@ -305,17 +339,17 @@ if get_backend() == "tf":
             """
             Starts all registered RLGraphProxyProcess processes.
             """
-            tf.logging.info('Starting specifiable server hooks from registry: {}'.format(SpecifiableServer.INSTANCES))
+            #tf.logging.info('Starting specifiable server hooks from registry: {}'.format(SpecifiableServer.INSTANCES))
 
             tp = multiprocessing.pool.ThreadPool()
-            tp.map(lambda server: server.start(), SpecifiableServer.INSTANCES)
+            tp.map(lambda server: server.start(), PyProcess.INSTANCES)
 
             #for server in SpecifiableServer.INSTANCES:
             #    server.start()
 
             tp.close()
             tp.join()
-            tf.logging.info('Started all server hooks.')
+            #tf.logging.info('Started all server hooks.')
 
             # Erase all SpecifiableServers as we open the Session (after having started all of them),
             # so new ones can get registered.
@@ -325,11 +359,8 @@ if get_backend() == "tf":
         def end(self, session):
             tp = multiprocessing.pool.ThreadPool()
             #tp.map(lambda server: server.stop(), self.specifiable_buffer)
-            tp.map(lambda server: server.stop(), SpecifiableServer.INSTANCES)
+            tp.map(lambda server: server.stop(), PyProcess.INSTANCES)
             tp.close()
             tp.join()
-            #for server in self.specifiable_buffer:
+            #for server in SpecifiableServer.INSTANCES:
             #    server.stop()
-
-
-

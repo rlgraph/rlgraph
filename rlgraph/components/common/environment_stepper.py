@@ -25,7 +25,7 @@ from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.environments.environment import Environment
 from rlgraph.utils.ops import DataOpTuple, DataOpDict, flatten_op, unflatten_op
 from rlgraph.spaces import Space, Dict
-from rlgraph.utils.specifiable_server import SpecifiableServer
+from rlgraph.utils.specifiable_server import SpecifiableServer, PyProcess
 from rlgraph.utils.util import force_tuple
 
 if get_backend() == "tf":
@@ -135,7 +135,7 @@ class EnvironmentStepper(Component):
         self.action_probs_space = action_probs_space
 
         self.environment_spec = environment_spec
-        self.environment_server = SpecifiableServer(
+        self.environment_server = PyProcess(
             class_=Environment,
             spec=environment_spec,
             output_spaces=dict(
@@ -196,7 +196,7 @@ class EnvironmentStepper(Component):
             SingleDataOp: The assign op that stores the state after the Env reset in `last_state` variable.
         """
         if get_backend() == "tf":
-            state_after_reset = self.environment_server.reset_for_env_stepper()
+            state_after_reset = self.environment_server.proxy.reset_for_env_stepper()
             # Reset current state (support ContainerSpaces as well) via our variable(s)' initializer.
             assigns = [self.assign_variable(var, s) for var, s in zip(
                     self.current_state.values(), force_tuple(state_after_reset)
@@ -321,7 +321,7 @@ class EnvironmentStepper(Component):
                 a_no_extra_ranks = a[0, 0] if self.has_rnn is True else a[0]
                 # Step through the Env and collect next state (tuple!), reward and terminal as single values
                 # (not batched).
-                out = self.environment_server.step_for_env_stepper(a_no_extra_ranks)
+                out = self.environment_server.proxy.step_for_env_stepper(a_no_extra_ranks)
                 s_, r, t_ = out[:-2], out[-2], out[-1]
                 r = tf.cast(r, dtype="float32")
 
