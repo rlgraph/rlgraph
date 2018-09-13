@@ -257,10 +257,24 @@ class Component(Specifiable):
             method_owner.graph_builder = self.graph_builder
 
         return_ops = kwargs.pop("return_ops", False)
-
         # Direct evaluation of function.
         if self.execution_mode == "define_by_run":
-            return method(*params)
+            # print("calling in define by run mode component {} with method {}".format(self, method))
+            # for p in params:
+            #     print("define by run param type: {}".format(type(p)))
+            #     #print("param val = ", p)
+            # print("kwargs = {}".format(kwargs))
+            #
+           # print("owner api methods = {}".format(method_owner.api_methods))
+
+            # Name might not match, e.g. _graph_fn_apply vs apply.
+            #  Check with owner if extra args needed.
+            if method.__name__ in method_owner.api_methods and \
+                    method_owner.api_methods[method.__name__].add_auto_key_as_first_param:
+                # Add auto key.
+                return method("", *params)
+            else:
+                return method(*params)
         elif self.execution_mode == "static_graph":
             # Graph construction.
 
@@ -675,8 +689,9 @@ class Component(Specifiable):
         """
         # Store the summary_regexp to use.
         self.summary_regexp = summary_regexp
-
+        # print("Completing with input spaces api arg = ", input_spaces)
         input_spaces = input_spaces or self.api_method_inputs
+        # print("Completing with input spaces after lookup = ", input_spaces)
 
         # Allow the Component to check its input Space.
         self.check_input_spaces(input_spaces, action_space)

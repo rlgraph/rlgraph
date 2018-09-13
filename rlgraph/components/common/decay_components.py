@@ -122,10 +122,10 @@ class DecayComponent(Component):
                 )
         elif get_backend() == "pytorch":
             smaller_than_start = time_step <= self.start_timestep
-
+            if time_step.dim() == 0:
+                time_step = time_step.unsqueeze(-1)
             shape = time_step.shape
             # time_step comes in as a time-sequence of time-steps.
-
             # TODO tile shape is confusing -> num tiles should be shape[0] not shape?
             if shape[0] > 0:
                 past_decay = torch.where(
