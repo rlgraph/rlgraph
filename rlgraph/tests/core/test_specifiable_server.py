@@ -32,18 +32,19 @@ class TestSpecifiableServer(unittest.TestCase):
     Tests a SpecifiableServer with a simple environment and make some calls to it to see how it reacts.
     """
     def test_specifiable_server(self):
-        return
-
         action_space = IntBox(2)
         state_space = FloatBox()
         env_spec = dict(type="random_env", state_space=state_space, action_space=action_space, deterministic=True)
         # Create the server, but don't start it yet. This will be done fully automatically by the tf-Session.
-        specifiable_server = SpecifiableServer(Environment, env_spec, dict(step=[state_space, float, bool, None]),
-                                               "terminate")
+        #pyprocess = PyProcess(Environment, env_spec, dict(step=[state_space, float, bool, None]),
+        #                                       "terminate")
+        specifiable_server = SpecifiableServer(Environment, env_spec, dict(
+            step_for_env_stepper=[state_space, float, bool]
+        ), "terminate")
 
         # ret are ops now in the graph.
-        ret1 = specifiable_server.step(action_space.sample())
-        ret2 = specifiable_server.step(action_space.sample())
+        ret1 = specifiable_server.step_for_env_stepper(action_space.sample())
+        ret2 = specifiable_server.step_for_env_stepper(action_space.sample())
 
         # Check all 3 outputs of the Env step (next state, reward, terminal).
         self.assertEqual(ret1[0].shape, ())

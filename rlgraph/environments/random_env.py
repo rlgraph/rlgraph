@@ -59,5 +59,9 @@ class RandomEnv(Environment):
         return self.state_space.sample(), self.reward_space.sample(), \
             np.random.choice([True, False], p=[self.terminal_prob, 1.0 - self.terminal_prob]), None
 
+    def step_for_env_stepper(self, actions=None):
+        ret = self.step(actions)
+        return ret[0], ret[1], ret[2]
+
     def __str__(self):
         return "RandomEnv()"

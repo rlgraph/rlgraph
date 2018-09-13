@@ -25,7 +25,7 @@ from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.environments.environment import Environment
 from rlgraph.utils.ops import DataOpTuple, DataOpDict, flatten_op, unflatten_op
 from rlgraph.spaces import Space, Dict
-from rlgraph.utils.specifiable_server import SpecifiableServer, PyProcess
+from rlgraph.utils.specifiable_server import SpecifiableServer
 from rlgraph.utils.util import force_tuple
 
 if get_backend() == "tf":
@@ -135,7 +135,7 @@ class EnvironmentStepper(Component):
         self.action_probs_space = action_probs_space
 
         self.environment_spec = environment_spec
-        self.environment_server = PyProcess(
+        self.environment_server = SpecifiableServer(
             class_=Environment,
             spec=environment_spec,
             output_spaces=dict(

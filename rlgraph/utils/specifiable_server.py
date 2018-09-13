@@ -234,7 +234,7 @@ class SpecifiableServer(Specifiable):
             raise result
         #tf.logging.info("Got ready signal, proceeding.")
 
-    def stop(self):  #, session):
+    def stop_server(self):  #, session):
         try:
             self.out_pipe.send(None)
             self.out_pipe.close()
@@ -298,32 +298,32 @@ class SpecifiableServer(Specifiable):
             in_pipe.send(e)
 
 
-# TODO: this may be a necessary indirection
-class PyProcess(object):
-    INSTANCES = list()  #COLLECTION = 'py_process_processes'
+## TODO: this may be a necessary indirection
+#class PyProcess(object):
+#    INSTANCES = list()  #COLLECTION = 'py_process_processes'
 
-    def __init__(self, class_, spec, output_spaces, shutdown_method):  # *constructor_args, **constructor_kwargs):
-        self.class_ = class_
-        #self._constructor_kwargs = dict(
-        #    zip(function_utils.fn_args(type_.__init__)[1:], constructor_args))
-        #self._constructor_kwargs.update(constructor_kwargs)
+#    def __init__(self, class_, spec, output_spaces, shutdown_method):  # *constructor_args, **constructor_kwargs):
+#        self.class_ = class_
+#        #self._constructor_kwargs = dict(
+#        #    zip(function_utils.fn_args(type_.__init__)[1:], constructor_args))
+#        #self._constructor_kwargs.update(constructor_kwargs)
 
-        #tf.add_to_collection(PyProcess.COLLECTION, self)
+#        #tf.add_to_collection(PyProcess.COLLECTION, self)
 
-        self._proxy = SpecifiableServer(self.class_, spec, output_spaces, shutdown_method)  # self._constructor_kwargs)
-        # Register this object with the class.
-        self.INSTANCES.append(self)
+#        self._proxy = SpecifiableServer(self.class_, spec, output_spaces, shutdown_method)  # self._constructor_kwargs)
+#        # Register this object with the class.
+#        self.INSTANCES.append(self)
 
-    @property
-    def proxy(self):
-        """A proxy that creates TensorFlow operations for each method call."""
-        return self._proxy
+#    @property
+#    def proxy(self):
+#        """A proxy that creates TensorFlow operations for each method call."""
+#        return self._proxy
 
-    def close(self, session):
-        self._proxy.close(session)
+#    def close(self, session):
+#        self._proxy.close(session)
 
-    def start(self):
-        self._proxy.start_server()
+#    def start(self):
+#        self._proxy.start_server()
 
 
 if get_backend() == "tf":
@@ -341,15 +341,15 @@ if get_backend() == "tf":
             """
             #tf.logging.info('Starting specifiable server hooks from registry: {}'.format(SpecifiableServer.INSTANCES))
 
-            #tp = multiprocessing.pool.ThreadPool()
-            #tp.map(lambda server: server.start(), PyProcess.INSTANCES)
+            tp = multiprocessing.pool.ThreadPool()
+            tp.map(lambda server: server.start_server(), SpecifiableServer.INSTANCES)
 
-            for server in PyProcess.INSTANCES:
-                server.start()
+            #for server in PyProcess.INSTANCES:
+            #    server.start()
 
-            #tp.close()
-            #tp.join()
-            #tf.logging.info('Started all server hooks.')
+            tp.close()
+            tp.join()
+            tf.logging.info('Started all server hooks.')
 
             # Erase all SpecifiableServers as we open the Session (after having started all of them),
             # so new ones can get registered.
@@ -357,10 +357,10 @@ if get_backend() == "tf":
             #SpecifiableServer.INSTANCES.clear()
 
         def end(self, session):
-            #tp = multiprocessing.pool.ThreadPool()
-            ##tp.map(lambda server: server.stop(), self.specifiable_buffer)
-            #tp.map(lambda server: server.stop(), PyProcess.INSTANCES)
-            #tp.close()
-            #tp.join()
-            for server in PyProcess.INSTANCES:
-                server.stop()
+            tp = multiprocessing.pool.ThreadPool()
+            #tp.map(lambda server: server.stop(), self.specifiable_buffer)
+            tp.map(lambda server: server.stop_server(), SpecifiableServer.INSTANCES)
+            tp.close()
+            tp.join()
+            #for server in PyProcess.INSTANCES:
+            #    server.stop()
