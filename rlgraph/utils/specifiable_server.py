@@ -221,13 +221,17 @@ class SpecifiableServer(Specifiable):
             target=self.run, args=(self.class_, self.spec, self.in_pipe, self.shutdown_method)
         )
         self.process.start()
+        tf.logging.info("Started run process in specifiable server.")
 
         # Wait for the "ready" signal (which is None).
         result = self.out_pipe.recv()
+        tf.logging.info("Waiting for pipe ready signal.")
 
         # Check whether there were construction errors.
         if isinstance(result, Exception):
+            tf.logging.error("Received error: {}".format(result))
             raise result
+        tf.logging.info("Got ready signal, proceeding.")
 
     def stop(self):  #, session):
         try:
@@ -237,18 +241,19 @@ class SpecifiableServer(Specifiable):
             pass
         self.process.join()
 
-    @staticmethod
-    def run(class_, spec, in_pipe, shutdown_method=None):
+    def run(self, class_, spec, in_pipe, shutdown_method=None):
         proxy_object = None
+        tf.logging.info("Attempting to init loop.")
         try:
             # Construct the Specifiable object.
-            print("SpecifiableServer: Constructing Specifiable object. ...")
+            tf.logging.info("SpecifiableServer: Constructing Specifiable object. ...")
             proxy_object = class_.from_spec(spec)
-            print("SpecifiableServer: Done constructing Specifiable object '{}'. Sending 'ready' signal "
-                  "...".format(proxy_object))
+            tf.logging.info("SpecifiableServer: Done constructing Specifiable object '{}'. Sending 'ready' signal "
+                            "...".format(proxy_object))
 
             # Send the ready signal (no errors).
             in_pipe.send(None)
+            tf.logging.info("Sent init signal to pipe, start main server loop.")
 
             # Start a server-loop waiting for method call requests.
             while True:
@@ -258,9 +263,9 @@ class SpecifiableServer(Specifiable):
                 if command is None:
                     # Give the proxy_object a chance to clean up via some `shutdown_method`.
                     if shutdown_method is not None and hasattr(proxy_object, shutdown_method):
-                        print("SpecifiableServer: Calling shutdown method '{}'. ...".format(shutdown_method))
+                        tf.logging.info("SpecifiableServer: Calling shutdown method '{}'. ...".format(shutdown_method))
                         getattr(proxy_object, shutdown_method)()
-                    print("SpecifiableServer: Closing pipe.")
+                    tf.logging.info("SpecifiableServer: Closing pipe.")
                     in_pipe.close()
                     return
 
@@ -276,6 +281,8 @@ class SpecifiableServer(Specifiable):
         # If something happens during the construction and proxy run phase, pass the exception back through our pipe.
         except Exception as e:
             # Try to clean up.
+            tf.logging.info("Caught exception during init: {}".format(e))
+
             if proxy_object is not None and shutdown_method is not None and hasattr(proxy_object, shutdown_method):
                 try:
                     getattr(proxy_object, shutdown_method)()
