@@ -214,12 +214,12 @@ class SpecifiableServer(Specifiable):
 
         return call
 
-    def start(self):
+    def start_server(self):
         # Create the in- and out- pipes to communicate with the proxy-Specifiable.
         self.out_pipe, self.in_pipe = multiprocessing.Pipe()
         # Create and start the process passing it the spec to construct the desired Specifiable object..
         self.process = multiprocessing.Process(
-            target=self.run, args=(self.class_, self.spec, self.in_pipe, self.shutdown_method)
+            target=self.run_server, args=(self.class_, self.spec, self.in_pipe, self.shutdown_method)
         )
         self.process.start()
         #tf.logging.info("Started run process in specifiable server.")
@@ -242,7 +242,7 @@ class SpecifiableServer(Specifiable):
             pass
         self.process.join()
 
-    def run(self, class_, spec, in_pipe, shutdown_method=None):
+    def run_server(self, class_, spec, in_pipe, shutdown_method=None):
         proxy_object = None
         #tf.logging.info("Attempting to init loop.")
         try:
@@ -323,7 +323,7 @@ class PyProcess(object):
         self._proxy.close(session)
 
     def start(self):
-        self._proxy.start()
+        self._proxy.start_server()
 
 
 if get_backend() == "tf":
@@ -339,7 +339,7 @@ if get_backend() == "tf":
             """
             Starts all registered RLGraphProxyProcess processes.
             """
-            #tf.logging.info('Starting specifiable server hooks from registry: {}'.format(SpecifiableServer.INSTANCES))
+            tf.logging.info('Starting specifiable server hooks from registry: {}'.format(SpecifiableServer.INSTANCES))
 
             tp = multiprocessing.pool.ThreadPool()
             tp.map(lambda server: server.start(), PyProcess.INSTANCES)
@@ -349,7 +349,7 @@ if get_backend() == "tf":
 
             tp.close()
             tp.join()
-            #tf.logging.info('Started all server hooks.')
+            tf.logging.info('Started all server hooks.')
 
             # Erase all SpecifiableServers as we open the Session (after having started all of them),
             # so new ones can get registered.
