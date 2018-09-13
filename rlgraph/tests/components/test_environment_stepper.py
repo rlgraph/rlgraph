@@ -85,7 +85,7 @@ class TestEnvironmentStepper(unittest.TestCase):
             np.array([False, False, False]),
             np.array([[0.00394827], [0.61252606], [0.91777414]]),  # s' (raw)
         ))
-        test.test("step", expected_outputs=expected)
+        out = test.test("step", expected_outputs=expected)
 
         # Make sure we close the session (to shut down the Env on the server).
         test.terminate()
@@ -125,14 +125,14 @@ class TestEnvironmentStepper(unittest.TestCase):
         expected_r = np.array([0.19806287, 0.68535984, 0.81262094])
         expected = (None, (
             np.array([[2.313962 , 0.06225585], [1.4955211, 0.67438996], [0.5073325, 0.26501945]]),  # p(s)
-            np.array([0, 0, 0]),  # a
+            np.array([2, 2, 2]),  # a
             expected_r,  # r
             np.array([expected_r[:1].sum(), expected_r[:2].sum(), expected_r[:3].sum()]),  # episode's accumulated returns
             np.array([False, False, False]),
             np.array([[0.49850702, 0.22479665], [0.16911083, 0.08833981], [0.00394827, 0.51219225]]),  # s' (raw)
-            np.array([[0.3300916, 0.1521335, 0.3016182, 0.2161567],
-                      [0.4281767, 0.1859898, 0.163224, 0.2226095],
-                      [0.311745, 0.2305052, 0.2134148, 0.2443351]])  # action probs
+            np.array([[0.168184, 0.2111401, 0.477176, 0.1435],
+                      [0.2094879, 0.2496581, 0.3276633, 0.2131907],
+                      [0.2366966, 0.2516184, 0.2719373, 0.2397477]])  # action probs
         ))
         test.test("step", expected_outputs=expected)
 
@@ -140,14 +140,14 @@ class TestEnvironmentStepper(unittest.TestCase):
         expected_r2 = np.array([0.91777414, 0.37334076, 0.617767])
         expected = (None, (
             np.array([[0.0118448, 1.5365767], [2.165266, 0.87562823], [1.6276331, 0.42651013]]),  # p(s)
-            np.array([0, 0, 0]),  # a
+            np.array([3, 2, 2]),  # a
             expected_r2,  # r
             np.array([expected_r.sum() + expected_r2[0], expected_r.sum() + expected_r2[:2].sum(), expected_r.sum() + expected_r2[:3].sum()]),
             np.array([False, False, False]),
             np.array([[0.7217553, 0.29187608], [0.54254436, 0.14217004], [0.44183317, 0.434014]]),  # s' (raw)
-            np.array([[0.51214, 0.22756, 0.057, 0.2033],
-                      [0.49673, 0.1566, 0.14199, 0.20468],
-                      [0.3835, 0.18188, 0.20831, 0.22631]])
+            np.array([[0.25065, 0.26882, 0.14552, 0.33502],
+                      [0.18973, 0.24348, 0.37587, 0.19092],
+                      [0.20114, 0.24013, 0.36531, 0.19342]])
         ))
         test.test("step", expected_outputs=expected, decimals=5)
 
@@ -157,7 +157,7 @@ class TestEnvironmentStepper(unittest.TestCase):
     def test_environment_stepper_on_random_env_with_action_probs_lstm(self):
         state_space = FloatBox(shape=(2,))
         action_space = IntBox(4)
-        internal_states_space = Tuple(FloatBox(shape=(10,)), FloatBox(shape=(10,)))
+        internal_states_space = Tuple(FloatBox(shape=(3,)), FloatBox(shape=(3,)))
         preprocessor_spec = [dict(type="multiply", factor=3)]
         neural_network_spec = config_from_path("configs/test_lstm_nn.json")
         exploration_spec = None
@@ -191,16 +191,25 @@ class TestEnvironmentStepper(unittest.TestCase):
         expected_r = np.array([0.19806287, 0.68535984, 0.81262094])
         expected = (None, (
             np.array([[2.313962 , 0.06225585], [1.4955211, 0.67438996], [0.5073325, 0.26501945]]),  # p(s)
-            np.array([0, 0, 0]),  # a
+            np.array([3, 3, 3]),  # a
             expected_r,  # r
             np.array([expected_r[:1].sum(), expected_r[:2].sum(), expected_r[:3].sum()]),  # episode's accumulated returns
             np.array([False, False, False]),
             np.array([[0.49850702, 0.22479665], [0.16911083, 0.08833981], [0.00394827, 0.51219225]]),  # s' (raw)
-            np.array([[0.3300916, 0.1521335, 0.3016182, 0.2161567],
-                      [0.4281767, 0.1859898, 0.163224, 0.2226095],
-                      [0.311745, 0.2305052, 0.2134148, 0.2443351]])  # action probs
+            np.array([[0.20024028, 0.25693908, 0.23471089, 0.30810973],
+                      [0.21508023, 0.24714646, 0.22775203, 0.31002134],
+                      [0.23234254, 0.2535993 , 0.22014092, 0.29391727]]),  # action probs
+            # internal states
+            (
+                np.array([[-0.5856517, 0.3419532, 0.50878733],
+                          [-0.9513306, 0.55670494, 0.39051518],
+                          [-0.862099, 0.48455, 0.15737523]]),
+                np.array([[-0.26508498, 0.25246134, 0.20725276],
+                          [-0.33897927, 0.3385909, 0.15902701],
+                          [-0.33717796, 0.26452374, 0.06823984]])
+            )
         ))
-        test.test("step", expected_outputs=expected)
+        out = test.test("step", expected_outputs=expected)
 
         # Make sure we close the session (to shut down the Env on the server).
         test.terminate()
