@@ -260,11 +260,12 @@ class ReShape(PreprocessLayer):
                         preprocessing_inputs = torch.transpose(preprocessing_inputs, (1, 0) + input_shape[2:])
                         new_shape = (input_shape[1], input_shape[0]) + new_shape[2:]
 
-            if self.flatten:
-                # TODO remove when PyTorch inference works for all ops:
-                # The problem here is the following: Input has dim e.g. [4, 256, 1, 1]
-                # -> If shape inference in spaces failed, output dim is not correct -> reshape will attempt
-                # something like reshaping to [256].
+            # print("Reshaping input of shape {} to new shape {} ".format(preprocessing_inputs.shape, new_shape))
+
+            # The problem here is the following: Input has dim e.g. [4, 256, 1, 1]
+            # -> If shape inference in spaces failed, output dim is not correct -> reshape will attempt
+            # something like reshaping to [256].
+            if self.flatten or (preprocessing_inputs.size(0) > 1 and preprocessing_inputs.dim() > 1):
                 return preprocessing_inputs.squeeze()
             else:
                 return torch.reshape(preprocessing_inputs, new_shape)
