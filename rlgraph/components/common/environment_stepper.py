@@ -46,6 +46,19 @@ class EnvironmentStepper(Component):
             for RNN based ActorComponents).
     """
 
+    # TODO: remove this IMPALA hack again.
+    DEFAULT_ACTION_SET = (
+        (0, 0, 0, 1, 0, 0, 0),  # Forward
+        (0, 0, 0, -1, 0, 0, 0),  # Backward
+        (0, 0, -1, 0, 0, 0, 0),  # Strafe Left
+        (0, 0, 1, 0, 0, 0, 0),  # Strafe Right
+        (-20, 0, 0, 0, 0, 0, 0),  # Look Left
+        (20, 0, 0, 0, 0, 0, 0),  # Look Right
+        (-20, 0, 0, 1, 0, 0, 0),  # Look Left + Forward
+        (20, 0, 0, 1, 0, 0, 0),  # Look Right + Forward
+        (0, 0, 0, 0, 1, 0, 0),  # Fire.
+    )
+
     def __init__(self, environment_spec, actor_component_spec, num_steps=20, state_space=None, reward_space=None,
                  internal_states_space=None,
                  add_action_probs=False, action_probs_space=None, add_previous_action=False, add_previous_reward=False,
@@ -244,19 +257,6 @@ class EnvironmentStepper(Component):
         """
         if get_backend() == "tf":
 
-            # TODO: remove this IMPALA hack again.
-            DEFAULT_ACTION_SET = (
-                (0, 0, 0, 1, 0, 0, 0),  # Forward
-                (0, 0, 0, -1, 0, 0, 0),  # Backward
-                (0, 0, -1, 0, 0, 0, 0),  # Strafe Left
-                (0, 0, 1, 0, 0, 0, 0),  # Strafe Right
-                (-20, 0, 0, 0, 0, 0, 0),  # Look Left
-                (20, 0, 0, 0, 0, 0, 0),  # Look Right
-                (-20, 0, 0, 1, 0, 0, 0),  # Look Left + Forward
-                (20, 0, 0, 1, 0, 0, 0),  # Look Right + Forward
-                (0, 0, 0, 0, 1, 0, 0),  # Fire.
-            )
-
             def scan_func(accum, time_delta):
                 # Not needed: preprocessed-previous-states (tuple!)
                 # `state` is a tuple as well. See comment in ctor for why tf cannot use ContainerSpaces here.
@@ -337,7 +337,7 @@ class EnvironmentStepper(Component):
                 # (not batched).
                 # TODO: Remove this IMPALA hack: it's only to confirm whether looking up the exact action vector
                 # TODO: in graph is faster than doing it in python in the env (step).
-                actual_dm_lab_action = tf.gather(DEFAULT_ACTION_SET, a_no_extra_ranks)
+                actual_dm_lab_action = tf.gather(self.DEFAULT_ACTION_SET, a_no_extra_ranks)
                 out = self.environment_server.step_for_env_stepper(actual_dm_lab_action)
                 s_, r, t_ = out[:-2], out[-2], out[-1]
                 r = tf.cast(r, dtype="float32")
