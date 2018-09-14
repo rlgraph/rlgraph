@@ -55,12 +55,18 @@ def pytorch_one_hot(tensor, depth=0):
         torch.Tensor: The one-hot encoded equivalent of the input array.
     """
     if get_backend() == "pytorch":
+        # Do converts.
         if isinstance(tensor, torch.FloatTensor):
             tensor = tensor.long()
+        if isinstance(tensor, torch.IntTensor):
+            tensor = tensor.long()
+        # Un-squeeze 1d.
+        if tensor.dim() == 1:
+            tensor = tensor.unsqueeze(-1)
         # print("one hot input: {}, dim: {}, shape {}, type {}".format(
         #     tensor, tensor.dim(), tensor.shape, tensor.dtype
         # ))
-        # print("tensor.shape[0]", tensor.shape[0])
+        print("tensor.shape[0]", tensor.shape[0])
         tensor_one_hot = torch.FloatTensor(tensor.shape[0], depth)
         tensor_one_hot.zero_()
         tensor_one_hot.scatter_(1, tensor, 1)
