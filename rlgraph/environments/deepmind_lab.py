@@ -57,6 +57,8 @@ class DeepmindLabEnv(Environment):
                 Supports 'width', 'height', 'fps', and other useful parameters.
                 Values must be given as string values. e.g. dict(width='96')
             renderer (str): The `renderer` parameter to be passed into the Lab's constructor.
+            seed (Optional[int]): An optional seed to use to initialize a numpy random state object, which is then used
+                to seed all occurring resets in a deterministic fashion.
             level_cache (Optional[object]): An optional custom level caching object to help increase performance
                 when playing many repeating levels. Will be passed as is into the Lab's constructor.
         """
@@ -75,7 +77,7 @@ class DeepmindLabEnv(Environment):
         super(DeepmindLabEnv, self).__init__(observation_space, action_space)
 
         self.frameskip = frameskip
-        self.random_state = np.random.RandomState(seed=seed or time.time())
+        self.random_state = np.random.RandomState(seed=seed or int(time.time()))
 
     def terminate(self):
         """
@@ -86,7 +88,8 @@ class DeepmindLabEnv(Environment):
         self.level = None
 
     def reset(self):
-        self.level.reset()
+        print("\n----------------------------\nResetting DM Lab Env.\n----------------------------\n")
+        self.level.reset(seed=self.random_state.randint(0, 2 ** 31 - 1))
         state = self.level.observations()
         return state
 
