@@ -88,7 +88,9 @@ class EnvironmentStepper(Component):
                 ActionComponent's (NN's) input at each step. This is only possible if the state space is already a Dict.
                 It will be added under the key "previous_reward". Default: False.
         """
-        super(EnvironmentStepper, self).__init__(scope=kwargs.pop("scope", "environment-stepper"), **kwargs)
+        super(EnvironmentStepper, self).__init__(graph_fn_num_outputs=dict(
+            _graph_fn_step=2
+        ), scope=kwargs.pop("scope", "environment-stepper"), **kwargs)
 
         # Only to retrieve some information about the particular Env.
         dummy_env = Environment.from_spec(environment_spec)  # type: Environment
@@ -338,6 +340,7 @@ class EnvironmentStepper(Component):
                 # TODO: Remove this IMPALA hack: it's only to confirm whether looking up the exact action vector
                 # TODO: in graph is faster than doing it in python in the env (step).
                 actual_dm_lab_action = tf.gather(self.DEFAULT_ACTION_SET, a_no_extra_ranks)
+
                 out = self.environment_server.step_for_env_stepper(actual_dm_lab_action)
                 s_, r, t_ = out[:-2], out[-2], out[-1]
                 r = tf.cast(r, dtype="float32")
