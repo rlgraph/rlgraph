@@ -259,7 +259,6 @@ class Policy(Component):
             # would have to be transferred back.
 
             # TODO better way to check this.
-            # Idea:
             if "GPU" in self.device:
                 # Convert to int32 here.
                 return torch.argmax(logits, dim=1).int()

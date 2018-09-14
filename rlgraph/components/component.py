@@ -259,13 +259,7 @@ class Component(Specifiable):
         return_ops = kwargs.pop("return_ops", False)
         # Direct evaluation of function.
         if self.execution_mode == "define_by_run":
-            # print("calling in define by run mode component {} with method {}".format(self, method))
-            # for p in params:
-            #     print("define by run param type: {}".format(type(p)))
-            #     #print("param val = ", p)
-            # print("kwargs = {}".format(kwargs))
-            #
-           # print("owner api methods = {}".format(method_owner.api_methods))
+            # print("calling in define by run mode: method {}".format(method))
 
             # Name might not match, e.g. _graph_fn_apply vs apply.
             #  Check with owner if extra args needed.

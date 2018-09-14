@@ -78,6 +78,8 @@ class PyTorchExecutor(GraphExecutor):
             if api_method is None:
                 continue
             elif isinstance(api_method, (list, tuple)):
+                # Which ops are supposed to be returned?
+                return_ops = api_method[2] if len(api_method) > 2 else None
                 params = util.force_list(api_method[1])
                 api_method = api_method[0]
                 # TODO check if necessary for every arg?
@@ -86,13 +88,21 @@ class PyTorchExecutor(GraphExecutor):
                 tensor_params = force_torch_tensors(params=params)
                 api_ret = self.graph_builder.execute_define_by_run_op(api_method, tensor_params)
 
-                # Detach results.
-                if isinstance(api_ret, torch.Tensor):
-                    api_ret = api_ret.detach().numpy()
-                if self.remove_batch_dims:
-                    ret.append(np.squeeze(api_ret))
-                else:
-                    ret.append(api_ret)
+                to_return = []
+                for i, op_result in enumerate(api_ret):
+                    # Either return all ops or only return if specified in return ops.
+                    if return_ops is None or (return_ops is not None and i in return_ops):
+                        # Detach grad.
+                        if isinstance(op_result, torch.Tensor):
+                            op_result = op_result.detach()
+                        to_return.append(op_result)
+
+                # Clean and return.
+                for result in to_return:
+                    if self.remove_batch_dims and isinstance(result, np.ndarray):
+                        ret.append(np.squeeze(result))
+                    else:
+                        ret.append(result)
 
         # Unwrap if len 1.
         ret = ret[0] if len(ret) == 1 else ret

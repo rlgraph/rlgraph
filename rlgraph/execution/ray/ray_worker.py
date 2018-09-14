@@ -266,7 +266,7 @@ class RayWorker(RayActor):
                     self.preprocessed_states_buffer[i] = env_states[i]
 
             actions = self.get_action(states=self.preprocessed_states_buffer,
-                                            use_exploration=use_exploration, apply_preprocessing=False)
+                                      use_exploration=use_exploration, apply_preprocessing=False)
             next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
             # Worker frameskip not needed as done in env.
             # for _ in range_(self.worker_frameskip):

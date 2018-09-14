@@ -209,8 +209,6 @@ class DQNLossFunction(LossFunction):
             if self.double_q:
                 # For double-Q, we no longer use the max(a')Qt(s'a') value.
                 # Instead, the a' used to get the Qt(s'a') is given by argmax(a') Q(s',a') <- Q=q-net, not target net!
-                # print("q_values_sp = {}, shape = {}".format(q_values_sp, q_values_sp.shape))
-
                 a_primes = torch.argmax(q_values_sp, dim=-1, keepdim=True)
 
                 # Now lookup Q(s'a') with the calculated a'.
@@ -230,7 +228,6 @@ class DQNLossFunction(LossFunction):
             qt_sp_ap_values = torch.where(
                 terminals, torch.zeros_like(qt_sp_ap_values), qt_sp_ap_values
             )
-
             # Q(s,a) -> Use the Q-value of the action actually taken before.
             one_hot = pytorch_one_hot(actions, depth=self.action_space.num_categories)
             q_s_a_values = torch.sum((q_values_s * one_hot), -1)
