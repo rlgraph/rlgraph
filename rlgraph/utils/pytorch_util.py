@@ -66,7 +66,7 @@ def pytorch_one_hot(tensor, depth=0):
         # print("one hot input: {}, dim: {}, shape {}, type {}".format(
         #     tensor, tensor.dim(), tensor.shape, tensor.dtype
         # ))
-        print("tensor.shape[0]", tensor.shape[0])
+        # print("tensor.shape[0]", tensor.shape[0])
         tensor_one_hot = torch.FloatTensor(tensor.shape[0], depth)
         tensor_one_hot.zero_()
         tensor_one_hot.scatter_(1, tensor, 1)
