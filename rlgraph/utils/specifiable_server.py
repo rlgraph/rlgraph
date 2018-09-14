@@ -276,7 +276,7 @@ class SpecifiableServer(Specifiable):
                     return
 
                 # Call the method with the given args.
-                method_name = command[0].decode()  # must decode here as method_name comes in as bytes
+                method_name = str(command[0])  #.decode()  # must decode here as method_name comes in as bytes
                 # print(method_name + " is called on Server.")
                 inputs = command[1:]
                 results = getattr(proxy_object, method_name)(*inputs)
