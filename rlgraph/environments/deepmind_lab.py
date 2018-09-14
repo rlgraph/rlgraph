@@ -110,7 +110,9 @@ class DeepmindLabEnv(Environment):
 
     def step_for_env_stepper(self, actions):
         # Do the actual step.
-        reward = self.level.step(action=self.action_list[actions], num_steps=self.frameskip)
+        # TODO: Remove this impala hack again (just to see whether looking up action in graph is faster).
+        #reward = self.level.step(action=self.action_list[actions], num_steps=self.frameskip)
+        reward = self.level.step(action=actions, num_steps=self.frameskip)
         terminal = np.array(not self.level.is_running())
         # Flow Env logic.
         if terminal:

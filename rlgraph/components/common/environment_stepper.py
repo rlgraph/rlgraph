@@ -243,6 +243,20 @@ class EnvironmentStepper(Component):
                 - internal_states: The internal-states outputs of an RNN.
         """
         if get_backend() == "tf":
+
+            # TODO: remove this IMPALA hack again.
+            DEFAULT_ACTION_SET = (
+                (0, 0, 0, 1, 0, 0, 0),  # Forward
+                (0, 0, 0, -1, 0, 0, 0),  # Backward
+                (0, 0, -1, 0, 0, 0, 0),  # Strafe Left
+                (0, 0, 1, 0, 0, 0, 0),  # Strafe Right
+                (-20, 0, 0, 0, 0, 0, 0),  # Look Left
+                (20, 0, 0, 0, 0, 0, 0),  # Look Right
+                (-20, 0, 0, 1, 0, 0, 0),  # Look Left + Forward
+                (20, 0, 0, 1, 0, 0, 0),  # Look Right + Forward
+                (0, 0, 0, 0, 1, 0, 0),  # Fire.
+            )
+
             def scan_func(accum, time_delta):
                 # Not needed: preprocessed-previous-states (tuple!)
                 # `state` is a tuple as well. See comment in ctor for why tf cannot use ContainerSpaces here.
@@ -321,7 +335,10 @@ class EnvironmentStepper(Component):
                 a_no_extra_ranks = a[0, 0] if self.has_rnn is True else a[0]
                 # Step through the Env and collect next state (tuple!), reward and terminal as single values
                 # (not batched).
-                out = self.environment_server.step_for_env_stepper(a_no_extra_ranks)
+                # TODO: Remove this IMPALA hack: it's only to confirm whether looking up the exact action vector
+                # TODO: in graph is faster than doing it in python in the env (step).
+                actual_dm_lab_action = tf.gather(DEFAULT_ACTION_SET, a_no_extra_ranks)
+                out = self.environment_server.step_for_env_stepper(actual_dm_lab_action)
                 s_, r, t_ = out[:-2], out[-2], out[-1]
                 r = tf.cast(r, dtype="float32")
 
