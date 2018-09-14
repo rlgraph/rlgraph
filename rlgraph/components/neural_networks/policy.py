@@ -41,7 +41,7 @@ class Policy(Component):
     followed by a Distribution Component.
 
     API:
-        get_action(nn_input, internal_states) -> (action, last_internals).
+        get_action(nn_input, internal_states, max_likelihood) -> (action, last_internals).
             Single action based on the neural network input AND `self.max_likelihood`.
             If True, returns a deterministic (max_likelihood) sample, if False, returns a stochastic sample.
         get_nn_output(nn_input, internal_states): The raw output of the neural network (before it's cleaned-up and passed through
@@ -55,7 +55,7 @@ class Policy(Component):
             parameters (SingleDataOp): The parameters (probabilities) for retrieving an actual action from
                 our distribution object (or directly via argmax if max-likelihood is True).
             log_probs (SingleDataOp): The log(parameters).
-        get_max_likelihood_action: See get_action, but with max_likelihood force set to True.
+        get_max_likelihood_action(nn_input, internal_states): See get_action, but with max_likelihood force set to True.
         get_stochastic_action: See get_action, but with max_likelihood force set to False.
         entropy: See Distribution component.
 
@@ -223,14 +223,15 @@ class Policy(Component):
         entropy = self.call(self.distribution.entropy, parameters)
         return (entropy, last_internals) if last_internals is not None else entropy
 
-    def get_max_likelihood_action(self, nn_input, internal_states=None, max_likelihood=None):
+    def get_max_likelihood_action(self, nn_input, internal_states=None):
         nn_output, last_internals = unify_nn_and_rnn_api_output(
             self.call(self.neural_network.apply, nn_input, internal_states)
         )
-        max_likelihood = self.max_likelihood if max_likelihood is None else max_likelihood
+        #max_likelihood = self.max_likelihood if max_likelihood is None else max_likelihood
         # print("Policy - max likelihood option enabled = {}, self.max_likelihood = {}".format(max_likelihood,
         #                                                                                    self.max_likelihood))
-        if max_likelihood is True and isinstance(self.action_space, IntBox):
+        #if max_likelihood is True and isinstance(self.action_space, IntBox):
+        if isinstance(self.action_space, IntBox):
             logits, _, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
             sample = self.call(self._graph_fn_get_max_likelihood_action_wo_distribution, logits)
         else:
