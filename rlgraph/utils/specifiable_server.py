@@ -150,6 +150,7 @@ class SpecifiableServer(Specifiable):
                 # This function will send the method-call-comment via the out-pipe to the remote (server) Specifiable
                 # object - all in-graph - and return the results to be used further by other graph ops.
                 def py_call(*args_):
+                    args_ = [arg.decode('UTF-8') if isinstance(arg, bytes) else arg for arg in args_]
                     try:
                         #print("Sending args '{}' through pipe!".format(args))
                         self.out_pipe.send(args_)
