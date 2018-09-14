@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+import time
 import unittest
 
 from rlgraph.environments import DeepmindLabEnv
@@ -65,3 +66,19 @@ class TestDeepmindLabEnv(unittest.TestCase):
                 self.assertEqual(s["MAP_FRAME_NUMBER"], frame)
 
         print("Accumulated Reward: ".format(accum_reward))
+
+    def test_deepmind_lab_env_performance(self):
+        frameskip = 4
+        env = DeepmindLabEnv("seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
+                             frameskip=frameskip, seed=1)
+
+        #random_state = np.random.RandomState(seed=1)
+
+        # Simple test runs with fixed actions.
+        num_steps = 1000
+        s = env.reset()
+        start_time = time.perf_counter()
+        for _ in range(num_steps):
+            img, text, r, t = env.step_for_env_stepper(env.action_space.sample())
+        run_time = time.perf_counter() - start_time
+        print("\n{} Steps took {}sec ({:.2f} actions/sec).".format(num_steps, run_time, num_steps / run_time))

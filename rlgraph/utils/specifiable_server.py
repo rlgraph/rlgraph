@@ -362,5 +362,5 @@ if get_backend() == "tf":
             tp.map(lambda server: server.stop_server(), SpecifiableServer.INSTANCES)
             tp.close()
             tp.join()
-            #for server in PyProcess.INSTANCES:
-            #    server.stop()
+            #for server in SpecifiableServer.INSTANCES:
+            #    server.stop_server()
