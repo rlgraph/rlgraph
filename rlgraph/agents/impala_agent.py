@@ -48,7 +48,7 @@ class IMPALAAgent(Agent):
 
     standard_internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False)
 
-    def __init__(self, discount=0.99, architecture="large", fifo_queue_spec=None, environment_spec=None,
+    def __init__(self, discount=0.99, architecture="large", environment_spec=None,
                  weight_pg=None, weight_baseline=None, weight_entropy=None, worker_sample_size=100,
                  dynamic_batching=False, **kwargs):
         """
@@ -56,7 +56,7 @@ class IMPALAAgent(Agent):
             discount (float): The discount factor gamma.
             architecture (str): Which IMPALA architecture to use. One of "small" or "large". Will be ignored if
                 `network_spec` is given explicitly in kwargs. Default: "large".
-            fifo_queue_spec (Optional[dict,FIFOQueue]): The spec for the FIFOQueue to use for the IMPALA algorithm.
+            #fifo_queue_spec (Optional[dict,FIFOQueue]): The spec for the FIFOQueue to use for the IMPALA algorithm.
             environment_spec (dict): The spec for constructing an Environment object for an actor-type IMPALA agent.
             weight_pg (float): See IMPALALossFunction Component.
             weight_baseline (float): See IMPALALossFunction Component.
@@ -181,7 +181,8 @@ class IMPALAAgent(Agent):
         # Some FIFO-queue specs.
         self.fifo_queue_keys = ["preprocessed_states", "actions", "rewards", "terminals", "last_next_states",
                                 "action_probs", "initial_internal_states"]
-        self.fifo_record_space = fifo_queue_spec["record_space"] if "record_space" in fifo_queue_spec else Dict(
+        #self.fifo_record_space = fifo_queue_spec["record_space"] if "record_space" in fifo_queue_spec else Dict(
+        self.fifo_record_space = Dict(
             {
                 "preprocessed_states": self.preprocessor.get_preprocessed_space(
                     default_dict(copy.deepcopy(self.state_space), dict(
@@ -206,7 +207,8 @@ class IMPALAAgent(Agent):
             self.fifo_record_space["initial_internal_states"].with_time_rank(False)
         # Create our FIFOQueue (actors will enqueue, learner(s) will dequeue).
         self.fifo_queue = FIFOQueue.from_spec(
-            fifo_queue_spec, reuse_variable_scope="shared-fifo-queue", only_insert_single_records=True,
+            capacity=1,
+            reuse_variable_scope="shared-fifo-queue", only_insert_single_records=True,
             record_space=self.fifo_record_space,
             device="/job:learner/task:0/cpu" if self.execution_spec["mode"] == "distributed" and
             self.execution_spec["distributed_spec"]["cluster_spec"] else None
