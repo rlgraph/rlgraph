@@ -20,6 +20,7 @@ from __future__ import print_function
 from collections import OrderedDict
 from six.moves import xrange as range_
 
+import time
 import copy
 import inspect
 import numpy as np
@@ -58,6 +59,9 @@ class Component(Specifiable):
     and supports adding its graph_fns to the overall computation graph.
     """
     call_count = 0
+
+    # List of tuples (method_name, runtime)
+    call_times = []
 
     def __init__(self, *sub_components, **kwargs):
         """
@@ -124,10 +128,10 @@ class Component(Specifiable):
         # `self.api_methods`: Dict holding information about which op-record-tuples go via which API
         # methods into this Component and come out of it.
         # keys=API method name; values=APIMethodRecord
-        self.api_methods = dict()
+        self.api_methods = {}
 
         # Maps names to callable API functions for eager calls.
-        self.api_fn_by_name = dict()
+        self.api_fn_by_name = {}
         # Maps names of methods to synthetically defined methods.
         self.synthetic_methods = set()
 
@@ -137,11 +141,11 @@ class Component(Specifiable):
         # `self.api_method_inputs`: Registry for all unique API-method input parameter names and their Spaces.
         # Two API-methods may share the same input if their input parameters have the same names.
         # keys=input parameter name; values=Space that goes into that parameter
-        self.api_method_inputs = dict()
+        self.api_method_inputs = {}
         self.get_api_methods()
 
         # Registry for graph_fn records (only populated at build time when the graph_fns are actually called).
-        self.graph_fns = dict()
+        self.graph_fns = {}
         # Set of op-rec-columns going into a graph_fn of this Component and not having 0 op-records.
         # Helps during the build procedure to call these right away after the Component is input-complete.
         self.no_input_graph_fn_columns = set()
@@ -157,11 +161,11 @@ class Component(Specifiable):
         # All Variables that are held by this component (and its sub-components) by name.
         # key=full-scope variable name (scope=component/sub-component scope)
         # value=the actual variable
-        self.variables = dict()
+        self.variables = {}
         # All summary ops that are held by this component (and its sub-components) by name.
         # key=full-scope summary name (scope=component/sub-component scope)
         # value=the actual summary op
-        self.summaries = dict()
+        self.summaries = {}
         # The regexp that a summary's full-scope name has to match in order for it to be generated and registered.
         # This will be set by the GraphBuilder at build time.
         self.summary_regexp = None
@@ -265,12 +269,16 @@ class Component(Specifiable):
 
             # Name might not match, e.g. _graph_fn_apply vs apply.
             #  Check with owner if extra args needed.
+            start = time.perf_counter()
             if method.__name__ in method_owner.api_methods and \
                     method_owner.api_methods[method.__name__].add_auto_key_as_first_param:
                 # Add auto key.
-                return method("", *params)
+                ret = method("", *params)
             else:
-                return method(*params)
+                ret = method(*params)
+            # Store runtime for this method.
+            Component.call_times.append((method.__name__, time.perf_counter() - start))
+            return ret
         elif self.execution_mode == "static_graph":
             # Graph construction.
 
@@ -1508,6 +1516,14 @@ class Component(Specifiable):
         Optionally execute post-build calls.
         """
         pass
+
+    @staticmethod
+    def reset_profile():
+        """
+        Sets profiling values to 0.
+        """
+        Component.call_count = 0
+        Component.call_times = []
 
     def __str__(self):
         return "{}('{}' api={})".format(type(self).__name__, self.name, str(list(self.api_methods.keys())))

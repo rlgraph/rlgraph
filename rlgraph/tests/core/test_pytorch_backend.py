@@ -22,7 +22,7 @@ import unittest
 import time
 
 from rlgraph import spaces
-from rlgraph.agents import DQNAgent
+from rlgraph.agents import DQNAgent, ApexAgent
 from rlgraph.components import Policy, MemPrioritizedReplay
 from rlgraph.environments import Environment, OpenAIGymEnv
 from rlgraph.spaces import FloatBox, IntBox, Dict, BoolBox
@@ -279,7 +279,49 @@ class TestPytorchBackend(unittest.TestCase):
         for s in samples:
             action = agent.get_action(s)
         end = time.perf_counter() - start
-        print("Took {} s for 100 actions, mean = {}".format(end, end / 100))
+        print("Took {} s for 100 separate actions, mean = {}".format(end, end / 100))
+
+        # Now instead test 100 batch actions
+
+    def test_get_td_loss(self):
+        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
+        agent_config = config_from_path("configs/ray_apex_for_pong.json")
+        agent = ApexAgent.from_spec(
+            # Uses 2015 DQN parameters as closely as possible.
+            agent_config,
+            state_space=env.state_space,
+            # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
+            action_space=env.action_space
+        )
+        samples = 100
+        rewards = np.random.random(size=samples)
+        states = list(agent.preprocessed_state_space.sample(samples))
+        actions = agent.action_space.sample(samples)
+        terminals = np.zeros(samples, dtype=np.uint8)
+        next_states = states[1:]
+        next_states.extend([agent.preprocessed_state_space.sample(1)])
+        next_states = np.asarray(next_states)
+        states = np.asarray(states)
+        weights = np.ones_like(rewards)
+
+        for _ in range(1):
+            start = time.perf_counter()
+            _, loss_per_item = agent.get_td_loss(
+                dict(
+                    states=states,
+                    actions=actions,
+                    rewards=rewards,
+                    terminals=terminals,
+                    next_states=next_states,
+                    importance_weights=weights
+                )
+            )
+            print("post process time = {}".format(time.perf_counter() - start))
+        profile = Component.call_times
+        res = sorted(profile, key=lambda v: v[1], reverse=True)
+        print("Call chain sorted by runtime")
+        for v in res:
+            print(v)
 
     def test_2_containers_flattening_splitting(self):
         """

@@ -82,9 +82,13 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         result = ray.get(ready)
         print(result)
         time.sleep(5)
+
+        start = time.perf_counter()
         task = worker.execute_and_get_with_count.remote()
         result, count = ray.get(task)
-        print(result.get_metrics())
+        task_time = time.perf_counter() - start
+        print("internal result metrics = {}, external task time = {},"
+              "external throughput = {}".format(result.get_metrics(), task_time, 198 / task_time))
 
     def test_initial_training_pong(self):
         """

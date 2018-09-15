@@ -678,8 +678,8 @@ class GraphBuilder(Specifiable):
         Returns:
             any: Results of executing this api-method.
         """
-        # Count `call` invocations during op execution.
-        Component.call_count = 0
+        # Reset call profiler.
+        Component.reset_profile()
         if api_method not in self.api:
             raise RLGraphError("No API-method with name '{}' found!".format(api_method))
 
