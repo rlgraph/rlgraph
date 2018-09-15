@@ -361,10 +361,7 @@ class RayWorker(RayActor):
         self.last_ep_start_timestamps = current_episode_start_timestamps
         self.last_ep_sample_times = current_episode_sample_times
 
-        total_time = (time.monotonic() - start) or 1e-10
-        self.sample_steps.append(timesteps_executed)
-        self.sample_times.append(total_time)
-        self.sample_env_frames.append(env_frames)
+
 
         # We already accounted for all terminated episodes. This means we only
         # have to do accounting for any unfinished fragments.
@@ -397,6 +394,11 @@ class RayWorker(RayActor):
         # Perform final batch-processing once.
         sample_batch, batch_size = self._batch_process_sample(batch_states, batch_actions,
                                                               batch_rewards, batch_next_states, batch_terminals)
+
+        total_time = (time.monotonic() - start) or 1e-10
+        self.sample_steps.append(timesteps_executed)
+        self.sample_times.append(total_time)
+        self.sample_env_frames.append(env_frames)
 
         # Note that the controller already evaluates throughput so there is no need
         # for each worker to calculate expensive statistics now.
@@ -522,6 +524,7 @@ class RayWorker(RayActor):
         if self.worker_computes_weights:
             # Next states were just collected, we batch process them here.
             # TODO make generic agent method?
+            start = time.perf_counter()
             _, loss_per_item = self.agent.get_td_loss(
                 dict(
                     states=states,
@@ -532,6 +535,7 @@ class RayWorker(RayActor):
                     importance_weights=weights
                 )
             )
+            print("post process time = {}".format(time.perf_counter() - start))
             weights = np.abs(loss_per_item) + SMALL_NUMBER
 
         return dict(
