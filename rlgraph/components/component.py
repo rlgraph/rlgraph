@@ -1165,6 +1165,7 @@ class Component(Specifiable):
             expose_apis (Optional[Set[str]]): An optional set of strings with API-methods of the child component
                 that should be exposed as the parent's API via a simple wrapper API-method for the parent (that
                 calls the child's API-method).
+            exposed_must_be_complete (bool): Whether the exposed API methods must be input-complete or not.
         """
         expose_apis = kwargs.pop("expose_apis", set())
         if isinstance(expose_apis, str):
@@ -1203,11 +1204,13 @@ class Component(Specifiable):
             )
 
             # Should we expose some API-methods of the child?
+            must_be_complete = kwargs.get("exposed_must_be_complete", True)
             for api_method_name, api_method_rec in component.api_methods.items():
                 if api_method_name in expose_apis:
                     def exposed_api_method_wrapper(self, *inputs):
                         return self.call(api_method_rec.method, *inputs)
-                    self.define_api_method(api_method_name, exposed_api_method_wrapper)
+                    self.define_api_method(api_method_name, exposed_api_method_wrapper,
+                                           must_be_complete=must_be_complete)
                     # Add the sub-component's API-registered methods to ours.
                     #self.defined_externally.add(component.scope + "-" + api_method_name)
 

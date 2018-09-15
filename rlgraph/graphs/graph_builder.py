@@ -470,7 +470,7 @@ class GraphBuilder(Specifiable):
                         params_kwargs = {p[0]: p[1] for p in params if isinstance(p, tuple)}
                         if create_new_out_column is False:
                             call_time = time.perf_counter()
-                        ops[key] = force_tuple(op_rec_column.graph_fn(*params_args, *params_kwargs))
+                        ops[key] = force_tuple(op_rec_column.graph_fn(*params_args, **params_kwargs))
                         if create_new_out_column is False:
                             self.graph_call_times.append(time.perf_counter() - call_time)
                         if num_return_values >= 0 and num_return_values != len(ops[key]):

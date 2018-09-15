@@ -30,7 +30,7 @@ class OBSOLETEDuelingActionAdapter(ActionAdapter):
         get_dueling_output(nn_output) (Tuple[SingleDataOp x 3]): The state-value, advantage-values
             (reshaped) and q-values (reshaped) after passing action_layer_output through the dueling layer.
     """
-    def __init__(self, scope="dueling-action-adapter", **kwargs):
+    def __init__(self, scope="obsolete-dueling-action-adapter", **kwargs):
         raise RLGraphError("OBSOLETEDuelingActionAdapter has been obsoleted! Use DuelingActionAdapter instead.")
 
         # Change the number of units in the action layer (+1 for the extra Value function node).
