@@ -357,39 +357,40 @@ class TensorFlowExecutor(GraphExecutor):
         Args:
             hooks (list): List of hooks to use for Saver and Summarizer in Session. Should be appended to.
         """
-        self.saver = tf.train.Saver(
-            var_list=list(self.graph_builder.root_component.variables.values()),
-            reshape=False,
-            sharded=False,
-            max_to_keep=self.saver_spec.get("max_checkpoints", 1) if self.saver_spec else None,
-            keep_checkpoint_every_n_hours=10000.0,
-            name=None,
-            restore_sequentially=False,
-            saver_def=None,
-            builder=None,
-            defer_build=False,
-            allow_empty=True,
-            write_version=tf.train.SaverDef.V2,
-            pad_step_number=False,
-            save_relative_paths=True,
-            filename=None
-        )
+        #self.saver = tf.train.Saver(
+        #    var_list=list(self.graph_builder.root_component.variables.values()),
+        #    reshape=False,
+        #    sharded=False,
+        #    max_to_keep=self.saver_spec.get("max_checkpoints", 1) if self.saver_spec else None,
+        #    keep_checkpoint_every_n_hours=10000.0,
+        #    name=None,
+        #    restore_sequentially=False,
+        #    saver_def=None,
+        #    builder=None,
+        #    defer_build=False,
+        #    allow_empty=True,
+        #    write_version=tf.train.SaverDef.V2,
+        #    pad_step_number=False,
+        #    save_relative_paths=True,
+        #    filename=None
+        #)
 
-        # Add saver hook to session if saver spec was provided.
-        if self.saver_spec is not None and (self.execution_mode == "single"
-                                            or self.distributed_spec["task_index"] == 0):
-            self.saver_directory = self.saver_spec["directory"]
-            saver_hook = tf.train.CheckpointSaverHook(
-                checkpoint_dir=self.saver_directory,
-                # Either save_secs or save_steps must be set.
-                save_secs=self.saver_spec["save_secs"],  # TODO: open question: how to handle settings?
-                save_steps=self.saver_spec["save_steps"],
-                saver=self.saver,
-                checkpoint_basename=self.saver_spec["checkpoint_basename"],  # TODO: open question: how to handle settings?
-                scaffold=None,  # None since not created yet.
-                listeners=None
-            )
-            hooks.append(saver_hook)
+        ## Add saver hook to session if saver spec was provided.
+        #if self.saver_spec is not None and (self.execution_mode == "single"
+        #                                    or self.distributed_spec["task_index"] == 0):
+        #    self.saver_directory = self.saver_spec["directory"]
+        #    saver_hook = tf.train.CheckpointSaverHook(
+        #        checkpoint_dir=self.saver_directory,
+        #        # Either save_secs or save_steps must be set.
+        #        save_secs=self.saver_spec["save_secs"],  # TODO: open question: how to handle settings?
+        #        save_steps=self.saver_spec["save_steps"],
+        #        saver=self.saver,
+        #        checkpoint_basename=self.saver_spec["checkpoint_basename"],  # TODO: open question: how to handle settings?
+        #        scaffold=None,  # None since not created yet.
+        #        listeners=None
+        #    )
+        #    hooks.append(saver_hook)
+        pass
 
     def setup_summaries(self, hooks):
         """
