@@ -678,6 +678,8 @@ class GraphBuilder(Specifiable):
         Returns:
             any: Results of executing this api-method.
         """
+        # Count `call` invocations during op execution.
+        Component.call_count = 0
         if api_method not in self.api:
             raise RLGraphError("No API-method with name '{}' found!".format(api_method))
 
@@ -751,6 +753,10 @@ class GraphBuilder(Specifiable):
 
         # Set execution mode in components to change `call` behaviour to direct function evaluation.
         self.root_component.propagate_subcomponent_properties(properties=dict(execution_mode="define_by_run"))
+
+        # Call post build logic.
+        self.root_component._post_build(self.root_component)
+
         time_build = time.perf_counter() - time_start
         self.logger.info("Define-by-run computation-graph build completed in {} s ({} iterations).".
                          format(time_build, iterations))

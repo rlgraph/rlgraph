@@ -57,6 +57,7 @@ class Component(Specifiable):
     A component also has a variable registry, the ability to save the component's structure and variable-values to disk,
     and supports adding its graph_fns to the overall computation graph.
     """
+    call_count = 0
 
     def __init__(self, *sub_components, **kwargs):
         """
@@ -259,7 +260,8 @@ class Component(Specifiable):
         return_ops = kwargs.pop("return_ops", False)
         # Direct evaluation of function.
         if self.execution_mode == "define_by_run":
-            # print("calling in define by run mode: method {}".format(method))
+            Component.call_count += 1
+            # print("calling in define by run mode: method {}, call count = {}".format(method, Component.call_count))
 
             # Name might not match, e.g. _graph_fn_apply vs apply.
             #  Check with owner if extra args needed.
@@ -1495,6 +1497,17 @@ class Component(Specifiable):
             raise RLGraphError("Name {} is not a valid subcomponent name for component {}. Subcomponents "
                                "are: {}".format(scope_name, self.__str__(), self.sub_components.keys()))
         return self.sub_components[scope_name]
+
+    def _post_build(self, component):
+        component._post_define_by_run_build()
+        for sub_component in component.sub_components.values():
+            self._post_build(sub_component)
+
+    def _post_define_by_run_build(self):
+        """
+        Optionally execute post-build calls.
+        """
+        pass
 
     def __str__(self):
         return "{}('{}' api={})".format(type(self).__name__, self.name, str(list(self.api_methods.keys())))

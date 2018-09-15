@@ -73,7 +73,7 @@ class PyTorchExecutor(GraphExecutor):
 
     def execute(self, *api_methods):
         # Have to call each method separately.
-        ret = list()
+        ret = []
         for api_method in api_methods:
             if api_method is None:
                 continue

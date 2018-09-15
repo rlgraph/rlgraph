@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import logging
 import unittest
+import time
 
 from rlgraph import spaces
 from rlgraph.agents import DQNAgent
@@ -256,6 +257,29 @@ class TestPytorchBackend(unittest.TestCase):
         # Distribution's entropy.
         expected_h = np.array([1.572, 0.003])
         test.test(("get_entropy", states), expected_outputs=expected_h, decimals=3)
+
+    def test_act(self):
+        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
+        agent_config = config_from_path("configs/ray_apex_for_pong.json")
+        agent = DQNAgent.from_spec(
+            # Uses 2015 DQN parameters as closely as possible.
+            agent_config,
+            state_space=env.state_space,
+            # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
+            action_space=env.action_space
+        )
+        state = env.reset()
+        action = agent.get_action(state)
+        print("Component call count = {}".format(Component.call_count))
+
+        state_space = env.state_space
+
+        samples = state_space.sample(100)
+        start = time.perf_counter()
+        for s in samples:
+            action = agent.get_action(s)
+        end = time.perf_counter() - start
+        print("Took {} s for 100 actions, mean = {}".format(end, end / 100))
 
     def test_2_containers_flattening_splitting(self):
         """
