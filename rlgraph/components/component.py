@@ -277,7 +277,7 @@ class Component(Specifiable):
             else:
                 ret = method(*params)
             # Store runtime for this method.
-            Component.call_times.append((method.__name__, time.perf_counter() - start))
+            Component.call_times.append((method_owner.name, method.__name__, time.perf_counter() - start))
             return ret
         elif self.execution_mode == "static_graph":
             # Graph construction.

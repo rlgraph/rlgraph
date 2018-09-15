@@ -30,6 +30,7 @@ from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import root_logger, softmax
 from rlgraph.tests.dummy_components import *
+from rlgraph.utils.execution_util import print_call_chain
 
 
 class TestPytorchBackend(unittest.TestCase):
@@ -273,15 +274,24 @@ class TestPytorchBackend(unittest.TestCase):
         print("Component call count = {}".format(Component.call_count))
 
         state_space = env.state_space
+        count = 200
 
-        samples = state_space.sample(100)
+        samples = state_space.sample(count)
         start = time.perf_counter()
         for s in samples:
             action = agent.get_action(s)
         end = time.perf_counter() - start
-        print("Took {} s for 100 separate actions, mean = {}".format(end, end / 100))
+
+        print("Took {} s for {} separate actions, mean = {}".format(end, count, end / count))
 
         # Now instead test 100 batch actions
+        samples = state_space.sample(count)
+        start = time.perf_counter()
+        action = agent.get_action(samples)
+        end = time.perf_counter() - start
+        print("Took {} s for {} batched actions.".format(end, count))
+        profile = Component.call_times
+        print_call_chain(profile, True, 0.1)
 
     def test_get_td_loss(self):
         env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
@@ -293,7 +303,7 @@ class TestPytorchBackend(unittest.TestCase):
             # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
             action_space=env.action_space
         )
-        samples = 100
+        samples = 200
         rewards = np.random.random(size=samples)
         states = list(agent.preprocessed_state_space.sample(samples))
         actions = agent.action_space.sample(samples)
@@ -318,10 +328,7 @@ class TestPytorchBackend(unittest.TestCase):
             )
             print("post process time = {}".format(time.perf_counter() - start))
         profile = Component.call_times
-        res = sorted(profile, key=lambda v: v[1], reverse=True)
-        print("Call chain sorted by runtime")
-        for v in res:
-            print(v)
+        print_call_chain(profile, True, 0.1)
 
     def test_2_containers_flattening_splitting(self):
         """
