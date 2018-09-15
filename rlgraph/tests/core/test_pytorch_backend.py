@@ -22,9 +22,9 @@ import unittest
 
 from rlgraph import spaces
 from rlgraph.agents import DQNAgent
-from rlgraph.components import Policy
+from rlgraph.components import Policy, MemPrioritizedReplay
 from rlgraph.environments import Environment, OpenAIGymEnv
-from rlgraph.spaces import FloatBox, IntBox
+from rlgraph.spaces import FloatBox, IntBox, Dict, BoolBox
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import root_logger, softmax
@@ -139,6 +139,36 @@ class TestPytorchBackend(unittest.TestCase):
             # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
             action_space=env.action_space
         )
+
+    def test_memory_compilation(self):
+        # Builds a memory and returns build stats.
+        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
+
+        record_space = Dict(
+            states=env.state_space,
+            actions=env.action_space,
+            rewards=float,
+            terminals=BoolBox(),
+            add_batch_rank=True
+        )
+        input_spaces = dict(
+            # insert: records
+            records=record_space,
+            # get_records: num_records
+            num_records=int,
+            # update_records: indices, update
+            indices=IntBox(add_batch_rank=True),
+            update=FloatBox(add_batch_rank=True)
+        )
+
+        input_spaces.pop("num_records")
+        memory = MemPrioritizedReplay(
+            capacity=20000,
+            next_states=True
+        )
+        test = ComponentTest(component=memory, input_spaces=input_spaces, auto_build=False)
+        return test.build()
+
 
     # TODO -> batch dim works differently in pytorch -> have to squeeze.
     def test_dense_layer(self):

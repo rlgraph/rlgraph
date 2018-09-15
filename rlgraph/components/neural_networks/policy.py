@@ -265,5 +265,4 @@ class Policy(Component):
         if get_backend() == "tf":
             return tf.argmax(logits, axis=-1, output_type=tf.int32)
         elif get_backend() == "pytorch":
-            print("using simple argmax action")
-            torch.argmax(logits, dim=1).int()
+            return torch.argmax(logits, dim=-1).int()
