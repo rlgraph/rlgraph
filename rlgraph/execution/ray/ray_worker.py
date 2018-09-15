@@ -549,12 +549,17 @@ class RayWorker(RayActor):
             if np.random.random() <= self.exploration_epsilon:
                 if self.num_environments == 1:
                     # Sample returns without batch dim -> wrap.
-                    return [self.agent.action_space.sample(size=self.num_environments)]
+                    action = [self.agent.action_space.sample(size=self.num_environments)]
                 else:
-                    return self.agent.action_space.sample(size=self.num_environments)
+                    action = self.agent.action_space.sample(size=self.num_environments)
             else:
-                return self.agent.get_action(states=states, use_exploration=use_exploration,
-                                             apply_preprocessing=apply_preprocessing)
+                if self.num_environments == 1:
+                    action = [self.agent.get_action(states=states, use_exploration=use_exploration,
+                                                    apply_preprocessing=apply_preprocessing)]
+                else:
+                    action = self.agent.get_action(states=states, use_exploration=use_exploration,
+                                                    apply_preprocessing=apply_preprocessing)
+            return action
         else:
             return self.agent.get_action(states=states, use_exploration=use_exploration,
                                          apply_preprocessing=apply_preprocessing)
