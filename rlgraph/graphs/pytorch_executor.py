@@ -82,10 +82,12 @@ class PyTorchExecutor(GraphExecutor):
                 return_ops = api_method[2] if len(api_method) > 2 else None
                 params = util.force_list(api_method[1])
                 api_method = api_method[0]
-                # TODO check if necessary for every arg?
-                # TODO we could also convert at the level of components?
-                # TODO set if grad required?
-                tensor_params = force_torch_tensors(params=params)
+
+                # TODO where to determine this? exec spec?
+                requires_grad = False
+                if "update" in api_method:
+                    requires_grad = True
+                tensor_params = force_torch_tensors(params=params, requires_grad=requires_grad)
                 api_ret = self.graph_builder.execute_define_by_run_op(api_method, tensor_params)
 
                 to_return = []
@@ -93,7 +95,7 @@ class PyTorchExecutor(GraphExecutor):
                     # Either return all ops or only return if specified in return ops.
                     if return_ops is None or (return_ops is not None and i in return_ops):
                         # Detach grad.
-                        if isinstance(op_result, torch.Tensor):
+                        if isinstance(op_result, torch.Tensor) and op_result.requires_grad is True:
                             op_result = op_result.detach()
                         to_return.append(op_result)
 
