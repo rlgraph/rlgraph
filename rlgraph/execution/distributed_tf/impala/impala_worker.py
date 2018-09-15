@@ -152,7 +152,8 @@ class IMPALAWorker(Worker):
                         self.finished_episode_durations.append(time.monotonic() - self.episode_starts[i])
                         self.finished_episode_steps.append(self.episode_timesteps[i])
                         self.logger.info("Finished episode: reward={}, actions={}, duration={}s.".format(
-                            self.episode_returns[i], self.episode_timesteps[i], self.finished_episode_durations[-1]))
+                            self.episode_returns[i], self.episode_timesteps[i], self.finished_episode_durations[-1])
+                        )
 
                         self.episode_returns[i] = 0
                         self.episode_timesteps[i] = 0

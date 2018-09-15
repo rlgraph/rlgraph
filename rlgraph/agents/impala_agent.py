@@ -116,7 +116,9 @@ class IMPALAAgent(Agent):
             environment_spec = None
 
         # Add previous-action/reward preprocessors to env-specific preprocessor spec.
-        preprocessing_spec = kwargs.pop("preprocessing_spec", dict(preprocessors=dict()))
+        # TODO: remove this empty hard-coded preprocessor.
+        kwargs.pop("preprocessing_spec")
+        preprocessing_spec = dict(preprocessors=dict())
         # Flatten actions.
         preprocessing_spec["preprocessors"]["previous_action"] = [
             dict(type="reshape", flatten=True, flatten_categories=kwargs.get("action_space").num_categories)

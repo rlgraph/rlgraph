@@ -24,6 +24,7 @@ from rlgraph.components.layers.nn.residual_layer import ResidualLayer
 from rlgraph.components.layers.nn.maxpool2d_layer import MaxPool2DLayer
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 from rlgraph.components.layers.nn.concat_layer import ConcatLayer
+from rlgraph.components.layers.preprocessing.multiply_divide import Divide
 from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.layers.strings.string_to_hash_bucket import StringToHashBucket
 from rlgraph.components.layers.strings.embedding_lookup import EmbeddingLookup
@@ -192,6 +193,9 @@ class LargeIMPALANetwork(IMPALANetwork):
         # Collect components for image stack before unfolding time-rank going into main LSTM.
         sub_components = list()
 
+        # Divide by 255
+        sub_components.append(Divide(divisor=255, scope="divide-255"))
+
         # Time-rank into batch-rank reshaper.
         sub_components.append(ReShape(fold_time_rank=True, scope="time-rank-fold"))
 
@@ -263,6 +267,9 @@ class SmallIMPALANetwork(IMPALANetwork):
         """
         # Collect components for image stack before unfolding time-rank going into main LSTM.
         sub_components = list()
+
+        # Divide by 255
+        sub_components.append(Divide(divisor=255, scope="divide-255"))
 
         # Time-rank into batch-rank reshaper.
         sub_components.append(ReShape(fold_time_rank=True, scope="time-rank-fold"))
