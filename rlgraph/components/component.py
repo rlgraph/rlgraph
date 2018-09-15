@@ -770,7 +770,7 @@ class Component(Specifiable):
 
     def get_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True,
                      from_space=None, add_batch_rank=False, add_time_rank=False, time_major=False, flatten=False,
-                     local=False):
+                     local=False, use_resource=False):
         """
         Generates or returns a variable to use in the selected backend.
         The generated variable is automatically registered in this component's (and all parent components')
@@ -799,6 +799,8 @@ class Component(Specifiable):
             flatten (bool): Whether to produce a FlattenedDataOp with auto-keys.
             local (bool): Whether the variable must not be shared across the network.
                 Default: False.
+            use_resource (bool): Whether to use the new tf resource-type variables.
+                Default: False.
 
         Returns:
             DataOp: The actual variable (dependent on the backend) or - if from
@@ -823,7 +825,8 @@ class Component(Specifiable):
         # We are creating the variable using a Space as template.
         if from_space is not None:
             var = self._variable_from_space(
-                flatten, from_space, name, add_batch_rank, add_time_rank, time_major, trainable, initializer, local
+                flatten, from_space, name, add_batch_rank, add_time_rank, time_major, trainable, initializer, local,
+                use_resource
             )
 
         # TODO: Figure out complete concept for python/numpy based Components (including their handling of variables).
@@ -860,7 +863,8 @@ class Component(Specifiable):
 
             var = tf.get_variable(
                 name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable,
-                collections=[tf.GraphKeys.GLOBAL_VARIABLES if local is False else tf.GraphKeys.LOCAL_VARIABLES]
+                collections=[tf.GraphKeys.GLOBAL_VARIABLES if local is False else tf.GraphKeys.LOCAL_VARIABLES],
+                use_resource=use_resource
             )
         elif get_backend() == "tf-eager":
             shape = tuple(
@@ -888,7 +892,7 @@ class Component(Specifiable):
         return var
 
     def _variable_from_space(self, flatten, from_space, name, add_batch_rank, add_time_rank, time_major, trainable,
-                             initializer, local=False):
+                             initializer, local=False, use_resource=False):
         """
         Private variable from space helper, see 'get_variable' for API.
         """
@@ -901,14 +905,14 @@ class Component(Specifiable):
                             name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
                             time_major=time_major, trainable=trainable, initializer=initializer,
                             is_python=(self.backend == "python" or get_backend() == "python"),
-                            local=local
+                            local=local, use_resource=use_resource
                         ))
                     # Normal, nested Variables from a Space (container or primitive).
                     else:
                         return from_space.get_variable(
                             name=name, add_batch_rank=add_batch_rank, trainable=trainable, initializer=initializer,
                             is_python=(self.backend == "python" or get_backend() == "python"),
-                            local=local
+                            local=local, use_resource=use_resource
                         )
             else:
                 if flatten:
@@ -916,14 +920,14 @@ class Component(Specifiable):
                         name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
                         time_major=time_major, trainable=trainable, initializer=initializer,
                         is_python=(self.backend == "python" or get_backend() == "python"),
-                        local=local
+                        local=local, use_resource=use_resource
                     ))
                 # Normal, nested Variables from a Space (container or primitive).
                 else:
                     return from_space.get_variable(
                         name=name, add_batch_rank=add_batch_rank, trainable=trainable, initializer=initializer,
                         is_python=(self.backend == "python" or get_backend() == "python"),
-                        local=local
+                        local=local, use_resource=use_resource
                     )
 
     def get_variables(self, *names, **kwargs):
