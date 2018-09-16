@@ -17,8 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
-from six.moves import xrange as range_
 import time
 
 from rlgraph.agents.impala_agent import IMPALAAgent
@@ -36,14 +34,14 @@ class IMPALAWorker(Worker):
         """
         assert isinstance(agent, IMPALAAgent)
 
-        super(IMPALAWorker, self).__init__(agent=agent, **kwargs)
+        frameskip = agent.environment_stepper.environment_spec.get("frameskip", 1)
+
+        super(IMPALAWorker, self).__init__(agent=agent, frameskip=frameskip, **kwargs)
 
         self.logger.info(
             "Initialized IMPALA worker (type {}) with 1 environment '{}' running inside Agent's EnvStepper "
             "component.".format(self.agent.type, self.agent.environment_stepper.environment_spec)
         )
-
-        #agent.worker_sample_size
 
         # Global statistics.
         self.env_frames = 0
@@ -52,14 +50,12 @@ class IMPALAWorker(Worker):
         self.finished_episode_steps = list()
 
         # Accumulated return over the running episode.
-        self.episode_returns = [0 for _ in range_(self.num_environments)]
+        self.episode_returns = 0
 
         # The number of steps taken in the running episode.
-        self.episode_timesteps = [0 for _ in range_(self.num_environments)]
+        self.episode_timesteps = 0
         # Wall time of the last start of the running episode.
-        self.episode_starts = [0 for _ in range_(self.num_environments)]
-        # The current state of the running episode.
-        self.env_states = [None for _ in range_(self.num_environments)]
+        #self.episode_starts = 0
 
     def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
                           frameskip=None, reset=True):
@@ -87,30 +83,20 @@ class IMPALAWorker(Worker):
         self.set_update_schedule(update_spec)
 
         num_timesteps = num_timesteps or 0
-        max_timesteps_per_episode = [max_timesteps_per_episode or 0 for _ in range_(self.num_environments)]
-
-        #batched_internal_states_space = self.agent.internal_states_space.with_batch_rank()
-
-        # Initial internal_states (batch=1).
-        #current_internal_states = batched_internal_states_space.zeros(size=self.num_environments)
+        max_timesteps_per_episode = max_timesteps_per_episode or 0
 
         # Stats.
         timesteps_executed = 0
         episodes_executed = 0
 
-        start = time.monotonic()
+        start = time.perf_counter()
         if reset is True:
             self.env_frames = 0
-            self.finished_episode_rewards = list()
-            self.finished_episode_durations = list()
+            #self.finished_episode_rewards = list()
             self.finished_episode_steps = list()
 
-            for i in range_(self.num_environments):
-                self.episode_returns[i] = 0
-                self.episode_timesteps[i] = 0
-                self.episode_starts[i] = time.monotonic()
-
-            #current_internal_states = batched_internal_states_space.zeros(size=self.num_environments)
+            #self.episode_returns = 0
+            self.episode_timesteps = 0
 
             # TODO: Fix for vectorized Envs.
             self.agent.call_api_method("reset")
@@ -119,63 +105,53 @@ class IMPALAWorker(Worker):
         while not (0 < num_timesteps <= timesteps_executed):
             # TODO right now everything comes back as single-env.
             out = self.agent.call_api_method(
-                "perform_n_steps_and_insert_into_fifo"  #, [current_internal_states, timesteps_executed]
+                "perform_n_steps_and_insert_into_fifo"
             )
             timesteps_executed += self.agent.worker_sample_size
-            #current_internal_states = batched_internal_states_space.force_batch(out[2])  # directly add batch=1 again
 
             # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
-            step_episode_returns = out[3]
-            terminals = out[4]
-            #actions = out[5]
-            #next_states = out[6]
+            #rewards = out[2]
+            terminals = out[3][1:]
 
-            self.env_frames += (self.num_environments * self.frameskip * self.agent.worker_sample_size)
+            self.env_frames += self.frameskip * self.agent.worker_sample_size
 
             # Only render once per action.
-            if self.render:
-                self.vector_env.environments[0].render()
+            #if self.render:
+            #    self.vector_env.environments[0].render()
 
-            for i in range_(self.num_environments):
+            #for i in range_(self.num_environments):
+            #    #self.episode_timesteps[i] += self.agent.worker_sample_size
 
-                self.episode_timesteps[i] += self.agent.worker_sample_size
+            for j, terminal in enumerate(terminals):  # TODO: <- [i]
+                self.episode_timesteps += 1
 
-                for j, terminal in enumerate(terminals):  # TODO: <- [i]
-                    self.episode_returns[i] = step_episode_returns[j]
+                if 0 < max_timesteps_per_episode <= self.episode_timesteps:
+                    terminal = True
 
-                    if 0 < max_timesteps_per_episode[i] <= self.episode_timesteps[i]:
-                        terminal = True
-
-                    if terminal:
-                        episodes_executed += 1
-                        self.finished_episode_rewards.append(self.episode_returns[i])
-                        self.finished_episode_durations.append(time.monotonic() - self.episode_starts[i])
-                        self.finished_episode_steps.append(self.episode_timesteps[i])
-                        self.logger.info("Finished episode: reward={}, actions={}, duration={}s.".format(
-                            self.episode_returns[i], self.episode_timesteps[i], self.finished_episode_durations[-1])
-                        )
-
-                        self.episode_returns[i] = 0
-                        self.episode_timesteps[i] = 0
+                if terminal:
+                    episodes_executed += 1
+                    self.finished_episode_steps.append(self.episode_timesteps)
+                    self.logger.info("Finished episode: actions={}.".format(self.episode_timesteps))
+                    self.episode_timesteps = 0
 
             num_timesteps_reached = (0 < num_timesteps <= timesteps_executed)
 
             if num_timesteps_reached:
                 break
 
-        total_time = (time.monotonic() - start) or 1e-10
+        total_time = (time.perf_counter() - start) or 1e-10
 
         # Return values for current episode(s) if None have been completed.
-        if len(self.finished_episode_rewards) == 0:
-            mean_episode_runtime = 0
-            mean_episode_reward = np.mean(self.episode_returns)
-            max_episode_reward = np.max(self.episode_returns)
-            final_episode_reward = self.episode_returns[0]
-        else:
-            mean_episode_runtime = np.mean(self.finished_episode_durations)
-            mean_episode_reward = np.mean(self.finished_episode_rewards)
-            max_episode_reward = np.max(self.finished_episode_rewards)
-            final_episode_reward = self.finished_episode_rewards[-1]
+        #if len(self.finished_episode_rewards) == 0:
+        #    #mean_episode_runtime = 0
+        #    mean_episode_reward = np.mean(self.episode_returns)
+        #    max_episode_reward = np.max(self.episode_returns)
+        #    final_episode_reward = self.episode_returns[0]
+        #else:
+        #    #mean_episode_runtime = np.mean(self.finished_episode_durations)
+        #    mean_episode_reward = np.mean(self.finished_episode_rewards)
+        #    max_episode_reward = np.max(self.finished_episode_rewards)
+        #    final_episode_reward = self.finished_episode_rewards[-1]
 
         results = dict(
             runtime=total_time,
@@ -187,10 +163,10 @@ class IMPALAWorker(Worker):
             env_frames_per_second=(self.env_frames / total_time),
             episodes_executed=episodes_executed,
             episodes_per_minute=(episodes_executed/(total_time / 60)),
-            mean_episode_runtime=mean_episode_runtime,
-            mean_episode_reward=mean_episode_reward,
-            max_episode_reward=max_episode_reward,
-            final_episode_reward=final_episode_reward
+            #mean_episode_runtime=mean_episode_runtime,
+            #mean_episode_reward=mean_episode_reward,
+            #max_episode_reward=max_episode_reward,
+            #final_episode_reward=final_episode_reward
         )
 
         # Total time of run.
@@ -204,9 +180,9 @@ class IMPALAWorker(Worker):
         # Total episodes done (and episodes/min).
         self.logger.info("Episodes finished: {} ({} episodes/min)".
                          format(results['episodes_executed'], results['episodes_per_minute']))
-        self.logger.info("Mean episode runtime: {}s".format(results['mean_episode_runtime']))
-        self.logger.info("Mean episode reward: {}".format(results['mean_episode_reward']))
-        self.logger.info("Max. episode reward: {}".format(results['max_episode_reward']))
-        self.logger.info("Final episode reward: {}".format(results['final_episode_reward']))
+        #self.logger.info("Mean episode runtime: {}s".format(results['mean_episode_runtime']))
+        #self.logger.info("Mean episode reward: {}".format(results['mean_episode_reward']))
+        #self.logger.info("Max. episode reward: {}".format(results['max_episode_reward']))
+        #self.logger.info("Final episode reward: {}".format(results['final_episode_reward']))
 
         return results

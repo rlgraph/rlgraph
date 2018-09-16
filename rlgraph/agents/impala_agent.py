@@ -310,7 +310,11 @@ class IMPALAAgent(Agent):
             # No learning, no loss function.
             self.loss_function = None
             # A Dict Splitter to split things from the EnvStepper.
-            self.env_output_splitter = ContainerSplitter(tuple_length=4)
+            self.env_output_splitter = ContainerSplitter(tuple_length=4, scope="env-output-splitter")
+
+            self.states_dict_splitter = ContainerSplitter("RGB_INTERLEAVED", "INSTR", "previous_action", "previous_reward",
+                                                     scope="states-dict-splitter")
+
             # Slice some data from the EnvStepper (e.g only first internal states are needed).
             self.internal_states_slicer = Slice(scope="internal-states-slicer", squeeze=True)
             # Merge back to insert into FIFO.
@@ -331,7 +335,8 @@ class IMPALAAgent(Agent):
             )
             sub_components = [
                 self.environment_stepper, self.env_output_splitter,
-                self.internal_states_slicer, self.fifo_input_merger, self.fifo_queue
+                self.internal_states_slicer, self.fifo_input_merger, self.states_dict_splitter,
+                self.fifo_queue
             ]
         # Learner.
         else:
@@ -485,8 +490,8 @@ class IMPALAAgent(Agent):
 
         self.root_component.define_api_method("update_from_memory", update_from_memory)
 
-    def define_api_methods_actor(self, env_stepper, splitter, internal_states_slicer, merger,
-                                 fifo_queue):
+    def define_api_methods_actor(self, env_stepper, env_output_splitter, internal_states_slicer, merger,
+                                 states_dict_splitter, fifo_queue):
         """
         Defines the API-methods used by an IMPALA actor. Actors only step through an environment (n-steps at
         a time), collect the results and push them into the FIFO queue. Results include: The actions actually
@@ -506,7 +511,7 @@ class IMPALAAgent(Agent):
             )
 
             terminals, states, action_log_probs, internal_states = \
-                self_.call(splitter.split, step_results)
+                self_.call(env_output_splitter.split, step_results)
 
             initial_internal_states = self_.call(internal_states_slicer.slice, internal_states, 0)
             current_internal_states = self_.call(internal_states_slicer.slice, internal_states, -1)
@@ -517,7 +522,10 @@ class IMPALAAgent(Agent):
 
             # Insert results into the FIFOQueue.
             insert_op = self_.call(fifo_queue.insert_records, record)
-            return insert_op, current_internal_states  #, returns, terminals
+
+            _, _, _, rewards = self_.call(states_dict_splitter.split, states)
+
+            return insert_op, current_internal_states, rewards, terminals
 
         self.root_component.define_api_method(
             "perform_n_steps_and_insert_into_fifo", perform_n_steps_and_insert_into_fifo
