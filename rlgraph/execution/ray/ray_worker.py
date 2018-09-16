@@ -361,8 +361,6 @@ class RayWorker(RayActor):
         self.last_ep_start_timestamps = current_episode_start_timestamps
         self.last_ep_sample_times = current_episode_sample_times
 
-
-
         # We already accounted for all terminated episodes. This means we only
         # have to do accounting for any unfinished fragments.
         for i, env_id in enumerate(self.env_ids):

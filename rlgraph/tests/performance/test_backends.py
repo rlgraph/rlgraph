@@ -59,7 +59,7 @@ class TestPytorchBackend(unittest.TestCase):
             env_spec=lambda: env,
             agent=agent,
             frameskip=1,
-            num_envs=4
+            num_envs=1
         )
 
         result = worker.execute_timesteps(1000)
