@@ -56,7 +56,7 @@ class TestPytorchBackend(unittest.TestCase):
         )
 
         worker = SingleThreadedWorker(
-            env_spec=lambda: env,
+            env_spec=lambda: OpenAIGymEnv("CartPole-v0"),
             agent=agent,
             frameskip=1,
             num_envs=1
