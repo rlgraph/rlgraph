@@ -106,7 +106,8 @@ class IMPALALossFunction(LossFunction):
                 actor's policies (mu). Dimensions are: time x batch x action-space+categories.
             values (DataOp): The state value estimates coming from baseline node of the learner's policy (pi).
                 Dimensions are: (time+1) x batch. +1 b/c last-next-state (aka "bootstrapped" value).
-            actions (DataOp): The actually taken actions. Dimensions are: time x batch x action-space.
+            actions (DataOp): The actually taken (already one-hot flattened) actions.
+                Dimensions are: time x batch x N (N=number of discrete actions).
             rewards (DataOp): The received rewards. Dimensions are: time x batch.
             terminals (DataOp): The observed terminal signals. Dimensions are: time x batch.
             #bootstrapped_values (DataOp): The bootstrapped values. Dimensions are 1 (time) x batch x 1 (the value node).
@@ -120,9 +121,9 @@ class IMPALALossFunction(LossFunction):
 
             # Calculate the log IS-weight values via: logIS = log(pi(a|s)) - log(mu(a|s)).
             # Use the action_probs_pi values only of the actions actually taken.
-            one_hot = tf.one_hot(indices=actions, depth=self.action_space.num_categories)
-            log_probs_actions_taken_pi = tf.reduce_sum(log_probs_actions_pi * one_hot, axis=-1, keepdims=True)
-            log_probs_actions_taken_mu = tf.reduce_sum(tf.log(action_probs_mu) * one_hot, axis=-1, keepdims=True)
+            #one_hot = tf.one_hot(indices=actions, depth=self.action_space.num_categories)
+            log_probs_actions_taken_pi = tf.reduce_sum(log_probs_actions_pi * actions, axis=-1, keepdims=True)
+            log_probs_actions_taken_mu = tf.reduce_sum(tf.log(action_probs_mu) * actions, axis=-1, keepdims=True)
             log_is_weights = log_probs_actions_taken_pi - log_probs_actions_taken_mu
 
             # Discounts are simply 0.0, if there is a terminal, otherwise: `discount`.
@@ -134,8 +135,8 @@ class IMPALALossFunction(LossFunction):
             elif self.reward_clipping == "soft_asymmetric":
                 squeezed = tf.tanh(rewards / 5.0)
                 rewards = tf.where(rewards < 0.0, 0.3 * squeezed, squeezed) * 5.0
-            # Make discounts and rewards shape=(1,) instead of shape=() (not counting batch/time-ranks).
-            rewards = tf.expand_dims(rewards, axis=-1)
+            ## OBSOLETE (already done): Make discounts and rewards shape=(1,) instead of shape=() (not counting batch/time-ranks).
+            #rewards = tf.expand_dims(rewards, axis=-1)
 
             # Let the v-trace  helper function calculate the v-trace values (vs) and the pg-advantages
             # (already multiplied by rho_t_pg): A = rho_t_pg * (rt + gamma*vt - V(t)).

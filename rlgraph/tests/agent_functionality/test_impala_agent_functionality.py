@@ -251,7 +251,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             state_space=state_space,
             reward_space="float32",
             internal_states_space=self.internal_states_space,
-            num_steps=1000,
+            num_steps=100,
             # Add both prev-action and -reward into the state sent through the network.
             add_previous_action=True,
             add_previous_reward=True,
@@ -261,17 +261,10 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
 
         test = ComponentTest(
             component=environment_stepper,
-            #input_spaces=dict(
-                #internal_states=self.internal_states_space,
-                #num_steps=int,
-                #time_step=int
-            #),
             action_space=action_space,
         )
         # Reset the stepper.
         test.test("reset")
-
-        #initial_internal_states = self.internal_states_space.zeros(size=1)
 
         # Step n times through the Env and collect results.
         # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each

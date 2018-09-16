@@ -74,7 +74,7 @@ class TestDistributedIMPALA(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space,
             # TODO: automate this (by lookup from NN).
-            internal_states_space=IMPALAAgent.standard_internal_states_space,
+            internal_states_space=IMPALAAgent.default_internal_states_space,
             execution_spec=dict(
                 mode="distributed",
                 distributed_spec=dict(cluster_spec=None)
@@ -152,7 +152,7 @@ class TestDistributedIMPALA(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space,
             # TODO: automate this (by lookup from NN).
-            internal_states_space=IMPALAAgent.standard_internal_states_space,
+            internal_states_space=IMPALAAgent.default_internal_states_space,
             # Setup distributed tf.
             execution_spec=dict(
                 mode="distributed",
@@ -161,8 +161,8 @@ class TestDistributedIMPALA(unittest.TestCase):
                     type="monitored-training-session",
                     #log_device_placement=True
                 ),
-                enable_profiler=True,
-                profiler_frequency=1
+                #enable_profiler=True,
+                #profiler_frequency=1
             )
         )
         print("IMPALA actor compiled.")
@@ -185,7 +185,7 @@ class TestDistributedIMPALA(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space,
             # TODO: automate this (by lookup from NN).
-            internal_states_space=IMPALAAgent.standard_internal_states_space,
+            internal_states_space=IMPALAAgent.default_internal_states_space,
             # Setup distributed tf.
             execution_spec=dict(
                 mode="distributed",
