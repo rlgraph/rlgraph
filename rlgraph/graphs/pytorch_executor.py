@@ -96,10 +96,17 @@ class PyTorchExecutor(GraphExecutor):
                 api_ret = self.graph_builder.execute_define_by_run_op(api_method, tensor_params)
 
                 to_return = []
-                for i, op_result in enumerate(api_ret):
-                    # Either return all ops or only return if specified in return ops.
-                    if return_ops is None or (return_ops is not None and i in return_ops):
-                        # Detach grad.
+                if return_ops is not None:
+                    # Build return ops in correct order.
+                    for i in return_ops:
+                        op_result = api_ret[i]
+                        if isinstance(op_result, torch.Tensor) and op_result.requires_grad is True:
+                            op_result = op_result.detach()
+                        to_return.append(op_result)
+
+                else:
+                    # Just return everything in the order it was returned by the API method.
+                    for op_result in api_ret:
                         if isinstance(op_result, torch.Tensor) and op_result.requires_grad is True:
                             op_result = op_result.detach()
                         to_return.append(op_result)
@@ -115,7 +122,6 @@ class PyTorchExecutor(GraphExecutor):
 
         # Unwrap if len 1.
         ret = ret[0] if len(ret) == 1 else ret
-
         return ret
 
     def read_variable_values(self, variables):
