@@ -37,9 +37,9 @@ class SingleThreadedWorker(Worker):
 
         # Global statistics.
         self.env_frames = 0
-        self.finished_episode_rewards = [list() for _ in range_(self.num_environments)]
-        self.finished_episode_durations = [list() for _ in range_(self.num_environments)]
-        self.finished_episode_timesteps = [list() for _ in range_(self.num_environments)]
+        self.finished_episode_rewards = [[] for _ in range_(self.num_environments)]
+        self.finished_episode_durations = [[] for _ in range_(self.num_environments)]
+        self.finished_episode_timesteps = [[] for _ in range_(self.num_environments)]
 
         # Accumulated return over the running episode.
         self.episode_returns = [0 for _ in range_(self.num_environments)]
@@ -123,18 +123,18 @@ class SingleThreadedWorker(Worker):
         timesteps_executed = 0
         episodes_executed = 0
 
-        start = time.monotonic()
+        start = time.perf_counter()
         if reset is True:
             self.env_frames = 0
-            self.finished_episode_rewards = [list() for _ in range_(self.num_environments)]
-            self.finished_episode_durations = [list() for _ in range_(self.num_environments)]
-            self.finished_episode_timesteps = [list() for _ in range_(self.num_environments)]
+            self.finished_episode_rewards = [[] for _ in range_(self.num_environments)]
+            self.finished_episode_durations = [[] for _ in range_(self.num_environments)]
+            self.finished_episode_timesteps = [[] for _ in range_(self.num_environments)]
 
             for i in range_(self.num_environments):
                 self.episode_returns[i] = 0
                 self.episode_timesteps[i] = 0
                 self.episode_terminals[i] = False
-                self.episode_starts[i] = time.monotonic()
+                self.episode_starts[i] = time.perf_counter()
             self.env_states = self.vector_env.reset()
             self.agent.reset()
         elif self.env_states[0] is None:
@@ -142,7 +142,6 @@ class SingleThreadedWorker(Worker):
 
         # Only run everything for at most num_timesteps (if defined).
         while not (0 < num_timesteps <= timesteps_executed):
-
             if self.render:
                 # This renders the first underlying environment.
                 self.vector_env.render()
@@ -150,7 +149,8 @@ class SingleThreadedWorker(Worker):
             self.env_states = self.agent.state_space.force_batch(self.env_states)
 
             actions, preprocessed_states = self.agent.get_action(
-                states=self.env_states, use_exploration=use_exploration, extra_returns="preprocessed_states"
+                states=self.env_states, use_exploration=use_exploration, extra_returns="preprocessed_states",
+                apply_preprocessing=False
             )
 
             # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
@@ -189,7 +189,7 @@ class SingleThreadedWorker(Worker):
                     self.env_states[i] = self.vector_env.reset(i)
                     self.episode_returns[i] = 0
                     self.episode_timesteps[i] = 0
-                    self.episode_starts[i] = time.monotonic()
+                    self.episode_starts[i] = time.perf_counter()
                 else:
                     # Otherwise assign states to next states
                     self.env_states[i] = next_states[i]
@@ -206,7 +206,7 @@ class SingleThreadedWorker(Worker):
             if 0 < num_episodes <= episodes_executed or num_timesteps_reached:
                 break
 
-        total_time = (time.monotonic() - start) or 1e-10
+        total_time = (time.perf_counter() - start) or 1e-10
 
         # Return values for current episode(s) if None have been completed.
         if len(self.finished_episode_rewards) == 0:
@@ -215,8 +215,8 @@ class SingleThreadedWorker(Worker):
             max_episode_reward = np.max(self.episode_returns)
             final_episode_reward = self.episode_returns[0]
         else:
-            all_finished_durations = list()
-            all_finished_rewards = list()
+            all_finished_durations = []
+            all_finished_rewards = []
             for i in range_(self.num_environments):
                 all_finished_rewards.extend(self.finished_episode_rewards[i])
                 all_finished_durations.extend(self.finished_episode_durations[i])

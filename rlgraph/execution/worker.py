@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
 import logging
 from six.moves import xrange as range_
 
@@ -28,7 +29,8 @@ class Worker(Specifiable):
     """
     Generic worker to locally interact with simulator environments.
     """
-    def __init__(self, agent, env_spec=None, num_envs=1, frameskip=1, render=False):
+    def __init__(self, agent, env_spec=None, num_envs=1, frameskip=1, render=False,
+                 worker_executes_exploration=True, exploration_epsilon=0.1):
         """
         Args:
             agent (Agent): Agent to execute environment on.
@@ -39,6 +41,8 @@ class Worker(Specifiable):
                 This setting can be overwritten in the single calls to the different `execute_..` methods.
             render (bool): Whether to render the environment after each action.
                 Default: False.
+            worker_executes_exploration (bool): If worker executes exploration by sampling.
+            exploration_epsilon (Optional[float]): Epsilon to use if worker executes exploration.
         """
         super(Worker, self).__init__()
         self.num_environments = num_envs
@@ -59,6 +63,9 @@ class Worker(Specifiable):
         self.update_interval = None
         self.update_steps = None
         self.sync_interval = None
+
+        self.worker_executes_exploration = worker_executes_exploration
+        self.exploration_epsilon = exploration_epsilon
 
     def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
                           frameskip=1, reset=True):
@@ -197,5 +204,27 @@ class Worker(Specifiable):
             self.steps_before_update = update_schedule['steps_before_update']
             self.update_interval = update_schedule['update_interval']
             self.update_steps = update_schedule['update_steps']
-            self.sync_interval= update_schedule['sync_interval']
+            self.sync_interval = update_schedule['sync_interval']
+
+    def get_action(self, states, use_exploration, apply_preprocessing, extra_returns):
+        if self.worker_executes_exploration:
+            # Only once for all actions otherwise we would have to call a session anyway.
+            if np.random.random() <= self.exploration_epsilon:
+                if self.num_environments == 1:
+                    # Sample returns without batch dim -> wrap.
+                    action = [self.agent.action_space.sample(size=self.num_environments)]
+                else:
+                    action = self.agent.action_space.sample(size=self.num_environments)
+            else:
+                if self.num_environments == 1:
+                    action = [self.agent.get_action(states=states, use_exploration=use_exploration,
+                              apply_preprocessing=apply_preprocessing, extra_returns=extra_returns)]
+                else:
+                    action = self.agent.get_action(states=states, use_exploration=use_exploration,
+                             apply_preprocessing=apply_preprocessing, extra_returns=extra_returns)
+            return action
+        else:
+            return self.agent.get_action(states=states, use_exploration=use_exploration,
+                                         apply_preprocessing=apply_preprocessing, extra_returns=extra_returns)
+
 

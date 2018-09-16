@@ -223,7 +223,7 @@ class RayWorker(RayActor):
         # more accurate, as there might be delays between the worker initialization and actual sampling start.
         if not self.last_ep_start_initialized:
             for i, timestamp in enumerate(self.last_ep_start_timestamps):
-                self.last_ep_start_timestamps[i] = time.time()
+                self.last_ep_start_timestamps[i] = time.perf_counter()
             self.last_ep_start_initialized = True
 
         start = time.monotonic()
@@ -255,7 +255,7 @@ class RayWorker(RayActor):
         # Whether the episode in each env has terminated.
         terminals = [False for _ in range_(self.num_environments)]
         while timesteps_executed < num_timesteps:
-            current_iteration_start_timestamp = time.time()
+            current_iteration_start_timestamp = time.perf_counter()
             for i, env_id in enumerate(self.env_ids):
                 state = self.agent.state_space.force_batch(env_states[i])
                 if self.preprocessors[env_id] is not None:
@@ -281,7 +281,7 @@ class RayWorker(RayActor):
             timesteps_executed += self.num_environments
             env_frames += self.num_environments
             env_states = next_states
-            current_iteration_time = time.time() - current_iteration_start_timestamp
+            current_iteration_time = time.perf_counter() - current_iteration_start_timestamp
 
             # Do accounting for each environment.
             state_buffer = np.array(self.preprocessed_states_buffer)
@@ -301,7 +301,7 @@ class RayWorker(RayActor):
                 if terminals[i] or (0 < max_timesteps_per_episode <= current_episode_timesteps[i]):
                     self.finished_episode_rewards[i].append(current_episode_rewards[i])
                     self.finished_episode_timesteps[i].append(current_episode_timesteps[i])
-                    self.finished_episode_total_times[i].append(time.time() - current_episode_start_timestamps[i])
+                    self.finished_episode_total_times[i].append(time.perf_counter() - current_episode_start_timestamps[i])
                     self.finished_episode_sample_times[i].append(current_episode_sample_times[i])
                     episodes_executed[i] += 1
                     self.episodes_executed += 1
@@ -347,7 +347,7 @@ class RayWorker(RayActor):
                         self.is_preprocessed[env_id] = True
                     current_episode_rewards[i] = 0
                     current_episode_timesteps[i] = 0
-                    current_episode_start_timestamps[i] = time.time()
+                    current_episode_start_timestamps[i] = time.perf_counter()
                     current_episode_sample_times[i] = 0.0
 
             if 0 < num_timesteps <= timesteps_executed or (break_on_terminal and np.any(terminals)):
