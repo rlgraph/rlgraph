@@ -135,7 +135,7 @@ class SingleThreadedWorker(Worker):
                 self.episode_timesteps[i] = 0
                 self.episode_terminals[i] = False
                 self.episode_starts[i] = time.perf_counter()
-            self.env_states = self.vector_env.reset()
+            self.env_states = self.vector_env.reset_all()
             self.agent.reset()
         elif self.env_states[0] is None:
             raise RLGraphError("Runner must be reset at the very beginning. Environment is in invalid state.")
@@ -147,7 +147,6 @@ class SingleThreadedWorker(Worker):
                 self.vector_env.render()
 
             self.env_states = self.agent.state_space.force_batch(self.env_states)
-
             actions, preprocessed_states = self.agent.get_action(
                 states=self.env_states, use_exploration=use_exploration, extra_returns="preprocessed_states",
                 apply_preprocessing=False
@@ -195,11 +194,11 @@ class SingleThreadedWorker(Worker):
                     self.env_states[i] = next_states[i]
 
                 # Observe per environment.
-                self.agent.observe(
-                    preprocessed_states=preprocessed_states[i], actions=actions[i], internals=[],
-                    rewards=env_rewards[i], terminals=self.episode_terminals[i], env_id=self.env_ids[i]
-                )
-            self.update_if_necessary()
+            #     self.agent.observe(
+            #         preprocessed_states=preprocessed_states[i], actions=actions[i], internals=[],
+            #         rewards=env_rewards[i], terminals=self.episode_terminals[i], env_id=self.env_ids[i]
+            #     )
+            # self.update_if_necessary()
             timesteps_executed += self.num_environments
             num_timesteps_reached = (0 < num_timesteps <= timesteps_executed)
 
