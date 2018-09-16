@@ -524,7 +524,6 @@ class RayWorker(RayActor):
         if self.worker_computes_weights:
             # Next states were just collected, we batch process them here.
             # TODO make generic agent method?
-            start = time.perf_counter()
             _, loss_per_item = self.agent.get_td_loss(
                 dict(
                     states=states,
@@ -535,7 +534,6 @@ class RayWorker(RayActor):
                     importance_weights=weights
                 )
             )
-            print("post process time = {}".format(time.perf_counter() - start))
             weights = np.abs(loss_per_item) + SMALL_NUMBER
 
         return dict(
