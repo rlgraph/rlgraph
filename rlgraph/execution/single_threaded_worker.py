@@ -194,11 +194,11 @@ class SingleThreadedWorker(Worker):
                     self.env_states[i] = next_states[i]
 
                 # Observe per environment.
-            #     self.agent.observe(
-            #         preprocessed_states=preprocessed_states[i], actions=actions[i], internals=[],
-            #         rewards=env_rewards[i], terminals=self.episode_terminals[i], env_id=self.env_ids[i]
-            #     )
-            # self.update_if_necessary()
+                self.agent.observe(
+                    preprocessed_states=preprocessed_states[i], actions=actions[i], internals=[],
+                    rewards=env_rewards[i], terminals=self.episode_terminals[i], env_id=self.env_ids[i]
+                )
+            self.update_if_necessary()
             timesteps_executed += self.num_environments
             num_timesteps_reached = (0 < num_timesteps <= timesteps_executed)
 
