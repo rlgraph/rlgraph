@@ -130,7 +130,7 @@
             "intra_op_parallelism_threads": 1
           }
         },
-        "num_worker_environments": 4,
+        "num_worker_environments": 1,
         "num_background_envs": 0,
         "frame_skip": 1,
         "n_step_adjustment": 3,

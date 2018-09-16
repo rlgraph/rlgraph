@@ -291,11 +291,17 @@ class TestPytorchBackend(unittest.TestCase):
         end = time.perf_counter() - start
         print("Took {} s for {} batched actions.".format(end, count))
         profile = Component.call_times
-        print_call_chain(profile, True, 0.1)
+        print_call_chain(profile, False, 0.03)
 
     def test_get_td_loss(self):
         env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
         agent_config = config_from_path("configs/ray_apex_for_pong.json")
+
+        # Test cpu settings for batching here.
+        agent_config["memory_spec"]["type"] = "mem_prioritized_replay"
+        agent_config["execution_spec"]["torch_num_threads"] = 1
+        agent_config["execution_spec"]["OMP_NUM_THREADS"] = 1
+
         agent = ApexAgent.from_spec(
             # Uses 2015 DQN parameters as closely as possible.
             agent_config,
@@ -328,7 +334,7 @@ class TestPytorchBackend(unittest.TestCase):
             )
             print("post process time = {}".format(time.perf_counter() - start))
         profile = Component.call_times
-        print_call_chain(profile, True, 0.1)
+        print_call_chain(profile, False, 0.003)
 
     def test_2_containers_flattening_splitting(self):
         """

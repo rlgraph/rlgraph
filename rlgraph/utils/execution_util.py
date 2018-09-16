@@ -28,19 +28,21 @@ def print_call_chain(profile_data, sort=True, filter_threshold=None):
         filter_threshold (Optional[float]): Optionally specify an execution threshold in seconds (e.g. 0.01).
             All call entries below the threshold be dropped from the printout.
     """
+    original_length = len(profile_data)
     if filter_threshold is not None:
         assert isinstance(filter_threshold, float), "ERROR: Filter threshold must be float but is {}.".format(
             type(filter_threshold))
         profile_data = [data for data in profile_data if data[2] > filter_threshold]
     if sort:
         res = sorted(profile_data, key=lambda v: v[2], reverse=True)
-        print("Call chain sorted by runtime:")
+        print("Call chain sorted by runtime ({} calls, {} before filter):".
+              format(len(profile_data), original_length))
         for v in res:
             print("{}.{}: {} s".format(v[0], v[1], v[2]))
     else:
-        print("Directed call chain:")
+        print("Directed call chain ({} calls, {} before filter):".format(len(profile_data), original_length))
         for i in range(len(profile_data) - 1):
             v = profile_data[i]
             print("({}.{}: {} s) ->".format(v[0], v[1], v[2]))
         v = profile_data[-1]
-        print("({}.{}: {}  s)".format(v[0], v[1], v[2]))
+        print("({}.{}: {} s)".format(v[0], v[1], v[2]))

@@ -48,11 +48,16 @@ class PyTorchExecutor(GraphExecutor):
         if self.default_torch_tensor_type is not None:
             torch.set_default_tensor_type(self.default_torch_tensor_type)
 
+        self.torch_num_threads = self.execution_spec.get("torch_num_threads", 1)
+        self.omp_num_threads = self.execution_spec.get("OMP_NUM_THREADS", 1)
+
         # Squeeze result dims, often necessary in tests.
         self.remove_batch_dims = True
 
     def build(self, root_components, input_spaces, *args):
         start = time.perf_counter()
+        self.init_execution()
+
         meta_build_times = []
         build_times = []
         for component in root_components:
@@ -118,8 +123,10 @@ class PyTorchExecutor(GraphExecutor):
         return variables
 
     def init_execution(self): \
-        # Nothing to do here for PyTorch.
-        pass
+        # TODO Import guards here are annoying but otherwise breaks if torch is not installed.
+        if get_backend() == "torch":
+            torch.set_num_threads(self.torch_num_threads)
+            os.environ["OMP_NUM_THREADS"] = str(self.omp_num_threads)
 
     def finish_graph_setup(self):
         # Nothing to do here for PyTorch.
