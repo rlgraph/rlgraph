@@ -33,7 +33,7 @@ class OpenAIGymEnv(Environment):
     OpenAI Gym adapter for RLgraph: https://gym.openai.com/.
     """
     def __init__(
-        self, gym_env, frameskip=None, max_num_noops=0, noop_action=0, episodic_life=False, fire_reset=True,
+        self, gym_env, frameskip=None, max_num_noops=0, noop_action=0, episodic_life=False, fire_reset=False,
         monitor=None, monitor_safe=False, monitor_video=0, visualize=False, **kwargs
     ):
         """
