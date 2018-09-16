@@ -47,7 +47,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
 
     # Use the exact same Spaces as in the IMPALA paper.
     action_space = IntBox(9, add_batch_rank=True, add_time_rank=True, time_major=True)
-    action_probs_space = FloatBox(shape=(9,), add_batch_rank=True, add_time_rank=True, time_major=True)
+    action_probs_space = FloatBox(shape=(9,), add_batch_rank=True)
     input_space = Dict(
         RGB_INTERLEAVED=FloatBox(shape=(96, 72, 3)),
         INSTR=TextBox(),
@@ -231,8 +231,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             dict(
                 type="dict-preprocessor-stack",
                 preprocessors=dict(
-                    # The images from the env  are divided by 255.
-                    RGB_INTERLEAVED=[dict(type="divide", divisor=255)],
+                    ## The images from the env  are divided by 255.
+                    #RGB_INTERLEAVED=[dict(type="divide", divisor=255)],
                     # The prev. action/reward from the env must be flattened/bumped-up-to-(1,).
                     previous_action=[dict(type="reshape", flatten=True, flatten_categories=action_space.num_categories)],
                     previous_reward=[dict(type="reshape", new_shape=(1,)), dict(type="convert_type", to_dtype="float32")],
@@ -251,7 +251,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             state_space=state_space,
             reward_space="float32",
             internal_states_space=self.internal_states_space,
-            num_steps=100,
+            num_steps=1000,
             # Add both prev-action and -reward into the state sent through the network.
             add_previous_action=True,
             add_previous_reward=True,
@@ -276,50 +276,50 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # Step n times through the Env and collect results.
         # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
         # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
-        #time_steps = 2000
-        time_start = time.monotonic()
-        #out = test.test(("step", [initial_internal_states, time_steps, 0]), expected_outputs=None)
-        out = test.test("step")
-        time_end = time.monotonic()
-        print("Done running {} steps in Deepmind Lab env using IMPALA network in {}sec.".format(
-            environment_stepper.num_steps, time_end - time_start)
+        time_start = time.perf_counter()
+        steps = 10
+        for _ in range(steps):
+            out = test.test("step")
+        time_total = time.perf_counter() - time_start
+        print("Done running {}x{} steps in Deepmind Lab env using IMPALA network in {}sec ({} actions/sec).".format(
+            steps, environment_stepper.num_steps, time_total , environment_stepper.num_steps * steps / time_total)
         )
 
         # Check types of outputs.
-        self.assertTrue(out[0] is None)  # the step op (no_op).
-        self.assertTrue(isinstance(out[1], DataOpTuple))  # the step results as a tuple (see below)
+        self.assertTrue(isinstance(out, DataOpTuple))  # the step results as a tuple (see below)
 
         # Check types of single data.
-        self.assertTrue(out[1][0]["INSTR"].dtype == np.object)
-        self.assertTrue(out[1][0]["RGB_INTERLEAVED"].dtype == np.float32)
-        self.assertTrue(out[1][0]["RGB_INTERLEAVED"].min() >= 0.0)  # make sure we have pixels / 255
-        self.assertTrue(out[1][0]["RGB_INTERLEAVED"].max() <= 1.0)
-        self.assertTrue(out[1][1].dtype == np.int32)  # actions
-        self.assertTrue(out[1][2].dtype == np.float32)  # rewards
-        self.assertTrue(out[1][3].dtype == np.float32)  # episode return
-        self.assertTrue(out[1][4].dtype == np.bool_)  # next-state is terminal?
-        self.assertTrue(out[1][5]["INSTR"].dtype == np.object)  # next state (raw, not preprocessed)
-        self.assertTrue(out[1][5]["RGB_INTERLEAVED"].dtype == np.uint8)  # next state (raw, not preprocessed)
-        self.assertTrue(out[1][5]["RGB_INTERLEAVED"].min() >= 0)  # make sure we have pixels
-        self.assertTrue(out[1][5]["RGB_INTERLEAVED"].max() <= 255)
+        self.assertTrue(out[0]["INSTR"].dtype == np.object)
+        self.assertTrue(out[0]["RGB_INTERLEAVED"].dtype == np.float32)
+        self.assertTrue(out[0]["RGB_INTERLEAVED"].min() >= 0.0)  # make sure we have pixels / 255
+        self.assertTrue(out[0]["RGB_INTERLEAVED"].max() <= 1.0)
+        self.assertTrue(out[1].dtype == np.int32)  # actions
+        self.assertTrue(out[2].dtype == np.float32)  # rewards
+        self.assertTrue(out[3].dtype == np.float32)  # episode return
+        self.assertTrue(out[4].dtype == np.bool_)  # next-state is terminal?
+        self.assertTrue(out[5]["INSTR"].dtype == np.object)  # next state (raw, not preprocessed)
+        self.assertTrue(out[5]["RGB_INTERLEAVED"].dtype == np.uint8)  # next state (raw, not preprocessed)
+        self.assertTrue(out[5]["RGB_INTERLEAVED"].min() >= 0)  # make sure we have pixels
+        self.assertTrue(out[5]["RGB_INTERLEAVED"].max() <= 255)
         # action probs (test whether sum to one).
-        self.assertTrue(out[1][6].dtype == np.float32)
-        self.assertTrue(out[1][6].min() >= 0.0)
-        self.assertTrue(out[1][6].max() <= 1.0)
-        recursive_assert_almost_equal(out[1][6].sum(axis=-1, keepdims=False), np.ones(shape=(time_steps,)), decimals=4)
+        self.assertTrue(out[6].dtype == np.float32)
+        self.assertTrue(out[6].min() >= 0.0)
+        self.assertTrue(out[6].max() <= 1.0)
+        recursive_assert_almost_equal(out[6].sum(axis=-1, keepdims=False),
+                                      np.ones(shape=(environment_stepper.num_steps,)), decimals=4)
         # internal states (c- and h-state)
-        self.assertTrue(out[1][7][0].dtype == np.float32)
-        self.assertTrue(out[1][7][1].dtype == np.float32)
-        self.assertTrue(out[1][7][0].shape == (environment_stepper.num_steps, 256))
-        self.assertTrue(out[1][7][1].shape == (environment_stepper.num_steps, 256))
+        self.assertTrue(out[7][0].dtype == np.float32)
+        self.assertTrue(out[7][1].dtype == np.float32)
+        self.assertTrue(out[7][0].shape == (environment_stepper.num_steps, 256))
+        self.assertTrue(out[7][1].shape == (environment_stepper.num_steps, 256))
 
         # Check whether episode returns match single rewards (including terminal signals).
         episode_returns = 0.0
         for i in range(environment_stepper.num_steps):
-            episode_returns += out[1][2][i]
-            self.assertAlmostEqual(episode_returns, out[1][3][i])
+            episode_returns += out[2][i]
+            self.assertAlmostEqual(episode_returns, out[3][i])
             # Terminal: Reset for next step.
-            if out[1][4][i] is np.bool_(True):
+            if out[4][i] is np.bool_(True):
                 episode_returns = 0.0
 
         test.terminate()

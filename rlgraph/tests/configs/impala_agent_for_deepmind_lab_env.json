@@ -1,11 +1,6 @@
 {
   "type": "impala",
 
-  "fifo_queue_spec":
-  {
-    "capacity": 1000
-  },
-
   "exploration_spec":
   {
     "epsilon_spec": {

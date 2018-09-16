@@ -107,7 +107,8 @@ class TestDistributedIMPALA(unittest.TestCase):
         """
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
         environment_spec = dict(
-            type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
+            type="deepmind-lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
+            frameskip=4
         )
         env = DeepmindLabEnv.from_spec(environment_spec)
 
@@ -119,14 +120,17 @@ class TestDistributedIMPALA(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space,
             # TODO: automate this (by lookup from NN).
-            internal_states_space=IMPALAAgent.standard_internal_states_space,
+            internal_states_space=IMPALAAgent.default_internal_states_space,
         )
         agent.call_api_method("reset")
-        out = None
-        for _ in range(50):
-            print(".", end="")
-            out = agent.call_api_method("perform_n_steps_and_insert_into_fifo")
-        print(out)
+        time_start = time.perf_counter()
+        steps = 50
+        for _ in range(steps):
+            agent.call_api_method("perform_n_steps_and_insert_into_fifo")
+        time_total = time.perf_counter() - time_start
+        print("Done running {}x{} steps in Deepmind Lab env using IMPALA network in {}sec ({} actions/sec).".format(
+            steps, agent.worker_sample_size, time_total , agent.worker_sample_size * steps / time_total)
+        )
 
     def test_distributed_impala_agent_functionality_actor_part(self):
         """
@@ -135,7 +139,8 @@ class TestDistributedIMPALA(unittest.TestCase):
         """
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
         environment_spec = dict(
-            type="deepmind-lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
+            type="deepmind-lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
+            frameskip=4
         )
         env = DeepmindLabEnv.from_spec(environment_spec)
 

@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import multiprocessing
+import numpy as np
 
 #from rlgraph.environments.deepmind_lab import DeepmindLabEnv
 from rlgraph import get_backend
@@ -99,13 +100,6 @@ class SpecifiableServer(Specifiable):
                 (running inside the SpecifiableServer).
         """
         def call(*args):
-            #kwargs = dict(zip(function_utils.fn_args(getattr(self.class_, method_name))[1:], args))
-            #specs = self.class_._tensor_specs(method_name, kwargs, self._constructor_kwargs)
-
-            #if specs is None:
-            #    raise ValueError(
-            #        'No tensor specifications were provided for: %s' % method_name)
-
             if isinstance(self.output_spaces, dict):
                 assert method_name in self.output_spaces, "ERROR: Method '{}' not specified in output_spaces: {}!".\
                     format(method_name, self.output_spaces)
@@ -117,12 +111,6 @@ class SpecifiableServer(Specifiable):
                 raise RLGraphError(
                     "No Space information received for method '{}:{}'".format(self.class_.__name__, method_name)
                 )
-
-            # TODO: build tensor-specs
-            tensor_specs = None  # self.class_._tensor_specs(method_name, kwargs, self._constructor_kwargs)
-
-            #flat_dtypes = nest.flatten(nest.map_structure(lambda s: s.dtype, specs))
-            #flat_shapes = nest.flatten(nest.map_structure(lambda s: s.shape, specs))
 
             dtypes = []
             shapes = []
@@ -201,7 +189,15 @@ class SpecifiableServer(Specifiable):
                             raise StopIteration()  # Clean exit.
                         else:
                             raise
+
+                #def dummy_py_call(*args_):
+                #    if args_[0] == b"step_for_env_stepper":
+                #        return np.zeros(shape=(1,), dtype=np.float32), np.zeros(shape=(), dtype=np.float32), np.zeros(shape=(), dtype=np.bool_)
+                #    else:
+                #        return np.zeros(shape=(1,), dtype=np.float32)
+
                 results = tf.py_func(py_call, (method_name,) + tuple(args), dtypes, name=method_name)
+                #results = tf.py_func(dummy_py_call, (method_name,) + tuple(args), dtypes, name=method_name)
 
                 # Force known shapes on the returned tensors.
                 for i, (result, shape) in enumerate(zip(results, shapes)):
@@ -297,34 +293,6 @@ class SpecifiableServer(Specifiable):
                     pass
             # Send the exception back so the main process knows what's going on.
             in_pipe.send(e)
-
-
-## TODO: this may be a necessary indirection
-#class PyProcess(object):
-#    INSTANCES = list()  #COLLECTION = 'py_process_processes'
-
-#    def __init__(self, class_, spec, output_spaces, shutdown_method):  # *constructor_args, **constructor_kwargs):
-#        self.class_ = class_
-#        #self._constructor_kwargs = dict(
-#        #    zip(function_utils.fn_args(type_.__init__)[1:], constructor_args))
-#        #self._constructor_kwargs.update(constructor_kwargs)
-
-#        #tf.add_to_collection(PyProcess.COLLECTION, self)
-
-#        self._proxy = SpecifiableServer(self.class_, spec, output_spaces, shutdown_method)  # self._constructor_kwargs)
-#        # Register this object with the class.
-#        self.INSTANCES.append(self)
-
-#    @property
-#    def proxy(self):
-#        """A proxy that creates TensorFlow operations for each method call."""
-#        return self._proxy
-
-#    def close(self, session):
-#        self._proxy.close(session)
-
-#    def start(self):
-#        self._proxy.start_server()
 
 
 if get_backend() == "tf":
