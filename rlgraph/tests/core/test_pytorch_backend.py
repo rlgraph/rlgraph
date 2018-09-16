@@ -21,7 +21,6 @@ import logging
 import unittest
 import time
 
-from rlgraph import spaces
 from rlgraph.agents import DQNAgent, ApexAgent
 from rlgraph.components import Policy, MemPrioritizedReplay
 from rlgraph.environments import Environment, OpenAIGymEnv
@@ -335,26 +334,3 @@ class TestPytorchBackend(unittest.TestCase):
             print("post process time = {}".format(time.perf_counter() - start))
         profile = Component.call_times
         print_call_chain(profile, False, 0.003)
-
-    def test_2_containers_flattening_splitting(self):
-        """
-        Adds a single component with 2-to-2 graph_fn to the core and passes two containers through it
-        with flatten/split options enabled.
-        """
-        input1_space = spaces.Dict(a=float, b=spaces.FloatBox(shape=(1, 2)))
-        input2_space = spaces.Dict(a=float, b=float)
-
-        component = FlattenSplitDummy()
-        test = ComponentTest(
-            component=component,
-            input_spaces=dict(input1=input1_space, input2=input2_space)
-        )
-
-        # Options: fsu=flat/split/un-flat.
-        in1_fsu = dict(a=np.array(0.234), b=np.array([[0.0, 3.0]]))
-        in2_fsu = dict(a=np.array(5.0), b=np.array(5.5))
-        # Result of sending 'a' keys through graph_fn: (in1[a]+1.0=1.234, in1[a]+in2[a]=5.234)
-        # Result of sending 'b' keys through graph_fn: (in1[b]+1.0=[[1, 4]], in1[b]+in2[b]=[[5.5, 8.5]])
-        out1_fsu = dict(a=1.234, b=np.array([[1.0, 4.0]]))
-        out2_fsu = dict(a=np.array(5.234, dtype=np.float32), b=np.array([[5.5, 8.5]]))
-        test.test(("run", [in1_fsu, in2_fsu]), expected_outputs=[out1_fsu, out2_fsu])
