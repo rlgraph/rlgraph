@@ -198,6 +198,7 @@ class SingleThreadedWorker(Worker):
                         self.is_preprocessed[env_id] = True
                 else:
                     self.preprocessed_states_buffer[i] = env_states[i]
+            # TODO extra returns when worker is not applying preprocessing.
             actions = self.agent.get_action(
                 states=self.preprocessed_states_buffer, use_exploration=use_exploration,
                 apply_preprocessing=self.apply_preprocessing
@@ -254,12 +255,13 @@ class SingleThreadedWorker(Worker):
                     # Otherwise assign states to next states
                     self.env_states[i] = next_states[i]
 
-                # Observe per environment.
-            #     self.agent.observe(
-            #         preprocessed_states=preprocessed_states[i], actions=actions[i], internals=[],
-            #         rewards=env_rewards[i], terminals=self.episode_terminals[i], env_id=self.env_ids[i]
-            #     )
-            # self.update_if_necessary()
+            # Observe per environment.
+            # TODO check keys for pytorch insert
+                self.agent.observe(
+                    preprocessed_states=preprocessed_states[i], actions=actions[i], internals=[],
+                    rewards=env_rewards[i], terminals=episode_terminals[i], env_id=self.env_ids[i]
+                )
+            self.update_if_necessary()
             timesteps_executed += self.num_environments
             num_timesteps_reached = (0 < num_timesteps <= timesteps_executed)
 
