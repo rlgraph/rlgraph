@@ -103,14 +103,13 @@ class IMPALALossFunction(LossFunction):
                 policy (pi). Dimensions are: (time+1) x batch x action-space+categories.
                 +1 b/c last-next-state (aka "bootstrapped" value).
             action_probs_mu (DataOp): The probabilities for all actions coming from the
-                actor's policies (mu). Dimensions are: time x batch x action-space+categories.
+                actor's policies (mu). Dimensions are: (time+1) x batch x action-space+categories.
             values (DataOp): The state value estimates coming from baseline node of the learner's policy (pi).
                 Dimensions are: (time+1) x batch. +1 b/c last-next-state (aka "bootstrapped" value).
             actions (DataOp): The actually taken (already one-hot flattened) actions.
-                Dimensions are: time x batch x N (N=number of discrete actions).
-            rewards (DataOp): The received rewards. Dimensions are: time x batch.
-            terminals (DataOp): The observed terminal signals. Dimensions are: time x batch.
-            #bootstrapped_values (DataOp): The bootstrapped values. Dimensions are 1 (time) x batch x 1 (the value node).
+                Dimensions are: (time+1) x batch x N (N=number of discrete actions).
+            rewards (DataOp): The received rewards. Dimensions are: (time+1) x batch.
+            terminals (DataOp): The observed terminal signals. Dimensions are: (time+1) x batch.
 
         Returns:
             SingleDataOp: The loss values per item in the batch, but summed over all timesteps.
@@ -118,6 +117,12 @@ class IMPALALossFunction(LossFunction):
         if get_backend() == "tf":
             values, bootstrapped_values = values[:-1], values[-1:]
             log_probs_actions_pi = log_probs_actions_pi[:-1]
+            # Ignore very first actions/rewards (these are the previous ones only used as part of the state input
+            # for the network)
+            actions = actions[1:]
+            rewards = rewards[1:]
+            terminals = terminals[1:]
+            action_probs_mu = action_probs_mu[1:]
 
             # Calculate the log IS-weight values via: logIS = log(pi(a|s)) - log(mu(a|s)).
             # Use the action_probs_pi values only of the actions actually taken.
