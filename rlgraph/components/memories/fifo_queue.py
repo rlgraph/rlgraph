@@ -92,15 +92,11 @@ class FIFOQueue(Memory):
             )
 
     def _graph_fn_insert_records(self, records):
-        # records is just one record: Add batch rank.
+        # Records is just one record.
         if self.only_insert_single_records is True:
-            # TODO: simply try: self.queue.enqueue(flatten_op(records))
             return self.queue.enqueue(flatten_op(records))
-            #records = FlattenedDataOp({
-            #    flat_key: tf.expand_dims(tensor, axis=0) for flat_key, tensor in flatten_op(records).items()
-            #})
+        # Insert many records (with batch rank).
         else:
-            # Insert the records as FlattenedDataOp (dict).
             return self.queue.enqueue_many(flatten_op(records))
 
     #def _graph_fn_insert_dummy_records(self):
