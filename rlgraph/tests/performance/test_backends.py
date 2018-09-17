@@ -59,7 +59,8 @@ class TestPytorchBackend(unittest.TestCase):
             env_spec=lambda: OpenAIGymEnv("CartPole-v0"),
             agent=agent,
             frameskip=1,
-            num_envs=1
+            num_envs=1,
+            worker_executes_preprocessing=False
         )
 
         result = worker.execute_timesteps(1000)
@@ -71,7 +72,7 @@ class TestPytorchBackend(unittest.TestCase):
             gym_env="PongNoFrameskip-v4",
             # The frameskip in the agent config will trigger worker skips, this
             # is used for internal env.
-            frameskip=1,
+            frameskip=4,
             max_num_noops=30,
             episodic_life=False
         )

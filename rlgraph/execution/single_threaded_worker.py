@@ -176,7 +176,8 @@ class SingleThreadedWorker(Worker):
                 self.episode_timesteps[i] = 0
                 self.episode_terminals[i] = False
                 self.episode_starts[i] = time.perf_counter()
-                self.is_preprocessed[env_id] = False
+                if self.worker_executes_preprocessing:
+                    self.is_preprocessed[env_id] = False
 
             self.env_states = self.vector_env.reset_all()
             self.agent.reset()
@@ -190,19 +191,26 @@ class SingleThreadedWorker(Worker):
                 # This renders the first underlying environment.
                 self.vector_env.render()
 
-            for i, env_id in enumerate(self.env_ids):
-                state = self.agent.state_space.force_batch(env_states[i])
-                if self.preprocessors[env_id] is not None:
-                    if self.is_preprocessed[env_id] is False:
-                        self.preprocessed_states_buffer[i] = self.preprocessors[env_id].preprocess(state)
-                        self.is_preprocessed[env_id] = True
-                else:
-                    self.preprocessed_states_buffer[i] = env_states[i]
-            # TODO extra returns when worker is not applying preprocessing.
-            actions = self.agent.get_action(
-                states=self.preprocessed_states_buffer, use_exploration=use_exploration,
-                apply_preprocessing=self.apply_preprocessing
-            )
+            if self.worker_executes_preprocessing:
+                for i, env_id in enumerate(self.env_ids):
+                    state = self.agent.state_space.force_batch(env_states[i])
+                    if self.preprocessors[env_id] is not None:
+                        if self.is_preprocessed[env_id] is False:
+                            self.preprocessed_states_buffer[i] = self.preprocessors[env_id].preprocess(state)
+                            self.is_preprocessed[env_id] = True
+                    else:
+                        self.preprocessed_states_buffer[i] = env_states[i]
+                # TODO extra returns when worker is not applying preprocessing.
+                actions = self.agent.get_action(
+                    states=self.preprocessed_states_buffer, use_exploration=use_exploration,
+                    apply_preprocessing=self.apply_preprocessing
+                )
+                preprocessed_states = np.array(self.preprocessed_states_buffer)
+            else:
+                actions, preprocessed_states = self.agent.get_action(
+                    states=np.array(env_states), use_exploration=use_exploration,
+                    apply_preprocessing=True, extra_returns="preprocessed_states"
+                )
 
             # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
             env_rewards = [0 for _ in range_(self.num_environments)]
@@ -220,15 +228,14 @@ class SingleThreadedWorker(Worker):
             if self.render:
                 self.vector_env.environments[0].render()
 
-            preprocessed_states = np.array(self.preprocessed_states_buffer)
             for i, env_id in enumerate(self.env_ids):
                 self.episode_returns[i] += env_rewards[i]
                 self.episode_timesteps[i] += 1
 
                 if 0 < max_timesteps_per_episode[i] <= self.episode_timesteps[i]:
                     episode_terminals[i] = True
-
-                self.is_preprocessed[env_id] = False
+                if self.worker_executes_preprocessing:
+                    self.is_preprocessed[env_id] = False
                 # Do accounting for finished episodes.
                 if episode_terminals[i]:
                     episodes_executed += 1
@@ -239,8 +246,8 @@ class SingleThreadedWorker(Worker):
                         self.episode_returns[i], self.episode_timesteps[i], self.finished_episode_durations[i][-1]))
 
                     # Reset this environment and its preprocecssor stack.
-                    self.env_states[i] = self.vector_env.reset(i)
-                    if self.preprocessors[env_id] is not None:
+                    env_states[i] = self.vector_env.reset(i)
+                    if self.worker_executes_preprocessing and self.preprocessors[env_id] is not None:
                         self.preprocessors[env_id].reset()
                         # This re-fills the sequence with the reset state.
                         state = self.agent.state_space.force_batch(env_states[i])
@@ -253,7 +260,7 @@ class SingleThreadedWorker(Worker):
                     self.episode_starts[i] = time.perf_counter()
                 else:
                     # Otherwise assign states to next states
-                    self.env_states[i] = next_states[i]
+                    env_states[i] = next_states[i]
 
             # Observe per environment.
             # TODO check keys for pytorch insert
@@ -288,6 +295,7 @@ class SingleThreadedWorker(Worker):
             final_episode_reward = all_finished_rewards[-1]
 
         self.episode_terminals = episode_terminals
+        self.env_states = env_states
         results = dict(
             runtime=total_time,
             # Agent act/observe throughput.
