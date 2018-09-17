@@ -17,7 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from copy import deepcopy
+
 import numpy as np
+from rlgraph.components import PreprocessorStack
 from six.moves import xrange as range_
 import time
 
@@ -28,12 +31,27 @@ from rlgraph.execution.worker import Worker
 
 class SingleThreadedWorker(Worker):
 
-    def __init__(self, **kwargs):
+    def __init__(self, preprocessing_spec=None, worker_executes_preprocessing=True, **kwargs):
         super(SingleThreadedWorker, self).__init__(**kwargs)
 
         self.logger.info("Initialized single-threaded executor with {} environments '{}' and Agent '{}'".format(
             self.num_environments, self.vector_env.get_env(), self.agent
         ))
+        self.worker_executes_preprocessing = worker_executes_preprocessing
+        if self.worker_executes_preprocessing:
+            assert preprocessing_spec is not None
+            self.preprocessors = {}
+            self.is_preprocessed = {}
+            for env_id in self.env_ids:
+                self.preprocessors[env_id] = self.setup_preprocessor(
+                    preprocessing_spec, self.vector_env.state_space.with_batch_rank()
+                )
+                self.is_preprocessed[env_id] = False
+
+        self.preprocessed_states_buffer = np.zeros(
+            shape=(self.num_environments,) + self.agent.preprocessed_state_space.shape,
+            dtype=self.agent.preprocessed_state_space.dtype
+        )
 
         # Global statistics.
         self.env_frames = 0
@@ -52,6 +70,28 @@ class SingleThreadedWorker(Worker):
         self.episode_starts = [0 for _ in range_(self.num_environments)]
         # The current state of the running episode.
         self.env_states = [None for _ in range_(self.num_environments)]
+
+    def setup_preprocessor(self, preprocessing_spec, in_space):
+        if preprocessing_spec is not None:
+            # TODO move ingraph for python component assembly.
+            preprocessing_spec = deepcopy(preprocessing_spec)
+            in_space = deepcopy(in_space)
+            # Set scopes.
+            scopes = [preprocessor["scope"] for preprocessor in preprocessing_spec]
+            # Set backend to python.
+            for spec in preprocessing_spec:
+                spec["backend"] = "python"
+            processor_stack = PreprocessorStack(*preprocessing_spec, backend="python")
+            build_space = in_space
+            for sub_comp_scope in scopes:
+                processor_stack.sub_components[sub_comp_scope].create_variables(input_spaces=dict(
+                    preprocessing_inputs=build_space
+                ), action_space=None)
+                build_space = processor_stack.sub_components[sub_comp_scope].get_preprocessed_space(build_space)
+            processor_stack.reset()
+            return processor_stack
+        else:
+            return None
 
     def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
                           frameskip=None, reset=True):
@@ -131,25 +171,35 @@ class SingleThreadedWorker(Worker):
             self.finished_episode_durations = [[] for _ in range_(self.num_environments)]
             self.finished_episode_timesteps = [[] for _ in range_(self.num_environments)]
 
-            for i in range_(self.num_environments):
+            for i, env_id in enumerate(self.env_ids):
                 self.episode_returns[i] = 0
                 self.episode_timesteps[i] = 0
                 self.episode_terminals[i] = False
                 self.episode_starts[i] = time.perf_counter()
+                self.is_preprocessed[env_id] = False
+
             self.env_states = self.vector_env.reset_all()
             self.agent.reset()
         elif self.env_states[0] is None:
             raise RLGraphError("Runner must be reset at the very beginning. Environment is in invalid state.")
 
         # Only run everything for at most num_timesteps (if defined).
+        env_states = self.env_states
         while not (0 < num_timesteps <= timesteps_executed):
             if self.render:
                 # This renders the first underlying environment.
                 self.vector_env.render()
 
-            self.env_states = self.agent.state_space.force_batch(self.env_states)
-            actions, preprocessed_states = self.agent.get_action(
-                states=self.env_states, use_exploration=use_exploration, extra_returns="preprocessed_states",
+            for i, env_id in enumerate(self.env_ids):
+                state = self.agent.state_space.force_batch(env_states[i])
+                if self.preprocessors[env_id] is not None:
+                    if self.is_preprocessed[env_id] is False:
+                        self.preprocessed_states_buffer[i] = self.preprocessors[env_id].preprocess(state)
+                        self.is_preprocessed[env_id] = True
+                else:
+                    self.preprocessed_states_buffer[i] = env_states[i]
+            actions = self.agent.get_action(
+                states=self.preprocessed_states_buffer, use_exploration=use_exploration, extra_returns="preprocessed_states",
                 apply_preprocessing=False
             )
 
@@ -169,16 +219,19 @@ class SingleThreadedWorker(Worker):
             if self.render:
                 self.vector_env.environments[0].render()
 
-            for i in range_(self.num_environments):
+            preprocessed_states = np.array(self.preprocessed_states_buffer)
+            for i, env_id in enumerate(self.env_ids):
                 self.episode_returns[i] += env_rewards[i]
                 self.episode_timesteps[i] += 1
 
                 if 0 < max_timesteps_per_episode[i] <= self.episode_timesteps[i]:
                     episode_terminals[i] = True
 
+                self.is_preprocessed[env_id] = False
                 # Do accounting for finished episodes.
                 if episode_terminals[i]:
                     episodes_executed += 1
+                    print("self episode returns =", self.episode_returns[i])
                     self.finished_episode_rewards[i].append(self.episode_returns[i])
                     self.finished_episode_durations[i].append(time.perf_counter() - self.episode_starts[i])
                     self.finished_episode_timesteps[i].append(self.episode_timesteps[i])
@@ -187,6 +240,14 @@ class SingleThreadedWorker(Worker):
 
                     # Reset this environment and its preprocecssor stack.
                     self.env_states[i] = self.vector_env.reset(i)
+                    if self.preprocessors[env_id] is not None:
+                        self.preprocessors[env_id].reset()
+                        # This re-fills the sequence with the reset state.
+                        state = self.agent.state_space.force_batch(env_states[i])
+                        # Pre - process, add to buffer
+                        self.preprocessed_states_buffer[i] = np.array(self.preprocessors[env_id].preprocess(state))
+                        self.is_preprocessed[env_id] = True
+
                     self.episode_returns[i] = 0
                     self.episode_timesteps[i] = 0
                     self.episode_starts[i] = time.perf_counter()
@@ -195,11 +256,11 @@ class SingleThreadedWorker(Worker):
                     self.env_states[i] = next_states[i]
 
                 # Observe per environment.
-                self.agent.observe(
-                    preprocessed_states=preprocessed_states[i], actions=actions[i], internals=[],
-                    rewards=env_rewards[i], terminals=self.episode_terminals[i], env_id=self.env_ids[i]
-                )
-            self.update_if_necessary()
+            #     self.agent.observe(
+            #         preprocessed_states=preprocessed_states[i], actions=actions[i], internals=[],
+            #         rewards=env_rewards[i], terminals=self.episode_terminals[i], env_id=self.env_ids[i]
+            #     )
+            # self.update_if_necessary()
             timesteps_executed += self.num_environments
             num_timesteps_reached = (0 < num_timesteps <= timesteps_executed)
 
@@ -209,7 +270,7 @@ class SingleThreadedWorker(Worker):
         total_time = (time.perf_counter() - start) or 1e-10
 
         # Return values for current episode(s) if None have been completed.
-        if len(self.finished_episode_rewards) == 0:
+        if episodes_executed == 0:
             mean_episode_runtime = 0
             mean_episode_reward = np.mean(self.episode_returns)
             max_episode_reward = np.max(self.episode_returns)

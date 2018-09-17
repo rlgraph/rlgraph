@@ -40,7 +40,8 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         # is used for internal env.
         frameskip=4,
         max_num_noops=30,
-        episodic_life=True
+        episodic_life=False,
+        fire_reset=True
     )
 
     def test_worker_init(self):
