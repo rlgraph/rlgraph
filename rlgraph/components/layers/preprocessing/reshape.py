@@ -154,14 +154,14 @@ class ReShape(PreprocessLayer):
         if self.flatten is True and isinstance(in_space, IntBox) and self.flatten_categories is True:
             sanity_check_space(in_space, must_have_categories=True, num_categories=(2, 10000))
 
-        if input_spaces["input_before_time_rank_folding"] != "flex":
-            assert self.time_major is None or \
-                   (self.flip_batch_and_time_rank is False and
-                    self.time_major == input_spaces["input_before_time_rank_folding"].time_major) or \
-                   (self.flip_batch_and_time_rank is True and
-                    self.time_major != input_spaces["input_before_time_rank_folding"].time_major), \
-                   "ERROR: Space of `input_before_time_rank_folding` to ReShape ('{}') has time-major={}, but " \
-                   "ReShape has time-major={}!".format(self.global_scope, in_space.time_major, self.time_major)
+        #if input_spaces["input_before_time_rank_folding"] != "flex":
+        #    assert self.time_major is None or \
+        #           (self.flip_batch_and_time_rank is False and
+        #            self.time_major == input_spaces["input_before_time_rank_folding"].time_major) or \
+        #           (self.flip_batch_and_time_rank is True and
+        #            self.time_major != input_spaces["input_before_time_rank_folding"].time_major), \
+        #           "ERROR: Space of `input_before_time_rank_folding` to ReShape ('{}') has time-major={}, but " \
+        #           "ReShape has time-major={}!".format(self.global_scope, in_space.time_major, self.time_major)
 
     def create_variables(self, input_spaces, action_space=None):
         self.in_space = input_spaces["preprocessing_inputs"]  # type: Space

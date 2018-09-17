@@ -357,7 +357,6 @@ class IMPALAAgent(Agent):
                 flip_batch_and_time_rank=True, time_major=True, scope="transpose-terminals",
                 device=dict(ops="/job:learner/task:0/cpu")
             )
-
             self.transpose_action_probs = ReShape(
                 flip_batch_and_time_rank=True, time_major=True, scope="transpose-a-probs-mu",
                 device=dict(ops="/job:learner/task:0/cpu")
