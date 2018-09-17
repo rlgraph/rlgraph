@@ -191,9 +191,14 @@ class BoxSpace(Space):
                 # Bools should be initializable via 0 or not 0.
                 if self.dtype == np.bool_ and isinstance(init_spec, (int, float)):
                     init_spec = (init_spec != 0)
-                rlgraph_initializer = Initializer.from_spec(shape=shape, specification=init_spec)
+
+                if self.dtype == np.str_ and init_spec == 0:
+                    initializer = None
+                else:
+                    initializer = Initializer.from_spec(shape=shape, specification=init_spec).initializer
+
                 return tf.get_variable(
-                    name, shape=shape, dtype=dtype(self.dtype), initializer=rlgraph_initializer.initializer,
+                    name, shape=shape, dtype=dtype(self.dtype), initializer=initializer,
                     collections=[tf.GraphKeys.GLOBAL_VARIABLES if local is False else tf.GraphKeys.LOCAL_VARIABLES],
                     **kwargs
                 )
