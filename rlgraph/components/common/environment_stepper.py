@@ -194,7 +194,7 @@ class EnvironmentStepper(Component):
             name="current-terminal", dtype="bool", initializer=True, trainable=False, local=True, use_resource=True
         )
         self.current_state = self.get_variable(
-            name="current-state", from_space=self.state_space_actor, flatten=True, trainable=False,
+            name="current-state", from_space=self.state_space_actor, initializer=0, flatten=True, trainable=False,
             local=True, use_resource=True
         )
         if self.has_rnn:
