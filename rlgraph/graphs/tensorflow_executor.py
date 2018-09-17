@@ -462,10 +462,10 @@ class TensorFlowExecutor(GraphExecutor):
         else:
             assert self.execution_mode == "distributed",\
                 "ERROR: execution_mode can only be 'single' or 'distributed'! Is '{}'.".format(self.execution_mode)
-            local_job_and_task = "/job:{}/task:{}".format(self.execution_spec["distributed_spec"]["job"],
+            local_job_and_task = "/job:{}/task:{}/".format(self.execution_spec["distributed_spec"]["job"],
                                                           self.execution_spec["distributed_spec"]["task_index"])
-            var_list_local = [var for var in var_list if not var.device or var.device == local_job_and_task]
-            var_list_remote = [var for var in var_list if var.device and var.device != local_job_and_task]
+            var_list_local = [var for var in var_list if not var.device or local_job_and_task in var.device]
+            var_list_remote = [var for var in var_list if var.device and local_job_and_task not in var.device]
             self.init_op = tf.variables_initializer(var_list=var_list_remote)
             self.ready_for_local_init_op = tf.report_uninitialized_variables(var_list=var_list_remote)
             self.local_init_op = tf.variables_initializer(var_list=var_list_local)
