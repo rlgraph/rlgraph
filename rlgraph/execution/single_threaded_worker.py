@@ -47,7 +47,7 @@ class SingleThreadedWorker(Worker):
                     preprocessing_spec, self.vector_env.state_space.with_batch_rank()
                 )
                 self.is_preprocessed[env_id] = False
-
+        self.apply_preprocessing = not self.worker_executes_preprocessing
         self.preprocessed_states_buffer = np.zeros(
             shape=(self.num_environments,) + self.agent.preprocessed_state_space.shape,
             dtype=self.agent.preprocessed_state_space.dtype
@@ -199,8 +199,8 @@ class SingleThreadedWorker(Worker):
                 else:
                     self.preprocessed_states_buffer[i] = env_states[i]
             actions = self.agent.get_action(
-                states=self.preprocessed_states_buffer, use_exploration=use_exploration, extra_returns="preprocessed_states",
-                apply_preprocessing=False
+                states=self.preprocessed_states_buffer, use_exploration=use_exploration,
+                apply_preprocessing=self.apply_preprocessing
             )
 
             # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
@@ -231,7 +231,6 @@ class SingleThreadedWorker(Worker):
                 # Do accounting for finished episodes.
                 if episode_terminals[i]:
                     episodes_executed += 1
-                    print("self episode returns =", self.episode_returns[i])
                     self.finished_episode_rewards[i].append(self.episode_returns[i])
                     self.finished_episode_durations[i].append(time.perf_counter() - self.episode_starts[i])
                     self.finished_episode_timesteps[i].append(self.episode_timesteps[i])
