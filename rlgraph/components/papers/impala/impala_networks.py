@@ -59,11 +59,12 @@ class IMPALANetwork(NeuralNetwork):
         # lookup is then passed through an LSTM(64).
         self.text_processing_stack = self.build_text_processing_stack()
 
+        #OBSOLETE: everything should come in time-major now.
         # The transposers to flip batch and time rank for the FIFO pulled previous actions and rewards.
-        self.transpose_previous_a = ReShape(flip_batch_and_time_rank=True, time_major=True,
-                                            scope="transpose-previous-a")
-        self.transpose_previous_r = ReShape(flip_batch_and_time_rank=True, time_major=True,
-                                            scope="transpose-previous-r")
+        #self.transpose_previous_a = ReShape(flip_batch_and_time_rank=True, time_major=True,
+        #                                    scope="transpose-previous-a")
+        #self.transpose_previous_r = ReShape(flip_batch_and_time_rank=True, time_major=True,
+        #                                    scope="transpose-previous-r")
 
         # The concatenation layer (concatenates outputs from image/text processing stacks, previous action/reward).
         self.concat_layer = ConcatLayer()
@@ -74,7 +75,7 @@ class IMPALANetwork(NeuralNetwork):
 
         # Add all sub-components to this one.
         self.add_components(
-            self.transpose_previous_a, self.transpose_previous_r,
+            #self.transpose_previous_a, self.transpose_previous_r,
             self.splitter, self.image_processing_stack, self.text_processing_stack,
             self.concat_layer, self.main_lstm
         )
@@ -117,7 +118,7 @@ class IMPALANetwork(NeuralNetwork):
         tuple_splitter = ContainerSplitter(tuple_length=2, scope="tuple-splitter")
 
         time_rank_unfold = ReShape(
-            unfold_time_rank=True, flip_batch_and_time_rank=True, time_major=True, scope="time-rank-unfold-text"
+            unfold_time_rank=True, time_major=True, scope="time-rank-unfold-text"
         )
 
         def custom_apply(self, inputs):
@@ -158,8 +159,8 @@ class IMPALANetwork(NeuralNetwork):
         image_processing_output = self.call(self.image_processing_stack.apply, image)
 
         # Flip batch- and time-rank for previous actions and rewards.
-        previous_action = self.call(self.transpose_previous_a.apply, previous_action)
-        previous_reward = self.call(self.transpose_previous_r.apply, previous_reward)
+        #previous_action = self.call(self.transpose_previous_a.apply, previous_action)
+        #previous_reward = self.call(self.transpose_previous_r.apply, previous_reward)
 
         # Concat everything together.
         concatenated_data = self.call(
@@ -231,7 +232,7 @@ class LargeIMPALANetwork(IMPALANetwork):
         stack_before_unfold = Stack(sub_components, scope="image-stack-before-unfold")
 
         time_rank_unfold = ReShape(
-            unfold_time_rank=True, flip_batch_and_time_rank=True, time_major=True, scope="time-rank-unfold-images"
+            unfold_time_rank=True, time_major=True, scope="time-rank-unfold-images"
         )
 
         def custom_apply(self, inputs):
@@ -292,7 +293,7 @@ class SmallIMPALANetwork(IMPALANetwork):
         stack_before_unfold = Stack(sub_components, scope="image-stack-before-unfold")
 
         time_rank_unfold = ReShape(
-            unfold_time_rank=True, flip_batch_and_time_rank=True, time_major=True, scope="time-rank-unfold-images"
+            unfold_time_rank=True, time_major=True, scope="time-rank-unfold-images"
         )
 
         def custom_apply(self, inputs):
