@@ -54,6 +54,7 @@ class TestDistributedIMPALA(unittest.TestCase):
     )
     internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True)
     cluster_spec = dict(learner=["localhost:22222"], actor=["localhost:22223"])
+    #cluster_spec_cloud = dict(learner=[":22222"], actor=["35.204.92.67:22223"])
 
     def test_single_impala_agent_functionality(self):
         """
@@ -168,7 +169,7 @@ class TestDistributedIMPALA(unittest.TestCase):
         print("IMPALA actor compiled.")
         agent.call_api_method("reset")
         time_start = time.perf_counter()
-        steps = 10
+        steps = 50
         for _ in range(steps):
             agent.call_api_method("perform_n_steps_and_insert_into_fifo")
         time_total = time.perf_counter() - time_start
@@ -209,11 +210,21 @@ class TestDistributedIMPALA(unittest.TestCase):
                     type="monitored-training-session",
                     allow_soft_placement=True,
                     log_device_placement=True
-                )
+                ),
+                enable_timeline=True,
             )
         )
         print("IMPALA learner compiled.")
+
         # Take one batch from the filled up queue and run an update_from_memory with the learner.
-        agent.call_api_method("update_from_memory")
+        update_steps = 10
+        time_start = time.perf_counter()
+        for _ in range(update_steps):
+            agent.call_api_method("update_from_memory")
+        time_total = time.perf_counter() - time_start
+        print("Done learning {}xbatch-of-{} in {}sec ({} updates/sec).".format(
+            update_steps, agent.update_spec["batch_size"], time_total , update_steps / time_total)
+        )
+
         print("IMPALA learner consumed some data.")
         agent.terminate()
