@@ -29,6 +29,7 @@ if get_backend() == "tf":
     import tensorflow as tf
     from tensorflow.python.client import device_lib
     from rlgraph.utils.specifiable_server import SpecifiableServer, SpecifiableServerHook
+    from tensorflow.python.client import timeline
 
 
 class TensorFlowExecutor(GraphExecutor):
@@ -84,23 +85,12 @@ class TensorFlowExecutor(GraphExecutor):
         # Just fetch CPUs. GPUs will be added when parsing the GPU configuration.
         self.available_devices = [x.name for x in self.local_device_protos if x.device_type == 'CPU']
 
-        # Tf profiler.
-        trace_enabled = self.execution_spec.get('trace_enabled', True)
-
-        if self.disable_monitoring and trace_enabled:
-            self.logger.warning("Tensorflow tracing is set to be enabled (execution_spec.trace_enabled = True), " +
-                                "but monitoring is disabled. Tracing will not be enabled.")
-
-        if trace_enabled and not self.disable_monitoring:
-            self.session_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-        else:
-            self.session_options = None
-
         # Local session config which needs to be updated with device options during setup.
         self.tf_session_type = self.session_config.pop("type", "monitored-training-session")
         self.tf_session_config = tf.ConfigProto(**self.session_config)
+        self.tf_session_options = None
 
-        self.run_metadata = tf.RunMetadata()
+        self.run_metadata = None
 
         # Tf Profiler config.
         self.profiling_enabled = self.execution_spec["enable_profiler"]
@@ -108,6 +98,18 @@ class TensorFlowExecutor(GraphExecutor):
             self.profiler = None
             self.profile_step = 0
             self.profiling_frequency = self.execution_spec["profiler_frequency"]
+            self.run_metadata = tf.RunMetadata()
+            if not self.disable_monitoring:
+                self.tf_session_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+
+        self.timeline_enabled = self.execution_spec["enable_timeline"]
+        if self.timeline_enabled is True:
+            if self.run_metadata is None:
+                self.run_metadata = tf.RunMetadata()
+            self.timeline_step = 0
+            self.timeline_frequency = self.execution_spec["timeline_frequency"]
+            if not self.disable_monitoring:
+                self.tf_session_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
 
         self.init_device_strategy()
 
@@ -223,10 +225,13 @@ class TensorFlowExecutor(GraphExecutor):
         #         params = list()
 
         ret = self.monitored_session.run(fetch_dict, feed_dict=feed_dict,
-                                         options=self.session_options, run_metadata=self.run_metadata)
+                                         options=self.tf_session_options, run_metadata=self.run_metadata)
 
         if self.profiling_enabled:
             self.update_profiler_if_necessary()
+
+        if self.timeline_enabled:
+            self.update_timeline_if_necessary()
 
         # Return single values instead of lists of 1 item.
         ret = {key: (value[0] if len(ret[key]) == 1 else tuple(value)) for key, value in ret.items()}
@@ -248,6 +253,17 @@ class TensorFlowExecutor(GraphExecutor):
                     options=tf.profiler.ProfileOptionBuilder.time_and_memory()).with_node_names().build()
             )
         self.profile_step += 1
+
+    def update_timeline_if_necessary(self):
+        """
+        Writes a timeline json file according to specification.
+        """
+        if self.timeline_step % self.timeline_frequency == 0:
+            fetched_timeline = timeline.Timeline(self.run_metadata.step_stats)
+            chrome_trace = fetched_timeline.generate_chrome_trace_format()
+            with open("timeline_{:02d}.json".format(self.timeline_step), "w") as f:
+                f.write(chrome_trace)
+        self.timeline_step += 1
 
     def read_variable_values(self, variables):
         """

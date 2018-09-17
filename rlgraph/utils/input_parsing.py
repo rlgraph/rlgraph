@@ -152,7 +152,11 @@ def parse_execution_spec(execution_spec):
         # Enabling the tf profiler?
         enable_profiler=False,
         # With which frequency do we print out profiler information?
-        profiler_frequency=1000
+        profiler_frequency=1000,
+        # Enabling a timeline write?
+        enable_timeline=False,
+        # With which frequency do we write out a timeline file?
+        timeline_frequency=1,
     )
     execution_spec = default_dict(execution_spec, default_spec)
 
