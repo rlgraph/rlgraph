@@ -166,10 +166,20 @@ class TestDistributedIMPALA(unittest.TestCase):
             )
         )
         print("IMPALA actor compiled.")
-        worker = IMPALAWorker(agent=agent)
+        agent.call_api_method("reset")
+        time_start = time.perf_counter()
+        steps = 10
+        for _ in range(steps):
+            agent.call_api_method("perform_n_steps_and_insert_into_fifo")
+        time_total = time.perf_counter() - time_start
+        print("Done running {}x{} steps in Deepmind Lab env using IMPALA network in {}sec ({} actions/sec).".format(
+            steps, agent.worker_sample_size, time_total , agent.worker_sample_size * steps / time_total)
+        )
+
+        #worker = IMPALAWorker(agent=agent)
         # Run a few steps to produce data and start filling up the FIFO.
-        out = worker.execute_timesteps(2000)
-        print("IMPALA actor produced some data:\n{}".format(out))
+        #out = worker.execute_timesteps(2000)
+        #print("IMPALA actor produced some data:\n{}".format(out))
         agent.terminate()
 
     def test_distributed_impala_agent_functionality_learner_part(self):
@@ -205,5 +215,5 @@ class TestDistributedIMPALA(unittest.TestCase):
         print("IMPALA learner compiled.")
         # Take one batch from the filled up queue and run an update_from_memory with the learner.
         agent.call_api_method("update_from_memory")
-        print("IMPALA actor consumed some data.")
+        print("IMPALA learner consumed some data.")
         agent.terminate()
