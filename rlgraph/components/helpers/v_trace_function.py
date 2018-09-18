@@ -157,4 +157,4 @@ class VTraceFunction(Component):
 
             # Return v-traces and policy gradient advantage values based on: A=r+gamma*v-trace(s+1) - V(s).
             # With `r+gamma*v-trace(s+1)` also called `qs` in the paper.
-            return vs, pg_advantages
+            return tf.stop_gradient(vs), tf.stop_gradient(pg_advantages)

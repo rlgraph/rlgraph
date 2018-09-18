@@ -566,14 +566,9 @@ class IMPALAAgent(Agent):
             terminals, states, action_probs_mu, initial_internal_states = \
                 self_.call(fifo_output_splitter.split, records)
 
-            # Isolate actions and rewards from states.
-            #_, _, actions, rewards = self_.call(states_dict_splitter.split, states)
-
-            # Flip actions, rewards, terminals to time-major.
+            # Flip everything to time-major.
             # TODO: Create components that are less input-space sensitive (those that have no variables should
             # TODO: be reused for any kind of processing)
-            #actions = self_.call(transpose_actions.apply, actions)
-            #rewards = self_.call(transpose_rewards.apply, rewards)
             states = self_.call(transpose_states.apply, states)
             terminals = self_.call(transpose_terminals.apply, terminals)
             action_probs_mu = self_.call(transpose_action_probs.apply, action_probs_mu)
@@ -592,7 +587,7 @@ class IMPALAAgent(Agent):
             states = self_.call(preprocessor.preprocess, states)
 
             # Get the pi-action probs AND the values for all our states.
-            state_values_pi, logits_pi, probs_pi, log_probabilities_pi, current_internal_states = \
+            state_values_pi, _, _, log_probabilities_pi, current_internal_states = \
                 self_.call(policy.get_state_values_logits_parameters_log_probs, states, initial_internal_states)
 
             # Isolate actions and rewards from states.
