@@ -566,16 +566,6 @@ class IMPALAAgent(Agent):
             terminals, states, action_probs_mu, initial_internal_states = \
                 self_.call(fifo_output_splitter.split, records)
 
-            # If we use a GPU: Put everything on staging area (adds 1 time step policy lag, but makes copying
-            # data into GPU more efficient).
-            if self.has_gpu:
-                stage_op = self_.call(staging_area.stage, states, terminals, action_probs_mu, initial_internal_states)
-                # Get data from stage again and continue.
-                states, terminals, action_probs_mu, initial_internal_states = self_.call(staging_area.unstage)
-            else:
-                # TODO: No-op component?
-                stage_op = None
-
             # Isolate actions and rewards from states.
             #_, _, actions, rewards = self_.call(states_dict_splitter.split, states)
 
@@ -587,6 +577,16 @@ class IMPALAAgent(Agent):
             states = self_.call(transpose_states.apply, states)
             terminals = self_.call(transpose_terminals.apply, terminals)
             action_probs_mu = self_.call(transpose_action_probs.apply, action_probs_mu)
+
+            # If we use a GPU: Put everything on staging area (adds 1 time step policy lag, but makes copying
+            # data into GPU more efficient).
+            if self.has_gpu:
+                stage_op = self_.call(staging_area.stage, states, terminals, action_probs_mu, initial_internal_states)
+                # Get data from stage again and continue.
+                states, terminals, action_probs_mu, initial_internal_states = self_.call(staging_area.unstage)
+            else:
+                # TODO: No-op component?
+                stage_op = None
 
             # Preprocess actions and rewards inside the state (actions: flatten one-hot, rewards: expand).
             states = self_.call(preprocessor.preprocess, states)
