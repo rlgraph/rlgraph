@@ -352,7 +352,7 @@ class IMPALAAgent(Agent):
 
             self.transpose_states = Transpose(
                 #flip_batch_and_time_rank=True, time_major=True,
-                # scope="transpose-states",
+                scope="transpose-states",
                 device=dict(ops="/job:learner/task:0/cpu")
             )
             self.transpose_terminals = Transpose(
@@ -375,9 +375,10 @@ class IMPALAAgent(Agent):
             )
 
             sub_components = [
-                self.fifo_output_splitter, self.fifo_queue, self.states_dict_splitter, self.transpose_states,
-                self.transpose_terminals, self.transpose_action_probs,
-                self.staging_area, self.preprocessor, self.policy, self.loss_function, self.optimizer
+                self.fifo_output_splitter, self.fifo_queue, self.states_dict_splitter,
+                self.transpose_states, self.transpose_terminals, self.transpose_action_probs,
+                self.staging_area, self.preprocessor, self.policy,
+                self.loss_function, self.optimizer
             ]
 
         # Add all the agent's sub-components to the root.

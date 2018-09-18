@@ -124,13 +124,6 @@ class IMPALALossFunction(LossFunction):
             terminals = terminals[1:]
             action_probs_mu = action_probs_mu[1:]
 
-            # Calculate the log IS-weight values via: logIS = log(pi(a|s)) - log(mu(a|s)).
-            # Use the action_probs_pi values only of the actions actually taken.
-            #one_hot = tf.one_hot(indices=actions, depth=self.action_space.num_categories)
-            log_probs_actions_taken_pi = tf.reduce_sum(log_probs_actions_pi * actions, axis=-1, keepdims=True, name="log-probs-actions-taken-pi")
-            log_probs_actions_taken_mu = tf.reduce_sum(tf.log(action_probs_mu) * actions, axis=-1, keepdims=True, name="log-probs-actions-taken-mu")
-            log_is_weights = log_probs_actions_taken_pi - log_probs_actions_taken_mu
-
             # Discounts are simply 0.0, if there is a terminal, otherwise: `discount`.
             discounts = tf.expand_dims(tf.to_float(~terminals) * self.discount, axis=-1, name="discounts")
             # `clamp_one`: Clamp rewards between -1.0 and 1.0.
@@ -140,16 +133,17 @@ class IMPALALossFunction(LossFunction):
             elif self.reward_clipping == "soft_asymmetric":
                 squeezed = tf.tanh(rewards / 5.0)
                 rewards = tf.where(rewards < 0.0, 0.3 * squeezed, squeezed) * 5.0
-            ## OBSOLETE (already done): Make discounts and rewards shape=(1,) instead of shape=() (not counting batch/time-ranks).
-            #rewards = tf.expand_dims(rewards, axis=-1)
 
             # Let the v-trace  helper function calculate the v-trace values (vs) and the pg-advantages
             # (already multiplied by rho_t_pg): A = rho_t_pg * (rt + gamma*vt - V(t)).
             # Both vs and pg_advantages will block the gradient as they should be treated as constants by the gradient
             # calculator of this loss func.
             vs, pg_advantages = self.call(
-                self.v_trace_function.calc_v_trace_values, log_is_weights, discounts, rewards, values, bootstrapped_values
+                self.v_trace_function.calc_v_trace_values, log_probs_actions_pi, tf.log(action_probs_mu), actions,
+                discounts, rewards, values, bootstrapped_values
             )
+            log_probs_actions_taken_pi = tf.reduce_sum(log_probs_actions_pi * actions, axis=-1, keepdims=True,
+                                                       name="log-probs-actions-taken-pi")
 
             # Make sure vs and advantage values are treated as constants for the gradient calculation.
             #vs = tf.stop_gradient(vs)
