@@ -47,8 +47,8 @@ class ConcatLayer(NNLayer):
         self.time_major = None
 
         # Wrapper for backend.
-        if get_backend() == "tf":
-            self.layer = tf.keras.layers.Concatenate(axis=self.axis)
+        #if get_backend() == "tf":
+        #    self.layer = tf.keras.layers.Concatenate(axis=self.axis)
 
     def check_input_spaces(self, input_spaces, action_space=None):
         super(ConcatLayer, self).check_input_spaces(input_spaces, action_space)
@@ -69,7 +69,8 @@ class ConcatLayer(NNLayer):
 
     def _graph_fn_apply(self, *inputs):
         if get_backend() == "tf":
-            concat_output = self.layer.apply(force_list(inputs))
+            #concat_output = self.layer.apply(force_list(inputs))
+            concat_output = tf.concat(values=inputs, axis=self.axis)
             # Add batch/time-rank information.
             concat_output._batch_rank = 0 if self.time_major is False else 1
             if self.in_space_0.has_time_rank:

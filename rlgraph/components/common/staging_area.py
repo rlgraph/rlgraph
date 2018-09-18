@@ -33,15 +33,17 @@ class StagingArea(Component):
     be prepared and then staged while a training step is still taking place, the next training step can then
     immediately take the staged data, aso.asf..
     """
-    def __init__(self, num_data=1, scope="staging-area", **kwargs):
+    def __init__(self, num_data=1, device="/device:GPU:0", scope="staging-area", **kwargs):
         """
         Args:
             num_data (int): The number of data items to stage. Each item can be a ContainerDataOp (which
                 will be flattened (stage) and unflattened (unstage) automatically).
         """
-        super(StagingArea, self).__init__(graph_fn_num_outputs=dict(_graph_fn_unstage=num_data), scope=scope, **kwargs)
-
-        #self.num_data = num_data
+        super(StagingArea, self).__init__(
+            graph_fn_num_outputs=dict(_graph_fn_unstage=num_data),
+            device=device,
+            scope=scope, **kwargs
+        )
 
         # The actual backend-dependent StagingArea object.
         self.area = None

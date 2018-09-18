@@ -27,6 +27,7 @@ if get_backend() == "tf":
     import tensorflow as tf
 elif get_backend() == "pytorch":
     import torch.nn as nn
+    from rlgraph.utils.pytorch_util import get_input_channels, SamePaddedConv2d
 
 
 class Conv2DLayer(NNLayer):
@@ -95,26 +96,37 @@ class Conv2DLayer(NNLayer):
             self.register_variables(*self.layer.variables)
         elif get_backend() == "pytorch":
             shape = in_space.shape
-            if self.data_format == "channels_last":
-                num_channels = shape[-1]
-            else:
-                num_channels = shape[0]
-
+            num_channels = get_input_channels(shape)
             apply_bias = (self.biases_spec is not False)
-            self.layer = nn.Conv2d(
-                in_channels=num_channels,
-                out_channels=self.filters,
-                kernel_size=self.kernel_size,
-                stride=self.strides,
-                padding=self.padding,
-                bias=apply_bias
-            )
+
+            # print("Defining conv2d layer with shape = {} and channels {}".format(
+            #     shape, num_channels
+            # ))
+            if self.padding == "same":
+                # N.b. there is no 'same' or 'valid' padding for PyTorch so need custom layer.
+                self.layer = SamePaddedConv2d(
+                    in_channels=num_channels,
+                    out_channels=self.filters,
+                    # Only support square kernels.
+                    kernel_size=self.kernel_size[0],
+                    stride=self.strides,
+                    bias=apply_bias
+                )
+            else:
+                self.layer = nn.Conv2d(
+                    in_channels=num_channels,
+                    out_channels=self.filters,
+                    kernel_size=self.kernel_size,
+                    stride=self.strides,
+                    padding=0,
+                    bias=apply_bias
+                )
             # Apply weight initializer
             if self.kernel_init.initializer is not None:
                 # Must be a callable in PyTorch
                 self.kernel_init.initializer(self.layer.weight)
             if apply_bias:
-                if self.biases_init.initializer is not None:
+                if self.biases_spec is not None and self.biases_init.initializer is not None:
                     self.biases_init.initializer(self.layer.bias)
                 else:
                     # Fill with zeros.

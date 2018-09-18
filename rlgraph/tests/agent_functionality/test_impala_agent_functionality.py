@@ -18,23 +18,20 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
-import multiprocessing
 import numpy as np
 import time
 import unittest
 
-from rlgraph.agents.impala_agent import IMPALAAgent
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.neural_networks.policy import Policy
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork
 from rlgraph.components.explorations import Exploration
-from rlgraph.environments import Environment, DeepmindLabEnv
-from rlgraph.execution.distributed_tf.impala.impala_worker import IMPALAWorker
+from rlgraph.environments import Environment
 from rlgraph.spaces import *
 from rlgraph.utils.ops import DataOpTuple
 from rlgraph.tests.component_test import ComponentTest
-from rlgraph.tests.test_util import recursive_assert_almost_equal, config_from_path
+from rlgraph.tests.test_util import recursive_assert_almost_equal
 from rlgraph.utils import root_logger
 
 
@@ -50,7 +47,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
 
     # Use the exact same Spaces as in the IMPALA paper.
     action_space = IntBox(9, add_batch_rank=True, add_time_rank=True, time_major=True)
-    action_probs_space = FloatBox(shape=(9,), add_batch_rank=True, add_time_rank=True, time_major=True)
+    action_probs_space = FloatBox(shape=(9,), add_batch_rank=True)
     input_space = Dict(
         RGB_INTERLEAVED=FloatBox(shape=(96, 72, 3)),
         INSTR=TextBox(),
@@ -234,6 +231,105 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             dict(
                 type="dict-preprocessor-stack",
                 preprocessors=dict(
+                    ## The images from the env  are divided by 255.
+                    #RGB_INTERLEAVED=[dict(type="divide", divisor=255)],
+                    # The prev. action/reward from the env must be flattened/bumped-up-to-(1,).
+                    previous_action=[dict(type="reshape", flatten=True, flatten_categories=action_space.num_categories)],
+                    previous_reward=[dict(type="reshape", new_shape=(1,)), dict(type="convert_type", to_dtype="float32")],
+                )
+            ),
+            # Policy spec.
+            dict(neural_network=LargeIMPALANetwork(), action_space=action_space),
+            # Exploration spec.
+            Exploration(epsilon_spec=dict(decay_spec=dict(
+                type="linear_decay", from_=1.0, to_=0.1, start_timestep=0, num_timesteps=100)
+            ))
+        )
+        environment_stepper = EnvironmentStepper(
+            environment_spec=env_spec,
+            actor_component_spec=actor_component,
+            state_space=state_space,
+            reward_space="float32",
+            internal_states_space=self.internal_states_space,
+            num_steps=100,
+            # Add both prev-action and -reward into the state sent through the network.
+            add_previous_action=True,
+            add_previous_reward=True,
+            add_action_probs=True,
+            action_probs_space=self.action_probs_space
+        )
+
+        test = ComponentTest(
+            component=environment_stepper,
+            action_space=action_space,
+        )
+        # Reset the stepper.
+        test.test("reset")
+
+        # Step n times through the Env and collect results.
+        # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
+        # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
+        time_start = time.perf_counter()
+        steps = 10
+        for _ in range(steps):
+            out = test.test("step")
+        time_total = time.perf_counter() - time_start
+        print("Done running {}x{} steps in Deepmind Lab env using IMPALA network in {}sec ({} actions/sec).".format(
+            steps, environment_stepper.num_steps, time_total , environment_stepper.num_steps * steps / time_total)
+        )
+
+        # Check types of outputs.
+        self.assertTrue(isinstance(out, DataOpTuple))  # the step results as a tuple (see below)
+
+        # Check types of single data.
+        self.assertTrue(out[0]["INSTR"].dtype == np.object)
+        self.assertTrue(out[0]["RGB_INTERLEAVED"].dtype == np.float32)
+        self.assertTrue(out[0]["RGB_INTERLEAVED"].min() >= 0.0)  # make sure we have pixels / 255
+        self.assertTrue(out[0]["RGB_INTERLEAVED"].max() <= 1.0)
+        self.assertTrue(out[1].dtype == np.int32)  # actions
+        self.assertTrue(out[2].dtype == np.float32)  # rewards
+        self.assertTrue(out[3].dtype == np.float32)  # episode return
+        self.assertTrue(out[4].dtype == np.bool_)  # next-state is terminal?
+        self.assertTrue(out[5]["INSTR"].dtype == np.object)  # next state (raw, not preprocessed)
+        self.assertTrue(out[5]["RGB_INTERLEAVED"].dtype == np.uint8)  # next state (raw, not preprocessed)
+        self.assertTrue(out[5]["RGB_INTERLEAVED"].min() >= 0)  # make sure we have pixels
+        self.assertTrue(out[5]["RGB_INTERLEAVED"].max() <= 255)
+        # action probs (test whether sum to one).
+        self.assertTrue(out[6].dtype == np.float32)
+        self.assertTrue(out[6].min() >= 0.0)
+        self.assertTrue(out[6].max() <= 1.0)
+        recursive_assert_almost_equal(out[6].sum(axis=-1, keepdims=False),
+                                      np.ones(shape=(environment_stepper.num_steps,)), decimals=4)
+        # internal states (c- and h-state)
+        self.assertTrue(out[7][0].dtype == np.float32)
+        self.assertTrue(out[7][1].dtype == np.float32)
+        self.assertTrue(out[7][0].shape == (environment_stepper.num_steps, 256))
+        self.assertTrue(out[7][1].shape == (environment_stepper.num_steps, 256))
+
+        # Check whether episode returns match single rewards (including terminal signals).
+        episode_returns = 0.0
+        for i in range(environment_stepper.num_steps):
+            episode_returns += out[2][i]
+            self.assertAlmostEqual(episode_returns, out[3][i])
+            # Terminal: Reset for next step.
+            if out[4][i] is np.bool_(True):
+                episode_returns = 0.0
+
+        test.terminate()
+
+    def test_to_find_out_what_breaks_specifiable_server_start_via_thread_pools(self):
+        env_spec = dict(
+            type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
+            frameskip=4
+        )
+        dummy_env = Environment.from_spec(env_spec)
+        state_space = dummy_env.state_space
+        action_space = dummy_env.action_space
+        actor_component = ActorComponent(
+            # Preprocessor spec (only for image and prev-action channel).
+            dict(
+                type="dict-preprocessor-stack",
+                preprocessors=dict(
                     # The images from the env  are divided by 255.
                     RGB_INTERLEAVED=[dict(type="divide", divisor=255)],
                     # The prev. action/reward from the env must be flattened/bumped-up-to-(1,).
@@ -253,6 +349,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             actor_component_spec=actor_component,
             state_space=state_space,
             reward_space="float32",
+            internal_states_space=self.internal_states_space,
+            num_steps=100,
             # Add both prev-action and -reward into the state sent through the network.
             add_previous_action=True,
             add_previous_reward=True,
@@ -262,194 +360,30 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
 
         test = ComponentTest(
             component=environment_stepper,
-            input_spaces=dict(
-                internal_states=self.internal_states_space,
-                num_steps=int,
-                time_step=int
-            ),
             action_space=action_space,
-            disable_monitoring=True,  # Make session-creation hang in docker.
         )
-
-        # Start Specifiable Server with Env manually.
-        environment_stepper.environment_server.start()
-
         # Reset the stepper.
         test.test("reset")
 
-        initial_internal_states = self.internal_states_space.zeros(size=1)
+    #def test_isolated_impala_learner_agent_functionality(self):
+    #    """
+    #    Creates a IMPALAAgent (learner), inserts some dummy records and "learns" from them.
+    #    """
+    #    agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
+    #    environment_spec = dict(
+    #        type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
+    #    )
+    #    env = DeepmindLabEnv.from_spec(environment_spec)
 
-        # Step n times through the Env and collect results.
-        # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
-        # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
-        time_steps = 2000
-        time_start = time.monotonic()
-        out = test.test(("step", [initial_internal_states, time_steps, 0]), expected_outputs=None)
-        time_end = time.monotonic()
-        print("Done running {} steps in Deepmind Lab env using IMPALA network in {}sec.".format(
-            time_steps, time_end - time_start)
-        )
-
-        # Check types of outputs.
-        self.assertTrue(out[0] is None)  # the step op (no_op).
-        self.assertTrue(isinstance(out[1], DataOpTuple))  # the step results as a tuple (see below)
-
-        # Check types of single data.
-        self.assertTrue(out[1][0]["INSTR"].dtype == np.object)
-        self.assertTrue(out[1][0]["RGB_INTERLEAVED"].dtype == np.float32)
-        self.assertTrue(out[1][0]["RGB_INTERLEAVED"].min() >= 0.0)  # make sure we have pixels / 255
-        self.assertTrue(out[1][0]["RGB_INTERLEAVED"].max() <= 1.0)
-        self.assertTrue(out[1][1].dtype == np.int32)  # actions
-        self.assertTrue(out[1][2].dtype == np.float32)  # rewards
-        self.assertTrue(out[1][3].dtype == np.float32)  # episode return
-        self.assertTrue(out[1][4].dtype == np.bool_)  # next-state is terminal?
-        self.assertTrue(out[1][5]["INSTR"].dtype == np.object)  # next state (raw, not preprocessed)
-        self.assertTrue(out[1][5]["RGB_INTERLEAVED"].dtype == np.uint8)  # next state (raw, not preprocessed)
-        self.assertTrue(out[1][5]["RGB_INTERLEAVED"].min() >= 0)  # make sure we have pixels
-        self.assertTrue(out[1][5]["RGB_INTERLEAVED"].max() <= 255)
-        # action probs (test whether sum to one).
-        self.assertTrue(out[1][6].dtype == np.float32)
-        self.assertTrue(out[1][6].min() >= 0.0)
-        self.assertTrue(out[1][6].max() <= 1.0)
-        recursive_assert_almost_equal(out[1][6].sum(axis=-1, keepdims=False), np.ones(shape=(time_steps,)), decimals=4)
-        # internal states (c- and h-state)
-        self.assertTrue(out[1][7][0].dtype == np.float32)
-        self.assertTrue(out[1][7][1].dtype == np.float32)
-        self.assertTrue(out[1][7][0].shape == (time_steps, 256))
-        self.assertTrue(out[1][7][1].shape == (time_steps, 256))
-
-        # Check whether episode returns match single rewards (including terminal signals).
-        episode_returns = 0.0
-        for i in range(time_steps):
-            episode_returns += out[1][2][i]
-            self.assertAlmostEqual(episode_returns, out[1][3][i])
-            # Terminal: Reset for next step.
-            if out[1][4][i] is np.bool_(True):
-                episode_returns = 0.0
-
-        # Make sure we close the specifiable server (as we have started it manually and have no monitored session).
-        environment_stepper.environment_server.stop()
-        test.terminate()
-
-    def test_isolated_impala_learner_agent_functionality(self):
-        """
-        Creates a IMPALAAgent (learner), inserts some dummy records and "learns" from them.
-        """
-        agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
-        environment_spec = dict(
-            type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
-        )
-        env = DeepmindLabEnv.from_spec(environment_spec)
-
-        agent = IMPALAAgent.from_spec(
-            agent_config,
-            type="learner",
-            architecture="small",
-            environment_spec=environment_spec,
-            state_space=env.state_space,
-            action_space=env.action_space,
-            # TODO: automate this (by lookup from NN).
-            internal_states_space=IMPALAAgent.standard_internal_states_space,
-        )
-        agent.call_api_method("insert_dummy_records")
-        agent.call_api_method("update_from_memory")
-
-    def test_impala_actor_plus_learner_agent_functionality_actor_part(self):
-        """
-        Creates two IMPALAAgents (actor and learner) and runs it for a few steps in a DeepMindLab Env to test
-        communication between the two processes.
-        """
-        agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
-        environment_spec = dict(
-            type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
-        )
-        env = DeepmindLabEnv.from_spec(environment_spec)
-
-        agent = IMPALAAgent.from_spec(
-            agent_config,
-            type="actor",
-            architecture="large",
-            environment_spec=environment_spec,
-            state_space=env.state_space,
-            action_space=env.action_space,
-            # TODO: automate this (by lookup from NN).
-            internal_states_space=IMPALAAgent.standard_internal_states_space,
-            # Setup distributed tf.
-            execution_spec=dict(
-                mode="distributed",
-                distributed_spec=dict(job="actor", task_index=0, cluster_spec=self.cluster_spec)
-            )
-        )
-        print("IMPALA actor compiled.")
-        worker = IMPALAWorker(agent=agent)
-        # Run a few steps to produce data and start filling up the FIFO.
-        out = worker.execute_timesteps(80)
-        print("IMPALA actor produced some data:\n{}".format(out))
-        agent.terminate()
-
-    def test_impala_actor_plus_learner_agent_functionality_both_agent_types(self):
-        agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
-        environment_spec = dict(
-            type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
-        )
-        env = DeepmindLabEnv.from_spec(environment_spec)
-
-        def learner_script():
-            learner_agent = IMPALAAgent.from_spec(
-                agent_config,
-                type="learner",
-                state_space=env.state_space,
-                action_space=env.action_space,
-                # TODO: automate this (by lookup from NN).
-                internal_states_space=IMPALAAgent.standard_internal_states_space,
-                # Setup distributed tf.
-                execution_spec=dict(
-                    mode="distributed",
-                    distributed_spec=dict(job="learner", task_index=0, cluster_spec=self.cluster_spec)
-                )
-            )
-            #print("LEARNER: policy-vars: {}".format(learner_agent.policy.variables))
-            print("LEARNER LSTM-64 matrix:")
-            print(learner_agent.graph_executor.read_variable_values(learner_agent.policy.variables["shared/policy/impala-network/text-stack/lstm-64/lstm-cell/kernel"]))
-            learner_agent.call_api_method("test_assign")
-            # Take one batch from the filled up queue and run an update_from_memory with the learner.
-            print("Trying to update from memory ... ")
-            learner_agent.call_api_method("update_from_memory")
-            print("Updated from memory.")
-            #time.sleep(60)
-
-        def actor_script():
-            actor_agent = IMPALAAgent.from_spec(
-                agent_config,
-                type="actor",
-                environment_spec=environment_spec,
-                state_space=env.state_space,
-                action_space=env.action_space,
-                # TODO: automate this (by lookup from NN).
-                internal_states_space=IMPALAAgent.standard_internal_states_space,
-                # Setup distributed tf.
-                execution_spec=dict(
-                    mode="distributed",
-                    # disable_monitoring=True,
-                    distributed_spec=dict(job="actor", task_index=0, cluster_spec=self.cluster_spec)
-                )
-            )
-            # Test print out the values of a policy matrix to check, whether its shared correctly.
-            #print("ACTOR: policy-vars: {}".format(actor_agent.policy.variables))
-            print("ACTOR LSTM-64 matrix:")
-            print(actor_agent.graph_executor.read_variable_values(actor_agent.policy.variables["shared/policy/impala-network/text-stack/lstm-64/lstm-cell/kernel"]))
-            worker = IMPALAWorker(agent=actor_agent)
-            # Run a few steps to produce data and start filling up the FIFO.
-            out = worker.execute_timesteps(80)
-            print("IMPALA actor produced some data:\n{}".format(out))
-
-        # Start learner process.
-        learner_process = multiprocessing.Process(target=learner_script)
-        learner_process.start()
-        # Start actor process.
-        actor_process = multiprocessing.Process(target=actor_script)
-        actor_process.start()
-
-        # Wait until both are finished.
-        actor_process.join()
-        learner_process.join()
+    #    agent = IMPALAAgent.from_spec(
+    #        agent_config,
+    #        type="learner",
+    #        architecture="small",
+    #        environment_spec=environment_spec,
+    #        state_space=env.state_space,
+    #        action_space=env.action_space,
+    #        # TODO: automate this (by lookup from NN).
+    #        internal_states_space=IMPALAAgent.standard_internal_states_space,
+    #    )
+    #    agent.call_api_method("insert_dummy_records")
+    #    agent.call_api_method("update_from_memory")

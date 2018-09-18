@@ -17,17 +17,20 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph import get_backend
 from six.moves import xrange as range_
 import numpy as np
 
 from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.spaces.box_space import BoxSpace
-from rlgraph.spaces.containers import ContainerSpace, Dict, Tuple
+from rlgraph.spaces.containers import Dict, Tuple
 from rlgraph.spaces.float_box import FloatBox
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.text_box import TextBox
 from rlgraph.utils.util import RLGraphError, dtype, get_shape
-from rlgraph.utils.ops import SingleDataOp
+
+if get_backend() == "pytorch":
+    import torch
 
 
 # TODO: replace completely by `Component.get_variable` (python-backend)
@@ -80,7 +83,7 @@ def get_space_from_op(op):
     """
     # a Dict
     if isinstance(op, dict):  # DataOpDict
-        spec = dict()
+        spec = {}
         add_batch_rank = False
         add_time_rank = False
         for key, value in op.items():
@@ -92,7 +95,7 @@ def get_space_from_op(op):
         return Dict(spec, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
     # a Tuple
     elif isinstance(op, tuple):  # DataOpTuple
-        spec = list()
+        spec = []
         add_batch_rank = False
         add_time_rank = False
         for i in op:
@@ -117,7 +120,8 @@ def get_space_from_op(op):
         if isinstance(op, (bool, int, float)):
             return BoxSpace.from_spec(spec=type(op), shape=())
         # No Space: e.g. the tf.no_op, a distribution (anything that's not a tensor).
-        elif hasattr(op, "dtype") is False or not hasattr(op, "get_shape"):
+        # PyTorch Tensors do not have get_shape so must check backend.
+        elif hasattr(op, "dtype") is False or (get_backend() == "tf" and not hasattr(op, "get_shape")):
             return 0
         # Some tensor: can be converted into a BoxSpace.
         else:
@@ -129,10 +133,17 @@ def get_space_from_op(op):
             add_time_rank = False
             time_major = False
             new_shape = list(shape)
+
             # New way: Detect via op._batch_rank and op._time_rank properties where these ranks are.
             if hasattr(op, "_batch_rank") and isinstance(op._batch_rank, int):
                 add_batch_rank = True
                 new_shape[op._batch_rank] = -1
+
+            # elif get_backend() == "pytorch":
+            #     if isinstance(op, torch.Tensor):
+            #         if op.dim() > 1 and shape[0] == 1:
+            #             add_batch_rank = True
+            #             new_shape[0] = 1
             if hasattr(op, "_time_rank") and isinstance(op._time_rank, int):
                 add_time_rank = True
                 if op._time_rank == 0:
@@ -154,6 +165,10 @@ def get_space_from_op(op):
                 add_batch_rank = True
 
             base_dtype = op.dtype.base_dtype if hasattr(op.dtype, "base_dtype") else op.dtype
+            # PyTorch does not have a bool type
+            if get_backend() == "pytorch":
+                if op.dtype is torch.uint8:
+                    base_dtype = bool
             base_dtype_str = str(base_dtype)
 
             # FloatBox

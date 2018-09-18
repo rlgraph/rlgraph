@@ -19,15 +19,17 @@ from __future__ import print_function
 
 import logging
 import unittest
+import time
 
-from rlgraph import spaces
-from rlgraph.components import Policy
-from rlgraph.environments import Environment
-from rlgraph.spaces import FloatBox, IntBox
+from rlgraph.agents import DQNAgent, ApexAgent
+from rlgraph.components import Policy, MemPrioritizedReplay
+from rlgraph.environments import Environment, OpenAIGymEnv
+from rlgraph.spaces import FloatBox, IntBox, Dict, BoolBox
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import root_logger, softmax
 from rlgraph.tests.dummy_components import *
+from rlgraph.utils.execution_util import print_call_chain
 
 
 class TestPytorchBackend(unittest.TestCase):
@@ -125,6 +127,50 @@ class TestPytorchBackend(unittest.TestCase):
         from_numpy_in = torch.tensor(space_sample, dtype=torch.float32, requires_grad=False)
         print(self.fc1(from_numpy_in))
 
+    def test_dqn_compilation(self):
+        """
+        Creates a DQNAgent and runs it via a Runner on an openAI Pong Env.
+        """
+        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
+        agent_config = config_from_path("configs/dqn_pytorch_test.json")
+        agent = DQNAgent.from_spec(
+            # Uses 2015 DQN parameters as closely as possible.
+            agent_config,
+            state_space=env.state_space,
+            # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
+            action_space=env.action_space
+        )
+
+    def test_memory_compilation(self):
+        # Builds a memory and returns build stats.
+        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
+
+        record_space = Dict(
+            states=env.state_space,
+            actions=env.action_space,
+            rewards=float,
+            terminals=BoolBox(),
+            add_batch_rank=True
+        )
+        input_spaces = dict(
+            # insert: records
+            records=record_space,
+            # get_records: num_records
+            num_records=int,
+            # update_records: indices, update
+            indices=IntBox(add_batch_rank=True),
+            update=FloatBox(add_batch_rank=True)
+        )
+
+        input_spaces.pop("num_records")
+        memory = MemPrioritizedReplay(
+            capacity=20000,
+            next_states=True
+        )
+        test = ComponentTest(component=memory, input_spaces=input_spaces, auto_build=False)
+        return test.build()
+
+
     # TODO -> batch dim works differently in pytorch -> have to squeeze.
     def test_dense_layer(self):
         # Space must contain batch dimension (otherwise, NNLayer will complain).
@@ -212,25 +258,79 @@ class TestPytorchBackend(unittest.TestCase):
         expected_h = np.array([1.572, 0.003])
         test.test(("get_entropy", states), expected_outputs=expected_h, decimals=3)
 
-    def test_2_containers_flattening_splitting(self):
-        """
-        Adds a single component with 2-to-2 graph_fn to the core and passes two containers through it
-        with flatten/split options enabled.
-        """
-        input1_space = spaces.Dict(a=float, b=spaces.FloatBox(shape=(1, 2)))
-        input2_space = spaces.Dict(a=float, b=float)
-
-        component = FlattenSplitDummy()
-        test = ComponentTest(
-            component=component,
-            input_spaces=dict(input1=input1_space, input2=input2_space)
+    def test_act(self):
+        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
+        agent_config = config_from_path("configs/ray_apex_for_pong.json")
+        agent = DQNAgent.from_spec(
+            # Uses 2015 DQN parameters as closely as possible.
+            agent_config,
+            state_space=env.state_space,
+            # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
+            action_space=env.action_space
         )
+        state = env.reset()
+        action = agent.get_action(state)
+        print("Component call count = {}".format(Component.call_count))
 
-        # Options: fsu=flat/split/un-flat.
-        in1_fsu = dict(a=np.array(0.234), b=np.array([[0.0, 3.0]]))
-        in2_fsu = dict(a=np.array(5.0), b=np.array(5.5))
-        # Result of sending 'a' keys through graph_fn: (in1[a]+1.0=1.234, in1[a]+in2[a]=5.234)
-        # Result of sending 'b' keys through graph_fn: (in1[b]+1.0=[[1, 4]], in1[b]+in2[b]=[[5.5, 8.5]])
-        out1_fsu = dict(a=1.234, b=np.array([[1.0, 4.0]]))
-        out2_fsu = dict(a=np.array(5.234, dtype=np.float32), b=np.array([[5.5, 8.5]]))
-        test.test(("run", [in1_fsu, in2_fsu]), expected_outputs=[out1_fsu, out2_fsu])
+        state_space = env.state_space
+        count = 200
+
+        samples = state_space.sample(count)
+        start = time.perf_counter()
+        for s in samples:
+            action = agent.get_action(s)
+        end = time.perf_counter() - start
+
+        print("Took {} s for {} separate actions, mean = {}".format(end, count, end / count))
+
+        # Now instead test 100 batch actions
+        samples = state_space.sample(count)
+        start = time.perf_counter()
+        action = agent.get_action(samples)
+        end = time.perf_counter() - start
+        print("Took {} s for {} batched actions.".format(end, count))
+        profile = Component.call_times
+        print_call_chain(profile, False, 0.03)
+
+    def test_get_td_loss(self):
+        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
+        agent_config = config_from_path("configs/ray_apex_for_pong.json")
+
+        # Test cpu settings for batching here.
+        agent_config["memory_spec"]["type"] = "mem_prioritized_replay"
+        agent_config["execution_spec"]["torch_num_threads"] = 1
+        agent_config["execution_spec"]["OMP_NUM_THREADS"] = 1
+
+        agent = ApexAgent.from_spec(
+            # Uses 2015 DQN parameters as closely as possible.
+            agent_config,
+            state_space=env.state_space,
+            # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
+            action_space=env.action_space
+        )
+        samples = 200
+        rewards = np.random.random(size=samples)
+        states = list(agent.preprocessed_state_space.sample(samples))
+        actions = agent.action_space.sample(samples)
+        terminals = np.zeros(samples, dtype=np.uint8)
+        next_states = states[1:]
+        next_states.extend([agent.preprocessed_state_space.sample(1)])
+        next_states = np.asarray(next_states)
+        states = np.asarray(states)
+        weights = np.ones_like(rewards)
+
+        for _ in range(1):
+            start = time.perf_counter()
+            _, loss_per_item = agent.get_td_loss(
+                dict(
+                    states=states,
+                    actions=actions,
+                    rewards=rewards,
+                    terminals=terminals,
+                    next_states=next_states,
+                    importance_weights=weights
+                )
+            )
+            print("post process time = {}".format(time.perf_counter() - start))
+        profile = Component.call_times
+        print_call_chain(profile, False, 0.003)

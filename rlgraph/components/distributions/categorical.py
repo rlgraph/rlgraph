@@ -39,9 +39,7 @@ class Categorical(Distribution):
         if get_backend() == "tf":
             return tf.distributions.Categorical(probs=parameters, dtype=util.dtype("int"))
         elif get_backend() == "pytorch":
-            if self.dist_object is None:
-                self.dist_object = torch.distributions.Categorical(probs=parameters)
-            return self.dist_object
+            return torch.distributions.Categorical(probs=parameters)
 
     def _graph_fn_sample_deterministic(self, distribution):
         if get_backend() == "tf":

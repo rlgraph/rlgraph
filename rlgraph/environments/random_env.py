@@ -52,12 +52,19 @@ class RandomEnv(Environment):
     def reset(self):
         return self.step()[0]  # 0=state
 
+    def reset_for_env_stepper(self):
+        return self.reset()
+
     def step(self, actions=None):
         if actions is not None:
             assert self.action_space.contains(actions), \
                 "ERROR: Given action ({}) in step is not part of action Space ({})!".format(actions, self.action_space)
         return self.state_space.sample(), self.reward_space.sample(), \
             np.random.choice([True, False], p=[self.terminal_prob, 1.0 - self.terminal_prob]), None
+
+    def step_for_env_stepper(self, actions=None):
+        ret = self.step(actions)
+        return ret[0], ret[1], ret[2]
 
     def __str__(self):
         return "RandomEnv()"

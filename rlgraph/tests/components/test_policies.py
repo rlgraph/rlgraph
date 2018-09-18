@@ -72,7 +72,7 @@ class TestPolicies(unittest.TestCase):
         print("Probs: {}".format(expected_probabilities_output))
 
         # Stochastic sample.
-        expected_actions = np.array([3, 4])
+        expected_actions = np.array([2, 4])
         test.test(("get_stochastic_action", states), expected_outputs=expected_actions)
 
         # Deterministic sample.
@@ -184,6 +184,7 @@ class TestPolicies(unittest.TestCase):
         policy_params = test.read_variable_values(policy.variables)
 
         # Some NN inputs (4 input nodes, batch size=3).
+        np.random.seed(11)
         states = state_space.sample(size=3)
         # Raw NN-output (3 hidden nodes). All weights=1.5, no biases.
         expected_nn_output = np.matmul(states, policy_params["policy/test-network/hidden-layer/dense/kernel"])
@@ -198,7 +199,7 @@ class TestPolicies(unittest.TestCase):
         test.test(("get_action_layer_output", states), expected_outputs=expected_action_layer_output, decimals=5)
 
         # State-values: One for each item in the batch (simply take first out-node of action_layer).
-        expected_state_value_output = np.squeeze(expected_action_layer_output[:, :1], axis=-1)
+        expected_state_value_output = expected_action_layer_output[:, :1]
         # logits-values: One for each action-choice per item in the batch (simply take the remaining out nodes).
         expected_logits_output = expected_action_layer_output[:, 1:]
         test.test(("get_baseline_output", states),
@@ -218,14 +219,14 @@ class TestPolicies(unittest.TestCase):
         print("Probs: {}".format(expected_probabilities_output))
 
         # Stochastic sample.
-        expected_actions = np.array([0, 1, 2])
+        expected_actions = np.array([0, 1, 1])
         test.test(("get_stochastic_action", states), expected_outputs=expected_actions)
 
         # Deterministic sample.
-        expected_actions = np.array([0, 0, 0])
+        expected_actions = np.array([1, 1, 1])
         test.test(("get_max_likelihood_action", states), expected_outputs=expected_actions)
 
         # Distribution's entropy.
-        expected_h = np.array([1.093, 1.092, 1.095])
+        expected_h = np.array([0.31, 0.3, 0.05])
         test.test(("get_entropy", states), expected_outputs=expected_h, decimals=2)
 

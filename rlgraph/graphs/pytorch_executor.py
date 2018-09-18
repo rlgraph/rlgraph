@@ -48,11 +48,16 @@ class PyTorchExecutor(GraphExecutor):
         if self.default_torch_tensor_type is not None:
             torch.set_default_tensor_type(self.default_torch_tensor_type)
 
+        self.torch_num_threads = self.execution_spec.get("torch_num_threads", 1)
+        self.omp_num_threads = self.execution_spec.get("OMP_NUM_THREADS", 1)
+
         # Squeeze result dims, often necessary in tests.
         self.remove_batch_dims = True
 
     def build(self, root_components, input_spaces, *args):
         start = time.perf_counter()
+        self.init_execution()
+
         meta_build_times = []
         build_times = []
         for component in root_components:
@@ -73,30 +78,50 @@ class PyTorchExecutor(GraphExecutor):
 
     def execute(self, *api_methods):
         # Have to call each method separately.
-        ret = list()
+        ret = []
         for api_method in api_methods:
             if api_method is None:
                 continue
             elif isinstance(api_method, (list, tuple)):
+                # Which ops are supposed to be returned?
+                return_ops = api_method[2] if len(api_method) > 2 else None
                 params = util.force_list(api_method[1])
                 api_method = api_method[0]
-                # TODO check if necessary for every arg?
-                # TODO we could also convert at the level of components?
-                # TODO set if grad required?
-                tensor_params = force_torch_tensors(params=params)
+
+                # TODO where to determine this? exec spec?
+                requires_grad = False
+                if "update" in api_method:
+                    requires_grad = True
+                tensor_params = force_torch_tensors(params=params, requires_grad=requires_grad)
                 api_ret = self.graph_builder.execute_define_by_run_op(api_method, tensor_params)
 
-                # Detach results.
-                if isinstance(api_ret, torch.Tensor):
-                    api_ret = api_ret.detach().numpy()
-                if self.remove_batch_dims:
-                    ret.append(np.squeeze(api_ret))
+                to_return = []
+                if return_ops is not None:
+                    # Build return ops in correct order.
+                    for i in return_ops:
+                        op_result = api_ret[i]
+                        if isinstance(op_result, torch.Tensor) and op_result.requires_grad is True:
+                            op_result = op_result.detach()
+                        to_return.append(op_result)
+
                 else:
-                    ret.append(api_ret)
+                    # Just return everything in the order it was returned by the API method.
+                    for op_result in api_ret:
+                        if isinstance(op_result, torch.Tensor) and op_result.requires_grad is True:
+                            op_result = op_result.detach()
+                        to_return.append(op_result)
+
+                # Clean and return.
+                for result in to_return:
+                    if self.remove_batch_dims and isinstance(result, np.ndarray):
+                        ret.append(np.array(np.squeeze(result)))
+                    elif hasattr(result, "numpy"):
+                        ret.append(np.array(result.numpy()))
+                    else:
+                        ret.append(result)
 
         # Unwrap if len 1.
         ret = ret[0] if len(ret) == 1 else ret
-
         return ret
 
     def read_variable_values(self, variables):
@@ -104,8 +129,10 @@ class PyTorchExecutor(GraphExecutor):
         return variables
 
     def init_execution(self): \
-        # Nothing to do here for PyTorch.
-        pass
+        # TODO Import guards here are annoying but otherwise breaks if torch is not installed.
+        if get_backend() == "torch":
+            torch.set_num_threads(self.torch_num_threads)
+            os.environ["OMP_NUM_THREADS"] = str(self.omp_num_threads)
 
     def finish_graph_setup(self):
         # Nothing to do here for PyTorch.

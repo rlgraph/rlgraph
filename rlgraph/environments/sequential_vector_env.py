@@ -59,7 +59,7 @@ class SequentialVectorEnv(VectorEnv):
         return state
 
     def step(self, actions):
-        states, rewards, terminals, infos = list(), list(), list(), list()
+        states, rewards, terminals, infos = [], [], [], []
         for i in range_(self.num_envs):
             state, reward, terminal, info = self.environments[i].step(actions[i])
             states.append(state)

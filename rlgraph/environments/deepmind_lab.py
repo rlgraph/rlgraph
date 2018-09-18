@@ -17,13 +17,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import deepmind_lab
+import numpy as np
+import time
 
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.environments.environment import Environment
 from rlgraph.spaces import *
-from rlgraph.utils.util import force_list, dtype
+from rlgraph.utils.util import force_list, default_dict
 
 
 class DeepmindLabEnv(Environment):
@@ -36,8 +37,8 @@ class DeepmindLabEnv(Environment):
     [1] IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures - Espeholt, Soyer,
         Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
     """
-    def __init__(self, level_id, observations="RGB_INTERLEAVED", actions=None, frameskip=1, config=None,
-                 renderer="software", level_cache=None):
+    def __init__(self, level_id, observations="RGB_INTERLEAVED", actions=None, frameskip=4, config=None,
+                 renderer="software", seed=None, level_cache=None):
         """
         Args:
             level_id (str): Specifier of the level to play, e.g. 'seekavoid_arena_01'.
@@ -50,20 +51,23 @@ class DeepmindLabEnv(Environment):
                 key=deepmind Lab partial action name e.g. LOOK_LEFT_RIGHT_PIXELS_PER_FRAME.
                 value=the value for that deepmind Lab partial action e.g. -100.
             frameskip (Optional[Tuple[int,int],int]): How many frames should be skipped with (repeated action and
-                accumulated reward). Default: (2,5) -> Uniformly pull from set [2,3,4].
+                accumulated reward). E.g. (2,5) -> Uniformly pull from set [2,3,4].
+                Default: 4.
             config (Optional[dict]): The `config` parameter to be passed into the Lab's constructor.
                 Supports 'width', 'height', 'fps', and other useful parameters.
                 Values must be given as string values. e.g. dict(width='96')
             renderer (str): The `renderer` parameter to be passed into the Lab's constructor.
+            seed (Optional[int]): An optional seed to use to initialize a numpy random state object, which is then used
+                to seed all occurring resets in a deterministic fashion.
             level_cache (Optional[object]): An optional custom level caching object to help increase performance
                 when playing many repeating levels. Will be passed as is into the Lab's constructor.
         """
         # Create the wrapped deepmind lab level object.
         self.level_id = level_id
         observations = force_list(observations)
-        config = config or dict(width='96', height='72', fps='60')  # Default config.
+        config = default_dict(config, dict(width='96', height='72', fps='60'))  # Default config.
         self.level = deepmind_lab.Lab(
-            level_id, observations, config=config, renderer=renderer, level_cache=level_cache
+            self.level_id, observations, config=config, renderer=renderer, level_cache=level_cache
         )
 
         # Dict mapping a discrete action (int) - we don't support continuous actions yet - into a
@@ -73,6 +77,7 @@ class DeepmindLabEnv(Environment):
         super(DeepmindLabEnv, self).__init__(observation_space, action_space)
 
         self.frameskip = frameskip
+        self.random_state = np.random.RandomState(seed=seed or int(time.time()))
 
     def terminate(self):
         """
@@ -83,8 +88,17 @@ class DeepmindLabEnv(Environment):
         self.level = None
 
     def reset(self):
-        self.level.reset()
-        return self.level.observations()
+        print("\n----------------------------\nResetting DM Lab Env.\n----------------------------\n")
+        self.level.reset(seed=self.random_state.randint(0, 2 ** 31 - 1))
+        state = self.level.observations()
+        return state
+
+    def reset_for_env_stepper(self):
+        state = self.reset()
+        if isinstance(self.state_space, Dict):
+            return [state[key] for key in self.state_space]
+        else:
+            return state[next(iter(state))]
 
     def step(self, actions):
         # Do the actual step.
@@ -96,6 +110,24 @@ class DeepmindLabEnv(Environment):
 
         # Return state, reward, terminal, and None (info).
         return state, np.array(reward, dtype=np.float32), terminal, None
+
+    def step_for_env_stepper(self, actions):
+        # Do the actual step.
+        # TODO: Remove this impala hack again (just to see whether looking up action in graph is faster).
+        reward = self.level.step(action=self.action_list[actions], num_steps=self.frameskip)
+        #reward = self.level.step(action=actions, num_steps=self.frameskip)
+        terminal = np.array(not self.level.is_running())
+        # Flow Env logic.
+        if terminal:
+            state = self.reset()
+        else:
+            state = self.level.observations()
+
+        # Return state, reward, terminal, and None (info).
+        if isinstance(self.state_space, Dict):
+            return [state[key] for key in self.state_space] + [np.array(reward, dtype=np.float32), terminal]
+        else:
+            return [state[next(iter(state))], np.array(reward, dtype=np.float32), terminal]
 
     @staticmethod
     def define_actions(actions_spec=None):

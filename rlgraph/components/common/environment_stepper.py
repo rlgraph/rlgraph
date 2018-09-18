@@ -26,10 +26,11 @@ from rlgraph.environments.environment import Environment
 from rlgraph.utils.ops import DataOpTuple, DataOpDict, flatten_op, unflatten_op
 from rlgraph.spaces import Space, Dict
 from rlgraph.utils.specifiable_server import SpecifiableServer
-from rlgraph.utils.util import force_tuple
+from rlgraph.utils.util import force_tuple, dtype as dtype_
 
 if get_backend() == "tf":
     import tensorflow as tf
+    nest = tf.contrib.framework.nest
 
 
 class EnvironmentStepper(Component):
@@ -45,6 +46,19 @@ class EnvironmentStepper(Component):
             accumulated episode returns, terminals, next states (un-preprocessed), (optional: internal states, only
             for RNN based ActorComponents).
     """
+
+    # TODO: remove this IMPALA hack again.
+    #DEFAULT_ACTION_SET = (
+    #    (0, 0, 0, 1, 0, 0, 0),  # Forward
+    #    (0, 0, 0, -1, 0, 0, 0),  # Backward
+    #    (0, 0, -1, 0, 0, 0, 0),  # Strafe Left
+    #    (0, 0, 1, 0, 0, 0, 0),  # Strafe Right
+    #    (-20, 0, 0, 0, 0, 0, 0),  # Look Left
+    #    (20, 0, 0, 0, 0, 0, 0),  # Look Right
+    #    (-20, 0, 0, 1, 0, 0, 0),  # Look Left + Forward
+    #    (20, 0, 0, 1, 0, 0, 0),  # Look Right + Forward
+    #    (0, 0, 0, 0, 1, 0, 0),  # Fire.
+    #)
 
     def __init__(self, environment_spec, actor_component_spec, num_steps=20, state_space=None, reward_space=None,
                  internal_states_space=None,
@@ -75,7 +89,9 @@ class EnvironmentStepper(Component):
                 ActionComponent's (NN's) input at each step. This is only possible if the state space is already a Dict.
                 It will be added under the key "previous_reward". Default: False.
         """
-        super(EnvironmentStepper, self).__init__(scope=kwargs.pop("scope", "environment-stepper"), **kwargs)
+        super(EnvironmentStepper, self).__init__(graph_fn_num_outputs=dict(
+            _graph_fn_step=1
+        ), scope=kwargs.pop("scope", "environment-stepper"), **kwargs)
 
         # Only to retrieve some information about the particular Env.
         dummy_env = Environment.from_spec(environment_spec)  # type: Environment
@@ -139,8 +155,8 @@ class EnvironmentStepper(Component):
             class_=Environment,
             spec=environment_spec,
             output_spaces=dict(
-                step=self.state_space_env_list + [self.reward_space, bool, None],
-                reset=self.state_space_env_list
+                step_for_env_stepper=self.state_space_env_list + [self.reward_space, bool],
+                reset_for_env_stepper=self.state_space_env_list
             ),
             shutdown_method="terminate"
         )
@@ -151,7 +167,9 @@ class EnvironmentStepper(Component):
         self.num_steps = num_steps
 
         # Variables that hold information of last step through Env.
-        self.episode_return = None
+        #self.current_action = None
+        #self.current_reward = None
+        #self.episode_return = None
         self.current_terminal = None
         self.current_state = None
         self.current_internal_states = None
@@ -167,17 +185,28 @@ class EnvironmentStepper(Component):
         self.define_api_method("step", self._graph_fn_step)
 
     def create_variables(self, input_spaces, action_space=None):
-        self.time_step = self.get_variable(name="time-step", dtype="int32", initializer=0, trainable=False)
-        self.episode_return = self.get_variable(name="episode-return", dtype="float32",
-                                                initializer=0.0, trainable=False)
-        self.current_terminal = self.get_variable(name="current-terminal", dtype="bool",
-                                                  initializer=True, trainable=False)
-        self.current_state = self.get_variable(name="current-state", from_space=self.state_space_actor,
-                                               flatten=True, trainable=False)
+        self.time_step = self.get_variable(
+            name="time-step", dtype="int32", initializer=0, trainable=False, local=True, use_resource=True
+        )
+        #self.current_action = self.get_variable(
+        #    name="current-action", from_space=self.action_space, trainable=False, local=True, use_resource=True
+        self.current_terminal = self.get_variable(
+            name="current-terminal", dtype="bool", initializer=True, trainable=False, local=True, use_resource=True
+        )
+        self.current_state = self.get_variable(
+            name="current-state", from_space=self.state_space_actor, initializer=0, flatten=True, trainable=False,
+            local=True, use_resource=True
+        )
         if self.has_rnn:
             self.current_internal_states = self.get_variable(
-                name="current-internal-states", from_space=self.internal_states_space, initializer=0.0,
-                flatten=True, trainable=False
+                name="current-internal-states", from_space=self.internal_states_space,
+                initializer=0.0, flatten=True, trainable=False, local=True, use_resource=True,
+                add_batch_rank=1
+            )
+        if self.add_action_probs:
+            self.current_action_probs = self.get_variable(
+                name="current-action-probs", from_space=self.action_probs_space, trainable=False,
+                local=True, use_resource=True
             )
 
     def _graph_fn_reset(self):
@@ -191,14 +220,14 @@ class EnvironmentStepper(Component):
             SingleDataOp: The assign op that stores the state after the Env reset in `last_state` variable.
         """
         if get_backend() == "tf":
-            state_after_reset = self.environment_server.reset()
+            state_after_reset = self.environment_server.reset_for_env_stepper()
             # Reset current state (support ContainerSpaces as well) via our variable(s)' initializer.
             assigns = [self.assign_variable(var, s) for var, s in zip(
                     self.current_state.values(), force_tuple(state_after_reset)
             )]
             # Reset internal-states, current return and whether current state is terminal.
             assigns.append(tf.variables_initializer(
-                var_list=[self.episode_return, self.current_terminal]
+                var_list=[self.current_terminal]
             ))
             if self.has_rnn:
                 assigns.append(tf.variables_initializer(var_list=list(self.current_internal_states.values())))
@@ -208,67 +237,27 @@ class EnvironmentStepper(Component):
             with tf.control_dependencies(assigns):
                 return tf.no_op()
 
-    def _graph_fn_step(self):  #, internal_states=None, num_steps=1, time_step=0):
-        """
-        Performs n steps through the environment starting with the current state of the environment and returning
-        accumulated tensors for the n steps.
+    def _graph_fn_step(self):
 
-        #Args:
-        #    internal_states (DataOp): The internal states data being passed to the ActorComponent if it carries an RNN.
-        #    num_steps (int): The number of steps to perform in the environment.
-        #    time_step (int): The time_step at which we start stepping.
-
-        Returns:
-            Tuple[SingleDataOp,List[SingleDataOp]]:
-                1) The step-op to be pulled to execute the stepping.
-                2) The step results folded into a list of items, each one with a time-rank only (no batch rank,
-                    b/c single env):
-                - preprocessed_previous_states: Starting with the initial state of the environment and ending with
-                    the one state before the last element in `next_states` (see below).
-                - actions: The actions actually picked by our policy.
-                - rewards: The rewards actually observed during stepping.
-                - returns: The accumulated reward values for the ongoing episode up to after taking an action.
-                TODO: discounting?
-                - terminals: The terminal signals from the env. Values refere to whether the states in `next_states`
-                    (see below) are terminal or not.
-                - next_states: The (non-preprocessed) next states.
-                Optional if self.add_action_probs is True:
-                - action_log_probs: The log-probabilities of all actions per step.
-                Optional if self.has_rnn is True:
-                - internal_states: The internal-states outputs of an RNN.
-        """
         if get_backend() == "tf":
+
             def scan_func(accum, time_delta):
                 # Not needed: preprocessed-previous-states (tuple!)
                 # `state` is a tuple as well. See comment in ctor for why tf cannot use ContainerSpaces here.
                 if self.has_rnn is False:
                     if self.add_action_probs is False:
-                        _, _, _, episode_return, terminal, state = accum
+                        _, state = accum
                     else:
-                        _, _, _, episode_return, terminal, state, _ = accum
+                        _, state, _ = accum
                     internal_states = None
                 else:
                     if self.add_action_probs is False:
-                        _, _, _, episode_return, terminal, state, internal_states = accum
+                        _, state, internal_states = accum
                     else:
-                        _, _, _, episode_return, terminal, state, _, internal_states = accum
+                        _, state, _, internal_states = accum
 
-                # Removed (Michael) to avoid lock.
-
-                # Add control dependency to make sure we don't step parallelly through the Env.
-                terminal = tf.convert_to_tensor(value=terminal)
-                #with tf.control_dependencies(control_inputs=[terminal]):
-
-                # If state (s) was terminal, reset the env (in this case, we will never need s (or a preprocessed
-                # version thereof for any NN runs (q-values, probs, values, etc..) as no actions are taken from s).
-                state = force_tuple(tf.cond(
-                    pred=terminal,
-                    true_fn=lambda: tuple(force_tuple(self.environment_server.reset()) +
-                                          ((self.action_space.zeros(),) if self.add_previous_action else ()) +
-                                          ((self.reward_space.zeros(),) if self.add_previous_reward else ())
-                                          ),
-                    false_fn=lambda: tuple(tf.convert_to_tensor(value=s) for s in state)
-                ))
+                #terminal = tf.convert_to_tensor(value=terminal)
+                state = tuple(tf.convert_to_tensor(value=s) for s in state)
 
                 flat_state = OrderedDict()
                 for i, flat_key in enumerate(self.state_space_actor_flattened.keys()):
@@ -302,32 +291,26 @@ class EnvironmentStepper(Component):
                 action_probs = None
                 if self.has_rnn is True:
                     if self.add_action_probs is False:
-                        preprocessed_s, a, current_internal_states = out
+                        _, a, current_internal_states = out
                     else:
-                        preprocessed_s, a, action_probs, current_internal_states = out
+                        _, a, action_probs, current_internal_states = out
                 else:
                     if self.add_action_probs is False:
-                        preprocessed_s, a = out
+                        _, a = out
                     else:
-                        preprocessed_s, a, action_probs = out
+                        _, a, action_probs = out
 
                 # Strip the batch (and maybe time) ranks again from the action in case the Env doesn't like it.
                 a_no_extra_ranks = a[0, 0] if self.has_rnn is True else a[0]
                 # Step through the Env and collect next state (tuple!), reward and terminal as single values
                 # (not batched).
-                out = self.environment_server.step(a_no_extra_ranks)
+                # TODO: Remove this IMPALA hack: it's only to confirm whether looking up the exact action vector
+                # TODO: in graph is faster than doing it in python in the env (step).
+                #actual_dm_lab_action = tf.gather(self.DEFAULT_ACTION_SET, a_no_extra_ranks)
+
+                out = self.environment_server.step_for_env_stepper(a_no_extra_ranks)
                 s_, r, t_ = out[:-2], out[-2], out[-1]
                 r = tf.cast(r, dtype="float32")
-
-                # Add up return (if s was not terminal).
-                new_episode_return = tf.where(condition=terminal, x=r, y=(r + episode_return))
-
-                # Accumulate return values (remove batch (and maybe time) rank again from preprocessed_s).
-                # - preprocessed_s is also still a possible container, make it a tuple again.
-                preprocessed_s_no_batch = tuple(map(
-                    lambda tensor: (tensor[0, 0] if self.has_rnn is True else tensor[0]),
-                    flatten_op(preprocessed_s).values()
-                ))
 
                 # Add a and/or r to next_state?
                 if self.add_previous_action is True:
@@ -338,7 +321,7 @@ class EnvironmentStepper(Component):
                     s_ = s_ + (r,)
 
                 # Note: Preprocessed_s and s_ are packed as tuples.
-                ret = [preprocessed_s_no_batch, a_no_extra_ranks, r, new_episode_return, t_, s_] + \
+                ret = [t_, s_] + \
                     ([(action_probs[0][0] if self.has_rnn is True else action_probs[0])] if
                      self.add_action_probs is True else []) + \
                     ([tuple(current_internal_states)] if self.has_rnn is True else [])
@@ -347,69 +330,73 @@ class EnvironmentStepper(Component):
 
             # Initialize the tf.scan run.
             initializer = [
-                tuple(map(lambda space: space.zeros(), self.preprocessed_state_space.flatten().values())),
-                self.action_space.zeros(),  # zero previous action (doesn't matter)
-                self.reward_space.zeros(),  #.asarray(0.0, dtype=self.reward_space.dtype),  # zero previous reward (doesn't matter)
-                self.episode_return,  # return so far
-                self.current_terminal,  # whether the current state is terminal
-                tuple(self.current_state.values())  # current (raw) state (flattened components if ContainerSpace).
+                self.current_terminal.read_value(),  # whether the current state is terminal
+                # current (raw) state (flattened components if ContainerSpace).
+                tuple(map(lambda x: x.read_value(), self.current_state.values()))
             ]
             # Append action probs if needed.
             if self.add_action_probs is True:
-                initializer.append(self.action_probs_space.zeros())  # zero action probs (don't matter)
+                initializer.append(self.current_action_probs.read_value())
             # Append internal states if needed.
             if self.current_internal_states is not None:
                 initializer.append(tuple(
                     tf.placeholder_with_default(
-                        tf.expand_dims(internal_s, axis=0), shape=(None,) + tuple(internal_s.shape.as_list())
+                        internal_s.read_value(), shape=(None,) + tuple(internal_s.shape.as_list()[1:])
+                        #tf.expand_dims(internal_s, axis=0), shape=(None,) + tuple(internal_s.shape.as_list())
                     ) for internal_s in self.current_internal_states.values()
+
+                    #tf.expand_dims(internal_s.read_value(), axis=0) for internal_s in self.current_internal_states.values()
+
+                ## tf.expand_dims(internal_s.read_value(), axis=0), shape=(None,) + tuple(internal_s.shape.as_list())
+                    #tf.expand_dims(internal_s, axis=0) for internal_s in self.current_internal_states.values()
                 ))
 
             # Scan over n time-steps (tf.range produces the time_delta with respect to the current time_step).
             # NOTE: Changed parallel to 1, to resolve parallel issues.
             step_results = list(tf.scan(
                 fn=scan_func, elems=tf.range(self.num_steps, dtype="int32"), initializer=tuple(initializer),
-                parallel_iterations=1, back_prop=False
+                back_prop=False
             ))
 
             # Store the time-step increment, return so far, current terminal and current state.
             assigns = [
                 tf.assign_add(self.time_step, self.num_steps),
-                self.assign_variable(self.episode_return, step_results[3][-1]),
-                self.assign_variable(self.current_terminal, step_results[4][-1])
+                self.assign_variable(self.current_terminal, step_results[0][-1])
             ]
+
+            # Concatenate first and rest.
+            full_results = []
+            for first_values, rest_values in zip(initializer, step_results):
+                full_results.append(nest.map_structure(
+                    lambda first, rest: tf.concat([[first], rest], axis=0), first_values, rest_values
+                ))
+
             # Re-build DataOpDicts from preprocessed-states and states (from tuple right now).
-            rebuild_preprocessed_s = DataOpDict()
             rebuild_s = DataOpDict()
-            for flat_key, var_ref, preprocessed_s_comp, s_comp in zip(
-                    self.state_space_actor_flattened.keys(), self.current_state.values(), step_results[0], step_results[5]
+            for flat_key, var_ref, s_comp in zip(
+                    self.state_space_actor_flattened.keys(), self.current_state.values(), full_results[1]
             ):
                 assigns.append(self.assign_variable(var_ref, s_comp[-1]))  # -1: current state (last observed)
-                rebuild_preprocessed_s[flat_key] = preprocessed_s_comp
                 rebuild_s[flat_key] = s_comp
-            rebuild_preprocessed_s = unflatten_op(rebuild_preprocessed_s)
             rebuild_s = unflatten_op(rebuild_s)
-            step_results[0] = rebuild_preprocessed_s
-            step_results[5] = rebuild_s
+            full_results[1] = rebuild_s
 
             # Remove batch rank from internal states again.
             if self.current_internal_states is not None:
-                slot = 7 if self.add_action_probs is True else 6
+                slot = 3 if self.add_action_probs is True else 2
                 # TODO: what if internal states is a dict? Right now assume some tuple.
                 # TODO: what if internal states is not the last item in the list anymore due to some change
                 internal_states_wo_batch = list()
-                for i in range(len(step_results[slot])):
+                for i in range(len(full_results[slot])):
                     # 1=batch axis (which is 1); 0=time axis.
-                    internal_states_wo_batch.append(tf.squeeze(step_results[-1][i], axis=1))
-                step_results[slot] = DataOpTuple(internal_states_wo_batch)
+                    internal_states_wo_batch.append(tf.squeeze(full_results[-1][i], axis=1))
+                full_results[slot] = DataOpTuple(internal_states_wo_batch)
 
             # TODO set parallel scans 10 -> 1, check if this removes need for sync.
-            # with tf.control_dependencies(control_inputs=assigns):
-            #     step_op = tf.no_op()
+            with tf.control_dependencies(control_inputs=assigns):
+                # Let the auto-infer system know, what time rank we have.
+                full_results = DataOpTuple(full_results)
+                for o in flatten_op(full_results).values():
+                    o._time_rank = 0  # which position in the shape is the time-rank?
 
-            # Let the auto-infer system know, what time rank we have.
-            step_results = DataOpTuple(step_results)
-            for o in flatten_op(step_results).values():
-                o._time_rank = 0  # which position in the shape is the time-rank?
-
-            return tf.no_op(), step_results
+            return full_results

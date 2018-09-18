@@ -54,7 +54,7 @@ class ImageCrop(PreprocessLayer):
         assert self.height > 0
 
         # The output spaces after preprocessing (per flat-key).
-        self.output_spaces = None
+        self.output_spaces = dict()
 
     def get_preprocessed_space(self, space):
         ret = dict()
@@ -91,8 +91,11 @@ class ImageCrop(PreprocessLayer):
         elif get_backend() == "pytorch":
             if isinstance(preprocessing_inputs, list):
                 preprocessing_inputs = torch.tensor(preprocessing_inputs)
+
+            # TODO: the reason this key check is there is due to call during meta graph build - > out spaces
+            # do not exist yet  -> need better solution.
             # Preserve batch dimension.
-            if self.output_spaces[key].has_batch_rank is True:
+            if key in self.output_spaces and self.output_spaces[key].has_batch_rank is True:
                 return preprocessing_inputs[:, self.y:self.y + self.height, self.x:self.x + self.width]
             else:
                 return preprocessing_inputs[self.y:self.y + self.height, self.x:self.x + self.width]

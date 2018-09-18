@@ -40,7 +40,8 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         # is used for internal env.
         frameskip=4,
         max_num_noops=30,
-        episodic_life=True
+        episodic_life=False,
+        fire_reset=True
     )
 
     def test_worker_init(self):
@@ -72,16 +73,23 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         agent_config = config_from_path("configs/ray_apex_for_pong.json")
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         worker_cls = RayWorker.as_remote().remote
-        ray_spec["worker_spec"]["worker_sample_size"] = 100
+        ray_spec["worker_spec"]["worker_sample_size"] = 198
+        ray_spec["worker_spec"]["worker_executes_exploration"] = True
+        ray_spec["worker_spec"]["ray_exploration"] = 0.4
+
         worker = worker_cls(agent_config, ray_spec["worker_spec"], self.env_spec,)
         build_result = worker.init_agent.remote()
         ready, not_ready = ray.wait([build_result], num_returns=1)
         result = ray.get(ready)
         print(result)
         time.sleep(5)
+
+        start = time.perf_counter()
         task = worker.execute_and_get_with_count.remote()
         result, count = ray.get(task)
-        print(result.get_metrics())
+        task_time = time.perf_counter() - start
+        print("internal result metrics = {}, external task time = {},"
+              "external throughput = {}".format(result.get_metrics(), task_time, 198 / task_time))
 
     def test_initial_training_pong(self):
         """

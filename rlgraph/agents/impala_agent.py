@@ -46,9 +46,15 @@ class IMPALAAgent(Agent):
         Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
     """
 
-    standard_internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False)
+    default_internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False)
 
-    def __init__(self, discount=0.99, architecture="large", fifo_queue_spec=None, environment_spec=None,
+    default_environment_spec = dict(
+        type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
+        frameskip=4
+    )
+
+    # TODO: capacity FIFO Queue make configurable.
+    def __init__(self, discount=0.99, architecture="large", environment_spec=None,
                  weight_pg=None, weight_baseline=None, weight_entropy=None, worker_sample_size=100,
                  dynamic_batching=False, **kwargs):
         """
@@ -56,7 +62,7 @@ class IMPALAAgent(Agent):
             discount (float): The discount factor gamma.
             architecture (str): Which IMPALA architecture to use. One of "small" or "large". Will be ignored if
                 `network_spec` is given explicitly in kwargs. Default: "large".
-            fifo_queue_spec (Optional[dict,FIFOQueue]): The spec for the FIFOQueue to use for the IMPALA algorithm.
+            #fifo_queue_spec (Optional[dict,FIFOQueue]): The spec for the FIFOQueue to use for the IMPALA algorithm.
             environment_spec (dict): The spec for constructing an Environment object for an actor-type IMPALA agent.
             weight_pg (float): See IMPALALossFunction Component.
             weight_baseline (float): See IMPALALossFunction Component.
@@ -94,20 +100,14 @@ class IMPALAAgent(Agent):
 
         # Run everything in a single process.
         if self.type == "single":
-            environment_spec = environment_spec or dict(
-                type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
-                frameskip=4
-            )
+            environment_spec = environment_spec or self.default_environment_spec
             update_spec = kwargs.pop("update_spec", None)
 
         # Actors won't need to learn (no optimizer needed in graph).
         elif self.type == "actor":
             optimizer_spec = None
             update_spec = kwargs.pop("update_spec", dict(do_updates=False))
-            environment_spec = environment_spec or dict(
-                type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
-                frameskip=4
-            )
+            environment_spec = environment_spec or self.default_environment_spec
         # Learners won't need to explore (act) or observe (insert into Queue).
         else:
             exploration_spec = None
@@ -116,16 +116,38 @@ class IMPALAAgent(Agent):
             environment_spec = None
 
         # Add previous-action/reward preprocessors to env-specific preprocessor spec.
-        preprocessing_spec = kwargs.pop("preprocessing_spec", dict(preprocessors=dict()))
-        # Flatten actions.
-        preprocessing_spec["preprocessors"]["previous_action"] = [
-            dict(type="reshape", flatten=True, flatten_categories=kwargs.get("action_space").num_categories)
-        ]
-        # Bump reward and convert to float32, so that it can be concatenated by the Concat layer.
-        preprocessing_spec["preprocessors"]["previous_reward"] = [
-            dict(type="reshape", new_shape=(1,)),
-            dict(type="convert_type", to_dtype="float32")
-        ]
+        # TODO: remove this empty hard-coded preprocessor.
+        kwargs.pop("preprocessing_spec", None)
+        preprocessing_spec = dict(type="dict-preprocessor-stack", preprocessors=dict(
+            # Flatten actions.
+            previous_action=[
+                dict(type="reshape", flatten=True, flatten_categories=kwargs.get("action_space").num_categories)
+            ],
+            # Bump reward and convert to float32, so that it can be concatenated by the Concat layer.
+            previous_reward=[
+                dict(type="reshape", new_shape=(1,))
+                #dict(type="convert_type", to_dtype="float32")
+            ]
+        ))
+
+        # Limit communication in distributed mode between each actor and the learner (never between actors).
+        execution_spec = kwargs.pop("execution_spec", None)
+        if execution_spec is not None and execution_spec.get("mode") == "distributed":
+            execution_spec["session_config"] = dict(
+                type="monitored-training-session",
+                allow_soft_placement=True,
+                log_device_placement=False,
+                device_filters=["/job:learner/task:0"] + (
+                    ["/job:actor/task:{}".format(execution_spec["distributed_spec"]["task_index"])] if
+                    self.type == "actor" else []
+                )
+            )
+            # If Actor, make non-chief in either case (even if task idx == 0).
+            if self.type == "actor":
+                execution_spec["distributed_spec"]["is_chief"] = False
+                # Hard-set device to the CPU for actors.
+                execution_spec["device_strategy"] = "custom"
+                execution_spec["default_device"] = "/job:{}/task:{}/cpu".format(self.type, execution_spec["distributed_spec"]["task_index"])
 
         # Now that we fixed the Agent's spec, call the super constructor.
         super(IMPALAAgent, self).__init__(
@@ -137,13 +159,14 @@ class IMPALAAgent(Agent):
             optimizer_spec=optimizer_spec,
             observe_spec=observe_spec,
             update_spec=update_spec,
+            execution_spec=execution_spec,
             name=kwargs.pop("name", "impala-{}-agent".format(self.type)),
             **kwargs
         )
+
         # If we use dynamic batching, wrap the dynamic batcher around the policy's graph_fn that we
         # actually call below during our build.
         if self.dynamic_batching:
-            #self.policy.parent_component = None  # TODO: this is a hack
             self.policy = DynamicBatchingPolicy(policy_spec=self.policy, scope="")
         # Manually set the reuse_variable_scope for our policies (actor: mu, learner: pi).
         self.policy.propagate_subcomponent_properties(dict(reuse_variable_scope="shared"))
@@ -155,40 +178,40 @@ class IMPALAAgent(Agent):
         self.has_rnn = self.neural_network.has_rnn()
         # Check, whether we are running with GPU.
         self.has_gpu = self.execution_spec["gpu_spec"]["gpus_enabled"] is True and \
-                       self.execution_spec["gpu_spec"]["num_gpus"] > 0
+            self.execution_spec["gpu_spec"]["num_gpus"] > 0
 
         # Some FIFO-queue specs.
-        self.fifo_queue_keys = ["preprocessed_states", "actions", "rewards", "terminals", "last_next_states",
-                                "action_probs", "initial_internal_states"]
-        self.fifo_record_space = fifo_queue_spec["record_space"] if "record_space" in fifo_queue_spec else Dict(
+        self.fifo_queue_keys = ["terminals", "states", "action_probs", "initial_internal_states"]
+        self.fifo_record_space = Dict(
             {
-                "preprocessed_states": self.preprocessor.get_preprocessed_space(
-                    default_dict(copy.deepcopy(self.state_space), dict(
-                        previous_action=self.action_space,
-                        previous_reward=FloatBox()
-                    ))
-                ),
-                "actions": self.action_space,
-                "rewards": float,
+                #"preprocessed_states": self.preprocessor.get_preprocessed_space(
+                #    default_dict(copy.deepcopy(self.state_space), dict(
+                #        previous_action=self.action_space,
+                #        previous_reward=FloatBox()
+                #    ))
+                #),
+                #"actions": self.action_space,
+                #"rewards": float,
                 "terminals": bool,
-                "last_next_states": default_dict(copy.deepcopy(self.state_space), dict(
+                "states": default_dict(copy.deepcopy(self.state_space), dict(
                     previous_action=self.action_space,
                     previous_reward=FloatBox()
                 )),
                 "action_probs": FloatBox(shape=(self.action_space.num_categories,)),
                 "initial_internal_states": self.internal_states_space
-            }, add_batch_rank=False, add_time_rank=self.worker_sample_size
+            }, add_batch_rank=False, add_time_rank=(self.worker_sample_size + 1)
         )
         # Take away again time-rank from initial-states and last-next-state (these come in only for one time-step)
-        self.fifo_record_space["last_next_states"] = self.fifo_record_space["last_next_states"].with_time_rank(1)
+        #self.fifo_record_space["last_next_states"] = self.fifo_record_space["last_next_states"].with_time_rank(1)
         self.fifo_record_space["initial_internal_states"] = \
             self.fifo_record_space["initial_internal_states"].with_time_rank(False)
         # Create our FIFOQueue (actors will enqueue, learner(s) will dequeue).
         self.fifo_queue = FIFOQueue.from_spec(
-            fifo_queue_spec, reuse_variable_scope="shared-fifo-queue", only_insert_single_records=True,
+            capacity=1000,
+            reuse_variable_scope="shared-fifo-queue", only_insert_single_records=True,
             record_space=self.fifo_record_space,
-            device="/job:learner/task:0" if self.execution_spec["mode"] == "distributed" and
-                                            self.execution_spec["distributed_spec"]["cluster_spec"] else None
+            device="/job:learner/task:0/cpu" if self.execution_spec["mode"] == "distributed" and
+            self.execution_spec["distributed_spec"]["cluster_spec"] else None
         )
 
         # Remove `states` key from input_spaces: not needed.
@@ -201,12 +224,11 @@ class IMPALAAgent(Agent):
             self.env_output_splitter = ContainerSplitter(tuple_length=8, scope="env-output-splitter")
             self.fifo_output_splitter = ContainerSplitter(*self.fifo_queue_keys, scope="fifo-output-splitter")
 
-            # Note: `-1` because we already concat preprocessed last-next-state to the other preprocessed-states.
-            # (this saves one run through the NN).
-            self.staging_area = StagingArea(num_data=len(self.fifo_queue_keys) - 1)
+            ## OBSOLETE: Note: `-1` because we already concat preprocessed last-next-state to the other preprocessed-states.
+            ## (this saves one run through the NN).
+            self.staging_area = StagingArea(num_data=len(self.fifo_queue_keys))
 
             # Slice some data from the EnvStepper (e.g only first internal states are needed).
-            self.next_states_slicer = Slice(scope="next-states-slicer", squeeze=False)
             self.internal_states_slicer = Slice(scope="internal-states-slicer", squeeze=True)
 
             self.transpose_actions = ReShape(flip_batch_and_time_rank=True, time_major=True,
@@ -267,7 +289,7 @@ class IMPALAAgent(Agent):
             # Create the QueueRunners (one for each env-stepper).
             # - Take return value 1 of API-method step as record to insert.
             self.queue_runner = QueueRunner(self.fifo_queue, "step", 1, self.env_output_splitter,
-                                            self.fifo_input_merger, self.next_states_slicer,
+                                            self.fifo_input_merger,
                                             self.internal_states_slicer,
                                             *self.environment_steppers)
 
@@ -287,9 +309,12 @@ class IMPALAAgent(Agent):
             # No learning, no loss function.
             self.loss_function = None
             # A Dict Splitter to split things from the EnvStepper.
-            self.env_output_splitter = ContainerSplitter(tuple_length=8)
+            self.env_output_splitter = ContainerSplitter(tuple_length=4, scope="env-output-splitter")
+
+            self.states_dict_splitter = ContainerSplitter("RGB_INTERLEAVED", "INSTR", "previous_action", "previous_reward",
+                                                     scope="states-dict-splitter")
+
             # Slice some data from the EnvStepper (e.g only first internal states are needed).
-            self.next_states_slicer = Slice(scope="next-states-slicer", squeeze=False)
             self.internal_states_slicer = Slice(scope="internal-states-slicer", squeeze=True)
             # Merge back to insert into FIFO.
             self.fifo_input_merger = DictMerger(*self.fifo_queue_keys)
@@ -308,8 +333,9 @@ class IMPALAAgent(Agent):
                 action_probs_space=dummy_flattener.get_preprocessed_space(self.action_space)
             )
             sub_components = [
-                self.environment_stepper, self.env_output_splitter, self.next_states_slicer,
-                self.internal_states_slicer, self.fifo_input_merger, self.fifo_queue
+                self.environment_stepper, self.env_output_splitter,
+                self.internal_states_slicer, self.fifo_input_merger, self.states_dict_splitter,
+                self.fifo_queue
             ]
         # Learner.
         else:
@@ -317,24 +343,25 @@ class IMPALAAgent(Agent):
 
             # A Dict splitter to split up items from the queue.
             self.fifo_input_merger = None
-            self.fifo_output_splitter = ContainerSplitter(*self.fifo_queue_keys)
-            self.next_states_slicer = None
+            self.fifo_output_splitter = ContainerSplitter(*self.fifo_queue_keys, scope="fifo-output-splitter")
+            self.states_dict_splitter = ContainerSplitter("INSTR", "RGB_INTERLEAVED", "previous_action",
+                                                          "previous_reward", scope="states-dict-splitter")
             self.internal_states_slicer = None
 
-            # Note: `-1` because we already concat preprocessed last-next-state to the other preprocessed-states.
-            # (this saves one run through the NN).
-            self.staging_area = StagingArea(num_data=len(self.fifo_queue_keys) - 1)
+            self.transpose_states = ReShape(
+                flip_batch_and_time_rank=True, time_major=True, scope="transpose-states",
+                device=dict(ops="/job:learner/task:0/cpu")
+            )
+            self.transpose_terminals = ReShape(
+                flip_batch_and_time_rank=True, time_major=True, scope="transpose-terminals",
+                device=dict(ops="/job:learner/task:0/cpu")
+            )
+            self.transpose_action_probs = ReShape(
+                flip_batch_and_time_rank=True, time_major=True, scope="transpose-a-probs-mu",
+                device=dict(ops="/job:learner/task:0/cpu")
+            )
 
-            self.transpose_actions = ReShape(flip_batch_and_time_rank=True, time_major=True,
-                                             scope="transpose-a", flatten_categories=False)
-            self.transpose_rewards = ReShape(flip_batch_and_time_rank=True, time_major=True,
-                                             scope="transpose-r")
-            self.transpose_terminals = ReShape(flip_batch_and_time_rank=True, time_major=True,
-                                               scope="transpose-t")
-            self.transpose_action_probs = ReShape(flip_batch_and_time_rank=True, time_major=True,
-                                                  scope="transpose-a-probs-mu")
-
-            self.concat = Concat(axis=1)  # 1=the time rank (at the time of the concat, we are still batch-major)
+            self.staging_area = StagingArea(num_data=len(self.fifo_queue_keys))
 
             # Create an IMPALALossFunction with some parameters.
             self.loss_function = IMPALALossFunction(
@@ -342,12 +369,10 @@ class IMPALAAgent(Agent):
                 weight_entropy=weight_entropy
             )
 
-            #sub_components = [self.fifo_queue, self.fifo_output_splitter, self.preprocessor, self.concat,
-            #                  self.policy, self.loss_function, self.optimizer]
             sub_components = [
-                self.fifo_output_splitter, self.fifo_queue, self.transpose_actions,
-                self.transpose_rewards, self.transpose_terminals, self.transpose_action_probs,
-                self.preprocessor, self.staging_area, self.concat, self.policy, self.loss_function, self.optimizer
+                self.fifo_output_splitter, self.fifo_queue, self.states_dict_splitter, self.transpose_states,
+                self.transpose_terminals, self.transpose_action_probs,
+                self.staging_area, self.preprocessor, self.policy, self.loss_function, self.optimizer
             ]
 
         # Add all the agent's sub-components to the root.
@@ -444,11 +469,6 @@ class IMPALAAgent(Agent):
                 self_.call(policy.get_state_values_logits_parameters_log_probs, preprocessed_s_all,
                            initial_internal_states)
 
-            # And the values for the last states.
-            #bootstrapped_values, _, _, _, _ = \
-            #    self_.call(policy.get_state_values_logits_parameters_log_probs, preprocessed_last_s_prime,
-            #               current_internal_states)
-
             # Calculate the loss.
             loss, loss_per_item = self_.call(
                 loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
@@ -471,20 +491,8 @@ class IMPALAAgent(Agent):
 
         self.root_component.define_api_method("update_from_memory", update_from_memory)
 
-        # TEST: define a graph_fn for the root component.
-        #def _graph_fn_stage_dequeued_output(self, *dequeued):
-        #    flattened_output = self.nest.flatten(dequeued)
-        #    area = tensorflow.contrib.staging.StagingArea(
-        #        [t.dtype for t in flattened_output],
-        #        [t.shape for t in flattened_output]
-        #    )
-        #    stage_op = area.put(flattened_output)
-        #    return stage_op
-
-        #self.root_component._graph_fn_stage_dequeued_output = _graph_fn_stage_dequeued_output
-
-    def define_api_methods_actor(self, env_stepper, splitter, next_states_slicer, internal_states_slicer, merger,
-                                 fifo_queue):
+    def define_api_methods_actor(self, env_stepper, env_output_splitter, internal_states_slicer, merger,
+                                 states_dict_splitter, fifo_queue):
         """
         Defines the API-methods used by an IMPALA actor. Actors only step through an environment (n-steps at
         a time), collect the results and push them into the FIFO queue. Results include: The actions actually
@@ -499,25 +507,26 @@ class IMPALAAgent(Agent):
         # Perform n-steps in the env and insert the results into our FIFO-queue.
         def perform_n_steps_and_insert_into_fifo(self_):  #, internal_states, time_step=0):
             # Take n steps in the environment.
-            step_op, step_results = self_.call(
+            step_results = self_.call(
                 env_stepper.step  #, internal_states, self.worker_sample_size, time_step
             )
 
-            preprocessed_s, actions, rewards, returns, terminals, next_states, action_log_probs, \
-                internal_states = self_.call(splitter.split, step_results)
+            terminals, states, action_log_probs, internal_states = \
+                self_.call(env_output_splitter.split, step_results)
 
-            last_next_state = self_.call(next_states_slicer.slice, next_states, -1)
             initial_internal_states = self_.call(internal_states_slicer.slice, internal_states, 0)
             current_internal_states = self_.call(internal_states_slicer.slice, internal_states, -1)
 
             record = self_.call(
-                merger.merge, preprocessed_s, actions, rewards, terminals, last_next_state,
-                action_log_probs, initial_internal_states
+                merger.merge, terminals, states, action_log_probs, initial_internal_states
             )
 
             # Insert results into the FIFOQueue.
             insert_op = self_.call(fifo_queue.insert_records, record)
-            return step_op, insert_op, current_internal_states, returns, terminals
+
+            _, _, _, rewards = self_.call(states_dict_splitter.split, states)
+
+            return insert_op, current_internal_states, rewards, terminals
 
         self.root_component.define_api_method(
             "perform_n_steps_and_insert_into_fifo", perform_n_steps_and_insert_into_fifo
@@ -530,9 +539,10 @@ class IMPALAAgent(Agent):
 
         self.root_component.define_api_method("reset", reset)
 
-    def define_api_methods_learner(self, fifo_output_splitter, fifo_queue, transpose_actions, transpose_rewards,
-                                   transpose_terminals, transpose_action_probs, preprocessor, staging_area, concat,
-                                   policy, loss_function, optimizer):
+    def define_api_methods_learner(self, fifo_output_splitter, fifo_queue, states_dict_splitter,
+                                   transpose_states,
+                                   transpose_terminals, transpose_action_probs, staging_area,
+                                   preprocessor, policy, loss_function, optimizer):
         """
         Defines the API-methods used by an IMPALA learner. Its job is basically: Pull a batch from the
         FIFOQueue, split it up into its components and pass these through the loss function and into the optimizer for
@@ -546,40 +556,6 @@ class IMPALAAgent(Agent):
             loss_function (IMPALALossFunction): The IMPALALossFunction Component.
             optimizer (Optimizer): The optimizer that we use to calculate an update and apply it.
         """
-        #def update_from_memory_OLD(self_):
-            #(check)records = self_.call(fifo_queue.get_records, self.update_spec["batch_size"])
-
-            #(check)preprocessed_s, actions, rewards, terminals, last_s_prime, action_probs_mu, \
-            #    initial_internal_states = self_.call(fifo_output_splitter.split, records)
-
-            #(check)preprocessed_last_s_prime = self_.call(preprocessor.preprocess, last_s_prime)
-
-            # Append last-next-state to the rest before sending it through the network.
-            #(check)preprocessed_s_all = self_.call(concat.apply, preprocessed_s, preprocessed_last_s_prime)
-
-            # Get the pi-action probs AND the values for all our states.
-            #state_values_pi, logits_pi, current_internal_states = \
-            #    self_.call(policy.get_baseline_output, preprocessed_s, initial_internal_states)
-            ## And the values for the last states.
-            ##bootstrapped_values, _, _ = \
-            ##    self_.call(policy.get_baseline_output, preprocessed_last_s_prime, current_internal_states)
-
-            ##_, log_probabilities_pi = self_.call(softmax.get_probabilities_and_log_probs, logits_pi)
-
-            ## Calculate the loss.
-            #loss, loss_per_item = self_.call(
-            #    loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
-            #    terminals  #, bootstrapped_values
-            #)
-            #policy_vars = self_.call(policy._variables)
-            ## Pass vars and loss values into optimizer.
-            #step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
-
-            ## Return optimizer op and all loss values.
-            #return step_op, loss, loss_per_item
-
-        #self.root_component.define_api_method("update_from_memory_OLD", update_from_memory_OLD)
-
         def update_from_memory(self_):
             # Pull n records from the queue.
             # Note that everything will come out as batch-major and must be transposed before the main-LSTM.
@@ -589,49 +565,45 @@ class IMPALAAgent(Agent):
             # But must still be done for actions, rewards, terminals here in this API-method via separate ReShapers.
             records = self_.call(fifo_queue.get_records, self.update_spec["batch_size"])
 
-            preprocessed_s, actions, rewards, terminals, last_s_prime, action_probs_mu, \
-                initial_internal_states = self_.call(fifo_output_splitter.split, records)
+            terminals, states, action_probs_mu, initial_internal_states = \
+                self_.call(fifo_output_splitter.split, records)
 
-            preprocessed_last_s_prime = self_.call(preprocessor.preprocess, last_s_prime)
-
-            # Append last-next-state to the rest before sending it through the network.
-            preprocessed_s_all = self_.call(concat.apply, preprocessed_s, preprocessed_last_s_prime)
+            # Isolate actions and rewards from states.
+            #_, _, actions, rewards = self_.call(states_dict_splitter.split, states)
 
             # Flip actions, rewards, terminals to time-major.
             # TODO: Create components that are less input-space sensitive (those that have no variables should
             # TODO: be reused for any kind of processing)
-            actions = self_.call(transpose_actions.apply, actions)
-            rewards = self_.call(transpose_rewards.apply, rewards)
+            #actions = self_.call(transpose_actions.apply, actions)
+            #rewards = self_.call(transpose_rewards.apply, rewards)
+            states = self_.call(transpose_states.apply, states)
             terminals = self_.call(transpose_terminals.apply, terminals)
             action_probs_mu = self_.call(transpose_action_probs.apply, action_probs_mu)
 
             # If we use a GPU: Put everything on staging area (adds 1 time step policy lag, but makes copying
             # data into GPU more efficient).
             if self.has_gpu:
-                stage_op = self_.call(staging_area.stage, preprocessed_s_all, actions, rewards, terminals,
-                                      action_probs_mu, initial_internal_states)  # preprocessed_last_s_prime
+                stage_op = self_.call(staging_area.stage, states, terminals, action_probs_mu, initial_internal_states)
                 # Get data from stage again and continue.
-                preprocessed_s_all, actions, rewards, terminals, action_probs_mu, \
-                    initial_internal_states = self_.call(staging_area.unstage)  # preprocessed_last_s_prime
-                # endif.
+                states, terminals, action_probs_mu, initial_internal_states = self_.call(staging_area.unstage)
             else:
                 # TODO: No-op component?
                 stage_op = None
 
+            # Preprocess actions and rewards inside the state (actions: flatten one-hot, rewards: expand).
+            states = self_.call(preprocessor.preprocess, states)
+
             # Get the pi-action probs AND the values for all our states.
             state_values_pi, logits_pi, probs_pi, log_probabilities_pi, current_internal_states = \
-                self_.call(policy.get_state_values_logits_parameters_log_probs, preprocessed_s_all,
-                           initial_internal_states)
+                self_.call(policy.get_state_values_logits_parameters_log_probs, states, initial_internal_states)
 
-            # And the values for the last states.
-            #bootstrapped_values, _, _, _, _ = \
-            #    self_.call(policy.get_state_values_logits_parameters_log_probs, preprocessed_last_s_prime,
-            #               current_internal_states)
+            # Isolate actions and rewards from states.
+            _, _, actions, rewards = self_.call(states_dict_splitter.split, states)
 
             # Calculate the loss.
             loss, loss_per_item = self_.call(
                 loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
-                terminals  #, bootstrapped_values
+                terminals
             )
             policy_vars = self_.call(policy._variables)
 
@@ -643,6 +615,11 @@ class IMPALAAgent(Agent):
             return step_op, (stage_op if stage_op else step_op), loss, loss_per_item
 
         self.root_component.define_api_method("update_from_memory", update_from_memory)
+
+        def get_queue_size(self_):
+            return self_.call(fifo_queue.get_size)
+
+        self.root_component.define_api_method("get_queue_size", get_queue_size)
 
     def get_action(self, states, internal_states=None, use_exploration=True, extra_returns=None):
         pass

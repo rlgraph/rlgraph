@@ -30,7 +30,7 @@ from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import root_logger
 
 
-class TestIMPALAAgentFunctionality(unittest.TestCase):
+class TestDistributedIMPALA(unittest.TestCase):
     """
     Tests the LargeIMPALANetwork functionality and IMPALAAgent assembly on the RandomEnv.
     For details on the IMPALA algorithm, see [1]:
@@ -54,6 +54,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
     )
     internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True)
     cluster_spec = dict(learner=["localhost:22222"], actor=["localhost:22223"])
+    #cluster_spec_cloud = dict(learner=[":22222"], actor=["35.204.92.67:22223"])
 
     def test_single_impala_agent_functionality(self):
         """
@@ -69,22 +70,22 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         agent = IMPALAAgent.from_spec(
             agent_config,
             type="single",
-            architecture="small",
+            architecture="large",
             environment_spec=environment_spec,
             state_space=env.state_space,
             action_space=env.action_space,
             # TODO: automate this (by lookup from NN).
-            internal_states_space=IMPALAAgent.standard_internal_states_space,
+            internal_states_space=IMPALAAgent.default_internal_states_space,
             execution_spec=dict(
-                enable_profiler=True,
+                enable_profiler=False,
                 profiler_frequency=1,
                 mode="distributed",
                 distributed_spec=dict(cluster_spec=None)
             ),
             # Summarize time-steps to have an overview of the env-stepping speed.
-            summary_spec=dict(summary_regexp="time-step", directory="/opt/project/"),
-            dynamic_batching=True,
-            num_actors=1
+            summary_spec=dict(summary_regexp="time-step", directory="/home/rlgraph/"),
+            dynamic_batching=False,
+            num_actors=4
         )
         # Count items in the queue.
         print("Items in queue: {}".format(agent.call_api_method("get_queue_size")))
@@ -109,7 +110,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         """
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
         environment_spec = dict(
-            type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
+            type="deepmind-lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
+            frameskip=4
         )
         env = DeepmindLabEnv.from_spec(environment_spec)
 
@@ -121,27 +123,31 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space,
             # TODO: automate this (by lookup from NN).
-            internal_states_space=IMPALAAgent.standard_internal_states_space,
+            internal_states_space=IMPALAAgent.default_internal_states_space,
             execution_spec=dict(
-                enable_profiler=True,
+                enable_profiler=False,
                 profiler_frequency=1,
             )
         )
         agent.call_api_method("reset")
-        out = None
-        for _ in range(50):
-            print(".", end="")
-            out = agent.call_api_method("perform_n_steps_and_insert_into_fifo")
-        print(out)
+        time_start = time.perf_counter()
+        steps = 50
+        for _ in range(steps):
+            agent.call_api_method("perform_n_steps_and_insert_into_fifo")
+        time_total = time.perf_counter() - time_start
+        print("Done running {}x{} steps in Deepmind Lab env using IMPALA network in {}sec ({} actions/sec).".format(
+            steps, agent.worker_sample_size, time_total , agent.worker_sample_size * steps / time_total)
+        )
 
-    def test_impala_distributed_functionality_actor_part(self):
+    def test_distributed_impala_agent_functionality_actor_part(self):
         """
         Creates two IMPALAAgents (actor and learner) and runs it for a few steps in a DeepMindLab Env to test
         communication between the two processes.
         """
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
         environment_spec = dict(
-            type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
+            type="deepmind-lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
+            frameskip=4
         )
         env = DeepmindLabEnv.from_spec(environment_spec)
 
@@ -153,26 +159,40 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space,
             # TODO: automate this (by lookup from NN).
-            internal_states_space=IMPALAAgent.standard_internal_states_space,
+            internal_states_space=IMPALAAgent.default_internal_states_space,
             # Setup distributed tf.
             execution_spec=dict(
                 mode="distributed",
-                distributed_spec=dict(job="actor", task_index=0, cluster_spec=self.cluster_spec)
+                distributed_spec=dict(job="actor", task_index=0, cluster_spec=self.cluster_spec),
+                session_config=dict(
+                    type="monitored-training-session",
+                    #log_device_placement=True
+                ),
+                #enable_profiler=True,
+                #profiler_frequency=1
             )
         )
         print("IMPALA actor compiled.")
         agent.call_api_method("reset")
-        out = None
-        for _ in range(50):
-            print(".", end="")
-            out = agent.call_api_method("perform_n_steps_and_insert_into_fifo")
-        print(out)
+        time_start = time.perf_counter()
+        steps = 50
+        for _ in range(steps):
+            agent.call_api_method("perform_n_steps_and_insert_into_fifo")
+        time_total = time.perf_counter() - time_start
+        print("Done running {}x{} steps in Deepmind Lab env using IMPALA network in {}sec ({} actions/sec).".format(
+            steps, agent.worker_sample_size, time_total , agent.worker_sample_size * steps / time_total)
+        )
+
+        #worker = IMPALAWorker(agent=agent)
+        # Run a few steps to produce data and start filling up the FIFO.
+        #out = worker.execute_timesteps(2000)
+        #print("IMPALA actor produced some data:\n{}".format(out))
         agent.terminate()
 
-    def test_impala_distributed_functionality_learner_part(self):
+    def test_distributed_impala_agent_functionality_learner_part(self):
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
         environment_spec = dict(
-            type="deepmind-lab", level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
+            type="deepmind-lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
         )
         env = DeepmindLabEnv.from_spec(environment_spec)
         agent = IMPALAAgent.from_spec(
@@ -182,19 +202,35 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space,
             # TODO: automate this (by lookup from NN).
-            internal_states_space=IMPALAAgent.standard_internal_states_space,
+            internal_states_space=IMPALAAgent.default_internal_states_space,
             # Setup distributed tf.
             execution_spec=dict(
                 mode="distributed",
-                distributed_spec=dict(job="learner", task_index=0, cluster_spec=self.cluster_spec)
+                gpu_spec=dict(
+                    gpus_enabled=True,
+                    max_usable_gpus=1,
+                    num_gpus=1
+                ),
+                distributed_spec=dict(job="learner", task_index=0, cluster_spec=self.cluster_spec),
+                session_config=dict(
+                    type="monitored-training-session",
+                    allow_soft_placement=True,
+                    log_device_placement=True
+                ),
+                enable_timeline=True,
             )
         )
         print("IMPALA learner compiled.")
+
         # Take one batch from the filled up queue and run an update_from_memory with the learner.
-        for _ in range(50):
-            print(".", end="")
+        update_steps = 10
+        time_start = time.perf_counter()
+        for _ in range(update_steps):
             agent.call_api_method("update_from_memory")
+        time_total = time.perf_counter() - time_start
+        print("Done learning {}xbatch-of-{} in {}sec ({} updates/sec).".format(
+            update_steps, agent.update_spec["batch_size"], time_total , update_steps / time_total)
+        )
+
         print("IMPALA learner consumed some data.")
-
         agent.terminate()
-

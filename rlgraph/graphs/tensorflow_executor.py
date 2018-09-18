@@ -30,6 +30,7 @@ if get_backend() == "tf":
     import tensorflow as tf
     from tensorflow.python.client import device_lib
     from rlgraph.utils.specifiable_server import SpecifiableServer, SpecifiableServerHook
+    from tensorflow.python.client import timeline
 
 
 class TensorFlowExecutor(GraphExecutor):
@@ -85,22 +86,12 @@ class TensorFlowExecutor(GraphExecutor):
         # Just fetch CPUs. GPUs will be added when parsing the GPU configuration.
         self.available_devices = [x.name for x in self.local_device_protos if x.device_type == 'CPU']
 
-        # Tf profiler.
-        trace_enabled = self.execution_spec.get('trace_enabled', True)
-
-        if self.disable_monitoring and trace_enabled:
-            self.logger.warning("Tensorflow tracing is set to be enabled (execution_spec.trace_enabled = True), " +
-                                "but monitoring is disabled. Tracing will not be enabled.")
-
-        if trace_enabled and not self.disable_monitoring:
-            self.session_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-        else:
-            self.session_options = None
-
         # Local session config which needs to be updated with device options during setup.
+        self.tf_session_type = self.session_config.pop("type", "monitored-training-session")
         self.tf_session_config = tf.ConfigProto(**self.session_config)
+        self.tf_session_options = None
 
-        self.run_metadata = tf.RunMetadata()
+        self.run_metadata = None
 
         # Tf Profiler config.
         self.profiling_enabled = self.execution_spec["enable_profiler"]
@@ -108,6 +99,18 @@ class TensorFlowExecutor(GraphExecutor):
             self.profiler = None
             self.profile_step = 0
             self.profiling_frequency = self.execution_spec["profiler_frequency"]
+            self.run_metadata = tf.RunMetadata()
+            if not self.disable_monitoring:
+                self.tf_session_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+
+        self.timeline_enabled = self.execution_spec["enable_timeline"]
+        if self.timeline_enabled is True:
+            if self.run_metadata is None:
+                self.run_metadata = tf.RunMetadata()
+            self.timeline_step = 0
+            self.timeline_frequency = self.execution_spec["timeline_frequency"]
+            if not self.disable_monitoring:
+                self.tf_session_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
 
         self.init_device_strategy()
 
@@ -149,9 +152,9 @@ class TensorFlowExecutor(GraphExecutor):
             else:
                 self.default_device = default_device
                 # Sanity check, whether given default device exists.
-                if self.default_device not in self.available_devices:
-                    raise RLGraphError("Provided `default_device` ('{}') is not in `available_devices` ({})".
-                                       format(self.default_device, self.available_devices))
+                #if self.default_device not in self.available_devices:
+                #    raise RLGraphError("Provided `default_device` ('{}') is not in `available_devices` ({})".
+                #                       format(self.default_device, self.available_devices))
             self.device_map = dict()
             # Clean up device map so it only contains devices that are actually available (otherwise,
             # use the default device).
@@ -177,26 +180,30 @@ class TensorFlowExecutor(GraphExecutor):
         # TODO make compatible for multiple roots in graph builder.
         meta_build_times = []
         build_times = []
-        for component in root_components:
-            self._build_device_strategy(component, optimizer, loss_name)
-            start = time.perf_counter()
-            meta_graph = self.meta_graph_builder.build(component, input_spaces)
-            meta_build_times.append(time.perf_counter() - start)
 
-            # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
-            # -> Inputs/Operations/variables
-            build_time = self.graph_builder.build_graph(
-                meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices,
-                device_strategy=self.device_strategy, default_device=self.default_device, device_map=self.device_map
-            )
-            # Build time is a dict containing the cost of different parts of the build.
-            build_times.append(build_time)
+        # Use default device to be safe.
+        with tf.device(self.default_device):
+            for component in root_components:
+                self._build_device_strategy(component, optimizer, loss_name)
+                start = time.perf_counter()
+                meta_graph = self.meta_graph_builder.build(component, input_spaces)
+                meta_build_times.append(time.perf_counter() - start)
 
-        # Check device assignments for inconsistencies or unused devices.
-        self._sanity_check_devices()
+                # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
+                # -> Inputs/Operations/variables
+                build_time = self.graph_builder.build_graph(
+                    meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices,
+                    device_strategy=self.device_strategy, default_device=self.default_device, device_map=self.device_map
+                )
+                # Build time is a dict containing the cost of different parts of the build.
+                build_times.append(build_time)
 
-        # Set up any remaining session or monitoring configurations.
-        self.finish_graph_setup()
+                # Check device assignments for inconsistencies or unused devices.
+                self._sanity_check_devices()
+
+                # Set up any remaining session or monitoring configurations.
+                self.finish_graph_setup()
+
         return dict(
             total_build_time=time.perf_counter() - start,
             meta_graph_build_times=meta_build_times,
@@ -219,10 +226,13 @@ class TensorFlowExecutor(GraphExecutor):
         #         params = list()
 
         ret = self.monitored_session.run(fetch_dict, feed_dict=feed_dict,
-                                         options=self.session_options, run_metadata=self.run_metadata)
+                                         options=self.tf_session_options, run_metadata=self.run_metadata)
 
         if self.profiling_enabled:
             self.update_profiler_if_necessary()
+
+        if self.timeline_enabled:
+            self.update_timeline_if_necessary()
 
         # Return single values instead of lists of 1 item.
         ret = {key: (value[0] if len(ret[key]) == 1 else tuple(value)) for key, value in ret.items()}
@@ -244,6 +254,17 @@ class TensorFlowExecutor(GraphExecutor):
                     options=tf.profiler.ProfileOptionBuilder.time_and_memory()).with_node_names().build()
             )
         self.profile_step += 1
+
+    def update_timeline_if_necessary(self):
+        """
+        Writes a timeline json file according to specification.
+        """
+        if self.timeline_step % self.timeline_frequency == 0:
+            fetched_timeline = timeline.Timeline(self.run_metadata.step_stats)
+            chrome_trace = fetched_timeline.generate_chrome_trace_format()
+            with open("timeline_{:02d}.json".format(self.timeline_step), "w") as f:
+                f.write(chrome_trace)
+        self.timeline_step += 1
 
     def read_variable_values(self, variables):
         """
@@ -287,8 +308,6 @@ class TensorFlowExecutor(GraphExecutor):
                 job_name=self.distributed_spec["job"],
                 task_index=self.distributed_spec["task_index"],
                 protocol=self.distributed_spec["protocol"],
-                # TODO do we need other device settings here?
-                config=self.tf_session_config,
                 start=True
             )
 
@@ -355,39 +374,40 @@ class TensorFlowExecutor(GraphExecutor):
         Args:
             hooks (list): List of hooks to use for Saver and Summarizer in Session. Should be appended to.
         """
-        self.saver = tf.train.Saver(
-            var_list=list(self.graph_builder.root_component.variables.values()),
-            reshape=False,
-            sharded=False,
-            max_to_keep=self.saver_spec.get("max_checkpoints", 1) if self.saver_spec else None,
-            keep_checkpoint_every_n_hours=10000.0,
-            name=None,
-            restore_sequentially=False,
-            saver_def=None,
-            builder=None,
-            defer_build=False,
-            allow_empty=True,
-            write_version=tf.train.SaverDef.V2,
-            pad_step_number=False,
-            save_relative_paths=True,
-            filename=None
-        )
+        #self.saver = tf.train.Saver(
+        #    var_list=list(self.graph_builder.root_component.variables.values()),
+        #    reshape=False,
+        #    sharded=False,
+        #    max_to_keep=self.saver_spec.get("max_checkpoints", 1) if self.saver_spec else None,
+        #    keep_checkpoint_every_n_hours=10000.0,
+        #    name=None,
+        #    restore_sequentially=False,
+        #    saver_def=None,
+        #    builder=None,
+        #    defer_build=False,
+        #    allow_empty=True,
+        #    write_version=tf.train.SaverDef.V2,
+        #    pad_step_number=False,
+        #    save_relative_paths=True,
+        #    filename=None
+        #)
 
-        # Add saver hook to session if saver spec was provided.
-        if self.saver_spec is not None and (self.execution_mode == "single"
-                                            or self.distributed_spec["task_index"] == 0):
-            self.saver_directory = self.saver_spec["directory"]
-            saver_hook = tf.train.CheckpointSaverHook(
-                checkpoint_dir=self.saver_directory,
-                # Either save_secs or save_steps must be set.
-                save_secs=self.saver_spec["save_secs"],  # TODO: open question: how to handle settings?
-                save_steps=self.saver_spec["save_steps"],
-                saver=self.saver,
-                checkpoint_basename=self.saver_spec["checkpoint_basename"],  # TODO: open question: how to handle settings?
-                scaffold=None,  # None since not created yet.
-                listeners=None
-            )
-            hooks.append(saver_hook)
+        ## Add saver hook to session if saver spec was provided.
+        #if self.saver_spec is not None and (self.execution_mode == "single"
+        #                                    or self.distributed_spec["task_index"] == 0):
+        #    self.saver_directory = self.saver_spec["directory"]
+        #    saver_hook = tf.train.CheckpointSaverHook(
+        #        checkpoint_dir=self.saver_directory,
+        #        # Either save_secs or save_steps must be set.
+        #        save_secs=self.saver_spec["save_secs"],  # TODO: open question: how to handle settings?
+        #        save_steps=self.saver_spec["save_steps"],
+        #        saver=self.saver,
+        #        checkpoint_basename=self.saver_spec["checkpoint_basename"],  # TODO: open question: how to handle settings?
+        #        scaffold=None,  # None since not created yet.
+        #        listeners=None
+        #    )
+        #    hooks.append(saver_hook)
+        pass
 
     def setup_summaries(self, hooks):
         """
@@ -443,10 +463,10 @@ class TensorFlowExecutor(GraphExecutor):
         else:
             assert self.execution_mode == "distributed",\
                 "ERROR: execution_mode can only be 'single' or 'distributed'! Is '{}'.".format(self.execution_mode)
-            local_job_and_task = "/job:{}/task:{}".format(self.execution_spec["distributed_spec"]["job"],
+            local_job_and_task = "/job:{}/task:{}/".format(self.execution_spec["distributed_spec"]["job"],
                                                           self.execution_spec["distributed_spec"]["task_index"])
-            var_list_local = [var for var in var_list if not var.device or var.device == local_job_and_task]
-            var_list_remote = [var for var in var_list if var.device and var.device != local_job_and_task]
+            var_list_local = [var for var in var_list if not var.device or local_job_and_task in var.device]
+            var_list_remote = [var for var in var_list if var.device and local_job_and_task not in var.device]
             self.init_op = tf.variables_initializer(var_list=var_list_remote)
             self.ready_for_local_init_op = tf.report_uninitialized_variables(var_list=var_list_remote)
             self.local_init_op = tf.variables_initializer(var_list=var_list_local)
@@ -511,33 +531,39 @@ class TensorFlowExecutor(GraphExecutor):
                     "home directory or the ENV variable 'RLGRAPH_DISTRIBUTED_BACKEND=distributed_tf'.".
                     format(get_distributed_backend())
                 )
-            session_creator = tf.train.ChiefSessionCreator(
-                scaffold=self.scaffold,
-                master=self.server.target,
-                config=self.tf_session_config,
-                checkpoint_dir=None,
-                checkpoint_filename_with_path=None
-            )
-            self.monitored_session = tf.train.MonitoredSession(
-                #master=self.server.target,
-                #is_chief=self.execution_spec["distributed_spec"]["task_index"] == 0,
-                #checkpoint_dir=None,  # TODO: specify?
-                #scaffold=self.scaffold,
-                session_creator=session_creator,
-                hooks=hooks,
-                #config=self.tf_session_config,
-                stop_grace_period_secs=120  # Default value.
-            )
-            #self.monitored_session = tf.train.MonitoredTrainingSession(
-            #    master=self.server.target,
-            #    is_chief=self.execution_spec["distributed_spec"]["task_index"] == 0,
-            #    checkpoint_dir=None,  # TODO: specify?
-            #    scaffold=self.scaffold,
-            #    #session_creator=session_creator,
-            #    hooks=hooks,
-            #    config=self.tf_session_config,
-            #    stop_grace_period_secs=120  # Default value.
-            #)
+            if self.tf_session_type == "monitored-session":
+                session_creator = tf.train.ChiefSessionCreator(
+                    scaffold=self.scaffold,
+                    master=self.server.target,
+                    config=self.tf_session_config,
+                    checkpoint_dir=None,
+                    checkpoint_filename_with_path=None
+                )
+                self.monitored_session = tf.train.MonitoredSession(
+                    #is_chief=self.execution_spec["distributed_spec"]["task_index"] == 0,
+                    session_creator=session_creator,
+                    hooks=hooks,
+                    stop_grace_period_secs=120  # Default value.
+                )
+            else:
+                assert self.tf_session_type == "monitored-training-session",\
+                    "ERROR: Invalid session type: {}!".format(self.tf_session_type)
+                is_chief = self.execution_spec["distributed_spec"].get(
+                    "is_chief", self.execution_spec["distributed_spec"]["task_index"] == 0
+                )
+                self.monitored_session = tf.train.MonitoredTrainingSession(
+                    master=self.server.target,
+                    is_chief=is_chief,
+                    checkpoint_dir=None,  # TODO: specify?
+                    save_checkpoint_secs=600,
+                    save_summaries_secs=30,
+                    log_step_count_steps=50000,
+                    # scaffold=self.scaffold,
+                    # Ignore other hooks
+                    hooks=[hooks[-1]] if hooks else None,
+                    config=self.tf_session_config,
+                    stop_grace_period_secs=120  # Default value.
+                )
         else:
             self.global_training_timestep = tf.get_variable(
                 name="global-timestep", dtype=util.dtype("int"), trainable=False, initializer=0,
@@ -560,7 +586,9 @@ class TensorFlowExecutor(GraphExecutor):
         # Exit the graph-context and finalize the graph.
         if self.graph_default_context is not None:
             self.graph_default_context.__exit__(None, None, None)
-        self.graph.finalize()
+
+        # TODO back in
+        # self.graph.finalize()
 
         if self.disable_monitoring:
             # If no monitoring, both just end up being simple sessions.

@@ -470,7 +470,7 @@ class GraphBuilder(Specifiable):
                         params_kwargs = {p[0]: p[1] for p in params if isinstance(p, tuple)}
                         if create_new_out_column is False:
                             call_time = time.perf_counter()
-                        ops[key] = force_tuple(op_rec_column.graph_fn(*params_args, *params_kwargs))
+                        ops[key] = force_tuple(op_rec_column.graph_fn(*params_args, **params_kwargs))
                         if create_new_out_column is False:
                             self.graph_call_times.append(time.perf_counter() - call_time)
                         if num_return_values >= 0 and num_return_values != len(ops[key]):
@@ -678,6 +678,8 @@ class GraphBuilder(Specifiable):
         Returns:
             any: Results of executing this api-method.
         """
+        # Reset call profiler.
+        Component.reset_profile()
         if api_method not in self.api:
             raise RLGraphError("No API-method with name '{}' found!".format(api_method))
 
@@ -751,6 +753,10 @@ class GraphBuilder(Specifiable):
 
         # Set execution mode in components to change `call` behaviour to direct function evaluation.
         self.root_component.propagate_subcomponent_properties(properties=dict(execution_mode="define_by_run"))
+
+        # Call post build logic.
+        self.root_component._post_build(self.root_component)
+
         time_build = time.perf_counter() - time_start
         self.logger.info("Define-by-run computation-graph build completed in {} s ({} iterations).".
                          format(time_build, iterations))

@@ -77,6 +77,7 @@ class ComponentTest(object):
         execution_spec = parse_execution_spec(execution_spec or dict(
             seed=self.seed,
             enable_profiler=enable_profiler,
+            profiler_frequency=1,
             device_strategy=device_strategy,
             disable_monitoring=disable_monitoring,
             device_map=device_map

@@ -22,6 +22,7 @@ from rlgraph.components.memories.fifo_queue import FIFOQueue
 from rlgraph.components.memories.prioritized_replay import PrioritizedReplay
 from rlgraph.components.memories.replay_memory import ReplayMemory
 from rlgraph.components.memories.ring_buffer import RingBuffer
+from rlgraph.components.memories.mem_prioritized_replay import MemPrioritizedReplay
 
 
 Memory.__lookup_classes__ = dict(
@@ -30,6 +31,7 @@ Memory.__lookup_classes__ = dict(
     prioritized=PrioritizedReplay,
     prioritizedreplay=PrioritizedReplay,
     prioritizedreplaybuffer=PrioritizedReplay,
+    mem_prioritized_replay=MemPrioritizedReplay,
     replay=ReplayMemory,
     replaybuffer=ReplayMemory,
     replaymemory=ReplayMemory,

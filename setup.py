@@ -32,16 +32,17 @@ install_requires = [
     'pyyaml',
     'pytest',
     'six',
-    'tensorflow',
     'requests'
 ]
 
 setup_requires = []
 
 extras_require = {
+    'tf': ['tensorflow'],
+    'tf-gpu': ['tensorflow-gpu'],
+    'pytorch': ['torch', 'torchvision'],  # TODO platform dependent.
     'gym': ['gym', 'atari-py'],
     'horovod': 'horovod',
-    'pytorch': ['torch', 'torchvision'],  # TODO platform dependent.
     'ray': ['ray', 'lz4', 'pyarrow']
 }
 

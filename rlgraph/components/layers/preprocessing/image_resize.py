@@ -53,14 +53,13 @@ class ImageResize(PreprocessLayer):
         if interpolation == "bilinear":
             if get_backend() == "tf":
                 self.tf_interpolation = ResizeMethod.BILINEAR
-            else:
                 # All other backends use cv2 currently.
-                self.cv2_interpolation = cv2.INTER_LINEAR
+            # Sometimes we mix python preprocessor stack with tf backend -> always need this.
+            self.cv2_interpolation = cv2.INTER_LINEAR
         elif interpolation == "area":
             if get_backend() == "tf":
                 self.tf_interpolation = ResizeMethod.AREA
-            else:
-                self.cv2_interpolation = cv2.INTER_AREA
+            self.cv2_interpolation = cv2.INTER_AREA
         else:
             raise RLGraphError("Invalid interpolation algorithm {}!. Allowed are 'bilinear' and "
                                "'area'.".format(interpolation))
@@ -83,13 +82,25 @@ class ImageResize(PreprocessLayer):
         for key, value in space.flatten().items():
             # Do some sanity checking.
             rank = value.rank
-            assert rank == 2 or rank == 3, \
-                "ERROR: Given image's rank (which is {}{}, not counting batch rank) must be either 2 or 3!".\
-                format(rank, ("" if key == "" else " for key '{}'".format(key)))
-            # Determine the output shape.
-            shape = list(value.shape)
-            shape[0] = self.width
-            shape[1] = self.height
+            if get_backend() == "tf":
+                assert rank == 2 or rank == 3, \
+                    "ERROR: Given image's rank (which is {}{}, not counting batch rank) must be either 2 or 3!".\
+                    format(rank, ("" if key == "" else " for key '{}'".format(key)))
+                # Determine the output shape.
+                shape = list(value.shape)
+                shape[0] = self.width
+                shape[1] = self.height
+            elif get_backend() == "pytorch":
+                shape = list(value.shape)
+
+                # Determine the output shape.
+                if rank == 3:
+                    shape[0] = self.width
+                    shape[1] = self.height
+                elif rank == 4:
+                    # TODO PyTorch shape inference issue.
+                    shape[1] = self.width
+                    shape[2] = self.height
             ret[key] = value.__class__(shape=tuple(shape), add_batch_rank=value.has_batch_rank)
         return unflatten_op(ret)
 

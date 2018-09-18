@@ -17,8 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
-
 from rlgraph import get_backend
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.spaces import IntBox, FloatBox
@@ -43,7 +41,7 @@ class Policy(Component):
     followed by a Distribution Component.
 
     API:
-        get_action(nn_input, internal_states) -> (action, last_internals).
+        get_action(nn_input, internal_states, max_likelihood) -> (action, last_internals).
             Single action based on the neural network input AND `self.max_likelihood`.
             If True, returns a deterministic (max_likelihood) sample, if False, returns a stochastic sample.
         get_nn_output(nn_input, internal_states): The raw output of the neural network (before it's cleaned-up and passed through
@@ -57,7 +55,7 @@ class Policy(Component):
             parameters (SingleDataOp): The parameters (probabilities) for retrieving an actual action from
                 our distribution object (or directly via argmax if max-likelihood is True).
             log_probs (SingleDataOp): The log(parameters).
-        get_max_likelihood_action: See get_action, but with max_likelihood force set to True.
+        get_max_likelihood_action(nn_input, internal_states): See get_action, but with max_likelihood force set to True.
         get_stochastic_action: See get_action, but with max_likelihood force set to False.
         entropy: See Distribution component.
 
@@ -141,7 +139,8 @@ class Policy(Component):
                     self.call(self.neural_network.apply, nn_input, internal_states)
                 )
                 state_values, logits, probs, log_probs = self.call(self.action_adapter.get_state_values_logits_parameters_log_probs, nn_output)
-                return state_values, logits, probs, log_probs, last_internals
+                return (state_values, logits, probs, log_probs, last_internals) if last_internals is not None else \
+                    (state_values, logits, probs, log_probs)
 
             self.define_api_method("get_state_values_logits_parameters_log_probs",
                                    get_state_values_logits_parameters_log_probs)
@@ -183,6 +182,7 @@ class Policy(Component):
         nn_output, last_internals = unify_nn_and_rnn_api_output(
             self.call(self.neural_network.apply, nn_input, internal_states)
         )
+
         max_likelihood = self.max_likelihood if max_likelihood is None else max_likelihood
         # Skip our distribution, iff discrete action-space and max-likelihood acting (greedy).
         # In that case, one does not need to create a distribution in the graph each act (only to get the argmax
@@ -228,8 +228,19 @@ class Policy(Component):
         nn_output, last_internals = unify_nn_and_rnn_api_output(
             self.call(self.neural_network.apply, nn_input, internal_states)
         )
-        _, parameters, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
-        sample = self.call(self.distribution.sample_deterministic, parameters)
+
+        #max_likelihood = self.max_likelihood if max_likelihood is None else max_likelihood
+        # print("Policy - max likelihood option enabled = {}, self.max_likelihood = {}".format(max_likelihood,
+        #                                                                                    self.max_likelihood))
+        #if max_likelihood is True and isinstance(self.action_space, IntBox):
+
+        if isinstance(self.action_space, IntBox):
+            logits, _, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
+            sample = self.call(self._graph_fn_get_max_likelihood_action_wo_distribution, logits)
+        else:
+            _, parameters, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
+            sample = self.call(self.distribution.sample_deterministic, parameters)
+
         return (sample, last_internals) if last_internals is not None else sample
 
     def get_stochastic_action(self, nn_input, internal_states=None):
@@ -254,14 +265,4 @@ class Policy(Component):
         if get_backend() == "tf":
             return tf.argmax(logits, axis=-1, output_type=tf.int32)
         elif get_backend() == "pytorch":
-            # TODO not entirely clear if these operations should use numpy or torch.
-            # This depends on the device -> if on GPU, we shouldnt use numpy or data
-            # would have to be transferred back.
-
-            # TODO better way to check this.
-            # Idea:
-            if "GPU" in self.device:
-                # Convert to int32 here.
-                return torch.argmax(logits, dim=1).int()
-            else:
-                return np.argmax(logits, axis=-1)
+            return torch.argmax(logits, dim=-1).int()

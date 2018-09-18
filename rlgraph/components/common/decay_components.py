@@ -24,9 +24,12 @@ from rlgraph.utils import util
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.components import Component
+from rlgraph.utils.pytorch_util import pytorch_tile
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class DecayComponent(Component):
@@ -115,10 +118,41 @@ class DecayComponent(Component):
                         false_fn=lambda: self._graph_fn_decay(
                             tf.cast(x=time_step - self.start_timestep, dtype=util.dtype("float"))
                         ),
-                        name="cond-past-end-time"
                     ),
-                    name="cond-before-start-time"
                 )
+        elif get_backend() == "pytorch":
+            smaller_than_start = time_step <= self.start_timestep
+            if time_step.dim() == 0:
+                time_step = time_step.unsqueeze(-1)
+            shape = time_step.shape
+            # time_step comes in as a time-sequence of time-steps.
+            # TODO tile shape is confusing -> num tiles should be shape[0] not shape?
+            if shape[0] > 0:
+                past_decay = torch.where(
+                    (time_step >= self.start_timestep + self.num_timesteps),
+                    # We are in post-decay time.
+                    pytorch_tile(torch.tensor([self.to_]), shape),
+                    # We are inside the decay time window.
+                    torch.tensor(self._graph_fn_decay(torch.FloatTensor([time_step - self.start_timestep])))
+                )
+                return torch.where(
+                    smaller_than_start,
+                    # We are still in pre-decay time.
+                    pytorch_tile(torch.tensor([self.from_]), shape),
+                    # We are past pre-decay time.
+                    past_decay
+                )
+            # Single 0D time step.
+            else:
+                if smaller_than_start:
+                    return self.from_
+                else:
+                    if time_step >= self.start_timestep + self.num_timesteps:
+                        return self.to_
+                    else:
+                        return self._graph_fn_decay(
+                            torch.FloatTensor([time_step - self.start_timestep])
+                        )
 
     def _graph_fn_decay(self, time_steps_in_decay_window):
         """
@@ -184,6 +218,10 @@ class PolynomialDecay(DecayComponent):
                 end_learning_rate=self.to_,
                 power=self.power
             )
+        elif get_backend() == "pytorch":
+            decay_steps = self.num_timesteps * torch.ceil(time_steps_in_decay_window / self.num_timesteps)
+            return (self.from_ - self.to_) \
+                * torch.pow((1.0 - time_steps_in_decay_window / decay_steps), self.power) + self.to_
 
 
 # Create an alias for LinearDecay
@@ -227,3 +265,6 @@ class ExponentialDecay(DecayComponent):
                 decay_steps=self.half_life_timesteps,
                 decay_rate=0.5
             )
+        elif get_backend() == "pytorch":
+            power = time_steps_in_decay_window / self.half_life_timesteps
+            return self.from_ * torch.pow(0.5, power)

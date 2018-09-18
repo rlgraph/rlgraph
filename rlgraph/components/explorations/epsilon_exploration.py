@@ -24,6 +24,8 @@ from rlgraph.spaces.space_utils import sanity_check_space
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class EpsilonExploration(Component):
@@ -64,7 +66,8 @@ class EpsilonExploration(Component):
     def check_input_spaces(self, input_spaces, action_space=None):
         # Require at least a batch-rank in the incoming samples.
         self.sample_space = input_spaces["sample"]
-        sanity_check_space(self.sample_space, must_have_batch_rank=True)
+        if get_backend() == "tf":
+            sanity_check_space(self.sample_space, must_have_batch_rank=True)
 
     def do_explore(self, sample, time_step=0):
         """
@@ -85,3 +88,10 @@ class EpsilonExploration(Component):
             shape = tf.shape(sample)
             batch_time_shape = (shape[0],) + ((shape[1],) if self.sample_space.has_time_rank is True else ())
             return tf.random_uniform(shape=batch_time_shape) < decayed_value
+        elif get_backend() == "pytorch":
+            if sample.dim() == 0:
+                sample = sample.unsqueeze(-1)
+            shape = sample.shape
+            batch_time_shape = (shape[0],) + ((shape[1],) if self.sample_space.has_time_rank is True else ())
+            x = torch.rand(batch_time_shape) < decayed_value
+            return x

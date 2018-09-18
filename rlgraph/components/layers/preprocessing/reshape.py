@@ -99,7 +99,6 @@ class ReShape(PreprocessLayer):
 
     def get_preprocessed_space(self, space):
         ret = dict()
-        #print("input to get_preprocessed_space ({}): space={}".format(self.global_scope, space))
         for key, single_space in space.flatten().items():
             class_ = type(single_space)
 
@@ -144,7 +143,6 @@ class ReShape(PreprocessLayer):
                                   add_batch_rank=single_space.has_batch_rank,
                                   add_time_rank=single_space.has_time_rank, time_major=time_major)
         ret = unflatten_op(ret)
-        #print("output of get_preprocessed_space: space={}".format(ret))
         return ret
 
     def check_input_spaces(self, input_spaces, action_space=None):
@@ -156,14 +154,14 @@ class ReShape(PreprocessLayer):
         if self.flatten is True and isinstance(in_space, IntBox) and self.flatten_categories is True:
             sanity_check_space(in_space, must_have_categories=True, num_categories=(2, 10000))
 
-        if input_spaces["input_before_time_rank_folding"] != "flex":
-            assert self.time_major is None or \
-                   (self.flip_batch_and_time_rank is False and
-                    self.time_major == input_spaces["input_before_time_rank_folding"].time_major) or \
-                   (self.flip_batch_and_time_rank is True and
-                    self.time_major != input_spaces["input_before_time_rank_folding"].time_major), \
-                   "ERROR: Space of `input_before_time_rank_folding` to ReShape ('{}') has time-major={}, but " \
-                   "ReShape has time-major={}!".format(self.global_scope, in_space.time_major, self.time_major)
+        #if input_spaces["input_before_time_rank_folding"] != "flex":
+        #    assert self.time_major is None or \
+        #           (self.flip_batch_and_time_rank is False and
+        #            self.time_major == input_spaces["input_before_time_rank_folding"].time_major) or \
+        #           (self.flip_batch_and_time_rank is True and
+        #            self.time_major != input_spaces["input_before_time_rank_folding"].time_major), \
+        #           "ERROR: Space of `input_before_time_rank_folding` to ReShape ('{}') has time-major={}, but " \
+        #           "ReShape has time-major={}!".format(self.global_scope, in_space.time_major, self.time_major)
 
     def create_variables(self, input_spaces, action_space=None):
         self.in_space = input_spaces["preprocessing_inputs"]  # type: Space
@@ -206,7 +204,6 @@ class ReShape(PreprocessLayer):
         """
         assert self.unfold_time_rank is False or input_before_time_rank_folding is not None
 
-        # TODO pytorch
         if self.backend == "python" or get_backend() == "python":
             # Create a one-hot axis for the categories at the end?
             if self.num_categories.get(key, 0) > 1:
@@ -240,7 +237,6 @@ class ReShape(PreprocessLayer):
             # Create a one-hot axis for the categories at the end?
             if self.num_categories.get(key, 0) > 1:
                 preprocessing_inputs = pytorch_one_hot(preprocessing_inputs, depth=self.num_categories[key])
-
             new_shape = self.output_spaces[key].get_shape(
                 with_batch_rank=-1, with_time_rank=-1, time_major=self.time_major
             )
@@ -264,7 +260,15 @@ class ReShape(PreprocessLayer):
                         preprocessing_inputs = torch.transpose(preprocessing_inputs, (1, 0) + input_shape[2:])
                         new_shape = (input_shape[1], input_shape[0]) + new_shape[2:]
 
-            return torch.reshape(preprocessing_inputs, new_shape)
+            # print("Reshaping input of shape {} to new shape {} ".format(preprocessing_inputs.shape, new_shape))
+
+            # The problem here is the following: Input has dim e.g. [4, 256, 1, 1]
+            # -> If shape inference in spaces failed, output dim is not correct -> reshape will attempt
+            # something like reshaping to [256].
+            if self.flatten or (preprocessing_inputs.size(0) > 1 and preprocessing_inputs.dim() > 1):
+                return preprocessing_inputs.squeeze()
+            else:
+                return torch.reshape(preprocessing_inputs, new_shape)
         elif get_backend() == "tf":
             # Create a one-hot axis for the categories at the end?
             if self.num_categories.get(key, 0) > 1:

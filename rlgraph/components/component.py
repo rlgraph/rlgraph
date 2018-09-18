@@ -20,6 +20,7 @@ from __future__ import print_function
 from collections import OrderedDict
 from six.moves import xrange as range_
 
+import time
 import copy
 import inspect
 import numpy as np
@@ -57,6 +58,10 @@ class Component(Specifiable):
     A component also has a variable registry, the ability to save the component's structure and variable-values to disk,
     and supports adding its graph_fns to the overall computation graph.
     """
+    call_count = 0
+
+    # List of tuples (method_name, runtime)
+    call_times = []
 
     def __init__(self, *sub_components, **kwargs):
         """
@@ -123,10 +128,10 @@ class Component(Specifiable):
         # `self.api_methods`: Dict holding information about which op-record-tuples go via which API
         # methods into this Component and come out of it.
         # keys=API method name; values=APIMethodRecord
-        self.api_methods = dict()
+        self.api_methods = {}
 
         # Maps names to callable API functions for eager calls.
-        self.api_fn_by_name = dict()
+        self.api_fn_by_name = {}
         # Maps names of methods to synthetically defined methods.
         self.synthetic_methods = set()
 
@@ -136,11 +141,11 @@ class Component(Specifiable):
         # `self.api_method_inputs`: Registry for all unique API-method input parameter names and their Spaces.
         # Two API-methods may share the same input if their input parameters have the same names.
         # keys=input parameter name; values=Space that goes into that parameter
-        self.api_method_inputs = dict()
+        self.api_method_inputs = {}
         self.get_api_methods()
 
         # Registry for graph_fn records (only populated at build time when the graph_fns are actually called).
-        self.graph_fns = dict()
+        self.graph_fns = {}
         # Set of op-rec-columns going into a graph_fn of this Component and not having 0 op-records.
         # Helps during the build procedure to call these right away after the Component is input-complete.
         self.no_input_graph_fn_columns = set()
@@ -156,11 +161,11 @@ class Component(Specifiable):
         # All Variables that are held by this component (and its sub-components) by name.
         # key=full-scope variable name (scope=component/sub-component scope)
         # value=the actual variable
-        self.variables = dict()
+        self.variables = {}
         # All summary ops that are held by this component (and its sub-components) by name.
         # key=full-scope summary name (scope=component/sub-component scope)
         # value=the actual summary op
-        self.summaries = dict()
+        self.summaries = {}
         # The regexp that a summary's full-scope name has to match in order for it to be generated and registered.
         # This will be set by the GraphBuilder at build time.
         self.summary_regexp = None
@@ -257,10 +262,23 @@ class Component(Specifiable):
             method_owner.graph_builder = self.graph_builder
 
         return_ops = kwargs.pop("return_ops", False)
-
         # Direct evaluation of function.
         if self.execution_mode == "define_by_run":
-            return method(*params)
+            Component.call_count += 1
+            # print("calling in define by run mode: method {}, call count = {}".format(method, Component.call_count))
+
+            # Name might not match, e.g. _graph_fn_apply vs apply.
+            #  Check with owner if extra args needed.
+            start = time.perf_counter()
+            if method.__name__ in method_owner.api_methods and \
+                    method_owner.api_methods[method.__name__].add_auto_key_as_first_param:
+                # Add auto key.
+                ret = method("", *params)
+            else:
+                ret = method(*params)
+            # Store runtime for this method.
+            Component.call_times.append((method_owner.name, method.__name__, time.perf_counter() - start))
+            return ret
         elif self.execution_mode == "static_graph":
             # Graph construction.
 
@@ -675,8 +693,9 @@ class Component(Specifiable):
         """
         # Store the summary_regexp to use.
         self.summary_regexp = summary_regexp
-
+        # print("Completing with input spaces api arg = ", input_spaces)
         input_spaces = input_spaces or self.api_method_inputs
+        # print("Completing with input spaces after lookup = ", input_spaces)
 
         # Allow the Component to check its input Space.
         self.check_input_spaces(input_spaces, action_space)
@@ -750,7 +769,8 @@ class Component(Specifiable):
             self.create_summary(summary_name, var)
 
     def get_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True,
-                     from_space=None, add_batch_rank=False, add_time_rank=False, time_major=False, flatten=False):
+                     from_space=None, add_batch_rank=False, add_time_rank=False, time_major=False, flatten=False,
+                     local=False, use_resource=False):
         """
         Generates or returns a variable to use in the selected backend.
         The generated variable is automatically registered in this component's (and all parent components')
@@ -777,6 +797,10 @@ class Component(Specifiable):
                 Otherwise, batch-rank will be 0th and time-rank will be 1st.
                 Default: False.
             flatten (bool): Whether to produce a FlattenedDataOp with auto-keys.
+            local (bool): Whether the variable must not be shared across the network.
+                Default: False.
+            use_resource (bool): Whether to use the new tf resource-type variables.
+                Default: False.
 
         Returns:
             DataOp: The actual variable (dependent on the backend) or - if from
@@ -801,7 +825,8 @@ class Component(Specifiable):
         # We are creating the variable using a Space as template.
         if from_space is not None:
             var = self._variable_from_space(
-                flatten, from_space, name, add_batch_rank, add_time_rank, time_major, trainable, initializer
+                flatten, from_space, name, add_batch_rank, add_time_rank, time_major, trainable, initializer, local,
+                use_resource
             )
 
         # TODO: Figure out complete concept for python/numpy based Components (including their handling of variables).
@@ -837,7 +862,9 @@ class Component(Specifiable):
                 initializer = np.asarray(initializer, dtype=util.dtype(dtype, "np"))
 
             var = tf.get_variable(
-                name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
+                name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable,
+                collections=[tf.GraphKeys.GLOBAL_VARIABLES if local is False else tf.GraphKeys.LOCAL_VARIABLES],
+                use_resource=use_resource
             )
         elif get_backend() == "tf-eager":
             shape = tuple(
@@ -846,7 +873,8 @@ class Component(Specifiable):
             )
 
             var = eager.Variable(
-                name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable
+                name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable,
+                collections=[tf.GraphKeys.GLOBAL_VARIABLES if local is False else tf.GraphKeys.LOCAL_VARIABLES]
             )
 
         # TODO: what about python variables?
@@ -864,7 +892,7 @@ class Component(Specifiable):
         return var
 
     def _variable_from_space(self, flatten, from_space, name, add_batch_rank, add_time_rank, time_major, trainable,
-                             initializer):
+                             initializer, local=False, use_resource=False):
         """
         Private variable from space helper, see 'get_variable' for API.
         """
@@ -876,26 +904,30 @@ class Component(Specifiable):
                         return from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
                             name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
                             time_major=time_major, trainable=trainable, initializer=initializer,
-                            is_python=(self.backend == "python" or get_backend() == "python")
+                            is_python=(self.backend == "python" or get_backend() == "python"),
+                            local=local, use_resource=use_resource
                         ))
                     # Normal, nested Variables from a Space (container or primitive).
                     else:
                         return from_space.get_variable(
                             name=name, add_batch_rank=add_batch_rank, trainable=trainable, initializer=initializer,
-                            is_python=(self.backend == "python" or get_backend() == "python")
+                            is_python=(self.backend == "python" or get_backend() == "python"),
+                            local=local, use_resource=use_resource
                         )
             else:
                 if flatten:
                     return from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
                         name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
                         time_major=time_major, trainable=trainable, initializer=initializer,
-                        is_python=(self.backend == "python" or get_backend() == "python")
+                        is_python=(self.backend == "python" or get_backend() == "python"),
+                        local=local, use_resource=use_resource
                     ))
                 # Normal, nested Variables from a Space (container or primitive).
                 else:
                     return from_space.get_variable(
                         name=name, add_batch_rank=add_batch_rank, trainable=trainable, initializer=initializer,
-                        is_python=(self.backend == "python" or get_backend() == "python")
+                        is_python=(self.backend == "python" or get_backend() == "python"),
+                        local=local, use_resource=use_resource
                     )
 
     def get_variables(self, *names, **kwargs):
@@ -1147,6 +1179,7 @@ class Component(Specifiable):
             expose_apis (Optional[Set[str]]): An optional set of strings with API-methods of the child component
                 that should be exposed as the parent's API via a simple wrapper API-method for the parent (that
                 calls the child's API-method).
+            exposed_must_be_complete (bool): Whether the exposed API methods must be input-complete or not.
         """
         expose_apis = kwargs.pop("expose_apis", set())
         if isinstance(expose_apis, str):
@@ -1185,11 +1218,13 @@ class Component(Specifiable):
             )
 
             # Should we expose some API-methods of the child?
+            must_be_complete = kwargs.get("exposed_must_be_complete", True)
             for api_method_name, api_method_rec in component.api_methods.items():
                 if api_method_name in expose_apis:
                     def exposed_api_method_wrapper(self, *inputs):
                         return self.call(api_method_rec.method, *inputs)
-                    self.define_api_method(api_method_name, exposed_api_method_wrapper)
+                    self.define_api_method(api_method_name, exposed_api_method_wrapper,
+                                           must_be_complete=must_be_complete)
                     # Add the sub-component's API-registered methods to ours.
                     #self.defined_externally.add(component.scope + "-" + api_method_name)
 
@@ -1484,6 +1519,25 @@ class Component(Specifiable):
                 format(scope_name, self.__str__(), self.sub_components.keys())
             )
         return self.sub_components[scope_name]
+
+    def _post_build(self, component):
+        component._post_define_by_run_build()
+        for sub_component in component.sub_components.values():
+            self._post_build(sub_component)
+
+    def _post_define_by_run_build(self):
+        """
+        Optionally execute post-build calls.
+        """
+        pass
+
+    @staticmethod
+    def reset_profile():
+        """
+        Sets profiling values to 0.
+        """
+        Component.call_count = 0
+        Component.call_times = []
 
     def __str__(self):
         return "{}('{}' api={})".format(type(self).__name__, self.name, str(list(self.api_methods.keys())))

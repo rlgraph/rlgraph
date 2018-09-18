@@ -88,11 +88,11 @@ def dtype(dtype_, to="tf"):
             return np.float64 if to == "np" else torch.float64
         elif dtype_ in ["int", "int32", int, np.int32] or dtype_ is torch.int32:
             return np.int32 if to == "np" else torch.int32
-        elif dtype_ in ["int64", np.int64]:
+        elif dtype_ in ["int64", np.int64] or dtype_ is torch.int64:
             return np.int64 if to == "np" else torch.int64
-        elif dtype_ in ["uint8", np.uint8]:
+        elif dtype_ in ["uint8", np.uint8] or dtype_ is torch.uint8:
             return np.uint8 if to == "np" else torch.uint8
-        elif dtype_ in ["int16", np.int16]:
+        elif dtype_ in ["int16", np.int16] or dtype_ is torch.int16:
             return np.int16 if to == "np" else torch.int16
 
         # N.b. no string tensor type.
@@ -116,7 +116,7 @@ def get_rank(tensor):
         return tensor.get_shape().ndims
     elif get_backend() == "pytorch":
         # No rank or ndim in PyTorch apparently.
-        return len(tensor.shape)
+        return tensor.dim()
 
 
 def get_shape(op, flat=False, no_batch=False):
@@ -145,12 +145,15 @@ def get_shape(op, flat=False, no_batch=False):
         shape = op.shape
     # Primitive op (e.g. tensorflow)
     else:
-        op_shape = op.get_shape()
-        # Unknown shape (e.g. a cond op).
-        if op_shape.ndims is None:
-            return None
-        shape = tuple(op_shape.as_list())
-
+        if get_backend() == "tf":
+            op_shape = op.get_shape()
+            # Unknown shape (e.g. a cond op).
+            if op_shape.ndims is None:
+                return None
+            shape = tuple(op_shape.as_list())
+        elif get_backend() == "pytorch":
+            op_shape = op.shape
+            shape = list(op_shape)
     # Remove batch rank?
     if no_batch is True and shape[0] is None:
         shape = shape[1:]
@@ -402,12 +405,19 @@ def force_torch_tensors(params, requires_grad=False):
     if get_backend() == "pytorch":
         tensor_params = list()
         for param in params:
+            if isinstance(param, list):
+                param = np.asarray(param)
             if isinstance(param, np.ndarray):
                 type_ = param.dtype
             else:
                 type_ = type(param)
+            convert_type = dtype(type_, to="pytorch")
+
+            # PyTorch cannot convert from a np.bool_, must be uint.
+            if isinstance(param, np.ndarray) and param.dtype == np.bool_:
+                param = param.astype(np.uint8)
             tensor_params.append(
-                torch.tensor(param, dtype=dtype(type_, to="pytorch"), requires_grad=requires_grad)
+                torch.tensor(param, dtype=convert_type, requires_grad=requires_grad)
             )
 
         return tensor_params

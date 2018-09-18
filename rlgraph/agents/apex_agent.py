@@ -36,7 +36,7 @@ class ApexAgent(DQNAgent):
         Args:
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
         """
-        assert memory_spec["type"] == "prioritized_replay"
+        assert memory_spec["type"] == "prioritized_replay" or  memory_spec["type"] == "mem_prioritized_replay"
         super(ApexAgent, self).__init__(memory_spec=memory_spec, huber_loss=kwargs.pop("huber_loss", True),
                                         name=kwargs.pop("name", "apex-agent"), **kwargs)
 

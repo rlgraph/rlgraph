@@ -159,8 +159,11 @@ class Agent(Specifiable):
         self.timesteps = 0
 
         # Create the Agent's optimizer based on optimizer_spec and execution strategy.
-        self.optimizer = Optimizer.from_spec(optimizer_spec)  #get_optimizer_from_device_strategy(
-            #optimizer_spec, self.execution_spec.get("device_strategy", 'default'))
+        self.optimizer = None
+        if optimizer_spec is not None:
+            self.optimizer = Optimizer.from_spec(optimizer_spec)  #get_optimizer_from_device_strategy(
+                #optimizer_spec, self.execution_spec.get("device_strategy", 'default')
+            )
         # Update-spec dict tells the Agent how to update (e.g. memory batch size).
         self.update_spec = parse_update_spec(update_spec)
 
@@ -199,7 +202,7 @@ class Agent(Specifiable):
             params (any): Params to be used freely by child Agent implementations.
         """
         # Done by default.
-        self.policy.add_components(Synchronizable(), expose_apis="sync")
+        self.policy.add_components(Synchronizable(), expose_apis="sync", exposed_must_be_complete=False)
 
         # Add api methods for syncing.
         def get_policy_weights(self):

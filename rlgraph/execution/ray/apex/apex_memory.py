@@ -98,11 +98,11 @@ class ApexMemory(Specifiable):
         Returns:
              dict: Record value dict.
         """
-        states = list()
-        actions = list()
-        rewards = list()
-        terminals = list()
-        next_states = list()
+        states = []
+        actions = []
+        rewards = []
+        terminals = []
+        next_states = []
         for index in indices:
             state, action, reward, terminal, next_state, weight = self.memory_values[index]
             states.append(ray_decompress(state))

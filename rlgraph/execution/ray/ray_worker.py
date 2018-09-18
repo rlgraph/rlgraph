@@ -89,9 +89,9 @@ class RayWorker(RayActor):
         self.discount = agent_config.get("discount", 0.99)
         # Python based preprocessor as image resizing is broken in TF.
 
-        self.preprocessors = dict()
+        self.preprocessors = {}
         preprocessing_spec = agent_config.get("preprocessing_spec", None)
-        self.is_preprocessed = dict()
+        self.is_preprocessed = {}
         for env_id in self.env_ids:
             self.preprocessors[env_id] = self.setup_preprocessor(
                 preprocessing_spec, self.vector_env.state_space.with_batch_rank()
@@ -101,20 +101,20 @@ class RayWorker(RayActor):
         self.worker_frameskip = frameskip
 
         # Save these so they can be fetched after training if desired.
-        self.finished_episode_rewards = [list() for _ in range_(self.num_environments)]
-        self.finished_episode_timesteps = [list() for _ in range_(self.num_environments)]
+        self.finished_episode_rewards = [[] for _ in range_(self.num_environments)]
+        self.finished_episode_timesteps = [[] for _ in range_(self.num_environments)]
         # Total times sample the "real" wallclock time from start to end for each episode.
-        self.finished_episode_total_times = [list() for _ in range_(self.num_environments)]
+        self.finished_episode_total_times = [[] for _ in range_(self.num_environments)]
         # Sample times stop the wallclock time counter between runs, so only the sampling time is accounted for.
-        self.finished_episode_sample_times = [list() for _ in range_(self.num_environments)]
+        self.finished_episode_sample_times = [[] for _ in range_(self.num_environments)]
 
         self.total_worker_steps = 0
         self.episodes_executed = 0
 
         # Step time and steps done per call to execute_and_get to measure throughput of this worker.
-        self.sample_times = list()
-        self.sample_steps = list()
-        self.sample_env_frames = list()
+        self.sample_times = []
+        self.sample_steps = []
+        self.sample_env_frames = []
 
         # To continue running through multiple exec calls.
         self.last_states = self.vector_env.reset_all()
@@ -223,7 +223,7 @@ class RayWorker(RayActor):
         # more accurate, as there might be delays between the worker initialization and actual sampling start.
         if not self.last_ep_start_initialized:
             for i, timestamp in enumerate(self.last_ep_start_timestamps):
-                self.last_ep_start_timestamps[i] = time.time()
+                self.last_ep_start_timestamps[i] = time.perf_counter()
             self.last_ep_start_initialized = True
 
         start = time.monotonic()
@@ -232,20 +232,19 @@ class RayWorker(RayActor):
         env_frames = 0
 
         # Final result batch.
-        batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals = list(), list(), list(), \
-            list(), list()
+        batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals = [], [], [], [], []
 
         # Running trajectories.
-        sample_states, sample_actions, sample_rewards, sample_terminals = dict(), dict(), dict(), dict()
+        sample_states, sample_actions, sample_rewards, sample_terminals = {}, {}, {}, {}
         next_states = [np.zeros_like(self.last_states) for _ in range_(self.num_environments)]
 
         # Reset envs and Agent either if finished an episode in current loop or if last state
         # from previous execution was terminal for that environment.
         for i, env_id in enumerate(self.env_ids):
-            sample_states[env_id] = list()
-            sample_actions[env_id] = list()
-            sample_rewards[env_id] = list()
-            sample_terminals[env_id] = list()
+            sample_states[env_id] = []
+            sample_actions[env_id] = []
+            sample_rewards[env_id] = []
+            sample_terminals[env_id] = []
 
         env_states = self.last_states
         current_episode_rewards = self.last_ep_rewards
@@ -256,7 +255,7 @@ class RayWorker(RayActor):
         # Whether the episode in each env has terminated.
         terminals = [False for _ in range_(self.num_environments)]
         while timesteps_executed < num_timesteps:
-            current_iteration_start_timestamp = time.time()
+            current_iteration_start_timestamp = time.perf_counter()
             for i, env_id in enumerate(self.env_ids):
                 state = self.agent.state_space.force_batch(env_states[i])
                 if self.preprocessors[env_id] is not None:
@@ -267,7 +266,7 @@ class RayWorker(RayActor):
                     self.preprocessed_states_buffer[i] = env_states[i]
 
             actions = self.get_action(states=self.preprocessed_states_buffer,
-                                            use_exploration=use_exploration, apply_preprocessing=False)
+                                      use_exploration=use_exploration, apply_preprocessing=False)
             next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
             # Worker frameskip not needed as done in env.
             # for _ in range_(self.worker_frameskip):
@@ -282,7 +281,7 @@ class RayWorker(RayActor):
             timesteps_executed += self.num_environments
             env_frames += self.num_environments
             env_states = next_states
-            current_iteration_time = time.time() - current_iteration_start_timestamp
+            current_iteration_time = time.perf_counter() - current_iteration_start_timestamp
 
             # Do accounting for each environment.
             state_buffer = np.array(self.preprocessed_states_buffer)
@@ -302,7 +301,7 @@ class RayWorker(RayActor):
                 if terminals[i] or (0 < max_timesteps_per_episode <= current_episode_timesteps[i]):
                     self.finished_episode_rewards[i].append(current_episode_rewards[i])
                     self.finished_episode_timesteps[i].append(current_episode_timesteps[i])
-                    self.finished_episode_total_times[i].append(time.time() - current_episode_start_timestamps[i])
+                    self.finished_episode_total_times[i].append(time.perf_counter() - current_episode_start_timestamps[i])
                     self.finished_episode_sample_times[i].append(current_episode_sample_times[i])
                     episodes_executed[i] += 1
                     self.episodes_executed += 1
@@ -332,10 +331,10 @@ class RayWorker(RayActor):
                     batch_terminals.extend(post_t)
 
                     # Reset running trajectory for this env.
-                    sample_states[env_id] = list()
-                    sample_actions[env_id] = list()
-                    sample_rewards[env_id] = list()
-                    sample_terminals[env_id] = list()
+                    sample_states[env_id] = []
+                    sample_actions[env_id] = []
+                    sample_rewards[env_id] = []
+                    sample_terminals[env_id] = []
 
                     # Reset this environment and its pre-processor stack.
                     env_states[i] = self.vector_env.reset(i)
@@ -348,7 +347,7 @@ class RayWorker(RayActor):
                         self.is_preprocessed[env_id] = True
                     current_episode_rewards[i] = 0
                     current_episode_timesteps[i] = 0
-                    current_episode_start_timestamps[i] = time.time()
+                    current_episode_start_timestamps[i] = time.perf_counter()
                     current_episode_sample_times[i] = 0.0
 
             if 0 < num_timesteps <= timesteps_executed or (break_on_terminal and np.any(terminals)):
@@ -361,11 +360,6 @@ class RayWorker(RayActor):
         self.last_ep_timesteps = current_episode_timesteps
         self.last_ep_start_timestamps = current_episode_start_timestamps
         self.last_ep_sample_times = current_episode_sample_times
-
-        total_time = (time.monotonic() - start) or 1e-10
-        self.sample_steps.append(timesteps_executed)
-        self.sample_times.append(total_time)
-        self.sample_env_frames.append(env_frames)
 
         # We already accounted for all terminated episodes. This means we only
         # have to do accounting for any unfinished fragments.
@@ -398,6 +392,11 @@ class RayWorker(RayActor):
         # Perform final batch-processing once.
         sample_batch, batch_size = self._batch_process_sample(batch_states, batch_actions,
                                                               batch_rewards, batch_next_states, batch_terminals)
+
+        total_time = (time.monotonic() - start) or 1e-10
+        self.sample_steps.append(timesteps_executed)
+        self.sample_times.append(total_time)
+        self.sample_env_frames.append(env_frames)
 
         # Note that the controller already evaluates throughput so there is no need
         # for each worker to calculate expensive statistics now.
@@ -548,10 +547,19 @@ class RayWorker(RayActor):
         if self.worker_executes_exploration:
             # Only once for all actions otherwise we would have to call a session anyway.
             if np.random.random() <= self.exploration_epsilon:
-                return self.agent.action_space.sample(size=self.num_environments)
+                if self.num_environments == 1:
+                    # Sample returns without batch dim -> wrap.
+                    action = [self.agent.action_space.sample(size=self.num_environments)]
+                else:
+                    action = self.agent.action_space.sample(size=self.num_environments)
             else:
-                return self.agent.get_action(states=states, use_exploration=use_exploration,
-                                             apply_preprocessing=apply_preprocessing)
+                if self.num_environments == 1:
+                    action = [self.agent.get_action(states=states, use_exploration=use_exploration,
+                                                    apply_preprocessing=apply_preprocessing)]
+                else:
+                    action = self.agent.get_action(states=states, use_exploration=use_exploration,
+                                                    apply_preprocessing=apply_preprocessing)
+            return action
         else:
             return self.agent.get_action(states=states, use_exploration=use_exploration,
                                          apply_preprocessing=apply_preprocessing)
