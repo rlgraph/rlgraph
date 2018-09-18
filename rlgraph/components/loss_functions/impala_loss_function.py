@@ -153,7 +153,7 @@ class IMPALALossFunction(LossFunction):
 
             # Make sure vs and advantage values are treated as constants for the gradient calculation.
             #vs = tf.stop_gradient(vs)
-            #pg_advantages = tf.stop_gradient(pg_advantages)
+            pg_advantages = tf.stop_gradient(pg_advantages)
 
             # The policy gradient loss.
             loss_pg = pg_advantages * log_probs_actions_taken_pi
