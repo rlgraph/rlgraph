@@ -27,6 +27,7 @@ from rlgraph.components.common.slice import Slice
 from rlgraph.components.common.staging_area import StagingArea
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.layers.preprocessing.reshape import ReShape
+from rlgraph.components.layers.preprocessing.transpose import Transpose
 from rlgraph.components.layers.preprocessing.concat import Concat
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.neural_networks.dynamic_batching_policy import DynamicBatchingPolicy
@@ -349,16 +350,19 @@ class IMPALAAgent(Agent):
                                                           "previous_reward", scope="states-dict-splitter")
             self.internal_states_slicer = None
 
-            self.transpose_states = ReShape(
-                flip_batch_and_time_rank=True, time_major=True, scope="transpose-states",
+            self.transpose_states = Transpose(
+                #flip_batch_and_time_rank=True, time_major=True,
+                # scope="transpose-states",
                 device=dict(ops="/job:learner/task:0/cpu")
             )
-            self.transpose_terminals = ReShape(
-                flip_batch_and_time_rank=True, time_major=True, scope="transpose-terminals",
+            self.transpose_terminals = Transpose(
+                #flip_batch_and_time_rank=True, time_major=True,
+                scope="transpose-terminals",
                 device=dict(ops="/job:learner/task:0/cpu")
             )
-            self.transpose_action_probs = ReShape(
-                flip_batch_and_time_rank=True, time_major=True, scope="transpose-a-probs-mu",
+            self.transpose_action_probs = Transpose(
+                #flip_batch_and_time_rank=True, time_major=True,
+                scope="transpose-a-probs-mu",
                 device=dict(ops="/job:learner/task:0/cpu")
             )
 

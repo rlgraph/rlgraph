@@ -31,6 +31,7 @@ from rlgraph.components.layers.preprocessing.normalize import Normalize
 from rlgraph.components.layers.preprocessing.multiply_divide import Multiply, Divide
 from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.layers.preprocessing.sequence import Sequence
+from rlgraph.components.layers.preprocessing.transpose import Transpose
 
 PreprocessLayer.__lookup_classes__ = dict(
     clip=Clip,
@@ -46,6 +47,7 @@ PreprocessLayer.__lookup_classes__ = dict(
     normalize=Normalize,
     reshape=ReShape,
     sequence=Sequence,
+    transpose=Transpose,
 )
 
 
