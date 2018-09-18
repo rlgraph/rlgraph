@@ -269,6 +269,7 @@ class ReShape(PreprocessLayer):
                 return preprocessing_inputs.squeeze()
             else:
                 return torch.reshape(preprocessing_inputs, new_shape)
+
         elif get_backend() == "tf":
             # Create a one-hot axis for the categories at the end?
             if self.num_categories.get(key, 0) > 1:
@@ -302,14 +303,14 @@ class ReShape(PreprocessLayer):
                         preprocessing_inputs = tf.transpose(
                             preprocessing_inputs, perm=(1, 0) + tuple(i for i in range(
                                 2, input_shape.shape.as_list()[0]
-                            ))
+                            )), name="transpose-flip-batch-time-ranks"
                         )
                         new_shape = (input_shape[1], input_shape[0]) + new_shape[2:]
 
             reshaped = tf.reshape(tensor=preprocessing_inputs, shape=new_shape, name="reshaped")
 
             if flip_after_reshape and self.flip_batch_and_time_rank:
-                reshaped = tf.transpose(reshaped, (1, 0) + tuple(i for i in range(2, len(new_shape))))
+                reshaped = tf.transpose(reshaped, (1, 0) + tuple(i for i in range(2, len(new_shape))), name="transpose-flip-batch-time-ranks-after-reshape")
 
             # Have to place the time rank back in as unknown (for the auto Space inference).
             if type(self.unfold_time_rank) == int:
