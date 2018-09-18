@@ -97,27 +97,27 @@ class VTraceFunction(Component):
                 PG-advantage values in time x batch dimensions used for training via policy gradient with baseline.
         """
         if get_backend() == "tf":
-            is_weights = tf.exp(x=log_is_weights)
+            is_weights = tf.exp(x=log_is_weights, name="is-weights-from-logs")
 
             # Apply rho-bar (also for PG) and c-bar clipping to all IS-weights.
             if self.rho_bar is not None:
-                rho_t = tf.minimum(x=self.rho_bar, y=is_weights)
+                rho_t = tf.minimum(x=self.rho_bar, y=is_weights, name="clip-rho-bar")
             else:
                 rho_t = is_weights
 
             if self.rho_bar_pg is not None:
-                rho_t_pg = tf.minimum(x=self.rho_bar_pg, y=is_weights)
+                rho_t_pg = tf.minimum(x=self.rho_bar_pg, y=is_weights, name="clip-rho-bar-pg")
             else:
                 rho_t_pg = is_weights
 
             if self.c_bar is not None:
-                c_i = tf.minimum(x=self.c_bar, y=is_weights)
+                c_i = tf.minimum(x=self.c_bar, y=is_weights, name="clip-c-bar")
             else:
                 c_i = is_weights
 
             # This is the same vector as `values` except that it will be shifted by 1 timestep to the right and
             # include - as the last item - the bootstrapped V value at s=t+N.
-            values_t_plus_1 = tf.concat(values=[values[1:], bootstrapped_values], axis=0)
+            values_t_plus_1 = tf.concat(values=[values[1:], bootstrapped_values], axis=0, name="values-t-plus-1")
             # Calculate the temporal difference terms (delta-t-V in the paper) for each s=t to s=t+N-1.
             dt_vs = rho_t * (rewards + discounts * values_t_plus_1 - values)
 
@@ -127,9 +127,9 @@ class VTraceFunction(Component):
             # We will thus calculate all terms: [vs - V(xs)] for all timesteps first, then add V(xs) again to get the
             # v-traces.
             elements = (
-                tf.reverse(tensor=discounts, axis=[0]),
-                tf.reverse(tensor=c_i, axis=[0]),
-                tf.reverse(tensor=dt_vs, axis=[0])
+                tf.reverse(tensor=discounts, axis=[0], name="revert-discounts"),
+                tf.reverse(tensor=c_i, axis=[0], name="revert-c-i"),
+                tf.reverse(tensor=dt_vs, axis=[0], name="revert-dt-vs")
             )
 
             def scan_func(vs_minus_v_xs_, elements_):
@@ -141,10 +141,11 @@ class VTraceFunction(Component):
                 elems=elements,
                 initializer=tf.zeros_like(tensor=tf.squeeze(bootstrapped_values, axis=0)),
                 parallel_iterations=1,
-                back_prop=False
+                back_prop=False,
+                name="v-trace-scan"
             )
             # Reverse the results back to original order.
-            vs_minus_v_xs = tf.reverse(tensor=vs_minus_v_xs, axis=[0])
+            vs_minus_v_xs = tf.reverse(tensor=vs_minus_v_xs, axis=[0], name="revert-vs-minus-v-xs")
 
             # Add V(xs) to get vs.
             vs = tf.add(x=vs_minus_v_xs, y=values)

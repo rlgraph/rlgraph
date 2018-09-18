@@ -538,8 +538,8 @@ class IMPALAAgent(Agent):
         self.root_component.define_api_method("reset", reset)
 
     def define_api_methods_learner(self, fifo_output_splitter, fifo_queue, states_dict_splitter,
-                                   transpose_states,
-                                   transpose_terminals, transpose_action_probs, staging_area,
+                                   transpose_states, transpose_terminals, transpose_action_probs,
+                                   staging_area,
                                    preprocessor, policy, loss_function, optimizer):
         """
         Defines the API-methods used by an IMPALA learner. Its job is basically: Pull a batch from the
