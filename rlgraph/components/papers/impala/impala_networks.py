@@ -161,7 +161,7 @@ class IMPALANetwork(NeuralNetwork):
 
     def apply(self, input_dict, internal_states=None):
         # Split the input dict coming directly from the Env.
-        _, _, _, previous_reward = self.call(self.splitter.split, input_dict)
+        _, _, _, orig_previous_reward = self.call(self.splitter.split, input_dict)
 
         folded_input = self.call(self.time_rank_fold_before_lstm.apply, input_dict)
         image, text, previous_action, previous_reward = self.call(self.splitter.split, folded_input)
@@ -176,7 +176,7 @@ class IMPALANetwork(NeuralNetwork):
             image_processing_output, text_processing_output, previous_action, previous_reward
         )
 
-        unfolded_concatenated_data = self.call(self.time_rank_unfold_before_lstm.apply, concatenated_data, previous_reward)
+        unfolded_concatenated_data = self.call(self.time_rank_unfold_before_lstm.apply, concatenated_data, orig_previous_reward)
 
         # Feed concat'd input into main LSTM(256).
         main_lstm_output, main_lstm_final_c_and_h = self.call(
