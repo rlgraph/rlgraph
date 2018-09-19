@@ -60,12 +60,22 @@ class Transpose(PreprocessLayer):
         Transposes the input by flipping batch and time ranks.
         """
         if get_backend() == "tf":
+            preprocessing_inputs = tf.Print(
+                preprocessing_inputs, [tf.shape(preprocessing_inputs)], summarize=1000,
+                message="input shape for {}".format(self.scope)
+            )
+
             transposed = tf.transpose(
                 preprocessing_inputs, perm=(1, 0) + tuple(i for i in range(2, len(preprocessing_inputs.shape.as_list()))), name="transpose"
             )
 
             transposed._batch_rank = 0 if self.output_time_majors[key] is False else 1
             transposed._time_rank = 0 if self.output_time_majors[key] is True else 1
+
+            transposed = tf.Print(
+                transposed, [tf.shape(transposed)], summarize=1000,
+                message="output shape for {}".format(self.scope)
+            )
 
             return transposed
         elif get_backend() == "pytorch":
