@@ -480,10 +480,12 @@ class IMPALAAgent(Agent):
                            initial_internal_states)
 
             # Calculate the loss.
-            loss, loss_per_item = self_.call(
-                loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
-                terminals  #, bootstrapped_values
-            )
+            # loss, loss_per_item = self_.call(
+            #     loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
+            #     terminals  #, bootstrapped_values
+            # )
+            loss = 0
+            loss_per_item = tf.ones_like(rewards)
             if self.dynamic_batching:
                 policy_vars = self_.call(queue_runner.data_producing_components[0].actor_component.policy._variables)
             else:
