@@ -54,9 +54,9 @@ class IMPALANetwork(NeuralNetwork):
         self.time_rank_fold_before_lstm = ReShape(fold_time_rank=True, scope="time-rank-fold-before-lstm")
         self.time_rank_unfold_before_lstm = ReShape(unfold_time_rank=True, time_major=True,
                                                     scope="time-rank-unfold-before-lstm")
-        self.time_rank_fold_after_lstm = ReShape(fold_time_rank=True, scope="time-rank-fold-after-lstm")
-        self.time_rank_unfold_after_lstm = ReShape(unfold_time_rank=True, time_major=True,
-                                                   scope="time-rank-unfold-after-lstm")
+        #self.time_rank_fold_after_lstm = ReShape(fold_time_rank=True, scope="time-rank-fold-after-lstm")
+        #self.time_rank_unfold_after_lstm = ReShape(unfold_time_rank=True, time_major=True,
+        #                                           scope="time-rank-unfold-after-lstm")
 
         # The Image Processing Stack (left side of "Large Architecture" Figure 3 in [1]).
         # Conv2D column + ReLU + fc(256) + ReLU.
