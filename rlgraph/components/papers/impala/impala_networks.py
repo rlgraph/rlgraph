@@ -218,7 +218,10 @@ class IMPALANetwork(NeuralNetwork):
 
         debug_last_internal_state = self.call(self.debug_slicer.slice, unfolded_concatenated_data, -1)
 
-        return unfolded_concatenated_data, DataOpTuple(debug_last_internal_state, debug_last_internal_state)
+        return unfolded_concatenated_data, self.call(self._graph_fn_create_fake_lstm_internal_state, debug_last_internal_state)
+
+    def _graph_fn_create_fake_lstm_internal_state(self, single_state):
+        return DataOpTuple(single_state, single_state)
 
 
 class LargeIMPALANetwork(IMPALANetwork):
