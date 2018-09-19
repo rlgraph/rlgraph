@@ -480,20 +480,18 @@ class IMPALAAgent(Agent):
                            initial_internal_states)
 
             # Calculate the loss.
-            # loss, loss_per_item = self_.call(
-            #     loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
-            #     terminals  #, bootstrapped_values
-            # )
-            loss = 0
-            loss_per_item = tf.ones_like(rewards)
+            loss, loss_per_item = self_.call(
+                loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
+                terminals  #, bootstrapped_values
+            )
             if self.dynamic_batching:
                 policy_vars = self_.call(queue_runner.data_producing_components[0].actor_component.policy._variables)
             else:
                 policy_vars = self_.call(policy._variables)
 
             # Pass vars and loss values into optimizer.
-            # step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
-            step_op = tf.no_op()
+            step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
+
 
             # Return optimizer op and all loss values.
             # TODO: Make it possible to return None from API-method without messing with the meta-graph.
@@ -606,14 +604,17 @@ class IMPALAAgent(Agent):
             _, _, actions, rewards = self_.call(states_dict_splitter.split, states)
 
             # Calculate the loss.
-            loss, loss_per_item = self_.call(
-                loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
-                terminals
-            )
+            # loss, loss_per_item = self_.call(
+            #     loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
+            #     terminals
+            # )
+            loss = 0
+            loss_per_item = tf.ones_like(rewards)
             policy_vars = self_.call(policy._variables)
 
             # Pass vars and loss values into optimizer.
-            step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
+            # step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
+            step_op = tf.no_op()
 
             # Return optimizer op and all loss values.
             # TODO: Make it possible to return None from API-method without messing with the meta-graph.
