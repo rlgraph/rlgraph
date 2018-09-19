@@ -154,7 +154,7 @@ class Policy(Component):
 
                 # TODO: IMPALA attempt to speed up final pass after LSTM.
                 merged_impala_hack = self.call(self.merger.merge, state_values, logits, probs, log_probs)
-                unfolded = self.call(self.time_rank_unfolder.apply, merged_impala_hack)
+                unfolded = self.call(self.time_rank_unfolder.apply, merged_impala_hack, nn_output)
                 state_values_unfolded, logits_unfolded, probs_unfolded, log_probs_unfolded = self.call(self.splitter.split, unfolded)
 
                 return (state_values_unfolded, logits_unfolded, probs_unfolded, log_probs_unfolded, last_internals) if last_internals is not None else \
