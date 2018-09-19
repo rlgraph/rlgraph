@@ -138,6 +138,7 @@ class Policy(Component):
                 nn_output, last_internals = unify_nn_and_rnn_api_output(
                     self.call(self.neural_network.apply, nn_input, internal_states)
                 )
+
                 state_values, logits, probs, log_probs = self.call(self.action_adapter.get_state_values_logits_parameters_log_probs, nn_output)
                 return (state_values, logits, probs, log_probs, last_internals) if last_internals is not None else \
                     (state_values, logits, probs, log_probs)
