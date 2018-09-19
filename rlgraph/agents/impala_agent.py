@@ -397,14 +397,14 @@ class IMPALAAgent(Agent):
             self._build_graph([self.root_component], self.input_spaces, self.optimizer)
             self.graph_built = True
 
-            #if self.has_gpu:
-            #    # Get 1st return op of API-method `stage` of sub-component `staging-area` (which is the stage-op).
-            #    self.stage_op = self.root_component.sub_components["staging-area"].api_methods["stage"]. \
-            #        out_op_columns[0].op_records[0].op
-            #     Initialize the stage.
-            #    self.graph_executor.monitored_session.run_step_fn(
-            #        lambda step_context: step_context.session.run(self.stage_op)
-            #    )
+            if self.has_gpu:
+                # Get 1st return op of API-method `stage` of sub-component `staging-area` (which is the stage-op).
+                self.stage_op = self.root_component.sub_components["staging-area"].api_methods["stage"]. \
+                    out_op_columns[0].op_records[0].op
+                # Initialize the stage.
+                self.graph_executor.monitored_session.run_step_fn(
+                    lambda step_context: step_context.session.run(self.stage_op)
+                )
 
     def define_api_methods(self, *sub_components):
         # TODO: Unify agents with/w/o synchronizable policy.
