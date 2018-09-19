@@ -34,6 +34,7 @@ from rlgraph.components.neural_networks.stack import Stack
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.common.repeater_stack import RepeaterStack
 from rlgraph.components.common.container_splitter import ContainerSplitter
+from rlgraph.utils.ops import DataOpTuple
 
 
 class IMPALANetwork(NeuralNetwork):
@@ -217,7 +218,7 @@ class IMPALANetwork(NeuralNetwork):
 
         debug_last_internal_state = self.call(self.debug_slicer.slice, unfolded_concatenated_data, -1)
 
-        return unfolded_concatenated_data, debug_last_internal_state
+        return unfolded_concatenated_data, DataOpTuple(debug_last_internal_state, debug_last_internal_state)
 
 
 class LargeIMPALANetwork(IMPALANetwork):
