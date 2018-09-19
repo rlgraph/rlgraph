@@ -105,9 +105,9 @@ class Policy(Component):
         self.action_space = action_space
         self.max_likelihood = max_likelihood
 
-        self.time_rank_folder = ReShape(fold_time_rank=True)
+        self.time_rank_folder = ReShape(fold_time_rank=True, scope="time-rank-fold")
         self.merger = DictMerger("state_values", "logits", "probs", "log_probs")
-        self.time_rank_unfolder = ReShape(unfold_time_rank=True, time_major=True)
+        self.time_rank_unfolder = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold")
         self.splitter = ContainerSplitter("state_values", "logits", "probs", "log_probs")
 
         # Add API-method to get dueling output (if we use a dueling layer).
