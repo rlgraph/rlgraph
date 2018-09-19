@@ -585,7 +585,7 @@ class IMPALAAgent(Agent):
 
             # If we use a GPU: Put everything on staging area (adds 1 time step policy lag, but makes copying
             # data into GPU more efficient).
-            if self.has_gpu:
+            if False and self.has_gpu:
                 stage_op = self_.call(staging_area.stage, states, terminals, action_probs_mu, initial_internal_states)
                 # Get data from stage again and continue.
                 states, terminals, action_probs_mu, initial_internal_states = self_.call(staging_area.unstage)
