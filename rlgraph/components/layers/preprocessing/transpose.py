@@ -62,7 +62,7 @@ class Transpose(PreprocessLayer):
         if get_backend() == "tf":
             preprocessing_inputs = tf.Print(
                 preprocessing_inputs, [tf.shape(preprocessing_inputs)], summarize=1000,
-                message="input shape for {}".format(self.scope)
+                message="input shape for {}: {}".format(preprocessing_inputs, self.scope)
             )
 
             transposed = tf.transpose(
@@ -74,7 +74,7 @@ class Transpose(PreprocessLayer):
 
             transposed = tf.Print(
                 transposed, [tf.shape(transposed)], summarize=1000,
-                message="output shape for {}".format(self.scope)
+                message="output shape for {}: {}".format(transposed, self.scope)
             )
 
             return transposed
