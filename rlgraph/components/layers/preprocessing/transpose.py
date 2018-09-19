@@ -23,8 +23,8 @@ from rlgraph.utils.ops import flatten_op, unflatten_op
 
 if get_backend() == "tf":
     import tensorflow as tf
-#elif get_backend() == "pytorch":
-#    import torch
+elif get_backend() == "pytorch":
+   import torch
 
 
 class Transpose(PreprocessLayer):
@@ -68,3 +68,6 @@ class Transpose(PreprocessLayer):
             transposed._time_rank = 0 if self.output_time_majors[key] is True else 1
 
             return transposed
+        elif get_backend() == "pytorch":
+            perm = (1, 0) + tuple(i for i in range(2, len(list(preprocessing_inputs.shape))))
+            return torch.transpose(preprocessing_inputs, perm)
