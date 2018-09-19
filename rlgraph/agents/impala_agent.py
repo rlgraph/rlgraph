@@ -573,6 +573,8 @@ class IMPALAAgent(Agent):
             # But must still be done for actions, rewards, terminals here in this API-method via separate ReShapers.
             records = self_.call(fifo_queue.get_records, self.update_spec["batch_size"])
 
+            return records, records, records, records
+
             terminals, states, action_probs_mu, initial_internal_states = \
                 self_.call(fifo_output_splitter.split, records)
 
