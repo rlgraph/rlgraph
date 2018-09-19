@@ -205,7 +205,7 @@ class ReShape(PreprocessLayer):
         assert self.unfold_time_rank is False or input_before_time_rank_folding is not None
 
         preprocessing_inputs = tf.Print(preprocessing_inputs, [tf.shape(preprocessing_inputs)], summarize=1000,
-                                        message="input shape for {}: {}".format(preprocessing_inputs, self.scope))
+                                        message="input shape for {} (key={}): {}".format(preprocessing_inputs, key, self.scope))
 
         if self.backend == "python" or get_backend() == "python":
             # Create a one-hot axis for the categories at the end?
@@ -316,7 +316,7 @@ class ReShape(PreprocessLayer):
                 reshaped = tf.transpose(reshaped, (1, 0) + tuple(i for i in range(2, len(new_shape))), name="transpose-flip-batch-time-ranks-after-reshape")
 
             reshaped = tf.Print(reshaped, [tf.shape(reshaped)], summarize=1000,
-                                message="output shape for {}: {}".format(reshaped, self.scope))
+                                message="output shape for {} (key={}): {}".format(reshaped, key, self.scope))
 
             # Have to place the time rank back in as unknown (for the auto Space inference).
             if type(self.unfold_time_rank) == int:
