@@ -189,8 +189,11 @@ class Policy(Component):
             raise RLGraphError("ERROR: `action_space` is of type {} and not allowed in {} Component!".
                                format(type(action_space).__name__, self.name))
 
-        self.add_components(self.neural_network, self.action_adapter, self.distribution,
-                            self.time_rank_folder, self.time_rank_unfolder)
+        self.add_components(
+            self.neural_network, self.action_adapter, self.distribution,
+            self.time_rank_folder, self.time_rank_unfolder,
+            self.merger, self.splitter
+        )
 
         # Add Synchronizable API to ours.
         if self.writable:
