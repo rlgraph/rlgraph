@@ -205,7 +205,7 @@ class ReShape(PreprocessLayer):
         assert self.unfold_time_rank is False or input_before_time_rank_folding is not None
 
         preprocessing_inputs = tf.Print(preprocessing_inputs, [tf.shape(preprocessing_inputs)], summarize=1000,
-                                        message="input shape for {} (key={}): {}".format(preprocessing_inputs, key, self.scope))
+                                        message="input shape for {} (key={}): {}".format(preprocessing_inputs.name, key, self.scope))
 
         if self.backend == "python" or get_backend() == "python":
             # Create a one-hot axis for the categories at the end?
