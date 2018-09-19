@@ -116,6 +116,9 @@ class IMPALALossFunction(LossFunction):
         """
         if get_backend() == "tf":
             values, bootstrapped_values = values[:-1], values[-1:]
+
+            return tf.ones_like(tf.squeeze(bootstrapped_values, axis=0))
+
             log_probs_actions_pi = log_probs_actions_pi[:-1]
             # Ignore very first actions/rewards (these are the previous ones only used as part of the state input
             # for the network)

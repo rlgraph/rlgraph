@@ -604,12 +604,10 @@ class IMPALAAgent(Agent):
             _, _, actions, rewards = self_.call(states_dict_splitter.split, states)
 
             # Calculate the loss.
-            # loss, loss_per_item = self_.call(
-            #     loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
-            #     terminals
-            # )
-            loss = 0
-            loss_per_item = tf.ones_like(rewards)
+            loss, loss_per_item = self_.call(
+                 loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
+                 terminals
+            )
             policy_vars = self_.call(policy._variables)
 
             # Pass vars and loss values into optimizer.
