@@ -26,6 +26,7 @@ from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 from rlgraph.components.layers.nn.concat_layer import ConcatLayer
 from rlgraph.components.layers.preprocessing.multiply_divide import Divide
 from rlgraph.components.layers.preprocessing.reshape import ReShape
+from rlgraph.components.layers.preprocessing.image_crop import ImageCrop
 from rlgraph.components.layers.strings.string_to_hash_bucket import StringToHashBucket
 from rlgraph.components.layers.strings.embedding_lookup import EmbeddingLookup
 from rlgraph.components.neural_networks.stack import Stack
@@ -268,7 +269,7 @@ class SmallIMPALANetwork(IMPALANetwork):
     """
 
     @staticmethod
-    def build_image_processing_stack():
+    def VOID_build_image_processing_stack():
         """
         Constructs a ReShape preprocessor to fold the time rank into the batch rank.
 
@@ -318,3 +319,83 @@ class SmallIMPALANetwork(IMPALANetwork):
         )
 
         return image_stack
+
+    @staticmethod
+    def build_image_processing_stack():
+        """
+        Constructs a ReShape preprocessor to fold the time rank into the batch rank.
+
+        Then builds the 2 Conv2D Layers followed by ReLUs.
+
+        Then adds: fc(256) + ReLU.
+        """
+        # Collect components for image stack before unfolding time-rank going into main LSTM.
+        sub_components = list()
+
+        # Divide by 255
+        sub_components.append(Divide(divisor=255, scope="divide-255"))
+
+        sub_components.append(ImageCrop(0, 0, 12, 9))
+
+        # Time-rank into batch-rank reshaper.
+        #sub_components.append(ReShape(fold_time_rank=True, scope="time-rank-fold"))
+
+        #for i, (num_filters, kernel_size, stride) in enumerate(zip([16, 32], [8, 4], [4, 2])):
+        #    # Conv2D plus ReLU activation function.
+        #    conv2d = Conv2DLayer(
+        #        filters=num_filters, kernel_size=kernel_size, strides=stride, padding="same",
+        #        activation="relu", scope="conv2d-{}".format(i)
+        #    )
+        #    sub_components.append(conv2d)
+
+        # A Flatten preprocessor and then an fc block (surrounded by ReLUs) and a time-rank-unfolding.
+        sub_components.extend([
+            ReShape(flatten=True, scope="flatten"),  # Flattener (to flatten Conv2D output for the fc layer).
+            DenseLayer(units=256),  # Dense layer.
+            NNLayer(activation="relu", scope="relu-before-lstm"),
+        ])
+
+        stack_before_unfold = Stack(sub_components, scope="image-stack-before-unfold")
+
+        #time_rank_unfold = ReShape(
+        #    unfold_time_rank=True, time_major=True, scope="time-rank-unfold-images"
+        #)
+
+        def custom_apply(self, inputs):
+            image_processing_output = self.call(self.sub_components["image-stack-before-unfold"].apply, inputs)
+            # Feed the original inputs into the unfold-ReShape so can lookup the time-rank dimension to unfold.
+            #unfolded = self.call(self.sub_components["time-rank-unfold-images"].apply, image_processing_output, inputs)
+            return image_processing_output
+
+        image_stack = Stack(
+            stack_before_unfold, #time_rank_unfold,
+            api_methods={("apply", custom_apply)}, scope="image-stack"
+        )
+
+        return image_stack
+
+    def apply(self, input_dict, internal_states=None):
+        # Split the input dict coming directly from the Env.
+        _, _, _, orig_previous_reward = self.call(self.splitter.split, input_dict)
+
+        folded_input = self.call(self.time_rank_fold_before_lstm.apply, input_dict)
+        image, text, previous_action, previous_reward = self.call(self.splitter.split, folded_input)
+
+        # Get the left-stack (image) and right-stack (text) output (see [1] for details).
+        #text_processing_output = self.call(self.text_processing_stack.apply, text)
+        image_processing_output = self.call(self.image_processing_stack.apply, image)
+
+        # Concat everything together.
+        concatenated_data = self.call(
+            self.concat_layer.apply,
+            image_processing_output, previous_action, previous_reward
+        )
+
+        unfolded_concatenated_data = self.call(self.time_rank_unfold_before_lstm.apply, concatenated_data, orig_previous_reward)
+
+        # Feed concat'd input into main LSTM(256).
+        main_lstm_output, main_lstm_final_c_and_h = self.call(
+            self.main_lstm.apply, unfolded_concatenated_data, internal_states
+        )
+
+        return main_lstm_output, main_lstm_final_c_and_h
