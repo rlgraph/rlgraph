@@ -37,6 +37,11 @@ class Transpose(PreprocessLayer):
 
         self.output_time_majors = dict()
 
+    def create_variables(self, input_spaces, action_space=None):
+        in_space = input_spaces["preprocessing_inputs"]  # type: Space
+        # Make sure output time_majors are stored.
+        self.get_preprocessed_space(in_space)
+
     def get_preprocessed_space(self, space):
         ret = dict()
         for key, single_space in space.flatten().items():
