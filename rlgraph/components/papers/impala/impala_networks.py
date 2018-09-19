@@ -24,6 +24,7 @@ from rlgraph.components.layers.nn.residual_layer import ResidualLayer
 from rlgraph.components.layers.nn.maxpool2d_layer import MaxPool2DLayer
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 from rlgraph.components.layers.nn.concat_layer import ConcatLayer
+from rlgraph.components.common.slice import Slice
 from rlgraph.components.layers.preprocessing.multiply_divide import Divide
 from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.layers.preprocessing.image_crop import ImageCrop
@@ -68,6 +69,8 @@ class IMPALANetwork(NeuralNetwork):
         # lookup is then passed through an LSTM(64).
         self.text_processing_stack = self.build_text_processing_stack()
 
+        self.debug_slicer = Slice(scope="internal-states-slicer", squeeze=True)
+
         #OBSOLETE: everything should come in time-major now.
         # The transposers to flip batch and time rank for the FIFO pulled previous actions and rewards.
         #self.transpose_previous_a = ReShape(flip_batch_and_time_rank=True, time_major=True,
@@ -86,8 +89,9 @@ class IMPALANetwork(NeuralNetwork):
         self.add_components(
             #self.transpose_previous_a, self.transpose_previous_r,
             self.splitter, self.image_processing_stack, self.text_processing_stack,
-            self.concat_layer, self.main_lstm, self.time_rank_fold_before_lstm, self.time_rank_unfold_before_lstm
+            self.concat_layer, self.main_lstm, self.time_rank_fold_before_lstm, self.time_rank_unfold_before_lstm,
             #self.time_rank_fold_after_lstm, self.time_rank_unfold_after_lstm
+            self.debug_slicer
         )
 
     @staticmethod
@@ -394,8 +398,10 @@ class SmallIMPALANetwork(IMPALANetwork):
         unfolded_concatenated_data = self.call(self.time_rank_unfold_before_lstm.apply, concatenated_data, orig_previous_reward)
 
         # Feed concat'd input into main LSTM(256).
-        main_lstm_output, main_lstm_final_c_and_h = self.call(
-            self.main_lstm.apply, unfolded_concatenated_data, internal_states
-        )
+        #main_lstm_output, main_lstm_final_c_and_h = self.call(
+        #    self.main_lstm.apply, unfolded_concatenated_data, internal_states
+        #)
 
-        return main_lstm_output, main_lstm_final_c_and_h
+        debug_last_internal_state = self.call(self.debug_slicer.slice, unfolded_concatenated_data, -1)
+
+        return unfolded_concatenated_data, debug_last_internal_state

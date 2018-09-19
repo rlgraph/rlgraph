@@ -51,7 +51,8 @@ class IMPALAAgent(Agent):
         Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
     """
 
-    default_internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False)
+    #default_internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False)
+    default_internal_states_space = Tuple(FloatBox(shape=(330,)), FloatBox(shape=(330,)), add_batch_rank=False)
 
     default_environment_spec = dict(
         type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
