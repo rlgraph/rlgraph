@@ -24,7 +24,7 @@ from rlgraph.utils.ops import flatten_op, unflatten_op
 if get_backend() == "tf":
     import tensorflow as tf
 elif get_backend() == "pytorch":
-   import torch
+    import torch
 
 
 class Transpose(PreprocessLayer):
