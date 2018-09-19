@@ -85,8 +85,8 @@ class IMPALANetwork(NeuralNetwork):
         self.add_components(
             #self.transpose_previous_a, self.transpose_previous_r,
             self.splitter, self.image_processing_stack, self.text_processing_stack,
-            self.concat_layer, self.main_lstm, self.time_rank_fold_before_lstm, self.time_rank_unfold_before_lstm,
-            self.time_rank_fold_after_lstm, self.time_rank_unfold_after_lstm
+            self.concat_layer, self.main_lstm, self.time_rank_fold_before_lstm, self.time_rank_unfold_before_lstm
+            #self.time_rank_fold_after_lstm, self.time_rank_unfold_after_lstm
         )
 
     @staticmethod
