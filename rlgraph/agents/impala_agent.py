@@ -308,7 +308,7 @@ class IMPALAAgent(Agent):
             sub_components = [
                 self.fifo_output_splitter, self.fifo_queue, self.queue_runner, self.transpose_actions,
                 self.transpose_rewards, self.transpose_terminals, self.transpose_action_probs, self.preprocessor,
-                self.staging_area, self.concat, self.policy, self.loss_function, self.optimizer
+                self.staging_area, self.concat, self.policy, self.loss_function, self.optimizer,
             ]
 
         elif self.type == "actor":
@@ -370,7 +370,7 @@ class IMPALAAgent(Agent):
                 device=dict(ops="/job:learner/task:0/cpu")
             )
 
-            self.staging_area = StagingArea(num_data=len(self.fifo_queue_keys))
+            #self.staging_area = StagingArea(num_data=len(self.fifo_queue_keys))
 
             # Create an IMPALALossFunction with some parameters.
             self.loss_function = IMPALALossFunction(
@@ -381,7 +381,8 @@ class IMPALAAgent(Agent):
             sub_components = [
                 self.fifo_output_splitter, self.fifo_queue, self.states_dict_splitter,
                 self.transpose_states, self.transpose_terminals, self.transpose_action_probs,
-                self.staging_area, self.preprocessor, self.policy,
+#               self.staging_area, self.preprocessor, self.policy,
+                self.preprocessor, self.policy,
                 self.loss_function, self.optimizer
             ]
 
@@ -549,7 +550,7 @@ class IMPALAAgent(Agent):
 
     def define_api_methods_learner(self, fifo_output_splitter, fifo_queue, states_dict_splitter,
                                    transpose_states, transpose_terminals, transpose_action_probs,
-                                   staging_area,
+                                   #staging_area,
                                    preprocessor, policy, loss_function, optimizer):
         """
         Defines the API-methods used by an IMPALA learner. Its job is basically: Pull a batch from the
@@ -586,9 +587,10 @@ class IMPALAAgent(Agent):
             # If we use a GPU: Put everything on staging area (adds 1 time step policy lag, but makes copying
             # data into GPU more efficient).
             if False and self.has_gpu:
-                stage_op = self_.call(staging_area.stage, states, terminals, action_probs_mu, initial_internal_states)
-                # Get data from stage again and continue.
-                states, terminals, action_probs_mu, initial_internal_states = self_.call(staging_area.unstage)
+                pass
+                # stage_op = self_.call(staging_area.stage, states, terminals, action_probs_mu, initial_internal_states)
+                # # Get data from stage again and continue.
+                # states, terminals, action_probs_mu, initial_internal_states = self_.call(staging_area.unstage)
             else:
                 # TODO: No-op component?
                 stage_op = None
