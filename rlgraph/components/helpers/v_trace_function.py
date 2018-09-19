@@ -57,19 +57,21 @@ class VTraceFunction(Component):
         self.define_api_method("calc_v_trace_values", self._graph_fn_calc_v_trace_values)
 
     def check_input_spaces(self, input_spaces, action_space=None):
-        log_is_weight_space, discounts_space, rewards_space, values_space, bootstrap_value_space = \
-            input_spaces["log_is_weights"], input_spaces["discounts"], input_spaces["rewards"], \
+        # TODO: Complete all input arg checks.
+        #log_is_weight_space = input_spaces["log_is_weights"]
+        discounts_space, rewards_space, values_space, bootstrap_value_space = \
+            input_spaces["discounts"], input_spaces["rewards"], \
             input_spaces["values"], input_spaces["bootstrapped_values"]
 
-        sanity_check_space(log_is_weight_space, must_have_batch_rank=True)
-        log_is_weight_rank = log_is_weight_space.rank
+        #sanity_check_space(log_is_weight_space, must_have_batch_rank=True)
+        #log_is_weight_rank = log_is_weight_space.rank
 
         # Sanity check our input Spaces for consistency (amongst each other).
-        sanity_check_space(values_space, rank=log_is_weight_rank, must_have_batch_rank=True, must_have_time_rank=True)
-        sanity_check_space(bootstrap_value_space, must_have_batch_rank=True, must_have_time_rank=True)
-        sanity_check_space(discounts_space, rank=log_is_weight_rank,
-                           must_have_batch_rank=True, must_have_time_rank=True)
-        sanity_check_space(rewards_space, rank=log_is_weight_rank, must_have_batch_rank=True, must_have_time_rank=True)
+        #sanity_check_space(values_space, rank=log_is_weight_rank, must_have_batch_rank=True, must_have_time_rank=True)
+        #sanity_check_space(bootstrap_value_space, must_have_batch_rank=True, must_have_time_rank=True)
+        #sanity_check_space(discounts_space, rank=log_is_weight_rank,
+        #                   must_have_batch_rank=True, must_have_time_rank=True)
+        #sanity_check_space(rewards_space, rank=log_is_weight_rank, must_have_batch_rank=True, must_have_time_rank=True)
 
     def _graph_fn_calc_v_trace_values(self, log_probs_actions_pi, log_probs_actions_mu, actions, discounts, rewards,
                                       values, bootstrapped_values):
