@@ -191,6 +191,33 @@ class IMPALANetwork(NeuralNetwork):
     #    )
 
     #    return main_lstm_output, main_lstm_final_c_and_h
+    def apply(self, input_dict, internal_states=None):
+        # Split the input dict coming directly from the Env.
+        _, _, _, orig_previous_reward = self.call(self.splitter.split, input_dict)
+
+        folded_input = self.call(self.time_rank_fold_before_lstm.apply, input_dict)
+        image, text, previous_action, previous_reward = self.call(self.splitter.split, folded_input)
+
+        # Get the left-stack (image) and right-stack (text) output (see [1] for details).
+        #text_processing_output = self.call(self.text_processing_stack.apply, text)
+        image_processing_output = self.call(self.image_processing_stack.apply, image)
+
+        # Concat everything together.
+        concatenated_data = self.call(
+            self.concat_layer.apply,
+            image_processing_output, previous_action, previous_reward
+        )
+
+        unfolded_concatenated_data = self.call(self.time_rank_unfold_before_lstm.apply, concatenated_data, orig_previous_reward)
+
+        # Feed concat'd input into main LSTM(256).
+        #main_lstm_output, main_lstm_final_c_and_h = self.call(
+        #    self.main_lstm.apply, unfolded_concatenated_data, internal_states
+        #)
+
+        debug_last_internal_state = self.call(self.debug_slicer.slice, unfolded_concatenated_data, -1)
+
+        return unfolded_concatenated_data, debug_last_internal_state
 
 
 class LargeIMPALANetwork(IMPALANetwork):
@@ -379,31 +406,3 @@ class SmallIMPALANetwork(IMPALANetwork):
         )
 
         return image_stack
-
-    def apply(self, input_dict, internal_states=None):
-        # Split the input dict coming directly from the Env.
-        _, _, _, orig_previous_reward = self.call(self.splitter.split, input_dict)
-
-        folded_input = self.call(self.time_rank_fold_before_lstm.apply, input_dict)
-        image, text, previous_action, previous_reward = self.call(self.splitter.split, folded_input)
-
-        # Get the left-stack (image) and right-stack (text) output (see [1] for details).
-        #text_processing_output = self.call(self.text_processing_stack.apply, text)
-        image_processing_output = self.call(self.image_processing_stack.apply, image)
-
-        # Concat everything together.
-        concatenated_data = self.call(
-            self.concat_layer.apply,
-            image_processing_output, previous_action, previous_reward
-        )
-
-        unfolded_concatenated_data = self.call(self.time_rank_unfold_before_lstm.apply, concatenated_data, orig_previous_reward)
-
-        # Feed concat'd input into main LSTM(256).
-        #main_lstm_output, main_lstm_final_c_and_h = self.call(
-        #    self.main_lstm.apply, unfolded_concatenated_data, internal_states
-        #)
-
-        debug_last_internal_state = self.call(self.debug_slicer.slice, unfolded_concatenated_data, -1)
-
-        return unfolded_concatenated_data, debug_last_internal_state
