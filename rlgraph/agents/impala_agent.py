@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import copy
 
+from rlgraph import get_backend
 from rlgraph.utils import RLGraphError
 from rlgraph.agents.agent import Agent
 from rlgraph.components.common.dict_merger import DictMerger
@@ -36,6 +37,9 @@ from rlgraph.components.memories.fifo_queue import FIFOQueue
 from rlgraph.components.memories.queue_runner import QueueRunner
 from rlgraph.spaces import FloatBox, Dict, Tuple
 from rlgraph.utils.util import default_dict
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class IMPALAAgent(Agent):
@@ -459,7 +463,7 @@ class IMPALAAgent(Agent):
 
             # If we use a GPU: Put everything on staging area (adds 1 time step policy lag, but makes copying
             # data into GPU more efficient).
-            if False and self.has_gpu:
+            if self.has_gpu:
                 stage_op = self_.call(staging_area.stage, preprocessed_s_all, actions, rewards, terminals,
                                       action_probs_mu, initial_internal_states)  # preprocessed_last_s_prime
                 # Get data from stage again and continue.
@@ -486,7 +490,8 @@ class IMPALAAgent(Agent):
                 policy_vars = self_.call(policy._variables)
 
             # Pass vars and loss values into optimizer.
-            step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
+            # step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
+            step_op = tf.no_op()
 
             # Return optimizer op and all loss values.
             # TODO: Make it possible to return None from API-method without messing with the meta-graph.
