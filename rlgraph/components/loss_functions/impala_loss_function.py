@@ -53,7 +53,7 @@ class IMPALALossFunction(LossFunction):
             weight_entropy (float): The coefficient used for the entropy regularization term (L[E]).
                 In the paper, values between 0.01 and 0.00005 are used via log-uniform search.
         """
-        super(IMPALALossFunction, self).__init__(scope=kwargs.pop("scope", "impala-loss-func"), **kwargs)
+        super(IMPALALossFunction, self).__init__(graph_fn_num_outputs=dict(_graph_fn_loss_per_item=2), scope=kwargs.pop("scope", "impala-loss-func"), **kwargs)
 
         self.discount = discount
         self.v_trace_function = VTraceFunction()
@@ -87,10 +87,11 @@ class IMPALALossFunction(LossFunction):
         Returns:
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
-        loss_per_item = self.call(self._graph_fn_loss_per_item, log_probs_actions_pi, action_probs_mu,
+        fake_step_op, loss_per_item = self.call(self._graph_fn_loss_per_item, log_probs_actions_pi, action_probs_mu,
                                   values, actions, rewards, terminals)  #, bootstrapped_values)
         total_loss = self.call(self._graph_fn_loss_average, loss_per_item)
-        return total_loss, loss_per_item
+        # TODO: REMOVE no_op again. Only for IMPALA testing w/o update step.
+        return fake_step_op, total_loss, loss_per_item
 
     def _graph_fn_loss_per_item(self, log_probs_actions_pi, action_probs_mu, values, actions,
                                 rewards, terminals):  #, bootstrapped_values):
@@ -117,7 +118,7 @@ class IMPALALossFunction(LossFunction):
         if get_backend() == "tf":
             values, bootstrapped_values = values[:-1], values[-1:]
 
-            return tf.ones_like(tf.squeeze(bootstrapped_values, axis=0))
+            return tf.no_op(), tf.ones_like(tf.squeeze(bootstrapped_values, axis=0))
 
             log_probs_actions_pi = log_probs_actions_pi[:-1]
             # Ignore very first actions/rewards (these are the previous ones only used as part of the state input
