@@ -61,7 +61,7 @@ class Transpose(PreprocessLayer):
         """
         if get_backend() == "tf":
             transposed = tf.transpose(
-                preprocessing_inputs, perm=(1, 0) + tuple(preprocessing_inputs.shape.as_list()[2:]), name="transpose"
+                preprocessing_inputs, perm=(1, 0) + tuple(i for i in range(2, len(preprocessing_inputs.shape.as_list()))), name="transpose"
             )
 
             transposed._batch_rank = 0 if self.output_time_majors[key] is False else 1
