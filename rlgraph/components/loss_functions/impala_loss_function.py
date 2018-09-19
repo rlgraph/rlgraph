@@ -138,12 +138,15 @@ class IMPALALossFunction(LossFunction):
             # (already multiplied by rho_t_pg): A = rho_t_pg * (rt + gamma*vt - V(t)).
             # Both vs and pg_advantages will block the gradient as they should be treated as constants by the gradient
             # calculator of this loss func.
-            vs, pg_advantages = self.call(
-                self.v_trace_function.calc_v_trace_values, log_probs_actions_pi, tf.log(action_probs_mu), actions,
-                discounts, rewards, values, bootstrapped_values
-            )
+            #vs, pg_advantages = self.call(
+            #    self.v_trace_function.calc_v_trace_values, log_probs_actions_pi, tf.log(action_probs_mu), actions,
+            #    discounts, rewards, values, bootstrapped_values
+            #)
             log_probs_actions_taken_pi = tf.reduce_sum(log_probs_actions_pi * actions, axis=-1, keepdims=True,
                                                        name="log-probs-actions-taken-pi")
+
+            vs = tf.ones_like(values)
+            pg_advantages = tf.ones_like(log_probs_actions_taken_pi)
 
             # Make sure vs and advantage values are treated as constants for the gradient calculation.
             #vs = tf.stop_gradient(vs)
