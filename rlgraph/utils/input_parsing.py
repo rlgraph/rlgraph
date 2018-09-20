@@ -114,8 +114,6 @@ def parse_execution_spec(execution_spec):
              - a key cluster_spec mapping to a ClusterSpec object,
              - a "job" for the job name,
              - an integer "task_index"
-             - a boolean "global_shared_memory" to indicate if data collection is shared globally
-               or workers collect and update locally. Defaults to true.
 
     Returns:
         dict: The sanitized execution_spec dict.
@@ -171,7 +169,6 @@ def parse_execution_spec(execution_spec):
                 ps=["localhost:22222"],
                 worker=["localhost:22223"]
             ),
-            global_shared_memory=True,
             protocol=None
         )
         execution_spec["distributed_spec"] = default_dict(execution_spec.get("distributed_spec"), default_distributed)
