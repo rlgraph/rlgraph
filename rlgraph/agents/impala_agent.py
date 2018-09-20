@@ -583,13 +583,6 @@ class IMPALAAgent(Agent):
             loss_function (IMPALALossFunction): The IMPALALossFunction Component.
             optimizer (Optimizer): The optimizer that we use to calculate an update and apply it.
         """
-        def dequeue_and_unstage(self_):
-            """
-            Pull n records from the queue.
-            Note that everything will come out as batch-major and must be transposed before the main-LSTM.
-            """
-
-
         def update_from_memory(self_):
             # Pull n records from the queue.
             # Note that everything will come out as batch-major and must be transposed before the main-LSTM.
