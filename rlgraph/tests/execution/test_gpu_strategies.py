@@ -18,13 +18,45 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
+import multiprocessing
 from rlgraph.utils import root_logger
 from logging import DEBUG
+import time
 
 from rlgraph.agents import ApexAgent
-from rlgraph.environments import OpenAIGymEnv
-from rlgraph.execution.ray import ApexExecutor
+from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
+from rlgraph.environments import OpenAIGymEnv, RandomEnv
+#from rlgraph.execution.ray import ApexExecutor
+from rlgraph.spaces import IntBox, FloatBox
+from rlgraph.tests.component_test import ComponentTest
 from rlgraph.tests.test_util import config_from_path
+
+
+def dummy_func(env_spec, cluster_spec):
+    lstm = LSTMLayer(units=50, time_major=True, device=dict(ops="/job:b/task:0/cpu", variables="/job:a/task:0/cpu"))
+    env = RandomEnv.from_spec(env_spec)
+    test = ComponentTest(
+        lstm,
+        input_spaces=dict(inputs=env.state_space),
+        action_space=env.action_space,
+        execution_spec=dict(
+            mode="distributed",
+            gpu_spec=dict(
+                gpus_enabled=True,
+                max_usable_gpus=1,
+                num_gpus=1
+            ),
+            distributed_spec=dict(job="b", task_index=0, cluster_spec=cluster_spec),
+            session_config=dict(
+                type="monitored-training-session",
+                allow_soft_placement=True,
+                log_device_placement=True
+            ),
+            enable_timeline=True,
+        )
+    )
+    print("generated env and lstm with shared variables: sleeping")
+    time.sleep(120)
 
 
 class TestGpuStrategies(unittest.TestCase):
@@ -40,6 +72,7 @@ class TestGpuStrategies(unittest.TestCase):
         max_num_noops=30,
         episodic_life=True
     )
+    cluster_spec = dict(a=["localhost:22222"], b=["localhost:22223"])
 
     def test_multi_gpu_agent_compilation(self):
         """
@@ -72,6 +105,42 @@ class TestGpuStrategies(unittest.TestCase):
             num_timesteps=100000, report_interval=10000, report_interval_min_seconds=10)
         )
 
+    def test_gpu_forward_pass_through_lstm_with_shared_variables(self):
+        """
+        Tests a forward pass through an LSTM on the GPU using distributed setup and shared variables on the CPU.
+        """
+        env_spec = dict(type="random", state_space=FloatBox(shape=(100,)), action_space=IntBox(9))
+        dummy_process = multiprocessing.Process(target=dummy_func, args=[env_spec, self.cluster_spec])
+        dummy_process.start()
+
+        lstm = LSTMLayer(units=50, time_major=True, device=dict(ops="/job:a/task:0/gpu", variables="/job:a/task:0/cpu"))
+        env = RandomEnv.from_spec(env_spec)
+        test = ComponentTest(
+            lstm,
+            input_spaces=dict(inputs=env.state_space),
+            action_space=env.action_space,
+            execution_spec=dict(
+                mode="distributed",
+                gpu_spec=dict(
+                    gpus_enabled=True,
+                    max_usable_gpus=1,
+                    num_gpus=1
+                ),
+                distributed_spec=dict(job="a", task_index=0, cluster_spec=self.cluster_spec),
+                session_config=dict(
+                    type="monitored-training-session",
+                    allow_soft_placement=True,
+                    log_device_placement=True
+                ),
+                enable_timeline=True,
+            )
+        )
+        # Pass same sample n times through the LSTM.
+        sample = env.state_space.with_extra_ranks(add_time_rank=True, add_batch_rank=True).sample(size=(100, 200))
+        for _ in range(10):
+            test.test("apply", sample, expected_outputs=None)
+
+        dummy_process.join()
 
     # TODO (Bart maybe): We should probably have some tests that simply test the update call
     # This is just slightly annoying because we have to assemble a preprocessed batch manually
