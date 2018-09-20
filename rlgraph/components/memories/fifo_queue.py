@@ -114,13 +114,13 @@ class FIFOQueue(Memory):
         flat_record_space = self.record_space.flatten()
         for flat_key, op in record_dict.items():
             if flat_record_space[flat_key].has_time_rank:
-                op = tf.placeholder_with_default(op, shape=(None, None) + get_shape(op)[2:])
+                #op = tf.placeholder_with_default(op, shape=(None, None) + get_shape(op)[2:])
                 op._batch_rank = 0
                 op._time_rank = 1
                 flattened_records[flat_key] = op
             else:
                 op._batch_rank = 0
-                flattened_records[flat_key] = tf.placeholder_with_default(op, shape=(None,) + get_shape(op)[1:])
+                flattened_records[flat_key] = op  #tf.placeholder_with_default(op, shape=(None,) + get_shape(op)[1:])
         return flattened_records
 
     def _graph_fn_get_size(self):
