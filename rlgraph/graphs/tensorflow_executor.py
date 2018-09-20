@@ -444,20 +444,18 @@ class TensorFlowExecutor(GraphExecutor):
         Args:
             hooks (list): List of hooks to use for Saver and Summarizer in Session. Should be appended to.
         """
-        # Create our tf summary writer object.
-        self.summary_writer = tf.summary.FileWriter(
-            logdir=self.summary_spec["directory"],
-            graph=self.graph,
-            max_queue=10,
-            flush_secs=120,
-            filename_suffix=None
-        )
-
         # Creates a single summary op to be used by the session to write the summary files.
         summary_list = list(self.graph_builder.root_component.summaries.values())
         if len(summary_list) > 0:
+            # Create our tf summary writer object.
+            self.summary_writer = tf.summary.FileWriter(
+                logdir=self.summary_spec["directory"],
+                graph=self.graph,
+                max_queue=10,
+                flush_secs=120,
+                filename_suffix=None
+            )
             self.summary_op = tf.summary.merge(inputs=summary_list)
-
             # Create an update saver hook for our summaries.
             summary_saver_hook = tf.train.SummarySaverHook(
                 save_steps=self.summary_spec["save_steps"],  # Either one or the other has to be set.
