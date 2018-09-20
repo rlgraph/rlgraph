@@ -33,11 +33,12 @@ from rlgraph.tests.test_util import config_from_path
 
 
 def dummy_func(env_spec, cluster_spec):
-    lstm = LSTMLayer(units=50, time_major=True, device=dict(ops="/job:b/task:0/cpu", variables="/job:a/task:0/cpu"))
     env = RandomEnv.from_spec(env_spec)
+    state_space = env.state_space.with_extra_ranks(add_time_rank=True, add_batch_rank=True)
+    lstm = LSTMLayer(units=50, time_major=True, device=dict(ops="/job:b/task:0/cpu", variables="/job:a/task:0/cpu"))
     test = ComponentTest(
         lstm,
-        input_spaces=dict(inputs=env.state_space),
+        input_spaces=dict(inputs=state_space),
         action_space=env.action_space,
         execution_spec=dict(
             mode="distributed",
@@ -113,11 +114,13 @@ class TestGpuStrategies(unittest.TestCase):
         dummy_process = multiprocessing.Process(target=dummy_func, args=[env_spec, self.cluster_spec])
         dummy_process.start()
 
-        lstm = LSTMLayer(units=50, time_major=True, device=dict(ops="/job:a/task:0/gpu", variables="/job:a/task:0/cpu"))
         env = RandomEnv.from_spec(env_spec)
+        state_space = env.state_space.with_extra_ranks(add_time_rank=True, add_batch_rank=True)
+
+        lstm = LSTMLayer(units=50, time_major=True, device=dict(ops="/job:a/task:0/gpu", variables="/job:a/task:0/cpu"))
         test = ComponentTest(
             lstm,
-            input_spaces=dict(inputs=env.state_space),
+            input_spaces=dict(inputs=state_space),
             action_space=env.action_space,
             execution_spec=dict(
                 mode="distributed",
@@ -136,7 +139,7 @@ class TestGpuStrategies(unittest.TestCase):
             )
         )
         # Pass same sample n times through the LSTM.
-        sample = env.state_space.with_extra_ranks(add_time_rank=True, add_batch_rank=True).sample(size=(100, 200))
+        sample = state_space.sample()
         for _ in range(10):
             test.test("apply", sample, expected_outputs=None)
 
