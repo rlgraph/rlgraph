@@ -239,7 +239,7 @@ class GraphBuilder(Specifiable):
         Returns:
             DataOp: The generated placeholder(s) as a DataOp (e.g. DataOpTuple, SingleDataOp, etc..).
         """
-        device = self.get_device(component, variables=True)
+        device = self.get_device(component)  #, variables=True)
         placeholder = None
         if get_backend() == "tf":
             with tf.device(device):
