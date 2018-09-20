@@ -406,9 +406,8 @@ class IMPALAAgent(Agent):
                 self.graph_executor.monitored_session.run_step_fn(
                     lambda step_context: step_context.session.run(self.stage_op)
                 )
-                size = self.graph_executor.monitored_session.run_step_fn(
-                    lambda step_context: step_context.session.run(self.staging_area.area.size())
-                )
+                self.size_op = self.staging_area.area.size()
+                size = self.graph_executor.monitored_session.run(fetches=[self.size_op])
                 print("Staging area has size {} after init.".format(size))
 
     def define_api_methods(self, *sub_components):
