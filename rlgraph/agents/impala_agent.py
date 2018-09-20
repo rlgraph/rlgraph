@@ -417,9 +417,9 @@ class IMPALAAgent(Agent):
                 # print("Staging area has size {} after init.".format(size))
 
                 # Debug ops
-                self.dequeue_op = self.root_component.sub_components["fifo_queue"].api_methods["get_records"]. \
+                self.dequeue_op = self.root_component.sub_components["fifo-queue"].api_methods["get_records"]. \
                     out_op_columns[0].op_records[0].op
-                self.size_op = self.root_component.sub_components["fifo_queue"].api_methods["get_size"]. \
+                self.size_op = self.root_component.sub_components["fifo-queue"].api_methods["get_size"]. \
                     out_op_columns[0].op_records[0].op
             if self.type == "actor":
                 self.enqueue_op = self.root_component.sub_components["fifo-queue"].api_methods["insert_records"]. \
