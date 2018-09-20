@@ -401,9 +401,9 @@ class IMPALAAgent(Agent):
                 self.graph_executor.monitored_session.run_step_fn(
                     lambda step_context: step_context.session.run(self.stage_op)
                 )
-                self.size_op = self.staging_area.area.size()
-                size = self.graph_executor.monitored_session.run(fetches=[self.size_op])
-                print("Staging area has size {} after init.".format(size))
+                # self.size_op = self.staging_area.area.size()
+                # size = self.graph_executor.monitored_session.run(fetches=[self.size_op])
+                # print("Staging area has size {} after init.".format(size))
             if self.type == "actor":
                 self.enqueue_op = self.root_component.sub_components["fifo-queue"].api_methods["insert_records"]. \
                     out_op_columns[0].op_records[0].op
