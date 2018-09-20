@@ -92,12 +92,14 @@ class FIFOQueue(Memory):
             )
 
     def _graph_fn_insert_records(self, records):
+        flattened_records = flatten_op(records)
+        flattened_stopped_records = {key: tf.stop_gradient(op) for key, op in records.items()}
         # Records is just one record.
         if self.only_insert_single_records is True:
-            return self.queue.enqueue(flatten_op(records))
+            return self.queue.enqueue(flattened_stopped_records)
         # Insert many records (with batch rank).
         else:
-            return self.queue.enqueue_many(flatten_op(records))
+            return self.queue.enqueue_many(flattened_stopped_records)
 
     #def _graph_fn_insert_dummy_records(self):
     #    records = self.record_space.sample(size=(10, 20))
