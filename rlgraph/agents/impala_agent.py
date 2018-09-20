@@ -542,7 +542,7 @@ class IMPALAAgent(Agent):
                 self_.call(env_output_splitter.split, step_results)
 
             initial_internal_states = self_.call(internal_states_slicer.slice, internal_states, 0)
-            current_internal_states = self_.call(internal_states_slicer.slice, internal_states, -1)
+            #current_internal_states = self_.call(internal_states_slicer.slice, internal_states, -1)
 
             record = self_.call(
                 merger.merge, terminals, states, action_log_probs, initial_internal_states
@@ -551,9 +551,9 @@ class IMPALAAgent(Agent):
             # Insert results into the FIFOQueue.
             insert_op = self_.call(fifo_queue.insert_records, record)
 
-            _, _, _, rewards = self_.call(states_dict_splitter.split, states)
+            #_, _, _, rewards = self_.call(states_dict_splitter.split, states)
 
-            return insert_op, current_internal_states, rewards, terminals
+            return insert_op, terminals
 
         self.root_component.define_api_method(
             "perform_n_steps_and_insert_into_fifo", perform_n_steps_and_insert_into_fifo
