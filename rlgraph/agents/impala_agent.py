@@ -401,6 +401,9 @@ class IMPALAAgent(Agent):
                 self.graph_executor.monitored_session.run_step_fn(
                     lambda step_context: step_context.session.run(self.stage_op)
                 )
+                self.size_op = self.staging_area.area.size()
+                size = self.graph_executor.monitored_session.run(fetches=[self.size_op])
+                print("Staging area has size {} after init.".format(size))
 
     def define_api_methods(self, *sub_components):
         # TODO: Unify agents with/w/o synchronizable policy.
@@ -560,6 +563,13 @@ class IMPALAAgent(Agent):
             loss_function (IMPALALossFunction): The IMPALALossFunction Component.
             optimizer (Optimizer): The optimizer that we use to calculate an update and apply it.
         """
+        def dequeue_and_unstage(self_):
+            """
+            Pull n records from the queue.
+            Note that everything will come out as batch-major and must be transposed before the main-LSTM.
+            """
+
+
         def update_from_memory(self_):
             # Pull n records from the queue.
             # Note that everything will come out as batch-major and must be transposed before the main-LSTM.
