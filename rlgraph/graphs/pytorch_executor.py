@@ -54,7 +54,7 @@ class PyTorchExecutor(GraphExecutor):
         # Squeeze result dims, often necessary in tests.
         self.remove_batch_dims = True
 
-    def build(self, root_components, input_spaces, *args):
+    def build(self, root_components, input_spaces, **kwargs):
         start = time.perf_counter()
         self.init_execution()
 

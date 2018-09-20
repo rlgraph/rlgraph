@@ -224,11 +224,11 @@ class Agent(Specifiable):
 
         self.root_component.define_api_method("preprocess_states", preprocess_states)
 
-    def _build_graph(self, root_components, input_spaces, *args):
+    def _build_graph(self, root_components, input_spaces, **kwargs):
         """
         Builds the internal graph from the RLGraph meta-graph via the graph executor..
         """
-        return self.graph_executor.build(root_components, input_spaces, *args)
+        return self.graph_executor.build(root_components, input_spaces, **kwargs)
 
     def build(self):
         """

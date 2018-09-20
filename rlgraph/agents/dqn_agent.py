@@ -118,7 +118,8 @@ class DQNAgent(Agent):
         # markup = get_graph_markup(self.graph_builder.root_component)
         # print(markup)
         if self.auto_build:
-            self._build_graph([self.root_component], self.input_spaces, self.optimizer, self.loss_function.name)
+            self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
+                              loss_name=self.loss_function.name)
             self.graph_built = True
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):

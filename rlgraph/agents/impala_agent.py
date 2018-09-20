@@ -374,6 +374,12 @@ class IMPALAAgent(Agent):
                 weight_entropy=weight_entropy
             )
 
+            self.staging_area.device = "/gpu"
+            self.preprocessor.device = "/gpu"
+            self.policy.device = dict(ops="/gpu")
+            self.loss_function.device = "/gpu"
+            self.optimizer.device = "/gpu"
+
             sub_components = [
                 self.fifo_output_splitter, self.fifo_queue, self.states_dict_splitter,
                 self.transpose_states, self.transpose_terminals, self.transpose_action_probs,
@@ -390,7 +396,12 @@ class IMPALAAgent(Agent):
         # markup = get_graph_markup(self.graph_builder.root_component)
         # print(markup)
         if self.auto_build:
-            self._build_graph([self.root_component], self.input_spaces, self.optimizer)
+            if self.type == "learner":
+                self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
+                                  is_impala_learner=True)
+            else:
+                self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer)
+
             self.graph_built = True
 
             if self.has_gpu:
@@ -651,4 +662,6 @@ class IMPALAAgent(Agent):
 
     def __repr__(self):
         return "IMPALAAgent(type={})".format(self.type)
+
+
 
