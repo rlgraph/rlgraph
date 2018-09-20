@@ -51,8 +51,8 @@ class IMPALAAgent(Agent):
         Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
     """
 
-    #default_internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False)
-    default_internal_states_space = Tuple(FloatBox(shape=(266,)), FloatBox(shape=(266,)), add_batch_rank=False)
+    default_internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False)
+    #default_internal_states_space = Tuple(FloatBox(shape=(266,)), FloatBox(shape=(266,)), add_batch_rank=False)
 
     default_environment_spec = dict(
         type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
@@ -207,8 +207,7 @@ class IMPALAAgent(Agent):
                 "initial_internal_states": self.internal_states_space
             }, add_batch_rank=False, add_time_rank=(self.worker_sample_size + 1)
         )
-        # Take away again time-rank from initial-states and last-next-state (these come in only for one time-step)
-        #self.fifo_record_space["last_next_states"] = self.fifo_record_space["last_next_states"].with_time_rank(1)
+        # Take away again time-rank from initial-states (comes in only for one time-step).
         self.fifo_record_space["initial_internal_states"] = \
             self.fifo_record_space["initial_internal_states"].with_time_rank(False)
         # Create our FIFOQueue (actors will enqueue, learner(s) will dequeue).
@@ -231,13 +230,12 @@ class IMPALAAgent(Agent):
             self.env_output_splitter = ContainerSplitter(tuple_length=8, scope="env-output-splitter")
             self.fifo_output_splitter = ContainerSplitter(*self.fifo_queue_keys, scope="fifo-output-splitter")
 
-            ## OBSOLETE: Note: `-1` because we already concat preprocessed last-next-state to the other preprocessed-states.
-            ## (this saves one run through the NN).
             self.staging_area = StagingArea(num_data=len(self.fifo_queue_keys))
 
             # Slice some data from the EnvStepper (e.g only first internal states are needed).
             self.internal_states_slicer = Slice(scope="internal-states-slicer", squeeze=True)
 
+            # TODO: add state transposer, remove action/rewards transposer (part of state).
             self.transpose_actions = ReShape(flip_batch_and_time_rank=True, time_major=True,
                                              scope="transpose-a", flatten_categories=False)
             self.transpose_rewards = ReShape(flip_batch_and_time_rank=True, time_major=True,
@@ -356,17 +354,14 @@ class IMPALAAgent(Agent):
             self.internal_states_slicer = None
 
             self.transpose_states = Transpose(
-                #flip_batch_and_time_rank=True, time_major=True,
                 scope="transpose-states",
                 device=dict(ops="/job:learner/task:0/cpu")
             )
             self.transpose_terminals = Transpose(
-                #flip_batch_and_time_rank=True, time_major=True,
                 scope="transpose-terminals",
                 device=dict(ops="/job:learner/task:0/cpu")
             )
             self.transpose_action_probs = Transpose(
-                #flip_batch_and_time_rank=True, time_major=True,
                 scope="transpose-a-probs-mu",
                 device=dict(ops="/job:learner/task:0/cpu")
             )
