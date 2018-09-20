@@ -374,11 +374,11 @@ class IMPALAAgent(Agent):
                 weight_entropy=weight_entropy
             )
 
-            self.staging_area.device = "/gpu"
-            self.preprocessor.device = "/gpu"
-            self.policy.device = dict(ops="/gpu")
-            self.loss_function.device = "/gpu"
-            self.optimizer.device = "/gpu"
+            self.staging_area.device = "/job:learner/task:0/gpu"
+            self.preprocessor.device = "/job:learner/task:0/gpu"
+            self.policy.device = dict(ops="/job:learner/task:0/gpu")
+            self.loss_function.device = "/job:learner/task:0/gpu"
+            self.optimizer.device = "/job:learner/task:0/gpu"
 
             sub_components = [
                 self.fifo_output_splitter, self.fifo_queue, self.states_dict_splitter,
