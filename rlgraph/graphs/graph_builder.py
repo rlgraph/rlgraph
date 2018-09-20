@@ -636,7 +636,7 @@ class GraphBuilder(Specifiable):
             return_ops = None
             if isinstance(api_method, (list, tuple)):
                 params = force_list(api_method[1])
-                return_ops = force_list(api_method[2]) if len(api_method) > 2 else None
+                return_ops = force_list(api_method[2]) if len(api_method) > 2 and api_method[2] is not None else None
                 api_method = api_method[0]
 
             if api_method not in self.api:

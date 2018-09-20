@@ -382,7 +382,7 @@ class Agent(Specifiable):
         """
         self.graph_executor.terminate()
 
-    def call_api_method(self, op, inputs=None):
+    def call_api_method(self, op, inputs=None, return_ops=None):
         """
         Utility method to call any desired api method on the graph, identified via output socket.
         Delegate this call to the RLGraph graph executor.
@@ -394,7 +394,7 @@ class Agent(Specifiable):
         Returns:
             any: Result of the op call.
         """
-        return self.graph_executor.execute((op, inputs))
+        return self.graph_executor.execute((op, inputs, return_ops))
 
     def preprocess_states(self, states):
         """
