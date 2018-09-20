@@ -93,7 +93,7 @@ class FIFOQueue(Memory):
 
     def _graph_fn_insert_records(self, records):
         flattened_records = flatten_op(records)
-        flattened_stopped_records = {key: tf.stop_gradient(op) for key, op in records.items()}
+        flattened_stopped_records = {key: tf.stop_gradient(op) for key, op in flattened_records.items()}
         # Records is just one record.
         if self.only_insert_single_records is True:
             return self.queue.enqueue(flattened_stopped_records)
