@@ -22,7 +22,6 @@ import time
 
 from rlgraph import get_backend, get_distributed_backend
 import rlgraph.utils as util
-from rlgraph.utils.tf_util import pin_global_variables
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.graphs.graph_executor import GraphExecutor
 
@@ -166,7 +165,7 @@ class TensorFlowExecutor(GraphExecutor):
         else:
             raise RLGraphError("Invalid device_strategy ('{}') for TensorFlowExecutor!".format(self.device_strategy))
 
-    def build(self, root_components, input_spaces, optimizer=None, loss_name=None, is_impala_learner=False):
+    def build(self, root_components, input_spaces, optimizer=None, loss_name=None, build_options=None):
         # Use perf_counter for short tasks.
         start = time.perf_counter()
         # 0. Init phase: Component construction and nesting (child/parent Components).
@@ -187,26 +186,14 @@ class TensorFlowExecutor(GraphExecutor):
             meta_graph = self.meta_graph_builder.build(component, input_spaces)
             meta_build_times.append(time.perf_counter() - start)
 
-            # TODO build spec in graph build.
-            if is_impala_learner:
-                with tf.device("/job:learner/task:0/cpu"), \
-                     pin_global_variables("/job:learner/task:0/cpu"):
-                    # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
-                    # -> Inputs/Operations/variables
-                    build_time = self.graph_builder.build_graph(
-                        meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices,
-                        device_strategy=self.device_strategy, default_device=self.default_device, device_map=self.device_map
-                    )
-            else:
-                # Use default device to be safe.
-                with tf.device(self.default_device):
-                    # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
-                    # -> Inputs/Operations/variables
-                    build_time = self.graph_builder.build_graph(
-                        meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices,
-                        device_strategy=self.device_strategy, default_device=self.default_device,
-                        device_map=self.device_map
-                    )
+            # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
+            # -> Inputs/Operations/variables
+            build_time = self.graph_builder.build_graph_with_options(
+                meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices,
+                device_strategy=self.device_strategy, default_device=self.default_device, device_map=self.device_map,
+                build_options=build_options
+            )
+
             # Build time is a dict containing the cost of different parts of the build.
             build_times.append(build_time)
 
