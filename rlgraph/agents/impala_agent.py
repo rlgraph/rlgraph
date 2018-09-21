@@ -145,7 +145,7 @@ class IMPALAAgent(Agent):
                 log_device_placement=False,
                 device_filters=["/job:learner/task:0"] + (
                     ["/job:actor/task:{}".format(execution_spec["distributed_spec"]["task_index"])] if
-                    self.type == "actor" else []
+                    self.type == "actor" else ["/job:learner/task:0"]
                 )
             )
             # If Actor, make non-chief in either case (even if task idx == 0).
