@@ -87,11 +87,13 @@ class IMPALALossFunction(LossFunction):
         Returns:
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
-        fake_step_op, loss_per_item = self.call(self._graph_fn_loss_per_item, log_probs_actions_pi, action_probs_mu,
+        #fake_step_op,
+        loss_per_item = self.call(self._graph_fn_loss_per_item, log_probs_actions_pi, action_probs_mu,
                                   values, actions, rewards, terminals)  #, bootstrapped_values)
         total_loss = self.call(self._graph_fn_loss_average, loss_per_item)
         # TODO: REMOVE no_op again. Only for IMPALA testing w/o update step.
-        return fake_step_op, total_loss, loss_per_item
+        # fake_step_op,
+        return total_loss, loss_per_item
 
     def _graph_fn_loss_per_item(self, log_probs_actions_pi, action_probs_mu, values, actions,
                                 rewards, terminals):  #, bootstrapped_values):
@@ -118,7 +120,7 @@ class IMPALALossFunction(LossFunction):
         if get_backend() == "tf":
             values, bootstrapped_values = values[:-1], values[-1:]
 
-            return tf.no_op(), tf.ones_like(tf.squeeze(bootstrapped_values, axis=0))
+            #return tf.no_op(), tf.ones_like(tf.squeeze(bootstrapped_values, axis=0))
 
             log_probs_actions_pi = log_probs_actions_pi[:-1]
             # Ignore very first actions/rewards (these are the previous ones only used as part of the state input
@@ -142,15 +144,15 @@ class IMPALALossFunction(LossFunction):
             # (already multiplied by rho_t_pg): A = rho_t_pg * (rt + gamma*vt - V(t)).
             # Both vs and pg_advantages will block the gradient as they should be treated as constants by the gradient
             # calculator of this loss func.
-            #vs, pg_advantages = self.call(
-            #    self.v_trace_function.calc_v_trace_values, log_probs_actions_pi, tf.log(action_probs_mu), actions,
-            #    discounts, rewards, values, bootstrapped_values
-            #)
+            vs, pg_advantages = self.call(
+                self.v_trace_function.calc_v_trace_values, log_probs_actions_pi, tf.log(action_probs_mu), actions,
+                discounts, rewards, values, bootstrapped_values
+            )
             log_probs_actions_taken_pi = tf.reduce_sum(log_probs_actions_pi * actions, axis=-1, keepdims=True,
                                                        name="log-probs-actions-taken-pi")
 
-            vs = tf.ones_like(values)
-            pg_advantages = tf.ones_like(log_probs_actions_taken_pi)
+            #vs = tf.ones_like(values)
+            #pg_advantages = tf.ones_like(log_probs_actions_taken_pi)
 
             # Make sure vs and advantage values are treated as constants for the gradient calculation.
             #vs = tf.stop_gradient(vs)

@@ -317,7 +317,7 @@ class IMPALAAgent(Agent):
             self.env_output_splitter = ContainerSplitter(tuple_length=4, scope="env-output-splitter")
 
             self.states_dict_splitter = ContainerSplitter("RGB_INTERLEAVED", "INSTR", "previous_action", "previous_reward",
-                                                     scope="states-dict-splitter")
+                                                          scope="states-dict-splitter")
 
             # Slice some data from the EnvStepper (e.g only first internal states are needed).
             self.internal_states_slicer = Slice(scope="internal-states-slicer", squeeze=True)
@@ -624,14 +624,15 @@ class IMPALAAgent(Agent):
             _, _, actions, rewards = self_.call(states_dict_splitter.split, states)
 
             # Calculate the loss.
-            step_op, loss, loss_per_item = self_.call(
+            # step_op,\  <- DEBUG: fake step op
+            loss, loss_per_item = self_.call(
                  loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
                  terminals
             )
-            #policy_vars = self_.call(policy._variables)
+            policy_vars = self_.call(policy._variables)
 
             # Pass vars and loss values into optimizer.
-            # step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
+            step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
 
             # Return optimizer op and all loss values.
             # TODO: Make it possible to return None from API-method without messing with the meta-graph.
