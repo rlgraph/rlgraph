@@ -374,11 +374,11 @@ class IMPALAAgent(Agent):
                 weight_entropy=weight_entropy
             )
 
-            self.staging_area.device = "/job:learner/task:0/gpu"
-            self.preprocessor.device = "/job:learner/task:0/gpu"
-            self.policy.device = dict(ops="/job:learner/task:0/gpu")
-            self.loss_function.device = "/job:learner/task:0/gpu"
-            self.optimizer.device = "/job:learner/task:0/gpu"
+            self.staging_area.device = "/gpu"
+            self.preprocessor.device = "/gpu"
+            self.policy.device = dict(ops="/gpu")
+            self.loss_function.device = "/gpu"
+            self.optimizer.device = "/gpu"
 
             sub_components = [
                 self.fifo_output_splitter, self.fifo_queue, self.states_dict_splitter,
@@ -510,7 +510,6 @@ class IMPALAAgent(Agent):
 
             # Pass vars and loss values into optimizer.
             step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
-
 
             # Return optimizer op and all loss values.
             # TODO: Make it possible to return None from API-method without messing with the meta-graph.

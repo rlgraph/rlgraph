@@ -392,7 +392,6 @@ class EnvironmentStepper(Component):
                     internal_states_wo_batch.append(tf.squeeze(full_results[-1][i], axis=1))
                 full_results[slot] = DataOpTuple(internal_states_wo_batch)
 
-            # TODO set parallel scans 10 -> 1, check if this removes need for sync.
             with tf.control_dependencies(control_inputs=assigns):
                 # Let the auto-infer system know, what time rank we have.
                 full_results = DataOpTuple(full_results)
