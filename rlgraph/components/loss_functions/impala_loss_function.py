@@ -53,7 +53,8 @@ class IMPALALossFunction(LossFunction):
             weight_entropy (float): The coefficient used for the entropy regularization term (L[E]).
                 In the paper, values between 0.01 and 0.00005 are used via log-uniform search.
         """
-        super(IMPALALossFunction, self).__init__(graph_fn_num_outputs=dict(_graph_fn_loss_per_item=2), scope=kwargs.pop("scope", "impala-loss-func"), **kwargs)
+        # graph_fn_num_outputs=dict(_graph_fn_loss_per_item=2) <- debug
+        super(IMPALALossFunction, self).__init__(scope=kwargs.pop("scope", "impala-loss-func"), **kwargs)
 
         self.discount = discount
         self.v_trace_function = VTraceFunction()
