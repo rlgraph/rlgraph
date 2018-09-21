@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import os.path
 
+from rlgraph import get_backend
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.components.optimizers.optimizer import Optimizer
 from rlgraph.components.optimizers.multi_gpu_sync_optimizer import MultiGpuSyncOptimizer
@@ -120,68 +121,93 @@ def parse_execution_spec(execution_spec):
     """
     # TODO these are tensorflow specific
     # If no spec given.
-    default_spec = dict(
-        mode="single",
-        distributed_spec=None,
-        # Using a monitored session enabling summaries and hooks per default.
-        disable_monitoring=False,
-        # Gpu settings.
-        gpu_spec=dict(
-            # Are GPUs allowed to be used if they are detected?
-            gpus_enabled=False,
-            # If yes, how many GPUs are to be used?
-            max_usable_gpus=0,
-            # Specify specific CUDA devices to be used, e.g. gpu 0 and 2 = [0, 2].
-            # If None, we use CUDA devices [0, max_usable_gpus - 1]
-            enable_cuda_devices=None,
-            # Fraction of the overall amount of memory that each visible GPU should be allocated.
-            per_process_gpu_memory_fraction=None,
-            # If True, not all memory will be allocated which is relevant on shared resources.
-            allow_memory_growth=False
-        ),
-        # Device placement settings.
-        device_strategy="default",
-        default_device=None,
-        device_map={},
-
-        session_config=None,
-        # Random seed for the tf graph.
-        seed=None,
-        # Enabling the tf profiler?
-        enable_profiler=False,
-        # With which frequency do we print out profiler information?
-        profiler_frequency=1000,
-        # Enabling a timeline write?
-        enable_timeline=False,
-        # With which frequency do we write out a timeline file?
-        timeline_frequency=1,
-    )
-    execution_spec = default_dict(execution_spec, default_spec)
-
-    # Sub specifications:
-
-    # Distributed specifications.
-    if execution_spec.get("mode") == "distributed":
-        default_distributed = dict(
-            job="ps",
-            task_index=0,
-            cluster_spec=dict(
-                ps=["localhost:22222"],
-                worker=["localhost:22223"]
+    if get_backend() == "tf":
+        default_spec = dict(
+            mode="single",
+            distributed_spec=None,
+            # Using a monitored session enabling summaries and hooks per default.
+            disable_monitoring=False,
+            # Gpu settings.
+            gpu_spec=dict(
+                # Are GPUs allowed to be used if they are detected?
+                gpus_enabled=False,
+                # If yes, how many GPUs are to be used?
+                max_usable_gpus=0,
+                # Specify specific CUDA devices to be used, e.g. gpu 0 and 2 = [0, 2].
+                # If None, we use CUDA devices [0, max_usable_gpus - 1]
+                enable_cuda_devices=None,
+                # Fraction of the overall amount of memory that each visible GPU should be allocated.
+                per_process_gpu_memory_fraction=None,
+                # If True, not all memory will be allocated which is relevant on shared resources.
+                allow_memory_growth=False
             ),
-            protocol=None
+            # Device placement settings.
+            device_strategy="default",
+            default_device=None,
+            device_map={},
+
+            session_config=None,
+            # Random seed for the tf graph.
+            seed=None,
+            # Enabling the tf profiler?
+            enable_profiler=False,
+            # With which frequency do we print out profiler information?
+            profiler_frequency=1000,
+            # Enabling a timeline write?
+            enable_timeline=False,
+            # With which frequency do we write out a timeline file?
+            timeline_frequency=1,
         )
-        execution_spec["distributed_spec"] = default_dict(execution_spec.get("distributed_spec"), default_distributed)
+        execution_spec = default_dict(execution_spec, default_spec)
 
-    # Session config.
-    default_session_config = dict(
-        type="monitored-training-session",
-        allow_soft_placement=True,
-        log_device_placement=False
-    )
-    execution_spec["session_config"] = default_dict(execution_spec.get("session_config"), default_session_config)
+        # Sub specifications:
 
-    # TODO add default worker spec for ray worker?
+        # Distributed specifications.
+        if execution_spec.get("mode") == "distributed":
+            default_distributed = dict(
+                job="ps",
+                task_index=0,
+                cluster_spec=dict(
+                    ps=["localhost:22222"],
+                    worker=["localhost:22223"]
+                ),
+                protocol=None
+            )
+            execution_spec["distributed_spec"] = default_dict(execution_spec.get("distributed_spec"), default_distributed)
+
+        # Session config.
+        default_session_config = dict(
+            type="monitored-training-session",
+            allow_soft_placement=True,
+            log_device_placement=False
+        )
+        execution_spec["session_config"] = default_dict(execution_spec.get("session_config"), default_session_config)
+    elif get_backend() == "pytorch":
+        # No session configs, different GPU options.
+        default_spec = dict(
+            mode="single",
+            distributed_spec=None,
+            # Using a monitored session enabling summaries and hooks per default.
+            disable_monitoring=False,
+            # Gpu settings.
+            gpu_spec=dict(
+                # Are GPUs allowed to be used if they are detected?
+                gpus_enabled=False,
+                # If yes, how many GPUs are to be used?
+                max_usable_gpus=0,
+                # Specify specific CUDA devices to be used, e.g. gpu 0 and 2 = [0, 2].
+                # If None, we use CUDA devices [0, max_usable_gpus - 1]
+                enable_cuda_devices=None
+            ),
+            # Device placement settings.
+            device_strategy="default",
+            default_device=None,
+            device_map={},
+            # TODO potentially set to nproc?
+            torch_num_threads=1,
+            OMP_NUM_THREADS=1
+        )
+        execution_spec = default_dict(execution_spec, default_spec)
 
     return execution_spec
 
