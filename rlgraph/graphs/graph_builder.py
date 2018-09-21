@@ -637,14 +637,14 @@ class GraphBuilder(Specifiable):
         Returns:
             Tuple[list,dict]: Fetch-list, feed-dict with relevant args.
         """
-        fetch_dict = dict()
-        feed_dict = dict()
+        fetch_dict = {}
+        feed_dict = {}
 
         for api_method in api_methods:
             if api_method is None:
                 continue
 
-            params = list()
+            params = []
             return_ops = None
             if isinstance(api_method, (list, tuple)):
                 params = force_list(api_method[1])
@@ -725,8 +725,8 @@ class GraphBuilder(Specifiable):
         time_start = time.perf_counter()
         assert meta_graph.build_status, "ERROR: Meta graph must be built to build backend graph."
         self.root_component = meta_graph.root_component
-        self.graph_call_times = list()
-        self.var_call_times = list()
+        self.graph_call_times = []
+        self.var_call_times = []
         self.api = meta_graph.api
         self.num_meta_ops = meta_graph.num_ops
 
@@ -734,7 +734,7 @@ class GraphBuilder(Specifiable):
         self.available_devices = available_devices
         self.device_strategy = device_strategy
         self.default_device = default_device
-        self.device_map = device_map or dict()
+        self.device_map = device_map or {}
 
         # TODO device strategy in pytorch?
         # Build full registry of callable methods on root component.

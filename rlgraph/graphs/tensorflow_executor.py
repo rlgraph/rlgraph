@@ -17,12 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import contextlib
 import os
 import time
 
 from rlgraph import get_backend, get_distributed_backend
 import rlgraph.utils as util
+from rlgraph.utils.tf_util import pin_global_variables
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.graphs.graph_executor import GraphExecutor
 
@@ -31,23 +31,6 @@ if get_backend() == "tf":
     from tensorflow.python.client import device_lib
     from rlgraph.utils.specifiable_server import SpecifiableServer, SpecifiableServerHook
     from tensorflow.python.client import timeline
-
-
-@contextlib.contextmanager
-def pin_global_variables(device):
-    """Pins global variables to the specified device."""
-    def getter(getter, *args, **kwargs):
-        var_collections = kwargs.get('collections', None)
-        if var_collections is None:
-            var_collections = [tf.GraphKeys.GLOBAL_VARIABLES]
-        if tf.GraphKeys.GLOBAL_VARIABLES in var_collections:
-            with tf.device(device):
-                return getter(*args, **kwargs)
-        else:
-            return getter(*args, **kwargs)
-
-    with tf.variable_scope('', custom_getter=getter) as vs:
-        yield vs
 
 
 class TensorFlowExecutor(GraphExecutor):
@@ -169,7 +152,7 @@ class TensorFlowExecutor(GraphExecutor):
             else:
                 self.default_device = default_device
                 # Sanity check, whether given default device exists.
-                #if self.default_device not in self.available_devices:
+                # if self.default_device not in self.available_devices:
                 #    raise RLGraphError("Provided `default_device` ('{}') is not in `available_devices` ({})".
                 #                       format(self.default_device, self.available_devices))
             self.device_map = dict()
@@ -204,6 +187,7 @@ class TensorFlowExecutor(GraphExecutor):
             meta_graph = self.meta_graph_builder.build(component, input_spaces)
             meta_build_times.append(time.perf_counter() - start)
 
+            # TODO build spec in graph build.
             if is_impala_learner:
                 with tf.device("/job:learner/task:0/cpu"), \
                      pin_global_variables("/job:learner/task:0/cpu"):
@@ -241,18 +225,6 @@ class TensorFlowExecutor(GraphExecutor):
     def execute(self, *api_methods):
         # Fetch inputs for the different API-methods.
         fetch_dict, feed_dict = self.graph_builder.get_execution_inputs(*api_methods)
-
-        # TODO: filter out fetch_dict for plain np values and do not send these into session.
-        #  However, we must return them either way from this method.
-        # for api_method in api_methods:
-        #     if api_method is None:
-        #         continue
-        #     elif isinstance(api_method, (list, tuple)):
-        #         params = util.force_list(api_method[1])
-        #         api_method = api_method[0]
-        #     else:
-        #         params = list()
-
         ret = self.monitored_session.run(fetch_dict, feed_dict=feed_dict,
                                          options=self.tf_session_options, run_metadata=self.run_metadata)
 
