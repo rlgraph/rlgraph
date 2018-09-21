@@ -90,8 +90,8 @@ class DQNAgent(Agent):
             importance_weights=weight_space,
             # TODO: This is currently necessary for multi-GPU handling (as the update_from_external_batch
             # TODO: gets overridden by a generic function with args=*inputs)
-            inputs=[preprocessed_state_space, self.action_space.with_batch_rank(), reward_space, terminal_space,
-                    preprocessed_state_space, weight_space]
+            #inputs=[preprocessed_state_space, self.action_space.with_batch_rank(), reward_space, terminal_space,
+            #        preprocessed_state_space, weight_space]
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.

@@ -720,7 +720,7 @@ class TensorFlowExecutor(GraphExecutor):
             sub_graphs = []
             shared_scope = "shared-scope"
             for i, device in enumerate(self.gpu_names):
-                # TODO only copy relevant subgraphs?
+                # TODO only copy relevant towers?
                 # Copy and assign GPU to copy.
                 self.logger.info("Creating device sub-graph for device: {}.".format(device))
                 sub_graph = root_component.copy(
