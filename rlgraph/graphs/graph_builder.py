@@ -302,19 +302,30 @@ class GraphBuilder(Specifiable):
         device = self.get_device(op_rec_column.component, variables=False)
 
         if get_backend() == "tf":
-            # Assign proper device to all ops created in this context manager.
-            with tf.device(device):
+            # TODO: Write custom scope generator for devices (in case None, etc..).
+            if device is not None:
+                # Assign proper device to all ops created in this context manager.
+                with tf.device(device):
+                    # Name ops correctly according to our Component hierarchy.
+                    with tf.name_scope(op_rec_column.component.global_scope +
+                                       ('/' if op_rec_column.component.global_scope else "")):
+                        self.logger.info(
+                            "Assigning device '{}' to graph_fn '{}' (scope '{}').".
+                            format(device, op_rec_column.graph_fn.__name__, op_rec_column.component.global_scope)
+                        )
+                        out_op_rec_column = self.run_through_graph_fn(
+                            op_rec_column, create_new_out_column=create_new_out_column
+                        )
+                        op_rec_column.out_graph_fn_column = out_op_rec_column
+            else:
                 # Name ops correctly according to our Component hierarchy.
                 with tf.name_scope(op_rec_column.component.global_scope +
                                    ('/' if op_rec_column.component.global_scope else "")):
-                    self.logger.debug(
-                        "Assigning device '{}' to graph_fn '{}' (scope '{}').".
-                        format(device, op_rec_column.graph_fn.__name__, op_rec_column.component.global_scope)
-                    )
                     out_op_rec_column = self.run_through_graph_fn(
                         op_rec_column, create_new_out_column=create_new_out_column
                     )
                     op_rec_column.out_graph_fn_column = out_op_rec_column
+
             # Store assigned names for debugging.
             if device is not None:
                 if device not in self.device_component_assignments:
