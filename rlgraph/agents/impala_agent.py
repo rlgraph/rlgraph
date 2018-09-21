@@ -371,11 +371,11 @@ class IMPALAAgent(Agent):
             # Create an IMPALALossFunction with some parameters.
             self.loss_function = IMPALALossFunction(
                 discount=self.discount, weight_pg=weight_pg, weight_baseline=weight_baseline,
-                weight_entropy=weight_entropy, device="/job:learner/task:0:/gpu"
+                weight_entropy=weight_entropy, device="/job:learner/task:0/gpu"
             )
 
             self.policy.propagate_subcomponent_properties(
-                dict(device=dict(variables="/job:learner/task:0/cpu", ops="/job:learner/task:0:/gpu"))
+                dict(device=dict(variables="/job:learner/task:0/cpu", ops="/job:learner/task:0/gpu"))
             )
             for component in [self.staging_area, self.preprocessor, self.optimizer]:
                 component.propagate_subcomponent_properties(
