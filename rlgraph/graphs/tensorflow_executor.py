@@ -198,24 +198,24 @@ class TensorFlowExecutor(GraphExecutor):
         meta_build_times = []
         build_times = []
 
-        # Use default device to be safe.
-        with tf.device(self.default_device):
-            for component in root_components:
-                self._build_device_strategy(component, optimizer, loss_name)
-                start = time.perf_counter()
-                meta_graph = self.meta_graph_builder.build(component, input_spaces)
-                meta_build_times.append(time.perf_counter() - start)
+        for component in root_components:
+            self._build_device_strategy(component, optimizer, loss_name)
+            start = time.perf_counter()
+            meta_graph = self.meta_graph_builder.build(component, input_spaces)
+            meta_build_times.append(time.perf_counter() - start)
 
-                if is_impala_learner:
-                    with tf.device("/job:learner/task:0/cpu"), \
-                         pin_global_variables("/job:learner/task:0/cpu"):
-                        # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
-                        # -> Inputs/Operations/variables
-                        build_time = self.graph_builder.build_graph(
-                            meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices,
-                            device_strategy=self.device_strategy, default_device=self.default_device, device_map=self.device_map
-                        )
-                else:
+            if is_impala_learner:
+                with tf.device("/job:learner/task:0/cpu"), \
+                     pin_global_variables("/job:learner/task:0/cpu"):
+                    # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
+                    # -> Inputs/Operations/variables
+                    build_time = self.graph_builder.build_graph(
+                        meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices,
+                        device_strategy=self.device_strategy, default_device=self.default_device, device_map=self.device_map
+                    )
+            else:
+                # Use default device to be safe.
+                with tf.device(self.default_device):
                     # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
                     # -> Inputs/Operations/variables
                     build_time = self.graph_builder.build_graph(
@@ -223,14 +223,14 @@ class TensorFlowExecutor(GraphExecutor):
                         device_strategy=self.device_strategy, default_device=self.default_device,
                         device_map=self.device_map
                     )
-                # Build time is a dict containing the cost of different parts of the build.
-                build_times.append(build_time)
+            # Build time is a dict containing the cost of different parts of the build.
+            build_times.append(build_time)
 
-                # Check device assignments for inconsistencies or unused devices.
-                self._sanity_check_devices()
+            # Check device assignments for inconsistencies or unused devices.
+            self._sanity_check_devices()
 
-                # Set up any remaining session or monitoring configurations.
-                self.finish_graph_setup()
+            # Set up any remaining session or monitoring configurations.
+            self.finish_graph_setup()
 
         return dict(
             total_build_time=time.perf_counter() - start,
@@ -444,17 +444,18 @@ class TensorFlowExecutor(GraphExecutor):
         Args:
             hooks (list): List of hooks to use for Saver and Summarizer in Session. Should be appended to.
         """
+        # Create our tf summary writer object.
+        self.summary_writer = tf.summary.FileWriter(
+            logdir=self.summary_spec["directory"],
+            graph=self.graph,
+            max_queue=10,
+            flush_secs=120,
+            filename_suffix=None
+        )
+
         # Creates a single summary op to be used by the session to write the summary files.
         summary_list = list(self.graph_builder.root_component.summaries.values())
         if len(summary_list) > 0:
-            # Create our tf summary writer object.
-            self.summary_writer = tf.summary.FileWriter(
-                logdir=self.summary_spec["directory"],
-                graph=self.graph,
-                max_queue=10,
-                flush_secs=120,
-                filename_suffix=None
-            )
             self.summary_op = tf.summary.merge(inputs=summary_list)
             # Create an update saver hook for our summaries.
             summary_saver_hook = tf.train.SummarySaverHook(
