@@ -53,6 +53,7 @@ class IMPALALossFunction(LossFunction):
             weight_entropy (float): The coefficient used for the entropy regularization term (L[E]).
                 In the paper, values between 0.01 and 0.00005 are used via log-uniform search.
         """
+        # graph_fn_num_outputs=dict(_graph_fn_loss_per_item=2) <- debug
         super(IMPALALossFunction, self).__init__(scope=kwargs.pop("scope", "impala-loss-func"), **kwargs)
 
         self.discount = discount
@@ -87,9 +88,12 @@ class IMPALALossFunction(LossFunction):
         Returns:
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
+        #fake_step_op,
         loss_per_item = self.call(self._graph_fn_loss_per_item, log_probs_actions_pi, action_probs_mu,
                                   values, actions, rewards, terminals)  #, bootstrapped_values)
         total_loss = self.call(self._graph_fn_loss_average, loss_per_item)
+        # TODO: REMOVE no_op again. Only for IMPALA testing w/o update step.
+        # fake_step_op,
         return total_loss, loss_per_item
 
     def _graph_fn_loss_per_item(self, log_probs_actions_pi, action_probs_mu, values, actions,
@@ -116,6 +120,9 @@ class IMPALALossFunction(LossFunction):
         """
         if get_backend() == "tf":
             values, bootstrapped_values = values[:-1], values[-1:]
+
+            #return tf.no_op(), tf.ones_like(tf.squeeze(bootstrapped_values, axis=0))
+
             log_probs_actions_pi = log_probs_actions_pi[:-1]
             # Ignore very first actions/rewards (these are the previous ones only used as part of the state input
             # for the network)
@@ -124,35 +131,32 @@ class IMPALALossFunction(LossFunction):
             terminals = terminals[1:]
             action_probs_mu = action_probs_mu[1:]
 
-            # Calculate the log IS-weight values via: logIS = log(pi(a|s)) - log(mu(a|s)).
-            # Use the action_probs_pi values only of the actions actually taken.
-            #one_hot = tf.one_hot(indices=actions, depth=self.action_space.num_categories)
-            log_probs_actions_taken_pi = tf.reduce_sum(log_probs_actions_pi * actions, axis=-1, keepdims=True)
-            log_probs_actions_taken_mu = tf.reduce_sum(tf.log(action_probs_mu) * actions, axis=-1, keepdims=True)
-            log_is_weights = log_probs_actions_taken_pi - log_probs_actions_taken_mu
-
             # Discounts are simply 0.0, if there is a terminal, otherwise: `discount`.
-            discounts = tf.expand_dims(tf.to_float(~terminals) * self.discount, axis=-1)
+            discounts = tf.expand_dims(tf.to_float(~terminals) * self.discount, axis=-1, name="discounts")
             # `clamp_one`: Clamp rewards between -1.0 and 1.0.
             if self.reward_clipping == "clamp_one":
-                rewards = tf.clip_by_value(rewards, -1, 1)
+                rewards = tf.clip_by_value(rewards, -1, 1, name="reward-clipping")
             # `soft_asymmetric`: Negative rewards are less negative than positive rewards are positive.
             elif self.reward_clipping == "soft_asymmetric":
                 squeezed = tf.tanh(rewards / 5.0)
                 rewards = tf.where(rewards < 0.0, 0.3 * squeezed, squeezed) * 5.0
-            ## OBSOLETE (already done): Make discounts and rewards shape=(1,) instead of shape=() (not counting batch/time-ranks).
-            #rewards = tf.expand_dims(rewards, axis=-1)
 
             # Let the v-trace  helper function calculate the v-trace values (vs) and the pg-advantages
             # (already multiplied by rho_t_pg): A = rho_t_pg * (rt + gamma*vt - V(t)).
             # Both vs and pg_advantages will block the gradient as they should be treated as constants by the gradient
             # calculator of this loss func.
             vs, pg_advantages = self.call(
-                self.v_trace_function.calc_v_trace_values, log_is_weights, discounts, rewards, values, bootstrapped_values
+                self.v_trace_function.calc_v_trace_values, log_probs_actions_pi, tf.log(action_probs_mu), actions,
+                discounts, rewards, values, bootstrapped_values
             )
+            log_probs_actions_taken_pi = tf.reduce_sum(log_probs_actions_pi * actions, axis=-1, keepdims=True,
+                                                       name="log-probs-actions-taken-pi")
+
+            #vs = tf.ones_like(values)
+            #pg_advantages = tf.ones_like(log_probs_actions_taken_pi)
 
             # Make sure vs and advantage values are treated as constants for the gradient calculation.
-            vs = tf.stop_gradient(vs)
+            #vs = tf.stop_gradient(vs)
             pg_advantages = tf.stop_gradient(pg_advantages)
 
             # The policy gradient loss.

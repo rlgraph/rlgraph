@@ -92,12 +92,14 @@ class FIFOQueue(Memory):
             )
 
     def _graph_fn_insert_records(self, records):
+        flattened_records = flatten_op(records)
+        flattened_stopped_records = {key: tf.stop_gradient(op) for key, op in flattened_records.items()}
         # Records is just one record.
         if self.only_insert_single_records is True:
-            return self.queue.enqueue(flatten_op(records))
+            return self.queue.enqueue(flattened_stopped_records)
         # Insert many records (with batch rank).
         else:
-            return self.queue.enqueue_many(flatten_op(records))
+            return self.queue.enqueue_many(flattened_stopped_records)
 
     #def _graph_fn_insert_dummy_records(self):
     #    records = self.record_space.sample(size=(10, 20))
@@ -112,13 +114,13 @@ class FIFOQueue(Memory):
         flat_record_space = self.record_space.flatten()
         for flat_key, op in record_dict.items():
             if flat_record_space[flat_key].has_time_rank:
-                op = tf.placeholder_with_default(op, shape=(None, None) + get_shape(op)[2:])
+                #op = tf.placeholder_with_default(op, shape=(None, None) + get_shape(op)[2:])
                 op._batch_rank = 0
                 op._time_rank = 1
                 flattened_records[flat_key] = op
             else:
                 op._batch_rank = 0
-                flattened_records[flat_key] = tf.placeholder_with_default(op, shape=(None,) + get_shape(op)[1:])
+                flattened_records[flat_key] = op  #tf.placeholder_with_default(op, shape=(None,) + get_shape(op)[1:])
         return flattened_records
 
     def _graph_fn_get_size(self):

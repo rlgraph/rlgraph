@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import copy
 
+from rlgraph import get_backend
 from rlgraph.utils import RLGraphError
 from rlgraph.agents.agent import Agent
 from rlgraph.components.common.dict_merger import DictMerger
@@ -27,6 +28,7 @@ from rlgraph.components.common.slice import Slice
 from rlgraph.components.common.staging_area import StagingArea
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.layers.preprocessing.reshape import ReShape
+from rlgraph.components.layers.preprocessing.transpose import Transpose
 from rlgraph.components.layers.preprocessing.concat import Concat
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.neural_networks.dynamic_batching_policy import DynamicBatchingPolicy
@@ -35,6 +37,9 @@ from rlgraph.components.memories.fifo_queue import FIFOQueue
 from rlgraph.components.memories.queue_runner import QueueRunner
 from rlgraph.spaces import FloatBox, Dict, Tuple
 from rlgraph.utils.util import default_dict
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class IMPALAAgent(Agent):
@@ -47,6 +52,7 @@ class IMPALAAgent(Agent):
     """
 
     default_internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False)
+    #default_internal_states_space = Tuple(FloatBox(shape=(266,)), FloatBox(shape=(266,)), add_batch_rank=False)
 
     default_environment_spec = dict(
         type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
@@ -139,7 +145,7 @@ class IMPALAAgent(Agent):
                 log_device_placement=False,
                 device_filters=["/job:learner/task:0"] + (
                     ["/job:actor/task:{}".format(execution_spec["distributed_spec"]["task_index"])] if
-                    self.type == "actor" else []
+                    self.type == "actor" else ["/job:learner/task:0"]
                 )
             )
             # If Actor, make non-chief in either case (even if task idx == 0).
@@ -201,8 +207,7 @@ class IMPALAAgent(Agent):
                 "initial_internal_states": self.internal_states_space
             }, add_batch_rank=False, add_time_rank=(self.worker_sample_size + 1)
         )
-        # Take away again time-rank from initial-states and last-next-state (these come in only for one time-step)
-        #self.fifo_record_space["last_next_states"] = self.fifo_record_space["last_next_states"].with_time_rank(1)
+        # Take away again time-rank from initial-states (comes in only for one time-step).
         self.fifo_record_space["initial_internal_states"] = \
             self.fifo_record_space["initial_internal_states"].with_time_rank(False)
         # Create our FIFOQueue (actors will enqueue, learner(s) will dequeue).
@@ -225,13 +230,12 @@ class IMPALAAgent(Agent):
             self.env_output_splitter = ContainerSplitter(tuple_length=8, scope="env-output-splitter")
             self.fifo_output_splitter = ContainerSplitter(*self.fifo_queue_keys, scope="fifo-output-splitter")
 
-            ## OBSOLETE: Note: `-1` because we already concat preprocessed last-next-state to the other preprocessed-states.
-            ## (this saves one run through the NN).
             self.staging_area = StagingArea(num_data=len(self.fifo_queue_keys))
 
             # Slice some data from the EnvStepper (e.g only first internal states are needed).
             self.internal_states_slicer = Slice(scope="internal-states-slicer", squeeze=True)
 
+            # TODO: add state transposer, remove action/rewards transposer (part of state).
             self.transpose_actions = ReShape(flip_batch_and_time_rank=True, time_major=True,
                                              scope="transpose-a", flatten_categories=False)
             self.transpose_rewards = ReShape(flip_batch_and_time_rank=True, time_major=True,
@@ -313,7 +317,7 @@ class IMPALAAgent(Agent):
             self.env_output_splitter = ContainerSplitter(tuple_length=4, scope="env-output-splitter")
 
             self.states_dict_splitter = ContainerSplitter("RGB_INTERLEAVED", "INSTR", "previous_action", "previous_reward",
-                                                     scope="states-dict-splitter")
+                                                          scope="states-dict-splitter")
 
             # Slice some data from the EnvStepper (e.g only first internal states are needed).
             self.internal_states_slicer = Slice(scope="internal-states-slicer", squeeze=True)
@@ -349,16 +353,16 @@ class IMPALAAgent(Agent):
                                                           "previous_reward", scope="states-dict-splitter")
             self.internal_states_slicer = None
 
-            self.transpose_states = ReShape(
-                flip_batch_and_time_rank=True, time_major=True, scope="transpose-states",
+            self.transpose_states = Transpose(
+                scope="transpose-states",
                 device=dict(ops="/job:learner/task:0/cpu")
             )
-            self.transpose_terminals = ReShape(
-                flip_batch_and_time_rank=True, time_major=True, scope="transpose-terminals",
+            self.transpose_terminals = Transpose(
+                scope="transpose-terminals",
                 device=dict(ops="/job:learner/task:0/cpu")
             )
-            self.transpose_action_probs = ReShape(
-                flip_batch_and_time_rank=True, time_major=True, scope="transpose-a-probs-mu",
+            self.transpose_action_probs = Transpose(
+                scope="transpose-a-probs-mu",
                 device=dict(ops="/job:learner/task:0/cpu")
             )
 
@@ -367,13 +371,22 @@ class IMPALAAgent(Agent):
             # Create an IMPALALossFunction with some parameters.
             self.loss_function = IMPALALossFunction(
                 discount=self.discount, weight_pg=weight_pg, weight_baseline=weight_baseline,
-                weight_entropy=weight_entropy
+                weight_entropy=weight_entropy, device="/job:learner/task:0/gpu"
             )
 
+            self.policy.propagate_subcomponent_properties(
+                dict(device=dict(variables="/job:learner/task:0/cpu", ops="/job:learner/task:0/gpu"))
+            )
+            for component in [self.staging_area, self.preprocessor, self.optimizer]:
+                component.propagate_subcomponent_properties(
+                    dict(device="/job:learner/task:0/gpu")
+                )
+
             sub_components = [
-                self.fifo_output_splitter, self.fifo_queue, self.states_dict_splitter, self.transpose_states,
-                self.transpose_terminals, self.transpose_action_probs,
-                self.staging_area, self.preprocessor, self.policy, self.loss_function, self.optimizer
+                self.fifo_output_splitter, self.fifo_queue, self.states_dict_splitter,
+                self.transpose_states, self.transpose_terminals, self.transpose_action_probs,
+                self.staging_area, self.preprocessor, self.policy,
+                self.loss_function, self.optimizer
             ]
 
         # Add all the agent's sub-components to the root.
@@ -385,7 +398,12 @@ class IMPALAAgent(Agent):
         # markup = get_graph_markup(self.graph_builder.root_component)
         # print(markup)
         if self.auto_build:
-            self._build_graph([self.root_component], self.input_spaces, self.optimizer)
+            if self.type == "learner":
+                self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
+                                  is_impala_learner=True)
+            else:
+                self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer)
+
             self.graph_built = True
 
             if self.has_gpu:
@@ -396,6 +414,18 @@ class IMPALAAgent(Agent):
                 self.graph_executor.monitored_session.run_step_fn(
                     lambda step_context: step_context.session.run(self.stage_op)
                 )
+                # self.size_op = self.staging_area.area.size()
+                # size = self.graph_executor.monitored_session.run(fetches=[self.size_op])
+                # print("Staging area has size {} after init.".format(size))
+
+                # Debug ops
+                self.dequeue_op = self.root_component.sub_components["fifo-queue"].api_methods["get_records"]. \
+                    out_op_columns[0].op_records[0].op
+                self.size_op = self.root_component.sub_components["fifo-queue"].api_methods["get_size"]. \
+                    out_op_columns[0].op_records[0].op
+            if self.type == "actor":
+                self.enqueue_op = self.root_component.sub_components["fifo-queue"].api_methods["insert_records"]. \
+                    out_op_columns[0].op_records[0].op
 
     def define_api_methods(self, *sub_components):
         # TODO: Unify agents with/w/o synchronizable policy.
@@ -516,7 +546,7 @@ class IMPALAAgent(Agent):
                 self_.call(env_output_splitter.split, step_results)
 
             initial_internal_states = self_.call(internal_states_slicer.slice, internal_states, 0)
-            current_internal_states = self_.call(internal_states_slicer.slice, internal_states, -1)
+            #current_internal_states = self_.call(internal_states_slicer.slice, internal_states, -1)
 
             record = self_.call(
                 merger.merge, terminals, states, action_log_probs, initial_internal_states
@@ -525,9 +555,9 @@ class IMPALAAgent(Agent):
             # Insert results into the FIFOQueue.
             insert_op = self_.call(fifo_queue.insert_records, record)
 
-            _, _, _, rewards = self_.call(states_dict_splitter.split, states)
+            #_, _, _, rewards = self_.call(states_dict_splitter.split, states)
 
-            return insert_op, current_internal_states, rewards, terminals
+            return insert_op, terminals
 
         self.root_component.define_api_method(
             "perform_n_steps_and_insert_into_fifo", perform_n_steps_and_insert_into_fifo
@@ -541,8 +571,8 @@ class IMPALAAgent(Agent):
         self.root_component.define_api_method("reset", reset)
 
     def define_api_methods_learner(self, fifo_output_splitter, fifo_queue, states_dict_splitter,
-                                   transpose_states,
-                                   transpose_terminals, transpose_action_probs, staging_area,
+                                   transpose_states, transpose_terminals, transpose_action_probs,
+                                   staging_area,
                                    preprocessor, policy, loss_function, optimizer):
         """
         Defines the API-methods used by an IMPALA learner. Its job is basically: Pull a batch from the
@@ -569,14 +599,9 @@ class IMPALAAgent(Agent):
             terminals, states, action_probs_mu, initial_internal_states = \
                 self_.call(fifo_output_splitter.split, records)
 
-            # Isolate actions and rewards from states.
-            #_, _, actions, rewards = self_.call(states_dict_splitter.split, states)
-
-            # Flip actions, rewards, terminals to time-major.
+            # Flip everything to time-major.
             # TODO: Create components that are less input-space sensitive (those that have no variables should
             # TODO: be reused for any kind of processing)
-            #actions = self_.call(transpose_actions.apply, actions)
-            #rewards = self_.call(transpose_rewards.apply, rewards)
             states = self_.call(transpose_states.apply, states)
             terminals = self_.call(transpose_terminals.apply, terminals)
             action_probs_mu = self_.call(transpose_action_probs.apply, action_probs_mu)
@@ -595,16 +620,17 @@ class IMPALAAgent(Agent):
             states = self_.call(preprocessor.preprocess, states)
 
             # Get the pi-action probs AND the values for all our states.
-            state_values_pi, logits_pi, probs_pi, log_probabilities_pi, current_internal_states = \
+            state_values_pi, _, _, log_probabilities_pi, current_internal_states = \
                 self_.call(policy.get_state_values_logits_parameters_log_probs, states, initial_internal_states)
 
             # Isolate actions and rewards from states.
             _, _, actions, rewards = self_.call(states_dict_splitter.split, states)
 
             # Calculate the loss.
+            # step_op,\  <- DEBUG: fake step op
             loss, loss_per_item = self_.call(
-                loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
-                terminals
+                 loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
+                 terminals
             )
             policy_vars = self_.call(policy._variables)
 
@@ -640,4 +666,6 @@ class IMPALAAgent(Agent):
 
     def __repr__(self):
         return "IMPALAAgent(type={})".format(self.type)
+
+
 

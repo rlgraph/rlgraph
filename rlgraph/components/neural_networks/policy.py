@@ -22,11 +22,14 @@ from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.components.component import Component
 from rlgraph.components.common.synchronizable import Synchronizable
+from rlgraph.components.common.dict_merger import DictMerger
+from rlgraph.components.common.container_splitter import ContainerSplitter
 from rlgraph.components.distributions import Normal, Categorical
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.action_adapters.dueling_action_adapter import DuelingActionAdapter
 from rlgraph.components.action_adapters.baseline_action_adapter import BaselineActionAdapter
+from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.utils.util import unify_nn_and_rnn_api_output
 
 if get_backend() == "tf":
@@ -102,6 +105,14 @@ class Policy(Component):
         self.action_space = action_space
         self.max_likelihood = max_likelihood
 
+        self.time_rank_folder = ReShape(fold_time_rank=True, scope="time-rank-fold")
+        #self.merger = DictMerger("state_values", "logits", "probs", "log_probs")
+        self.time_rank_unfolder_v = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold-v")
+        self.time_rank_unfolder_a_probs = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold-a-probs")
+        self.time_rank_unfolder_logits = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold-logits")
+        self.time_rank_unfolder_log_probs = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold-log-probs")
+        #self.splitter = ContainerSplitter("state_values", "logits", "probs", "log_probs")
+
         # Add API-method to get dueling output (if we use a dueling layer).
         if isinstance(self.action_adapter, DuelingActionAdapter):
             #def get_dueling_output(self, nn_input, internal_states=None):
@@ -138,9 +149,22 @@ class Policy(Component):
                 nn_output, last_internals = unify_nn_and_rnn_api_output(
                     self.call(self.neural_network.apply, nn_input, internal_states)
                 )
-                state_values, logits, probs, log_probs = self.call(self.action_adapter.get_state_values_logits_parameters_log_probs, nn_output)
-                return (state_values, logits, probs, log_probs, last_internals) if last_internals is not None else \
-                    (state_values, logits, probs, log_probs)
+
+                # TODO: IMPALA attempt to speed up final pass after LSTM.
+                nn_output_folded = self.call(self.time_rank_folder.apply, nn_output)
+
+                state_values, logits, probs, log_probs = self.call(self.action_adapter.get_state_values_logits_parameters_log_probs, nn_output_folded)
+
+                # TODO: IMPALA attempt to speed up final pass after LSTM.
+                #merged_impala_hack = self.call(self.merger.merge, state_values, logits, probs, log_probs)
+                state_values_unfolded = self.call(self.time_rank_unfolder_v.apply, state_values, nn_output)
+                logits_unfolded = self.call(self.time_rank_unfolder_logits.apply, logits, nn_output)
+                probs_unfolded = self.call(self.time_rank_unfolder_a_probs.apply, probs, nn_output)
+                log_probs_unfolded = self.call(self.time_rank_unfolder_log_probs.apply, log_probs, nn_output)
+                #state_values_unfolded, logits_unfolded, probs_unfolded, log_probs_unfolded = self.call(self.splitter.split, unfolded)
+
+                return (state_values_unfolded, logits_unfolded, probs_unfolded, log_probs_unfolded, last_internals) if last_internals is not None else \
+                    (state_values_unfolded, logits_unfolded, probs_unfolded, log_probs_unfolded)
 
             self.define_api_method("get_state_values_logits_parameters_log_probs",
                                    get_state_values_logits_parameters_log_probs)
@@ -171,7 +195,13 @@ class Policy(Component):
             raise RLGraphError("ERROR: `action_space` is of type {} and not allowed in {} Component!".
                                format(type(action_space).__name__, self.name))
 
-        self.add_components(self.neural_network, self.action_adapter, self.distribution)
+        self.add_components(
+            self.neural_network, self.action_adapter, self.distribution,
+            self.time_rank_folder, #self.time_rank_unfolder,
+            self.time_rank_unfolder_v, self.time_rank_unfolder_a_probs, self.time_rank_unfolder_log_probs,
+            self.time_rank_unfolder_logits
+            #self.merger, self.splitter
+        )
 
         # Add Synchronizable API to ours.
         if self.writable:

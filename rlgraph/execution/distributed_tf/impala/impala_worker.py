@@ -104,9 +104,7 @@ class IMPALAWorker(Worker):
         # Only run everything for at most num_timesteps (if defined).
         while not (0 < num_timesteps <= timesteps_executed):
             # TODO right now everything comes back as single-env.
-            out = self.agent.call_api_method(
-                "perform_n_steps_and_insert_into_fifo"
-            )
+            out = self.agent.call_api_method(("perform_n_steps_and_insert_into_fifo", None, [0]))
             timesteps_executed += self.agent.worker_sample_size
 
             # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.

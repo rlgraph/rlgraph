@@ -701,13 +701,23 @@ class Component(Specifiable):
         self.check_input_spaces(input_spaces, action_space)
         # Allow the Component to create all its variables.
         if get_backend() == "tf":
-            with tf.device(device):
+            # TODO: write custom scope generator for devices (in case None, etc..).
+            if device is not None:
+                with tf.device(device):
+                    if self.reuse_variable_scope:
+                        with tf.variable_scope(name_or_scope=self.reuse_variable_scope, reuse=tf.AUTO_REUSE):
+                            self.create_variables(input_spaces, action_space)
+                    else:
+                        with tf.variable_scope(self.global_scope):
+                            self.create_variables(input_spaces, action_space)
+            else:
                 if self.reuse_variable_scope:
                     with tf.variable_scope(name_or_scope=self.reuse_variable_scope, reuse=tf.AUTO_REUSE):
                         self.create_variables(input_spaces, action_space)
                 else:
                     with tf.variable_scope(self.global_scope):
                         self.create_variables(input_spaces, action_space)
+
         elif get_backend() == "pytorch":
             # No scoping/devices here, handled at tensor level.
             self.create_variables(input_spaces, action_space)

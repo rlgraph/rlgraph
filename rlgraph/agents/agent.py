@@ -163,7 +163,6 @@ class Agent(Specifiable):
         if optimizer_spec is not None:
             self.optimizer = Optimizer.from_spec(optimizer_spec)  #get_optimizer_from_device_strategy(
                 #optimizer_spec, self.execution_spec.get("device_strategy", 'default')
-            )
         # Update-spec dict tells the Agent how to update (e.g. memory batch size).
         self.update_spec = parse_update_spec(update_spec)
 
@@ -225,11 +224,11 @@ class Agent(Specifiable):
 
         self.root_component.define_api_method("preprocess_states", preprocess_states)
 
-    def _build_graph(self, root_components, input_spaces, *args):
+    def _build_graph(self, root_components, input_spaces, **kwargs):
         """
         Builds the internal graph from the RLGraph meta-graph via the graph executor..
         """
-        return self.graph_executor.build(root_components, input_spaces, *args)
+        return self.graph_executor.build(root_components, input_spaces, **kwargs)
 
     def build(self):
         """
@@ -383,7 +382,7 @@ class Agent(Specifiable):
         """
         self.graph_executor.terminate()
 
-    def call_api_method(self, op, inputs=None):
+    def call_api_method(self, op, inputs=None, return_ops=None):
         """
         Utility method to call any desired api method on the graph, identified via output socket.
         Delegate this call to the RLGraph graph executor.
@@ -395,7 +394,7 @@ class Agent(Specifiable):
         Returns:
             any: Result of the op call.
         """
-        return self.graph_executor.execute((op, inputs))
+        return self.graph_executor.execute((op, inputs, return_ops))
 
     def preprocess_states(self, states):
         """

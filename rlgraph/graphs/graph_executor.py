@@ -86,7 +86,7 @@ class GraphExecutor(Specifiable):
         self.default_device = None
         self.device_map = None
 
-    def build(self, root_components, input_spaces, *args):
+    def build(self, root_components, input_spaces, **kwargs):
         """
         Sets up the computation graph by:
         - Starting the Server, if necessary.

@@ -239,7 +239,7 @@ class GraphBuilder(Specifiable):
         Returns:
             DataOp: The generated placeholder(s) as a DataOp (e.g. DataOpTuple, SingleDataOp, etc..).
         """
-        device = self.get_device(component, variables=True)
+        device = self.get_device(component)  #, variables=True)
         placeholder = None
         if get_backend() == "tf":
             with tf.device(device):
@@ -302,19 +302,30 @@ class GraphBuilder(Specifiable):
         device = self.get_device(op_rec_column.component, variables=False)
 
         if get_backend() == "tf":
-            # Assign proper device to all ops created in this context manager.
-            with tf.device(device):
+            # TODO: Write custom scope generator for devices (in case None, etc..).
+            if device is not None:
+                # Assign proper device to all ops created in this context manager.
+                with tf.device(device):
+                    # Name ops correctly according to our Component hierarchy.
+                    with tf.name_scope(op_rec_column.component.global_scope +
+                                       ('/' if op_rec_column.component.global_scope else "")):
+                        self.logger.info(
+                            "Assigning device '{}' to graph_fn '{}' (scope '{}').".
+                            format(device, op_rec_column.graph_fn.__name__, op_rec_column.component.global_scope)
+                        )
+                        out_op_rec_column = self.run_through_graph_fn(
+                            op_rec_column, create_new_out_column=create_new_out_column
+                        )
+                        op_rec_column.out_graph_fn_column = out_op_rec_column
+            else:
                 # Name ops correctly according to our Component hierarchy.
                 with tf.name_scope(op_rec_column.component.global_scope +
                                    ('/' if op_rec_column.component.global_scope else "")):
-                    self.logger.debug(
-                        "Assigning device '{}' to graph_fn '{}' (scope '{}').".
-                        format(device, op_rec_column.graph_fn.__name__, op_rec_column.component.global_scope)
-                    )
                     out_op_rec_column = self.run_through_graph_fn(
                         op_rec_column, create_new_out_column=create_new_out_column
                     )
                     op_rec_column.out_graph_fn_column = out_op_rec_column
+
             # Store assigned names for debugging.
             if device is not None:
                 if device not in self.device_component_assignments:
@@ -363,8 +374,9 @@ class GraphBuilder(Specifiable):
             device = device.get("variables", None) if variables is True else device.get("ops", None)
 
         # If device is local, but not available, use the default device (or None).
-        if device is not None and not re.match(r'^/job:', device) and device not in self.available_devices:
-            device = self.device_map.get(component.name, self.default_device)
+        # TODO rethink handling device maps
+        # if device is not None and not re.match(r'^/job:', device) and device not in self.available_devices:
+        #     device = self.device_map.get(component.name, self.default_device)
         # Device is specific to whether we are creating variables or ops.
         if isinstance(device, dict):
             device = device.get("variables", None) if variables is True else device.get("ops", None)
@@ -636,7 +648,7 @@ class GraphBuilder(Specifiable):
             return_ops = None
             if isinstance(api_method, (list, tuple)):
                 params = force_list(api_method[1])
-                return_ops = force_list(api_method[2]) if len(api_method) > 2 else None
+                return_ops = force_list(api_method[2]) if len(api_method) > 2 and api_method[2] is not None else None
                 api_method = api_method[0]
 
             if api_method not in self.api:

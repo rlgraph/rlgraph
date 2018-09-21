@@ -232,5 +232,4 @@ class TestDistributedIMPALA(unittest.TestCase):
             update_steps, agent.update_spec["batch_size"], time_total , update_steps / time_total)
         )
 
-        print("IMPALA learner consumed some data.")
         agent.terminate()

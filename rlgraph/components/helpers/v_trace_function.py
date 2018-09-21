@@ -57,21 +57,24 @@ class VTraceFunction(Component):
         self.define_api_method("calc_v_trace_values", self._graph_fn_calc_v_trace_values)
 
     def check_input_spaces(self, input_spaces, action_space=None):
-        log_is_weight_space, discounts_space, rewards_space, values_space, bootstrap_value_space = \
-            input_spaces["log_is_weights"], input_spaces["discounts"], input_spaces["rewards"], \
+        # TODO: Complete all input arg checks.
+        #log_is_weight_space = input_spaces["log_is_weights"]
+        discounts_space, rewards_space, values_space, bootstrap_value_space = \
+            input_spaces["discounts"], input_spaces["rewards"], \
             input_spaces["values"], input_spaces["bootstrapped_values"]
 
-        sanity_check_space(log_is_weight_space, must_have_batch_rank=True)
-        log_is_weight_rank = log_is_weight_space.rank
+        #sanity_check_space(log_is_weight_space, must_have_batch_rank=True)
+        #log_is_weight_rank = log_is_weight_space.rank
 
         # Sanity check our input Spaces for consistency (amongst each other).
-        sanity_check_space(values_space, rank=log_is_weight_rank, must_have_batch_rank=True, must_have_time_rank=True)
-        sanity_check_space(bootstrap_value_space, must_have_batch_rank=True, must_have_time_rank=True)
-        sanity_check_space(discounts_space, rank=log_is_weight_rank,
-                           must_have_batch_rank=True, must_have_time_rank=True)
-        sanity_check_space(rewards_space, rank=log_is_weight_rank, must_have_batch_rank=True, must_have_time_rank=True)
+        #sanity_check_space(values_space, rank=log_is_weight_rank, must_have_batch_rank=True, must_have_time_rank=True)
+        #sanity_check_space(bootstrap_value_space, must_have_batch_rank=True, must_have_time_rank=True)
+        #sanity_check_space(discounts_space, rank=log_is_weight_rank,
+        #                   must_have_batch_rank=True, must_have_time_rank=True)
+        #sanity_check_space(rewards_space, rank=log_is_weight_rank, must_have_batch_rank=True, must_have_time_rank=True)
 
-    def _graph_fn_calc_v_trace_values(self, log_is_weights, discounts, rewards, values, bootstrapped_values):
+    def _graph_fn_calc_v_trace_values(self, log_probs_actions_pi, log_probs_actions_mu, actions, discounts, rewards,
+                                      values, bootstrapped_values):
         """
         Returns the V-trace values calculated from log importance weights (see [1] for details).
         T=time rank
@@ -79,9 +82,12 @@ class VTraceFunction(Component):
         A=action Space
 
         Args:
-            log_is_weights (DataOp): DataOp (time x batch x values) holding the log values of the IS
-                (importance sampling) weights: log(target_policy(a) / behaviour_policy(a)).
-                Log space is used for numerical stability (for the timesteps s=t to s=t+N-1).
+            log_probs_actions_pi:
+            log_probs_actions_mu:
+            actions
+            #log_is_weights (DataOp): DataOp (time x batch x values) holding the log values of the IS
+            #    (importance sampling) weights: log(target_policy(a) / behaviour_policy(a)).
+            #    Log space is used for numerical stability (for the timesteps s=t to s=t+N-1).
             discounts (DataOp): DataOp (time x batch x values) holding the discounts collected when stepping
                 through the environment (for the timesteps s=t to s=t+N-1).
             rewards (DataOp): DataOp (time x batch x values) holding the rewards collected when stepping
@@ -97,27 +103,33 @@ class VTraceFunction(Component):
                 PG-advantage values in time x batch dimensions used for training via policy gradient with baseline.
         """
         if get_backend() == "tf":
-            is_weights = tf.exp(x=log_is_weights)
+            # Calculate the log IS-weight values via: logIS = log(pi(a|s)) - log(mu(a|s)).
+            # Use the action_probs_pi values only of the actions actually taken.
+            log_probs_actions_taken_pi = tf.reduce_sum(log_probs_actions_pi * actions, axis=-1, keepdims=True, name="log-probs-actions-taken-pi")
+            log_probs_actions_taken_mu = tf.reduce_sum(log_probs_actions_mu * actions, axis=-1, keepdims=True, name="log-probs-actions-taken-mu")
+            log_is_weights = log_probs_actions_taken_pi - log_probs_actions_taken_mu
+
+            is_weights = tf.exp(x=log_is_weights, name="is-weights-from-logs")
 
             # Apply rho-bar (also for PG) and c-bar clipping to all IS-weights.
             if self.rho_bar is not None:
-                rho_t = tf.minimum(x=self.rho_bar, y=is_weights)
+                rho_t = tf.minimum(x=self.rho_bar, y=is_weights, name="clip-rho-bar")
             else:
                 rho_t = is_weights
 
             if self.rho_bar_pg is not None:
-                rho_t_pg = tf.minimum(x=self.rho_bar_pg, y=is_weights)
+                rho_t_pg = tf.minimum(x=self.rho_bar_pg, y=is_weights, name="clip-rho-bar-pg")
             else:
                 rho_t_pg = is_weights
 
             if self.c_bar is not None:
-                c_i = tf.minimum(x=self.c_bar, y=is_weights)
+                c_i = tf.minimum(x=self.c_bar, y=is_weights, name="clip-c-bar")
             else:
                 c_i = is_weights
 
             # This is the same vector as `values` except that it will be shifted by 1 timestep to the right and
             # include - as the last item - the bootstrapped V value at s=t+N.
-            values_t_plus_1 = tf.concat(values=[values[1:], bootstrapped_values], axis=0)
+            values_t_plus_1 = tf.concat(values=[values[1:], bootstrapped_values], axis=0, name="values-t-plus-1")
             # Calculate the temporal difference terms (delta-t-V in the paper) for each s=t to s=t+N-1.
             dt_vs = rho_t * (rewards + discounts * values_t_plus_1 - values)
 
@@ -127,9 +139,9 @@ class VTraceFunction(Component):
             # We will thus calculate all terms: [vs - V(xs)] for all timesteps first, then add V(xs) again to get the
             # v-traces.
             elements = (
-                tf.reverse(tensor=discounts, axis=[0]),
-                tf.reverse(tensor=c_i, axis=[0]),
-                tf.reverse(tensor=dt_vs, axis=[0])
+                tf.reverse(tensor=discounts, axis=[0], name="revert-discounts"),
+                tf.reverse(tensor=c_i, axis=[0], name="revert-c-i"),
+                tf.reverse(tensor=dt_vs, axis=[0], name="revert-dt-vs")
             )
 
             def scan_func(vs_minus_v_xs_, elements_):
@@ -141,10 +153,11 @@ class VTraceFunction(Component):
                 elems=elements,
                 initializer=tf.zeros_like(tensor=tf.squeeze(bootstrapped_values, axis=0)),
                 parallel_iterations=1,
-                back_prop=False
+                back_prop=False,
+                name="v-trace-scan"
             )
             # Reverse the results back to original order.
-            vs_minus_v_xs = tf.reverse(tensor=vs_minus_v_xs, axis=[0])
+            vs_minus_v_xs = tf.reverse(tensor=vs_minus_v_xs, axis=[0], name="revert-vs-minus-v-xs")
 
             # Add V(xs) to get vs.
             vs = tf.add(x=vs_minus_v_xs, y=values)
@@ -157,4 +170,4 @@ class VTraceFunction(Component):
 
             # Return v-traces and policy gradient advantage values based on: A=r+gamma*v-trace(s+1) - V(s).
             # With `r+gamma*v-trace(s+1)` also called `qs` in the paper.
-            return vs, pg_advantages
+            return tf.stop_gradient(vs), tf.stop_gradient(pg_advantages)
