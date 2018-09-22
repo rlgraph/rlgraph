@@ -5,7 +5,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components import Component
-from rlgraph.utils.ops import FlattenedDataOp, flatten_op
+from rlgraph.utils.ops import FlattenedDataOp, unflatten_op, DataOpTuple
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -84,9 +84,9 @@ class BatchSplitter(Component):
                     sharded_data_dict = FlattenedDataOp()
                     for flat_key, shards in inputs_flattened_and_split[input_elem].items():
                         sharded_data_dict[flat_key] = shards[shard_idx]
-                    input_arg_list.append(sharded_data_dict)
+                    input_arg_list.append(unflatten_op(sharded_data_dict))
                 # Must store everything as FlattenedDataOp otherwise the re-nesting will not work.
-                shard_list.append(flatten_op(tuple(input_arg_list)))
+                shard_list.append(DataOpTuple(input_arg_list))
 
             # Return n values (n = number of batch shards).
             return tuple(shard_list)
