@@ -771,12 +771,18 @@ class Component(Specifiable):
             # e.g. var.name = "dense-layer/dense/kernel:0" -> key = "dense-layer/kernel"
             # key = re.sub(r'({}).*?([\w\-.]+):\d+$'.format(self.global_scope), r'\1/\2', var.name)
             key = re.sub(r':\d+$', "", var.name)
-            self.variables[key] = var
-
-            # Auto-create the summary for the variable.
-            summary_name = var.name[len(self.global_scope) + (1 if self.global_scope else 0):]
-            summary_name = re.sub(r':\d+$', "", summary_name)
-            self.create_summary(summary_name, var)
+            # Already registered: Must be the same (shared) variable.
+            if key in self.variables:
+                assert self.variables[key] is var,\
+                    "ERROR: Key '{}' in {}.variables already exists, but holds a different variable " \
+                    "({} vs {})!".format(key, self.global_scope, self.variables[key], var)
+            # New variable: Register.
+            else:
+                self.variables[key] = var
+                # Auto-create the summary for the variable.
+                summary_name = var.name[len(self.global_scope) + (1 if self.global_scope else 0):]
+                summary_name = re.sub(r':\d+$', "", summary_name)
+                self.create_summary(summary_name, var)
 
     def get_variable(self, name="", shape=None, dtype="float", initializer=None, trainable=True,
                      from_space=None, add_batch_rank=False, add_time_rank=False, time_major=False, flatten=False,
@@ -1266,7 +1272,7 @@ class Component(Specifiable):
                 ret.extend(sorted(list_[l], key=lambda c: c.scope))
             return ret
 
-    def get_sub_component_by_scope(self, scope):
+    def get_sub_component_by_global_scope(self, scope):
         """
         Returns a sub-Component (or None if not found) by scope. The sub-coponent's scope should be given
         as global scope of the sub-component (not local scope with respect to this Component).
@@ -1283,6 +1289,25 @@ class Component(Specifiable):
             if component.global_scope == scope:
                 return component
         return None
+
+    def get_sub_component_by_name(self, name):
+        """
+        Returns a sub-Component (or None if not found) by its name (local scope). The sub-Component must be a direct
+        sub-Component of `self`.
+
+        Args:
+            name (str): The name (local scope) of the sub-Component we are looking for.
+
+        Returns:
+            Component: The sub-Component with the given name if found, None if not found.
+
+        Raises:
+            RLGraphError: If a sub-Component by that name could not be found.
+        """
+        sub_component = self.sub_components.get(name, None)
+        if sub_component is None:
+            raise RLGraphError("ERROR: sub-Component with name '{}' not found in '{}'!".format(name, self.global_scope))
+        return sub_component
 
     def remove_sub_component_by_name(self, name):
         """
@@ -1341,6 +1366,7 @@ class Component(Specifiable):
     def propagate_subcomponent_properties(self, properties, component=None):
         """
         Recursively updates properties of component and its sub-components.
+
         Args:
             properties (dict): Dict with names of properties and their values to recursively update
                 sub-components with.
@@ -1389,7 +1415,7 @@ class Component(Specifiable):
         self.parent_component.propagate_variables(keys)
 
     def copy(self, name=None, scope=None, device=None, trainable=None, #global_component=False,
-             reuse_variable_scope=None):
+             reuse_variable_scope=None, reuse_variable_scope_for_sub_components=None):
         """
         Copies this component and returns a new component with possibly another name and another scope.
         The new component has its own variables (they are not shared with the variables of this component as they
@@ -1402,9 +1428,10 @@ class Component(Specifiable):
             device (str): The device of the new Component. If None, use the same device as this one.
             trainable (Optional[bool]): Whether to make all variables in this component trainable or not.
                 Use None for no specific preference.
-            #global_component (Optional[bool]): Whether the new Component is global or not. If None, use the same
-            #    setting as this one.
             reuse_variable_scope (Optional[str]): If not None, variables of the copy will be shared under this scope.
+            reuse_variable_scope_for_sub_components (Optional[str]): If not None, variables only of the sub-components
+                of the copy will be shared under this scope.
+
         Returns:
             Component: The copied component object.
         """
@@ -1420,8 +1447,6 @@ class Component(Specifiable):
             device = self.device
         if trainable is None:
             trainable = self.trainable
-        #if global_component is None:
-        #    global_component = self.global_component
 
         # Simply deepcopy self and change name and scope.
         new_component = copy.deepcopy(self)
@@ -1433,9 +1458,15 @@ class Component(Specifiable):
 
         # Propagate reusable scope, device and other trainable.
         new_component.propagate_subcomponent_properties(
-            properties=dict(reuse_variable_scope=reuse_variable_scope, device=device, trainable=trainable)
+            properties=dict(device=device, trainable=trainable)
         )
-        #new_component.global_component = global_component
+        if reuse_variable_scope:
+            new_component.propagate_subcomponent_properties(dict(reuse_variable_scope=reuse_variable_scope))
+        # Gives us the chance to skip new_component's scope.
+        elif reuse_variable_scope_for_sub_components:
+            for sc in new_component.sub_components.values():
+                sc.propagate_subcomponent_properties(dict(reuse_variable_scope=reuse_variable_scope_for_sub_components))
+
         # Erase the parent pointer.
         new_component.parent_component = None
 
