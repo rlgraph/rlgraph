@@ -21,7 +21,7 @@ import numpy as np
 
 from rlgraph.agents import Agent
 from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, DictMerger, \
-    ContainerSplitter, MultiGpuSyncOptimizer
+    ContainerSplitter
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils.util import strip_list
 
@@ -117,7 +117,7 @@ class DQNAgent(Agent):
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
-        self.define_api_methods("policy", "preprocessor-stack", *sub_components)
+        self.define_api_methods("policy", "preprocessor-stack", self.optimizer.scope, *sub_components)
 
         # markup = get_graph_markup(self.graph_builder.root_component)
         # print(markup)
@@ -167,8 +167,8 @@ class DQNAgent(Agent):
         else:
             return ret
 
-    def define_api_methods(self, policy_scope, pre_processor_scope, *sub_components):
-        super(DQNAgent, self).define_api_methods(policy_scope, pre_processor_scope)
+    def define_api_methods(self, policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
+        super(DQNAgent, self).define_api_methods(policy_scope, pre_processor_scope, optimizer_scope)
 
         preprocessor, merger, memory, splitter, policy, target_policy, exploration, loss_function, optimizer = \
             sub_components
@@ -184,7 +184,6 @@ class DQNAgent(Agent):
         # Act from preprocessed states.
         def action_from_preprocessed_state(self, preprocessed_states, time_step=0, use_exploration=True):
             sample_deterministic = self.call(policy.get_max_likelihood_action, preprocessed_states)
-            #sample_stochastic = self.call(policy.get_stochastic_action, preprocessed_states)
             actions = self.call(exploration.get_action, sample_deterministic, time_step, use_exploration)
             return preprocessed_states, actions
 
@@ -219,15 +218,6 @@ class DQNAgent(Agent):
                 )
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = self_.call(splitter.split, records)
 
-            # Delegate actual update to update_from_external_batch.
-            # TODO make multiple return vals easier (via dict?):
-            #sync_ops = None
-            #if isinstance(optimizer, MultiGpuSyncOptimizer):
-            #    step_op, loss, loss_per_item, q_values_s, sync_ops = self_.call(
-            #        self_.update_from_external_batch, preprocessed_s, actions, rewards,
-            #        terminals, preprocessed_s_prime, importance_weights
-            #    )
-            #else:
             step_op, loss, loss_per_item, q_values_s = self_.call(
                 self_.update_from_external_batch, preprocessed_s, actions, rewards,
                 terminals, preprocessed_s_prime, importance_weights
@@ -236,91 +226,11 @@ class DQNAgent(Agent):
             # TODO this is really annoying..
             if isinstance(memory, PrioritizedReplay):
                 update_pr_step_op = self_.call(memory.update_records, sample_indices, loss_per_item)
-                #if isinstance(optimizer, MultiGpuSyncOptimizer):
-                #    return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op, sync_ops
-                #else:
                 return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
             else:
-                #if isinstance(optimizer, MultiGpuSyncOptimizer):
-                #    return step_op, loss, loss_per_item, records, q_values_s, sync_ops
-                #else:
                 return step_op, loss, loss_per_item, records, q_values_s
 
         self.root_component.define_api_method("update_from_memory", update_from_memory)
-
-        #def TEST_get_memory_batch(self_):
-        #    # Non prioritized memory will just return weight 1.0 for all samples.
-        #    records, sample_indices, importance_weights = self_.call(
-        #            memory.get_records, self.update_spec["batch_size"]
-        #        )
-        #    preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = self_.call(splitter.split, records)
-        #    return records, preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, sample_indices,\
-        #           importance_weights
-
-        # Learn from memory (flexible API-method that support multi-GPU (w/o knowing it)).
-        #def TEST_update_from_memory_multi_gpu_capable(self_):
-        #    records, preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, \
-        #        sample_indices, importance_weights = self_.call(self_.TEST_get_memory_batch)
-
-        #    ## Delegate actual update to update_from_external_batch.
-        #    ## TODO make multiple return vals easier (via dict?):
-        #    #sync_ops = None
-        #    #if isinstance(optimizer, MultiGpuSyncOptimizer):
-        #    #    step_op, loss, loss_per_item, q_values_s, sync_ops = self_.call(
-        #    #        self_.update_from_external_batch, preprocessed_s, actions, rewards,
-        #    #        terminals, preprocessed_s_prime, importance_weights
-        #    #    )
-        #    #else:
-        #    step_op, loss, loss_per_item, q_values_s = self_.call(
-        #        self_.update_from_external_batch, preprocessed_s, actions, rewards,
-        #        terminals, preprocessed_s_prime, importance_weights
-        #    )
-
-        #    # TODO this is really annoying..
-        #    if isinstance(memory, PrioritizedReplay):
-        #        update_pr_step_op = self_.call(memory.update_records, sample_indices, loss_per_item)
-        #        if isinstance(optimizer, MultiGpuSyncOptimizer):
-        #            return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op, sync_ops
-        #        else:
-        #            return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
-        #    else:
-        #        if isinstance(optimizer, MultiGpuSyncOptimizer):
-        #            return step_op, loss, loss_per_item, records, q_values_s, sync_ops
-        #        else:
-        #            return step_op, loss, loss_per_item, records, q_values_s
-
-        #self.root_component.define_api_method("TEST_update_from_memory_multi_gpu_capable", TEST_update_from_memory_multi_gpu_capable)
-        # END: multi-GPU test
-
-        ## Learn from an external batch.
-        #def update_from_external_batch(self_, preprocessed_states, actions, rewards, terminals,
-        #                               preprocessed_next_states, importance_weights):
-        #    # Get the different Q-values.
-        #    q_values_s = self_.call(policy.get_q_values, preprocessed_states)
-        #    qt_values_sp = self_.call(target_policy.get_q_values, preprocessed_next_states)
-
-        #    q_values_sp = None
-        #    if self.double_q:
-        #        q_values_sp = self_.call(policy.get_q_values, preprocessed_next_states)
-
-        #    loss, loss_per_item = self_.call(loss_function.loss, q_values_s, actions, rewards, terminals,
-        #        qt_values_sp, q_values_sp, importance_weights)
-
-        #    # Args are passed in again because some device strategies may want to split them to different devices.
-        #    policy_vars = self_.call(policy._variables)
-
-        #    # TODO this is here because multi gpu optimizer has different num of return vals.
-        #    if isinstance(optimizer, MultiGpuSyncOptimizer):
-        #        step_op, loss, loss_per_item, sync_ops = self_.call(optimizer.step, policy_vars, loss, loss_per_item,
-        #                                                  q_values_s, actions, rewards, terminals, qt_values_sp,
-        #                                                  q_values_sp, importance_weights)
-        #        return step_op, loss, loss_per_item, q_values_s, sync_ops
-        #    else:
-        #        step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item,
-        #            q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights)
-        #        return step_op, loss, loss_per_item, q_values_s
-
-        #self.root_component.define_api_method("update_from_external_batch", update_from_external_batch)
 
         # Learn from an external batch.
         def update_from_external_batch(
@@ -329,45 +239,43 @@ class DQNAgent(Agent):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
             if "multi-gpu-sync-optimizer" in self_.sub_components:
-                # TODO: hack, this may be called differently in other agents (replace by root-policy).
-                variables = self_.call(self.policy._variables)
-                return self_.call(
+                # TODO: This may be called differently in other agents (replace by root-policy).
+                grads_and_vars, loss, loss_per_item, q_values_s = self_.call(
                     self_.sub_components["multi-gpu-sync-optimizer"].calculate_update_from_external_batch,
-                    variables, preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
+                    preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
                     importance_weights
                 )
+                step_op = self_.call(self_.get_sub_component_by_name(optimizer_scope).apply_gradients, grads_and_vars)
+                return step_op, loss, loss_per_item, q_values_s
 
             # Get the different Q-values.
-            q_values_s = self_.call(policy.get_q_values, preprocessed_states)
-            qt_values_sp = self_.call(target_policy.get_q_values, preprocessed_next_states)
+            q_values_s = self_.call(self_.get_sub_component_by_name(policy_scope).get_q_values, preprocessed_states)
+            qt_values_sp = self_.call(self_.get_sub_component_by_name(target_policy.scope).get_q_values,
+                                      preprocessed_next_states)
 
             q_values_sp = None
             if self.double_q:
-                q_values_sp = self_.call(policy.get_q_values, preprocessed_next_states)
+                q_values_sp = self_.call(self_.get_sub_component_by_name(policy_scope).get_q_values, preprocessed_next_states)
 
             loss, loss_per_item = self_.call(
-                loss_function.loss, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp,
-                importance_weights
+                self_.get_sub_component_by_name(loss_function.scope).loss, q_values_s, actions, rewards, terminals,
+                qt_values_sp, q_values_sp, importance_weights
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
-            policy_vars = self_.call(policy._variables)
+            policy_vars = self_.call(self_.get_sub_component_by_name(policy_scope)._variables)
 
             # TODO: for a fully automated multi-GPU strategy, we would have to make sure that:
             # TODO: - every agent (root_component) has an update_from_external_batch method
             # TODO: - this if check is somehow automated and not necessary anymore (local optimizer must be called with different API-method, not step)
             if hasattr(self_, "is_multi_gpu_tower") and self_.is_multi_gpu_tower is True:
-                grads_and_vars = self_.call(
-                    optimizer.calculate_gradients, policy_vars, loss, loss_per_item, q_values_s, actions, rewards, terminals,
-                    qt_values_sp, q_values_sp, importance_weights
-                )
+                grads_and_vars = self_.call(self_.get_sub_component_by_name(optimizer_scope).calculate_gradients,
+                                            policy_vars, loss)
                 return grads_and_vars, loss, loss_per_item, q_values_s
             else:
-                step_op, loss, loss_per_item = self_.call(
-                    optimizer.step, policy_vars, loss, loss_per_item, q_values_s, actions, rewards, terminals,
-                    qt_values_sp, q_values_sp, importance_weights
-                )
-                return step_op, loss, loss_per_item, q_values_s
+                step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
+                return (step_op, loss, loss_per_item, q_values_s) if q_values_s else \
+                    (step_op, loss, loss_per_item)
 
         self.root_component.define_api_method("update_from_external_batch", update_from_external_batch)
 

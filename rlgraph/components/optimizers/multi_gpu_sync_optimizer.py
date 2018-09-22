@@ -37,7 +37,9 @@ class MultiGpuSyncOptimizer(Component):
         #Args:
         #    local_optimizer_name (str): Name of the tower optimizer names.
         """
-        super(MultiGpuSyncOptimizer, self).__init__(scope=scope, **kwargs)
+        super(MultiGpuSyncOptimizer, self).__init__(graph_fn_num_outputs=dict(
+            _graph_fn_calculate_update_from_external_batch=4  # TODO: <- This is currently hardcoded for DQN-type agents
+        ), scope=scope, **kwargs)
 
         #self.optimizer = local_optimizer
 
@@ -65,21 +67,21 @@ class MultiGpuSyncOptimizer(Component):
         self.define_api_method("calculate_update_from_external_batch",
                                self._graph_fn_calculate_update_from_external_batch)
 
-    def set_replicas(self, towers, dict_splitter, loss_name, devices):
+    def set_replicas(self, towers, loss_name, devices):
         """
         Provides the optimizer with sub-graphs, batch splitting, name of the loss to split over,
         and devices to split over.
 
         Args:
             towers (list): List of GPU-towers (copies of the original root-component).
-            dict_splitter (ContainerSplitter): Splitter object containing the keys needed
-                to split an input batch into the shards for each device.
+            #dict_splitter (ContainerSplitter): Splitter object containing the keys needed
+            #    to split an input batch into the shards for each device.
             loss_name (str): Name of loss component to fetch from sub graphs.
             devices (list): List of device names.
         """
         self.towers = towers
         self.add_components(*self.towers)
-        self.dict_splitter = dict_splitter
+        #self.dict_splitter = dict_splitter
         self.loss_name = loss_name
         self.gpu_devices = devices
         self.num_gpus = len(devices)
@@ -143,17 +145,40 @@ class MultiGpuSyncOptimizer(Component):
         all_grads_and_vars = list()
         all_loss = list()
         all_loss_per_item = list()
+        all_rest = None
 
         assert len(input_batches) == self.num_gpus
-        for i, shard in enumerate(input_batches):
-            device_inputs = self.dict_splitter.call("split", shard)
+        for i, shard_data in enumerate(input_batches):
+            return_values_to_be_averaged = self.call(self.towers[i].update_from_external_batch, *shard_data)
 
-            tower_grads_and_vars = self.call(self.towers[i].update_from_external_batch, *device_inputs)
+            grads_and_vars = return_values_to_be_averaged[0]
+            loss = return_values_to_be_averaged[1]
+            loss_per_item = return_values_to_be_averaged[2]
+            rest = return_values_to_be_averaged[3:]
+            if all_rest is None:
+                all_rest = [list()] * len(rest)
 
-            all_grads_and_vars.append(tower_grads_and_vars)
+            all_grads_and_vars.append(grads_and_vars)
+            all_loss.append(loss)
+            all_loss_per_item.append(loss_per_item)
+            for j, r in enumerate(rest):
+                all_rest[j].append(r)
+
+        ret = [
+            # Average over the gradients per variable.
+            self._average_grads_and_vars(all_grads_and_vars),
+            # Simple average over all GPUs.
+            tf.reduce_mean(tf.stack(all_loss, axis=0)),
+            # concatenate the loss_per_item to regenerate original (un-split) batch
+            tf.concat(all_loss_per_item, axis=0),
+        ]
+
+        # For the remaining return items, do like for loss-per-item (regenerate values for original, unsplit batch).
+        for rest_list in all_rest:
+            ret.append(tf.concat(rest_list, axis=0))
 
         # Return averaged gradients.
-        return self._average_gradients_and_losses(all_grads_and_vars, all_loss, all_loss_per_item)
+        return tuple(ret)
 
         # Apply averaged grads to main policy.
         #step_op = self.call(self._graph_fn_apply_gradients, averaged_grads_and_vars)
@@ -191,48 +216,48 @@ class MultiGpuSyncOptimizer(Component):
     #        return tuple(shard_vars)
 
     # TODO: OBSOLETE this, has been merged with graph_fn_calculate_update_from_external_batch
-    def OBSOLETE__graph_fn_calculate_gradients_and_losses(self, input_batches):
-        """
-        Calculates gradients (by variable), losses and losses_per_item by averaging them across (GPU) replicas.
+    #def OBSOLETE__graph_fn_calculate_gradients_and_losses(self, input_batches):
+    #    """
+    #    Calculates gradients (by variable), losses and losses_per_item by averaging them across (GPU) replicas.
 
-        Args:
-            input_batches (list): List of FlattenedDataOps containing input batch shard per item.
+    #    Args:
+    #        input_batches (list): List of FlattenedDataOps containing input batch shard per item.
 
-        Returns:
-            tuple:
-        """
-        all_grads_and_vars = list()
-        all_loss = list()
-        all_loss_per_item = list()
+    #    Returns:
+    #        tuple:
+    #    """
+    #    all_grads_and_vars = list()
+    #    all_loss = list()
+    #    all_loss_per_item = list()
 
-        assert len(input_batches) == self.num_gpus
-        for i, shard in enumerate(input_batches):
-            device_inputs = self.dict_splitter.call("split", shard)
+    #    assert len(input_batches) == self.num_gpus
+    #    for i, shard in enumerate(input_batches):
+    #        device_inputs = self.dict_splitter.call("split", shard)
 
-            ## Fetch components for this tower.
-            ## TODO: It would be more generic to just use each tower's `update_from_external_batch`
-            ## TODO: method with the only change being that the tower's optimizer call should not be step but
-            ## TODO: `calculate_grads_and_vars` (and then return that for averaging here).
-            ## TODO: This switch out of tower-optimizer API-methods could be done automatically.
-            #tower_local_opt = self.towers[i].sub_component_by_name(self.optimizer_name)
-            #tower_local_policy = self.towers[i].sub_component_by_name("policy")
-            ## TODO: This may not work as these variables are shared.
-            #variables = self.call(tower_local_policy._variables)
-            ## Fetch by name, e.g. "dqn-loss-function", passed in by agent.
-            #sub_graph_loss_fn = self.towers[i].sub_component_by_name(self.loss_name)
-            #tower_loss, tower_loss_per_item = self.call(sub_graph_loss_fn.loss, *device_inputs)
-            #all_loss.append(tower_loss)
-            #all_loss_per_item.append(tower_loss_per_item)
-            ## Obtain gradients for this shard.
-            #tower_grads_and_vars = self.call(tower_local_opt.calculate_gradients, variables, tower_loss)
-            # TODO: The following line is the replacement code for everything above.
-            tower_grads_and_vars = self.call(self.towers[i].update_from_external_batch, *device_inputs)
-            # END: TODO
+    #        ## Fetch components for this tower.
+    #        ## TODO: It would be more generic to just use each tower's `update_from_external_batch`
+    #        ## TODO: method with the only change being that the tower's optimizer call should not be step but
+    #        ## TODO: `calculate_grads_and_vars` (and then return that for averaging here).
+    #        ## TODO: This switch out of tower-optimizer API-methods could be done automatically.
+    #        #tower_local_opt = self.towers[i].sub_component_by_name(self.optimizer_name)
+    #        #tower_local_policy = self.towers[i].sub_component_by_name("policy")
+    #        ## TODO: This may not work as these variables are shared.
+    #        #variables = self.call(tower_local_policy._variables)
+    #        ## Fetch by name, e.g. "dqn-loss-function", passed in by agent.
+    #        #sub_graph_loss_fn = self.towers[i].sub_component_by_name(self.loss_name)
+    #        #tower_loss, tower_loss_per_item = self.call(sub_graph_loss_fn.loss, *device_inputs)
+    #        #all_loss.append(tower_loss)
+    #        #all_loss_per_item.append(tower_loss_per_item)
+    #        ## Obtain gradients for this shard.
+    #        #tower_grads_and_vars = self.call(tower_local_opt.calculate_gradients, variables, tower_loss)
+    #        # TODO: The following line is the replacement code for everything above.
+    #        tower_grads_and_vars = self.call(self.towers[i].update_from_external_batch, *device_inputs)
+    #        # END: TODO
 
-            all_grads_and_vars.append(tower_grads_and_vars)
+    #        all_grads_and_vars.append(tower_grads_and_vars)
 
-        # Return averaged gradients.
-        return self._average_gradients_and_losses(all_grads_and_vars, all_loss, all_loss_per_item)
+    #    # Return averaged gradients.
+    #    return self._average_gradients_and_losses(all_grads_and_vars, all_loss, all_loss_per_item)
 
     #def _graph_fn_apply_gradients(self, grads_and_vars):
     #    """
@@ -242,26 +267,24 @@ class MultiGpuSyncOptimizer(Component):
     #    return self.optimizer._graph_fn_apply_gradients(grads_and_vars=grads_and_vars)
 
     @staticmethod
-    def _average_gradients_and_losses(gpu_gradients, gpu_losses, gpu_losses_per_item):
+    def _average_grads_and_vars(grads_and_vars_all_gpus):
         """
-        Utility to average gradients across replicas.
+        Utility to average gradients (per var) across towers.
 
         Note: ported from Ray RLLib to demonstrate the different modularization in RLGraph.
 
         Args:
-            gpu_gradients (list): List grads_and_vars lists.
-            gpu_losses (list): Lists of losses.
-            gpu_losses_per_item (list): Lists of losses per batch item.
+            grads_and_vars (list): List grads_and_vars lists.
 
         Returns:
             list: List of grads_and_vars tuples averaged across GPUs.
         """
         gpu_grad_averages = []
-        gpu_loss_averages = []
-        gpu_loss_per_item_averages = []
+        #gpu_loss_averages = []
+        #gpu_loss_per_item_averages = []
         if get_backend() == "tf":
             # TODO: don't understand this block?
-            for grads_and_vars in zip(*gpu_gradients):
+            for grads_and_vars in zip(*grads_and_vars_all_gpus):
                 gpu_grads = []
 
                 for grad, var in grads_and_vars:
@@ -281,10 +304,26 @@ class MultiGpuSyncOptimizer(Component):
                 var = grads_and_vars[0][1]
                 gpu_grad_averages.append((mean_grad, var))
 
-            gpu_loss_averages = tf.reduce_mean(tf.concat(axis=0, values=gpu_losses), axis=0)
-            gpu_loss_per_item_averages = tf.reduce_mean(tf.concat(axis=0, values=gpu_losses_per_item), axis=0)
+            #gpu_loss_averages = tf.reduce_mean(tf.concat(axis=0, values=gpu_losses), axis=0)
+            #gpu_loss_per_item_averages = tf.reduce_mean(tf.concat(axis=0, values=gpu_losses_per_item), axis=0)
 
-        return gpu_grad_averages, gpu_loss_averages, gpu_loss_per_item_averages
+        return gpu_grad_averages
+
+    #@staticmethod
+    #def _average_over_gpus(gpu_data):
+    #    """
+    #    Args:
+    #        gpu_data (list): Data to average over all GPUs.
+
+    #    Returns:
+    #        list: List of data tuples averaged across GPUs.
+    #    """
+    #    gpu_data_averages = []
+    #    if get_backend() == "tf":
+    #        gpu_data_averages = tf.reduce_mean(tf.concat(axis=0, values=gpu_data), axis=0)
+
+    #    return gpu_data_averages
+
 
     #def get_optimizer_variables(self):
     ## TODO: not sure whether multi-GPU need a local optimizer at all??

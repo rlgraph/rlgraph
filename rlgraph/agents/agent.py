@@ -190,7 +190,7 @@ class Agent(Specifiable):
         self.rewards_buffer[env_id] = list()
         self.terminals_buffer[env_id] = list()
 
-    def define_api_methods(self, policy_scope, pre_processor_scope, *params):
+    def define_api_methods(self, policy_scope, pre_processor_scope, optimizer_scope, *params):
         """
         Can be used to specify and then `self.define_api_method` the Agent's CoreComponent's API methods.
         Each agent implements this to build its algorithm logic.
@@ -205,20 +205,20 @@ class Agent(Specifiable):
 
         # Add api methods for syncing.
         def get_policy_weights(self):
-            policy = self.get_sub_component_by_scope(policy_scope)
+            policy = self.get_sub_component_by_global_scope(policy_scope)
             return self.call(policy._variables)
 
         self.root_component.define_api_method("get_policy_weights", get_policy_weights)
 
         def set_policy_weights(self, weights):
-            policy = self.get_sub_component_by_scope(policy_scope)
+            policy = self.get_sub_component_by_global_scope(policy_scope)
             return self.call(policy.sync, weights)
 
         self.root_component.define_api_method("set_policy_weights", set_policy_weights, must_be_complete=False)
 
         # To pre-process external data if needed.
         def preprocess_states(self, states):
-            preprocessor_stack = self.get_sub_component_by_scope(pre_processor_scope)
+            preprocessor_stack = self.get_sub_component_by_global_scope(pre_processor_scope)
             preprocessed_states = self.call(preprocessor_stack.preprocess, states)
             return preprocessed_states
 

@@ -872,7 +872,7 @@ class GraphBuilder(Specifiable):
                             if op_rec.column.component.input_complete is False:
                                 non_complete_components.add(op_rec.column.component.global_scope)
                     # - Op column is not complete yet: Discard this one (as others will keep coming in anyway).
-                    # - Op column has already been sent (sibling ops may have arrive in same iteration).
+                    # - Op column has already been sent (sibling ops may have arrived in same iteration).
                 # - Op belongs to a column coming from a graph_fn or an API-method, but the op is no longer used.
                 # -> Ignore Op.
 
