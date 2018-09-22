@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
 import unittest
 from rlgraph.utils import root_logger
 from logging import DEBUG
@@ -57,6 +58,19 @@ class TestGpuStrategies(unittest.TestCase):
             agent_config, state_space=environment.state_space, action_space=environment.action_space
         )
         print("Compiled DQN agent on multi-GPU system")
+
+        # Do an update from external batch.
+        batch_size = 5
+        external_batch = dict(
+            states=environment.state_space.sample(size=batch_size),
+            actions=environment.action_space.sample(size=batch_size),
+            rewards=np.random.sample(size=batch_size),
+            terminals=np.random.choice([True, False], size=batch_size),
+            next_states=environment.state_space.sample(size=batch_size),
+            importance_weights=np.zeros(shape=(batch_size,))
+        )
+        agent.update(batch=external_batch)
+        print("Performed an update from external batch")
 
     def test_multi_gpu_apex_agent_compilation(self):
         """
