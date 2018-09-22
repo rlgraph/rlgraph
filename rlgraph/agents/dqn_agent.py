@@ -327,14 +327,14 @@ class DQNAgent(Agent):
                 self_, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights
         ):
             # If we are a multi-GPU root:
-            # Simply feeds everything into the multi-GPU sync optimizer's step method and return.
-            if isinstance(self.optimizer, MultiGpuSyncOptimizer):
+            # Simply feeds everything into the multi-GPU sync optimizer's method and return.
+            if "multi-gpu-sync-optimizer" in self_.sub_components:
                 # TODO: hack, this may be called differently in other agents (replace by root-policy).
                 variables = self_.call(self.policy._variables)
                 return self_.call(
-                    self_.sub_components["multi-gpu-sync-optimizer"].step, variables,
-                    # *inputs.
-                    preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights
+                    self_.sub_components["multi-gpu-sync-optimizer"].calculate_update_from_external_batch,
+                    variables, preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
+                    importance_weights
                 )
 
             # Get the different Q-values.
@@ -353,18 +353,21 @@ class DQNAgent(Agent):
             # Args are passed in again because some device strategies may want to split them to different devices.
             policy_vars = self_.call(policy._variables)
 
+            # TODO: for a fully automated multi-GPU strategy, we would have to make sure that:
+            # TODO: - every agent (root_component) has an update_from_external_batch method
+            # TODO: - this if check is somehow automated and not necessary anymore (local optimizer must be called with different API-method, not step)
             if hasattr(self_, "is_multi_gpu_tower") and self_.is_multi_gpu_tower is True:
-                step_op, loss, loss_per_item = self_.call(
+                grads_and_vars = self_.call(
                     optimizer.calculate_gradients, policy_vars, loss, loss_per_item, q_values_s, actions, rewards, terminals,
                     qt_values_sp, q_values_sp, importance_weights
                 )
+                return grads_and_vars, loss, loss_per_item, q_values_s
             else:
                 step_op, loss, loss_per_item = self_.call(
                     optimizer.step, policy_vars, loss, loss_per_item, q_values_s, actions, rewards, terminals,
                     qt_values_sp, q_values_sp, importance_weights
                 )
-
-            return step_op, loss, loss_per_item, q_values_s
+                return step_op, loss, loss_per_item, q_values_s
 
         self.root_component.define_api_method("update_from_external_batch", update_from_external_batch)
 

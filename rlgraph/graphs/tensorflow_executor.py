@@ -748,11 +748,12 @@ class TensorFlowExecutor(GraphExecutor):
 
             # Old: root <-> local_optimizer, new: root <-> multi_gpu_optimizer <-> local_optimizer
             # Wrap the optimizer in the root component with a MultiGpuSyncOptimizer.
-            removed_root_optimizer = root_component.remove_sub_component_by_name(root_optimizer.name)
+            #removed_root_optimizer = root_component.remove_sub_component_by_name(root_optimizer.name)
             # Make sure we removed the correct Component.
-            assert removed_root_optimizer is root_optimizer
-            self.optimizer = MultiGpuSyncOptimizer(local_optimizer=root_optimizer)  #, devices=self.gpu_names)
-            root_component.add_components(self.optimizer)
+            #assert removed_root_optimizer is root_optimizer
+            #self.optimizer = MultiGpuSyncOptimizer()  #local_optimizer_name=root_optimizer.name, devices=self.gpu_names)
+            multi_gpu_optimizer = MultiGpuSyncOptimizer()
+            root_component.add_components()
 
             #root_component.define_api_method(
             #    "update_from_external_batch", update_from_external_batch_for_root, ok_to_overwrite=True
@@ -764,8 +765,9 @@ class TensorFlowExecutor(GraphExecutor):
             # root_component.add_components(multi_gpu_optimizer)
 
             # 4. Pass the graph copies and the splitter containing the info how to split batches into tensors.
+            # TODO: root-component may not have any container splitter (e.g. if it doesn't have a memory)?
             container_splitter = root_component.sub_component_by_name("container-splitter")
-            self.optimizer.set_replicas(sub_graphs, container_splitter, loss_name, self.gpu_names)
+            multi_gpu_optimizer.set_replicas(sub_graphs, container_splitter, loss_name, self.gpu_names)
 
     def _sanity_check_devices(self):
         """

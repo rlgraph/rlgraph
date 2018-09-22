@@ -32,17 +32,17 @@ class MultiGpuSyncOptimizer(Component):
     Serves as a replacement pipeline for an Agent's `update_from_external_batch` method, which
     needs to be rerouted through this Component's `calculate_update_from_external_batch` method.
     """
-    def __init__(self, local_optimizer_name, scope="multi-gpu-sync-optimizer", **kwargs):
+    def __init__(self, scope="multi-gpu-sync-optimizer", **kwargs):  #tower_optimizer_name
         """
-        Args:
-            local_optimizer_name (str): Name of the tower optimizer names.
+        #Args:
+        #    local_optimizer_name (str): Name of the tower optimizer names.
         """
         super(MultiGpuSyncOptimizer, self).__init__(scope=scope, **kwargs)
 
         #self.optimizer = local_optimizer
 
-        # Name to fetch optimizers on sub-graphs.
-        self.optimizer_name = local_optimizer_name
+        # Name to fetch optimizers on towers.
+        #self.tower_optimizer_name = tower_optimizer_name
 
         ## Add local Optimizer object.
         #self.add_components(self.optimizer)
@@ -65,21 +65,21 @@ class MultiGpuSyncOptimizer(Component):
         self.define_api_method("calculate_update_from_external_batch",
                                self._graph_fn_calculate_update_from_external_batch)
 
-    def set_replicas(self, towers, dict_splitter_from_memory, loss_name, devices):
+    def set_replicas(self, towers, dict_splitter, loss_name, devices):
         """
         Provides the optimizer with sub-graphs, batch splitting, name of the loss to split over,
         and devices to split over.
 
         Args:
             towers (list): List of GPU-towers (copies of the original root-component).
-            dict_splitter_from_memory (ContainerSplitter): Splitter object containing the keys needed
+            dict_splitter (ContainerSplitter): Splitter object containing the keys needed
                 to split an input batch into the shards for each device.
             loss_name (str): Name of loss component to fetch from sub graphs.
             devices (list): List of device names.
         """
         self.towers = towers
         self.add_components(*self.towers)
-        self.dict_splitter_from_memory = dict_splitter_from_memory
+        self.dict_splitter = dict_splitter
         self.loss_name = loss_name
         self.gpu_devices = devices
         self.num_gpus = len(devices)
@@ -137,8 +137,23 @@ class MultiGpuSyncOptimizer(Component):
         #input_batches = self.call(self._graph_fn_load_to_device, input_batches)
 
         # Multi gpu optimizer passes shards to the respective sub-graphs.
-        averaged_grads_and_vars, averaged_loss, averaged_loss_per_item = \
-            self.call(self._graph_fn_calculate_gradients_and_losses, input_batches)
+        #averaged_grads_and_vars, averaged_loss, averaged_loss_per_item = \
+        #    self.call(self._graph_fn_calculate_gradients_and_losses, input_batches)
+
+        all_grads_and_vars = list()
+        all_loss = list()
+        all_loss_per_item = list()
+
+        assert len(input_batches) == self.num_gpus
+        for i, shard in enumerate(input_batches):
+            device_inputs = self.dict_splitter.call("split", shard)
+
+            tower_grads_and_vars = self.call(self.towers[i].update_from_external_batch, *device_inputs)
+
+            all_grads_and_vars.append(tower_grads_and_vars)
+
+        # Return averaged gradients.
+        return self._average_gradients_and_losses(all_grads_and_vars, all_loss, all_loss_per_item)
 
         # Apply averaged grads to main policy.
         #step_op = self.call(self._graph_fn_apply_gradients, averaged_grads_and_vars)
@@ -153,7 +168,7 @@ class MultiGpuSyncOptimizer(Component):
 
         # TODO this is the main component loss, which we don't need to calculate (would be a waste of time).
         #return tf.group([step_op] + sync_ops), averaged_loss, averaged_loss_per_item
-        return averaged_grads_and_vars, averaged_loss, averaged_loss_per_item
+        #return averaged_grads_and_vars, averaged_loss, averaged_loss_per_item
 
     #def _graph_fn_load_to_device(self, key, *device_inputs):
     #    """
@@ -175,7 +190,8 @@ class MultiGpuSyncOptimizer(Component):
 
     #        return tuple(shard_vars)
 
-    def _graph_fn_calculate_gradients_and_losses(self, input_batches):
+    # TODO: OBSOLETE this, has been merged with graph_fn_calculate_update_from_external_batch
+    def OBSOLETE__graph_fn_calculate_gradients_and_losses(self, input_batches):
         """
         Calculates gradients (by variable), losses and losses_per_item by averaging them across (GPU) replicas.
 
@@ -191,27 +207,27 @@ class MultiGpuSyncOptimizer(Component):
 
         assert len(input_batches) == self.num_gpus
         for i, shard in enumerate(input_batches):
-            device_inputs = self.dict_splitter_from_memory.call("split", shard)
+            device_inputs = self.dict_splitter.call("split", shard)
 
-
-            # Fetch components for this tower.
-            # TODO: It would be more generic to just use each tower's `update_from_external_batch`
-            # TODO: method with the only change being that the tower's optimizer call should not be step but
-            # TODO: `calculate_grads_and_vars` (and then return that for averaging here).
-            # TODO: This switch out of tower-optimizer API-methods could be done automatically.
-            tower_local_opt = self.towers[i].sub_component_by_name(self.optimizer_name)
-            tower_local_policy = self.towers[i].sub_component_by_name("policy")
-            # TODO: This may not work as these variables are shared.
-            variables = self.call(tower_local_policy._variables)
-            # Fetch by name, e.g. "dqn-loss-function", passed in by agent.
-            sub_graph_loss_fn = self.towers[i].sub_component_by_name(self.loss_name)
-            tower_loss, tower_loss_per_item = self.call(sub_graph_loss_fn.loss, *device_inputs)
-            all_loss.append(tower_loss)
-            all_loss_per_item.append(tower_loss_per_item)
-            # Obtain gradients for this shard.
-            tower_grads_and_vars = self.call(tower_local_opt.calculate_gradients, variables, tower_loss)
+            ## Fetch components for this tower.
+            ## TODO: It would be more generic to just use each tower's `update_from_external_batch`
+            ## TODO: method with the only change being that the tower's optimizer call should not be step but
+            ## TODO: `calculate_grads_and_vars` (and then return that for averaging here).
+            ## TODO: This switch out of tower-optimizer API-methods could be done automatically.
+            #tower_local_opt = self.towers[i].sub_component_by_name(self.optimizer_name)
+            #tower_local_policy = self.towers[i].sub_component_by_name("policy")
+            ## TODO: This may not work as these variables are shared.
+            #variables = self.call(tower_local_policy._variables)
+            ## Fetch by name, e.g. "dqn-loss-function", passed in by agent.
+            #sub_graph_loss_fn = self.towers[i].sub_component_by_name(self.loss_name)
+            #tower_loss, tower_loss_per_item = self.call(sub_graph_loss_fn.loss, *device_inputs)
+            #all_loss.append(tower_loss)
+            #all_loss_per_item.append(tower_loss_per_item)
+            ## Obtain gradients for this shard.
+            #tower_grads_and_vars = self.call(tower_local_opt.calculate_gradients, variables, tower_loss)
+            # TODO: The following line is the replacement code for everything above.
+            tower_grads_and_vars = self.call(self.towers[i].update_from_external_batch, *device_inputs)
             # END: TODO
-
 
             all_grads_and_vars.append(tower_grads_and_vars)
 
