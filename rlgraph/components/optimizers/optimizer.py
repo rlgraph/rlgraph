@@ -46,7 +46,9 @@ class Optimizer(Component):
 
         self.learning_rate = learning_rate
 
-        self.define_api_method(name="calculate_gradients", func=self._graph_fn_calculate_gradients)
+        # Make all API-methods `must_be_complete`=False as optimizers don't implement `create_variables`.
+        self.define_api_method(name="calculate_gradients", func=self._graph_fn_calculate_gradients,
+                               must_be_complete=False)
         self.define_api_method(name="apply_gradients", func=self._graph_fn_apply_gradients, must_be_complete=False)
         self.define_api_method(name="step", func=self._graph_fn_step, must_be_complete=False)
 

@@ -47,11 +47,6 @@ class LocalOptimizer(Optimizer):
         # For define-by-run instances.
         self.optimizer_obj = None
 
-    def create_variables(self, input_spaces, action_space=None):
-        # Must register the Optimizer's variables with the Component.
-        # self.register_variables(*self.optimizer.variables())
-        pass
-
     def _graph_fn_step(self, variables, loss, loss_per_item, *inputs):
         # TODO n.b. PyTorch does not call api functions because other optimization semantics.
         if get_backend() == "tf":
