@@ -27,8 +27,8 @@ from rlgraph.components.optimizers.optimizer import Optimizer
 
 Optimizer.__lookup_classes__ = dict(
     horovod=HorovodOptimizer,
-    multigpu=MultiGpuSyncOptimizer,
-    multigpusync=MultiGpuSyncOptimizer,
+    #multigpu=MultiGpuSyncOptimizer,
+    #multigpusync=MultiGpuSyncOptimizer,
     # LocalOptimizers.
     gradientdescent=GradientDescentOptimizer,
     adagrad=AdagradOptimizer,
@@ -42,7 +42,5 @@ Optimizer.__lookup_classes__ = dict(
 # The default Optimizer to use if a spec is None and no args/kwars are given.
 Optimizer.__default_constructor__ = partial(GradientDescentOptimizer, learning_rate=0.0001)
 
-__all__ = ["Optimizer", "LocalOptimizer", "HorovodOptimizer", "MultiGpuSyncOptimizer",
-           "GradientDescentOptimizer", "SGDOptimizer",
-           "AdagradOptimizer", "AdadeltaOptimizer", "AdamOptimizer", "NadamOptimizer",
-           "RMSPropOptimizer"]
+__all__ = ["Optimizer", "LocalOptimizer", "MultiGpuSyncOptimizer"] + \
+          list(set(map(lambda x: x.__name__, Optimizer.__lookup_classes__.values())))
