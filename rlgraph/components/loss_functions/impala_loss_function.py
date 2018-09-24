@@ -77,8 +77,7 @@ class IMPALALossFunction(LossFunction):
             self.action_space, allowed_types=[IntBox], must_have_categories=True
         )
 
-    def loss(self, log_probs_actions_pi, action_probs_mu, values, actions, rewards, terminals):  #,
-             #bootstrapped_values):
+    def loss(self, logits_actions_pi, action_probs_mu, values, actions, rewards, terminals):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -89,7 +88,7 @@ class IMPALALossFunction(LossFunction):
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
         #fake_step_op,
-        loss_per_item = self.call(self._graph_fn_loss_per_item, log_probs_actions_pi, action_probs_mu,
+        loss_per_item = self.call(self._graph_fn_loss_per_item, logits_actions_pi, action_probs_mu,
                                   values, actions, rewards, terminals)  #, bootstrapped_values)
         total_loss = self.call(self._graph_fn_loss_average, loss_per_item)
         # TODO: REMOVE no_op again. Only for IMPALA testing w/o update step.
@@ -126,7 +125,11 @@ class IMPALALossFunction(LossFunction):
             logits_actions_pi = logits_actions_pi[:-1]
             # Ignore very first actions/rewards (these are the previous ones only used as part of the state input
             # for the network)
-            actions = actions[1:]
+            actions_flat = actions[1:]
+            actions = tf.reduce_sum(
+                tf.cast(actions_flat * tf.range(self.action_space.num_categories, dtype=tf.float32), dtype=tf.int32),
+                axis=-1
+            )
             rewards = rewards[1:]
             terminals = terminals[1:]
             action_probs_mu = action_probs_mu[1:]
@@ -147,6 +150,7 @@ class IMPALALossFunction(LossFunction):
             # calculator of this loss func.
             vs, pg_advantages = self.call(
                 self.v_trace_function.calc_v_trace_values, logits_actions_pi, tf.log(action_probs_mu), actions,
+                actions_flat,
                 discounts, rewards, values, bootstrapped_values
             )
             # log_probs_actions_taken_pi = tf.reduce_sum(logits_actions_pi * actions, axis=-1, keepdims=True,

@@ -73,7 +73,8 @@ class VTraceFunction(Component):
         #                   must_have_batch_rank=True, must_have_time_rank=True)
         #sanity_check_space(rewards_space, rank=log_is_weight_rank, must_have_batch_rank=True, must_have_time_rank=True)
 
-    def _graph_fn_calc_v_trace_values(self, logits_actions_pi, log_probs_actions_mu, actions, discounts, rewards,
+    def _graph_fn_calc_v_trace_values(self, logits_actions_pi, log_probs_actions_mu, actions, actions_flat,
+                                      discounts, rewards,
                                       values, bootstrapped_values):
         """
         Returns the V-trace values calculated from log importance weights (see [1] for details).
@@ -84,7 +85,8 @@ class VTraceFunction(Component):
         Args:
             logits_actions_pi:
             log_probs_actions_mu:
-            actions
+            actions: action ints.
+            actions_flat: one hot actions.
             #log_is_weights (DataOp): DataOp (time x batch x values) holding the log values of the IS
             #    (importance sampling) weights: log(target_policy(a) / behaviour_policy(a)).
             #    Log space is used for numerical stability (for the timesteps s=t to s=t+N-1).
@@ -109,10 +111,10 @@ class VTraceFunction(Component):
                 logits=logits_actions_pi, labels=actions
             )
             log_probs_actions_taken_pi = tf.reduce_sum(
-                input_tensor=log_prob_actions_pi * actions, axis=-1, keepdims=True, name="log-probs-actions-taken-pi"
+                input_tensor=log_prob_actions_pi * actions_flat, axis=-1, keepdims=True, name="log-probs-actions-taken-pi"
             )
             log_probs_actions_taken_mu = tf.reduce_sum(
-                input_tensor=log_probs_actions_mu * actions, axis=-1, keepdims=True, name="log-probs-actions-taken-mu"
+                input_tensor=log_probs_actions_mu * actions_flat, axis=-1, keepdims=True, name="log-probs-actions-taken-mu"
             )
             log_is_weights = log_probs_actions_taken_pi - log_probs_actions_taken_mu
 
