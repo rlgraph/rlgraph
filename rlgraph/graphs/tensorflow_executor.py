@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import contextlib
 import os
 import time
 
@@ -32,23 +31,6 @@ if get_backend() == "tf":
     from tensorflow.python.client import device_lib
     from rlgraph.utils.specifiable_server import SpecifiableServer, SpecifiableServerHook
     from tensorflow.python.client import timeline
-
-
-@contextlib.contextmanager
-def pin_global_variables(device):
-    """Pins global variables to the specified device."""
-    def getter(getter, *args, **kwargs):
-        var_collections = kwargs.get('collections', None)
-        if var_collections is None:
-            var_collections = [tf.GraphKeys.GLOBAL_VARIABLES]
-        if tf.GraphKeys.GLOBAL_VARIABLES in var_collections:
-            with tf.device(device):
-                return getter(*args, **kwargs)
-        else:
-            return getter(*args, **kwargs)
-
-    with tf.variable_scope('', custom_getter=getter) as vs:
-        yield vs
 
 
 class TensorFlowExecutor(GraphExecutor):
@@ -171,7 +153,7 @@ class TensorFlowExecutor(GraphExecutor):
             else:
                 self.default_device = default_device
                 # Sanity check, whether given default device exists.
-                #if self.default_device not in self.available_devices:
+                # if self.default_device not in self.available_devices:
                 #    raise RLGraphError("Provided `default_device` ('{}') is not in `available_devices` ({})".
                 #                       format(self.default_device, self.available_devices))
             self.device_map = dict()
@@ -185,8 +167,7 @@ class TensorFlowExecutor(GraphExecutor):
         else:
             raise RLGraphError("Invalid device_strategy ('{}') for TensorFlowExecutor!".format(self.device_strategy))
 
-    def build(self, root_components, input_spaces, optimizer=None, loss_name=None, is_impala_learner=False,
-              batch_size=32):
+    def build(self, root_components, input_spaces, optimizer=None, loss_name=None, build_options=None, batch_size=32):
         # Use perf_counter for short tasks.
         start = time.perf_counter()
         # 0. Init phase: Component construction and nesting (child/parent Components).
@@ -207,25 +188,14 @@ class TensorFlowExecutor(GraphExecutor):
             meta_graph = self.meta_graph_builder.build(component, input_spaces)
             meta_build_times.append(time.perf_counter() - start)
 
-            if is_impala_learner:
-                with tf.device("/job:learner/task:0/cpu"), \
-                     pin_global_variables("/job:learner/task:0/cpu"):
-                    # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
-                    # -> Inputs/Operations/variables
-                    build_time = self.graph_builder.build_graph(
-                        meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices,
-                        device_strategy=self.device_strategy, default_device=self.default_device, device_map=self.device_map
-                    )
-            else:
-                # Use default device to be safe.
-                with tf.device(self.default_device):
-                    # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
-                    # -> Inputs/Operations/variables
-                    build_time = self.graph_builder.build_graph(
-                        meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices,
-                        device_strategy=self.device_strategy, default_device=self.default_device,
-                        device_map=self.device_map
-                    )
+            # 2. Build phase: Backend compilation, build actual TensorFlow graph from meta graph.
+            # -> Inputs/Operations/variables
+            build_time = self.graph_builder.build_graph_with_options(
+                meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices,
+                device_strategy=self.device_strategy, default_device=self.default_device, device_map=self.device_map,
+                build_options=build_options
+            )
+
             # Build time is a dict containing the cost of different parts of the build.
             build_times.append(build_time)
 
@@ -244,18 +214,6 @@ class TensorFlowExecutor(GraphExecutor):
     def execute(self, *api_methods):
         # Fetch inputs for the different API-methods.
         fetch_dict, feed_dict = self.graph_builder.get_execution_inputs(*api_methods)
-
-        # TODO: filter out fetch_dict for plain np values and do not send these into session.
-        #  However, we must return them either way from this method.
-        # for api_method in api_methods:
-        #     if api_method is None:
-        #         continue
-        #     elif isinstance(api_method, (list, tuple)):
-        #         params = util.force_list(api_method[1])
-        #         api_method = api_method[0]
-        #     else:
-        #         params = list()
-
         ret = self.monitored_session.run(fetch_dict, feed_dict=feed_dict,
                                          options=self.tf_session_options, run_metadata=self.run_metadata)
 
@@ -405,40 +363,39 @@ class TensorFlowExecutor(GraphExecutor):
         Args:
             hooks (list): List of hooks to use for Saver and Summarizer in Session. Should be appended to.
         """
-        #self.saver = tf.train.Saver(
-        #    var_list=list(self.graph_builder.root_component.variables.values()),
-        #    reshape=False,
-        #    sharded=False,
-        #    max_to_keep=self.saver_spec.get("max_checkpoints", 1) if self.saver_spec else None,
-        #    keep_checkpoint_every_n_hours=10000.0,
-        #    name=None,
-        #    restore_sequentially=False,
-        #    saver_def=None,
-        #    builder=None,
-        #    defer_build=False,
-        #    allow_empty=True,
-        #    write_version=tf.train.SaverDef.V2,
-        #    pad_step_number=False,
-        #    save_relative_paths=True,
-        #    filename=None
-        #)
+        self.saver = tf.train.Saver(
+           var_list=list(self.graph_builder.root_component.variables.values()),
+           reshape=False,
+           sharded=False,
+           max_to_keep=self.saver_spec.get("max_checkpoints", 1) if self.saver_spec else None,
+           keep_checkpoint_every_n_hours=10000.0,
+           name=None,
+           restore_sequentially=False,
+           saver_def=None,
+           builder=None,
+           defer_build=False,
+           allow_empty=True,
+           write_version=tf.train.SaverDef.V2,
+           pad_step_number=False,
+           save_relative_paths=True,
+           filename=None
+        )
 
-        ## Add saver hook to session if saver spec was provided.
-        #if self.saver_spec is not None and (self.execution_mode == "single"
-        #                                    or self.distributed_spec["task_index"] == 0):
-        #    self.saver_directory = self.saver_spec["directory"]
-        #    saver_hook = tf.train.CheckpointSaverHook(
-        #        checkpoint_dir=self.saver_directory,
-        #        # Either save_secs or save_steps must be set.
-        #        save_secs=self.saver_spec["save_secs"],  # TODO: open question: how to handle settings?
-        #        save_steps=self.saver_spec["save_steps"],
-        #        saver=self.saver,
-        #        checkpoint_basename=self.saver_spec["checkpoint_basename"],  # TODO: open question: how to handle settings?
-        #        scaffold=None,  # None since not created yet.
-        #        listeners=None
-        #    )
-        #    hooks.append(saver_hook)
-        pass
+        # Add saver hook to session if saver spec was provided.
+        if self.saver_spec is not None and (self.execution_mode == "single"
+                                           or self.distributed_spec["task_index"] == 0):
+           self.saver_directory = self.saver_spec["directory"]
+           saver_hook = tf.train.CheckpointSaverHook(
+               checkpoint_dir=self.saver_directory,
+               # Either save_secs or save_steps must be set.
+               save_secs=self.saver_spec["save_secs"],  # TODO: open question: how to handle settings?
+               save_steps=self.saver_spec["save_steps"],
+               saver=self.saver,
+               checkpoint_basename=self.saver_spec["checkpoint_basename"],  # TODO: open question: how to handle settings?
+               scaffold=None,  # None since not created yet.
+               listeners=None
+           )
+           hooks.append(saver_hook)
 
     def setup_summaries(self, hooks):
         """

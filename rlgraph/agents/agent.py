@@ -230,18 +230,21 @@ class Agent(Specifiable):
         """
         return self.graph_executor.build(root_components, input_spaces, **kwargs)
 
-    def build(self):
+    def build(self, build_options=None):
         """
         Builds this agent. This method call only be called if the agent parameter "auto_build"
         was set to False.
+
+        Args:
+            build_options (Optional[dict]): Optional build options, see build doc.
         """
         assert not self.graph_built, "ERROR: Attempting to build agent which has already been built. Ensure" \
                                      "auto_build parameter is set to False (was {}), and" \
                                      "method has not been called twice".format(self.auto_build)
         # TODO let agent have a list of root-components
         return self._build_graph(
-            [self.root_component], self.input_spaces,
-            optimizer=self.optimizer, loss_name=self.loss_function.name, batch_size=self.update_spec["batch_size"]
+            [self.root_component], self.input_spaces, optimizer=self.optimizer,
+            loss_name=self.loss_function.name, build_options=build_options, batch_size=self.update_spec["batch_size"]
         )
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):

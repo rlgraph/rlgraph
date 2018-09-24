@@ -77,8 +77,7 @@ class IMPALALossFunction(LossFunction):
             self.action_space, allowed_types=[IntBox], must_have_categories=True
         )
 
-    def loss(self, log_probs_actions_pi, action_probs_mu, values, actions, rewards, terminals):  #,
-             #bootstrapped_values):
+    def loss(self, logits_actions_pi, action_probs_mu, values, actions, rewards, terminals):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -89,21 +88,21 @@ class IMPALALossFunction(LossFunction):
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
         #fake_step_op,
-        loss_per_item = self.call(self._graph_fn_loss_per_item, log_probs_actions_pi, action_probs_mu,
+        loss_per_item = self.call(self._graph_fn_loss_per_item, logits_actions_pi, action_probs_mu,
                                   values, actions, rewards, terminals)  #, bootstrapped_values)
         total_loss = self.call(self._graph_fn_loss_average, loss_per_item)
         # TODO: REMOVE no_op again. Only for IMPALA testing w/o update step.
         # fake_step_op,
         return total_loss, loss_per_item
 
-    def _graph_fn_loss_per_item(self, log_probs_actions_pi, action_probs_mu, values, actions,
+    def _graph_fn_loss_per_item(self, logits_actions_pi, action_probs_mu, values, actions,
                                 rewards, terminals):  #, bootstrapped_values):
         """
         Calculates the loss per batch item (summed over all timesteps) using the formula described above in
         the docstring to this class.
 
         Args:
-            log_probs_actions_pi (DataOp): The log probabilities for all possible actions coming from the learner's
+            logits_actions_pi (DataOp): The logits for all possible actions coming from the learner's
                 policy (pi). Dimensions are: (time+1) x batch x action-space+categories.
                 +1 b/c last-next-state (aka "bootstrapped" value).
             action_probs_mu (DataOp): The probabilities for all actions coming from the
@@ -123,10 +122,14 @@ class IMPALALossFunction(LossFunction):
 
             #return tf.no_op(), tf.ones_like(tf.squeeze(bootstrapped_values, axis=0))
 
-            log_probs_actions_pi = log_probs_actions_pi[:-1]
+            logits_actions_pi = logits_actions_pi[:-1]
             # Ignore very first actions/rewards (these are the previous ones only used as part of the state input
             # for the network)
-            actions = actions[1:]
+            actions_flat = actions[1:]
+            actions = tf.reduce_sum(
+                tf.cast(actions_flat * tf.range(self.action_space.num_categories, dtype=tf.float32), dtype=tf.int32),
+                axis=-1
+            )
             rewards = rewards[1:]
             terminals = terminals[1:]
             action_probs_mu = action_probs_mu[1:]
@@ -146,11 +149,16 @@ class IMPALALossFunction(LossFunction):
             # Both vs and pg_advantages will block the gradient as they should be treated as constants by the gradient
             # calculator of this loss func.
             vs, pg_advantages = self.call(
-                self.v_trace_function.calc_v_trace_values, log_probs_actions_pi, tf.log(action_probs_mu), actions,
+                self.v_trace_function.calc_v_trace_values, logits_actions_pi, tf.log(action_probs_mu), actions,
+                actions_flat,
                 discounts, rewards, values, bootstrapped_values
             )
-            log_probs_actions_taken_pi = tf.reduce_sum(log_probs_actions_pi * actions, axis=-1, keepdims=True,
-                                                       name="log-probs-actions-taken-pi")
+            # log_probs_actions_taken_pi = tf.reduce_sum(logits_actions_pi * actions, axis=-1, keepdims=True,
+            #                                            name="log-probs-actions-taken-pi")
+
+            cross_entropy = tf.expand_dims(tf.nn.sparse_softmax_cross_entropy_with_logits(
+                labels=actions, logits=logits_actions_pi
+            ), axis=-1)
 
             #vs = tf.ones_like(values)
             #pg_advantages = tf.ones_like(log_probs_actions_taken_pi)
@@ -160,15 +168,21 @@ class IMPALALossFunction(LossFunction):
             pg_advantages = tf.stop_gradient(pg_advantages)
 
             # The policy gradient loss.
-            loss_pg = pg_advantages * log_probs_actions_taken_pi
-            loss_pg = tf.reduce_sum(loss_pg, axis=0)  # reduce over the time-rank
+            loss_pg = pg_advantages * cross_entropy
+            loss = tf.reduce_sum(loss_pg, axis=0)  # reduce over the time-rank
+            if self.weight_pg != 1.0:
+                loss = self.weight_pg * loss
 
             # The value-function baseline loss.
             loss_baseline = 0.5 * tf.square(x=tf.subtract(vs, values))
             loss_baseline = tf.reduce_sum(loss_baseline, axis=0)  # reduce over the time-rank
+            loss += self.weight_baseline * loss_baseline
 
             # The entropy regularizer term.
-            loss_entropy = - tf.reduce_sum(tf.exp(log_probs_actions_pi) * log_probs_actions_pi, axis=-1)
-            loss_entropy = tf.reduce_sum(loss_entropy, axis=0)  # reduce over the time-rank
+            policy = tf.nn.softmax(logits=logits_actions_pi)
+            log_policy = tf.nn.log_softmax(logits=logits_actions_pi)
+            loss_entropy = tf.reduce_sum(-policy * log_policy, axis=-1)
+            loss_entropy = -tf.reduce_sum(loss_entropy, axis=0)  # reduce over the time-rank
+            loss += self.weight_entropy * loss_entropy
 
-            return self.weight_pg * loss_pg + self.weight_baseline * loss_baseline + self.weight_entropy * loss_entropy
+            return loss

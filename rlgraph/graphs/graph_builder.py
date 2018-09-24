@@ -30,6 +30,7 @@ from rlgraph.components.component import Component
 from rlgraph.spaces import Space, Dict
 from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalence
 from rlgraph.utils.input_parsing import parse_summary_spec
+from rlgraph.utils.tf_util import pin_global_variables
 from rlgraph.utils.util import force_list, force_tuple, get_shape
 from rlgraph.utils.ops import DataOpTuple, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
     DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn
@@ -98,6 +99,44 @@ class GraphBuilder(Specifiable):
         # NOT NEEDED SO FAR.
         # self.unprocessed_in_op_columns = OrderedDict()
         # self.unprocessed_complete_in_op_columns = OrderedDict()
+
+    def build_graph_with_options(self, meta_graph, input_spaces, available_devices,
+                                 device_strategy="default", default_device=None,
+                                 device_map=None, build_options=None):
+        """
+        Builds graph with the given options. See build doc for build details.
+
+        Args:
+            meta_graph (MetaGraph): MetaGraph to build to backend graph.
+            input_spaces (dict): Input spaces to build for.
+            available_devices (list): Devices which can be used to assign parts of the graph
+                during graph assembly.
+            device_strategy (Optional[str]): Device strategy.
+            default_device (Optional[str]): Default device identifier.
+            device_map (Optional[Dict]): Dict of Component names mapped to device names to place the Component's ops.
+            build_options (Optional[Dict]): Dict of build options, e.g. default device handling for TF.
+        """
+        # No build options.
+        if build_options is None:
+            return self.build_graph(meta_graph, input_spaces, available_devices,
+                                    device_strategy, default_device, device_map)
+        else:
+            if get_backend() == "tf":
+                # Need to be fully specified to avoid errors, no defaults.
+                default_device_context = build_options["build_device_context"]
+                pin_global = build_options["pin_global_variable_device"]
+                if pin_global is not None:
+                    # Pin global variables for distributed TF.
+                    with tf.device(default_device_context), \
+                         pin_global_variables(pin_global):
+                        return self.build_graph(meta_graph, input_spaces, available_devices,
+                                                device_strategy, default_device, device_map)
+                else:
+                    with tf.device(default_device_context):
+                        return self.build_graph(meta_graph, input_spaces, available_devices,
+                                                device_strategy, default_device, device_map)
+            else:
+                raise RLGraphError("Build options are currently only available for TensorFlow.")
 
     def build_graph(self, meta_graph, input_spaces, available_devices,
                     device_strategy="default", default_device=None, device_map=None):
@@ -637,14 +676,14 @@ class GraphBuilder(Specifiable):
         Returns:
             Tuple[list,dict]: Fetch-list, feed-dict with relevant args.
         """
-        fetch_dict = dict()
-        feed_dict = dict()
+        fetch_dict = {}
+        feed_dict = {}
 
         for api_method in api_methods:
             if api_method is None:
                 continue
 
-            params = list()
+            params = []
             return_ops = None
             if isinstance(api_method, (list, tuple)):
                 params = force_list(api_method[1])
@@ -725,8 +764,8 @@ class GraphBuilder(Specifiable):
         time_start = time.perf_counter()
         assert meta_graph.build_status, "ERROR: Meta graph must be built to build backend graph."
         self.root_component = meta_graph.root_component
-        self.graph_call_times = list()
-        self.var_call_times = list()
+        self.graph_call_times = []
+        self.var_call_times = []
         self.api = meta_graph.api
         self.num_meta_ops = meta_graph.num_ops
 
@@ -734,7 +773,7 @@ class GraphBuilder(Specifiable):
         self.available_devices = available_devices
         self.device_strategy = device_strategy
         self.default_device = default_device
-        self.device_map = device_map or dict()
+        self.device_map = device_map or {}
 
         # TODO device strategy in pytorch?
         # Build full registry of callable methods on root component.

@@ -180,7 +180,7 @@ class TestDistributedIMPALA(unittest.TestCase):
             agent.call_api_method("perform_n_steps_and_insert_into_fifo")
         time_total = time.perf_counter() - time_start
         print("Done running {}x{} steps in Deepmind Lab env using IMPALA network in {}sec ({} actions/sec).".format(
-            steps, agent.worker_sample_size, time_total , agent.worker_sample_size * steps / time_total)
+            steps, agent.worker_sample_size, time_total, agent.worker_sample_size * steps / time_total)
         )
 
         #worker = IMPALAWorker(agent=agent)
