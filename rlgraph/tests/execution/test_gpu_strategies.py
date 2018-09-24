@@ -24,7 +24,7 @@ from logging import DEBUG
 
 from rlgraph.agents import ApexAgent, DQNAgent
 from rlgraph.environments import OpenAIGymEnv, RandomEnv
-from rlgraph.execution.ray import ApexExecutor
+#from rlgraph.execution.ray import ApexExecutor
 from rlgraph.spaces import *
 from rlgraph.tests.test_util import config_from_path
 
