@@ -1238,7 +1238,9 @@ class Component(Specifiable):
             for api_method_name, api_method_rec in component.api_methods.items():
                 if api_method_name in expose_apis:
                     def exposed_api_method_wrapper(self, *inputs):
-                        return self.call(api_method_rec.method, *inputs)
+                        # Complicated way to lookup sub-component's method to avoid fixtures when original component gets copied.
+                        return self.call(self.sub_components[api_method_rec.method.__self__.name].api_methods[api_method_name].method, *inputs)
+                        #return self.call(api_method_rec.method, *inputs)
                     self.define_api_method(api_method_name, exposed_api_method_wrapper,
                                            must_be_complete=must_be_complete)
                     # Add the sub-component's API-registered methods to ours.
@@ -1414,7 +1416,7 @@ class Component(Specifiable):
         # Recurse up the container hierarchy.
         self.parent_component.propagate_variables(keys)
 
-    def copy(self, name=None, scope=None, device=None, trainable=None, #global_component=False,
+    def copy(self, name=None, scope=None, device=None, trainable=None,
              reuse_variable_scope=None, reuse_variable_scope_for_sub_components=None):
         """
         Copies this component and returns a new component with possibly another name and another scope.
