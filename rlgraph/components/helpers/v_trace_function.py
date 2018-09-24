@@ -105,8 +105,15 @@ class VTraceFunction(Component):
         if get_backend() == "tf":
             # Calculate the log IS-weight values via: logIS = log(pi(a|s)) - log(mu(a|s)).
             # Use the action_probs_pi values only of the actions actually taken.
-            log_probs_actions_taken_pi = tf.reduce_sum(logits_actions_pi * actions, axis=-1, keepdims=True, name="log-probs-actions-taken-pi")
-            log_probs_actions_taken_mu = tf.reduce_sum(log_probs_actions_mu * actions, axis=-1, keepdims=True, name="log-probs-actions-taken-mu")
+            log_prob_actions_pi = -tf.nn.sparse_softmax_cross_entropy_with_logits(
+                logits=logits_actions_pi, labels=actions
+            )
+            log_probs_actions_taken_pi = tf.reduce_sum(
+                input_tensor=log_prob_actions_pi * actions, axis=-1, keepdims=True, name="log-probs-actions-taken-pi"
+            )
+            log_probs_actions_taken_mu = tf.reduce_sum(
+                input_tensor=log_probs_actions_mu * actions, axis=-1, keepdims=True, name="log-probs-actions-taken-mu"
+            )
             log_is_weights = log_probs_actions_taken_pi - log_probs_actions_taken_mu
 
             is_weights = tf.exp(x=log_is_weights, name="is-weights-from-logs")
