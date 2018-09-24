@@ -73,7 +73,7 @@ class VTraceFunction(Component):
         #                   must_have_batch_rank=True, must_have_time_rank=True)
         #sanity_check_space(rewards_space, rank=log_is_weight_rank, must_have_batch_rank=True, must_have_time_rank=True)
 
-    def _graph_fn_calc_v_trace_values(self, log_probs_actions_pi, log_probs_actions_mu, actions, discounts, rewards,
+    def _graph_fn_calc_v_trace_values(self, logits_actions_pi, log_probs_actions_mu, actions, discounts, rewards,
                                       values, bootstrapped_values):
         """
         Returns the V-trace values calculated from log importance weights (see [1] for details).
@@ -82,7 +82,7 @@ class VTraceFunction(Component):
         A=action Space
 
         Args:
-            log_probs_actions_pi:
+            logits_actions_pi:
             log_probs_actions_mu:
             actions
             #log_is_weights (DataOp): DataOp (time x batch x values) holding the log values of the IS
@@ -105,7 +105,7 @@ class VTraceFunction(Component):
         if get_backend() == "tf":
             # Calculate the log IS-weight values via: logIS = log(pi(a|s)) - log(mu(a|s)).
             # Use the action_probs_pi values only of the actions actually taken.
-            log_probs_actions_taken_pi = tf.reduce_sum(log_probs_actions_pi * actions, axis=-1, keepdims=True, name="log-probs-actions-taken-pi")
+            log_probs_actions_taken_pi = tf.reduce_sum(logits_actions_pi * actions, axis=-1, keepdims=True, name="log-probs-actions-taken-pi")
             log_probs_actions_taken_mu = tf.reduce_sum(log_probs_actions_mu * actions, axis=-1, keepdims=True, name="log-probs-actions-taken-mu")
             log_is_weights = log_probs_actions_taken_pi - log_probs_actions_taken_mu
 

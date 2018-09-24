@@ -614,9 +614,12 @@ class IMPALAAgent(Agent):
             # Preprocess actions and rewards inside the state (actions: flatten one-hot, rewards: expand).
             states = self_.call(preprocessor.preprocess, states)
 
-            # Get the pi-action probs AND the values for all our states.
-            state_values_pi, _, _, log_probabilities_pi, current_internal_states = \
-                self_.call(policy.get_state_values_logits_parameters_log_probs, states, initial_internal_states)
+            # state_values_pi, _, _, log_probabilities_pi, current_internal_states = \
+            #     self_.call(policy.get_state_values_logits_parameters_log_probs, states, initial_internal_states)
+
+            # Only retrieve logits and do faster sparse softmax in loss.
+            state_values_pi, logits = \
+                self_.call(policy.get_state_values_and_logits, states)
 
             # Isolate actions and rewards from states.
             _, _, actions, rewards = self_.call(states_dict_splitter.split, states)
@@ -624,7 +627,7 @@ class IMPALAAgent(Agent):
             # Calculate the loss.
             # step_op,\  <- DEBUG: fake step op
             loss, loss_per_item = self_.call(
-                 loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
+                 loss_function.loss, logits, action_probs_mu, state_values_pi, actions, rewards,
                  terminals
             )
             policy_vars = self_.call(policy._variables)
