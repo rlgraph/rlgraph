@@ -619,7 +619,7 @@ class IMPALAAgent(Agent):
 
             # Only retrieve logits and do faster sparse softmax in loss.
             state_values_pi, logits, _, _ = \
-                self_.call(policy.get_state_values_logits_parameters_log_probs, states)
+                self_.call(policy.get_state_values_logits_parameters_log_probs, states, initial_internal_states)
 
             # Isolate actions and rewards from states.
             _, _, actions, rewards = self_.call(states_dict_splitter.split, states)
