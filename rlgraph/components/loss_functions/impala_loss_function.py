@@ -164,16 +164,20 @@ class IMPALALossFunction(LossFunction):
 
             # The policy gradient loss.
             loss_pg = pg_advantages * cross_entropy
-            loss_pg = tf.reduce_sum(loss_pg, axis=0)  # reduce over the time-rank
+            loss = tf.reduce_sum(loss_pg, axis=0)  # reduce over the time-rank
+            if self.weight_pg != 1.0:
+                loss = self.weight_pg * loss
 
             # The value-function baseline loss.
             loss_baseline = 0.5 * tf.square(x=tf.subtract(vs, values))
             loss_baseline = tf.reduce_sum(loss_baseline, axis=0)  # reduce over the time-rank
+            loss += self.weight_baseline * loss_baseline
 
             # The entropy regularizer term.
             policy = tf.nn.softmax(logits=logits_actions_pi)
             log_policy = tf.nn.log_softmax(logits=logits_actions_pi)
             loss_entropy = tf.reduce_sum(-policy * log_policy, axis=-1)
             loss_entropy = -tf.reduce_sum(loss_entropy, axis=0)  # reduce over the time-rank
+            loss += self.weight_entropy * loss_entropy
 
-            return self.weight_pg * loss_pg + self.weight_baseline * loss_baseline + self.weight_entropy * loss_entropy
+            return loss
