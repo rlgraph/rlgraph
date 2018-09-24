@@ -88,6 +88,7 @@
   },
   "execution_spec": {
     "device_strategy": "multi_gpu_sync",
+    "default_device": "/device:CPU:*",
     "gpu_spec": {
       "gpus_enabled" : true,
       "max_usable_gpus": 2,
@@ -97,7 +98,7 @@
     "disable_monitoring": true,
     "session_config": {
 		"allow_soft_placement": true,
-        "log_device_placement": true,
+        "log_device_placement": false,
 		"device_count": {
 			"CPU": 1
 		},

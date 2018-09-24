@@ -86,7 +86,7 @@ class TestGpuStrategies(unittest.TestCase):
         agent = ApexAgent.from_spec(
             agent_config, state_space=environment.state_space, action_space=environment.action_space
         )
-        print('Compiled apex agent')
+        print("Compiled apex agent")
 
     def test_apex_multi_gpu_update(self):
         """
