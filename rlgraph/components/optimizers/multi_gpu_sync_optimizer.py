@@ -21,6 +21,7 @@ from rlgraph import get_backend
 from rlgraph.components.common.batch_splitter import BatchSplitter
 from rlgraph.components.component import Component
 from rlgraph.spaces import Dict
+#from rlgraph.components.common.staging_area import StagingArea
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -32,23 +33,26 @@ class MultiGpuSyncOptimizer(Component):
     Serves as a replacement pipeline for an Agent's `update_from_external_batch` method, which
     needs to be rerouted through this Component's `calculate_update_from_external_batch` method.
     """
-    def __init__(self, scope="multi-gpu-sync-optimizer", **kwargs):  #tower_optimizer_name
+    def __init__(self, batch_size, use_staging_areas=False,
+                 scope="multi-gpu-sync-optimizer", **kwargs):
         """
-        #Args:
-        #    local_optimizer_name (str): Name of the tower optimizer names.
+        Args:
+            batch_size (int): The batch size that will need to be split between the different GPUs
+                (each GPU will receive a shard of this batch).
+            use_staging_areas (str): Whether to copy the GPU-shards to a StagingArea before
+                processing by the GPUs. This will shadow CPU->GPU copying, but add a lag of 1 time step to the
+                updating.
         """
+        #self.use_staging_areas = use_staging_areas
+
         super(MultiGpuSyncOptimizer, self).__init__(graph_fn_num_outputs=dict(
             _graph_fn_calculate_update_from_external_batch=4  # TODO: <- This is currently hardcoded for DQN-type agents
         ), scope=scope, **kwargs)
 
-        #self.optimizer = local_optimizer
+        self.batch_size = batch_size
+        self.shard_size = 0
 
-        # Name to fetch optimizers on towers.
-        #self.tower_optimizer_name = tower_optimizer_name
-
-        ## Add local Optimizer object.
-        #self.add_components(self.optimizer)
-
+        # The list of GPU towers that are sub-Components of this one.
         self.towers = None
         self.dict_splitter_from_memory = None
 
@@ -56,16 +60,21 @@ class MultiGpuSyncOptimizer(Component):
         self.gpu_devices = None
         self.num_gpus = 0
         self.batch_splitter = None
-        self.sub_graph_vars = None
+        self.sub_graph_vars = list()
+        self.device_input_space = None
+        #self.staging_areas = None
         # Name of loss, e.g. the scope. Needed to fetch losses from subcomponents.
         self.loss_name = None
 
+        self.define_api_method("calculate_update_from_external_batch",
+                               self._graph_fn_calculate_update_from_external_batch)
+        # These API methods are circularly dependent on the one above -> set must_be_complete=False.
+        self.define_api_method("sync_policy_weights_to_towers", self._graph_fn_sync_policy_weights_to_towers,
+                               must_be_complete=False)
         #self.define_api_method(
         #    "load_to_device", self._graph_fn_load_to_device, flatten_ops=True, split_ops=True,
         #    add_auto_key_as_first_param=True, must_be_complete=False
         #)
-        self.define_api_method("calculate_update_from_external_batch",
-                               self._graph_fn_calculate_update_from_external_batch)
 
     def set_replicas(self, towers, loss_name, devices):
         """
@@ -74,24 +83,22 @@ class MultiGpuSyncOptimizer(Component):
 
         Args:
             towers (list): List of GPU-towers (copies of the original root-component).
-            #dict_splitter (ContainerSplitter): Splitter object containing the keys needed
-            #    to split an input batch into the shards for each device.
             loss_name (str): Name of loss component to fetch from sub graphs.
             devices (list): List of device names.
         """
         self.towers = towers
         self.add_components(*self.towers)
-        #self.dict_splitter = dict_splitter
         self.loss_name = loss_name
         self.gpu_devices = devices
         self.num_gpus = len(devices)
+        self.shard_size = int(self.batch_size / self.num_gpus)
 
         assert self.num_gpus > 1,\
             "ERROR: The MultiGPUSyncOptimizer requires as least two GPUs but only {} device ids were passed " \
             "in.".format(self.num_gpus)
 
         # Splits input shards of `update_from_external_batch`.
-        self.batch_splitter = BatchSplitter(self.num_gpus)
+        self.batch_splitter = BatchSplitter(self.num_gpus, self.shard_size)
         self.add_components(self.batch_splitter)
 
     # TODO: Solve this problem via staging areas (one per GPU).
@@ -99,30 +106,35 @@ class MultiGpuSyncOptimizer(Component):
     def create_variables(self, input_spaces, action_space=None):
         super(MultiGpuSyncOptimizer, self).create_variables(input_spaces, action_space)
 
+        #if self.use_staging_areas:
+        #    num_data = len([k for k in input_spaces.keys() if "inputs" in k]) - 1
+        #    self.staging_areas = [StagingArea(num_data=num_data, scope="staging-area-{}".format(i)) for i in range(self.num_gpus)]
+        #    self.add_components(*self.staging_areas)
+
         # Get input space to load device fun.
-        #device_input_space = dict()
-        #for name, space in input_spaces.items():
-        #    # TODO more elegant approach to fetch input space for these tuple spaces?
-        #    if name.startswith("device_inputs"):
-        #        device_input_space[name] = space
+        device_input_space = dict()
+        idx = 0
+        while True:
+            key = "inputs[{}]".format(idx)
+            if key not in input_spaces:
+                break
+            device_input_space[str(idx)] = input_spaces[key]
+            idx += 1
+        # Turn into container space for easy variable creation.
+        self.device_input_space = Dict(device_input_space)
 
-        ## Turn into container space for easy variable creation.
-        #self.device_input_space = Dict.from_spec(spec=device_input_space)
-        #self.sub_graph_vars = list()
-
-        ## Create input variables for devices.
-        #for device in self.gpu_devices:
-        #    with tf.device(device):
-        #        device_variable = self.get_variable(
-        #            name="gpu_placeholder_{}".format(str(device)),
-        #            trainable=False,
-        #            from_space=self.device_input_space,
-        #            # TODO false or True?
-        #            flatten=True,
-        #            add_batch_rank=True,
-        #            initializer=0
-        #        )
-        #        self.sub_graph_vars.append(device_variable)
+        # Create input variables for devices.
+        for i, device in enumerate(self.gpu_devices):
+            with tf.device(device):
+                device_variable = self.get_variable(
+                    name="gpu-placeholder-{}".format(i),
+                    trainable=False,
+                    from_space=self.device_input_space,
+                    flatten=True,
+                    add_batch_rank=self.shard_size,
+                    initializer=0
+                )
+                self.sub_graph_vars.append(tuple(device_variable.values()))
 
     def _graph_fn_calculate_update_from_external_batch(self, *inputs):
         # - Init device memory, i.e. load batch to GPU memory.
@@ -135,8 +147,7 @@ class MultiGpuSyncOptimizer(Component):
         input_batches = self.call(self.batch_splitter.split_batch, *inputs)
 
         # Load shards to the different devices.
-        # TODO: Stage each shard on its respective staging area.
-        #input_batches = self.call(self._graph_fn_load_to_device, input_batches)
+        loaded_input_batches = self._load_to_device(*input_batches)
 
         # Multi gpu optimizer passes shards to the respective sub-graphs.
         #averaged_grads_and_vars, averaged_loss, averaged_loss_per_item = \
@@ -147,8 +158,15 @@ class MultiGpuSyncOptimizer(Component):
         all_loss_per_item = list()
         all_rest = None
 
-        assert len(input_batches) == self.num_gpus
-        for i, shard_data in enumerate(input_batches):
+        #stage_ops = [tf.no_op()]
+
+        assert len(loaded_input_batches) == self.num_gpus
+        for i, shard_data in enumerate(loaded_input_batches):
+            # Stage and unstage the data before processing by the GPU?
+            #if self.use_staging_areas:
+            #    stage_ops.append(self.call(self.staging_areas[i].stage, *shard_data))
+            #    shard_data = self.call(self.staging_areas[i].unstage)
+
             return_values_to_be_averaged = self.call(self.towers[i].update_from_external_batch, *shard_data)
 
             grads_and_vars = return_values_to_be_averaged[0]
@@ -177,43 +195,57 @@ class MultiGpuSyncOptimizer(Component):
         for rest_list in all_rest:
             ret.append(tf.concat(rest_list, axis=0))
 
+        #stage_op = tf.group(*stage_ops)
+
         # Return averaged gradients.
+        #return (stage_op,) + tuple(ret)
         return tuple(ret)
 
+    def _graph_fn_sync_policy_weights_to_towers(self, optimizer_step_op, policy_variables):
         # Apply averaged grads to main policy.
         #step_op = self.call(self._graph_fn_apply_gradients, averaged_grads_and_vars)
 
         # Get master weights.
         #weights = self.parent_component.call("get_policy_weights")
-        #sync_ops = []
-        #for i, shard in enumerate(self.towers):
-        #    # Sync weights to shards
-        #    sync_op = self.towers[i].call("set_policy_weights", weights)
-        #    sync_ops.append(sync_op)
+
+        # Wait for the optimizer update, then sync all variables from the main (root) policy to each tower.
+        with tf.control_dependencies([optimizer_step_op]):
+            sync_ops = []
+            for i, tower in enumerate(self.towers):
+                # Sync weights to shards
+                sync_op = self.towers[i].call(self.towers[i].set_policy_weights, policy_variables)
+                sync_ops.append(sync_op)
+
+            return tf.group(*sync_ops)
 
         # TODO this is the main component loss, which we don't need to calculate (would be a waste of time).
         #return tf.group([step_op] + sync_ops), averaged_loss, averaged_loss_per_item
         #return averaged_grads_and_vars, averaged_loss, averaged_loss_per_item
 
-    #def _graph_fn_load_to_device(self, key, *device_inputs):
-    #    """
-    #    Loads inputs to device memories by splitting data across configured devices.
+    def _load_to_device(self, *device_inputs):
+        """
+        Loads inputs to device memories by splitting data across configured devices.
 
-    #    Args:
+        Args:
+            *device_inputs (Tuple[DataOpTuple]): One or more DataOpTuples, each one representing the data for a single
+                GPU device.
 
-    #        *DataOpTuple (DataOpTuple): Data batch.
+        Returns:
+            Tuple[DataOpTuple]: Identity op of device allocated variables.
+        """
+        if get_backend() == "tf":
+            # Assign shard values to device.
+            assign_ops = list()
+            #shard_vars = list()
+            for i, shard in enumerate(device_inputs):
+                for j, var in enumerate(self.sub_graph_vars[i]):
+                    assign_op = tf.assign(var, shard[j])
+                    assign_ops.append(assign_op)
+                    #self.sub_graph_vars[i][key] = device_inputs[i]
+                    #shard_vars.append(self.sub_graph_vars[i][key])
 
-    #    Returns:
-    #        DataOpTuple: Identity op of device allocated variables.
-    #    """
-    #    if get_backend() == "tf":
-    #        # Assign shard values to device.
-    #        shard_vars = []
-    #        for i, shard in enumerate(device_inputs):
-    #            self.sub_graph_vars[i][key] = device_inputs[i]
-    #            shard_vars.append(self.sub_graph_vars[i][key])
-
-    #        return tuple(shard_vars)
+            with tf.control_dependencies(assign_ops):
+                return tuple(self.sub_graph_vars)
 
     # TODO: OBSOLETE this, has been merged with graph_fn_calculate_update_from_external_batch
     #def OBSOLETE__graph_fn_calculate_gradients_and_losses(self, input_batches):

@@ -158,8 +158,9 @@ class TensorFlowExecutor(GraphExecutor):
         elif self.device_strategy == 'multi_gpu_sync':
             assert self.gpus_enabled, "ERROR: device_strategy is 'multi_gpu_sync' but GPUs are not enabled. Please" \
                                       "check your gpu_spec and set gpus_enabled to True."
-            # self.default_device = [x.name for x in self.local_device_protos if x.device_type == 'CPU'][0]
-
+            self.default_device = self.execution_spec.get(
+                "default_device", [x.name for x in self.local_device_protos if x.device_type == 'CPU'][0]
+            )
             self.logger.info("Initializing graph executor with synchronized multi-gpu device strategy. "
                              "Default device: {}. Available gpus are: {}.".format(self.default_device, self.gpu_names))
         elif self.device_strategy == "custom":
@@ -184,7 +185,8 @@ class TensorFlowExecutor(GraphExecutor):
         else:
             raise RLGraphError("Invalid device_strategy ('{}') for TensorFlowExecutor!".format(self.device_strategy))
 
-    def build(self, root_components, input_spaces, optimizer=None, loss_name=None, is_impala_learner=False):
+    def build(self, root_components, input_spaces, optimizer=None, loss_name=None, is_impala_learner=False,
+              batch_size=32):
         # Use perf_counter for short tasks.
         start = time.perf_counter()
         # 0. Init phase: Component construction and nesting (child/parent Components).
@@ -200,7 +202,7 @@ class TensorFlowExecutor(GraphExecutor):
         build_times = []
 
         for component in root_components:
-            self._build_device_strategy(component, optimizer, loss_name)
+            self._build_device_strategy(component, optimizer, batch_size=batch_size, loss_name=loss_name)
             start = time.perf_counter()
             meta_graph = self.meta_graph_builder.build(component, input_spaces)
             meta_build_times.append(time.perf_counter() - start)
@@ -687,7 +689,7 @@ class TensorFlowExecutor(GraphExecutor):
         # Close the tf.Session.
         self.monitored_session.close()
 
-    def _build_device_strategy(self, root_component, root_optimizer, loss_name=None):
+    def _build_device_strategy(self, root_component, root_optimizer, batch_size, loss_name=None):
         """
         When using multiple GPUs or other special devices, additional graph components
         may be required to split up incoming data, load it to device memories, and aggregate
@@ -703,7 +705,7 @@ class TensorFlowExecutor(GraphExecutor):
         Args:
             root_component (Component): The root Component (will be used to create towers via `Component.copy()`).
             root_optimizer (Optimizer): The Optimizer object of the root Component.
-            #root_policy (Policy): The Policy object of the root Component.
+            batch_size (int): The batch size that needs to be split between the different GPUs.
             loss_name (Optional[str]): Name of loss component. Needed by some device strategies
                 to fetch the loss on graph replicas.
         """
@@ -712,22 +714,22 @@ class TensorFlowExecutor(GraphExecutor):
                                       "there are only {} GPUs visible.".format(self.num_gpus)
             self.logger.info("Building MultiGpuSync strategy with {} GPUs.".format(self.num_gpus))
 
-            #self.optimizer = optimizer
+            self.optimizer = root_optimizer
 
             # These are the API methods we need to retain.
             #multi_gpu_api = [""]
 
             sub_graphs = []
-            shared_scope = "shared"
+            #shared_scope = "shared"
             for i, device in enumerate(self.gpu_names):
                 # TODO only copy relevant towers?
                 # Copy and assign GPU to copy.
                 self.logger.info("Creating device sub-graph for device: {}.".format(device))
                 sub_graph = root_component.copy(
                     # Only place the ops of the tower on the GPU (variables are shared with root).
-                    device=dict(ops=device),
-                    scope="tower-{}".format(i),
-                    reuse_variable_scope_for_sub_components=shared_scope
+                    device=device,
+                    scope="tower-{}".format(i)
+                    #reuse_variable_scope_for_sub_components=shared_scope
                 )
                 sub_graph.is_multi_gpu_tower = True
 
@@ -753,11 +755,11 @@ class TensorFlowExecutor(GraphExecutor):
             # Make sure we removed the correct Component.
             #assert removed_root_optimizer is root_optimizer
             #self.optimizer = MultiGpuSyncOptimizer()  #local_optimizer_name=root_optimizer.name, devices=self.gpu_names)
-            multi_gpu_optimizer = MultiGpuSyncOptimizer()
+            multi_gpu_optimizer = MultiGpuSyncOptimizer(batch_size=batch_size)
             root_component.add_components(multi_gpu_optimizer)
             # Set the root-component's reuse_variable_scope.
-            policy = root_component.get_sub_component_by_name("policy")
-            policy.propagate_subcomponent_properties(dict(reuse_variable_scope=shared_scope))
+            #policy = root_component.get_sub_component_by_name("policy")
+            #policy.propagate_subcomponent_properties(dict(reuse_variable_scope=shared_scope))
 
             #root_component.define_api_method(
             #    "update_from_external_batch", update_from_external_batch_for_root, ok_to_overwrite=True

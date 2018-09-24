@@ -126,6 +126,18 @@ class DQNAgent(Agent):
                               loss_name=self.loss_function.name)
             self.graph_built = True
 
+            # TODO: What should the external batch be? 0s.
+            #if "multi-gpu-sync-optimizer" in self.root_component.sub_components:
+            #    # Get 1st return op of API-method `calculate_update_from_external_batch`
+            #    # (which is the group of stage-ops).
+            #    stage_op = self.root_component.sub_components["multi-gpu-sync-optimizer"].\
+            #        api_methods["calculate_update_from_external_batch"].\
+            #        out_op_columns[0].op_records[0].op
+            #    # Initialize the stage.
+            #    self.graph_executor.monitored_session.run_step_fn(
+            #        lambda step_context: step_context.session.run(stage_op)
+            #    )
+
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
         Args:
@@ -223,7 +235,7 @@ class DQNAgent(Agent):
                 terminals, preprocessed_s_prime, importance_weights
             )
 
-            # TODO this is really annoying..
+            # TODO this is really annoying.. will be solved once we have dict returns.
             if isinstance(memory, PrioritizedReplay):
                 update_pr_step_op = self_.call(memory.update_records, sample_indices, loss_per_item)
                 return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
@@ -246,7 +258,14 @@ class DQNAgent(Agent):
                     importance_weights
                 )
                 step_op = self_.call(self_.get_sub_component_by_name(optimizer_scope).apply_gradients, grads_and_vars)
-                return step_op, loss, loss_per_item, q_values_s
+                main_policy_vars = self_.call(self_.get_sub_component_by_name(policy_scope)._variables)
+                step_and_sync_op = self_.call(
+                    self_.sub_components["multi-gpu-sync-optimizer"].sync_policy_weights_to_towers,
+                    step_op, main_policy_vars
+                )
+                # TODO: remove this once we have return dicts for API-methods.
+                #step_stage_ops = self_.call(self_.get_sub_component_by_name("op-grouper").group, step_op, stage_op)
+                return step_and_sync_op, loss, loss_per_item, q_values_s
 
             # Get the different Q-values.
             q_values_s = self_.call(self_.get_sub_component_by_name(policy_scope).get_q_values, preprocessed_states)

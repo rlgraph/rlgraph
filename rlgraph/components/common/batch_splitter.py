@@ -15,10 +15,11 @@ class BatchSplitter(Component):
     """
     Splits a number of incoming DataOps along their batch dimension.
     """
-    def __init__(self, num_shards, **kwargs):
+    def __init__(self, num_shards, shard_size, **kwargs):
         """
         Args:
             num_shards (int): Number of shards to split the batch dimension into.
+            shard_size (int): The number of samples in a per-GPU shard.
         """
         super(BatchSplitter, self).__init__(
             scope=kwargs.pop("scope", "batch-splitter"),
@@ -30,6 +31,7 @@ class BatchSplitter(Component):
             num_shards
         )
         self.num_shards = num_shards
+        self.shard_size = shard_size
 
         self.define_api_method(name="split_batch", func=self._graph_fn_split_batch, flatten_ops=True)
 
@@ -56,12 +58,12 @@ class BatchSplitter(Component):
                 List of FlattenedDataOps () containing DataOpTuples containing the input shards.
         """
         if get_backend() == "tf":
-            batch_size = tf.shape(next(iter(inputs[0].values())))[0]
-            shard_size = tf.cast(batch_size / self.num_shards, dtype=tf.int32)
+            #batch_size = tf.shape(next(iter(inputs[0].values())))[0]
+            #shard_size = tf.cast(batch_size / self.num_shards, dtype=tf.int32)
 
             # Must be evenly divisible so we slice out an evenly divisible tensor.
             # E.g. 203 items in batch with 4 shards -> Only 4 x 50 = 200 are usable.
-            usable_size = shard_size * self.num_shards
+            usable_size = self.shard_size * self.num_shards
 
             # List (one item for each input arg). Each item in the list looks like:
             # A FlattenedDataOp with (flat) keys (describing the input-piece (e.g. "/states1")) and values being
