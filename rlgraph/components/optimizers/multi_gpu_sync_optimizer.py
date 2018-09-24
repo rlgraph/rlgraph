@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import re
+
 from rlgraph import get_backend
 from rlgraph.components.common.batch_splitter import BatchSplitter
 from rlgraph.components.component import Component
@@ -136,7 +138,7 @@ class MultiGpuSyncOptimizer(Component):
                 )
                 self.sub_graph_vars.append(tuple(device_variable.values()))
 
-    def _graph_fn_calculate_update_from_external_batch(self, *inputs):
+    def _graph_fn_calculate_update_from_external_batch(self, main_variables, *inputs):
         # - Init device memory, i.e. load batch to GPU memory.
         # - Call gradient calculation on multi-gpu optimizer which splits batch
         #   and gets gradients from each sub-graph, then averages them.
@@ -184,7 +186,7 @@ class MultiGpuSyncOptimizer(Component):
 
         ret = [
             # Average over the gradients per variable.
-            self._average_grads_and_vars(all_grads_and_vars),
+            self._average_grads_and_vars(main_variables, all_grads_and_vars),
             # Simple average over all GPUs.
             tf.reduce_mean(tf.stack(all_loss, axis=0)),
             # concatenate the loss_per_item to regenerate original (un-split) batch
@@ -298,8 +300,7 @@ class MultiGpuSyncOptimizer(Component):
     #    """
     #    return self.optimizer._graph_fn_apply_gradients(grads_and_vars=grads_and_vars)
 
-    @staticmethod
-    def _average_grads_and_vars(grads_and_vars_all_gpus):
+    def _average_grads_and_vars(self, main_variables, grads_and_vars_all_gpus):
         """
         Utility to average gradients (per var) across towers.
 
@@ -313,7 +314,7 @@ class MultiGpuSyncOptimizer(Component):
         """
         gpu_grad_averages = []
         if get_backend() == "tf":
-            for grads_and_vars in zip(*grads_and_vars_all_gpus):
+            for i, grads_and_vars in enumerate(zip(*grads_and_vars_all_gpus)):
                 gpu_grads = []
 
                 for grad, var in grads_and_vars:
@@ -329,8 +330,11 @@ class MultiGpuSyncOptimizer(Component):
 
                 aggregate_grads = tf.concat(axis=0, values=gpu_grads)
                 mean_grad = tf.reduce_mean(input_tensor=aggregate_grads, axis=0)
-                # Don't need all vars because they are shared.
-                var = grads_and_vars[0][1]
+                # Need the actual main policy vars, as these are the ones that should be updated.
+                # TODO: This is a hack and needs to be changed, but it works for now to look up main policy variables.
+                main_variable_key = re.sub(r'{}/tower-0/'.format(self.global_scope), "", grads_and_vars[0][1].op.name)
+                main_variable_key = re.sub(r'/', "-", main_variable_key)
+                var = main_variables[main_variable_key]
                 gpu_grad_averages.append((mean_grad, var))
 
         return gpu_grad_averages

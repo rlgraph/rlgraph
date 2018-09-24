@@ -251,14 +251,15 @@ class DQNAgent(Agent):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
             if "multi-gpu-sync-optimizer" in self_.sub_components:
+                main_policy_vars = self_.call(self_.get_sub_component_by_name(policy_scope)._variables)
                 # TODO: This may be called differently in other agents (replace by root-policy).
                 grads_and_vars, loss, loss_per_item, q_values_s = self_.call(
                     self_.sub_components["multi-gpu-sync-optimizer"].calculate_update_from_external_batch,
+                    main_policy_vars,
                     preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
                     importance_weights
                 )
                 step_op = self_.call(self_.get_sub_component_by_name(optimizer_scope).apply_gradients, grads_and_vars)
-                main_policy_vars = self_.call(self_.get_sub_component_by_name(policy_scope)._variables)
                 step_and_sync_op = self_.call(
                     self_.sub_components["multi-gpu-sync-optimizer"].sync_policy_weights_to_towers,
                     step_op, main_policy_vars
