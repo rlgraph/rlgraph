@@ -312,10 +312,7 @@ class MultiGpuSyncOptimizer(Component):
             list: List of grads_and_vars tuples averaged across GPUs.
         """
         gpu_grad_averages = []
-        #gpu_loss_averages = []
-        #gpu_loss_per_item_averages = []
         if get_backend() == "tf":
-            # TODO: don't understand this block?
             for grads_and_vars in zip(*grads_and_vars_all_gpus):
                 gpu_grads = []
 
@@ -335,9 +332,6 @@ class MultiGpuSyncOptimizer(Component):
                 # Don't need all vars because they are shared.
                 var = grads_and_vars[0][1]
                 gpu_grad_averages.append((mean_grad, var))
-
-            #gpu_loss_averages = tf.reduce_mean(tf.concat(axis=0, values=gpu_losses), axis=0)
-            #gpu_loss_per_item_averages = tf.reduce_mean(tf.concat(axis=0, values=gpu_losses_per_item), axis=0)
 
         return gpu_grad_averages
 

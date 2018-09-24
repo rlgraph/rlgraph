@@ -293,8 +293,7 @@ class DQNAgent(Agent):
                 return grads_and_vars, loss, loss_per_item, q_values_s
             else:
                 step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
-                return (step_op, loss, loss_per_item, q_values_s) if q_values_s else \
-                    (step_op, loss, loss_per_item)
+                return step_op, loss, loss_per_item, q_values_s
 
         self.root_component.define_api_method("update_from_external_batch", update_from_external_batch)
 
