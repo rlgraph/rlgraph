@@ -156,8 +156,9 @@ class IMPALALossFunction(LossFunction):
             # log_probs_actions_taken_pi = tf.reduce_sum(logits_actions_pi * actions, axis=-1, keepdims=True,
             #                                            name="log-probs-actions-taken-pi")
 
-            cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
-                labels=actions, logits=logits_actions_pi)
+            cross_entropy = tf.expand_dims(tf.nn.sparse_softmax_cross_entropy_with_logits(
+                labels=actions, logits=logits_actions_pi
+            ), axis=-1)
 
             #vs = tf.ones_like(values)
             #pg_advantages = tf.ones_like(log_probs_actions_taken_pi)
