@@ -126,4 +126,4 @@ class ReplayMemory(Memory):
         indices = (index - 1 - indices) % self.capacity
 
         # Return default importance weight one.
-        return self.read_records(indices=indices), indices, tf.ones_like(tensor=indices)
+        return self.read_records(indices=indices), indices, tf.ones_like(tensor=indices, dtype=tf.float32)
