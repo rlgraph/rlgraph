@@ -205,20 +205,20 @@ class Agent(Specifiable):
 
         # Add api methods for syncing.
         def get_policy_weights(self):
-            policy = self.get_sub_component_by_global_scope(policy_scope)
+            policy = self.get_sub_component_by_name(policy_scope)
             return self.call(policy._variables)
 
         self.root_component.define_api_method("get_policy_weights", get_policy_weights)
 
         def set_policy_weights(self, weights):
-            policy = self.get_sub_component_by_global_scope(policy_scope)
+            policy = self.get_sub_component_by_name(policy_scope)
             return self.call(policy.sync, weights)
 
         self.root_component.define_api_method("set_policy_weights", set_policy_weights, must_be_complete=False)
 
         # To pre-process external data if needed.
         def preprocess_states(self, states):
-            preprocessor_stack = self.get_sub_component_by_global_scope(pre_processor_scope)
+            preprocessor_stack = self.get_sub_component_by_name(pre_processor_scope)
             preprocessed_states = self.call(preprocessor_stack.preprocess, states)
             return preprocessed_states
 
@@ -239,7 +239,10 @@ class Agent(Specifiable):
                                      "auto_build parameter is set to False (was {}), and" \
                                      "method has not been called twice".format(self.auto_build)
         # TODO let agent have a list of root-components
-        return self._build_graph([self.root_component], self.input_spaces, self.optimizer, self.loss_function.name)
+        return self._build_graph(
+            [self.root_component], self.input_spaces,
+            optimizer=self.optimizer, loss_name=self.loss_function.name, batch_size=self.update_spec["batch_size"]
+        )
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
