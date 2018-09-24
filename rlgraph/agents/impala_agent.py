@@ -298,12 +298,6 @@ class IMPALAAgent(Agent):
                                             self.internal_states_slicer,
                                             *self.environment_steppers)
 
-            # Create an IMPALALossFunction with some parameters.
-            self.loss_function = IMPALALossFunction(
-                discount=self.discount, weight_pg=weight_pg, weight_baseline=weight_baseline,
-                weight_entropy=weight_entropy
-            )
-
             sub_components = [
                 self.fifo_output_splitter, self.fifo_queue, self.queue_runner, self.transpose_actions,
                 self.transpose_rewards, self.transpose_terminals, self.transpose_action_probs, self.preprocessor,
