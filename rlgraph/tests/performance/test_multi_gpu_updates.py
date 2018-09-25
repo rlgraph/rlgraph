@@ -46,7 +46,7 @@ class TestMultiGPUUpdates(unittest.TestCase):
         config = config_from_path("configs/ray_apex_for_pong.json")
 
         # Adjust to usable GPUs for test system.
-        num_gpus = [1, 2, 4, 8]
+        num_gpus = [1]
         for gpu_count in num_gpus:
             config["execution_spec"]["gpu_spec"]["num_gpus"] = gpu_count
             config["execution_spec"]["gpu_spec"]["per_process_gpu_memory_fraction"] = 1.0 / gpu_count
@@ -70,14 +70,17 @@ class TestMultiGPUUpdates(unittest.TestCase):
             )
 
             batch_size = 512 * gpu_count
-            num_samples = 10
+            num_samples = 50
             samples = [batch_space.sample(batch_size) for _ in range(num_samples)]
 
             times = []
+            throughputs = []
             for sample in samples:
                 start = time.perf_counter()
                 agent.update(sample)
-                times.append(time.perf_counter() - start)
+                runtime = time.perf_counter() - start
+                times.append(runtime)
+                throughputs.append(num_samples * batch_size / runtime)
 
-            throughput = num_samples * batch_size / sum(times)
-            print("Throughput: {} samples / s for {} GPUs".format(throughput, gpu_count))
+            print("Throughput: {} samples / s ({}) for {} GPUs".format(np.mean(throughputs),
+                                                                       np.std(throughputs), gpu_count))
