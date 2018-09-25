@@ -38,7 +38,8 @@ class LSTMLayer(NNLayer):
     a final internal state and a batch of output sequences.
     """
     def __init__(
-            self, units, use_peepholes=False, cell_clip=None, forget_bias=1.0, parallel_iterations=32,
+            self, units, use_peepholes=False, cell_clip=None, static_loop=False,
+            forget_bias=1.0, parallel_iterations=32,
             swap_memory=False, time_major=False, **kwargs):  # weights_spec=None, dtype="float"
         """
         Args:
@@ -47,6 +48,10 @@ class LSTMLayer(NNLayer):
                 the layers. Default: False.
             cell_clip (Optional[float]): If provided, the cell state is clipped by this value prior to the cell
                 output activation. Default: None.
+            static_loop (Union[bool,int]): If an int, will perform a static RNN loop (with fixed sequence lengths
+                of size `static_loop`) instead of a dynamic one (where the lengths for each input can be different).
+                In this case, time_major must be set to True (as transposing for this case has not been automated yet).
+                Default: False.
             #weights_spec: A specifier for the weight-matrices' initializers.
             #If None, use the default initializers.
             forget_bias (float): The forget gate bias to use. Default: 1.0.
@@ -68,6 +73,9 @@ class LSTMLayer(NNLayer):
         self.units = units
         self.use_peepholes = use_peepholes
         self.cell_clip = cell_clip
+        self.static_loop = static_loop
+        assert self.static_loop is False or (self.static_loop > 0 and self.static_loop is not True), \
+            "ERROR: `static_loop` in LSTMLayer must either be False or an int value (is {})!".format(self.static_loop)
         # self.weights_spec = weights_spec
         # self.weights_init = None
         self.forget_bias = forget_bias
@@ -149,13 +157,34 @@ class LSTMLayer(NNLayer):
                     initial_c_and_h_states[0], initial_c_and_h_states[1]
                 )
 
-            lstm_out, lstm_state_tuple = tf.nn.dynamic_rnn(
-                cell=self.lstm_cell, inputs=inputs, sequence_length=sequence_length,
-                initial_state=initial_c_and_h_states,
-                parallel_iterations=self.parallel_iterations, swap_memory=self.swap_memory,
-                time_major=self.in_space.time_major,
-                dtype="float"
-            )
+            # We are running the LSTM as a dynamic while-loop.
+            if self.static_loop is False:
+                lstm_out, lstm_state_tuple = tf.nn.dynamic_rnn(
+                    cell=self.lstm_cell,
+                    inputs=inputs,
+                    sequence_length=sequence_length,
+                    initial_state=initial_c_and_h_states,
+                    parallel_iterations=self.parallel_iterations,
+                    swap_memory=self.swap_memory,
+                    time_major=self.in_space.time_major,
+                    dtype="float"
+                )
+            # We are running with a fixed number of time steps (static unroll).
+            else:
+                output_list = list()
+                lstm_state_tuple = initial_c_and_h_states
+                # TODO: Add option to reset the internal state in the middle of this loop iff some reset signal
+                # TODO: (e.g. terminal) is True during the loop.
+                inputs.set_shape([self.static_loop] + inputs.shape.as_list()[1:])
+                #for input_, terminal in zip(tf.unstack(inputs), tf.unstack(terminals)):
+                for input_ in tf.unstack(inputs):
+                    #input_ = inputs[i]
+                    # If the episode ended, the core state should be reset before the next.
+                    #core_state = nest.map_structure(functools.partial(tf.where, d),
+                    #                                initial_core_state, core_state)
+                    output, lstm_state_tuple = self.lstm_cell(input_, lstm_state_tuple)
+                    output_list.append(output)
+                lstm_out = tf.stack(output_list)
 
             # Returns: Unrolled-outputs (time series of all encountered h-states), final c- and h-states.
             lstm_out._batch_rank = 0 if self.in_space.time_major is False else 1
