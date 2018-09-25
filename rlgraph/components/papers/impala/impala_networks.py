@@ -44,8 +44,14 @@ class IMPALANetwork(NeuralNetwork):
     [1] IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures - Espeholt, Soyer,
         Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
     """
-    def __init__(self, scope="impala-network", **kwargs):
+    def __init__(self, worker_sample_size=100, scope="impala-network", **kwargs):
+        """
+        Args:
+            worker_sample_size (int): How many time-steps an IMPALA actor will have performed in one rollout.
+        """
         super(IMPALANetwork, self).__init__(scope=scope, **kwargs)
+
+        self.worker_sample_size = worker_sample_size
 
         # Create all needed sub-components.
 
@@ -74,7 +80,7 @@ class IMPALANetwork(NeuralNetwork):
 
         # The main LSTM (going into the ActionAdapter (next in the Policy Component that uses this NN Component)).
         # Use time-major as it's faster (say tf docs).
-        self.main_lstm = LSTMLayer(units=256, scope="lstm-256", time_major=True)
+        self.main_lstm = LSTMLayer(units=256, scope="lstm-256", time_major=True, static_loop=self.worker_sample_size)
 
         # Add all sub-components to this one.
         self.add_components(
