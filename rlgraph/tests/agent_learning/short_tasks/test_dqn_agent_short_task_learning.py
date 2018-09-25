@@ -95,7 +95,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         )
 
         time_steps = 500
-        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent)
+        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, worker_executes_preprocessing=False)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         print("STATES:\n{}".format(agent.last_q_table["states"]))
