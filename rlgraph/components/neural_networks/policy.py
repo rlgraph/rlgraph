@@ -108,36 +108,37 @@ class Policy(Component):
         # TODO: Hacky trick to implement IMPALA post-LSTM256 time-rank folding and unfolding.
         # TODO: Replace entirely via sonnet-like BatchApply Component.
         is_impala = "IMPALANetwork" in type(self.neural_network).__name__
-        if is_impala:
-            self.time_rank_folder = ReShape(fold_time_rank=True, scope="time-rank-fold")
-            self.time_rank_unfolder_v = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold-v")
-            self.time_rank_unfolder_a_probs = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold-a-probs")
-            self.time_rank_unfolder_logits = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold-logits")
-            self.time_rank_unfolder_log_probs = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold-log-probs")
 
         # Add API-method to get dueling output (if we use a dueling layer).
         if isinstance(self.action_adapter, DuelingActionAdapter):
-            #def get_dueling_output(self, nn_input, internal_states=None):
-            #    nn_output, last_internals = unify_nn_and_rnn_api_output(
-            #        self.call(self.neural_network.apply, nn_input, internal_states)
-            #    )
-            #    state_value, advantages, q_values = self.call(self.action_adapter.get_dueling_output, nn_output)
-            #    return (state_value, advantages, q_values, last_internals) if last_internals is not None else \
-            #        (state_value, advantages, q_values)
-
-            #self.define_api_method("get_dueling_output", get_dueling_output)
-
             def get_q_values(self, nn_input, internal_states=None):
                 nn_output, last_internals = unify_nn_and_rnn_api_output(
                     self.call(self.neural_network.apply, nn_input, internal_states)
                 )
-                #_, _, q = self.call(self.action_adapter.get_dueling_output, nn_output)
-                #return (q, last_internals) if last_internals is not None else q
                 q_values, _, _ = self.call(self.action_adapter.get_logits_parameters_log_probs, nn_output)
                 return (q_values, last_internals) if last_internals is not None else q_values
 
         # Add API-method to get baseline output (if we use an extra value function baseline node).
         elif isinstance(self.action_adapter, BaselineActionAdapter):
+            if is_impala:
+                # TODO: IMPALA attempt to speed up final pass after LSTM.
+                self.time_rank_folder = ReShape(fold_time_rank=True, scope="time-rank-fold")
+                self.time_rank_unfolder_v = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold-v")
+                self.time_rank_unfolder_a_probs = ReShape(unfold_time_rank=True, time_major=True,
+                                                          scope="time-rank-unfold-a-probs")
+                self.time_rank_unfolder_logits = ReShape(unfold_time_rank=True, time_major=True,
+                                                         scope="time-rank-unfold-logits")
+                self.time_rank_unfolder_log_probs = ReShape(unfold_time_rank=True, time_major=True,
+                                                        scope="time-rank-unfold-log-probs")
+
+            self.add_components(
+                self.time_rank_folder,
+                self.time_rank_unfolder_v,
+                self.time_rank_unfolder_a_probs,
+                self.time_rank_unfolder_log_probs,
+                self.time_rank_unfolder_logits
+            )
+
             def get_baseline_output(self, nn_input, internal_states=None):
                 nn_output, last_internals = unify_nn_and_rnn_api_output(
                     self.call(self.neural_network.apply, nn_input, internal_states)
@@ -197,9 +198,7 @@ class Policy(Component):
             raise RLGraphError("ERROR: `action_space` is of type {} and not allowed in {} Component!".
                                format(type(action_space).__name__, self.name))
 
-        self.add_components(
-            self.neural_network, self.action_adapter, self.distribution
-        )
+        self.add_components(self.neural_network, self.action_adapter, self.distribution)
 
         if is_impala:
             self.add_components(
