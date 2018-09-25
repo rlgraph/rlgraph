@@ -23,10 +23,12 @@ from rlgraph.utils import root_logger
 from logging import DEBUG
 
 from rlgraph.agents import ApexAgent, DQNAgent
-from rlgraph.environments import OpenAIGymEnv, RandomEnv
+from rlgraph.environments import OpenAIGymEnv, RandomEnv, GridWorld
 #from rlgraph.execution.ray import ApexExecutor
 from rlgraph.spaces import *
 from rlgraph.tests.test_util import config_from_path
+from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
+from rlgraph.tests.test_util import recursive_assert_almost_equal
 
 
 class TestGpuStrategies(unittest.TestCase):
@@ -87,6 +89,49 @@ class TestGpuStrategies(unittest.TestCase):
             agent_config, state_space=environment.state_space, action_space=environment.action_space
         )
         print("Compiled apex agent")
+
+    def test_multi_gpu_dqn_agent_learning_test_gridworld_2x2(self):
+        """
+        Tests if the multi gpu strategy can learn successfully on a multi gpu system.
+
+        THIS TEST REQUIRES A MULTI GPU SYSTEM.
+        """
+        root_logger.setLevel(DEBUG)
+        env = GridWorld("2x2")
+        agent = DQNAgent.from_spec(
+            config_from_path("configs/multi_gpu_dqn_for_gridworld_2x2.json"),
+            dueling_q=False,
+            state_space=env.state_space,
+            action_space=env.action_space,
+            observe_spec=dict(buffer_size=100),
+            update_spec=dict(update_interval=4, batch_size=48, sync_interval=32),
+            optimizer_spec=dict(type="adam", learning_rate=0.1),
+            store_last_q_table=True
+        )
+
+        time_steps = 1000
+        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, worker_executes_preprocessing=False)
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
+
+        print("STATES:\n{}".format(agent.last_q_table["states"]))
+        print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
+
+        self.assertEqual(results["timesteps_executed"], time_steps)
+        self.assertEqual(results["env_frames"], time_steps)
+        self.assertGreaterEqual(results["mean_episode_reward"], -4.5)
+        self.assertGreaterEqual(results["max_episode_reward"], 0.0)
+        self.assertLessEqual(results["episodes_executed"], 250)
+
+        # Check q-table for correct values.
+        expected_q_values_per_state = {
+            (1.0, 0, 0, 0): (-1, -5, 0, -1),
+            (0, 1.0, 0, 0): (-1, 1, 0, 0)
+        }
+        for state, q_values in zip(agent.last_q_table["states"], agent.last_q_table["q_values"]):
+            state, q_values = tuple(state), tuple(q_values)
+            assert state in expected_q_values_per_state, \
+                "ERROR: state '{}' not expected in q-table as it's a terminal state!".format(state)
+            recursive_assert_almost_equal(q_values, expected_q_values_per_state[state], decimals=0)
 
     def test_apex_multi_gpu_update(self):
         """
