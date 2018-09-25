@@ -123,7 +123,7 @@ class DQNAgent(Agent):
         # print(markup)
         if self.auto_build:
             self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
-                              loss_name=self.loss_function.name)
+                              loss_name=self.loss_function.name, batch_size=self.update_spec["batch_size"])
             self.graph_built = True
 
             # TODO: What should the external batch be? 0s.
@@ -235,6 +235,8 @@ class DQNAgent(Agent):
                 terminals, preprocessed_s_prime, importance_weights
             )
 
+            #return step_op, loss, loss_per_item, q_values_s, records
+
             # TODO this is really annoying.. will be solved once we have dict returns.
             if isinstance(memory, PrioritizedReplay):
                 update_pr_step_op = self_.call(memory.update_records, sample_indices, loss_per_item)
@@ -259,6 +261,7 @@ class DQNAgent(Agent):
                     preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
                     importance_weights
                 )
+                #return grads_and_vars, loss, loss_per_item, q_values_s
                 step_op = self_.call(self_.get_sub_component_by_name(optimizer_scope).apply_gradients, grads_and_vars)
                 step_and_sync_op = self_.call(
                     self_.sub_components["multi-gpu-sync-optimizer"].sync_policy_weights_to_towers,
