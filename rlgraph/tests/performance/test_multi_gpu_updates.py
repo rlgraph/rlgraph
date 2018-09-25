@@ -80,7 +80,7 @@ class TestMultiGPUUpdates(unittest.TestCase):
                 agent.update(sample)
                 runtime = time.perf_counter() - start
                 times.append(runtime)
-                throughputs.append(num_samples * batch_size / runtime)
+                throughputs.append(batch_size / runtime)
 
             print("Throughput: {} samples / s ({}) for {} GPUs".format(np.mean(throughputs),
                                                                        np.std(throughputs), gpu_count))
