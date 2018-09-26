@@ -666,12 +666,12 @@ class TensorFlowExecutor(GraphExecutor):
             loss_name (Optional[str]): Name of loss component. Needed by some device strategies
                 to fetch the loss on graph replicas.
         """
+        self.optimizer = root_optimizer
+
         if self.device_strategy == "multi_gpu_sync":
             assert self.num_gpus > 1, "ERROR: MultiGpuSync strategy needs more than one GPU available but" \
                                       "there are only {} GPUs visible.".format(self.num_gpus)
             self.logger.info("Building MultiGpuSync strategy with {} GPUs.".format(self.num_gpus))
-
-            self.optimizer = root_optimizer
 
             # These are the API methods we need to retain.
             #multi_gpu_api = [""]
