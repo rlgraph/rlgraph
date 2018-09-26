@@ -380,6 +380,9 @@ class Component(Specifiable):
             # Check Spaces and create variables.
             self.graph_builder.build_component_when_input_complete(self)
             assert self.input_complete
+            # TODO: This check should go in, but fails for multi-GPU DQN runs.
+            #if in_graph_fn_column.graph_fn.__name__ == "_graph_fn__variables":
+            #    assert self.variable_complete
             # Call the graph_fn.
             out_graph_fn_column = self.graph_builder.run_through_graph_fn_with_device_and_scope(
                 in_graph_fn_column, create_new_out_column=True
@@ -1503,7 +1506,10 @@ class Component(Specifiable):
             Optional[op]: None or the graph operation representing the assginment.
         """
         if get_backend() == "tf":
-            return tf.assign(ref=ref, value=value)
+            if type(value).__name__ == "Variable":
+                return tf.assign(ref=ref, value=value.read_value())
+            else:
+                return tf.assign(ref=ref, value=value)
 
     @staticmethod
     def read_variable(variable, indices=None):
