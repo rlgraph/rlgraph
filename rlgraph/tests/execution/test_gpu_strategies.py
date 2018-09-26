@@ -104,12 +104,13 @@ class TestGpuStrategies(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space,
             observe_spec=dict(buffer_size=100),
+            # Rule of thumb for multi-GPU (with n GPUs): n-fold batch-size and learning rate w/ respect to 1 GPU.
             update_spec=dict(update_interval=4, batch_size=48, sync_interval=32),
-            optimizer_spec=dict(type="adam", learning_rate=0.1),
+            optimizer_spec=dict(type="adam", learning_rate=0.15),
             store_last_q_table=True
         )
 
-        time_steps = 1000
+        time_steps = 500
         worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, worker_executes_preprocessing=False)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
