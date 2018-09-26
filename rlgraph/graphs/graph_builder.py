@@ -310,6 +310,10 @@ class GraphBuilder(Specifiable):
                         # Keep working with the generated output ops.
                         self.op_records_to_process.update(no_in_col.out_graph_fn_column.op_records)
 
+                # Now that the component is input-complete, the parent may have become variable-complete.
+                if component.parent_component is not None:
+                    self.build_component_when_input_complete(component.parent_component)
+
         # Check variable-completeness and actually call the _variable graph_fn if the component just became
         # "variable-complete".
         if component.input_complete is True and component.variable_complete is False and \
@@ -320,9 +324,10 @@ class GraphBuilder(Specifiable):
                 # TODO: Think about only running through no-input-graph-fn once, no matter how many in-op-columns it has.
                 # TODO: Then link the first in-op-column (empty) to all out-op-columns.
                 for i, in_op_col in enumerate(graph_fn_rec.in_op_columns):
-                    self.run_through_graph_fn_with_device_and_scope(in_op_col)
-                    # Keep working with the generated output ops.
-                    self.op_records_to_process.update(graph_fn_rec.out_op_columns[i].op_records)
+                    if in_op_col.already_sent is False:
+                        self.run_through_graph_fn_with_device_and_scope(in_op_col)
+                        # Keep working with the generated output ops.
+                        self.op_records_to_process.update(graph_fn_rec.out_op_columns[i].op_records)
 
     def run_through_graph_fn_with_device_and_scope(self, op_rec_column, create_new_out_column=False):
         """
