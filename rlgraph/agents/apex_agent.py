@@ -40,17 +40,16 @@ class ApexAgent(DQNAgent):
         super(ApexAgent, self).__init__(memory_spec=memory_spec, huber_loss=kwargs.pop("huber_loss", True),
                                         name=kwargs.pop("name", "apex-agent"), **kwargs)
 
-        # Apex uses train time steps for syncing.
-        self.steps_since_weight_sync = 0
         self.num_updates = 0
 
     def update(self, batch=None):
         # In apex, syncing is based on num steps trained, not steps sampled.
         sync_call = None
-        self.steps_since_weight_sync += len(batch["terminals"])
-        if self.steps_since_weight_sync >= self.update_spec["sync_interval"]:
+        # Apex uses train time steps for syncing.
+        self.steps_since_target_net_sync += len(batch["terminals"])
+        if self.steps_since_target_net_sync >= self.update_spec["sync_interval"]:
             sync_call = "sync_target_qnet"
-            self.steps_since_weight_sync = 0
+            self.steps_since_target_net_sync = 0
         return_ops = [0, 1]
         self.num_updates += 1
         if batch is None:

@@ -104,6 +104,8 @@ class DQNAgent(Agent):
         # Copy our Policy (target-net), make target-net synchronizable.
         self.target_policy = self.policy.copy(scope="target-policy", trainable=False)
         self.target_policy.add_components(Synchronizable(), expose_apis="sync", exposed_must_be_complete=False)
+        # Number of steps since the last target-net synching from the main policy.
+        self.steps_since_target_net_sync = 0
 
         use_importance_weights = isinstance(self.memory, PrioritizedReplay)
         self.loss_function = DQNLossFunction(
@@ -164,7 +166,9 @@ class DQNAgent(Agent):
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
 
         # Increase timesteps by the batch size (number of states in batch).
-        self.timesteps += len(batched_states)
+        batch_size = len(batched_states)
+        self.timesteps += batch_size
+        self.steps_since_target_net_sync += batch_size
 
         # Control, which return value to "pull" (depending on `additional_returns`).
         return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
@@ -261,14 +265,11 @@ class DQNAgent(Agent):
                     preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
                     importance_weights
                 )
-                #return grads_and_vars, loss, loss_per_item, q_values_s
                 step_op = self_.call(self_.get_sub_component_by_name(optimizer_scope).apply_gradients, grads_and_vars)
                 step_and_sync_op = self_.call(
                     self_.sub_components["multi-gpu-sync-optimizer"].sync_policy_weights_to_towers,
                     step_op, main_policy_vars
                 )
-                # TODO: remove this once we have return dicts for API-methods.
-                #step_stage_ops = self_.call(self_.get_sub_component_by_name("op-grouper").group, step_op, stage_op)
                 return step_and_sync_op, loss, loss_per_item, q_values_s
 
             # Get the different Q-values.
@@ -325,9 +326,10 @@ class DQNAgent(Agent):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
     def update(self, batch=None):
-        # Should we sync the target net? (timesteps-1 b/c it has been increased already in get_action)
-        if self.timesteps % self.update_spec["sync_interval"] == 0:
+        # Should we sync the target net?
+        if self.steps_since_target_net_sync >= self.update_spec["sync_interval"]:
             sync_call = "sync_target_qnet"
+            self.steps_since_target_net_sync = 0
         else:
             sync_call = None
 
