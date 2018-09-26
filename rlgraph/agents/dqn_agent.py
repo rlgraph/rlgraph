@@ -168,7 +168,6 @@ class DQNAgent(Agent):
         # Increase timesteps by the batch size (number of states in batch).
         batch_size = len(batched_states)
         self.timesteps += batch_size
-        self.steps_since_target_net_sync += batch_size
 
         # Control, which return value to "pull" (depending on `additional_returns`).
         return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
@@ -333,6 +332,7 @@ class DQNAgent(Agent):
 
     def update(self, batch=None):
         # Should we sync the target net?
+        self.steps_since_target_net_sync += self.update_spec["update_interval"]
         if self.steps_since_target_net_sync >= self.update_spec["sync_interval"]:
             sync_call = "sync_target_qnet"
             self.steps_since_target_net_sync = 0
