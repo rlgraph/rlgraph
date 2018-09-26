@@ -45,7 +45,7 @@ class Synchronizable(Component):
         super(Synchronizable, self).__init__(*args, scope=kwargs.pop("scope", "synchronizable"), **kwargs)
 
         # Add the syncing operation.
-        self.define_api_method(name="sync", func=self._graph_fn_sync)
+        self.define_api_method(name="sync", func=self._graph_fn_sync, must_be_complete=False)
 
     def check_input_completeness(self):
         # Overwrites this method as any Synchronizable should only be input-complete once the parent
