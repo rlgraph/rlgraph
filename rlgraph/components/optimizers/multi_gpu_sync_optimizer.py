@@ -122,6 +122,17 @@ class MultiGpuSyncOptimizer(Component):
                 )
                 self.sub_graph_vars.append(tuple(device_variable.values()))
 
+    def sync_target_qnets(self):
+        tower_ops = list()
+        for i in range(self.num_gpus):
+            op = self.call(self.towers[i].sync_target_qnet)
+            tower_ops.append(op)
+        group_op = self.call(self._graph_fn_group, *tower_ops)
+        return group_op
+
+    def _graph_fn_group(self, *tower_ops):
+        return tf.group(*tower_ops)
+
     def _graph_fn_calculate_update_from_external_batch(self, main_variables, *inputs):
         # - Init device memory, i.e. load batch to GPU memory.
         # - Call gradient calculation on multi-gpu optimizer which splits batch
@@ -143,7 +154,8 @@ class MultiGpuSyncOptimizer(Component):
         assert len(loaded_input_batches) == self.num_gpus
         for i, shard_data in enumerate(loaded_input_batches):
             with tf.control_dependencies([per_device_assign_ops[i]]):
-                return_values_to_be_averaged = self.call(self.towers[i].update_from_external_batch, *shard_data)
+                shard_data_stopped = tuple([tf.stop_gradient(datum.read_value()) for datum in shard_data])
+                return_values_to_be_averaged = self.call(self.towers[i].update_from_external_batch, *shard_data_stopped)
 
                 grads_and_vars = return_values_to_be_averaged[0]
                 loss = return_values_to_be_averaged[1]
@@ -157,9 +169,6 @@ class MultiGpuSyncOptimizer(Component):
                 all_loss_per_item.append(loss_per_item)
                 for j, r in enumerate(rest):
                     all_rest[j].append(r)
-
-        #return tuple([shard_data[0], shard_data[1], shard_data[2], shard_data[3]])
-        #return tuple([self._average_grads_and_vars(main_variables, all_grads_and_vars), all_grads_and_vars[0], all_grads_and_vars[1], tf.reduce_mean(tf.stack(all_loss, axis=0))])
 
         ret = [
             # Average over the gradients per variable.
@@ -183,7 +192,7 @@ class MultiGpuSyncOptimizer(Component):
             sync_ops = []
             for i, tower in enumerate(self.towers):
                 # Sync weights to shards
-                sync_op = self.towers[i].call(self.towers[i].set_policy_weights, policy_variables)
+                sync_op = self.call(self.towers[i].set_policy_weights, policy_variables)
                 sync_ops.append(sync_op)
 
             return tf.group(*sync_ops)

@@ -221,8 +221,14 @@ class DQNAgent(Agent):
 
         # Syncing target-net.
         def sync_target_qnet(self):
-            policy_vars = self.call(policy._variables)
-            return self.call(target_policy.sync, policy_vars)
+            # If we are a multi-GPU root:
+            # Simply feeds everything into the multi-GPU sync optimizer's method and return.
+            if "multi-gpu-sync-optimizer" in self.sub_components:
+                multi_gpu_syncer = self.sub_components["multi-gpu-sync-optimizer"]
+                return self.call(multi_gpu_syncer.sync_target_qnets)
+            else:
+                policy_vars = self.call(self.get_sub_component_by_name(policy_scope)._variables)
+                return self.call(self.get_sub_component_by_name("target-policy").sync, policy_vars)
 
         self.root_component.define_api_method("sync_target_qnet", sync_target_qnet)
 
@@ -344,6 +350,8 @@ class DQNAgent(Agent):
             elif self.store_last_memory_batch is True:
                 return_ops += [3]  # 3=batch
             ret = self.graph_executor.execute(("update_from_memory", None, return_ops), sync_call)
+
+            # print("Loss: {}".format(ret["update_from_memory"][1]))
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
