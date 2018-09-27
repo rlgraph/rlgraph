@@ -109,7 +109,7 @@ class DuelingActionAdapter(ActionAdapter):
         advantage_nodes = self.call(self.action_layer.apply, output_advantage_dense)
         return state_value_node, advantage_nodes
 
-    def get_logits_parameters_log_probs(self, nn_output):
+    def get_logits_probabilities_log_probs(self, nn_output):
         """
         Args:
             nn_output (DataOpRecord): The NN output of the preceding neural network.
@@ -123,7 +123,7 @@ class DuelingActionAdapter(ActionAdapter):
         state_value, advantage_values = self.call(self.get_action_layer_output, nn_output)
         advantage_values_reshaped = self.call(self.reshape.apply, advantage_values)
         q_values = self.call(self._graph_fn_calculate_q_values, state_value, advantage_values_reshaped)
-        probs_and_log_probs = self.call(self._graph_fn_get_parameters_log_probs, q_values)
+        probs_and_log_probs = self.call(self._graph_fn_get_probabilities_log_probs, q_values)
         return (q_values,) + probs_and_log_probs
 
     def _graph_fn_calculate_q_values(self, state_value, advantage_values):
@@ -173,7 +173,7 @@ class DuelingActionAdapter(ActionAdapter):
             return q_values
 
     # TODO: Use a SoftMax Component instead (uses the same code as the one below).
-    def _graph_fn_get_parameters_log_probs(self, logits):
+    def _graph_fn_get_probabilities_log_probs(self, logits):
         """
         Creates properties/parameters and log-probs from some reshaped output.
 
@@ -241,13 +241,13 @@ class DuelingActionAdapter(ActionAdapter):
             return parameters, log_probs
 
 
-    #def get_logits_parameters_log_probs(self, nn_output):
+    #def get_logits_probabilities_log_probs(self, nn_output):
     #    """
-    #    Override get_logits_parameters_log_probs API-method to use (A minus V) Q-values, instead of raw logits from
+    #    Override get_logits_probabilities_log_probs API-method to use (A minus V) Q-values, instead of raw logits from
     #    network.
     #    """
     #    _, _, q_values = self.call(self.get_dueling_output, nn_output)
-    #    return (q_values,) + tuple(self.call(self._graph_fn_get_parameters_log_probs, q_values))
+    #    return (q_values,) + tuple(self.call(self._graph_fn_get_probabilities_log_probs, q_values))
 
     #def get_dueling_output(self, nn_output):
     #    """

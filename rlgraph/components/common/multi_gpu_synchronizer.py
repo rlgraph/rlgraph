@@ -29,7 +29,7 @@ if get_backend() == "tf":
     import tensorflow as tf
 
 
-class MultiGpuSyncOptimizer(Component):
+class MultiGpuSynchronizer(Component):
     """
     The Multi-GPU optimizer parallelizes synchronous optimization across multiple GPUs.
     Serves as a replacement pipeline for an Agent's `update_from_external_batch` method, which
@@ -41,25 +41,23 @@ class MultiGpuSyncOptimizer(Component):
             batch_size (int): The batch size that will need to be split between the different GPUs
                 (each GPU will receive a shard of this batch).
         """
-        super(MultiGpuSyncOptimizer, self).__init__(graph_fn_num_outputs=dict(
+        super(MultiGpuSynchronizer, self).__init__(graph_fn_num_outputs=dict(
             _graph_fn_calculate_update_from_external_batch=4  # TODO: <- This is currently hardcoded for DQN-type agents
         ), scope=scope, **kwargs)
 
         self.batch_size = batch_size
         self.shard_size = 0
 
-        # The list of GPU towers that are sub-Components of this one.
+        # The list of GPU-towers (copies of the original agent root-component) that are sub-Components of this one.
         self.towers = None
-        self.dict_splitter_from_memory = None
+        self.batch_splitter = None
 
         # Device names and variables.
         self.gpu_devices = None
         self.num_gpus = 0
-        self.batch_splitter = None
-        self.sub_graph_vars = list()
+
+        self.tower_placeholders = list()
         self.device_input_space = None
-        # Name of loss, e.g. the scope. Needed to fetch losses from subcomponents.
-        self.loss_name = None
 
         self.define_api_method("calculate_update_from_external_batch",
                                self._graph_fn_calculate_update_from_external_batch)
@@ -67,26 +65,25 @@ class MultiGpuSyncOptimizer(Component):
         self.define_api_method("sync_policy_weights_to_towers", self._graph_fn_sync_policy_weights_to_towers,
                                must_be_complete=False)
 
-    def set_replicas(self, towers, loss_name, devices):
+    def setup_towers(self, towers, devices):
         """
         Provides the optimizer with sub-graphs, batch splitting, name of the loss to split over,
         and devices to split over.
 
         Args:
             towers (list): List of GPU-towers (copies of the original root-component).
-            loss_name (str): Name of loss component to fetch from sub graphs.
             devices (list): List of device names.
         """
-        self.towers = towers
-        self.add_components(*self.towers)
-        self.loss_name = loss_name
         self.gpu_devices = devices
         self.num_gpus = len(devices)
-        self.shard_size = int(self.batch_size / self.num_gpus)
-
         assert self.num_gpus > 1,\
             "ERROR: The MultiGPUSyncOptimizer requires as least two GPUs but only {} device ids were passed " \
             "in.".format(self.num_gpus)
+        self.shard_size = int(self.batch_size / self.num_gpus)
+
+        # Add our GPU-towers (copies of the original agent root-component).
+        self.towers = towers
+        self.add_components(*self.towers)
 
         # Splits input shards of `update_from_external_batch`.
         self.batch_splitter = BatchSplitter(self.num_gpus, self.shard_size)
@@ -95,7 +92,7 @@ class MultiGpuSyncOptimizer(Component):
     # TODO: Solve this problem via staging areas (one per GPU).
     # TODO: Stuff coming from the batch-splitter can then be staged/unstaged (previous batch shard).
     def create_variables(self, input_spaces, action_space=None):
-        super(MultiGpuSyncOptimizer, self).create_variables(input_spaces, action_space)
+        super(MultiGpuSynchronizer, self).create_variables(input_spaces, action_space)
 
         # Get input space to load device fun.
         device_input_space = dict()
@@ -120,7 +117,7 @@ class MultiGpuSyncOptimizer(Component):
                     add_batch_rank=self.shard_size,
                     initializer=0
                 )
-                self.sub_graph_vars.append(tuple(device_variable.values()))
+                self.tower_placeholders.append(tuple(device_variable.values()))
 
     def sync_target_qnets(self):
         tower_ops = list()
@@ -215,12 +212,12 @@ class MultiGpuSyncOptimizer(Component):
             per_device_assign_ops = list()
             for gpu, shard in enumerate(device_inputs):
                 assign_ops = list()
-                for i, var in enumerate(self.sub_graph_vars[gpu]):
+                for i, var in enumerate(self.tower_placeholders[gpu]):
                     assign_op = tf.assign(var, shard[i])
                     assign_ops.append(assign_op)
                 per_device_assign_ops.append(tf.group(*assign_ops, name="load-placeholders-gpu{}".format(gpu)))
 
-            return tuple(per_device_assign_ops), tuple(self.sub_graph_vars)
+            return tuple(per_device_assign_ops), tuple(self.tower_placeholders)
 
     def _average_grads_and_vars(self, main_variables, grads_and_vars_all_gpus):
         """

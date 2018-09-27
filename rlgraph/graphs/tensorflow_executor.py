@@ -22,7 +22,7 @@ import time
 
 from rlgraph import get_backend, get_distributed_backend
 import rlgraph.utils as util
-from rlgraph.components.optimizers.multi_gpu_sync_optimizer import MultiGpuSyncOptimizer
+from rlgraph.components.common.multi_gpu_synchronizer import MultiGpuSynchronizer
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.graphs.graph_executor import GraphExecutor
 
@@ -167,7 +167,7 @@ class TensorFlowExecutor(GraphExecutor):
         else:
             raise RLGraphError("Invalid device_strategy ('{}') for TensorFlowExecutor!".format(self.device_strategy))
 
-    def build(self, root_components, input_spaces, optimizer=None, loss_name=None, build_options=None, batch_size=32):
+    def build(self, root_components, input_spaces, optimizer=None, build_options=None, batch_size=32):
         # Use perf_counter for short tasks.
         start = time.perf_counter()
         # 0. Init phase: Component construction and nesting (child/parent Components).
@@ -183,7 +183,7 @@ class TensorFlowExecutor(GraphExecutor):
         build_times = []
 
         for component in root_components:
-            self._build_device_strategy(component, optimizer, batch_size=batch_size, loss_name=loss_name)
+            self._build_device_strategy(component, optimizer, batch_size=batch_size)
             start = time.perf_counter()
             meta_graph = self.meta_graph_builder.build(component, input_spaces)
             meta_build_times.append(time.perf_counter() - start)
@@ -646,7 +646,7 @@ class TensorFlowExecutor(GraphExecutor):
         # Close the tf.Session.
         self.monitored_session.close()
 
-    def _build_device_strategy(self, root_component, root_optimizer, batch_size, loss_name=None):
+    def _build_device_strategy(self, root_component, root_optimizer, batch_size):
         """
         When using multiple GPUs or other special devices, additional graph components
         may be required to split up incoming data, load it to device memories, and aggregate
@@ -663,8 +663,6 @@ class TensorFlowExecutor(GraphExecutor):
             root_component (Component): The root Component (will be used to create towers via `Component.copy()`).
             root_optimizer (Optimizer): The Optimizer object of the root Component.
             batch_size (int): The batch size that needs to be split between the different GPUs.
-            loss_name (Optional[str]): Name of loss component. Needed by some device strategies
-                to fetch the loss on graph replicas.
         """
         self.optimizer = root_optimizer
 
@@ -707,12 +705,12 @@ class TensorFlowExecutor(GraphExecutor):
                 self.used_devices.append(device)
 
             # Old: root <-> local_optimizer, new: root <-> multi_gpu_optimizer <-> local_optimizer
-            # Wrap the optimizer in the root component with a MultiGpuSyncOptimizer.
+            # Wrap the optimizer in the root component with a MultiGpuSynchronizer.
             #removed_root_optimizer = root_component.remove_sub_component_by_name(root_optimizer.name)
             # Make sure we removed the correct Component.
             #assert removed_root_optimizer is root_optimizer
-            #self.optimizer = MultiGpuSyncOptimizer()  #local_optimizer_name=root_optimizer.name, devices=self.gpu_names)
-            multi_gpu_optimizer = MultiGpuSyncOptimizer(batch_size=batch_size)
+            #self.optimizer = MultiGpuSynchronizer()  #local_optimizer_name=root_optimizer.name, devices=self.gpu_names)
+            multi_gpu_optimizer = MultiGpuSynchronizer(batch_size=batch_size)
             root_component.add_components(multi_gpu_optimizer)
             # Set the root-component's reuse_variable_scope.
             #policy = root_component.get_sub_component_by_name("policy")
@@ -724,13 +722,13 @@ class TensorFlowExecutor(GraphExecutor):
 
             # optimizer.parent_component = None
             # root_component.remove_sub_component_by_name(optimizer.name)
-            # multi_gpu_optimizer = MultiGpuSyncOptimizer(local_optimizer=optimizer, devices=self.gpu_names)
+            # multi_gpu_optimizer = MultiGpuSynchronizer(local_optimizer=optimizer, devices=self.gpu_names)
             # root_component.add_components(multi_gpu_optimizer)
 
             # 4. Pass the graph copies and the splitter containing the info how to split batches into tensors.
             # TODO: root-component may not have any container splitter (e.g. if it doesn't have a memory)?
             #container_splitter = root_component.sub_component_by_name("container-splitter")
-            multi_gpu_optimizer.set_replicas(sub_graphs, loss_name, self.gpu_names)
+            multi_gpu_optimizer.setup_towers(sub_graphs, self.gpu_names)
 
     def _sanity_check_devices(self):
         """

@@ -489,7 +489,7 @@ class IMPALAAgent(Agent):
 
             # Get the pi-action probs AND the values for all our states.
             state_values_pi, logits_pi, probs_pi, log_probabilities_pi, current_internal_states = \
-                self_.call(policy.get_state_values_logits_parameters_log_probs, preprocessed_s_all,
+                self_.call(policy.get_state_values_logits_probabilities_log_probs, preprocessed_s_all,
                            initial_internal_states)
 
             # Calculate the loss.
@@ -612,11 +612,11 @@ class IMPALAAgent(Agent):
             states = self_.call(preprocessor.preprocess, states)
 
             # state_values_pi, _, _, log_probabilities_pi, current_internal_states = \
-            #     self_.call(policy.get_state_values_logits_parameters_log_probs, states, initial_internal_states)
+            #     self_.call(policy.get_state_values_logits_probabilities_log_probs, states, initial_internal_states)
 
             # Only retrieve logits and do faster sparse softmax in loss.
             state_values_pi, logits, _, _, current_internal_states = \
-                self_.call(policy.get_state_values_logits_parameters_log_probs, states, initial_internal_states)
+                self_.call(policy.get_state_values_logits_probabilities_log_probs, states, initial_internal_states)
 
             # Isolate actions and rewards from states.
             _, _, actions, rewards = self_.call(states_dict_splitter.split, states)

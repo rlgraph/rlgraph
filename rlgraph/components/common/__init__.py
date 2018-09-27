@@ -30,7 +30,7 @@ from rlgraph.components.common.slice import Slice
 from rlgraph.components.common.staging_area import StagingArea
 from rlgraph.components.common.repeater_stack import RepeaterStack
 from rlgraph.components.common.batch_splitter import BatchSplitter
-#from rlgraph.components.common.environment_stepper import EnvironmentStepper
+from rlgraph.components.common.multi_gpu_synchronizer import MultiGpuSynchronizer
 
 
 DecayComponent.__lookup_classes__ = dict(
@@ -54,5 +54,5 @@ __all__ = ["ContainerSplitter", "DictMerger",
            "Synchronizable", "RepeaterStack", "Slice",
            "DecayComponent", "ConstantDecay", "LinearDecay", "PolynomialDecay", "ExponentialDecay",
            "NoiseComponent", "ConstantNoise", "GaussianNoise", "OrnsteinUhlenbeckNoise",
-           "FixedLoop", "Sampler", "BatchSplitter"]
+           "FixedLoop", "Sampler", "BatchSplitter", "MultiGpuSynchronizer"]
 

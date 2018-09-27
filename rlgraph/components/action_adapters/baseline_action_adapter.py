@@ -40,12 +40,12 @@ class BaselineActionAdapter(ActionAdapter):
     def check_input_spaces(self, input_spaces, action_space=None):
         self.input_space = input_spaces["nn_output"]
 
-    def get_logits_parameters_log_probs(self, nn_output):
+    def get_logits_probabilities_log_probs(self, nn_output):
         """
-        Override get_logits_parameters_log_probs API-method to not use the state-value, which must be sliced.
+        Override get_logits_probabilities_log_probs API-method to not use the state-value, which must be sliced.
         """
         _, logits = self.call(self.get_state_values_and_logits, nn_output)
-        return (logits,) + tuple(self.call(self._graph_fn_get_parameters_log_probs, logits))
+        return (logits,) + tuple(self.call(self._graph_fn_get_probabilities_log_probs, logits))
 
     def get_state_values_and_logits(self, nn_output):
         """
@@ -65,9 +65,9 @@ class BaselineActionAdapter(ActionAdapter):
         state_value, logits = self.call(self._graph_fn_get_state_values_and_logits, action_layer_output)
         return state_value, logits
 
-    def get_state_values_logits_parameters_log_probs(self, nn_output):
+    def get_state_values_logits_probabilities_log_probs(self, nn_output):
         state_value, logits = self.call(self.get_state_values_and_logits, nn_output)
-        parameters, log_probs = self.call(self._graph_fn_get_parameters_log_probs, logits)
+        parameters, log_probs = self.call(self._graph_fn_get_probabilities_log_probs, logits)
         return state_value, logits, parameters, log_probs
 
     def _graph_fn_get_state_values_and_logits(self, action_layer_output):

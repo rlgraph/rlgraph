@@ -56,7 +56,7 @@ class TestExplorations(unittest.TestCase):
         exploration_pipeline = Component(action_adapter, distribution, exploration, scope="exploration-pipeline")
 
         def get_action(self, nn_output, time_step):
-            _, parameters, _ = self.call(action_adapter.get_logits_parameters_log_probs, nn_output)
+            _, parameters, _ = self.call(action_adapter.get_logits_probabilities_log_probs, nn_output)
             sample = self.call(distribution.sample_deterministic, parameters)
             action = self.call(exploration.get_action, sample, time_step)
             return action
@@ -124,7 +124,7 @@ class TestExplorations(unittest.TestCase):
         exploration_pipeline.add_components(action_adapter, distribution, exploration, scope="exploration-pipeline")
 
         def get_action(self_, nn_output):
-            _, parameters, _ = self_.call(action_adapter.get_logits_parameters_log_probs, nn_output)
+            _, parameters, _ = self_.call(action_adapter.get_logits_probabilities_log_probs, nn_output)
             sample_stochastic = self_.call(distribution.sample_stochastic, parameters)
             sample_deterministic = self_.call(distribution.sample_deterministic, parameters)
             action = self_.call(exploration.get_action, sample_stochastic, sample_deterministic)

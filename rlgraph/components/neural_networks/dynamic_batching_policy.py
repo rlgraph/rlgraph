@@ -24,9 +24,9 @@ from rlgraph.components.helpers import dynamic_batching
 
 # Wrap in dynamic batching module.
 @dynamic_batching.batch_fn
-def get_state_values_logits_parameters_log_probs(self_, nn_input_, internal_states_):
+def get_state_values_logits_probabilities_log_probs(self_, nn_input_, internal_states_):
     return self_.call(
-        self_.policy.get_state_values_logits_parameters_log_probs, nn_input_, internal_states_, return_ops=True
+        self_.policy.get_state_values_logits_probabilities_log_probs, nn_input_, internal_states_, return_ops=True
     )
 
 
@@ -49,7 +49,7 @@ class DynamicBatchingPolicy(Component):
         """
         super(DynamicBatchingPolicy, self).__init__(
             # 3=states, logits, internal_states
-            graph_fn_num_outputs=dict(_graph_fn_get_state_values_logits_parameters_log_probs=5), scope=scope, **kwargs
+            graph_fn_num_outputs=dict(_graph_fn_get_state_values_logits_probabilities_log_probs=5), scope=scope, **kwargs
         )
 
         # The wrapped, backend-specific policy object.
@@ -69,21 +69,21 @@ class DynamicBatchingPolicy(Component):
 
         # TODO: for now, only define this one API-method as this is the only one used in IMPALA.
         # TODO: Generalize this component so it can wrap arbitrary other components and simulate their API.
-        self.define_api_method("get_state_values_logits_parameters_log_probs",
-                               self._graph_fn_get_state_values_logits_parameters_log_probs)
+        self.define_api_method("get_state_values_logits_probabilities_log_probs",
+                               self._graph_fn_get_state_values_logits_probabilities_log_probs)
 
-    def _graph_fn_get_state_values_logits_parameters_log_probs(self, nn_input, internal_states=None):
-        out = get_state_values_logits_parameters_log_probs(self, nn_input, internal_states)
+    def _graph_fn_get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
+        out = get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states)
         return out
 
-    #def _graph_fn_get_logits_parameters_log_probs(self, nn_input, internal_states=None):
+    #def _graph_fn_get_logits_probabilities_log_probs(self, nn_input, internal_states=None):
     #    # Wrap in dynamic batching module.
     #    @dynamic_batching.batch_fn_with_options(minimum_batch_size=self.minimum_batch_size,
     #                                            maximum_batch_size=self.maximum_batch_size,
     #                                            timeout_ms=self.timeout_ms)
-    #    def get_logits_parameters_log_probs(nn_input_, internal_states_):
+    #    def get_logits_probabilities_log_probs(nn_input_, internal_states_):
     #        # TODO potentially assign device
-    #        ret = self.call(self.policy.get_logits_parameters_log_probs, nn_input_, internal_states_, return_ops=True)
+    #        ret = self.call(self.policy.get_logits_probabilities_log_probs, nn_input_, internal_states_, return_ops=True)
     #        return ret
-    #    out = get_logits_parameters_log_probs(nn_input, internal_states)
+    #    out = get_logits_probabilities_log_probs(nn_input, internal_states)
     #    return out

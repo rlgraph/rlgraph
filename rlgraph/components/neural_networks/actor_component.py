@@ -118,11 +118,11 @@ class ActorComponent(Component):
         # TODO: the exact same partial-graph as the learner (which does need the extra state-value output).
         if isinstance(self.policy.action_adapter, BaselineActionAdapter):
             _, _, action_probs, _, last_internal_states = unify_nn_and_rnn_api_output(self.call(
-                self.policy.get_state_values_logits_parameters_log_probs, preprocessed_states, internal_states
+                self.policy.get_state_values_logits_probabilities_log_probs, preprocessed_states, internal_states
             ), return_values_wo_internal_state=4)
         else:
             _, action_probs, _, last_internal_states = unify_nn_and_rnn_api_output(self.call(
-                self.policy.get_logits_parameters_log_probs, preprocessed_states, internal_states
+                self.policy.get_logits_probabilities_log_probs, preprocessed_states, internal_states
             ), return_values_wo_internal_state=3)
 
         if max_likelihood is True:

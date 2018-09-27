@@ -63,7 +63,7 @@ class TestPolicies(unittest.TestCase):
 
         # Logits, parameters (probs) and skip log-probs (numerically unstable for small probs).
         expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
-        test.test(("get_logits_parameters_log_probs", states, [0, 1]), expected_outputs=[
+        test.test(("get_logits_probabilities_log_probs", states, [0, 1]), expected_outputs=[
             expected_action_layer_output,
             np.array(expected_probabilities_output, dtype=np.float32)
             #np.log(expected_probabilities_output)
@@ -142,7 +142,7 @@ class TestPolicies(unittest.TestCase):
 
         # Parameter (probabilities). Softmaxed q_values.
         expected_probabilities_output = softmax(expected_q_values_output, axis=-1)
-        test.test(("get_logits_parameters_log_probs", nn_input, [0, 1]),
+        test.test(("get_logits_probabilities_log_probs", nn_input, [0, 1]),
                   expected_outputs=[
                       expected_q_values_output,
                       expected_probabilities_output
@@ -210,7 +210,7 @@ class TestPolicies(unittest.TestCase):
 
         # Parameter (probabilities). Softmaxed logits.
         expected_probabilities_output = softmax(expected_logits_output, axis=-1)
-        test.test(("get_logits_parameters_log_probs", states, [0, 1]),
+        test.test(("get_logits_probabilities_log_probs", states, [0, 1]),
                   expected_outputs=[
                       expected_logits_output,
                       expected_probabilities_output

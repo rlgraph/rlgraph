@@ -245,7 +245,7 @@ class Agent(Specifiable):
         # TODO let agent have a list of root-components
         return self._build_graph(
             [self.root_component], self.input_spaces, optimizer=self.optimizer,
-            loss_name=self.loss_function.name, build_options=build_options, batch_size=self.update_spec["batch_size"]
+            build_options=build_options, batch_size=self.update_spec["batch_size"]
         )
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):

@@ -88,7 +88,7 @@ class TestGpuStrategies(unittest.TestCase):
         agent = ApexAgent.from_spec(
             agent_config, state_space=environment.state_space, action_space=environment.action_space
         )
-        print("Compiled apex agent")
+        print("Compiled Apex agent")
 
     def test_multi_gpu_dqn_agent_learning_test_gridworld_2x2(self):
         """
@@ -96,7 +96,7 @@ class TestGpuStrategies(unittest.TestCase):
 
         THIS TEST REQUIRES A MULTI GPU SYSTEM.
         """
-        root_logger.setLevel(DEBUG)
+        #root_logger.setLevel(DEBUG)  # test
         env = GridWorld("2x2")
         agent = DQNAgent.from_spec(
             config_from_path("configs/multi_gpu_dqn_for_gridworld_2x2.json"),
@@ -110,7 +110,7 @@ class TestGpuStrategies(unittest.TestCase):
             store_last_q_table=True
         )
 
-        time_steps = 500
+        time_steps = 400
         worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, worker_executes_preprocessing=False)
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 

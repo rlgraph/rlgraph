@@ -52,29 +52,9 @@ class SoftMax(Component):
                 log_probs (DataOp): Simply the log(probabilities).
         """
         if get_backend() == "tf":
-            #if isinstance(self.action_space, IntBox):
-
             # Translate logits into probabilities in a save way (SMALL_NUMBER trick).
             probabilities = tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
             # Log probs.
             log_probs = tf.log(x=probabilities)
-
-            #elif isinstance(self.action_space, FloatBox):
-            #    # Continuous actions.
-            #    mean, log_sd = tf.split(value=logits, num_or_size_splits=2, axis=1)
-            #    # Remove moments rank.
-            #    mean = tf.squeeze(input=mean, axis=1)
-            #    log_sd = tf.squeeze(input=log_sd, axis=1)
-
-            #    # Clip log_sd. log(SMALL_NUMBER) is negative.
-            #    log_sd = tf.clip_by_value(t=log_sd, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER))
-
-            #    # Turn log sd into sd.
-            #    sd = tf.exp(x=log_sd)
-
-            #    parameters = DataOpTuple(mean, sd)
-            #    log_probs = DataOpTuple(tf.log(x=mean), log_sd)
-            #else:
-            #    raise NotImplementedError
 
             return probabilities, log_probs

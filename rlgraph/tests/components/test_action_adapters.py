@@ -56,13 +56,13 @@ class TestActionAdapters(unittest.TestCase):
         test.test(("get_action_layer_output", inputs), expected_outputs=expected_action_layer_output)
 
         expected_logits = np.reshape(expected_action_layer_output, newshape=(2, 3, 2, 2))
-        expected_parameters = np.array([
+        expected_probabilities = np.array([
             [[[0.5] * 2] * 2] * 3,
             [[[0.5] * 2] * 2] * 3,
             ], dtype=np.float32)
-        expected_log_probs = np.log(expected_parameters)
-        test.test(("get_logits_parameters_log_probs", inputs),
-                  expected_outputs=[expected_logits, expected_parameters, expected_log_probs])
+        expected_log_probs = np.log(expected_probabilities)
+        test.test(("get_logits_probabilities_log_probs", inputs),
+                  expected_outputs=[expected_logits, expected_probabilities, expected_log_probs])
 
     def test_action_adapter_with_complex_lstm_output(self):
         # Last NN layer (LSTM with time rank).
@@ -89,12 +89,12 @@ class TestActionAdapters(unittest.TestCase):
         # Logits (already well reshaped (same as action space)).
         expected_logits = np.reshape(expected_action_layer_output, newshape=(3, 2, 3, 2, 2))
         # Softmax (probs).
-        expected_parameters = softmax(expected_logits)
+        expected_probabilities = softmax(expected_logits)
         # Log probs.
-        expected_log_probs = np.log(expected_parameters)
+        expected_log_probs = np.log(expected_probabilities)
         test.test(
-            ("get_logits_parameters_log_probs", inputs),
-            expected_outputs=[expected_logits, expected_parameters, expected_log_probs],
+            ("get_logits_probabilities_log_probs", inputs),
+            expected_outputs=[expected_logits, expected_probabilities, expected_log_probs],
             decimals=5
         )
 
@@ -140,7 +140,7 @@ class TestActionAdapters(unittest.TestCase):
             np.mean(expected_advantages, axis=-1, keepdims=True)
         expected_probs = softmax(expected_q_values)
 
-        test.test(("get_logits_parameters_log_probs", inputs), expected_outputs=(
+        test.test(("get_logits_probabilities_log_probs", inputs), expected_outputs=(
             expected_q_values, expected_probs, np.log(expected_probs)
         ), decimals=5)
 

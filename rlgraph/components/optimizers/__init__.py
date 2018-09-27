@@ -21,14 +21,14 @@ from functools import partial
 
 from rlgraph.components.optimizers.horovod_optimizer import HorovodOptimizer
 from rlgraph.components.optimizers.local_optimizers import *
-from rlgraph.components.optimizers.multi_gpu_sync_optimizer import MultiGpuSyncOptimizer
+from rlgraph.components.common.multi_gpu_synchronizer import MultiGpuSynchronizer
 from rlgraph.components.optimizers.optimizer import Optimizer
 
 
 Optimizer.__lookup_classes__ = dict(
     horovod=HorovodOptimizer,
-    #multigpu=MultiGpuSyncOptimizer,
-    #multigpusync=MultiGpuSyncOptimizer,
+    #multigpu=MultiGpuSynchronizer,
+    #multigpusync=MultiGpuSynchronizer,
     # LocalOptimizers.
     gradientdescent=GradientDescentOptimizer,
     adagrad=AdagradOptimizer,
@@ -42,5 +42,5 @@ Optimizer.__lookup_classes__ = dict(
 # The default Optimizer to use if a spec is None and no args/kwars are given.
 Optimizer.__default_constructor__ = partial(GradientDescentOptimizer, learning_rate=0.0001)
 
-__all__ = ["Optimizer", "LocalOptimizer", "MultiGpuSyncOptimizer"] + \
+__all__ = ["Optimizer", "LocalOptimizer", "MultiGpuSynchronizer"] + \
           list(set(map(lambda x: x.__name__, Optimizer.__lookup_classes__.values())))

@@ -45,8 +45,8 @@
     "default_device": "/device:CPU:*",
     "gpu_spec": {
       "gpus_enabled" : true,
-      "max_usable_gpus": 2,
-      "per_process_gpu_memory_fraction": 0.5,
+      "max_usable_gpus": 4,
+      "per_process_gpu_memory_fraction": 0.25,
       "allow_memory_growth": true
     },
     "disable_monitoring": false,

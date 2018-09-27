@@ -22,7 +22,7 @@ import os.path
 from rlgraph import get_backend
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.components.optimizers.optimizer import Optimizer
-from rlgraph.components.optimizers.multi_gpu_sync_optimizer import MultiGpuSyncOptimizer
+from rlgraph.components.common.multi_gpu_synchronizer import MultiGpuSynchronizer
 from rlgraph.utils.util import default_dict
 
 
@@ -74,7 +74,7 @@ def parse_saver_spec(saver_spec):
 #    elif device_strategy == 'multi_gpu_sync':
 #        local_optimizer = Optimizer.from_spec(optimizer_spec)
 #        # Wrap local optimizer in multi device optimizer.
-#        return MultiGpuSyncOptimizer(local_optimizer=local_optimizer)
+#        return MultiGpuSynchronizer(local_optimizer=local_optimizer)
 #    else:
 #        raise RLGraphError("Device strategy {} is not allowed. Allowed strategies are 'default', 'custom',"
 #                           "and 'multi_gpu_sync'".format(device_strategy))

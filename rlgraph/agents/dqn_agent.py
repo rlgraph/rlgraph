@@ -125,7 +125,7 @@ class DQNAgent(Agent):
         # print(markup)
         if self.auto_build:
             self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
-                              loss_name=self.loss_function.name, batch_size=self.update_spec["batch_size"])
+                              batch_size=self.update_spec["batch_size"])
             self.graph_built = True
 
             # TODO: What should the external batch be? 0s.
@@ -197,6 +197,7 @@ class DQNAgent(Agent):
             self.root_component.define_api_method("reset_preprocessor", reset_preprocessor)
 
         # Act from preprocessed states.
+        @api
         def action_from_preprocessed_state(self, preprocessed_states, time_step=0, use_exploration=True):
             sample_deterministic = self.call(policy.get_max_likelihood_action, preprocessed_states)
             actions = self.call(exploration.get_action, sample_deterministic, time_step, use_exploration)
@@ -205,6 +206,7 @@ class DQNAgent(Agent):
         self.root_component.define_api_method("action_from_preprocessed_state", action_from_preprocessed_state)
 
         # State (from environment) to action with preprocessing.
+        @api
         def get_preprocessed_state_and_action(self, states, time_step=0, use_exploration=True):
             preprocessed_states = self.call(preprocessor.preprocess, states)
             return self.call(self.action_from_preprocessed_state, preprocessed_states, time_step, use_exploration)
@@ -212,6 +214,7 @@ class DQNAgent(Agent):
         self.root_component.define_api_method("get_preprocessed_state_and_action", get_preprocessed_state_and_action)
 
         # Insert into memory.
+        @api
         def insert_records(self, preprocessed_states, actions, rewards, terminals):
             records = self.call(merger.merge, preprocessed_states, actions, rewards, terminals)
             return self.call(memory.insert_records, records)
@@ -219,6 +222,7 @@ class DQNAgent(Agent):
         self.root_component.define_api_method("insert_records", insert_records)
 
         # Syncing target-net.
+        @api
         def sync_target_qnet(self):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -232,6 +236,7 @@ class DQNAgent(Agent):
         self.root_component.define_api_method("sync_target_qnet", sync_target_qnet)
 
         # Learn from memory.
+        @api
         def update_from_memory(self_):
             # Non prioritized memory will just return weight 1.0 for all samples.
             records, sample_indices, importance_weights = self_.call(
@@ -256,6 +261,7 @@ class DQNAgent(Agent):
         self.root_component.define_api_method("update_from_memory", update_from_memory)
 
         # Learn from an external batch.
+        @api
         def update_from_external_batch(
                 self_, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights
         ):
@@ -278,13 +284,18 @@ class DQNAgent(Agent):
                 return step_and_sync_op, loss, loss_per_item, q_values_s
 
             # Get the different Q-values.
-            q_values_s = self_.call(self_.get_sub_component_by_name(policy_scope).get_q_values, preprocessed_states)
-            qt_values_sp = self_.call(self_.get_sub_component_by_name(target_policy.scope).get_q_values,
-                                      preprocessed_next_states)
+            q_values_s = self_.get_sub_component_by_name(policy_scope).get_logits_probabilities_log_probs(
+                preprocessed_states
+            )["logits"]
+            qt_values_sp = self_.get_sub_component_by_name(target_policy.scope).get_logits_probabilities_log_probs(
+                preprocessed_next_states
+            )["logits"]
 
             q_values_sp = None
             if self.double_q:
-                q_values_sp = self_.call(self_.get_sub_component_by_name(policy_scope).get_q_values, preprocessed_next_states)
+                q_values_sp = self_.get_sub_component_by_name(policy_scope).get_logits_probabilities_log_probs(
+                    preprocessed_next_states
+                )["logits"]
 
             loss, loss_per_item = self_.call(
                 self_.get_sub_component_by_name(loss_function.scope).loss, q_values_s, actions, rewards, terminals,
@@ -308,15 +319,16 @@ class DQNAgent(Agent):
         self.root_component.define_api_method("update_from_external_batch", update_from_external_batch)
 
         # TODO for testing
+        @api
         def get_td_loss(self_, preprocessed_states, actions, rewards,
                         terminals, preprocessed_next_states, importance_weights):
             # Get the different Q-values.
-            q_values_s = self_.call(policy.get_q_values, preprocessed_states)
-            qt_values_sp = self_.call(target_policy.get_q_values, preprocessed_next_states)
+            q_values_s = policy.get_logits_probabilities_log_probs(preprocessed_states)["logits"]
+            qt_values_sp = target_policy.get_logits_probabilities_log_probs(preprocessed_next_states)["logits"]
 
             q_values_sp = None
             if self.double_q:
-                q_values_sp = self_.call(policy.get_q_values, preprocessed_next_states)
+                q_values_sp = policy.get_logits_probabilities_log_probs(preprocessed_next_states)["logits"]
 
             loss, loss_per_item = self_.call(
                 loss_function.loss, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp,

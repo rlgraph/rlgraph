@@ -44,12 +44,12 @@ class ActionAdapter(Component):
     - Sending the raw, flattened NN output through a Dense layer whose number of units matches the flattened
         action space.
     - Reshaping (according to the action Space).
-    - Translating the reshaped outputs into logits (raw), probabilities and log-probabilities.
+    - Translating the reshaped outputs (logits) into probabilities (by softmaxing) and log-probabilities (log).
 
     API:
         get_action_layer_output(nn_output) (SingleDataOp): The raw, non-reshaped output of the action-layer
             (DenseLayer) after passing through it the raw nn_output (coming from the previous Component).
-        get_logits_parameters_log_probs(nn_output) (Tuple[SingleDataOp x 3]):
+        get_logits_probabilities_log_probs(nn_output) (Tuple[SingleDataOp x 3]):
             1) raw nn_output, BUT reshaped
             2) probabilities (softmaxed (1))
             3) log(probabilities)
@@ -125,6 +125,7 @@ class ActionAdapter(Component):
             # Fixme: Are there other restraints on continuous action spaces? E.g. no dueling layers?
             pass
 
+    @api
     def get_action_layer_output(self, nn_output):
         """
         Args:
@@ -135,7 +136,8 @@ class ActionAdapter(Component):
         """
         return self.call(self.action_layer.apply, nn_output)
 
-    def get_logits_parameters_log_probs(self, nn_output):
+    @api
+    def get_logits_probabilities_log_probs(self, nn_output):
         """
         Args:
             nn_output (DataOpRecord): The NN output of the preceding neural network.
@@ -146,11 +148,12 @@ class ActionAdapter(Component):
         """
         action_layer_output = self.call(self.get_action_layer_output, nn_output)
         action_layer_output_reshaped = self.call(self.reshape.apply, action_layer_output)
-        probs_and_log_probs = self.call(self._graph_fn_get_parameters_log_probs, action_layer_output_reshaped)
+        probs_and_log_probs = self.call(self._graph_fn_get_probabilities_log_probs, action_layer_output_reshaped)
         return (action_layer_output_reshaped,) + probs_and_log_probs
 
     # TODO: Use a SoftMax Component instead (uses the same code as the one below).
-    def _graph_fn_get_parameters_log_probs(self, logits):
+    @graph_fn
+    def _graph_fn_get_probabilities_log_probs(self, logits):
         """
         Creates properties/parameters and log-probs from some reshaped output.
 
