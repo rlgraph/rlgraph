@@ -10,15 +10,11 @@
    limitations under the License.
    ============================================================================
 
-Layer Classes
--------------
 
-.. toctree::
-   :maxdepth: 3
+Preprocessing Layers
+--------------------
 
-   layers/base_class.rst
-   layers/preprocessing_layers.rst
-   layers/neural_network_layers.rst
-   layers/string_layers.rst
-
-
+.. automodule:: rlgraph.components.layers.preprocessing.preprocessing_layer
+    :members:
+    :undoc-members:
+    :show-inheritance:

@@ -11,8 +11,11 @@
    ============================================================================
 
 
+Action Adapters
+---------------
+
 Action Adapter Base Class
--------------------------
++++++++++++++++++++++++++
 
 .. automodule:: rlgraph.components.action_adapters.action_adapter
     :members:
@@ -21,7 +24,7 @@ Action Adapter Base Class
 
 
 Dueling Action Adapter
-----------------------
+++++++++++++++++++++++
 
 .. automodule:: rlgraph.components.action_adapters.dueling_action_adapter
     :members:
@@ -30,7 +33,7 @@ Dueling Action Adapter
 
 
 Baseline Action Adapter
------------------------
++++++++++++++++++++++++
 
 .. automodule:: rlgraph.components.action_adapters.baseline_action_adapter
     :members:

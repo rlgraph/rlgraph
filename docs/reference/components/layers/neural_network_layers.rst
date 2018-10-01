@@ -10,51 +10,71 @@
    limitations under the License.
    ============================================================================
 
-Distributions
--------------
 
-Distribution Base Class
-+++++++++++++++++++++++
+Neural Network Layers
+---------------------
 
-.. automodule:: rlgraph.components.distributions.distribution
+Activation Functions
+++++++++++++++++++++
+
+.. automodule:: rlgraph.components.layers.nn.activation_functions
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+NNLayer Base Class
+++++++++++++++++++
+
+.. automodule:: rlgraph.components.layers.nn.nn_layer
     :members:
     :undoc-members:
     :show-inheritance:
 
 
+Concat Layer
+++++++++++++
 
-Normal Distribution
-+++++++++++++++++++
-
-.. automodule:: rlgraph.components.distributions.normal
+.. automodule:: rlgraph.components.layers.nn.concat_layer
     :members:
     :undoc-members:
     :show-inheritance:
 
+Conv2D Layer
+++++++++++++
 
-Bernoulli Distribution
-++++++++++++++++++++++
-
-.. automodule:: rlgraph.components.distributions.bernoulli
+.. automodule:: rlgraph.components.layers.nn.conv2d_layer
     :members:
     :undoc-members:
     :show-inheritance:
 
+Dense Layer
++++++++++++
 
-Categorical Distribution
-++++++++++++++++++++++++
-
-.. automodule:: rlgraph.components.distributions.categorical
+.. automodule:: rlgraph.components.layers.nn.dense_layer
     :members:
     :undoc-members:
     :show-inheritance:
 
+LSTM Layer
+++++++++++
 
-Beta Distribution
-+++++++++++++++++
-
-.. automodule:: rlgraph.components.distributions.beta
+.. automodule:: rlgraph.components.layers.nn.lstm_layer
     :members:
     :undoc-members:
     :show-inheritance:
 
+MaxPool2D Layer
++++++++++++++++
+
+.. automodule:: rlgraph.components.layers.nn.maxpool2d_layer
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Residual Layer
+++++++++++++++
+
+.. automodule:: rlgraph.components.layers.nn.residual_layer
+    :members:
+    :undoc-members:
+    :show-inheritance:

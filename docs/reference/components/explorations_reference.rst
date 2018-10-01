@@ -10,13 +10,19 @@
    limitations under the License.
    ============================================================================
 
-Explorations Reference
-----------------------
+Explorations
+------------
+
+Exploration Base Class
+++++++++++++++++++++++
 
 .. automodule:: rlgraph.components.explorations.exploration
     :members:
     :undoc-members:
     :show-inheritance:
+
+EpsilonExploration Helper Class
++++++++++++++++++++++++++++++++
 
 .. automodule:: rlgraph.components.explorations.epsilon_exploration
     :members:
