@@ -44,9 +44,11 @@ def get_list_registry(from_space, capacity=None, initializer=0, flatten=True, ad
         capacity (Optional[int]): Optional capacity to initalize list.
         initializer (Optional(any)): Optional initializer for list if capacity is not None.
         flatten (bool): Whether to produce a FlattenedDataOp with auto-keys.
+
         add_batch_rank (Optional[bool,int]): If from_space is given and is True, will add a 0th rank (None) to
             the created variable. If it is an int, will add that int instead of None.
             Default: False.
+
     Returns:
         dict: Container dict mapping spaces to empty lists.
     """
@@ -204,17 +206,23 @@ def sanity_check_space(
         space (Space): The Space object to check.
         allowed_types (Optional[List[type]]): A list of types that this Space must be an instance of.
         non_allowed_types (Optional[List[type]]): A list of type that this Space must not be an instance of.
+
         must_have_batch_rank (Optional[bool]): Whether the Space must (True) or must not (False) have the
             `has_batch_rank` property set to True. None, if it doesn't matter.
+
         must_have_time_rank (Optional[bool]): Whether the Space must (True) or must not (False) have the
             `has_time_rank` property set to True. None, if it doesn't matter.
+
         must_have_batch_or_time_rank (Optional[bool]): Whether the Space must (True) or must not (False) have either
             the `has_batch_rank` or the `has_time_rank` property set to True.
+
         must_have_categories (Optional[bool]): For IntBoxes, whether the Space must (True) or must not (False) have
             global bounds with `num_categories` > 0. None, if it doesn't matter.
+
         num_categories (Optional[int,tuple]): An int or a tuple (min,max) range within which the Space's
             `num_categories` rank must lie. Only valid for IntBoxes.
             None if it doesn't matter.
+
         rank (Optional[int,tuple]): An int or a tuple (min,max) range within which the Space's rank must lie.
             None if it doesn't matter.
 

@@ -28,7 +28,7 @@ Optimizer Base Class
 Local Optimizer
 +++++++++++++++
 
-.. automodule:: rlgraph.components.optimizers.local_optimizer
+.. automodule:: rlgraph.components.optimizers.local_optimizers
     :members:
     :undoc-members:
     :show-inheritance:

@@ -190,14 +190,6 @@ class IMPALAAgent(Agent):
         self.fifo_queue_keys = ["terminals", "states", "action_probs", "initial_internal_states"]
         self.fifo_record_space = Dict(
             {
-                #"preprocessed_states": self.preprocessor.get_preprocessed_space(
-                #    default_dict(copy.deepcopy(self.state_space), dict(
-                #        previous_action=self.action_space,
-                #        previous_reward=FloatBox()
-                #    ))
-                #),
-                #"actions": self.action_space,
-                #"rewards": float,
                 "terminals": bool,
                 "states": default_dict(copy.deepcopy(self.state_space), dict(
                     previous_action=self.action_space,
@@ -525,6 +517,7 @@ class IMPALAAgent(Agent):
         Args:
             env_stepper (EnvironmentStepper): The EnvironmentStepper Component to setp through the Env n steps
                 in a single op call.
+
             fifo_queue (FIFOQueue): The FIFOQueue Component used to enqueue env sample runs (n-step).
         """
         # Perform n-steps in the env and insert the results into our FIFO-queue.
@@ -562,10 +555,10 @@ class IMPALAAgent(Agent):
 
         self.root_component.define_api_method("reset", reset)
 
-    def define_api_methods_learner(self, fifo_output_splitter, fifo_queue, states_dict_splitter,
-                                   transpose_states, transpose_terminals, transpose_action_probs,
-                                   staging_area,
-                                   preprocessor, policy, loss_function, optimizer):
+    def define_api_methods_learner(
+            self, fifo_output_splitter, fifo_queue, states_dict_splitter, transpose_states, transpose_terminals,
+            transpose_action_probs, staging_area, preprocessor, policy, loss_function, optimizer
+    ):
         """
         Defines the API-methods used by an IMPALA learner. Its job is basically: Pull a batch from the
         FIFOQueue, split it up into its components and pass these through the loss function and into the optimizer for
@@ -573,8 +566,10 @@ class IMPALAAgent(Agent):
 
         Args:
             fifo_queue (FIFOQueue): The FIFOQueue Component used to enqueue env sample runs (n-step).
+
             splitter (ContainerSplitter): The DictSplitter Component to split up a batch from the queue along its
                 items.
+
             policy (Policy): The Policy Component, which to update.
             loss_function (IMPALALossFunction): The IMPALALossFunction Component.
             optimizer (Optimizer): The optimizer that we use to calculate an update and apply it.

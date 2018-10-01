@@ -152,10 +152,12 @@ class Space(Specifiable):
                 position. If `with_batch_rank` is an int (e.g. -1), the possible batch-rank is returned as that number
                 (instead of None) at the 0th (or 1st if time_major is True) position.
                 Default: False.
+
             with_time_rank (Union[bool,int]): Whether to include a possible time-rank as `None` at 1st (or 0th)
                 position. If `with_time_rank` is an int, the possible time-rank is returned as that number
                 (instead of None) at the 1st (or 0th if time_major is True) position.
                 Default: False.
+
             time_major (bool): Overwrites `self.time_major` if not None. Default: None (use `self.time_major`).
 
         Returns:
@@ -196,21 +198,27 @@ class Space(Specifiable):
 
         Args:
             name (str): The name for the variable.
+
             is_input_feed (bool): Whether the returned object should be an input placeholder,
                 instead of a full variable.
+
             add_batch_rank (Optional[bool,int]): If True, will add a 0th (or 1st) rank (None) to
                 the created variable. If it is an int, will add that int (-1 means None).
                 If None, will use the Space's default value: `self.has_batch_rank`.
                 Default: None.
+
             add_time_rank (Optional[bool,int]): If True, will add a 1st (or 0th) rank (None) to
                 the created variable. If it is an int, will add that int (-1 means None).
                 If None, will use the Space's default value: `self.has_time_rank`.
                 Default: None.
+
             time_major (bool): Only relevant if both `add_batch_rank` and `add_time_rank` are True.
                 Will make the time-rank the 0th rank and the batch-rank the 1st rank.
                 Otherwise, batch-rank will be 0th and time-rank will be 1st.
                 Default: False.
+
             is_python (bool): Whether to create a python-based variable (list) or a backend-specific one.
+
             local (bool): Whether the variable must not be shared across the network.
                 Default: False.
 
@@ -223,7 +231,7 @@ class Space(Specifiable):
         raise NotImplementedError
 
     def flatten(self, mapping=None, custom_scope_separator='/', scope_separator_at_start=True,
-                _scope=None, _list=None):
+                scope_=None, list_=None):
         """
         A mapping function to flatten this Space into an OrderedDict whose only values are
         primitive (non-container) Spaces. The keys are created automatically from Dict keys and
@@ -232,12 +240,16 @@ class Space(Specifiable):
         Args:
             mapping (Optional[callable]): A mapping function that takes a flattened auto-generated key and a primitive
                 Space and converts the primitive Space to something else. Default is pass through.
+
             custom_scope_separator (str): The separator to use in the returned dict for scopes.
                 Default: '/'.
+
             scope_separator_at_start (bool): Whether to add the scope-separator also at the beginning.
                 Default: True.
-            _scope (Optional[str]): For recursive calls only. Used for automatic key generation.
-            _list (Optional[list]): For recursive calls only. The list so far.
+
+            scope\_ (Optional[str]): For recursive calls only. Used for automatic key generation.
+
+            list\_ (Optional[list]): For recursive calls only. The list so far.
 
         Returns:
             OrderedDict: The OrderedDict using auto-generated keys and containing only primitive Spaces
@@ -250,32 +262,35 @@ class Space(Specifiable):
 
         # Are we in the non-recursive (first) call?
         ret = False
-        if _list is None:
-            _list = list()
+        if list_ is None:
+            list_ = list()
             ret = True
-            _scope = ""
+            scope_ = ""
 
-        self._flatten(mapping, custom_scope_separator, scope_separator_at_start, _scope, _list)
+        self._flatten(mapping, custom_scope_separator, scope_separator_at_start, scope_, list_)
 
         # Non recursive (first) call -> Return the final FlattenedDataOp.
         if ret:
-            return OrderedDict(_list)
+            return OrderedDict(list_)
 
-    def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, _scope, _list):
+    def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, scope_, list_):
         """
         Base implementation. May be overridden by ContainerSpace classes.
         Simply sends `self` through the mapping function.
 
         Args:
             mapping (callable): The mapping function to use on a primitive (non-container) Space.
+
             custom_scope_separator (str): The separator to use in the returned dict for scopes.
                 Default: '/'.
+
             scope_separator_at_start (bool): Whether to add the scope-separator also at the beginning.
                 Default: True.
-            _scope (str): The flat-key to use to store the mapped result in list_.
-            _list (list): The list to append the mapped results to (under key=`scope_`).
+
+            scope\_ (str): The flat-key to use to store the mapped result in list_.
+            list\_ (list): The list to append the mapped results to (under key=`scope_`).
         """
-        _list.append(tuple([_scope, mapping(_scope, self)]))
+        list_.append(tuple([scope_, mapping(scope_, self)]))
 
     def __repr__(self):
         return "Space(shape=" + str(self.shape) + ")"
@@ -291,9 +306,10 @@ class Space(Specifiable):
         Args:
             size (Optional[int]): The number of samples or batch size to sample.
                 If size is > 1: Returns a batch of size samples with the 0th rank being the batch rank
-                    (even if `self.has_batch_rank` is False).
+                (even if `self.has_batch_rank` is False).
                 If size is None or (1 and self.has_batch_rank is False): Returns a single sample w/o batch rank.
                 If size is 1 and self.has_batch_rank is True: Returns a single sample w/ the batch rank.
+
             fill_value (Optional[any]): The number or initializer specifier to fill the sample. Can be used to create
                 a (non-random) sample with a certain fill value in all elements.
                 TODO: support initializer spec-strings like 'normal', 'truncated_normal', etc..

@@ -256,10 +256,13 @@ class Agent(Specifiable):
         Args:
             states (Union[dict,np.ndarray]): States dict/tuple or numpy array.
             internals (Union[dict,np.ndarray]): Internal states dict/tuple or numpy array.
+
             use_exploration (bool): If False, no exploration or sampling may be applied
                 when retrieving an action.
+
             apply_preprocessing (bool): If True, apply any state preprocessors configured to the action. Set to
                 false if all pre-processing is handled externally both for acting and updating.
+
             extra_returns (Optional[Set[str]]): Optional set of Agent-specific strings for additional return
                 values (besides the actions). All Agents must support "preprocessed_states".
 
@@ -279,10 +282,13 @@ class Agent(Specifiable):
         Args:
             preprocessed_states (Union[dict, ndarray]): Preprocessed states dict or array.
             actions (Union[dict, ndarray]): Actions dict or array containing actions performed for the given state(s).
+
             internals (Union[list]): Internal state(s) returned by agent for the given states.Must be
                 empty list if no internals available.
+
             rewards (float): Scalar reward(s) observed.
             terminals (bool): Boolean indicating terminal.
+
             env_id (Optional[str]): Environment id to observe for. When using vectorized execution and
                 buffering, using environment ids is necessary to ensure correct trajectories are inserted.
                 See `SingleThreadedWorker` for example usage.
@@ -343,8 +349,10 @@ class Agent(Specifiable):
         Args:
             preprocessed_states (Union[dict,ndarray]): Preprocessed states dict or array.
             actions (Union[dict,ndarray]): Actions dict or array containing actions performed for the given state(s).
+
             internals (Union[list]): Internal state(s) returned by agent for the given states. Must be an empty list
                 if no internals available.
+
             rewards (Union[ndarray,list,float]): Scalar reward(s) observed.
             terminals (Union[list,bool]): Boolean indicating terminal.
         """
@@ -396,6 +404,7 @@ class Agent(Specifiable):
 
         Args:
             op (str): Name of the api method.
+
             inputs (Optional[dict,np.array]): Dict specifying the provided api_methods for (key=input space name,
                 values=the values that should go into this space (e.g. numpy arrays)).
         Returns:
@@ -436,9 +445,9 @@ class Agent(Specifiable):
 
         Args:
             path (str): Path to model directory.
-            add_timestep (bool): Indiciates if current training step should be appended to
-                exported model. If false, may override previous checkpoints.
 
+            add_timestep (bool): Indiciates if current training step should be appended to exported model.
+                If false, may override previous checkpoints.
         """
         self.graph_executor.store_model(path=path, add_timestep=add_timestep)
 

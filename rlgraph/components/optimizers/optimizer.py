@@ -30,11 +30,12 @@ class Optimizer(Component):
         variables (DataOpTuple): The list of variables to optimize.
         loss (SingleDataOp): The loss function's output.
         grads_and_vars (DataOpTuple): The zipped gradients plus corresponding variables to be fed back into the
-            Optimizer for actually applying the gradients to the variables.
-        *api_methods (any): Other necessary api_methods for the specific type of optimizer (e.g. a time-step).
+        Optimizer for actually applying the gradients to the variables.
+        \*api_methods (any): Other necessary api_methods for the specific type of optimizer (e.g. a time-step).
+
     outs:
         calc_grads_and_vars (DataOpTuple): The zipped gradients plus corresponding variables to be fed back into the
-            Optimizer for actually applying the gradients to the variables (via in-Socket `grads_and_vars`).
+        Optimizer for actually applying the gradients to the variables (via in-Socket `grads_and_vars`).
         step (DataOp): Triggers applying the gradients coming in from `grads_and_vars` to the variables.
     """
     def __init__(self, learning_rate=None, **kwargs):
@@ -52,29 +53,26 @@ class Optimizer(Component):
         self.define_api_method(name="apply_gradients", func=self._graph_fn_apply_gradients, must_be_complete=False)
         self.define_api_method(name="step", func=self._graph_fn_step, must_be_complete=False)
 
-    def _graph_fn_step(self, *inputs):  #variables, loss, loss_per_item, *inputs):
+    def _graph_fn_step(self, *inputs):
         """
         Applies an optimization step to a list of variables via a loss.
 
         Args:
-            #variables (SingleDataOp): Variables to optimize.
-            #loss (SingleDataOp): Loss value.
-            #loss_per_item (SingleDataOp) : Loss per item.
-            *inputs (SingleDataOp): Any args to the optimizer to be able to perform gradient calculations from
+            \*inputs (SingleDataOp): Any args to the optimizer to be able to perform gradient calculations from
                 losses and then apply these gradients to some variables.
 
         Returns:
 
         """
-        raise NotImplementedError  # pass
+        raise NotImplementedError
 
     def _graph_fn_calculate_gradients(self, *inputs):
         """
         Calculates the gradients for the given variables and the loss function (and maybe other child-class
-            specific input parameters).
+        specific input parameters).
 
         Args:
-            inputs (SingleDataOp): Custom SingleDataOp parameters, dependent on the optimizer type.
+            \*inputs (SingleDataOp): Custom SingleDataOp parameters, dependent on the optimizer type.
 
         Returns:
             DataOpTuple: The list of gradients and variables to be optimized.
@@ -84,7 +82,7 @@ class Optimizer(Component):
     def _graph_fn_apply_gradients(self, grads_and_vars):
         """
         Changes the given variables based on the previously calculated gradients. `gradients` is the output of
-            `self._graph_fn_calculate_gradients`.
+        `self._graph_fn_calculate_gradients`.
 
         Args:
             grads_and_vars (DataOpTuple): The list of gradients and variables to be optimized.
