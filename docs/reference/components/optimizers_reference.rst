@@ -14,10 +14,39 @@
    :scale: 25%
    :alt:
 
-Optimizers Reference
-====================
+Optimizers
+----------
 
-.. automodule:: rlgraph.components.optimizers
+Optimizer Base Class
+++++++++++++++++++++
+
+.. automodule:: rlgraph.components.optimizers.optimizer
     :members:
     :undoc-members:
     :show-inheritance:
+
+Local Optimizer
++++++++++++++++
+
+.. automodule:: rlgraph.components.optimizers.local_optimizer
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Horovod Optimizer
++++++++++++++++++
+
+.. automodule:: rlgraph.components.optimizers.horovod_optimizer
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Multi-GPU-Sync Optimizer
+++++++++++++++++++++++++
+
+.. automodule:: rlgraph.components.optimizers.multi_gpu_sync_optimizer
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
