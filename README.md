@@ -1,4 +1,5 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/rlgraph/rlgraph/blob/master/LICENSE)
+[![Documentation Status](https://readthedocs.org/projects/rlgraph/badge/?version=latest)](https://rlgraph.readthedocs.io/en/latest/?badge=latest)
 [![Build Status](https://travis-ci.org/rlgraph/rlgraph.svg?branch=master)](https://travis-ci.org/rlgraph/rlgraph)
 
 # RLgraph

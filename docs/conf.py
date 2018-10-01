@@ -31,10 +31,12 @@ import os
 import sys
 import re
 
-sys.path.insert(0, os.path.abspath('.'))
-sys.path.insert(1, os.path.abspath('..'))
+sys.path.insert(0, os.path.abspath('../rlgraph'))
+sys.path.insert(1, os.path.abspath('../'))
+#sys.path.insert(0, os.path.abspath('.'))
+#sys.path.insert(1, os.path.abspath('..'))
 
-from rlgraph.version import __version__
+import rlgraph
 
 
 # -- Project information -----------------------------------------------------
@@ -44,9 +46,9 @@ copyright = '2018, RLgraph authors'
 author = 'RLgraph authors'
 
 # The short X.Y version
-version = re.sub(r'\.\d+$', "", __version__)
+version = re.sub(r'\.\d+$', "", rlgraph.__version__)
 # The full version, including alpha/beta/rc tags
-release = __version__
+release = rlgraph.__version__
 
 
 # -- General configuration ---------------------------------------------------
