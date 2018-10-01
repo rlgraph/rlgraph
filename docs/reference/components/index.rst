@@ -10,6 +10,8 @@
    limitations under the License.
    ============================================================================
 
+Components Reference
+++++++++++++++++++++
 
 .. toctree::
    :maxdepth: 3

@@ -10,6 +10,9 @@
    limitations under the License.
    ============================================================================
 
+.. image:: ../../images/rlcore-logo-full.png
+   :scale: 25%
+   :alt:
 
 Component Base Class Reference
 ==============================
