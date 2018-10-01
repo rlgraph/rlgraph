@@ -10,38 +10,51 @@
    limitations under the License.
    ============================================================================
 
-Agent Classes
--------------
 
-Agent Base Class Reference
-++++++++++++++++++++++++++
+Environment Classes
+-------------------
 
-.. automodule:: rlgraph.agents.agent
+
+Environment Base Class Reference
+++++++++++++++++++++++++++++++++
+
+.. automodule:: rlgraph.environments.environment
     :members:
     :undoc-members:
     :show-inheritance:
 
 
-DQN Agent
-+++++++++
+Random Environment
+++++++++++++++++++
 
-.. automodule:: rlgraph.agents.dqn_agent
+.. automodule:: rlgraph.environments.random_env
     :members:
     :undoc-members:
     :show-inheritance:
 
-ApeX Agent
-++++++++++
 
-.. automodule:: rlgraph.agents.apex_agent
+GridWorld Environments
+++++++++++++++++++++++
+
+.. automodule:: rlgraph.environments.grid_world
     :members:
     :undoc-members:
     :show-inheritance:
 
-IMPALA Agent
-++++++++++++
 
-.. automodule:: rlgraph.agents.impala_agent
+OpenAI Gym Environments
++++++++++++++++++++++++
+
+.. automodule:: rlgraph.environments.openai_gym
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+DeepMind Lab Environments
++++++++++++++++++++++++++
+
+.. automodule:: rlgraph.environments.deepmind_lab
     :members:
     :undoc-members:
     :show-inheritance:

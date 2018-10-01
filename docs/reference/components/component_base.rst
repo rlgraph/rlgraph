@@ -10,38 +10,11 @@
    limitations under the License.
    ============================================================================
 
-Agent Classes
--------------
 
-Agent Base Class Reference
-++++++++++++++++++++++++++
+Component Base Class Reference
+==============================
 
-.. automodule:: rlgraph.agents.agent
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-DQN Agent
-+++++++++
-
-.. automodule:: rlgraph.agents.dqn_agent
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-ApeX Agent
-++++++++++
-
-.. automodule:: rlgraph.agents.apex_agent
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-IMPALA Agent
-++++++++++++
-
-.. automodule:: rlgraph.agents.impala_agent
+.. automodule:: rlgraph.components.component
     :members:
     :undoc-members:
     :show-inheritance:

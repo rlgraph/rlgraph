@@ -20,13 +20,17 @@ Action Adapter Base Class
     :show-inheritance:
 
 
-Action Adapter Subclasses
--------------------------
+Dueling Action Adapter
+----------------------
 
 .. automodule:: rlgraph.components.action_adapters.dueling_action_adapter
     :members:
     :undoc-members:
     :show-inheritance:
+
+
+Baseline Action Adapter
+-----------------------
 
 .. automodule:: rlgraph.components.action_adapters.baseline_action_adapter
     :members:

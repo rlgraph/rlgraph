@@ -14,6 +14,7 @@
 .. toctree::
    :maxdepth: 3
 
+   component_base.rst
    action_adapters_reference.rst
    distributions_reference.rst
    explorations_reference.rst
@@ -26,10 +27,3 @@
    papers_reference.rst
    queues_reference.rst
 
-Component Base Class Reference
-==============================
-
-.. automodule:: rlgraph.components.component
-    :members:
-    :undoc-members:
-    :show-inheritance:
