@@ -32,7 +32,7 @@ class RingBuffer(Memory):
     API:
         Optional:
         If `self.episode_semantics` is True:
-            get_episodes(num_episodes) -> Returns `num_episodes` episodes from the memory.
+        get_episodes(num_episodes) -> Returns `num_episodes` episodes from the memory.
     """
     def __init__(self, capacity=1000, episode_semantics=False, scope="ring-buffer", **kwargs):
         super(RingBuffer, self).__init__(capacity, scope=scope, **kwargs)

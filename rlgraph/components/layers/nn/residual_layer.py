@@ -30,12 +30,13 @@ class ResidualLayer(NNLayer):
     (https://arxiv.org/pdf/1603.05027.pdf)
 
     API:
-        apply(input_) ->
+        apply(input\_) ->
     """
     def __init__(self, residual_unit, repeats=2, scope="residual-layer", **kwargs):
         """
         Args:
             residual_unit (NeuralNetwork):
+
             repeats (int): The number of times that the residual unit should be repeated before applying the addition
                 with the original input and the activation function.
         """

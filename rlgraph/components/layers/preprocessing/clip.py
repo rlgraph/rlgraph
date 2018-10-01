@@ -28,13 +28,13 @@ if get_backend() == "tf":
 
 class Clip(PreprocessLayer):
     """
-    A simple clip-by-value layer. Clips each value in the input tensor between min_ and max_.
+    A simple clip-by-value layer. Clips each value in the input tensor between `min` and `max`.
     """
     def __init__(self, min=0.0, max=1.0, scope="clip", **kwargs):
         """
         Args:
-            min_ (float): The min value that any value in the input can have.
-            max_ (float): The max value that any value in the input can have.
+            min\_ (float): The min value that any value in the input can have.
+            max\_ (float): The max value that any value in the input can have.
         """
         super(Clip, self).__init__(scope=scope, **kwargs)
         self.min = min

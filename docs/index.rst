@@ -3,13 +3,26 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to rlgraph's documentation!
+Welcome to RLgraph's documentation.
 ===================================
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+RLgraph is a library for designing flexible reinforcement learning graphs
+-------------------------------------------------------------------------
 
+.. image:: images/rlcore-logo-full.png
+   :scale: 30%
+   :alt:
+
+.. toctree::
+   :maxdepth: 3
+   :caption: Contents:
+   :numbered:
+
+   readme_link.rst
+   intro.rst
+   how_to_build_an_algorithm_with_rlgraph.rst
+   how_to_code_against_rlgraph.rst
+   rlgraph_reference.rst
 
 
 Indices and tables

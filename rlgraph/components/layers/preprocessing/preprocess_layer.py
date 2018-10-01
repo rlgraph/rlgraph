@@ -32,7 +32,7 @@ class PreprocessLayer(Layer):
     preprocessor (e.g reset/reinitialize a variable).
 
     API:
-        apply(input_): Preprocesses a single input_ value and returns the preprocessed data.
+        apply(input\_): Preprocesses a single input value and returns the preprocessed data.
         reset(): Optional; Does some reset operations e.g. in case this PreprocessLayer contains variables and state.
     """
     def __init__(self, scope="pre-process", **kwargs):

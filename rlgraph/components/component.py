@@ -53,7 +53,7 @@ class Component(Specifiable):
 
     This base class implements the interface to add sub-components, create connections between
     different sub-components and between a sub-component and this one and between this component
-     and an external component.
+    and an external component.
 
     A component also has a variable registry, the ability to save the component's structure and variable-values to disk,
     and supports adding its graph_fns to the overall computation graph.
@@ -213,13 +213,13 @@ class Component(Specifiable):
         Performs either:
         a) An assembly run through another API method (will actually call this API method for further assembly).
         b) A dry run through a graph_fn (without calling it) just generating the empty op-record-columns around the
-            graph_fn (incoming and outgoing).
+        graph_fn (incoming and outgoing).
         c) A define-by-run execution of the method where the method is evaluated like a normal python function.
-            Define-by-run execution is enabled via setting the `execution_mode` during the build.
+        Define-by-run execution is enabled via setting the `execution_mode` during the build.
 
         Args:
             method (callable): The method (graph_fn or API method) to call.
-            *params (Union[DataOpRecord,DataOp]): The DataOpRecords/DataOps to be used for calling the method.
+            \*params (Union[DataOpRecord,DataOp]): The DataOpRecords/DataOps to be used for calling the method.
 
         Keyword Args:
             flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
@@ -229,17 +229,17 @@ class Component(Specifiable):
             split_ops (Union[bool,Set[str]]): Whether to split all or some of the already flattened DataOps
                 and send the SingleDataOps one by one through the graph_fn.
                 Example: Spaces=A=Dict (container), B=int (primitive)
-                    The graph_fn should then expect for each primitive Space in A:
-                        _graph_fn(primitive-in-A (Space), B (int))
-                        NOTE that B will be the same in all calls for all primitive-in-A's.
+                The graph_fn should then expect for each primitive Space in A:
+                _graph_fn(primitive-in-A (Space), B (int))
+                NOTE that B will be the same in all calls for all primitive-in-A's.
                 (default: True).
             add_auto_key_as_first_param (bool): If `split_ops` is not False, whether to send the
                 automatically generated flat key as the very first parameter into each call of the graph_fn.
                 Example: Spaces=A=float (primitive), B=Tuple (container)
-                    The graph_fn should then expect for each primitive Space in B:
-                        _graph_fn(key, A (float), primitive-in-B (Space))
-                        NOTE that A will be the same in all calls for all primitive-in-B's.
-                        The key can now be used to index into variables equally structured as B.
+                The graph_fn should then expect for each primitive Space in B:
+                _graph_fn(key, A (float), primitive-in-B (Space))
+                NOTE that A will be the same in all calls for all primitive-in-B's.
+                The key can now be used to index into variables equally structured as B.
                 Has no effect if `split_ops` is False.
                 (default: False).
             return_ops (bool): Whether to return actual ops rather than op-records. This is done automatically
@@ -308,7 +308,7 @@ class Component(Specifiable):
         Args:
             method (callable): The method (graph_fn or API method) to call.
             method_owner (Component): Component this method belongs to.
-            *params (Union[DataOpRecord,np.array,numeric]): The DataOpRecords to be used for calling the method.:
+            \*params (Union[DataOpRecord,np.array,numeric]): The DataOpRecords to be used for calling the method.
 
         Keyword Args:
             flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
@@ -318,17 +318,17 @@ class Component(Specifiable):
             split_ops (Union[bool,Set[str]]): Whether to split all or some of the already flattened DataOps
                 and send the SingleDataOps one by one through the graph_fn.
                 Example: Spaces=A=Dict (container), B=int (primitive)
-                    The graph_fn should then expect for each primitive Space in A:
-                        _graph_fn(primitive-in-A (Space), B (int))
-                        NOTE that B will be the same in all calls for all primitive-in-A's.
+                The graph_fn should then expect for each primitive Space in A:
+                _graph_fn(primitive-in-A (Space), B (int))
+                NOTE that B will be the same in all calls for all primitive-in-A's.
                 (default: True).
             add_auto_key_as_first_param (bool): If `split_ops` is not False, whether to send the
                 automatically generated flat key as the very first parameter into each call of the graph_fn.
                 Example: Spaces=A=float (primitive), B=Tuple (container)
-                    The graph_fn should then expect for each primitive Space in B:
-                        _graph_fn(key, A (float), primitive-in-B (Space))
-                        NOTE that A will be the same in all calls for all primitive-in-B's.
-                        The key can now be used to index into variables equally structured as B.
+                The graph_fn should then expect for each primitive Space in B:
+                _graph_fn(key, A (float), primitive-in-B (Space))
+                NOTE that A will be the same in all calls for all primitive-in-B's.
+                The key can now be used to index into variables equally structured as B.
                 Has no effect if `split_ops` is False.
                 (default: False).
 
@@ -445,7 +445,8 @@ class Component(Specifiable):
         Args:
             method (callable): The method (graph_fn or API method) to call.
             method_owner (Component): Component this method belongs to.
-            *params (Union[DataOpRecord,np.array,numeric]): The DataOpRecords (or constant values) to be used for
+
+            \*params (Union[DataOpRecord,np.array,numeric]): The DataOpRecords (or constant values) to be used for
                 calling the method.
 
         Returns:
@@ -687,10 +688,13 @@ class Component(Specifiable):
             input_spaces (Optional[Dict[str,Space]]): A dict with Space/shape information.
                 keys=in-argument name (str); values=the associated Space.
                 Use None to take `self.api_method_inputs` instead.
+
             action_space (Optional[Space]): The action Space of the Agent/GraphBuilder. Can be used to construct and connect
                 more Components (which rely on this information). This eliminates the need to pass the action Space
                 information into many Components' constructors.
+
             device (str): The device to use for the variables generated.
+
             summary_regexp (Optional[str]): A regexp (str) that defines, which summaries should be generated
                 and registered.
         """
@@ -797,33 +801,45 @@ class Component(Specifiable):
 
         Args:
             name (str): The name under which the variable is registered in this component.
+
             shape (Optional[tuple]): The shape of the variable. Default: empty tuple.
+
             dtype (Union[str,type]): The dtype (as string) of this variable.
+
             initializer (Optional[any]): Initializer for this variable.
-            trainable (bool): Whether this variable should be trainable. This will be overwritten,
-                if the Component has its own `trainable` property set to either True or False.
+
+            trainable (bool): Whether this variable should be trainable. This will be overwritten, if the Component
+                has its own `trainable` property set to either True or False.
+
             from_space (Optional[Space,str]): Whether to create this variable from a Space object
                 (shape and dtype are not needed then). The Space object can be given directly or via the name
                 of the in-Socket holding the Space.
+
             add_batch_rank (Optional[bool,int]): If True and `from_space` is given, will add a 0th (1st) rank (None) to
                 the created variable. If it is an int, will add that int instead of None.
                 Default: False.
+
             add_time_rank (Optional[bool,int]): If True and `from_space` is given, will add a 1st (0th) rank (None) to
                 the created variable. If it is an int, will add that int instead of None.
                 Default: False.
+
             time_major (bool): Only relevant if both `add_batch_rank` and `add_time_rank` are True.
                 Will make the time-rank the 0th rank and the batch-rank the 1st rank.
                 Otherwise, batch-rank will be 0th and time-rank will be 1st.
                 Default: False.
+
             flatten (bool): Whether to produce a FlattenedDataOp with auto-keys.
+
             local (bool): Whether the variable must not be shared across the network.
                 Default: False.
+
             use_resource (bool): Whether to use the new tf resource-type variables.
                 Default: False.
 
         Returns:
             DataOp: The actual variable (dependent on the backend) or - if from
                 a ContainerSpace - a FlattenedDataOp or ContainerDataOp depending on the Space.
+
         """
 
         # Overwrite the given trainable parameter, iff self.trainable is actually defined as a bool.
@@ -1045,8 +1061,10 @@ class Component(Specifiable):
             name (str): The name for the summary. This has to match `self.summary_regexp`.
                 The name should not contain a "summary"-prefix or any global scope information
                 (both will be added automatically by this method).
+
             values (op): The op to summarize.
-            type_ (str): The summary type to create. Currently supported are:
+
+            type\_ (str): The summary type to create. Currently supported are:
                 "histogram", "scalar" and "text".
         """
         # Prepend the "summaries/"-prefix.
@@ -1074,7 +1092,7 @@ class Component(Specifiable):
         Propagates a single summary op of this Component to its parents' summaries registries.
 
         Args:
-            key_ (str): The lookup key for the summary to propagate.
+            key\_ (str): The lookup key for the summary to propagate.
         """
         # Return if there is no parent.
         if self.parent_component is None:
@@ -1097,10 +1115,13 @@ class Component(Specifiable):
         Args:
             name (Union[str,callable]): The name of the API method to create or one of the Component's method to
                 create the API-method from.
+
             func (Optional[callable]): The graph_fn to wrap or the custom function to set as API-method.
+
             must_be_complete (bool): Whether this API-method must have all its incoming Spaces defined in order
                 for the Component to count as "input-complete". Some API-methods may be still input-incomplete without
                 affecting the Component's build process.
+
             ok_to_overwrite (bool): Whether to raise an Error if an API-method with that name or another property
                 with that name already exists. Default: False.
 
@@ -1198,6 +1219,7 @@ class Component(Specifiable):
             expose_apis (Optional[Set[str]]): An optional set of strings with API-methods of the child component
                 that should be exposed as the parent's API via a simple wrapper API-method for the parent (that
                 calls the child's API-method).
+
             exposed_must_be_complete (bool): Whether the exposed API methods must be input-complete or not.
         """
         expose_apis = kwargs.pop("expose_apis", set())
@@ -1255,8 +1277,8 @@ class Component(Specifiable):
         before parents).
 
         Args:
-            list_ (Optional[List[Component]])): A list of already collected components to append to.
-            level_ (int): The slot indicating the Component level depth in `list_` at which we are currently.
+            list\_ (Optional[List[Component]])): A list of already collected components to append to.
+            level\_ (int): The slot indicating the Component level depth in `list_` at which we are currently.
 
         Returns:
             List[Component]: A list with all the sub-components in `self` and `self` itself.
@@ -1347,14 +1369,13 @@ class Component(Specifiable):
             component = component.parent_component
         return ret
 
-    def propagate_scope(self, sub_component, properties=None):
+    def propagate_scope(self, sub_component):
         """
         Fixes all the sub-Component's (and its sub-Component's) global_scopes.
 
         Args:
             sub_component (Optional[Component]): The sub-Component object whose global_scope needs to be updated.
                 Use None for this Component itself.
-            properties (Optional[dict]): Dict with properties to update on subcomponents.
         """
         # TODO this should be moved to use generic method below, but checking if global scope if set
         # TODO does not work well within that.
@@ -1375,6 +1396,7 @@ class Component(Specifiable):
         Args:
             properties (dict): Dict with names of properties and their values to recursively update
                 sub-components with.
+
             component (Optional([Component])): Component to recursively update. Uses self if None.
         """
         if component is None:
@@ -1431,9 +1453,12 @@ class Component(Specifiable):
             name (str): The name of the new Component. If None, use the value of scope.
             scope (str): The scope of the new Component. If None, use the same scope as this component.
             device (str): The device of the new Component. If None, use the same device as this one.
-            trainable (Optional[bool]): Whether to make all variables in this component trainable or not.
-                Use None for no specific preference.
+
+            trainable (Optional[bool]): Whether to make all variables in this component trainable or not. Use None
+                for no specific preference.
+
             reuse_variable_scope (Optional[str]): If not None, variables of the copy will be shared under this scope.
+
             reuse_variable_scope_for_sub_components (Optional[str]): If not None, variables only of the sub-components
                 of the copy will be shared under this scope.
 
@@ -1553,6 +1578,7 @@ class Component(Specifiable):
     def sub_component_by_name(self, scope_name):
         """
         Returns a sub-component of this component by its name.
+
         Args:
             scope_name (str): Name of the component. This is typically its scope.
 

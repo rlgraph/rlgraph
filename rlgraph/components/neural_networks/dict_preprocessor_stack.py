@@ -35,7 +35,7 @@ class DictPreprocessorStack(PreprocessorStack):
     The output is again a dict of preprocessed inputs.
 
     API:
-        preprocess(input_): Outputs the preprocessed input_ after sending it through all sub-Components of this Stack.
+        preprocess(input\_): Outputs the preprocessed input after sending it through all sub-Components of this Stack.
         reset(): An op to trigger all PreprocessorStacks of this Vector to be reset.
     """
     def __init__(self, preprocessors, **kwargs):
