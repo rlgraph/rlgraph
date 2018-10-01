@@ -31,12 +31,12 @@ import os
 import sys
 import re
 
-sys.path.insert(0, os.path.abspath('../rlgraph'))
+sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(1, os.path.abspath('../'))
-#sys.path.insert(0, os.path.abspath('.'))
-#sys.path.insert(1, os.path.abspath('..'))
+# readthedocs path
+sys.path.insert(2, '/home/docs/checkouts/readthedocs.org/user_builds/rlgraph/checkouts/latest/rlgraph')
 
-import rlgraph
+import rlgraph as rl
 
 
 # -- Project information -----------------------------------------------------
@@ -46,9 +46,9 @@ copyright = '2018, RLgraph authors'
 author = 'RLgraph authors'
 
 # The short X.Y version
-version = re.sub(r'\.\d+$', "", rlgraph.__version__)
+version = re.sub(r'\.\d+$', "", rl.__version__)
 # The full version, including alpha/beta/rc tags
-release = rlgraph.__version__
+release = rl.__version__
 
 
 # -- General configuration ---------------------------------------------------
