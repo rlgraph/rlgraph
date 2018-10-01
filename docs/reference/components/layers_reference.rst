@@ -10,34 +10,21 @@
    limitations under the License.
    ============================================================================
 
-.. rlgraph documentation master file, created by
-   sphinx-quickstart on Mon Oct  1 09:55:20 2018.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
-.. image:: images/rlcore-logo-full.png
-   :scale: 25%
-   :alt:
-
-RLgraph's documentation
-=======================
-
-RLgraph is a library for designing flexible reinforcement learning graphs
--------------------------------------------------------------------------
+Layers Reference
+----------------
 
 .. toctree::
    :maxdepth: 3
 
-   readme_link.rst
-   intro.rst
-   how_to_build_an_algorithm_with_rlgraph.rst
-   how_to_code_against_rlgraph.rst
-   reference/index.rst
+   layers/preprocessing_layers.rst
+   layers/neural_network_layers.rst
+   layers/string_layers.rst
 
 
-Indices and tables
-==================
+Layer Base Class
+----------------
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+.. automodule:: rlgraph.components.layers.layer
+    :members:
+    :undoc-members:
+    :show-inheritance:

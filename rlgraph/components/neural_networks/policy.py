@@ -85,11 +85,15 @@ class Policy(Component):
         Args:
             neural_network (Union[NeuralNetwork,dict]): The NeuralNetwork Component or a specification dict to build
                 one.
+
             action_space (Space): The action Space within which this Component will create actions.
+
             writable (bool): Whether this Policy can be synced to by another (equally structured) Policy.
                 Default: False.
+
             action_adapter_spec (Optional[dict]): A spec-dict to create an ActionAdapter. Use None for the default
                 ActionAdapter object.
+
             max_likelihood (bool): Whether to pick actions according to the max-likelihood value or via sampling.
                 Default: True.
         """

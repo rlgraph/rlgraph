@@ -99,6 +99,7 @@ class DuelingActionAdapter(ActionAdapter):
         Returns:
             tuple:
                 DataOpRecord: The output of the state-value stream (a DenseLayer) after passing `nn_output` through it.
+
                 DataOpRecord: The output of the advantage-value stream (a DenseLayer) after passing `nn_output` through
                     it. Note: These will be flat advantage nodes that have not been reshaped yet according to the
                     action_space.
@@ -185,6 +186,7 @@ class DuelingActionAdapter(ActionAdapter):
             tuple (2x SingleDataOp):
                 parameters (DataOp): The parameters, ready to be passed to a Distribution object's
                     get_distribution API-method (usually some probabilities or loc/scale pairs).
+
                 log_probs (DataOp): Simply the log(parameters).
         """
         if get_backend() == "tf":
