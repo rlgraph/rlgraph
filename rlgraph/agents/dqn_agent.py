@@ -145,8 +145,8 @@ class DQNAgent(Agent):
         Args:
             extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return
                 values (besides the actions). Possible values are:
-                - 'preprocessed_states': The preprocessed states after passing the given states
-                    through the preprocessor stack.
+                - 'preprocessed_states': The preprocessed states after passing the given states through the
+                preprocessor stack.
                 - 'internal_states': The internal states returned by the RNNs in the NN pipeline.
                 - 'used_exploration': Whether epsilon- or noise-based exploration was used or not.
 

@@ -42,6 +42,6 @@ default_dict(Component.__lookup_classes__, NeuralNetwork.__lookup_classes__)
 default_dict(Component.__lookup_classes__, Optimizer.__lookup_classes__)
 
 
-__all__ = ["Component", "GraphFunction"] + \
+__all__ = ["Component"] + \
           list(set(map(lambda x: x.__name__, Component.__lookup_classes__.values())))
 

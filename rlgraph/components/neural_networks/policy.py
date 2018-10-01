@@ -45,9 +45,12 @@ class Policy(Component):
         Args:
             network_spec (Union[NeuralNetwork,dict]): The NeuralNetwork Component or a specification dict to build
                 one.
+
             action_space (Space): The action Space within which this Component will create actions.
+
             action_adapter_spec (Optional[dict]): A spec-dict to create an ActionAdapter. Use None for the default
                 ActionAdapter object.
+
             max_likelihood (bool): Whether to pick actions according to the max-likelihood value or via sampling.
                 Default: True.
         """

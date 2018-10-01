@@ -84,7 +84,8 @@ class DQNLossFunction(LossFunction):
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
 
-        Args: see `self._graph_fn_loss_per_item`.
+        Args:
+            see `self._graph_fn_loss_per_item`.
 
         Returns:
             SingleDataOp: The tensor specifying the final loss (over the entire batch).

@@ -36,6 +36,7 @@ class Stack(Component):
         apply(input[, input2, ...]?): Sends one (or more, depending on the 1st sub-Component's `apply` method)
             DataOpRecord(s) through the stack and returns one (or more, depending on the last sub-Component's `apply`
             method) DataOpRecords.
+
         Optional:
             Other API-methods that all sub-Component have in common.
     """
@@ -74,7 +75,6 @@ class Stack(Component):
 
         Args:
             api_methods (Set[Union[str,Tuple[str,str]]]): See ctor kwargs.
-            #connection_rule (str): See ctor kwargs.
         """
         # Loop through the API-method set.
         for api_method_spec in api_methods:

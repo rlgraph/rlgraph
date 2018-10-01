@@ -26,12 +26,13 @@ from rlgraph.components.layers.preprocessing import PreprocessLayer
 class Normalize(PreprocessLayer):
     """
     Normalizes an input over all axes individually (denoted as `Xi` below) according to the following formula:
+
     Xi = (Xi - min(Xi)) / (max(Xi) - min(Xi) + epsilon),
         where:
-         Xi is one entire axis of values.
-         max(Xi) is the max value along this axis.
-         min(Xi) is the min value along this axis.
-         epsilon is a very small constant number (to avoid dividing by 0).
+        Xi is one entire axis of values.
+        max(Xi) is the max value along this axis.
+        min(Xi) is the min value along this axis.
+        epsilon is a very small constant number (to avoid dividing by 0).
     """
     def __init__(self, scope="normalize", **kwargs):
         super(Normalize, self).__init__(scope=scope, **kwargs)

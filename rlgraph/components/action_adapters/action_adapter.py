@@ -42,13 +42,14 @@ class ActionAdapter(Component):
     Distribution Component.
     Processing steps include:
     - Sending the raw, flattened NN output through a Dense layer whose number of units matches the flattened
-        action space.
+    action space.
     - Reshaping (according to the action Space).
     - Translating the reshaped outputs (logits) into probabilities (by softmaxing) and log-probabilities (log).
 
     API:
         get_action_layer_output(nn_output) (SingleDataOp): The raw, non-reshaped output of the action-layer
             (DenseLayer) after passing through it the raw nn_output (coming from the previous Component).
+
         get_logits_probabilities_log_probs(nn_output) (Tuple[SingleDataOp x 3]):
             1) raw nn_output, BUT reshaped
             2) probabilities (softmaxed (1))
@@ -59,16 +60,21 @@ class ActionAdapter(Component):
         """
         Args:
             action_space (Space): The action Space within which this Component will create actions.
+
             add_units (Optional[int]): An optional number of units to add to the auto-calculated number of action-
                 layer nodes. Can be negative to subtract units from the auto-calculated value.
                 NOTE: Only one of either `add_units` or `units` must be provided.
+
             units (Optional[int]): An optional number of units to use for the action-layer. If None, will calculate
                 the number of units automatically from the given action_space.
                 NOTE: Only one of either `add_units` or `units` must be provided.
+
             weights_spec (Optional[any]): An optional RLGraph Initializer spec that will be used to initialize the
                 weights of `self.action layer`. Default: None (use default initializer).
+
             biases_spec (Optional[any]): An optional RLGraph Initializer spec that will be used to initialize the
                 biases of `self.action layer`. Default: None (use default initializer, which is usually 0.0).
+
             activation (Optional[str]): The activation function to use for `self.action_layer`.
                 Default: None (=linear).
         """

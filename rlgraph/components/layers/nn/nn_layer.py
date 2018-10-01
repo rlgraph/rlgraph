@@ -28,12 +28,15 @@ class NNLayer(Layer):
     """
     A generic NN-layer object implementing the `apply` graph_fn and offering additional activation function support.
     Can be used in the following ways:
+
     - Thin wrapper around a backend-specific layer object (normal use case):
         Create the backend layer in the `create_variables` method and store it under `self.layer`. Then register
         the backend layer's variables with the RLgraph Component.
+
     - Custom layer (with custom computation):
         Create necessary variables in `create_variables` (e.g. matrices), then override `_graph_fn_apply`, leaving
         `self.layer` as None.
+
     - Single Activation Function:
         Leave `self.layer` as None and do not override `_graph_fn_apply`. It will then only apply the activation
         function.
