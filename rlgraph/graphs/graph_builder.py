@@ -30,7 +30,6 @@ from rlgraph.components.component import Component
 from rlgraph.spaces import Space, Dict
 from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalence
 from rlgraph.utils.input_parsing import parse_summary_spec
-from rlgraph.utils.tf_util import pin_global_variables
 from rlgraph.utils.util import force_list, force_tuple, get_shape
 from rlgraph.utils.ops import DataOpTuple, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
     DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn
@@ -38,6 +37,7 @@ from rlgraph.utils.component_printout import component_print_out
 
 if get_backend() == "tf":
     import tensorflow as tf
+    from rlgraph.utils.tf_util import pin_global_variables
 
 
 class GraphBuilder(Specifiable):
