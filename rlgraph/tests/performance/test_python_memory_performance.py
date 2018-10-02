@@ -23,11 +23,14 @@ import numpy as np
 import time
 
 from six.moves import xrange as range_
-from ray.rllib.optimizers.replay_buffer import PrioritizedReplayBuffer
 
+from rlgraph import get_distributed_backend
 from rlgraph.execution.ray.apex.apex_memory import ApexMemory
 from rlgraph.execution.ray.ray_util import ray_compress
 from rlgraph.spaces import Dict, BoolBox, FloatBox
+
+if get_distributed_backend() == "ray":
+    from ray.rllib.optimizers.replay_buffer import PrioritizedReplayBuffer
 
 
 class TestPythonMemoryPerformance(unittest.TestCase):
@@ -56,6 +59,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         """
         Tests Ray's memory performance.
         """
+        assert get_distributed_backend() == "ray"
         memory = PrioritizedReplayBuffer(
             size=self.capacity,
             alpha=1.0,
@@ -113,6 +117,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         """
         Tests Ray's memory performance.
         """
+        assert get_distributed_backend() == "ray"
         memory = PrioritizedReplayBuffer(
             size=self.capacity,
             alpha=1.0,
@@ -143,6 +148,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         """
         Tests Ray's memory performance.
         """
+        assert get_distributed_backend() == "ray"
         memory = PrioritizedReplayBuffer(
             size=self.capacity,
             alpha=1.0,
@@ -292,6 +298,7 @@ class TestPythonMemoryPerformance(unittest.TestCase):
         """
         Tests a combined workflow of insert, sample, update on the prioritized replay memory.
         """
+        assert get_distributed_backend() == "ray"
         memory = PrioritizedReplayBuffer(
             size=self.capacity,
             alpha=1.0,
