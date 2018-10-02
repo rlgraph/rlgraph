@@ -117,7 +117,9 @@ class NNLayer(Layer):
                 inputs = [v for v in inputs if v is not None]
 
                 # PyTorch layers are called, not `applied`.
+                # print("in net work layer: ", self.name)
                 # print("network inputs type", type(inputs))
+                # import torch
                 # for inp in inputs:
                 #     print("per input type = {} ".format(type(inp) ))
                 #     if isinstance(inp, torch.Tensor):

@@ -82,10 +82,10 @@ class DenseLayer(NNLayer):
             # N.b. activation must be added as a separate 'layer' when assembling a network.
             # In features is the num of input channels.
             apply_bias = (self.biases_spec is not False)
-            # print("Defining linear input layer for name = ", self.name)
-            # print("in space shape = ", in_space.shape)
+            ndim = len(in_space.shape)
             self.layer = nn.Linear(
-                in_features=in_space.shape[0],
+                # In case there is a batch dim here due to missing preprocessing.
+                in_features=in_space.shape[0] if ndim == 1 else in_space.shape[1],
                 out_features=self.units,
                 bias=apply_bias
             )
