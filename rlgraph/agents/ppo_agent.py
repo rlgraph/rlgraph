@@ -81,7 +81,7 @@ class PPOAgent(Agent):
         # Return indices so we later now which priorities to update.
         return batch, indices
 
-    def _observe_graph(self, states, actions, internals, rewards, terminals):
+    def _observe_graph(self, states, actions, internals, rewards, next_states, terminals):
         self.graph_executor.execute(
             ("insert_records", [states, actions, rewards, terminals])
         )
