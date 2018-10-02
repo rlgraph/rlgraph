@@ -47,6 +47,7 @@ class TensorFlowExecutor(GraphExecutor):
     def __init__(self, **kwargs):
         super(TensorFlowExecutor, self).__init__(**kwargs)
         self.global_training_timestep = None
+        self.session_config = self.execution_spec["session_config"]
 
         # The tf.Graph object to be run in a tf session.
         self.graph = None

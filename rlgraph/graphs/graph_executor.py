@@ -72,7 +72,6 @@ class GraphExecutor(Specifiable):
         # performed because we will use a simple TensorFlow session instead of a monitored session.
         self.disable_monitoring = self.execution_spec.get("disable_monitoring", False)
 
-        self.session_config = self.execution_spec["session_config"]
         self.distributed_spec = self.execution_spec.get("distributed_spec")
 
         # Number of available GPUs and their names.
