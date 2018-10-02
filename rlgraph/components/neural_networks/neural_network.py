@@ -20,7 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.neural_networks.stack import Stack
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
-from rlgraph.utils import RLGraphError, force_tuple
+from rlgraph.utils import RLGraphError, force_tuple, force_list
 
 if get_backend() == "pytorch":
     import torch
@@ -115,11 +115,15 @@ class NeuralNetwork(Stack):
                                     result = graph_fn("", *force_tuple(result))
                                 else:
                                     result = graph_fn(*force_tuple(result))
-                            elif get_backend() == "tf" or get_backend() == "pytorch":
+                            elif get_backend() == "pytorch":
+                                # Do NOT convert to tuple, has to be in unpacked again immediately.n
+                                result = self_.call(
+                                    getattr(sub_component, components_api_method_name), *force_list(result)
+                                )
+                            elif get_backend() == "tf":
                                 result = self_.call(
                                     getattr(sub_component, components_api_method_name), *force_tuple(result)
                                 )
-
                         return result
 
                 # Register `method` to this Component using the custom name given in `api_methods`.
@@ -129,14 +133,19 @@ class NeuralNetwork(Stack):
         if get_backend() == "pytorch":
             def fast_path_exec(*inputs):
                 inputs = inputs[0]
-                # Strip empty internal states.
-                inputs = [v for v in inputs if v is not None]
-
-                result = self.network_obj.forward(*inputs)
+                forward_inputs = []
+                for v in inputs:
+                    if v is not None:
+                        if isinstance(v, tuple):
+                            # Unitary tuples
+                            forward_inputs.append(v[0])
+                        else:
+                            forward_inputs.append(v)
+                result = self.network_obj.forward(*forward_inputs)
                 # Problem: Not everything in the neural network stack is a true layer.
                 for c in self.non_layer_components:
                     result = self.call(
-                        getattr(c, "apply"), *force_tuple(result)
+                        getattr(c, "apply"), *force_list(result)
                     )
                 return result
             self.fast_path_exec = fast_path_exec
