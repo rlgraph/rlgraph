@@ -86,6 +86,7 @@ class DQNAgent(Agent):
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
             terminals=terminal_space,
+            next_states=preprocessed_state_space,
             preprocessed_next_states=preprocessed_state_space,
             importance_weights=weight_space,
             # TODO: This is currently necessary for multi-GPU handling (as the update_from_external_batch
