@@ -33,7 +33,7 @@ class PrioritizedReplay(Memory):
     API:
         update_records(indices, update) -> Updates the given indices with the given priority scores.
     """
-    def __init__(self, capacity=1000, next_states=True, alpha=1.0, beta=0.0, scope="prioritized-replay", **kwargs):
+    def __init__(self, capacity=1000, alpha=1.0, beta=0.0, scope="prioritized-replay", **kwargs):
         """
         Args:
             next_states (bool): Whether to include s' in the return values of the out-Socket "get_records".
@@ -43,8 +43,6 @@ class PrioritizedReplay(Memory):
                 for full correction.
         """
         super(PrioritizedReplay, self).__init__(capacity, scope=scope, **kwargs)
-
-        self.next_states = next_states
 
         # Variables.
         self.index = None
@@ -112,21 +110,12 @@ class PrioritizedReplay(Memory):
         )
         self.min_segment_tree = SegmentTree(self.min_segment_buffer, self.priority_capacity)
 
-        # Store the flat names for the structure of our state Space.
-        if self.next_states:
-            assert 'states' in self.record_space
-            # Next states are not represented as explicit keys in the registry
-            # as this would cause extra memory overhead.
-            self.flat_state_keys = ["/states"+key for key in self.record_space["states"].flatten().keys()]
-
     def _graph_fn_insert_records(self, records):
         num_records = get_batch_size(records["/terminals"])
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
         # Updates all the necessary sub-variables in the record.
-        # update_indices = tf.Print(update_indices, [update_indices, index, num_records], summarize=100,
-        #                           message='Update indices / index / num records = ')
         record_updates = list()
         for key in self.record_registry:
             record_updates.append(self.scatter_update_variable(
@@ -194,16 +183,13 @@ class PrioritizedReplay(Memory):
 
             return weight / max_weight
 
-        # sample_indices = tf.Print(sample_indices, [sample_indices], summarize=1000,
-        #                          message='sample indices in retrieve = ')
-
         corrected_weights = tf.map_fn(
             fn=importance_sampling_fn,
             elems=sample_indices,
             dtype=tf.float32
         )
-        sample_indices = tf.Print(sample_indices, [sample_indices, self.sum_segment_tree.values], summarize=1000,
-                                  message='sample indices, segment tree values = ')
+        # sample_indices = tf.Print(sample_indices, [sample_indices, self.sum_segment_tree.values], summarize=1000,
+        #                           message='sample indices, segment tree values = ')
         return self.read_records(indices=sample_indices), sample_indices, corrected_weights
 
     def read_records(self, indices):
@@ -219,14 +205,6 @@ class PrioritizedReplay(Memory):
         records = FlattenedDataOp()
         for name, variable in self.record_registry.items():
             records[name] = self.read_variable(variable, indices)
-        if self.next_states:
-            next_indices = (indices + 1) % self.capacity
-
-            # Next states are read via index shift from state variables.
-            for flat_state_key in self.flat_state_keys:
-                next_states = self.read_variable(self.record_registry[flat_state_key], next_indices)
-                flat_next_state_key = "/next_states"+flat_state_key[len("/states"):]
-                records[flat_next_state_key] = next_states
         return records
 
     def _graph_fn_update_records(self, indices, update):
