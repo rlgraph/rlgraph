@@ -42,7 +42,8 @@ else:
     rl_graph_dir = os.path.join(rl_graph_dir, ".rlgraph")
 
 
-# Default backend ('tf' for tensorflow or 'pt' for PyTorch)
+# TODO "tensorflow" for tensorflow?
+# Default backend ('tf' for tensorflow or 'pytorch' for PyTorch)
 BACKEND = "tf"
 
 # Default distributed backend is distributed ray.
