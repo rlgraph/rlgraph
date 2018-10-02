@@ -14,10 +14,57 @@
    :scale: 25%
    :alt:
 
-Neural Networks Reference
-=========================
+Neural Networks
+---------------
 
-.. automodule:: rlgraph.components.neural_networks
+
+Stack Class
++++++++++++
+
+.. automodule:: rlgraph.components.neural_networks.stack
     :members:
     :undoc-members:
     :show-inheritance:
+
+PreprocessorStack
++++++++++++++++++
+
+.. automodule:: rlgraph.components.neural_networks.preprocessor_stack
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+DictPreprocessorStack
++++++++++++++++++++++
+
+.. automodule:: rlgraph.components.neural_networks.dict_preprocessor_stack
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+NeuralNetwork
++++++++++++++
+
+.. automodule:: rlgraph.components.neural_networks.neural_network
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Policy
+++++++
+
+.. automodule:: rlgraph.components.neural_networks.policy
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+ActorComponent
+++++++++++++++
+
+.. automodule:: rlgraph.components.neural_networks.actor_component
+    :members:
+    :undoc-members:
+    :show-inheritance:
+

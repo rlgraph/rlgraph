@@ -18,7 +18,7 @@
 Preprocessing Layers
 --------------------
 
-.. automodule:: rlgraph.components.layers.preprocessing.preprocessing_layer
+.. automodule:: rlgraph.components.layers.preprocessing.preprocess_layer
     :members:
     :undoc-members:
     :show-inheritance:

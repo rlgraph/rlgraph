@@ -99,10 +99,13 @@ class GridWorld(Environment):
         Args:
             world (Union[str,List[str]]): Either a string to map into `MAPS` or a list of strings describing the rows
                 of the world (e.g. ["S ", " G"] for a two-row/two-column world with start and goal state).
+
             save_mode (bool): Whether to replace holes (H) with walls (W). Default: False.
+
             reward_function (str): One of
                 sparse: hole=-1, fire=-1, goal=50, all other steps=-1
                 rich: hole=-100, fire=-10, goal=50
+
             state_representation (str): One of "discr_pos", "xy_pos", "cam"
         """
         # Build our map.
@@ -265,8 +268,8 @@ class GridWorld(Environment):
             action (int): The action choice.
 
         Returns:
-            List[Tuple[int,float]]: A list of tuples (s', p(s'|s,a)). Where s' is the next discrete position and
-                p(s'|s,a) is the probability of ending up in that position when in state s and taking action a.
+            List[Tuple[int,float]]: A list of tuples (s', p(s'\|s,a)). Where s' is the next discrete position and
+                p(s'\|s,a) is the probability of ending up in that position when in state s and taking action a.
         """
         x = discrete_pos // self.n_col
         y = discrete_pos % self.n_col

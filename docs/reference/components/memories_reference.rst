@@ -14,10 +14,46 @@
    :scale: 25%
    :alt:
 
-Memories Reference
-==================
+Memories
+--------
 
-.. automodule:: rlgraph.components.memories
+Memory Base Class
+++++++++++++++++++++++++
+
+.. automodule:: rlgraph.components.memories.memory
     :members:
     :undoc-members:
     :show-inheritance:
+
+ReplayMemory
+++++++++++++
+
+.. automodule:: rlgraph.components.memories.replay_memory
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+PrioritizedReplay
++++++++++++++++++
+
+.. automodule:: rlgraph.components.memories.prioritized_replay
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+FIFOQueue
++++++++++
+
+.. automodule:: rlgraph.components.memories.fifo_queue
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+QueueRunner
++++++++++++
+
+.. automodule:: rlgraph.components.memories.queue_runner
+    :members:
+    :undoc-members:
+    :show-inheritance:
+

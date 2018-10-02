@@ -121,9 +121,10 @@ if DISTRIBUTED_BACKEND == 'distributed_tf':
     try:
         import tensorflow
     except ModuleNotFoundError as e:
-        raise ValueError("INIT ERROR: Cannot run distributed_tf without backend (tensorflow)! "
-                         "Please install tensorflow first via `pip install tensorflow` or "
-                         "`pip install tensorflow-gpu`.")
+        raise ModuleNotFoundError(
+            "INIT ERROR: Cannot run distributed_tf without backend (tensorflow)! Please install tensorflow first "
+            "via `pip install tensorflow` or `pip install tensorflow-gpu`."
+        )
 elif DISTRIBUTED_BACKEND == "horovod":
     try:
         import horovod

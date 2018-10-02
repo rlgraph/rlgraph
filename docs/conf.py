@@ -32,7 +32,9 @@ import sys
 import re
 
 sys.path.insert(0, os.path.abspath('.'))
-sys.path.insert(1, os.path.abspath('..'))
+sys.path.insert(1, os.path.abspath('../'))
+# readthedocs path
+sys.path.insert(2, '/home/docs/checkouts/readthedocs.org/user_builds/rlgraph/checkouts/latest/rlgraph')
 
 from rlgraph.version import __version__
 

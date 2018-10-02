@@ -14,19 +14,30 @@
    :scale: 25%
    :alt:
 
-Loss Function Classes
----------------------
-
-.. toctree::
-   :maxdepth: 3
-
-   loss_functions/dqn_loss_function.rst
-
+Loss Functions
+--------------
 
 Loss Function Base Class
-------------------------
+++++++++++++++++++++++++
 
 .. automodule:: rlgraph.components.loss_functions.loss_function
     :members:
     :undoc-members:
     :show-inheritance:
+
+DQN Loss Function
++++++++++++++++++
+
+.. automodule:: rlgraph.components.loss_functions.dqn_loss_function
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+IMPALA Loss Function
+++++++++++++++++++++
+
+.. automodule:: rlgraph.components.loss_functions.impala_loss_function
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
