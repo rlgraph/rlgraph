@@ -49,8 +49,8 @@ class MemPrioritizedReplay(Memory):
 
         self.size = 0
         self.max_priority = 1.0
-
         self.alpha = alpha
+
         self.beta = beta
         self.next_states = next_states
 
@@ -62,7 +62,6 @@ class MemPrioritizedReplay(Memory):
             must_be_complete=False
         )
 
-    # TODO this needs manual calling atm
     def create_variables(self, input_spaces, action_space=None):
         # Store our record-space for convenience.
         self.record_space = input_spaces["records"]
@@ -72,6 +71,7 @@ class MemPrioritizedReplay(Memory):
         # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
         self.record_registry = get_list_registry(self.record_space_flat)
         self.priority_capacity = 1
+
         while self.priority_capacity < self.capacity:
             self.priority_capacity *= 2
 
@@ -80,17 +80,12 @@ class MemPrioritizedReplay(Memory):
         sum_segment_tree = MemSegmentTree(sum_values, self.priority_capacity, operator.add)
         min_values = [float('inf') for _ in range_(2 * self.priority_capacity)]
         min_segment_tree = MemSegmentTree(min_values, self.priority_capacity, min)
+
         self.merged_segment_tree = MinSumSegmentTree(
             sum_tree=sum_segment_tree,
             min_tree=min_segment_tree,
             capacity=self.priority_capacity
         )
-
-        if self.next_states:
-            assert 'states' in self.record_space
-            # Next states are not represented as explicit keys in the registry
-            # as this would cause extra memory overhead.
-            self.flat_state_keys = [k for k in self.record_registry.keys() if k[:7] == "states"]
 
     def _graph_fn_insert_records(self, records):
         if records is None or get_rank(records['/rewards']) == 0:
@@ -121,56 +116,6 @@ class MemPrioritizedReplay(Memory):
         self.index = (self.index + num_records) % self.capacity
         self.size = min(self.size + num_records, self.capacity)
 
-    # def insert_records(self, records):
-    #     num_records = len(records[self.fixed_key])
-    #     update_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
-    #
-    #     # Update record registry.
-    #     if num_records == 1:
-    #         # TODO no indices exist so we have to append or presize
-    #         insert_index = (self.index + num_records) % self.capacity
-    #         for key in self.record_registry:
-    #             self.record_registry[key][insert_index] = records[key]
-    #     else:
-    #         insert_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
-    #         record_index = 0
-    #         for insert_index in insert_indices:
-    #             for key in self.record_registry:
-    #                 self.record_registry[key][insert_index] = records[key][record_index]
-    #             record_index += 1
-    #
-    #     # Update indices
-    #     self.index = (self.index + num_records) % self.capacity
-    #     self.size = min(self.size + num_records, self.capacity)
-    #
-    #     # Insert into segment trees.
-    #     for i in range_(num_records):
-    #         self.sum_segment_tree.insert(update_indices[i], self.default_new_weight)
-    #         self.min_segment_tree.insert(update_indices[i], self.default_new_weight)
-
-    # def read_records(self, indices):
-    #     """
-    #     Obtains record values for the provided indices.
-    #
-    #     Args:
-    #         indices ndarray: Indices to read. Assumed to be not contiguous.
-    #
-    #     Returns:
-    #          dict: Record value dict.
-    #     """
-    #     records = dict()
-    #     for name, variable in self.record_registry.items():
-    #             records[name] = [variable[index] for index in indices]
-    #     if self.next_states:
-    #         next_indices = (indices + 1) % self.capacity
-    #
-    #         # Next states are read via index shift from state variables.
-    #         for flat_state_key in self.flat_state_keys:
-    #             next_states = [self.record_registry[flat_state_key][index] for index in next_indices]
-    #             flat_next_state_key = "next_states"+flat_state_key[len("states"):]
-    #             records[flat_next_state_key] = next_states
-    #     return records
-
     def read_records(self, indices):
         """
         Obtains record values for the provided indices.
@@ -185,24 +130,12 @@ class MemPrioritizedReplay(Memory):
         for name in self.record_registry.keys():
             records[name] = []
 
-        if self.next_states:
-            for flat_state_key in self.flat_state_keys:
-                flat_next_state_key = "next_states" + flat_state_key[len("states"):]
-                records[flat_next_state_key] = []
-
         if self.size > 0:
             for index in indices:
                 record = self.memory_values[index]
                 for name in self.record_registry.keys():
                     records[name].append(record[name])
 
-                if self.next_states:
-                    # TODO these are largely copies
-                    next_index = (index + 1) % self.capacity
-                    for flat_state_key in self.flat_state_keys:
-                        next_record = self.memory_values[next_index]
-                        flat_next_state_key = "next_states"+flat_state_key[len("states"):]
-                        records[flat_next_state_key].append(next_record[flat_state_key])
         else:
             # TODO figure out how to do default handling in pytorch builds.
             # Fill with default vals for build.
@@ -213,13 +146,6 @@ class MemPrioritizedReplay(Memory):
                 else:
                     records[name] = np.zeros(self.record_space_flat[name].shape)
 
-            if self.next_states:
-                for flat_state_key in self.flat_state_keys:
-                    flat_next_state_key = "next_states" + flat_state_key[len("states"):]
-                    if get_backend() == "pytorch":
-                        records[flat_next_state_key] = torch.zeros(self.record_space_flat["states"].shape)
-                    else:
-                        records[flat_next_state_key] = np.zeros(self.record_space_flat["states"].shape)
         return records
 
     def _graph_fn_get_records(self, num_records=1):
