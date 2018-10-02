@@ -36,7 +36,7 @@ sys.path.insert(1, os.path.abspath('../'))
 # readthedocs path
 sys.path.insert(2, '/home/docs/checkouts/readthedocs.org/user_builds/rlgraph/checkouts/latest/rlgraph')
 
-import rlgraph as rl
+from rlgraph.version import __version__
 
 
 # -- Project information -----------------------------------------------------
@@ -46,9 +46,9 @@ copyright = '2018, RLgraph authors'
 author = 'RLgraph authors'
 
 # The short X.Y version
-version = re.sub(r'\.\d+$', "", rl.__version__)
+version = re.sub(r'\.\d+$', "", __version__)
 # The full version, including alpha/beta/rc tags
-release = rl.__version__
+release = __version__
 
 
 # -- General configuration ---------------------------------------------------
