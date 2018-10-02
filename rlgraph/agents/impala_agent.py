@@ -253,7 +253,7 @@ class IMPALAAgent(Agent):
             self.environment_steppers = list()
             for i in range(self.num_actors):
                 policy_spec = dict(
-                    neural_network=network_spec,
+                    network_spec=network_spec,
                     action_adapter_spec=dict(type="baseline-action-adapter"),
                     action_space=self.action_space
                 )

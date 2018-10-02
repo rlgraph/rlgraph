@@ -239,7 +239,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
                 )
             ),
             # Policy spec.
-            dict(neural_network=LargeIMPALANetwork(), action_space=action_space),
+            dict(network_spec=LargeIMPALANetwork(), action_space=action_space),
             # Exploration spec.
             Exploration(epsilon_spec=dict(decay_spec=dict(
                 type="linear_decay", from_=1.0, to_=0.1, start_timestep=0, num_timesteps=100)
@@ -338,7 +338,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
                 )
             ),
             # Policy spec.
-            dict(neural_network=LargeIMPALANetwork(), action_space=action_space),
+            dict(network_spec=LargeIMPALANetwork(), action_space=action_space),
             # Exploration spec.
             Exploration(epsilon_spec=dict(decay_spec=dict(
                 type="linear_decay", from_=1.0, to_=0.1, start_timestep=0, num_timesteps=100)

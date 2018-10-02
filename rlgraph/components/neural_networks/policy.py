@@ -38,7 +38,6 @@ class Policy(Component):
     """
     A Policy is a wrapper Component that contains a NeuralNetwork, an ActionAdapter and a Distribution Component.
     """
-    # TODO: change `neural_network` into unified name `network_spec`.
     def __init__(self, network_spec, action_space=None, action_adapter_spec=None,
                  max_likelihood=True, scope="policy", **kwargs):
         """
@@ -56,7 +55,7 @@ class Policy(Component):
         """
         super(Policy, self).__init__(scope=scope, **kwargs)
 
-        self.neural_network = NeuralNetwork.from_spec(neural_network)
+        self.neural_network = NeuralNetwork.from_spec(network_spec)
         if action_space is None:
             self.action_adapter = ActionAdapter.from_spec(action_adapter_spec)
             action_space = self.action_adapter.action_space

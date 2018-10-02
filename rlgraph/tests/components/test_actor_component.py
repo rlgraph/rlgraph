@@ -42,7 +42,7 @@ class TestActorComponents(unittest.TestCase):
         preprocessor = PreprocessorStack.from_spec(
             [dict(type="convert_type", to_dtype="float"), dict(type="multiply", factor=2)]
         )
-        policy = Policy(neural_network=config_from_path("configs/test_simple_nn.json"), action_space=action_space)
+        policy = Policy(network_spec=config_from_path("configs/test_simple_nn.json"), action_space=action_space)
         exploration = Exploration()  # no exploration
         actor_component = ActorComponent(preprocessor, policy, exploration)
         test = ComponentTest(
@@ -106,7 +106,7 @@ class TestActorComponents(unittest.TestCase):
         preprocessor = PreprocessorStack.from_spec(
             [dict(type="convert_type", to_dtype="float"), dict(type="divide", divisor=10)]
         )
-        policy = Policy(neural_network=config_from_path("configs/test_lstm_nn.json"), action_space=action_space)
+        policy = Policy(network_spec=config_from_path("configs/test_lstm_nn.json"), action_space=action_space)
         exploration = Exploration(epsilon_spec=dict(decay_spec=dict(
             type="linear_decay", from_=1.0, to_=0.1, start_timestep=0, num_timesteps=100)
         ))
@@ -168,7 +168,7 @@ class TestActorComponents(unittest.TestCase):
             )
         )
         # Simple custom NN with dict input (splits into 2 streams (simple dense layers) and concats at the end).
-        policy = Policy(neural_network=DummyNNWithDictInput(num_units_a=2, num_units_b=3, scope="dummy-nn"),
+        policy = Policy(network_spec=DummyNNWithDictInput(num_units_a=2, num_units_b=3, scope="dummy-nn"),
                         action_space=action_space)
         exploration = None  # no exploration
 

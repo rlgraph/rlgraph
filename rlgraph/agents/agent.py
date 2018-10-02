@@ -136,7 +136,7 @@ class Agent(Specifiable):
         else:
             self.action_adapter_spec.update(action_adapter_dict)
         self.policy = Policy(
-            neural_network=self.neural_network,
+            network_spec=self.neural_network,
             action_adapter_spec=self.action_adapter_spec
         )
 

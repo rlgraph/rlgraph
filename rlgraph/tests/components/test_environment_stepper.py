@@ -45,10 +45,10 @@ class TestEnvironmentStepper(unittest.TestCase):
         state_space = FloatBox(shape=(1,))
         action_space = IntBox(2)
         preprocessor_spec = None
-        neural_network_spec = config_from_path("configs/test_simple_nn.json")
+        network_spec = config_from_path("configs/test_simple_nn.json")
         exploration_spec = None
         actor_component = ActorComponent(
-            preprocessor_spec, dict(neural_network=neural_network_spec, action_space=action_space), exploration_spec
+            preprocessor_spec, dict(network_spec=network_spec, action_space=action_space), exploration_spec
         )
         environment_stepper = EnvironmentStepper(
             environment_spec=dict(
@@ -109,10 +109,10 @@ class TestEnvironmentStepper(unittest.TestCase):
         state_space = FloatBox(shape=(2,))
         action_space = IntBox(4)
         preprocessor_spec = [dict(type="multiply", factor=3)]
-        neural_network_spec = config_from_path("configs/test_simple_nn.json")
+        network_spec = config_from_path("configs/test_simple_nn.json")
         exploration_spec = None
         actor_component = ActorComponent(
-            preprocessor_spec, dict(neural_network=neural_network_spec, action_space=action_space), exploration_spec
+            preprocessor_spec, dict(network_spec=network_spec, action_space=action_space), exploration_spec
         )
         environment_stepper = EnvironmentStepper(
             environment_spec=dict(
@@ -182,10 +182,10 @@ class TestEnvironmentStepper(unittest.TestCase):
         action_space = IntBox(4)
         internal_states_space = Tuple(FloatBox(shape=(3,)), FloatBox(shape=(3,)))
         preprocessor_spec = [dict(type="multiply", factor=3)]
-        neural_network_spec = config_from_path("configs/test_lstm_nn.json")
+        network_spec = config_from_path("configs/test_lstm_nn.json")
         exploration_spec = None
         actor_component = ActorComponent(
-            preprocessor_spec, dict(neural_network=neural_network_spec, action_space=action_space), exploration_spec
+            preprocessor_spec, dict(network_spec=network_spec, action_space=action_space), exploration_spec
         )
         environment_stepper = EnvironmentStepper(
             environment_spec=dict(
@@ -254,7 +254,7 @@ class TestEnvironmentStepper(unittest.TestCase):
         agent_config = config_from_path("configs/dqn_agent_for_pong.json")
         actor_component = ActorComponent(
             agent_config["preprocessing_spec"],
-            dict(neural_network=agent_config["network_spec"],
+            dict(network_spec=agent_config["network_spec"],
                  action_adapter_spec=agent_config["action_adapter_spec"],
                  action_space=action_space),
             agent_config["exploration_spec"]
@@ -320,7 +320,7 @@ class TestEnvironmentStepper(unittest.TestCase):
         agent_config = config_from_path("configs/dqn_agent_for_pong.json")
         actor_component = ActorComponent(
             agent_config["preprocessing_spec"],
-            dict(neural_network=agent_config["network_spec"],
+            dict(network_spec=agent_config["network_spec"],
                  action_adapter_spec=agent_config["action_adapter_spec"],
                  action_space=action_space),
             agent_config["exploration_spec"]
@@ -363,7 +363,7 @@ class TestEnvironmentStepper(unittest.TestCase):
                 }
             ],
             # Policy spec.
-            dict(neural_network="../configs/test_lstm_nn.json", action_space=action_space),
+            dict(network_spec="../configs/test_lstm_nn.json", action_space=action_space),
             # Exploration spec.
             Exploration(epsilon_spec=dict(decay_spec=dict(
                 type="linear_decay", from_=1.0, to_=0.1, start_timestep=0, num_timesteps=100)

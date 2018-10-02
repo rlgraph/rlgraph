@@ -211,7 +211,7 @@ class TestPytorchBackend(unittest.TestCase):
         # action_space (5 possible actions).
         action_space = IntBox(5, add_batch_rank=True)
 
-        policy = Policy(neural_network=config_from_path("configs/test_simple_nn.json"), action_space=action_space)
+        policy = Policy(network_spec=config_from_path("configs/test_simple_nn.json"), action_space=action_space)
         test = ComponentTest(
             component=policy,
             input_spaces=dict(nn_input=state_space),

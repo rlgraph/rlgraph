@@ -49,7 +49,7 @@ class PPOAgent(Agent):
         self.record_space = Dict(states=self.state_space, actions=self.action_space, rewards=float,
                                  terminals=BoolBox(), add_batch_rank=False)
 
-        self.policy = Policy(neural_network=self.neural_network, action_adapter_spec=None)
+        self.policy = Policy(network_spec=self.neural_network, action_adapter_spec=None)
 
         self.merger = DictMerger(output_space=self.record_space)
         splitter_input_space = copy.deepcopy(self.record_space)
