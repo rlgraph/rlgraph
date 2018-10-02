@@ -29,7 +29,7 @@ from rlgraph.utils import root_logger
 
 class TestApexAgentFunctionality(unittest.TestCase):
     """
-    Tests the ApexAgent assembly on the RandomEnv.
+    Tests Ape-X specific functionality.
     """
     root_logger.setLevel(level=logging.INFO)
 

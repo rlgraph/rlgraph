@@ -169,7 +169,6 @@ class TestPytorchBackend(unittest.TestCase):
         test = ComponentTest(component=memory, input_spaces=input_spaces, auto_build=False)
         return test.build()
 
-
     # TODO -> batch dim works differently in pytorch -> have to squeeze.
     def test_dense_layer(self):
         # Space must contain batch dimension (otherwise, NNLayer will complain).

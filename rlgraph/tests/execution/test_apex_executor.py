@@ -21,6 +21,8 @@ import unittest
 from copy import deepcopy
 
 import numpy as np
+
+from rlgraph import get_backend
 from rlgraph.components import PreprocessorStack
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.execution.ray.apex import ApexExecutor
@@ -85,6 +87,10 @@ class TestApexExecutor(unittest.TestCase):
             gym_env="CartPole-v0"
         )
         agent_config = config_from_path("configs/apex_agent_cartpole.json")
+        # TODO remove after unified backends
+        if get_backend() == "pytorch":
+            agent_config["memory_spec"]["type"] = "mem_prioritized_replay"
+
         executor = ApexExecutor(
             environment_spec=env_spec,
             agent_config=agent_config,
