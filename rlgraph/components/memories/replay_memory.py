@@ -32,7 +32,6 @@ class ReplayMemory(Memory):
     def __init__(
         self,
         capacity=1000,
-        next_states=True,
         scope="replay-memory",
         **kwargs
     ):
@@ -41,8 +40,6 @@ class ReplayMemory(Memory):
             next_states (bool): If true include next states in the return values of the API-method "get_records".
         """
         super(ReplayMemory, self).__init__(capacity, scope=scope, **kwargs)
-
-        self.next_states = next_states
 
         self.index = None
         self.size = None
@@ -58,12 +55,6 @@ class ReplayMemory(Memory):
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
         # Number of elements present.
         self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
-        if self.next_states:
-            assert 'states' in self.record_space
-
-            # Next states are not represented as explicit keys in the registry
-            # as this would cause extra memory overhead.
-            self.states = ["/states{}".format(flat_key) for flat_key in self.record_space["states"].flatten().keys()]
 
     def _graph_fn_insert_records(self, records):
         num_records = get_batch_size(records["/terminals"])
@@ -106,15 +97,6 @@ class ReplayMemory(Memory):
         records = FlattenedDataOp()
         for name, variable in self.record_registry.items():
             records[name] = self.read_variable(variable, indices)
-        if self.next_states:
-            next_indices = (indices + 1) % self.capacity
-
-            # Next states are read via index shift from state variables.
-            for state_name in self.states:
-                next_states = self.read_variable(self.record_registry[state_name], next_indices)
-                next_state_name = re.sub(r'^/states\b', "/next_states", state_name)
-                records[next_state_name] = next_states
-
         return records
 
     def _graph_fn_get_records(self, num_records):
