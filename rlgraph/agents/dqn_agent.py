@@ -95,7 +95,7 @@ class DQNAgent(Agent):
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.
-        self.merger = DictMerger("states", "actions", "rewards", "terminals")
+        self.merger = DictMerger("states", "actions", "rewards", "next_states", "terminals")
         # The replay memory.
         self.memory = Memory.from_spec(memory_spec)
         # The splitter for splitting up the records coming from the memory.
@@ -212,8 +212,8 @@ class DQNAgent(Agent):
         self.root_component.define_api_method("get_preprocessed_state_and_action", get_preprocessed_state_and_action)
 
         # Insert into memory.
-        def insert_records(self, preprocessed_states, actions, rewards, terminals):
-            records = self.call(merger.merge, preprocessed_states, actions, rewards, terminals)
+        def insert_records(self, preprocessed_states, actions, rewards, next_states, terminals):
+            records = self.call(merger.merge, preprocessed_states, actions, rewards, next_states, terminals)
             return self.call(memory.insert_records, records)
 
         self.root_component.define_api_method("insert_records", insert_records)
