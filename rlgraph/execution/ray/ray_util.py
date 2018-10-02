@@ -74,10 +74,10 @@ class RayTaskPool(object):
 
 def create_colocated_ray_actors(cls, config, num_agents, max_attempts=10):
     """
-    Creates a specified number of co-located RayAgent workers.
+    Creates a specified number of co-located RayActors.
 
     Args:
-        cls (class): Actor to create
+        cls (class): Actor class to create
         config (dict): Config for actor.
         num_agents (int): Number of worker agents to create.
         max_attempts (Optional[int]): Max number of attempts to create colocated agents, will raise

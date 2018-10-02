@@ -18,9 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.execution.ray.ray_executor import RayExecutor
-from rlgraph.execution.ray.ray_agent import RayAgent
 from rlgraph.execution.ray.ray_worker import RayWorker
 
 from rlgraph.execution.ray.apex import ApexExecutor, ApexMemory, RayMemoryActor
 
-__all__ = ["RayExecutor", "RayAgent", "RayWorker", "ApexExecutor", "ApexMemory", "RayMemoryActor"]
+__all__ = ["RayExecutor", "RayWorker", "ApexExecutor", "ApexMemory", "RayMemoryActor"]
