@@ -18,6 +18,6 @@ python:
   version: 3.5
   setup_py_install: true
   extra_requirements:
-    - tensorflow
+    - tf
     - ray
     - gym
