@@ -106,10 +106,11 @@ class PyTorchExecutor(GraphExecutor):
 
                 else:
                     # Just return everything in the order it was returned by the API method.
-                    for op_result in api_ret:
-                        if isinstance(op_result, torch.Tensor) and op_result.requires_grad is True:
-                            op_result = op_result.detach()
-                        to_return.append(op_result)
+                    if api_ret is not None:
+                        for op_result in api_ret:
+                            if isinstance(op_result, torch.Tensor) and op_result.requires_grad is True:
+                                op_result = op_result.detach()
+                            to_return.append(op_result)
 
                 # Clean and return.
                 for result in to_return:
