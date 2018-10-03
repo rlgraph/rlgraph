@@ -24,7 +24,7 @@ import numpy as np
 from rlgraph import get_backend
 from rlgraph.graphs import GraphExecutor
 from rlgraph.utils import util
-from rlgraph.utils.util import convert_torch_args
+from rlgraph.utils.util import force_torch_tensors
 
 if get_backend() == "pytorch":
     import torch
@@ -92,7 +92,7 @@ class PyTorchExecutor(GraphExecutor):
                 requires_grad = False
                 if "update" in api_method:
                     requires_grad = True
-                tensor_params = convert_torch_args(params=params, requires_grad=requires_grad)
+                tensor_params = force_torch_tensors(params=params, requires_grad=requires_grad)
                 api_ret = self.graph_builder.execute_define_by_run_op(api_method, tensor_params)
 
                 to_return = []

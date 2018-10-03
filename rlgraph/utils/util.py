@@ -392,26 +392,6 @@ def unify_nn_and_rnn_api_output(nn_output, return_values_wo_internal_state=1):
         return nn_output + (None,)
 
 
-def convert_torch_args(params, requires_grad=False):
-    """
-    Converts input args to torch tensors.
-    Args:
-        params (Union[dict, list]): List or dict of params.
-        requires_grad (bool): If gradients are required.
-
-    Returns:
-        Arguments converted to torch tensors.
-    """
-    if isinstance(params, list):
-        return force_torch_tensors(params, requires_grad)
-    elif isinstance(params, dict):
-        # Just flat dicts for now:
-        ret = {}
-        for key, value in params.items():
-            ret[key] = force_torch_tensors(value, requires_grad)
-        return ret
-
-
 def force_torch_tensors(params, requires_grad=False):
     """
     Converts input params to torch tensors
@@ -423,22 +403,30 @@ def force_torch_tensors(params, requires_grad=False):
         list: List of Torch tensors.
     """
     if get_backend() == "pytorch":
-        tensor_params = list()
+        tensor_params = []
         for param in params:
-            if isinstance(param, list):
-                param = np.asarray(param)
-            if isinstance(param, np.ndarray):
-                type_ = param.dtype
+            # Only flat dicts for now.
+            if isinstance(param, dict):
+                ret = {}
+                for key, value in param.items():
+                    ret[key] = convert_param(value, requires_grad)
+                tensor_params.append(ret)
             else:
-                type_ = type(param)
-            convert_type = dtype(type_, to="pytorch")
-
-            # PyTorch cannot convert from a np.bool_, must be uint.
-            if isinstance(param, np.ndarray) and param.dtype == np.bool_:
-                param = param.astype(np.uint8)
-            tensor_params.append(
-                torch.tensor(param, dtype=convert_type, requires_grad=requires_grad)
-            )
-
+                tensor_params.append(convert_param(param, requires_grad))
         return tensor_params
 
+
+def convert_param(param, requires_grad):
+    if get_backend() == "pytorch":
+        if isinstance(param, list):
+            param = np.asarray(param)
+        if isinstance(param, np.ndarray):
+            type_ = param.dtype
+        else:
+            type_ = type(param)
+        convert_type = dtype(type_, to="pytorch")
+
+        # PyTorch cannot convert from a np.bool_, must be uint.
+        if isinstance(param, np.ndarray) and param.dtype == np.bool_:
+            param = param.astype(np.uint8)
+        return torch.tensor(param, dtype=convert_type, requires_grad=requires_grad)
