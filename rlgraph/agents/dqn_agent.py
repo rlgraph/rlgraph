@@ -328,8 +328,8 @@ class DQNAgent(Agent):
 
         self.root_component.define_api_method("get_td_loss", get_td_loss)
 
-    def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals):
-        self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
+    def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
+        self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, next_states, terminals]))
 
     def update(self, batch=None):
         # Should we sync the target net?
