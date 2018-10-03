@@ -429,4 +429,9 @@ def convert_param(param, requires_grad):
         # PyTorch cannot convert from a np.bool_, must be uint.
         if isinstance(param, np.ndarray) and param.dtype == np.bool_:
             param = param.astype(np.uint8)
-        return torch.tensor(param, dtype=convert_type, requires_grad=requires_grad)
+
+        if convert_type == torch.float32 or convert_type == torch.float or convert_type == torch.float16:
+            # Only floats can require grad.
+            return torch.tensor(param, dtype=convert_type, requires_grad=requires_grad)
+        else:
+            torch.tensor(param, dtype=convert_type)
