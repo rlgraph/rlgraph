@@ -392,6 +392,26 @@ def unify_nn_and_rnn_api_output(nn_output, return_values_wo_internal_state=1):
         return nn_output + (None,)
 
 
+def convert_torch_args(params, requires_grad=False):
+    """
+    Converts input args to torch tensors.
+    Args:
+        params (Union[dict, list]): List or dict of params.
+        requires_grad (bool): If gradients are required.
+
+    Returns:
+        Arguments converted to torch tensors.
+    """
+    if isinstance(params, list):
+        return force_torch_tensors(params, requires_grad)
+    elif isinstance(params, dict):
+        # Just flat dicts for now:
+        ret = {}
+        for key, value in params.items():
+            ret[key] = force_torch_tensors(value, requires_grad)
+        return ret
+
+
 def force_torch_tensors(params, requires_grad=False):
     """
     Converts input params to torch tensors
