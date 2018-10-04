@@ -273,9 +273,9 @@ class Component(Specifiable):
             if method.__name__ in method_owner.api_methods and \
                     method_owner.api_methods[method.__name__].add_auto_key_as_first_param:
                 # Add auto key.
-                ret = method("", *params)
+                ret = method("", *params, **kwargs)
             else:
-                ret = method(*params)
+                ret = method(*params, **kwargs)
             # Store runtime for this method.
             Component.call_times.append((method_owner.name, method.__name__, time.perf_counter() - start))
             return ret
