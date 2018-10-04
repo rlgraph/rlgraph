@@ -270,12 +270,15 @@ class Component(Specifiable):
             # Name might not match, e.g. _graph_fn_apply vs apply.
             #  Check with owner if extra args needed.
             start = time.perf_counter()
+            # TODO: Problem with kwargs: kwargs contain 'call' params like flatten, but
+            # we cant pass them in define by run mode. Need to distinguish between true kwargs and call
+            # kwargs.
             if method.__name__ in method_owner.api_methods and \
                     method_owner.api_methods[method.__name__].add_auto_key_as_first_param:
                 # Add auto key.
-                ret = method("", *params, **kwargs)
+                ret = method("", *params)
             else:
-                ret = method(*params, **kwargs)
+                ret = method(*params)
             # Store runtime for this method.
             Component.call_times.append((method_owner.name, method.__name__, time.perf_counter() - start))
             return ret
