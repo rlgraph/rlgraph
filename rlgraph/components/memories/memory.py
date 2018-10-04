@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components import Component
+from rlgraph.components.component import Component, api
 
 
 class Memory(Component):
@@ -40,10 +40,6 @@ class Memory(Component):
         self.record_registry = None
         self.capacity = capacity
 
-        # All memories must provide these.
-        self.define_api_method(name="insert_records", func=self._graph_fn_insert_records, flatten_ops=True)
-        self.define_api_method(name="get_records", func=self._graph_fn_get_records, flatten_ops=False)
-
     def create_variables(self, input_spaces, action_space=None):
         # Store our record-space for convenience.
         self.record_space = input_spaces["records"]
@@ -57,6 +53,7 @@ class Memory(Component):
             initializer=0
         )
 
+    @api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
         """
         Inserts one or more complex records.
@@ -67,6 +64,7 @@ class Memory(Component):
         """
         raise NotImplementedError
 
+    @api
     def _graph_fn_get_records(self, num_records):
         """
         Returns a number of records according to the retrieval strategy implemented by
@@ -80,6 +78,7 @@ class Memory(Component):
         """
         raise NotImplementedError
 
+    @api
     def _graph_fn_get_episodes(self, num_episodes):
         """
         Retrieves a given number of episodes.
@@ -91,6 +90,7 @@ class Memory(Component):
         """
         pass
 
+    @api
     def _graph_fn_clear(self):
         """
         Removes all entries from memory.
@@ -98,6 +98,7 @@ class Memory(Component):
         # Optional?
         pass
 
+    @api
     def _graph_fn_update_records(self, indices, update):
         """
         Optionally updates memory records using information such as losses, e.g. to
