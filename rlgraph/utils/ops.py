@@ -92,7 +92,7 @@ class DataOpRecord(object):
     """
     _ID = -1
 
-    def __init__(self, op=None, column=None, position=None, kwarg=None, space=None):
+    def __init__(self, op=None, column=None, position=None, kwarg=None, space=None, previous=None, next_=None):
         """
         Args:
             op (Optional[DataOp]): The optional DataOp to already store in this op-rec.
@@ -102,6 +102,8 @@ class DataOpRecord(object):
                 arg.
             space (Optional[Space]): The Space of `op` if already known at construction time. Will be poulated
                 later (during build phase) if not.
+            next\_ (Optional(Set[DataOpRecord],DataOpRecord)): The next op-record or set of op-records.
+            previous (Optional(DataOpRecord)): The previous op-record.
         """
         self.id = self.get_id()
         self.op = op
@@ -116,9 +118,9 @@ class DataOpRecord(object):
         self.space = space
 
         # Set of (op-col ID, slot) tuples that are connected from this one.
-        self.next = set()
+        self.next = next_ if isinstance(next_, set) else ({next_} if next_ is not None else {})
         # The previous op that lead to this one.
-        self.previous = None
+        self.previous = previous
 
     @staticmethod
     def get_id():
@@ -142,20 +144,39 @@ class DataOpRecord(object):
 class DataOpRecordColumn(object):
     _ID = -1
 
-    def __init__(self, op_records, component, kwarg_names=None):
+    def __init__(self, component, args=None, kwargs=None):
         """
         Args:
-            op_records (int): The number of individual op_records to create for this column.
             component (Component): The Component to which this column belongs.
-            kwarg_names (Optional[List[str]]): Optional (but complete!) list of already known
-                kwarg-names for some of the op-recs (op-recs w/o kwarg should have `None` in this list).
         """
         self.id = self.get_id()
 
         self.op_records = list()
-        for i in range(op_records):
-            kwarg = kwarg_names[i] if kwarg_names is not None else None
-            self.op_records.append(DataOpRecord(op=None, column=self, position=i, kwarg=kwarg))
+
+        if args is not None:
+            for i in range(len(args)):
+                op_rec = DataOpRecord(op=None, column=self, position=i)
+                # If incoming is an op-rec -> Link them.
+                if isinstance(args[i], DataOpRecord):
+                    op_rec.previous = args[i]
+                    args[i].next.add(op_rec)
+                # TODO: Do value assignment here?
+                else:
+                    op_rec.op = args[i]
+                self.op_records.append(op_rec)
+
+        if kwargs is not None:
+            for key in sorted(kwargs.keys()):
+                value = kwargs[key]
+                op_rec = DataOpRecord(op=None, column=self, kwarg=key)
+                # If incoming is an op-rec -> Link them.
+                if isinstance(value, DataOpRecord):
+                    op_rec.previous = value
+                    value.next.add(op_rec)
+                # TODO: Do value assignment here?
+                else:
+                    op_rec.op = value
+                self.op_records.append(op_rec)
 
         # For __str__ purposes.
         self.op_id_list = [o.id for o in self.op_records]
@@ -192,10 +213,10 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
     The call of the graph_fn will result in another column (return values) of DataOpRecords that this record points
     to.
     """
-    def __init__(self, op_records, component, graph_fn, kwarg_names=None, flatten_ops=False,
-                 split_ops=False, add_auto_key_as_first_param=False):
+    def __init__(self, component, graph_fn, flatten_ops=False,
+                 split_ops=False, add_auto_key_as_first_param=False, args=None, kwargs=None):
         super(DataOpRecordColumnIntoGraphFn, self).__init__(
-            op_records=op_records, component=component, kwarg_names=kwarg_names
+            component=component, args=args, kwargs=kwargs
         )
 
         # The graph_fn that our ops come from.
@@ -347,7 +368,7 @@ class DataOpRecordColumnFromGraphFn(DataOpRecordColumn):
         Args:
             graph_fn_name (str): The name of the graph_fn that returned the ops going into `self.op_records`.
         """
-        super(DataOpRecordColumnFromGraphFn, self).__init__(op_records, component)
+        super(DataOpRecordColumnFromGraphFn, self).__init__(component, args=op_records)
         # The graph_fn that our ops come from.
         self.graph_fn_name = graph_fn_name
         # The column after passing this one through the graph_fn.
@@ -365,9 +386,9 @@ class DataOpRecordColumnIntoAPIMethod(DataOpRecordColumn):
 
     Stores the api method record and all DataOpRecords used for the call.
     """
-    def __init__(self, op_records, component, api_method_rec):
+    def __init__(self, component, api_method_rec, args=None, kwargs=None):
         self.api_method_rec = api_method_rec
-        super(DataOpRecordColumnIntoAPIMethod, self).__init__(op_records=op_records, component=component)
+        super(DataOpRecordColumnIntoAPIMethod, self).__init__(component=component, args=args, kwargs=kwargs)
 
     def __str__(self):
         return "OpRecCol(ops: {})->APIMethod('{}')".format(self.op_id_list, self.api_method_rec.method.__name__)
@@ -377,36 +398,41 @@ class DataOpRecordColumnFromAPIMethod(DataOpRecordColumn):
     """
     An array of return values from an API-method pass through.
     """
-    def __init__(self, op_records, component, api_method_name):
+    def __init__(self, component, api_method_name, return_dict):
         self.api_method_name = api_method_name
-        super(DataOpRecordColumnFromAPIMethod, self).__init__(op_records, component)
+        super(DataOpRecordColumnFromAPIMethod, self).__init__(component, kwargs=return_dict)
 
     def __str__(self):
         return "APIMethod('{}')->OpRecCol(ops: {})".format(self.api_method_name, self.op_id_list)
 
 
 class APIMethodRecord(object):
-    def __init__(self, method, component, must_be_complete=True, is_graph_fn_wrapper=False,
-                 add_auto_key_as_first_param=False):  #, callable_anytime=False):
+    def __init__(self, method, component=None, must_be_complete=True, ok_to_overwrite=False,
+                 is_graph_fn_wrapper=False, is_class_method=True,
+                 flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False):
         """
         Args:
             method (callable): The actual API-method (callable).
             component (Component): The Component this API-method belongs to.
             must_be_complete (bool): Whether the Component can only be input-complete if at least one
                 input op-record column is complete.
-            #callable_anytime (bool): Whether this API-method can be called even before the Component is input-complete.
+            TODO: documentation.
         """
         self.method = method
         self.name = self.method.__name__
         self.component = component
         self.must_be_complete = must_be_complete
+        self.ok_to_overwrite = ok_to_overwrite
+
+        self.is_class_method = is_class_method
 
         self.is_graph_fn_wrapper = is_graph_fn_wrapper
+        self.flatten_ops = flatten_ops
+        self.split_ops = split_ops
         self.add_auto_key_as_first_param = add_auto_key_as_first_param
 
         # List of the input-parameter names (str) of this API-method.
         self.input_names = None
-        #self.in_spaces = None
 
         self.in_op_columns = list()
         self.out_op_columns = list()

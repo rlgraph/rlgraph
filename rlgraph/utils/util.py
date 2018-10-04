@@ -279,10 +279,6 @@ def get_method_type(method):
     # Simply recognize graph_fn by their name.
     elif method.__name__[:9] == "_graph_fn":
         return "graph_fn"
-    # Figure out API-methods by their source code: Have calls to `Component.call`.
-    elif method.__name__[0] != "_" and method.__name__ != "define_api_method" and \
-            re.search(r'\.call\(', strip_source_code(method)):
-        return "api"
     else:
         return "unknown"
 

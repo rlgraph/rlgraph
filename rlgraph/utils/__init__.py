@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph.utils.decorators import api
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.utils.ops import DataOp, SingleDataOp, DataOpDict, DataOpTuple, ContainerDataOp, FlattenedDataOp
 from rlgraph.utils.specifiable import Specifiable
@@ -30,7 +31,7 @@ from rlgraph.utils.execution_util import print_call_chain
 
 
 __all__ = [
-    "RLGraphError",
+    "api", "RLGraphError",
     "Initializer", "Specifiable", "dtype", "get_shape", "get_rank", "force_tuple", "force_list",
     "logging_formatter", "root_logger", "tf_logger", "print_logging_handler", "softmax", "relu", "one_hot",
     "DataOp", "SingleDataOp", "DataOpDict", "DataOpTuple", "ContainerDataOp", "FlattenedDataOp",
