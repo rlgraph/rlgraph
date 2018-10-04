@@ -34,6 +34,7 @@
         },
         "n_step_adjustment": 1,
         "worker_computes_weights": true,
+        "worker_executes_exploration": true,
         "sample_exploration": false,
         "exploration_min_value": 0.5
       },
