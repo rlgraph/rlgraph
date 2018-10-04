@@ -103,7 +103,8 @@ class MetaGraphBuilder(Specifiable):
             # Do the actual core API-method call (thereby assembling the meta-graph).
             args = [op_rec for op_rec in in_ops_records if op_rec.kwarg is None]
             kwargs = {op_rec.kwarg: op_rec for op_rec in in_ops_records if op_rec.kwarg is not None}
-            root_component.call(api_method_rec.method, *args, **kwargs)
+            #root_component.call(api_method_rec.method, *args, **kwargs)
+            api_method_rec.method(*args, **kwargs)
 
             # Register core's interface.
             api[api_method_name] = (in_ops_records, api_method_rec.out_op_columns[-1].op_records)
