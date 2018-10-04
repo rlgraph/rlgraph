@@ -103,4 +103,4 @@ class DenseLayer(NNLayer):
                 # Activation function will be used in apply.
                 self.activation_fn = get_activation_function(self.activation, *self.activation_params)
             # Use unique scope as name.
-            self.register_variables(PyTorchVariable(name=self.global_scope, parameters=self.layer.parameters()))
+            self.register_variables(PyTorchVariable(name=self.global_scope, ref=self.layer))
