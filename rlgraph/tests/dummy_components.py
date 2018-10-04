@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.utils.ops import FlattenedDataOp
-from rlgraph.components.component import Component
+from rlgraph.components.component import Component, api
 from rlgraph.components.common.container_splitter import ContainerSplitter
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
@@ -28,10 +28,6 @@ from rlgraph.components.layers.nn.concat_layer import ConcatLayer
 
 
 class Dummy1To1(Component):
-    """
-    API:
-        run(input_): Result of input_ + `self.constant_value`
-    """
     def __init__(self, scope="dummy-1-to-1", constant_value=1.0, **kwargs):
         """
         Args:
@@ -40,10 +36,12 @@ class Dummy1To1(Component):
         super(Dummy1To1, self).__init__(scope=scope, **kwargs)
         self.constant_value = constant_value
 
-        # Automatically generate an API-method around our graph_fn.
-        self.define_api_method("run", self._graph_fn_1to1)
-
+    @api(name="run")
     def _graph_fn_1to1(self, input_):
+        """
+        Returns:
+            Result of input_ + `self.constant_value`.
+        """
         return input_ + self.constant_value
 
 
