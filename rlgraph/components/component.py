@@ -1040,16 +1040,29 @@ class Component(Specifiable):
         assert not kwargs
 
         variables = dict()
-        for name in names:
-            global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
-            if name in self.variables:
-                variables[re.sub(r'/', custom_scope_separator, name)] = self.variables[name]
-            elif global_scope_name in self.variables:
-                if global_scope:
-                    variables[re.sub(r'/', custom_scope_separator, global_scope_name)] = self.variables[
-                        global_scope_name]
-                else:
-                    variables[name] = self.variables[global_scope_name]
+        if get_backend() == "tf":
+            for name in names:
+                global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
+                if name in self.variables:
+                    variables[re.sub(r'/', custom_scope_separator, name)] = self.variables[name]
+                elif global_scope_name in self.variables:
+                    if global_scope:
+                        variables[re.sub(r'/', custom_scope_separator, global_scope_name)] = self.variables[
+                            global_scope_name]
+                    else:
+                        variables[name] = self.variables[global_scope_name]
+        elif get_backend() == "pytorch":
+            for name in names:
+                global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
+                if name in self.variables:
+                    pytorch_var = self.variables[name]
+                    variables[re.sub(r'/', custom_scope_separator, name)] = pytorch_var.get_value()
+                elif global_scope_name in self.variables:
+                    if global_scope:
+                        pytorch_var = self.variables[global_scope_name]
+                        variables[re.sub(r'/', custom_scope_separator, global_scope_name)] = pytorch_var.get_value()
+                    else:
+                        variables[name] = self.variables[global_scope_name].get_value()
         return variables
 
     def create_summary(self, name, values, type_="histogram"):

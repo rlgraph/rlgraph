@@ -152,10 +152,10 @@ class PyTorchExecutor(GraphExecutor):
         pass
 
     def get_weights(self):
-        pass
+        return self.execute("_variables")
 
     def set_weights(self, weights):
-        pass
+        self.execute(("sync", weights))
 
     def terminate(self):
         pass
