@@ -20,7 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.spaces import IntBox, FloatBox
-from rlgraph.components.component import Component
+from rlgraph.components.component import Component, api
 from rlgraph.components.distributions import Normal, Categorical
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
@@ -88,14 +88,14 @@ class Policy(Component):
                     self.time_rank_unfolder_logits
                 )
 
-            def get_baseline_output(self, nn_input, internal_states=None):
-                nn_output, last_internals = unify_nn_and_rnn_api_output(
-                    self.call(self.neural_network.apply, nn_input, internal_states)
-                )
-                state_value, logits = self.call(self.action_adapter.get_state_values_and_logits, nn_output)
-                return (state_value, logits, last_internals) if last_internals is not None else (state_value, logits)
-
-            self.define_api_method("get_baseline_output", get_baseline_output)
+            #def get_baseline_output(self, nn_input, internal_states=None):
+            #    nn_output, last_internals = unify_nn_and_rnn_api_output(
+            #        self.call(self.neural_network.apply, nn_input, internal_states)
+            #    )
+            #    state_value, logits = self.call(self.action_adapter.get_state_values_and_logits, nn_output)
+            #    return (state_value, logits, last_internals) if last_internals is not None else (state_value, logits)
+            #
+            #self.define_api_method("get_baseline_output", get_baseline_output)
 
             def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
                 nn_output, last_internals = unify_nn_and_rnn_api_output(
@@ -211,7 +211,7 @@ class Policy(Component):
             any: See `get_action`, but with max_likelihood force set to False.
         """
         out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
-        action = self.call(self.distribution.sample_stochastic, out["probabilities"])
+        action = self.distribution.sample_stochastic(out["probabilities"])
         return dict(action=action, last_internals=out["last_internals"])
 
     @api
@@ -263,7 +263,7 @@ class Policy(Component):
         entropy = self.distribution.entropy(out["probabilities"])
         return dict(entropy=entropy, last_internals=out["last_internals"])
 
-    @graph_fn
+    #@graph_fn
     def _graph_fn_get_max_likelihood_action_wo_distribution(self, logits):
         """
         Use this function only for discrete action spaces to circumvent using a full-blown
