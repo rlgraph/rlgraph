@@ -21,7 +21,7 @@ from math import log
 
 from rlgraph import get_backend
 from rlgraph.utils.util import SMALL_NUMBER
-from rlgraph.components.component import Component
+from rlgraph.components.component import Component, api
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
@@ -45,15 +45,6 @@ class ActionAdapter(Component):
     action space.
     - Reshaping (according to the action Space).
     - Translating the reshaped outputs (logits) into probabilities (by softmaxing) and log-probabilities (log).
-
-    API:
-        get_action_layer_output(nn_output) (SingleDataOp): The raw, non-reshaped output of the action-layer
-            (DenseLayer) after passing through it the raw nn_output (coming from the previous Component).
-
-        get_logits_probabilities_log_probs(nn_output) (Tuple[SingleDataOp x 3]):
-            1) raw nn_output, BUT reshaped
-            2) probabilities (softmaxed (1))
-            3) log(probabilities)
     """
     def __init__(self, action_space, add_units=0, units=None, weights_spec=None, biases_spec=None, activation=None,
                  scope="action-adapter", **kwargs):
@@ -134,13 +125,16 @@ class ActionAdapter(Component):
     @api
     def get_action_layer_output(self, nn_output):
         """
+        Returns the raw, non-reshaped output of the action-layer (DenseLayer) after passing through it the raw
+        nn_output (coming from the previous Component).
+
         Args:
             nn_output (DataOpRecord): The NN output of the preceding neural network.
 
         Returns:
             DataOpRecord: The output of the action layer (a DenseLayer) after passing `nn_output` through it.
         """
-        return self.call(self.action_layer.apply, nn_output)
+        return self.action_layer.apply(nn_output)
 
     @api
     def get_logits_probabilities_log_probs(self, nn_output):
@@ -149,16 +143,18 @@ class ActionAdapter(Component):
             nn_output (DataOpRecord): The NN output of the preceding neural network.
 
         Returns:
-            tuple (3x DataOpRecord):
-                - The output of the action layer (a DenseLayer) after passing `nn_output` through it.
+            Tuple[SingleDataOp]:
+                - raw nn_output, BUT reshaped
+                - probabilities (softmaxed (1))
+                - log(probabilities)
         """
-        action_layer_output = self.call(self.get_action_layer_output, nn_output)
-        action_layer_output_reshaped = self.call(self.reshape.apply, action_layer_output)
-        probs_and_log_probs = self.call(self._graph_fn_get_probabilities_log_probs, action_layer_output_reshaped)
-        return (action_layer_output_reshaped,) + probs_and_log_probs
+        aa_output = self.get_action_layer_output(nn_output)
+        aa_output_reshaped = self.reshape.apply(aa_output["output"])["output"]
+        probabilities, log_probs = self._graph_fn_get_probabilities_log_probs(aa_output_reshaped)
+        return dict(logits=aa_output_reshaped, probabilities=probabilities, log_probs=log_probs)
 
     # TODO: Use a SoftMax Component instead (uses the same code as the one below).
-    @graph_fn
+    #@graph_fn
     def _graph_fn_get_probabilities_log_probs(self, logits):
         """
         Creates properties/parameters and log-probs from some reshaped output.
