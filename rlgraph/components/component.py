@@ -1548,6 +1548,8 @@ class Component(Specifiable):
                 return tf.assign(ref=ref, value=value.read_value())
             else:
                 return tf.assign(ref=ref, value=value)
+        elif get_backend() == "pytorch":
+            ref.set_value(value)
 
     @staticmethod
     def read_variable(variable, indices=None):
@@ -1570,7 +1572,7 @@ class Component(Specifiable):
                 return variable
         elif get_backend() == "pytorch":
             # This is not a useful call but for interop in some components
-            return variable
+            return variable.get_value()
 
     def _graph_fn__variables(self):
         """
