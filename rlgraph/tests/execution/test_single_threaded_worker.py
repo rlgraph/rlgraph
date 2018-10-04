@@ -39,7 +39,8 @@ class TestSingleThreadedWorker(unittest.TestCase):
         worker = SingleThreadedWorker(
             env_spec=lambda: self.environment,
             agent=agent,
-            frameskip=1
+            frameskip=1,
+            worker_executes_preprocessing=False
         )
 
         result = worker.execute_timesteps(100)
@@ -60,7 +61,8 @@ class TestSingleThreadedWorker(unittest.TestCase):
         worker = SingleThreadedWorker(
             env_spec=lambda: self.environment,
             agent=agent,
-            frameskip=1
+            frameskip=1,
+            worker_executes_preprocessing=False
         )
 
         result = worker.execute_episodes(5, max_timesteps_per_episode=10)

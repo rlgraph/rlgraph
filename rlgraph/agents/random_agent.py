@@ -39,7 +39,7 @@ class RandomAgent(Agent):
     def update(self, batch=None):
         pass
 
-    def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals):
+    def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         pass
 
     # Override these with pass so we can use them when testing distributed strategies.

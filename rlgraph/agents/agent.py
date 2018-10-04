@@ -149,6 +149,7 @@ class Agent(Specifiable):
         self.actions_buffer = defaultdict(list)
         self.internals_buffer = defaultdict(list)
         self.rewards_buffer = defaultdict(list)
+        self.next_states_buffer = defaultdict(list)
         self.terminals_buffer = defaultdict(list)
 
         self.observe_spec = parse_observe_spec(observe_spec)
@@ -184,11 +185,12 @@ class Agent(Specifiable):
         """
         if env_id is None:
             env_id = self.default_env
-        self.states_buffer[env_id] = list()
-        self.actions_buffer[env_id] = list()
-        self.internals_buffer[env_id] = list()
-        self.rewards_buffer[env_id] = list()
-        self.terminals_buffer[env_id] = list()
+        self.states_buffer[env_id] = []
+        self.actions_buffer[env_id] = []
+        self.internals_buffer[env_id] = []
+        self.rewards_buffer[env_id] = []
+        self.next_states_buffer[env_id] = []
+        self.terminals_buffer[env_id] = []
 
     def define_api_methods(self, policy_scope, pre_processor_scope, optimizer_scope, *params):
         """
@@ -272,7 +274,7 @@ class Agent(Specifiable):
         """
         raise NotImplementedError
 
-    def observe(self, preprocessed_states, actions, internals, rewards, terminals, env_id=None):
+    def observe(self, preprocessed_states, actions, internals, rewards, next_states, terminals, env_id=None):
         """
         Observes an experience tuple or a batch of experience tuples. Note: If configured,
         first uses buffers and then internally calls _observe_graph() to actually run the computation graph.
@@ -282,19 +284,16 @@ class Agent(Specifiable):
         Args:
             preprocessed_states (Union[dict, ndarray]): Preprocessed states dict or array.
             actions (Union[dict, ndarray]): Actions dict or array containing actions performed for the given state(s).
-
             internals (Union[list]): Internal state(s) returned by agent for the given states.Must be
                 empty list if no internals available.
-
             rewards (float): Scalar reward(s) observed.
             terminals (bool): Boolean indicating terminal.
-
+            next_states (Union[dict, ndarray]): Preprocessed next states dict or array.
             env_id (Optional[str]): Environment id to observe for. When using vectorized execution and
                 buffering, using environment ids is necessary to ensure correct trajectories are inserted.
                 See `SingleThreadedWorker` for example usage.
         """
         batched_states = self.preprocessed_state_space.force_batch(preprocessed_states)
-
         # Check for illegal internals.
         if internals is None:
             internals = []
@@ -306,6 +305,7 @@ class Agent(Specifiable):
             internals = np.asarray([internals])
             rewards = np.asarray([rewards])
             terminals = np.asarray([terminals])
+            next_states = np.asarray([next_states])
 
         if self.observe_spec["buffer_enabled"] is True:
             if env_id is None:
@@ -315,6 +315,7 @@ class Agent(Specifiable):
             self.actions_buffer[env_id].extend(actions)
             self.internals_buffer[env_id].extend(internals)
             self.rewards_buffer[env_id].extend(rewards)
+            self.next_states_buffer[env_id].extend(next_states)
             self.terminals_buffer[env_id].extend(terminals)
 
             buffer_is_full = len(self.rewards_buffer[env_id]) >= self.observe_spec["buffer_size"]
@@ -333,13 +334,14 @@ class Agent(Specifiable):
                     actions=np.asarray(self.actions_buffer[env_id]),
                     internals=np.asarray(self.internals_buffer[env_id]),
                     rewards=np.asarray(self.rewards_buffer[env_id]),
+                    next_states=np.asarray(self.next_states_buffer[env_id]),
                     terminals=np.asarray(self.terminals_buffer[env_id])
                 )
                 self.reset_env_buffers(env_id)
         else:
-            self._observe_graph(preprocessed_states, actions, internals, rewards, terminals)
+            self._observe_graph(preprocessed_states, actions, internals, rewards, next_states, terminals)
 
-    def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals):
+    def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         """
         This methods defines the actual call to the computational graph by executing
         the respective graph op via the graph executor. Since this may use varied underlying
@@ -349,11 +351,10 @@ class Agent(Specifiable):
         Args:
             preprocessed_states (Union[dict,ndarray]): Preprocessed states dict or array.
             actions (Union[dict,ndarray]): Actions dict or array containing actions performed for the given state(s).
-
             internals (Union[list]): Internal state(s) returned by agent for the given states. Must be an empty list
                 if no internals available.
-
             rewards (Union[ndarray,list,float]): Scalar reward(s) observed.
+            next_states (Union[dict, ndarray]): Preprocessed next states dict or array.
             terminals (Union[list,bool]): Boolean indicating terminal.
         """
         raise NotImplementedError

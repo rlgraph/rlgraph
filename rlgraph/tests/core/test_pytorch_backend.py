@@ -165,11 +165,9 @@ class TestPytorchBackend(unittest.TestCase):
         input_spaces.pop("num_records")
         memory = MemPrioritizedReplay(
             capacity=20000,
-            next_states=True
         )
         test = ComponentTest(component=memory, input_spaces=input_spaces, auto_build=False)
         return test.build()
-
 
     # TODO -> batch dim works differently in pytorch -> have to squeeze.
     def test_dense_layer(self):
@@ -202,7 +200,6 @@ class TestPytorchBackend(unittest.TestCase):
 
         out = test.test(("apply", input_), decimals=5)
         print(out)
-
 
     def test_policy_for_discrete_action_space(self):
         # state_space (NN is a simple single fc-layer relu network (2 units), random biases, random weights).

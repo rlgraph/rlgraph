@@ -41,12 +41,13 @@ class SingleThreadedWorker(Worker):
         if self.worker_executes_preprocessing:
             assert preprocessing_spec is not None
             self.preprocessors = {}
-            self.is_preprocessed = {}
+            self.state_is_preprocessed = {}
             for env_id in self.env_ids:
                 self.preprocessors[env_id] = self.setup_preprocessor(
                     preprocessing_spec, self.vector_env.state_space.with_batch_rank()
                 )
-                self.is_preprocessed[env_id] = False
+                self.state_is_preprocessed[env_id] = False
+
         self.apply_preprocessing = not self.worker_executes_preprocessing
         self.preprocessed_states_buffer = np.zeros(
             shape=(self.num_environments,) + self.agent.preprocessed_state_space.shape,
@@ -177,7 +178,7 @@ class SingleThreadedWorker(Worker):
                 self.episode_terminals[i] = False
                 self.episode_starts[i] = time.perf_counter()
                 if self.worker_executes_preprocessing:
-                    self.is_preprocessed[env_id] = False
+                    self.state_is_preprocessed[env_id] = False
 
             self.env_states = self.vector_env.reset_all()
             self.agent.reset()
@@ -195,9 +196,9 @@ class SingleThreadedWorker(Worker):
                 for i, env_id in enumerate(self.env_ids):
                     state = self.agent.state_space.force_batch(env_states[i])
                     if self.preprocessors[env_id] is not None:
-                        if self.is_preprocessed[env_id] is False:
+                        if self.state_is_preprocessed[env_id] is False:
                             self.preprocessed_states_buffer[i] = self.preprocessors[env_id].preprocess(state)
-                            self.is_preprocessed[env_id] = True
+                            self.state_is_preprocessed[env_id] = True
                     else:
                         self.preprocessed_states_buffer[i] = env_states[i]
                 # TODO extra returns when worker is not applying preprocessing.
@@ -235,7 +236,7 @@ class SingleThreadedWorker(Worker):
                 if 0 < max_timesteps_per_episode[i] <= self.episode_timesteps[i]:
                     episode_terminals[i] = True
                 if self.worker_executes_preprocessing:
-                    self.is_preprocessed[env_id] = False
+                    self.state_is_preprocessed[env_id] = False
                 # Do accounting for finished episodes.
                 if episode_terminals[i]:
                     episodes_executed += 1
@@ -253,7 +254,7 @@ class SingleThreadedWorker(Worker):
                         state = self.agent.state_space.force_batch(env_states[i])
                         # Pre - process, add to buffer
                         self.preprocessed_states_buffer[i] = np.array(self.preprocessors[env_id].preprocess(state))
-                        self.is_preprocessed[env_id] = True
+                        self.state_is_preprocessed[env_id] = True
 
                     self.episode_returns[i] = 0
                     self.episode_timesteps[i] = 0
@@ -262,11 +263,15 @@ class SingleThreadedWorker(Worker):
                     # Otherwise assign states to next states
                     env_states[i] = next_states[i]
 
-            # Observe per environment.
-            # TODO check keys for pytorch insert
+                if self.worker_executes_preprocessing and self.preprocessors[env_id] is not None:
+                    next_state = self.agent.state_space.force_batch(env_states[i])
+                    next_states[i] = np.array(self.preprocessors[env_id].preprocess(next_state))
+                # TODO: If worker does not execute preprocessing, next state is not preprocessed here.
+                # Observe per environment.
                 self.agent.observe(
                     preprocessed_states=preprocessed_states[i], actions=actions[i], internals=[],
-                    rewards=env_rewards[i], terminals=episode_terminals[i], env_id=self.env_ids[i]
+                    rewards=env_rewards[i], next_states=next_states[i],
+                    terminals=episode_terminals[i], env_id=self.env_ids[i]
                 )
             self.update_if_necessary()
             timesteps_executed += self.num_environments

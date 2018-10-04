@@ -399,22 +399,35 @@ def force_torch_tensors(params, requires_grad=False):
         list: List of Torch tensors.
     """
     if get_backend() == "pytorch":
-        tensor_params = list()
+        tensor_params = []
         for param in params:
-            if isinstance(param, list):
-                param = np.asarray(param)
-            if isinstance(param, np.ndarray):
-                type_ = param.dtype
+            # Only flat dicts for now.
+            if isinstance(param, dict):
+                ret = {}
+                for key, value in param.items():
+                    ret[key] = convert_param(value, requires_grad)
+                tensor_params.append(ret)
             else:
-                type_ = type(param)
-            convert_type = dtype(type_, to="pytorch")
-
-            # PyTorch cannot convert from a np.bool_, must be uint.
-            if isinstance(param, np.ndarray) and param.dtype == np.bool_:
-                param = param.astype(np.uint8)
-            tensor_params.append(
-                torch.tensor(param, dtype=convert_type, requires_grad=requires_grad)
-            )
-
+                tensor_params.append(convert_param(param, requires_grad))
         return tensor_params
 
+
+def convert_param(param, requires_grad):
+    if get_backend() == "pytorch":
+        if isinstance(param, list):
+            param = np.asarray(param)
+        if isinstance(param, np.ndarray):
+            type_ = param.dtype
+        else:
+            type_ = type(param)
+        convert_type = dtype(type_, to="pytorch")
+
+        # PyTorch cannot convert from a np.bool_, must be uint.
+        if isinstance(param, np.ndarray) and param.dtype == np.bool_:
+            param = param.astype(np.uint8)
+
+        if convert_type == torch.float32 or convert_type == torch.float or convert_type == torch.float16:
+            # Only floats can require grad.
+            return torch.tensor(param, dtype=convert_type, requires_grad=requires_grad)
+        else:
+            torch.tensor(param, dtype=convert_type)

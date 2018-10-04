@@ -29,18 +29,25 @@ class PyTorchVariable(object):
     Wrapper to connect PyTorch parameters to names so they can be included
     in variable registries.
     """
-    def __init__(self, name, parameters):
+    def __init__(self, name, ref):
         """
 
         Args:
             name (str): Name of this variable.
-            parameters (Union[generator, list]): List of parameters or generator yielding parameters.
+            ref (torch.nn.Module): Ref to the layer or network object.
         """
         self.name = name
-        if isinstance(parameters, list):
-            self.parameters = parameters
-        else:
-            self.parameters = list(parameters)
+        self.ref = ref
+
+    def get_value(self):
+        if get_backend() == "pytorch":
+            if isinstance(self.ref, torch.nn.Module):
+                return self.ref.weight
+
+    def set_value(self, value):
+        if get_backend() == "pytorch":
+            if isinstance(self.ref, torch.nn.Module):
+                self.ref.weight = torch.nn.Parameter(value, requires_grad=True)
 
 
 def pytorch_one_hot(tensor, depth=0):

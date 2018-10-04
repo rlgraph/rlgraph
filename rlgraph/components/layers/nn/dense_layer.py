@@ -82,10 +82,10 @@ class DenseLayer(NNLayer):
             # N.b. activation must be added as a separate 'layer' when assembling a network.
             # In features is the num of input channels.
             apply_bias = (self.biases_spec is not False)
-            # print("Defining linear input layer for name = ", self.name)
-            # print("in space shape = ", in_space.shape)
+            ndim = len(in_space.shape)
             self.layer = nn.Linear(
-                in_features=in_space.shape[0],
+                # In case there is a batch dim here due to missing preprocessing.
+                in_features=in_space.shape[0] if ndim == 1 else in_space.shape[1],
                 out_features=self.units,
                 bias=apply_bias
             )
@@ -103,4 +103,4 @@ class DenseLayer(NNLayer):
                 # Activation function will be used in apply.
                 self.activation_fn = get_activation_function(self.activation, *self.activation_params)
             # Use unique scope as name.
-            self.register_variables(PyTorchVariable(name=self.global_scope, parameters=self.layer.parameters()))
+            self.register_variables(PyTorchVariable(name=self.global_scope, ref=self.layer))

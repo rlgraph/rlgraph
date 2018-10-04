@@ -61,7 +61,6 @@ class TestPrioritizedReplay(unittest.TestCase):
         """
         memory = PrioritizedReplay(
             capacity=self.capacity,
-            next_states=True,
             alpha=self.alpha,
             beta=self.beta
         )
@@ -76,7 +75,6 @@ class TestPrioritizedReplay(unittest.TestCase):
         """
         memory = PrioritizedReplay(
             capacity=self.capacity,
-            next_states=True,
             alpha=self.alpha,
             beta=self.beta
         )
@@ -112,7 +110,6 @@ class TestPrioritizedReplay(unittest.TestCase):
         """
         memory = PrioritizedReplay(
             capacity=self.capacity,
-            next_states=True,
             alpha=self.alpha,
             beta=self.beta
         )
@@ -128,8 +125,6 @@ class TestPrioritizedReplay(unittest.TestCase):
         records = batch[0]
         print('Result batch = {}'.format(records))
         self.assertEqual(2, len(records['terminals']))
-        # Assert next states key is there
-        self.assertTrue('next_states' in records)
 
         # We allow repeat indices in sampling.
         num_records = 5
@@ -147,33 +142,12 @@ class TestPrioritizedReplay(unittest.TestCase):
         records = batch[0]
         self.assertEqual(self.capacity, len(records['terminals']))
 
-    def test_without_next_state(self):
-        """
-        Tests retrieval works if next state option is deactivated and
-        that no next_states key is present.
-        """
-        memory = PrioritizedReplay(
-            capacity=self.capacity,
-            next_states=False
-        )
-        test = ComponentTest(component=memory, input_spaces=self.input_spaces)
-
-        # Insert 2 Elements.
-        observation = non_terminal_records(self.record_space, 2)
-        test.test(("insert_records", observation), expected_outputs=None)
-
-        # Assert we can now fetch 2 elements.
-        num_records = 2
-        batch = test.test(("get_records", num_records), expected_outputs=None)
-        self.assertTrue('next_states' not in batch)
-
     def test_update_records(self):
         """
         Tests update records logic.
         """
         memory = PrioritizedReplay(
-            capacity=self.capacity,
-            next_states=True
+            capacity=self.capacity
         )
         test = ComponentTest(component=memory, input_spaces=self.input_spaces)
 

@@ -86,6 +86,7 @@ class DQNAgent(Agent):
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
             terminals=terminal_space,
+            next_states=preprocessed_state_space,
             preprocessed_next_states=preprocessed_state_space,
             importance_weights=weight_space,
             # TODO: This is currently necessary for multi-GPU handling (as the update_from_external_batch
@@ -95,7 +96,7 @@ class DQNAgent(Agent):
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.
-        self.merger = DictMerger("states", "actions", "rewards", "terminals")
+        self.merger = DictMerger("states", "actions", "rewards", "next_states", "terminals")
         # The replay memory.
         self.memory = Memory.from_spec(memory_spec)
         # The splitter for splitting up the records coming from the memory.
@@ -215,8 +216,8 @@ class DQNAgent(Agent):
 
         # Insert into memory.
         @api
-        def insert_records(self, preprocessed_states, actions, rewards, terminals):
-            records = self.call(merger.merge, preprocessed_states, actions, rewards, terminals)
+        def insert_records(self, preprocessed_states, actions, rewards, next_states, terminals):
+            records = self.call(merger.merge, preprocessed_states, actions, rewards, next_states, terminals)
             return self.call(memory.insert_records, records)
 
         self.root_component.define_api_method("insert_records", insert_records)
@@ -339,8 +340,8 @@ class DQNAgent(Agent):
 
         self.root_component.define_api_method("get_td_loss", get_td_loss)
 
-    def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals):
-        self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
+    def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
+        self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, next_states, terminals]))
 
     def update(self, batch=None):
         # Should we sync the target net?

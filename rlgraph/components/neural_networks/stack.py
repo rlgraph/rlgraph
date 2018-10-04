@@ -20,7 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.components.component import Component
-from rlgraph.utils.util import force_tuple
+from rlgraph.utils.util import force_tuple, force_list
 
 
 class Stack(Component):
@@ -126,7 +126,12 @@ class Stack(Component):
                                 result = graph_fn("", *force_tuple(result))
                             else:
                                 result = graph_fn(*force_tuple(result))
-                        elif get_backend() == "tf" or get_backend() == "pytorch":
+                        elif get_backend() == "pytorch":
+                            # Do NOT convert to tuple, has to be in unpacked again immediately.n
+                            result = self_.call(
+                                getattr(sub_component, components_api_method_name), *force_list(result)
+                            )
+                        elif get_backend() == "tf":
                             result = self_.call(
                                 getattr(sub_component, components_api_method_name), *force_tuple(result)
                             )
