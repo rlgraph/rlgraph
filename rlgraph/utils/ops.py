@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from collections import OrderedDict
+import numpy as np
 import re
 
 from rlgraph.utils.rlgraph_error import RLGraphError
@@ -118,7 +119,7 @@ class DataOpRecord(object):
         self.space = space
 
         # Set of (op-col ID, slot) tuples that are connected from this one.
-        self.next = next_ if isinstance(next_, set) else ({next_} if next_ is not None else {})
+        self.next = next_ if isinstance(next_, set) else ({next_} if next_ is not None else set())
         # The previous op that lead to this one.
         self.previous = previous
 
@@ -144,39 +145,49 @@ class DataOpRecord(object):
 class DataOpRecordColumn(object):
     _ID = -1
 
-    def __init__(self, component, args=None, kwargs=None):
+    def __init__(self, component, num_op_records=None, args=None, kwargs=None):
         """
         Args:
             component (Component): The Component to which this column belongs.
         """
         self.id = self.get_id()
 
-        self.op_records = list()
+        if num_op_records is None:
+            self.op_records = list()
+            if args is not None:
+                for i in range(len(args)):
+                    op_rec = DataOpRecord(op=None, column=self, position=i)
+                    # If incoming is an op-rec -> Link them.
+                    if isinstance(args[i], DataOpRecord):
+                        op_rec.previous = args[i]
+                        args[i].next.add(op_rec)
+                    # Do constant value assignment here.
+                    elif args[i] is not None:
+                        constant_op = np.array(args[i])
+                        op_rec.op = constant_op
+                        # TODO: move space inference here.
+                        #op_rec.space = get_space_from_op(constant_op)
+                        component.constant_op_records.add(op_rec)
+                    self.op_records.append(op_rec)
 
-        if args is not None:
-            for i in range(len(args)):
-                op_rec = DataOpRecord(op=None, column=self, position=i)
-                # If incoming is an op-rec -> Link them.
-                if isinstance(args[i], DataOpRecord):
-                    op_rec.previous = args[i]
-                    args[i].next.add(op_rec)
-                # TODO: Do value assignment here?
-                else:
-                    op_rec.op = args[i]
-                self.op_records.append(op_rec)
-
-        if kwargs is not None:
-            for key in sorted(kwargs.keys()):
-                value = kwargs[key]
-                op_rec = DataOpRecord(op=None, column=self, kwarg=key)
-                # If incoming is an op-rec -> Link them.
-                if isinstance(value, DataOpRecord):
-                    op_rec.previous = value
-                    value.next.add(op_rec)
-                # TODO: Do value assignment here?
-                else:
-                    op_rec.op = value
-                self.op_records.append(op_rec)
+            if kwargs is not None:
+                for key in sorted(kwargs.keys()):
+                    value = kwargs[key]
+                    op_rec = DataOpRecord(op=None, column=self, kwarg=key)
+                    # If incoming is an op-rec -> Link them.
+                    if isinstance(value, DataOpRecord):
+                        op_rec.previous = value
+                        value.next.add(op_rec)
+                    # Do constant value assignment here.
+                    elif value is not None:
+                        constant_op = np.array(value)
+                        op_rec.op = constant_op
+                        # TODO: move space inference here.
+                        #op_rec.space = get_space_from_op(constant_op)
+                        component.constant_op_records.add(op_rec)
+                    self.op_records.append(op_rec)
+        else:
+            self.op_records = [DataOpRecord(op=None, column=self, position=i) for i in range(num_op_records)]
 
         # For __str__ purposes.
         self.op_id_list = [o.id for o in self.op_records]
@@ -189,6 +200,20 @@ class DataOpRecordColumn(object):
             if op_rec.op is None:
                 return False
         return True
+
+    def get_args_and_kwargs(self):
+        args = []
+        kwargs = {}
+        for op_rec in self.op_records:
+            if op_rec.kwarg is None:
+                args.append(op_rec)
+            else:
+                kwargs[op_rec.kwarg] = op_rec
+        return tuple(args), kwargs
+
+    def get_args_and_kwargs_as_list(self):
+        args, kwargs = self.get_args_and_kwargs()
+        return [(i, a) for i, a in enumerate(args)] + [(k, v) for k, v in sorted(kwargs.items())]
 
     @staticmethod
     def get_id():
@@ -363,12 +388,14 @@ class DataOpRecordColumnFromGraphFn(DataOpRecordColumn):
     """
     An array of return values from a graph_fn pass through.
     """
-    def __init__(self, op_records, component, graph_fn_name, in_graph_fn_column):
+    def __init__(self, num_op_records, component, graph_fn_name, in_graph_fn_column):
         """
         Args:
             graph_fn_name (str): The name of the graph_fn that returned the ops going into `self.op_records`.
         """
-        super(DataOpRecordColumnFromGraphFn, self).__init__(component, args=op_records)
+        super(DataOpRecordColumnFromGraphFn, self).__init__(
+            num_op_records=num_op_records, component=component
+        )
         # The graph_fn that our ops come from.
         self.graph_fn_name = graph_fn_name
         # The column after passing this one through the graph_fn.
@@ -398,28 +425,30 @@ class DataOpRecordColumnFromAPIMethod(DataOpRecordColumn):
     """
     An array of return values from an API-method pass through.
     """
-    def __init__(self, component, api_method_name, return_dict):
+    def __init__(self, component, api_method_name, args=None, kwargs=None):
         self.api_method_name = api_method_name
-        super(DataOpRecordColumnFromAPIMethod, self).__init__(component, kwargs=return_dict)
+        super(DataOpRecordColumnFromAPIMethod, self).__init__(component, args=args, kwargs=kwargs)
 
     def __str__(self):
         return "APIMethod('{}')->OpRecCol(ops: {})".format(self.api_method_name, self.op_id_list)
 
 
 class APIMethodRecord(object):
-    def __init__(self, method, component=None, must_be_complete=True, ok_to_overwrite=False,
+    def __init__(self, func, wrapper_func, name,
+                 component=None, must_be_complete=True, ok_to_overwrite=False,
                  is_graph_fn_wrapper=False, is_class_method=True,
                  flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False):
         """
         Args:
-            method (callable): The actual API-method (callable).
+            func (callable): The actual API-method (callable).
             component (Component): The Component this API-method belongs to.
             must_be_complete (bool): Whether the Component can only be input-complete if at least one
                 input op-record column is complete.
             TODO: documentation.
         """
-        self.method = method
-        self.name = self.method.__name__
+        self.func = func
+        self.wrapper_func = wrapper_func
+        self.name = name
         self.component = component
         self.must_be_complete = must_be_complete
         self.ok_to_overwrite = ok_to_overwrite
@@ -442,10 +471,17 @@ class APIMethodRecord(object):
 
 
 class GraphFnRecord(object):
-    def __init__(self, graph_fn, component):
+    def __init__(self, graph_fn, component=None, is_class_method=True,
+                 flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False):
         self.graph_fn = graph_fn
         self.name = self.graph_fn.__name__
         self.component = component
+
+        self.is_class_method = is_class_method
+
+        self.flatten_ops = flatten_ops
+        self.split_ops = split_ops
+        self.add_auto_key_as_first_param = add_auto_key_as_first_param
 
         self.in_op_columns = list()
         self.out_op_columns = list()
