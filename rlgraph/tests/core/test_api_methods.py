@@ -73,8 +73,8 @@ class TestTwoSubComponents(unittest.TestCase):
 
         @api(component=core)
         def run(self_, input_):
-            out1, out2 = self_.call(sub_comp1.run, input_)
-            return self_.call(sub_comp2.run, out1, out2)
+            out1, out2 = sub_comp1.run(input_)
+            return sub_comp2.run(out1, out2)
 
         test = ComponentTest(component=core, input_spaces=dict(input_=float))
 
@@ -94,10 +94,8 @@ class TestTwoSubComponents(unittest.TestCase):
 
         @api(component=core)
         def run(self_, input_):
-            out = self_.call(sub_comp1.run, input_)
-            return self_.call(sub_comp2.run, out, 1.1)
-
-        #core.define_api_method("run", run)
+            out = sub_comp1.run(input_)
+            return sub_comp2.run(out, 1.1)
 
         test = ComponentTest(component=core, input_spaces=dict(input_=float))
 
@@ -125,24 +123,22 @@ class TestTwoSubComponents(unittest.TestCase):
         container.add_components(a, b, c, d)
 
         # Define container's API:
-        @api(component=container, name="run")
+        @api(name="run", component=container)
         def container_run(self_, input1, input2):
             """
             Describes the diamond setup in1->A->B; in2->A->C; C,B->D->output
             """
             # Adds constant value 1.0  to 1.1 -> 2.1
-            in1_past_a = self_.call(self_.sub_components["A"].run, input1)
+            in1_past_a = self_.sub_components["A"].run(input1)
             # 0.5 + 1.0 = 1.5
-            in2_past_a = self_.call(self_.sub_components["A"].run, input2)
+            in2_past_a = self_.sub_components["A"].run(input2)
             # 2.1 + 1.0 = 3.1
-            past_b = self_.call(self_.sub_components["B"].run, in1_past_a)
+            past_b = self_.sub_components["B"].run(in1_past_a)
             # 1.5 + 1.0 = 2.5
-            past_c = self_.call(self_.sub_components["C"].run, in2_past_a)
+            past_c = self_.sub_components["C"].run(in2_past_a)
             # 3.1 + 2.5 = 5.6
-            past_d = self_.call(self_.sub_components["D"].run, past_b, past_c)
+            past_d = self_.sub_components["D"].run(past_b, past_c)
             return past_d
-
-        #container.define_api_method("run", container_run)
 
         test = ComponentTest(component=container, input_spaces=dict(input1=float, input2=float))
 

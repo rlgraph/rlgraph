@@ -471,10 +471,11 @@ class APIMethodRecord(object):
 
 
 class GraphFnRecord(object):
-    def __init__(self, graph_fn, component=None, is_class_method=True,
+    def __init__(self, func, wrapper_func, component=None, is_class_method=True,
                  flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False):
-        self.graph_fn = graph_fn
-        self.name = self.graph_fn.__name__
+        self.func = func
+        self.wrapper_func = wrapper_func
+        self.name = self.func.__name__
         self.component = component
 
         self.is_class_method = is_class_method

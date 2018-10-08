@@ -90,7 +90,7 @@ class MetaGraphBuilder(Specifiable):
                 # No default values -> Must be provided in `input_spaces`.
                 else:
                     # TODO: If space not provided in input_spaces -> Try to call this API method later (maybe another API-method).
-                    assert param_name in input_spaces,\
+                    assert param_name in input_spaces, \
                         "ERROR: arg-name '{}' not defined in input_spaces!".format(param_name)
                     # A var-positional param.
                     if root_component.api_method_inputs[param_name] == "*flex":

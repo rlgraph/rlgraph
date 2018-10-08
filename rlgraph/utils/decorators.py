@@ -267,14 +267,18 @@ def graph_fn(graph_fn=None, *, returns=None,
         callable: The decorator function.
     """
     def decorator_func(wrapped_func):
+        def _graph_fn_wrapper(self, *args, **kwargs):
+            return graph_fn_wrapper(
+                self, wrapped_func, returns, dict(
+                    flatten_ops=flatten_ops, split_ops=split_ops,
+                    add_auto_key_as_first_param=add_auto_key_as_first_param
+                ), *args, **kwargs
+            )
+
         graph_fn_rec = GraphFnRecord(
-            graph_fn=wrapped_func, is_class_method=True,
+            func=wrapped_func, wrapper_func=_graph_fn_wrapper, is_class_method=True,
             flatten_ops=flatten_ops, split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param
         )
-
-        def _graph_fn_wrapper(self, *args, **kwargs):
-            return graph_fn_wrapper(self, wrapped_func, returns, flatten_ops=flatten_ops, split_ops=split_ops,
-            add_auto_key_as_first_param=add_auto_key_as_first_param, *args, **kwargs)
 
         # Registers the given method with the Component (if not already done so).
         # TODO: allow graph_fn to be defined outside a Component class as well.
@@ -350,16 +354,9 @@ def define_api_method(component, api_method_record, copy_=True):
     component.api_fn_by_name[api_method_record.name] = api_method_record.wrapper_func
 
     # Update the api_method_inputs dict (with empty Spaces if not defined yet).
-    # Note: Skip first param of graph_func's input param list if add-auto-key option is True (1st param would be
-    # the auto-key then). Also skip if api_method is an unbound function (then 1st param is usually `self`).
-    if (api_method_record.is_graph_fn_wrapper and api_method_record.add_auto_key_as_first_param) or \
-            (not api_method_record.is_graph_fn_wrapper and type(api_method_record.func).__name__ == "function"):
-        skip_1st_arg = 1
-    else:
-        skip_1st_arg = 0
-    if api_method_record.is_class_method is True:
-        skip_1st_arg += 1
-    param_list = list(inspect.signature(api_method_record.func).parameters.values())[skip_1st_arg:]
+    skip_args = 1  # self
+    skip_args += (api_method_record.is_graph_fn_wrapper and api_method_record.add_auto_key_as_first_param)
+    param_list = list(inspect.signature(api_method_record.func).parameters.values())[skip_args:]
 
     component.api_methods[api_method_record.name].input_names = list()
     for param in param_list:
@@ -391,10 +388,10 @@ def define_graph_fn(component, graph_fn_record):
     graph_fn_record = copy.deepcopy(graph_fn_record)
     graph_fn_record.component = component
 
-    setattr(component, graph_fn_record.graph_fn.__name__, graph_fn_record.wrapper_func.__get__(component, component.__class__))
-    setattr(graph_fn_record.graph_fn, "__self__", component)
+    setattr(component, graph_fn_record.name, graph_fn_record.wrapper_func.__get__(component, component.__class__))
+    setattr(graph_fn_record.func, "__self__", component)
 
-    component.graph_fns[graph_fn_record.graph_fn.__name__] = graph_fn_record
+    component.graph_fns[graph_fn_record.name] = graph_fn_record
 
 
 def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs):
@@ -435,8 +432,9 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
 
     # Store a graph_fn record in this component for better in/out-op-record-column reference.
     if wrapped_func.__name__ not in component.graph_fns:
-        component.graph_fns[wrapped_func.__name__] = GraphFnRecord(graph_fn=wrapped_func,
-                                                                   component=component)
+        component.graph_fns[wrapped_func.__name__] = GraphFnRecord(
+            func=wrapped_func, wrapper_func=graph_fn_wrapper, component=component
+        )
 
     # Generate in-going op-rec-column.
     in_graph_fn_column = DataOpRecordColumnIntoGraphFn(

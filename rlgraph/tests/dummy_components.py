@@ -176,11 +176,11 @@ class DummyWithVar(Component):
         result = self._graph_fn_1(input_)
         return result
 
-    @graph_fn
+    @graph_fn(returns=1)
     def _graph_fn_1(self, input_):
         return input_ + self.constant_value
 
-    @graph_fn
+    @api(name="run_minus", returns=1)
     def _graph_fn_2(self, input_):
         return input_ - self.constant_variable
 
@@ -209,7 +209,7 @@ class SimpleDummyWithVar(Component):
         result = self._graph_fn_1(input_)
         return result
 
-    @graph_fn
+    @graph_fn(returns=1)
     def _graph_fn_1(self, input_):
         return input_ + self.constant_variable
 
@@ -247,7 +247,7 @@ class DummyWithSubComponents(Component):
         result3 = self._graph_fn_apply(result1)
         return result3
 
-    @graph_fn
+    @graph_fn(returns=1)
     def _graph_fn_apply(self, input_):
         return input_ + self.constant_value
 
