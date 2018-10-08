@@ -71,10 +71,8 @@ class Exploration(Component):
 
             # Define our interface.
             def get_action(self, actions, time_step, use_exploration=True):
-                epsilon_decisions = self.call(self.epsilon_exploration.do_explore, actions, time_step)
-                return self.call(
-                    self._graph_fn_pick, use_exploration, epsilon_decisions, actions
-                )
+                epsilon_decisions = self.epsilon_exploration.do_explore(actions, time_step)
+                return self._graph_fn_pick(use_exploration, epsilon_decisions, actions)
 
         # Add noise component.
         elif noise_spec:
@@ -82,8 +80,8 @@ class Exploration(Component):
             self.add_components(self.noise_component)
 
             def get_action(self, actions, time_step=0, use_exploration=True):
-                noise = self.call(self.noise_component.get_noise)
-                return self.call(self._graph_fn_add_noise, use_exploration, noise, actions)
+                noise = self.noise_component.get_noise()
+                return self._graph_fn_add_noise(use_exploration, noise, actions)
 
         # Don't explore at all. Simple pass-through.
         else:

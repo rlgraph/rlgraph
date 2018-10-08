@@ -60,38 +60,33 @@ class Distribution(Component):
         # For define-by-run to avoid creating new objects when calling `get_distribution`.
         self.dist_object = None
 
-        # Define our interface.
-        self.define_api_method(name="get_distribution", func=self._graph_fn_get_distribution)
-
+        @api(component=self, must_be_complete=False)
         def log_prob(self_, parameters, values):
-            distribution = self_.call(self_._graph_fn_get_distribution, parameters)
-            return self_.call(self_._graph_fn_log_prob, distribution, values)
+            distribution = self_._graph_fn_get_distribution(parameters)
+            return self_._graph_fn_log_prob(distribution, values)
 
-        self.define_api_method("log_prob", log_prob, must_be_complete=False)
-
+        @api(component=self, must_be_complete=False)
         def kl_divergence(self_, parameters, other_parameters):
-            distribution = self_.call(self_._graph_fn_get_distribution, parameters)
-            other_distribution = self_.call(self_._graph_fn_get_distribution, other_parameters)
-            return self_.call(self_._graph_fn_kl_divergence, distribution, other_distribution)
-
-        self.define_api_method("kl_divergence", kl_divergence, must_be_complete=False)
+            distribution = self_._graph_fn_get_distribution(parameters)
+            other_distribution = self_._graph_fn_get_distribution(other_parameters)
+            return self_._graph_fn_kl_divergence(distribution, other_distribution)
 
     # Now use that API-method to get the distribution object to implement all other API-methods.
     def sample_stochastic(self, parameters):
-        distribution = self.call(self._graph_fn_get_distribution, parameters)
-        return self.call(self._graph_fn_sample_stochastic, distribution)
+        distribution = self._graph_fn_get_distribution(parameters)
+        return self._graph_fn_sample_stochastic(distribution)
 
     def sample_deterministic(self, parameters):
-        distribution = self.call(self._graph_fn_get_distribution, parameters)
-        return self.call(self._graph_fn_sample_deterministic, distribution)
+        distribution = self._graph_fn_get_distribution(parameters)
+        return self._graph_fn_sample_deterministic(distribution)
 
     def draw(self, parameters, max_likelihood=True):
-        distribution = self.call(self._graph_fn_get_distribution, parameters)
-        return self.call(self._graph_fn_draw, distribution, max_likelihood)
+        distribution = self._graph_fn_get_distribution(parameters)
+        return self._graph_fn_draw(distribution, max_likelihood)
 
     def entropy(self, parameters):
-        distribution = self.call(self._graph_fn_get_distribution, parameters)
-        return self.call(self._graph_fn_entropy, distribution)
+        distribution = self._graph_fn_get_distribution(parameters)
+        return self._graph_fn_entropy(distribution)
 
     def check_input_spaces(self, input_spaces, action_space=None):
         ## The first arg of all API-methods is always the distribution parameters. Check them for ContainerSpaces.
@@ -105,6 +100,7 @@ class Distribution(Component):
                     "ERROR: Cannot handle container parameter Spaces in distribution '{}' " \
                     "(atm; may soon do)!".format(self.name)
 
+    @api
     def _graph_fn_get_distribution(self, *parameters):
         """
         Parameterizes this distribution (normally from an NN-output vector). Returns

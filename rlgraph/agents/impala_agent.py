@@ -20,6 +20,7 @@ from __future__ import print_function
 import copy
 
 from rlgraph import get_backend
+from rlgraph.utils.decorators import api
 from rlgraph.utils import RLGraphError
 from rlgraph.agents.agent import Agent
 from rlgraph.components.common.dict_merger import DictMerger
@@ -431,16 +432,15 @@ class IMPALAAgent(Agent):
     def define_api_methods_single(self, fifo_output_splitter, fifo_queue, queue_runner, transpose_actions,
                                   transpose_rewards, transpose_terminals, transpose_action_probs, preprocessor,
                                   staging_area, concat, policy, loss_function, optimizer):
+        @api(component=self.root_component)
         def setup_queue_runner(self_):
-            return self_.call(queue_runner.setup)
+            return queue_runner.setup()
 
-        self.root_component.define_api_method("setup_queue_runner", setup_queue_runner)
-
+        @api(component=self.root_component)
         def get_queue_size(self_):
-            return self_.call(fifo_queue.get_size)
+            return fifo_queue.get_size()
 
-        self.root_component.define_api_method("get_queue_size", get_queue_size)
-
+        @api(component=self.root_component)
         def update_from_memory(self_):
             # Pull n records from the queue.
             # Note that everything will come out as batch-major and must be transposed before the main-LSTM.
@@ -448,32 +448,33 @@ class IMPALAAgent(Agent):
             # - preprocessed_s
             # - preprocessed_last_s_prime
             # But must still be done for actions, rewards, terminals here in this API-method via separate ReShapers.
-            records = self_.call(fifo_queue.get_records, self.update_spec["batch_size"])
+            records = fifo_queue.get_records(self.update_spec["batch_size"])
 
             preprocessed_s, actions, rewards, terminals, last_s_prime, action_probs_mu, \
-                initial_internal_states = self_.call(fifo_output_splitter.split, records)
+                initial_internal_states = fifo_output_splitter.split(records)
 
-            preprocessed_last_s_prime = self_.call(preprocessor.preprocess, last_s_prime)
+            preprocessed_last_s_prime = preprocessor.preprocess(last_s_prime)
 
             # Append last-next-state to the rest before sending it through the network.
-            preprocessed_s_all = self_.call(concat.apply, preprocessed_s, preprocessed_last_s_prime)
+            preprocessed_s_all = concat.apply(preprocessed_s, preprocessed_last_s_prime)
 
             # Flip actions, rewards, terminals to time-major.
             # TODO: Create components that are less input-space sensitive (those that have no variables should
             # TODO: be reused for any kind of processing)
-            actions = self_.call(transpose_actions.apply, actions)
-            rewards = self_.call(transpose_rewards.apply, rewards)
-            terminals = self_.call(transpose_terminals.apply, terminals)
-            action_probs_mu = self_.call(transpose_action_probs.apply, action_probs_mu)
+            actions = transpose_actions.apply(actions)
+            rewards = transpose_rewards.apply(rewards)
+            terminals = transpose_terminals.apply(terminals)
+            action_probs_mu = transpose_action_probs.apply(action_probs_mu)
 
             # If we use a GPU: Put everything on staging area (adds 1 time step policy lag, but makes copying
             # data into GPU more efficient).
             if self.has_gpu:
-                stage_op = self_.call(staging_area.stage, preprocessed_s_all, actions, rewards, terminals,
-                                      action_probs_mu, initial_internal_states)  # preprocessed_last_s_prime
+                stage_op = staging_area.stage(
+                    preprocessed_s_all, actions, rewards, terminals, action_probs_mu, initial_internal_states
+                )
                 # Get data from stage again and continue.
                 preprocessed_s_all, actions, rewards, terminals, action_probs_mu, \
-                    initial_internal_states = self_.call(staging_area.unstage)  # preprocessed_last_s_prime
+                    initial_internal_states = staging_area.unstage()
                 # endif.
             else:
                 # TODO: No-op component?
@@ -481,30 +482,27 @@ class IMPALAAgent(Agent):
 
             # Get the pi-action probs AND the values for all our states.
             state_values_pi, logits_pi, probs_pi, log_probabilities_pi, current_internal_states = \
-                self_.call(policy.get_state_values_logits_probabilities_log_probs, preprocessed_s_all,
-                           initial_internal_states)
+                policy.get_state_values_logits_probabilities_log_probs(
+                    preprocessed_s_all, initial_internal_states
+                )
 
             # Calculate the loss.
-            loss, loss_per_item = self_.call(
-                loss_function.loss, log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards,
-                terminals  #, bootstrapped_values
-            )
+            loss, loss_per_item = loss_function.loss(log_probabilities_pi, action_probs_mu, state_values_pi, actions,
+                                                     rewards, terminals)
             if self.dynamic_batching:
-                policy_vars = self_.call(queue_runner.data_producing_components[0].actor_component.policy._variables)
+                policy_vars = queue_runner.data_producing_components[0].actor_component.policy._variables()
             else:
-                policy_vars = self_.call(policy._variables)
+                policy_vars = policy._variables()
 
             # TODO: dynbatching tboard check
-            return loss, loss, loss, loss
+            #return loss, loss, loss, loss
 
             # Pass vars and loss values into optimizer.
-            step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
+            step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
 
             # Return optimizer op and all loss values.
             # TODO: Make it possible to return None from API-method without messing with the meta-graph.
             return step_op, (stage_op if stage_op else step_op), loss, loss_per_item
-
-        self.root_component.define_api_method("update_from_memory", update_from_memory)
 
     def define_api_methods_actor(self, env_stepper, env_output_splitter, internal_states_slicer, merger,
                                  states_dict_splitter, fifo_queue):
@@ -521,39 +519,26 @@ class IMPALAAgent(Agent):
             fifo_queue (FIFOQueue): The FIFOQueue Component used to enqueue env sample runs (n-step).
         """
         # Perform n-steps in the env and insert the results into our FIFO-queue.
+        @api(component=self.root_component)
         def perform_n_steps_and_insert_into_fifo(self_):  #, internal_states, time_step=0):
             # Take n steps in the environment.
-            step_results = self_.call(
-                env_stepper.step  #, internal_states, self.worker_sample_size, time_step
-            )
+            step_results = env_stepper.step()
 
-            terminals, states, action_log_probs, internal_states = \
-                self_.call(env_output_splitter.split, step_results)
+            terminals, states, action_log_probs, internal_states = env_output_splitter.split(step_results)
+            initial_internal_states = internal_states_slicer.slice(internal_states, 0)
 
-            initial_internal_states = self_.call(internal_states_slicer.slice, internal_states, 0)
-            #current_internal_states = self_.call(internal_states_slicer.slice, internal_states, -1)
-
-            record = self_.call(
-                merger.merge, terminals, states, action_log_probs, initial_internal_states
-            )
+            record = merger.merge(terminals, states, action_log_probs, initial_internal_states)
 
             # Insert results into the FIFOQueue.
-            insert_op = self_.call(fifo_queue.insert_records, record)
-
-            #_, _, _, rewards = self_.call(states_dict_splitter.split, states)
+            insert_op = fifo_queue.insert_records(record)
 
             return insert_op, terminals
 
-        self.root_component.define_api_method(
-            "perform_n_steps_and_insert_into_fifo", perform_n_steps_and_insert_into_fifo
-        )
-
+        @api(component=self.root_component)
         def reset(self):
             # Resets the environment running inside the agent.
-            reset_op = self.call(env_stepper.reset)
+            reset_op = env_stepper.reset()
             return reset_op
-
-        self.root_component.define_api_method("reset", reset)
 
     def define_api_methods_learner(
             self, fifo_output_splitter, fifo_queue, states_dict_splitter, transpose_states, transpose_terminals,
@@ -574,6 +559,7 @@ class IMPALAAgent(Agent):
             loss_function (IMPALALossFunction): The IMPALALossFunction Component.
             optimizer (Optimizer): The optimizer that we use to calculate an update and apply it.
         """
+        @api(component=self.root_component)
         def update_from_memory(self_):
             # Pull n records from the queue.
             # Note that everything will come out as batch-major and must be transposed before the main-LSTM.
@@ -581,62 +567,56 @@ class IMPALAAgent(Agent):
             # - preprocessed_s
             # - preprocessed_last_s_prime
             # But must still be done for actions, rewards, terminals here in this API-method via separate ReShapers.
-            records = self_.call(fifo_queue.get_records, self.update_spec["batch_size"])
+            records = fifo_queue.get_records(self.update_spec["batch_size"])
 
-            terminals, states, action_probs_mu, initial_internal_states = \
-                self_.call(fifo_output_splitter.split, records)
+            terminals, states, action_probs_mu, initial_internal_states = fifo_output_splitter.split(records)
 
             # Flip everything to time-major.
             # TODO: Create components that are less input-space sensitive (those that have no variables should
             # TODO: be reused for any kind of processing)
-            states = self_.call(transpose_states.apply, states)
-            terminals = self_.call(transpose_terminals.apply, terminals)
-            action_probs_mu = self_.call(transpose_action_probs.apply, action_probs_mu)
+            states = transpose_states.apply(states)
+            terminals = transpose_terminals.apply(terminals)
+            action_probs_mu = transpose_action_probs.apply(action_probs_mu)
 
             # If we use a GPU: Put everything on staging area (adds 1 time step policy lag, but makes copying
             # data into GPU more efficient).
             if self.has_gpu:
-                stage_op = self_.call(staging_area.stage, states, terminals, action_probs_mu, initial_internal_states)
+                stage_op = staging_area.stage(states, terminals, action_probs_mu, initial_internal_states)
                 # Get data from stage again and continue.
-                states, terminals, action_probs_mu, initial_internal_states = self_.call(staging_area.unstage)
+                states, terminals, action_probs_mu, initial_internal_states = staging_area.unstage()
             else:
                 # TODO: No-op component?
                 stage_op = None
 
             # Preprocess actions and rewards inside the state (actions: flatten one-hot, rewards: expand).
-            states = self_.call(preprocessor.preprocess, states)
+            states = preprocessor.preprocess(states)
 
             # state_values_pi, _, _, log_probabilities_pi, current_internal_states = \
-            #     self_.call(policy.get_state_values_logits_probabilities_log_probs, states, initial_internal_states)
+            #     policy.get_state_values_logits_probabilities_log_probs(states, initial_internal_states)
 
             # Only retrieve logits and do faster sparse softmax in loss.
             state_values_pi, logits, _, _, current_internal_states = \
-                self_.call(policy.get_state_values_logits_probabilities_log_probs, states, initial_internal_states)
+                policy.get_state_values_logits_probabilities_log_probs(states, initial_internal_states)
 
             # Isolate actions and rewards from states.
-            _, _, actions, rewards = self_.call(states_dict_splitter.split, states)
+            _, _, actions, rewards = states_dict_splitter.split(states)
 
             # Calculate the loss.
             # step_op,\  <- DEBUG: fake step op
-            loss, loss_per_item = self_.call(
-                 loss_function.loss, logits, action_probs_mu, state_values_pi, actions, rewards,
-                 terminals
-            )
-            policy_vars = self_.call(policy._variables)
+            loss, loss_per_item = loss_function.loss(logits, action_probs_mu, state_values_pi, actions,
+                                                     rewards, terminals)
+            policy_vars = policy._variables()
 
             # Pass vars and loss values into optimizer.
-            step_op, loss, loss_per_item = self_.call(optimizer.step, policy_vars, loss, loss_per_item)
+            step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
 
             # Return optimizer op and all loss values.
             # TODO: Make it possible to return None from API-method without messing with the meta-graph.
             return step_op, (stage_op if stage_op else step_op), loss, loss_per_item
 
-        self.root_component.define_api_method("update_from_memory", update_from_memory)
-
+        @api(component=self.root_component)
         def get_queue_size(self_):
-            return self_.call(fifo_queue.get_size)
-
-        self.root_component.define_api_method("get_queue_size", get_queue_size)
+            return fifo_queue.get_size()
 
     def get_action(self, states, internal_states=None, use_exploration=True, extra_returns=None):
         pass

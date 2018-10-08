@@ -80,8 +80,8 @@ class EpsilonExploration(Component):
         Returns:
             SingleDataOp: Single decisions over a batch on whether to explore or not.
         """
-        decayed_value = self.call(self.decay_component.decayed_value, time_step)
-        return self.call(self._graph_fn_get_random_actions, decayed_value, sample)
+        decayed_value = self.decay_component.decayed_value(time_step)
+        return self._graph_fn_get_random_actions(decayed_value, sample)
 
     def _graph_fn_get_random_actions(self, decayed_value, sample):
         if get_backend() == "tf":

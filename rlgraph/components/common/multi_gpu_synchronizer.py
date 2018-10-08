@@ -122,9 +122,9 @@ class MultiGpuSynchronizer(Component):
     def sync_target_qnets(self):
         tower_ops = list()
         for i in range(self.num_gpus):
-            op = self.call(self.towers[i].sync_target_qnet)
+            op = self.towers[i].sync_target_qnet()
             tower_ops.append(op)
-        group_op = self.call(self._graph_fn_group, *tower_ops)
+        group_op = self._graph_fn_group(*tower_ops)
         return group_op
 
     def _graph_fn_group(self, *tower_ops):
@@ -138,7 +138,7 @@ class MultiGpuSynchronizer(Component):
         # - Sync new weights to towers.
 
         # Split the incoming batch into its per-GPU shards.
-        input_batches = self.call(self.batch_splitter.split_batch, *inputs)
+        input_batches = self.batch_splitter.split_batch(*inputs)
 
         # Load shards to the different devices.
         per_device_assign_ops, loaded_input_batches = self._load_to_device(*input_batches)
@@ -152,7 +152,7 @@ class MultiGpuSynchronizer(Component):
         for i, shard_data in enumerate(loaded_input_batches):
             with tf.control_dependencies([per_device_assign_ops[i]]):
                 shard_data_stopped = tuple([tf.stop_gradient(datum.read_value()) for datum in shard_data])
-                return_values_to_be_averaged = self.call(self.towers[i].update_from_external_batch, *shard_data_stopped)
+                return_values_to_be_averaged = self.towers[i].update_from_external_batch(*shard_data_stopped)
 
                 grads_and_vars = return_values_to_be_averaged[0]
                 loss = return_values_to_be_averaged[1]
@@ -189,7 +189,7 @@ class MultiGpuSynchronizer(Component):
             sync_ops = []
             for i, tower in enumerate(self.towers):
                 # Sync weights to shards
-                sync_op = self.call(self.towers[i].set_policy_weights, policy_variables)
+                sync_op = self.towers[i].set_policy_weights(policy_variables)
                 sync_ops.append(sync_op)
 
             return tf.group(*sync_ops)

@@ -88,9 +88,10 @@ class IMPALALossFunction(LossFunction):
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
         #fake_step_op,
-        loss_per_item = self.call(self._graph_fn_loss_per_item, logits_actions_pi, action_probs_mu,
-                                  values, actions, rewards, terminals)  #, bootstrapped_values)
-        total_loss = self.call(self._graph_fn_loss_average, loss_per_item)
+        loss_per_item = self._graph_fn_loss_per_item(
+            logits_actions_pi, action_probs_mu, values, actions, rewards, terminals
+        )
+        total_loss = self._graph_fn_loss_average(loss_per_item)
         # TODO: REMOVE no_op again. Only for IMPALA testing w/o update step.
         # fake_step_op,
         return total_loss, loss_per_item
@@ -148,13 +149,10 @@ class IMPALALossFunction(LossFunction):
             # (already multiplied by rho_t_pg): A = rho_t_pg * (rt + gamma*vt - V(t)).
             # Both vs and pg_advantages will block the gradient as they should be treated as constants by the gradient
             # calculator of this loss func.
-            vs, pg_advantages = self.call(
-                self.v_trace_function.calc_v_trace_values, logits_actions_pi, tf.log(action_probs_mu), actions,
-                actions_flat,
-                discounts, rewards, values, bootstrapped_values
+            vs, pg_advantages = self.v_trace_function.calc_v_trace_values(
+                logits_actions_pi, tf.log(action_probs_mu), actions, actions_flat, discounts, rewards, values,
+                bootstrapped_values
             )
-            # log_probs_actions_taken_pi = tf.reduce_sum(logits_actions_pi * actions, axis=-1, keepdims=True,
-            #                                            name="log-probs-actions-taken-pi")
 
             cross_entropy = tf.expand_dims(tf.nn.sparse_softmax_cross_entropy_with_logits(
                 labels=actions, logits=logits_actions_pi

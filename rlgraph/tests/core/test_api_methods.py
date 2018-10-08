@@ -157,10 +157,9 @@ class TestAPIMethods(unittest.TestCase):
     #    sub_comp = Dummy2To2(scope="comp1")
     #    core.add_components(sub_comp)
 
+    #    @api(component=core)
     #    def run(self_, input1=1.0, input2=2.0):
-    #        return self_.call(sub_comp.run, input1, input2)
-
-    #    core.define_api_method("run", run)
+    #        return sub_comp.run(input1, input2)
 
     #    test = ComponentTest(component=core, input_spaces=dict(input1=float, input2=float))
 

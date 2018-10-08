@@ -88,32 +88,34 @@ class Policy(Component):
                     self.time_rank_unfolder_logits
                 )
 
+            #@api
             #def get_baseline_output(self, nn_input, internal_states=None):
             #    nn_output, last_internals = unify_nn_and_rnn_api_output(
-            #        self.call(self.neural_network.apply, nn_input, internal_states)
+            #        self.neural_network.apply(nn_input, internal_states)
             #    )
-            #    state_value, logits = self.call(self.action_adapter.get_state_values_and_logits, nn_output)
+            #    state_value, logits = self.action_adapter.get_state_values_and_logits(nn_output)
             #    return (state_value, logits, last_internals) if last_internals is not None else (state_value, logits)
             #
-            #self.define_api_method("get_baseline_output", get_baseline_output)
 
+            @api
             def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
                 nn_output, last_internals = unify_nn_and_rnn_api_output(
-                    self.call(self.neural_network.apply, nn_input, internal_states)
+                    self.neural_network.apply(nn_input, internal_states)
                 )
 
                 # TODO: IMPALA attempt to speed up final pass after LSTM.
                 if is_impala:
-                    nn_output = self.call(self.time_rank_folder.apply, nn_output)
+                    nn_output = self.time_rank_folder.apply(nn_output)
 
-                state_values, logits, probs, log_probs = self.call(self.action_adapter.get_state_values_logits_probabilities_log_probs, nn_output)
+                state_values, logits, probs, log_probs = \
+                    self.action_adapter.get_state_values_logits_probabilities_log_probs(nn_output)
 
                 # TODO: IMPALA attempt to speed up final pass after LSTM.
                 if is_impala:
-                    state_values = self.call(self.time_rank_unfolder_v.apply, state_values, nn_output)
-                    logits = self.call(self.time_rank_unfolder_logits.apply, logits, nn_output)
-                    probs = self.call(self.time_rank_unfolder_a_probs.apply, probs, nn_output)
-                    log_probs = self.call(self.time_rank_unfolder_log_probs.apply, log_probs, nn_output)
+                    state_values = self.time_rank_unfolder_v.apply(state_values, nn_output)
+                    logits = self.time_rank_unfolder_logits.apply(logits, nn_output)
+                    probs = self.time_rank_unfolder_a_probs.apply(probs, nn_output)
+                    log_probs = self.time_rank_unfolder_log_probs.apply(log_probs, nn_output)
 
                 return (state_values, logits, probs, log_probs, last_internals) if last_internals is not None else \
                     (state_values, logits, probs, log_probs)

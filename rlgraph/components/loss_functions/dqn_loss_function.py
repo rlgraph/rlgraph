@@ -90,9 +90,10 @@ class DQNLossFunction(LossFunction):
         Returns:
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
-        loss_per_item = self.call(self._graph_fn_loss_per_item, q_values_s, actions, rewards, terminals, qt_values_sp,
-                                  q_values_sp, importance_weights)
-        total_loss = self.call(self._graph_fn_loss_average, loss_per_item)
+        loss_per_item = self._graph_fn_loss_per_item(
+            q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
+        )
+        total_loss = self._graph_fn_loss_average(loss_per_item)
         return total_loss, loss_per_item
 
     def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, terminals,

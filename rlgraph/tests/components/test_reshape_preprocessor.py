@@ -190,8 +190,8 @@ class TestReShapePreprocessors(unittest.TestCase):
         )
 
         def custom_apply(self, inputs):
-            folded = self.call(reshape_fold.apply, inputs)
-            unfolded = self.call(reshape_unfold.apply, folded, inputs)
+            folded = reshape_fold.apply(inputs)
+            unfolded = reshape_unfold.apply(folded, inputs)
             return unfolded
 
         stack = Stack(reshape_fold, reshape_unfold, api_methods={("apply", custom_apply)})
@@ -218,8 +218,8 @@ class TestReShapePreprocessors(unittest.TestCase):
         )
 
         def custom_apply(self, inputs):
-            folded = self.call(reshape_fold.apply, inputs)
-            unfolded = self.call(reshape_unfold.apply, folded, inputs)
+            folded = reshape_fold.apply(inputs)
+            unfolded = reshape_unfold.apply(folded, inputs)
             return unfolded
 
         stack = Stack(reshape_fold, reshape_unfold, api_methods={("apply", custom_apply)})

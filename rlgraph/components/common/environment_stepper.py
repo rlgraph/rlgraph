@@ -276,9 +276,8 @@ class EnvironmentStepper(Component):
                 state = unflatten_op(flat_state)
 
                 # Get action and preprocessed state (as batch-size 1).
-                out = self.call(
-                    (self.actor_component.get_preprocessed_state_and_action if self.add_action_probs is False else
-                     self.actor_component.get_preprocessed_state_action_and_action_probs),
+                out = (self.actor_component.get_preprocessed_state_and_action if self.add_action_probs is False else
+                       self.actor_component.get_preprocessed_state_action_and_action_probs)(
                     state,
                     # Add simple batch rank to internal_states.
                     None if internal_states is None else DataOpTuple(internal_states),  # <- None for non-RNN systems

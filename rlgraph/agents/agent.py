@@ -209,20 +209,20 @@ class Agent(Specifiable):
         # Add api methods for syncing.
         def get_policy_weights(self):
             policy = self.get_sub_component_by_name(policy_scope)
-            return self.call(policy._variables)
+            return policy._variables()
 
         self.root_component.define_api_method("get_policy_weights", get_policy_weights)
 
         def set_policy_weights(self, weights):
             policy = self.get_sub_component_by_name(policy_scope)
-            return self.call(policy.sync, weights)
+            return policy.sync(weights)
 
         self.root_component.define_api_method("set_policy_weights", set_policy_weights, must_be_complete=False)
 
         # To pre-process external data if needed.
         def preprocess_states(self, states):
             preprocessor_stack = self.get_sub_component_by_name(pre_processor_scope)
-            preprocessed_states = self.call(preprocessor_stack.preprocess, states)
+            preprocessed_states = preprocessor_stack.preprocess(states)
             return preprocessed_states
 
         self.root_component.define_api_method("preprocess_states", preprocess_states)

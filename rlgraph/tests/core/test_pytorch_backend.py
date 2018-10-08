@@ -59,11 +59,10 @@ class TestPytorchBackend(unittest.TestCase):
         sub_comp2 = Dummy2To1(scope="comp2")  # out =in1+in2
         core.add_components(sub_comp1, sub_comp2)
 
+        @api(component=core)
         def run(self_, input_):
-            out1, out2 = self_.call(sub_comp1.run, input_)
-            return self_.call(sub_comp2.run, out1, out2)
-
-        core.define_api_method("run", run)
+            out1, out2 = sub_comp1.run(input_)
+            return sub_comp2.run(out1, out2)
 
         test = ComponentTest(component=core, input_spaces=dict(input_=float))
 
@@ -88,11 +87,10 @@ class TestPytorchBackend(unittest.TestCase):
         sub_comp2 = Dummy2To1(scope="B")
         core.add_components(sub_comp1, sub_comp2)
 
+        @api(component=core)
         def run(self_, input_):
-            out = self_.call(sub_comp1.run, input_)
-            return self_.call(sub_comp2.run, out, 1.1)
-
-        core.define_api_method("run", run)
+            out = sub_comp1.run(input_)
+            return sub_comp2.run(out, 1.1)
 
         test = ComponentTest(component=core, input_spaces=dict(input_=float))
 

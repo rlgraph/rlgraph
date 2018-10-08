@@ -99,7 +99,7 @@ class Stack(Component):
 
             # API-method for this Stack does not exist yet -> Automatically create it.
             elif not hasattr(self, stack_api_method_name):
-
+                @api(name=stack_api_method_name, component=self)
                 def method(self_, *inputs):
                     result = inputs
                     for sub_component in self_.sub_components.values():  # type: Component
@@ -128,18 +128,14 @@ class Stack(Component):
                                 result = graph_fn(*force_tuple(result))
                         elif get_backend() == "pytorch":
                             # Do NOT convert to tuple, has to be in unpacked again immediately.n
-                            result = self_.call(
-                                getattr(sub_component, components_api_method_name), *force_list(result)
-                            )
+                            result = getattr(sub_component, components_api_method_name)(*force_list(result))
                         elif get_backend() == "tf":
-                            result = self_.call(
-                                getattr(sub_component, components_api_method_name), *force_tuple(result)
-                            )
+                            result = getattr(sub_component, components_api_method_name)(*force_tuple(result))
 
                     return result
 
                 # Register `method` to this Component using the custom name given in `api_methods`.
-                self.define_api_method(stack_api_method_name, method)
+                #self.define_api_method(stack_api_method_name, method)
 
     @classmethod
     def from_spec(cls, spec=None, **kwargs):

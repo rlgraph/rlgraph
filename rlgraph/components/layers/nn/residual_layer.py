@@ -64,7 +64,7 @@ class ResidualLayer(NNLayer):
             results = inputs
             # Apply the residual unit n times to the input.
             for i in range(self.repeats):
-                results = self.call(self.residual_units[i].apply, results)
+                results = self.residual_units[i].apply(results)
 
             # Then activate and add up.
             added_with_input = results + inputs

@@ -80,28 +80,28 @@ class QueueRunner(Component):
 
         if get_backend() == "tf":
             for data_producing_component in self.data_producing_components:
-                record = self.call(getattr(data_producing_component, self.api_method_name))
+                record = getattr(data_producing_component, self.api_method_name)()
                 if self.return_slot != -1:
                     # Only care about one slot of the return values.
                     record = record[self.return_slot]
                 # Create dict record from tuple return.
-                #record = self.call(self.input_merger.merge, *record)
+                #record = self.input_merger.merge(*record)
 
                 # TODO: specific for IMPALA problem: needs to be generalized.
                 preprocessed_s, actions, rewards, returns, terminals, next_states, action_log_probs, \
-                    internal_states = self.call(self.env_output_splitter.split, record)
+                    internal_states = self.env_output_splitter.split(record)
 
-                last_next_state = self.call(self.next_states_slicer.slice, next_states, -1)
-                initial_internal_states = self.call(self.internal_states_slicer.slice, internal_states, 0)
-                #current_internal_states = self.call(self.internal_states_slicer.slice, internal_states, -1)
+                last_next_state = self.next_states_slicer.slice(next_states, -1)
+                initial_internal_states = self.internal_states_slicer.slice(internal_states, 0)
+                #current_internal_states = self.internal_states_slicer.slice(internal_states, -1)
 
-                record = self.call(
-                    self.fifo_input_merger.merge, preprocessed_s, actions, rewards, terminals, last_next_state,
-                    action_log_probs, initial_internal_states
+                record = self.fifo_input_merger.merge(
+                    preprocessed_s, actions, rewards, terminals, last_next_state, action_log_probs,
+                    initial_internal_states
                 )
 
                 # Insert results into the FIFOQueue.
-                #insert_op = self_.call(fifo_queue.insert_records, record)
+                #insert_op = fifo_queue.insert_records(record)
                 #return step_op, insert_op, current_internal_states, returns, terminals
 
                 # Create enqueue_op from api_return.

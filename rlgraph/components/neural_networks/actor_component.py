@@ -77,17 +77,17 @@ class ActorComponent(Component):
         """
         max_likelihood = self.max_likelihood if self.max_likelihood is not None else self.policy.max_likelihood
 
-        preprocessed_states = self.call(self.preprocessor.preprocess, states)
+        preprocessed_states = self.preprocessor.preprocess(states)
 
         if max_likelihood is True:
-            action_sample, last_internal_states = unify_nn_and_rnn_api_output(self.call(
-                self.policy.get_max_likelihood_action, preprocessed_states, internal_states
+            action_sample, last_internal_states = unify_nn_and_rnn_api_output(self.policy.get_max_likelihood_action(
+                preprocessed_states, internal_states
             ))
         else:
-            action_sample, last_internal_states = unify_nn_and_rnn_api_output(self.call(
-                self.policy.get_stochastic_action, preprocessed_states, internal_states
+            action_sample, last_internal_states = unify_nn_and_rnn_api_output(self.policy.get_stochastic_action(
+                preprocessed_states, internal_states
             ))
-        actions = self.call(self.exploration.get_action, action_sample, time_step, use_exploration)
+        actions = self.exploration.get_action(action_sample, time_step, use_exploration)
         ret = (preprocessed_states, actions) + ((last_internal_states,) if last_internal_states else ())
         return ret
 
@@ -112,23 +112,25 @@ class ActorComponent(Component):
         """
         max_likelihood = self.max_likelihood if self.max_likelihood is not None else self.policy.max_likelihood
 
-        preprocessed_states = self.call(self.preprocessor.preprocess, states)
+        preprocessed_states = self.preprocessor.preprocess(states)
 
         # TODO: IMPALA specific code. state-value is not really needed, but dynamic batching requires us to run through
         # TODO: the exact same partial-graph as the learner (which does need the extra state-value output).
         if isinstance(self.policy.action_adapter, BaselineActionAdapter):
-            _, _, action_probs, _, last_internal_states = unify_nn_and_rnn_api_output(self.call(
-                self.policy.get_state_values_logits_probabilities_log_probs, preprocessed_states, internal_states
-            ), return_values_wo_internal_state=4)
+            _, _, action_probs, _, last_internal_states = unify_nn_and_rnn_api_output(
+                self.policy.get_state_values_logits_probabilities_log_probs(preprocessed_states, internal_states),
+                return_values_wo_internal_state=4
+            )
         else:
-            _, action_probs, _, last_internal_states = unify_nn_and_rnn_api_output(self.call(
-                self.policy.get_logits_probabilities_log_probs, preprocessed_states, internal_states
-            ), return_values_wo_internal_state=3)
+            _, action_probs, _, last_internal_states = unify_nn_and_rnn_api_output(
+                self.policy.get_logits_probabilities_log_probs(preprocessed_states, internal_states),
+                return_values_wo_internal_state=3
+            )
 
         if max_likelihood is True:
-            action_sample = self.call(self.policy.distribution.sample_deterministic, action_probs)
+            action_sample = self.policy.distribution.sample_deterministic(action_probs)
         else:
-            action_sample = self.call(self.policy.distribution.sample_stochastic, action_probs)
-        actions = self.call(self.exploration.get_action, action_sample, time_step, use_exploration)
+            action_sample = self.policy.distribution.sample_stochastic(action_probs)
+        actions = self.exploration.get_action(action_sample, time_step, use_exploration)
         ret = (preprocessed_states, actions, action_probs) + ((last_internal_states,) if last_internal_states else ())
         return ret

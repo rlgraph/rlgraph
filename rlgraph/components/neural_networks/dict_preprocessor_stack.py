@@ -59,15 +59,11 @@ class DictPreprocessorStack(PreprocessorStack):
         default_dict(kwargs, dict(scope=kwargs.pop("scope", "dict-preprocessor-stack")))
         super(DictPreprocessorStack, self).__init__(*list(self.preprocessors.values()), **kwargs)
 
-        self.define_api_method(
-            "preprocess", self._graph_fn_preprocess, flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True,
-            ok_to_overwrite=True
-        )
-
+    @api(name="preprocess", flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True, ok_to_overwrite=True)
     def _graph_fn_preprocess(self, key, inputs):
         # Is a PreprocessorStack defined for this key?
         if key in self.preprocessors:
-            return self.call(self.preprocessors[key].preprocess, inputs)
+            return self.preprocessors[key].preprocess(inputs)
         # Simple pass through, no preprocessing.
         else:
             return inputs
@@ -82,8 +78,8 @@ class DictPreprocessorStack(PreprocessorStack):
             # Connect each pre-processor's "reset" output op via our graph_fn into one op.
             resets = list()
             for preprocessor in self.preprocessors.values():  # type: PreprocessorStack
-                resets.append(self.call(preprocessor.reset))
-            reset_op = self.call(self._graph_fn_reset, *resets)
+                resets.append(preprocessor.reset())
+            reset_op = self._graph_fn_reset(*resets)
             return reset_op
 
     def _graph_fn_reset(self, *preprocessor_resets):

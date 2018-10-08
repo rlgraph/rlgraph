@@ -85,6 +85,7 @@ class NeuralNetwork(Stack):
 
             # API-method for this Stack does not exist yet -> Automatically create it.
             elif not hasattr(self, stack_api_method_name):
+                @api(name=stack_api_method_name, component=self)
                 def method(self_, *inputs):
                     if get_backend() == "pytorch" and self.execution_mode == "define_by_run":
                         # Avoid jumping back between layers and calls at runtime.
@@ -117,17 +118,10 @@ class NeuralNetwork(Stack):
                                     result = graph_fn(*force_tuple(result))
                             elif get_backend() == "pytorch":
                                 # Do NOT convert to tuple, has to be in unpacked again immediately.n
-                                result = self_.call(
-                                    getattr(sub_component, components_api_method_name), *force_list(result)
-                                )
+                                result = getattr(sub_component, components_api_method_name)(*force_list(result))
                             elif get_backend() == "tf":
-                                result = self_.call(
-                                    getattr(sub_component, components_api_method_name), *force_tuple(result)
-                                )
+                                result = getattr(sub_component, components_api_method_name)(*force_tuple(result))
                         return result
-
-                # Register `method` to this Component using the custom name given in `api_methods`.
-                self.define_api_method(stack_api_method_name, method)
 
         # Build fast-path execution method for pytorch / eager.
         if get_backend() == "pytorch":
@@ -144,9 +138,7 @@ class NeuralNetwork(Stack):
                 result = self.network_obj.forward(*forward_inputs)
                 # Problem: Not everything in the neural network stack is a true layer.
                 for c in self.non_layer_components:
-                    result = self.call(
-                        getattr(c, "apply"), *force_list(result)
-                    )
+                    result = getattr(c, "apply")(*force_list(result))
                 return result
             self.fast_path_exec = fast_path_exec
 

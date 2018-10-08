@@ -60,8 +60,8 @@ class PreprocessorStack(Stack):
             # Connect each pre-processor's "reset" output op via our graph_fn into one op.
             resets = list()
             for preprocessor in self.sub_components.values():  # type: PreprocessLayer
-                resets.append(self.call(preprocessor.reset))
-            reset_op = self.call(self._graph_fn_reset, *resets)
+                resets.append(preprocessor.reset())
+            reset_op = self._graph_fn_reset(*resets)
             return reset_op
 
     def _graph_fn_reset(self, *preprocessor_resets):

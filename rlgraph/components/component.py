@@ -780,14 +780,10 @@ class Component(Specifiable):
             must_be_complete = kwargs.get("exposed_must_be_complete", True)
             for api_method_name, api_method_rec in component.api_methods.items():
                 if api_method_name in expose_apis:
+                    @api(name=api_method_name, component=component, must_be_complete=must_be_complete)
                     def exposed_api_method_wrapper(self, *inputs):
                         # Complicated way to lookup sub-component's method to avoid fixtures when original component gets copied.
-                        return self.call(self.sub_components[api_method_rec.func.__self__.name].api_methods[api_method_name].func, *inputs)
-                        #return self.call(api_method_rec.func, *inputs)
-                    self.define_api_method(api_method_name, exposed_api_method_wrapper,
-                                           must_be_complete=must_be_complete)
-                    # Add the sub-component's API-registered methods to ours.
-                    #self.defined_externally.add(component.scope + "-" + api_method_name)
+                        return self.sub_components[api_method_rec.func.__self__.name].api_methods[api_method_name].func(*inputs)
 
     def get_all_sub_components(self, list_=None, level_=0):
         """

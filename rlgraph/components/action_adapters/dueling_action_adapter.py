@@ -104,10 +104,10 @@ class DuelingActionAdapter(ActionAdapter):
                     it. Note: These will be flat advantage nodes that have not been reshaped yet according to the
                     action_space.
         """
-        output_state_value_dense = self.call(self.dense_layer_state_value_stream.apply, nn_output)
-        output_advantage_dense = self.call(self.dense_layer_advantage_stream.apply, nn_output)
-        state_value_node = self.call(self.state_value_node.apply, output_state_value_dense)
-        advantage_nodes = self.call(self.action_layer.apply, output_advantage_dense)
+        output_state_value_dense = self.dense_layer_state_value_stream.apply(nn_output)
+        output_advantage_dense = self.dense_layer_advantage_stream.apply(nn_output)
+        state_value_node = self.state_value_node.apply(output_state_value_dense)
+        advantage_nodes = self.action_layer.apply(output_advantage_dense)
         return state_value_node, advantage_nodes
 
     def get_logits_probabilities_log_probs(self, nn_output):
@@ -121,10 +121,10 @@ class DuelingActionAdapter(ActionAdapter):
                 - The probabilities obtained by softmaxing the q-values.
                 - The log-probs.
         """
-        state_value, advantage_values = self.call(self.get_action_layer_output, nn_output)
-        advantage_values_reshaped = self.call(self.reshape.apply, advantage_values)
-        q_values = self.call(self._graph_fn_calculate_q_values, state_value, advantage_values_reshaped)
-        probs_and_log_probs = self.call(self._graph_fn_get_probabilities_log_probs, q_values)
+        state_value, advantage_values = self.get_action_layer_output(nn_output)
+        advantage_values_reshaped = self.reshape.apply(advantage_values)
+        q_values = self._graph_fn_calculate_q_values(state_value, advantage_values_reshaped)
+        probs_and_log_probs = self._graph_fn_get_probabilities_log_probs(q_values)
         return (q_values,) + probs_and_log_probs
 
     def _graph_fn_calculate_q_values(self, state_value, advantage_values):
@@ -248,8 +248,8 @@ class DuelingActionAdapter(ActionAdapter):
     #    Override get_logits_probabilities_log_probs API-method to use (A minus V) Q-values, instead of raw logits from
     #    network.
     #    """
-    #    _, _, q_values = self.call(self.get_dueling_output, nn_output)
-    #    return (q_values,) + tuple(self.call(self._graph_fn_get_probabilities_log_probs, q_values))
+    #    _, _, q_values = self.get_dueling_output(nn_output)
+    #    return (q_values,) + tuple(self._graph_fn_get_probabilities_log_probs(q_values))
 
     #def get_dueling_output(self, nn_output):
     #    """
@@ -265,6 +265,6 @@ class DuelingActionAdapter(ActionAdapter):
     #            - The Q-values for the different actions (calculated as Q=V+A-mean(A), where V and mean(A) are
     #            broadcast to match A's shape)
     #    """
-    #    action_layer_output = self.call(self.action_layer.apply, nn_output)
-    #    state_value, advantage_values, q_values = self.call(self.dueling_layer.apply, action_layer_output)
+    #    action_layer_output = self.action_layer.apply(nn_output)
+    #    state_value, advantage_values, q_values = self.dueling_layer.apply(action_layer_output)
     #    return state_value, advantage_values, q_values

@@ -55,13 +55,12 @@ class TestExplorations(unittest.TestCase):
         # The Component to test.
         exploration_pipeline = Component(action_adapter, distribution, exploration, scope="exploration-pipeline")
 
+        @api(component=exploration_pipeline)
         def get_action(self, nn_output, time_step):
-            _, parameters, _ = self.call(action_adapter.get_logits_probabilities_log_probs, nn_output)
-            sample = self.call(distribution.sample_deterministic, parameters)
-            action = self.call(exploration.get_action, sample, time_step)
+            _, parameters, _ = action_adapter.get_logits_probabilities_log_probs(nn_output)
+            sample = distribution.sample_deterministic(parameters)
+            action = exploration.get_action(sample, time_step)
             return action
-
-        exploration_pipeline.define_api_method("get_action", get_action)
 
         test = ComponentTest(
             component=exploration_pipeline,
@@ -123,22 +122,19 @@ class TestExplorations(unittest.TestCase):
         exploration_pipeline = Component(scope="continuous-plus-noise")
         exploration_pipeline.add_components(action_adapter, distribution, exploration, scope="exploration-pipeline")
 
+        @api(component=exploration_pipeline)
         def get_action(self_, nn_output):
-            _, parameters, _ = self_.call(action_adapter.get_logits_probabilities_log_probs, nn_output)
-            sample_stochastic = self_.call(distribution.sample_stochastic, parameters)
-            sample_deterministic = self_.call(distribution.sample_deterministic, parameters)
-            action = self_.call(exploration.get_action, sample_stochastic, sample_deterministic)
+            _, parameters, _ = action_adapter.get_logits_probabilities_log_probs(nn_output)
+            sample_stochastic = distribution.sample_stochastic(parameters)
+            sample_deterministic = distribution.sample_deterministic(parameters)
+            action = exploration.get_action(sample_stochastic, sample_deterministic)
             return action
 
-        exploration_pipeline.define_api_method("get_action", get_action)
-
+        @api(component=exploration_pipeline)
         def get_noise(self_):
-            return self_.call(exploration.noise_component.get_noise)
+            return exploration.noise_component.get_noise()
 
-        exploration_pipeline.define_api_method("get_noise", get_noise)
-
-        test = ComponentTest(component=exploration_pipeline,
-                             input_spaces=dict(nn_output=nn_output_space),
+        test = ComponentTest(component=exploration_pipeline, input_spaces=dict(nn_output=nn_output_space),
                              action_space=action_space)
 
         # Collect outputs in `collected` list to compare moments.

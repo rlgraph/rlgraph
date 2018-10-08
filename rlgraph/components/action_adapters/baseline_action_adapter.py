@@ -44,8 +44,8 @@ class BaselineActionAdapter(ActionAdapter):
         """
         Override get_logits_probabilities_log_probs API-method to not use the state-value, which must be sliced.
         """
-        _, logits = self.call(self.get_state_values_and_logits, nn_output)
-        return (logits,) + tuple(self.call(self._graph_fn_get_probabilities_log_probs, logits))
+        _, logits = self.get_state_values_and_logits(nn_output)
+        return (logits,) + tuple(self._graph_fn_get_probabilities_log_probs(logits))
 
     def get_state_values_and_logits(self, nn_output):
         """
@@ -60,14 +60,14 @@ class BaselineActionAdapter(ActionAdapter):
                 - The (reshaped) logit values for the different actions.
         """
         # Run through the action layer.
-        action_layer_output = self.call(self.action_layer.apply, nn_output)
+        action_layer_output = self.action_layer.apply(nn_output)
         # Slice away the first node for the state value and reshape the rest to yield the action logits.
-        state_value, logits = self.call(self._graph_fn_get_state_values_and_logits, action_layer_output)
+        state_value, logits = self._graph_fn_get_state_values_and_logits(action_layer_output)
         return state_value, logits
 
     def get_state_values_logits_probabilities_log_probs(self, nn_output):
-        state_value, logits = self.call(self.get_state_values_and_logits, nn_output)
-        parameters, log_probs = self.call(self._graph_fn_get_probabilities_log_probs, logits)
+        state_value, logits = self.get_state_values_and_logits(nn_output)
+        parameters, log_probs = self._graph_fn_get_probabilities_log_probs(logits)
         return state_value, logits, parameters, log_probs
 
     def _graph_fn_get_state_values_and_logits(self, action_layer_output):
@@ -100,7 +100,7 @@ class BaselineActionAdapter(ActionAdapter):
             flat_logits._batch_rank = 0 if self.input_space.time_major is False else 1
             if self.input_space.has_time_rank:
                 flat_logits._time_rank = 0 if self.input_space.time_major is True else 1
-            logits = self.call(self.reshape.apply, flat_logits)
+            logits = self.reshape.apply(flat_logits)
 
             # TODO: automate this: batch in -> batch out; time in -> time out; batch+time in -> batch+time out, etc..
             # TODO: if not default behavior: have to specify in decorator (see design_problems.txt).
