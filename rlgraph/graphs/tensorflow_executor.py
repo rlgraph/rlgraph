@@ -715,7 +715,7 @@ class TensorFlowExecutor(GraphExecutor):
             root_component.add_components(multi_gpu_optimizer)
             # Set the root-component's reuse_variable_scope.
             #policy = root_component.get_sub_component_by_name("policy")
-            #policy.propagate_subcomponent_properties(dict(reuse_variable_scope=shared_scope))
+            #policy.propagate_sub_component_properties(dict(reuse_variable_scope=shared_scope))
 
             #root_component.define_api_method(
             #    "update_from_external_batch", update_from_external_batch_for_root, ok_to_overwrite=True

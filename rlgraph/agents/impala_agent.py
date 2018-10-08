@@ -175,10 +175,10 @@ class IMPALAAgent(Agent):
         if self.dynamic_batching:
             self.policy = DynamicBatchingPolicy(policy_spec=self.policy, scope="")
         # Manually set the reuse_variable_scope for our policies (actor: mu, learner: pi).
-        self.policy.propagate_subcomponent_properties(dict(reuse_variable_scope="shared"))
+        self.policy.propagate_sub_component_properties(dict(reuse_variable_scope="shared"))
         # Always use 1st learner as the parameter server for all policy variables.
         if self.execution_spec["mode"] == "distributed" and self.execution_spec["distributed_spec"]["cluster_spec"]:
-            self.policy.propagate_subcomponent_properties(dict(device=dict(variables="/job:learner/task:0/cpu")))
+            self.policy.propagate_sub_component_properties(dict(device=dict(variables="/job:learner/task:0/cpu")))
 
         # Check whether we have an RNN.
         self.has_rnn = self.neural_network.has_rnn()
@@ -280,7 +280,7 @@ class IMPALAAgent(Agent):
                     env_stepper.actor_component.policy = DynamicBatchingPolicy(policy_spec=env_stepper.actor_component.policy, scope="")
                     env_stepper.actor_component.add_components(env_stepper.actor_component.policy)
 
-                env_stepper.actor_component.policy.propagate_subcomponent_properties(dict(reuse_variable_scope="shared"))
+                env_stepper.actor_component.policy.propagate_sub_component_properties(dict(reuse_variable_scope="shared"))
                 self.environment_steppers.append(env_stepper)
 
             # Create the QueueRunners (one for each env-stepper).
@@ -360,11 +360,11 @@ class IMPALAAgent(Agent):
                 weight_entropy=weight_entropy, device="/job:learner/task:0/gpu"
             )
 
-            self.policy.propagate_subcomponent_properties(
+            self.policy.propagate_sub_component_properties(
                 dict(device=dict(variables="/job:learner/task:0/cpu", ops="/job:learner/task:0/gpu"))
             )
             for component in [self.staging_area, self.preprocessor, self.optimizer]:
-                component.propagate_subcomponent_properties(
+                component.propagate_sub_component_properties(
                     dict(device="/job:learner/task:0/gpu")
                 )
 

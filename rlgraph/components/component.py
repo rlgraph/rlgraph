@@ -1103,14 +1103,14 @@ class Component(Specifiable):
             # Add own reusable scope to front of sub-components'.
             if self.reuse_variable_scope is not None:
                 # Propagate reuse_variable_scope down to the added Component's sub-components.
-                component.propagate_subcomponent_properties(
+                component.propagate_sub_component_properties(
                     properties=dict(reuse_variable_scope=self.reuse_variable_scope)
                 )
             # Fix the sub-component's (and sub-sub-component's etc..) scope(s).
             self.propagate_scope(component)
 
             # Execution modes must be coherent within one component subgraph.
-            self.propagate_subcomponent_properties(
+            self.propagate_sub_component_properties(
                 properties=dict(execution_mode=component.execution_mode), component=component
             )
 
@@ -1245,7 +1245,7 @@ class Component(Specifiable):
         for sc in sub_component.sub_components.values():
             sub_component.propagate_scope(sc)
 
-    def propagate_subcomponent_properties(self, properties, component=None):
+    def propagate_sub_component_properties(self, properties, component=None):
         """
         Recursively updates properties of component and its sub-components.
 
@@ -1269,7 +1269,7 @@ class Component(Specifiable):
             else:
                 setattr(component, name, value)
         for sc in component.sub_components.values():
-            component.propagate_subcomponent_properties(properties_scoped, sc)
+            component.propagate_sub_component_properties(properties_scoped, sc)
 
     def propagate_variables(self, keys=None):
         """
@@ -1343,15 +1343,15 @@ class Component(Specifiable):
         new_component.propagate_scope(sub_component=None)
 
         # Propagate reusable scope, device and other trainable.
-        new_component.propagate_subcomponent_properties(
+        new_component.propagate_sub_component_properties(
             properties=dict(device=device, trainable=trainable)
         )
         if reuse_variable_scope:
-            new_component.propagate_subcomponent_properties(dict(reuse_variable_scope=reuse_variable_scope))
+            new_component.propagate_sub_component_properties(dict(reuse_variable_scope=reuse_variable_scope))
         # Gives us the chance to skip new_component's scope.
         elif reuse_variable_scope_for_sub_components:
             for sc in new_component.sub_components.values():
-                sc.propagate_subcomponent_properties(dict(reuse_variable_scope=reuse_variable_scope_for_sub_components))
+                sc.propagate_sub_component_properties(dict(reuse_variable_scope=reuse_variable_scope_for_sub_components))
 
         # Erase the parent pointer.
         new_component.parent_component = None

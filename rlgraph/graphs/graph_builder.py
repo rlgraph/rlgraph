@@ -808,7 +808,7 @@ class GraphBuilder(Specifiable):
         # self.purge_op_records(component=self.root_component)
 
         # Set execution mode in components to change `call` behaviour to direct function evaluation.
-        self.root_component.propagate_subcomponent_properties(properties=dict(execution_mode="define_by_run"))
+        self.root_component.propagate_sub_component_properties(properties=dict(execution_mode="define_by_run"))
 
         # Call post build logic.
         self.root_component._post_build(self.root_component)
