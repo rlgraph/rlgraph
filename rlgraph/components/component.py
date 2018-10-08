@@ -26,7 +26,8 @@ import numpy as np
 import re
 
 from rlgraph import get_backend
-from rlgraph.utils.decorators import api, component_api_registry, define_api_method
+from rlgraph.utils.decorators import api, component_api_registry, component_graph_fn_registry, define_api_method, \
+    define_graph_fn
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.ops import DataOpDict, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE
@@ -104,7 +105,6 @@ class Component(Specifiable):
         self.name = kwargs.pop("name", self.scope)  # if no name given, use scope
         self.device = kwargs.pop("device", None)
         self.trainable = kwargs.pop("trainable", None)
-        #self.global_component = kwargs.pop("global_component", False)
         self.graph_fn_num_outputs = kwargs.pop("graph_fn_num_outputs", dict())
         self.switched_off_apis = kwargs.pop("switched_off_apis", set())
         self.backend = kwargs.pop("backend", None)
@@ -138,10 +138,10 @@ class Component(Specifiable):
         # Two API-methods may share the same input if their input parameters have the same names.
         # keys=input parameter name; values=Space that goes into that parameter
         self.api_method_inputs = {}
-        self.register_api_methods()
-
         # Registry for graph_fn records (only populated at build time when the graph_fns are actually called).
         self.graph_fns = {}
+        self.register_api_methods_and_graph_fns()
+
         # Set of op-rec-columns going into a graph_fn of this Component and not having 0 op-records.
         # Helps during the build procedure to call these right away after the Component is input-complete.
         self.no_input_graph_fn_columns = set()
@@ -171,7 +171,7 @@ class Component(Specifiable):
             isinstance(sub_components[0], (list, tuple)) else sub_components
         self.add_components(*sub_components)
 
-    def register_api_methods(self):
+    def register_api_methods_and_graph_fns(self):
         """
         Detects all methods of the Component that should be registered as API-methods for
         this Component and complements `self.api_methods` and `self.api_method_inputs`.
@@ -186,361 +186,10 @@ class Component(Specifiable):
             if api_method_recs is not None:
                 for api_method_rec in api_method_recs:
                     define_api_method(self, api_method_rec)
-
-    #def call(self, method, *params, **kwargs):
-    #    """
-    #    Performs either:
-    #    a) An assembly run through another API method (will actually call this API method for further assembly).
-    #    b) A dry run through a graph_fn (without calling it) just generating the empty op-record-columns around the
-    #    graph_fn (incoming and outgoing).
-    #    c) A define-by-run execution of the method where the method is evaluated like a normal python function.
-    #    Define-by-run execution is enabled via setting the `execution_mode` during the build.
-
-    #    Args:
-    #        method (callable): The method (graph_fn or API method) to call.
-    #        \*params (Union[DataOpRecord,DataOp]): The DataOpRecords/DataOps to be used for calling the method.
-
-    #    Keyword Args:
-    #        flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
-    #            a FlattenedDataOp (with automatic key names).
-    #            Can also be a set of in-Socket names to flatten explicitly (True for all).
-    #            (default: True).
-    #        split_ops (Union[bool,Set[str]]): Whether to split all or some of the already flattened DataOps
-    #            and send the SingleDataOps one by one through the graph_fn.
-    #            Example: Spaces=A=Dict (container), B=int (primitive)
-    #            The graph_fn should then expect for each primitive Space in A:
-    #            _graph_fn(primitive-in-A (Space), B (int))
-    #            NOTE that B will be the same in all calls for all primitive-in-A's.
-    #            (default: True).
-    #        add_auto_key_as_first_param (bool): If `split_ops` is not False, whether to send the
-    #            automatically generated flat key as the very first parameter into each call of the graph_fn.
-    #            Example: Spaces=A=float (primitive), B=Tuple (container)
-    #            The graph_fn should then expect for each primitive Space in B:
-    #            _graph_fn(key, A (float), primitive-in-B (Space))
-    #            NOTE that A will be the same in all calls for all primitive-in-B's.
-    #            The key can now be used to index into variables equally structured as B.
-    #            Has no effect if `split_ops` is False.
-    #            (default: False).
-    #        return_ops (bool): Whether to return actual ops rather than op-records. This is done automatically
-    #            (regardless of this value), if the direct parent caller of this method is a `_graph_fn_`-method.
-    #            Default: False.
-
-    #    Returns:
-    #        Tuple[DataOpRecord]: The returned tuple of DataOpRecords coming from the called API-method or graph_fn.
-    #    """
-    #    # Owner of method:
-    #    method_owner = method.__self__  # type: Component
-    #    # Check, whether the method-owner is either this Component or has this Component as parent.
-    #    # TODO: make this check generic for any depth-grand-child.A
-    #    assert method_owner is self or self in method_owner.get_parents(), \
-    #        "ERROR: Can only call API-method ({}/{}) on self ({}) or any sub-Components of self! Most likely, " \
-    #        "{} has not been added to self.". \
-    #        format(method_owner.global_scope, method.__name__, self.global_scope, method_owner.global_scope)
-    #    # Try handing the graph-builder link to the owner Component (in case it's not set yet).
-    #    if method_owner.graph_builder is None:
-    #        method_owner.graph_builder = self.graph_builder
-
-    #    return_ops = kwargs.pop("return_ops", False)
-    #    # Direct evaluation of function.
-    #    if self.execution_mode == "define_by_run":
-    #        Component.call_count += 1
-    #        # print("calling in define by run mode: method {}, call count = {}".format(method, Component.call_count))
-
-    #        # Name might not match, e.g. _graph_fn_apply vs apply.
-    #        #  Check with owner if extra args needed.
-    #        start = time.perf_counter()
-    #        if method.__name__ in method_owner.api_methods and \
-    #                method_owner.api_methods[method.__name__].add_auto_key_as_first_param:
-    #            # Add auto key.
-    #            ret = method("", *params)
-    #        else:
-    #            ret = method(*params)
-    #        # Store runtime for this method.
-    #        Component.call_times.append((method_owner.name, method.__name__, time.perf_counter() - start))
-    #        return ret
-    #    elif self.execution_mode == "static_graph":
-    #        # Graph construction.
-
-    #        # Method is an API method.
-    #        if method.__name__ in method_owner.api_methods:
-    #            # Make the API call.
-    #            op_recs = self.call_api(method, method_owner, *params, **kwargs)
-
-    #        # Method is a graph_fn.
-    #        else:
-    #            op_recs = self.call_graph_fn(method, method_owner, *params, **kwargs)
-
-    #    # Do we need to return the raw ops or the op-recs?
-    #    # Direct parent caller is a `_graph_fn_...`: Return raw ops.
-    #    stack = inspect.stack()
-    #    if return_ops is True or re.match(r'^_graph_fn_.+$', stack[1][3]):
-    #        return tuple(o.op for o in op_recs) if isinstance(op_recs, tuple) else op_recs.op
-    #    # Parent caller is non-graph_fn: Return op-recs.
-    #    else:
-    #        return op_recs
-
-    #def call_graph_fn(self, method, method_owner, *params, **kwargs):
-    #    """
-    #    Executes a dry run through a graph_fn (without calling it) just generating the empty
-    #    op-record-columns around the graph_fn (incoming and outgoing).
-
-    #    Args:
-    #        method (callable): The method (graph_fn or API method) to call.
-    #        method_owner (Component): Component this method belongs to.
-    #        \*params (Union[DataOpRecord,np.array,numeric]): The DataOpRecords to be used for calling the method.
-
-    #    Keyword Args:
-    #        flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
-    #            a FlattenedDataOp (with automatic key names).
-    #            Can also be a set of in-Socket names to flatten explicitly (True for all).
-    #            (default: True).
-    #        split_ops (Union[bool,Set[str]]): Whether to split all or some of the already flattened DataOps
-    #            and send the SingleDataOps one by one through the graph_fn.
-    #            Example: Spaces=A=Dict (container), B=int (primitive)
-    #            The graph_fn should then expect for each primitive Space in A:
-    #            _graph_fn(primitive-in-A (Space), B (int))
-    #            NOTE that B will be the same in all calls for all primitive-in-A's.
-    #            (default: True).
-    #        add_auto_key_as_first_param (bool): If `split_ops` is not False, whether to send the
-    #            automatically generated flat key as the very first parameter into each call of the graph_fn.
-    #            Example: Spaces=A=float (primitive), B=Tuple (container)
-    #            The graph_fn should then expect for each primitive Space in B:
-    #            _graph_fn(key, A (float), primitive-in-B (Space))
-    #            NOTE that A will be the same in all calls for all primitive-in-B's.
-    #            The key can now be used to index into variables equally structured as B.
-    #            Has no effect if `split_ops` is False.
-    #            (default: False).
-
-    #    """
-    #    flatten_ops = kwargs.pop("flatten_ops", False)
-    #    split_ops = kwargs.pop("split_ops", False)
-    #    add_auto_key_as_first_param = kwargs.pop("add_auto_key_as_first_param", False)
-
-    #    # Make sure the graph_fn belongs to this Component (not allowed to call graph_fn of other component
-    #    # directly).
-    #    if method_owner is not self:
-    #        raise RLGraphError("Graph_fn '{}' may only be sent to `call` by its owner ({})! However, '{}' is "
-    #                           "calling it.".format(method.__name__, method_owner.scope, self.scope))
-
-    #    # Add all kwargs to params (op-rec contains kwarg-name).
-    #    params = list(params)
-    #    for key, value in kwargs.items():
-    #        value.kwarg = key
-    #        params.append(value)
-
-    #    # Sanity check number of actual graph_fn input values against len(params).
-    #    _sanity_check_call_parameters(self, params, method, "graph_fn", add_auto_key_as_first_param)
-
-    #    # Store a  graph_fn record in this component for better in/out-op-record-column reference.
-    #    if method.__name__ not in self.graph_fns:
-    #        self.graph_fns[method.__name__] = GraphFnRecord(graph_fn=method, component=self)
-
-    #    # Generate in-going op-rec-column.
-    #    in_graph_fn_column = DataOpRecordColumnIntoGraphFn(
-    #        len(params), component=self, graph_fn=method,
-    #        flatten_ops=flatten_ops, split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param
-    #    )
-    #    # Add the column to the `graph_fns` record.
-    #    self.graph_fns[method.__name__].in_op_columns.append(in_graph_fn_column)
-
-    #    # We are already building: Actually call the graph_fn after asserting that its Component is input-complete.
-    #    if self.graph_builder and self.graph_builder.phase == "building":
-    #        # Populate in-op-column with actual ops, Space, kwarg-name.
-    #        for i, in_op in enumerate(params):
-    #            if isinstance(in_op, DataOpRecord):
-    #                in_graph_fn_column.op_records[i].op = in_op.op
-    #                in_graph_fn_column.op_records[i].space = get_space_from_op(in_op.op)
-    #                in_graph_fn_column.op_records[i].kwarg = in_op.kwarg
-    #            elif in_op is not None:
-    #                in_graph_fn_column.op_records[i].op = in_op
-    #                in_graph_fn_column.op_records[i].space = get_space_from_op(in_op)
-    #        # Assert input-completeness of Component (if not already, then after this graph_fn/Space update).
-    #        #if self.input_complete is False:
-    #        # Check Spaces and create variables.
-    #        self.graph_builder.build_component_when_input_complete(self)
-    #        assert self.input_complete
-    #        # TODO: This check should go in, but fails for multi-GPU DQN runs.
-    #        #if in_graph_fn_column.graph_fn.__name__ == "_graph_fn__variables":
-    #        #    assert self.variable_complete
-    #        # Call the graph_fn.
-    #        out_graph_fn_column = self.graph_builder.run_through_graph_fn_with_device_and_scope(
-    #            in_graph_fn_column, create_new_out_column=True
-    #        )
-    #        # Check again, in case we are now also variable-complete.
-    #        self.graph_builder.build_component_when_input_complete(self)
-
-    #    # We are still in the assembly phase: Don't actually call the graph_fn. Only generate op-rec-columns
-    #    # around it (in-coming and out-going).
-    #    else:
-    #        # Create 2 op-record columns, one going into the graph_fn and one getting out of there and link
-    #        # them together via the graph_fn (w/o calling it).
-    #        # TODO: remove when we have numpy-based Components (then we can do test calls to infer everything automatically)
-    #        if method.__name__ in self.graph_fn_num_outputs:
-    #            num_graph_fn_return_values = self.graph_fn_num_outputs[method.__name__]
-    #        else:
-    #            num_graph_fn_return_values = util.get_num_return_values(method)
-    #        self.logger.debug("Graph_fn has {} return values (inferred).".format(method.__name__,
-    #                                                                             num_graph_fn_return_values))
-    #        # If in-column is empty, add it to the "empty in-column" set.
-    #        if len(in_graph_fn_column.op_records) == 0:
-    #            self.no_input_graph_fn_columns.add(in_graph_fn_column)
-
-    #        # Generate the out-op-column from the number of return values (guessed during assembly phase or
-    #        # actually measured during build phase).
-    #        out_graph_fn_column = DataOpRecordColumnFromGraphFn(
-    #            num_graph_fn_return_values, component=self, graph_fn_name=method.__name__,
-    #            in_graph_fn_column=in_graph_fn_column
-    #        )
-
-    #        in_graph_fn_column.out_graph_fn_column = out_graph_fn_column
-
-    #    self.graph_fns[method.__name__].out_op_columns.append(out_graph_fn_column)
-
-    #    # Link from in-going op-recs with out-coming ones (both ways).
-    #    for i, op_rec in enumerate(params):
-    #        # A DataOpRecord: Link to next and from next back to op_rec.
-    #        if isinstance(op_rec, DataOpRecord):
-    #            op_rec.next.add(in_graph_fn_column.op_records[i])
-    #            in_graph_fn_column.op_records[i].previous = op_rec
-    #            # Also update the kwarg name so that a future call to the graph_fn with the in-column will work.
-    #            in_graph_fn_column.op_records[i].kwarg = op_rec.kwarg
-    #        # A fixed input value. Store directly as op with Space and register it as already known (constant).
-    #        elif op_rec is not None:
-    #            # TODO: support fixed values with kwargs as well.
-    #            constant_op = np.array(op_rec)
-    #            in_graph_fn_column.op_records[i].op = constant_op
-    #            in_graph_fn_column.op_records[i].space = get_space_from_op(constant_op)
-    #            self.constant_op_records.add(in_graph_fn_column.op_records[i])
-
-    #    if len(out_graph_fn_column.op_records) == 1:
-    #        return out_graph_fn_column.op_records[0]
-    #    else:
-    #        return tuple(out_graph_fn_column.op_records)
-
-    #def call_api(self, method, method_owner, *params, **kwargs):
-    #    """
-    #    Executes an assembly run through another API method (will actually call this API method for further assembly).
-
-    #    Args:
-    #        method (callable): The method (graph_fn or API method) to call.
-    #        method_owner (Component): Component this method belongs to.
-
-    #        \*params (Union[DataOpRecord,np.array,numeric]): The DataOpRecords (or constant values) to be used for
-    #            calling the method.
-
-    #    Returns:
-    #        DataOpRecord: Output op of calling this api method.
-    #    """
-    #    api_method_rec = method_owner.api_methods[method.__name__]
-
-    #    params_no_none = list()
-    #    for p in params[::-1]:
-    #        # Only allow Nones at end of params (positional default args).
-    #        if p is None:
-    #            assert len(params_no_none) == 0,\
-    #                "ERROR: params ({}) to API-method '{}' have Nones amongst them (ok, if at the end of the params " \
-    #                "list, but not in the middle).".format(params, method.__name__)
-    #        else:
-    #            params_no_none.insert(0, p)
-    #    # Add all kwargs as tuples (key, op-rec) to params_no_none.
-    #    for key, value in kwargs.items():
-    #        params_no_none.append(tuple([key, value]))
-
-    #    # Create op-record column to call API method with. Ignore None input params. These should not be sent
-    #    # to the API-method.
-    #    in_op_column = DataOpRecordColumnIntoAPIMethod(
-    #        op_records=len(params_no_none), component=self, api_method_rec=api_method_rec
-    #    )
-
-    #    # Add the column to the API-method record.
-    #    api_method_rec.in_op_columns.append(in_op_column)
-
-    #    # Link from incoming op_recs into the new column or populate new column with ops/Spaces (this happens
-    #    # if this call was made from within a graph_fn such that ops and Spaces are already known).
-    #    flex = None
-    #    for i, op_rec in enumerate(params_no_none):
-    #        # Named arg/kwarg -> get input_name from that and peel op_rec.
-    #        if isinstance(op_rec, tuple) and not isinstance(op_rec, DataOpTuple):
-    #            key = op_rec[0]
-    #            op_rec = op_rec[1]
-    #            in_op_column.op_records[i].kwarg = key
-    #        # Positional arg -> get input_name from input_names list.
-    #        else:
-    #            key = api_method_rec.input_names[i if flex is None else flex]
-
-    #        # Var-positional arg, attach the actual position to input_name string.
-    #        if method_owner.api_method_inputs[key] == "*flex":
-    #            if flex is None:
-    #                flex = i
-    #            key += "[{}]".format(i - flex)
-
-    #        # We are already in building phase (params may be coming from inside graph_fn).
-    #        if self.graph_builder is not None and self.graph_builder.phase == "building":
-    #            # Params are op-records -> link AND pass on actual ops/Spaces.
-    #            if isinstance(op_rec, DataOpRecord):
-    #                in_op_column.op_records[i].op = op_rec.op
-    #                in_op_column.op_records[i].space = method_owner.api_method_inputs[key] = \
-    #                    get_space_from_op(op_rec.op)
-    #                op_rec.next.add(in_op_column.op_records[i])
-    #                in_op_column.op_records[i].previous = op_rec
-    #            # Params are actual ops: Pass them (and Space) on to in-column records.
-    #            else:
-    #                in_op_column.op_records[i].op = op_rec
-    #                in_op_column.op_records[i].space = method_owner.api_method_inputs[key] = \
-    #                    get_space_from_op(op_rec)
-    #            # Check input-completeness of Component (but not strict as we are only calling API, not a graph_fn).
-    #            if method_owner.input_complete is False:
-    #                # Check Spaces and create variables.
-    #                method_owner.graph_builder.build_component_when_input_complete(method_owner)
-
-    #        # A DataOpRecord from the meta-graph.
-    #        elif isinstance(op_rec, DataOpRecord):
-    #            op_rec.next.add(in_op_column.op_records[i])
-    #            in_op_column.op_records[i].previous = op_rec
-    #            if key not in method_owner.api_method_inputs:
-    #                method_owner.api_method_inputs[key] = None
-
-    #        # Fixed value (instead of op-record): Store the fixed value directly in the op.
-    #        else:
-    #            in_op_column.op_records[i].op = np.array(op_rec)
-    #            in_op_column.op_records[i].space = get_space_from_op(op_rec)
-    #            if key not in method_owner.api_method_inputs or method_owner.api_method_inputs[key] is None:
-    #                method_owner.api_method_inputs[key] = in_op_column.op_records[i].space
-    #            self.constant_op_records.add(in_op_column.op_records[i])
-
-    #    # Now actually call the API method with that the correct *args and **kwargs from the new column and
-    #    # create a new out-column with num-records == num-return values.
-    #    name = method.__name__
-    #    self.logger.debug("Calling api method {} with owner {}:".format(name, method_owner))
-    #    args = [op_rec for op_rec in in_op_column.op_records if op_rec.kwarg is None]
-    #    kwargs = {op_rec.kwarg: op_rec for op_rec in in_op_column.op_records if op_rec.kwarg is not None}
-    #    out_op_recs = method(*args, **kwargs)
-
-    #    # Process the results (push into a column).
-    #    out_op_recs = util.force_list(out_op_recs)
-    #    out_op_column = DataOpRecordColumnFromAPIMethod(
-    #        op_records=len(out_op_recs),
-    #        component=self,
-    #        api_method_name=method.__name__
-    #    )
-
-    #    # Link the returned ops to that new out-column.
-    #    for i, op_rec in enumerate(out_op_recs):
-    #        # If we already have actual op(s) and Space(s), push them already into the
-    #        # DataOpRecordColumnFromAPIMethod's records.
-    #        if self.graph_builder is not None and self.graph_builder.phase == "building":
-    #            out_op_column.op_records[i].op = op_rec.op
-    #            out_op_column.op_records[i].space = op_rec.space
-    #        op_rec.next.add(out_op_column.op_records[i])
-    #        out_op_column.op_records[i].previous = op_rec
-    #    # And append the new out-column to the api-method-rec.
-    #    api_method_rec.out_op_columns.append(out_op_column)
-
-    #    # Then return the op-records from the new out-column.
-    #    if len(out_op_column.op_records) == 1:
-    #        return out_op_column.op_records[0]
-    #    else:
-    #        return tuple(out_op_column.op_records)
+            graph_fn_recs = component_graph_fn_registry.get(class_.__name__)
+            if graph_fn_recs is not None:
+                for graph_fn_rec in graph_fn_recs:
+                    define_graph_fn(self, graph_fn_rec)
 
     def get_number_of_allowed_inputs(self, api_method_name):
         """
@@ -1120,8 +769,8 @@ class Component(Specifiable):
                 if api_method_name in expose_apis:
                     def exposed_api_method_wrapper(self, *inputs):
                         # Complicated way to lookup sub-component's method to avoid fixtures when original component gets copied.
-                        return self.call(self.sub_components[api_method_rec.method.__self__.name].api_methods[api_method_name].method, *inputs)
-                        #return self.call(api_method_rec.method, *inputs)
+                        return self.call(self.sub_components[api_method_rec.func.__self__.name].api_methods[api_method_name].func, *inputs)
+                        #return self.call(api_method_rec.func, *inputs)
                     self.define_api_method(api_method_name, exposed_api_method_wrapper,
                                            must_be_complete=must_be_complete)
                     # Add the sub-component's API-registered methods to ours.
@@ -1446,7 +1095,7 @@ class Component(Specifiable):
         """
         pass
 
-    @api
+    @api(returns=1)
     def _graph_fn__variables(self):
         """
         Outputs all of this Component's variables in a DataOpDict (API-method "_variables").
