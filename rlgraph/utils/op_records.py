@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import numpy as np
 
+from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.utils.ops import FlattenedDataOp, flatten_op, unflatten_op, is_constant
 
@@ -104,8 +105,7 @@ class DataOpRecordColumn(object):
                         if is_constant(op):
                             op = np.array(op)
                         op_rec.op = op
-                        # TODO: move space inference here.
-                        #op_rec.space = get_space_from_op(constant_op)
+                        op_rec.space = get_space_from_op(op)
                         component.constant_op_records.add(op_rec)
                     self.op_records.append(op_rec)
 
@@ -124,8 +124,7 @@ class DataOpRecordColumn(object):
                         if is_constant(op):
                             op = np.array(op)
                         op_rec.op = op
-                        # TODO: move space inference here.
-                        #op_rec.space = get_space_from_op(constant_op)
+                        op_rec.space = get_space_from_op(op)
                         component.constant_op_records.add(op_rec)
                     self.op_records.append(op_rec)
         else:

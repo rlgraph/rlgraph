@@ -129,14 +129,16 @@ def api(api_method=None, *, component=None, name=None, returns=None,
 
                 # We are already in building phase (params may be coming from inside graph_fn).
                 if self.graph_builder is not None and self.graph_builder.phase == "building":
-                    # Params are op-records -> link AND pass on actual ops/Spaces.
-                    if isinstance(value, DataOpRecord):
-                        in_op_column.op_records[i].space = self.api_method_inputs[param_name] = \
-                            get_space_from_op(value.op)
-                    # Params are actual ops: Pass them (and Space) on to in-column records.
-                    else:
-                        in_op_column.op_records[i].space = self.api_method_inputs[param_name] = \
-                            get_space_from_op(value)
+                    self.api_method_inputs[param_name] = in_op_column.op_records[i].space
+                    ## Params are op-records -> link AND pass on actual ops/Spaces.
+                    #if isinstance(value, DataOpRecord):
+                    #    in_op_column.op_records[i].space = self.api_method_inputs[param_name] = \
+                    #        get_space_from_op(value.op)
+                    ## Params are actual ops: Pass them (and Space) on to in-column records.
+                    #else:
+                    #    in_op_column.op_records[i].space = self.api_method_inputs[param_name] = \
+                    #        get_space_from_op(value)
+
                     # Check input-completeness of Component (but not strict as we are only calling API, not a graph_fn).
                     if self.input_complete is False:
                         # Check Spaces and create variables.
@@ -149,9 +151,8 @@ def api(api_method=None, *, component=None, name=None, returns=None,
 
                 # Fixed value (instead of op-record): Store the fixed value directly in the op.
                 else:
-                    in_op_column.op_records[i].space = get_space_from_op(value)
-                    if param_name not in self.api_method_inputs or \
-                            self.api_method_inputs[param_name] is None:
+                    #in_op_column.op_records[i].space = get_space_from_op(value)
+                    if param_name not in self.api_method_inputs or self.api_method_inputs[param_name] is None:
                         self.api_method_inputs[param_name] = in_op_column.op_records[i].space
 
             # Regular API-method: Call it here.
@@ -451,14 +452,15 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
     # We are already building: Actually call the graph_fn after asserting that its Component is input-complete.
     if component.graph_builder and component.graph_builder.phase == "building":
         # Populate in-op-column with actual ops, Space, kwarg-name.
-        for i, (key, value) in enumerate(all_args):
-            if isinstance(value, DataOpRecord):
-                # in_graph_fn_column.op_records[i].op = value.op
-                in_graph_fn_column.op_records[i].space = get_space_from_op(value.op)
-                # in_graph_fn_column.op_records[i].kwarg = value.kwarg
-            elif value is not None:
-                # in_graph_fn_column.op_records[i].op = value
-                in_graph_fn_column.op_records[i].space = get_space_from_op(value)
+        #for i, (key, value) in enumerate(all_args):
+        #    if isinstance(value, DataOpRecord):
+        #        # in_graph_fn_column.op_records[i].op = value.op
+        #        in_graph_fn_column.op_records[i].space = get_space_from_op(value.op)
+        #        # in_graph_fn_column.op_records[i].kwarg = value.kwarg
+        #    elif value is not None:
+        #        # in_graph_fn_column.op_records[i].op = value
+        #        in_graph_fn_column.op_records[i].space = get_space_from_op(value)
+
         # Assert input-completeness of Component (if not already, then after this graph_fn/Space update).
         # if self.input_complete is False:
         # Check Spaces and create variables.
@@ -506,15 +508,15 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
     component.graph_fns[wrapped_func.__name__].out_op_columns.append(out_graph_fn_column)
 
     # Link from in-going op-recs to out-coming ones (both ways).
-    for i, (key, value) in enumerate(all_args):
-        # A DataOpRecord: Link to next and from next back to op_rec.
-        if isinstance(value, DataOpRecord):
-            pass
-        # A fixed input value. Store directly as op with Space and register it as already known (constant).
-        elif value is not None:
-            # TODO: support fixed values with kwargs as well.
-            in_graph_fn_column.op_records[i].space = get_space_from_op(
-                in_graph_fn_column.op_records[i].op)
+    #for i, (key, value) in enumerate(all_args):
+    #    # A DataOpRecord: Link to next and from next back to op_rec.
+    #    if isinstance(value, DataOpRecord):
+    #        pass
+    #    # A fixed input value. Store directly as op with Space and register it as already known (constant).
+    #    elif value is not None:
+    #        # TODO: support fixed values with kwargs as well.
+    #        in_graph_fn_column.op_records[i].space = get_space_from_op(
+    #            in_graph_fn_column.op_records[i].op)
 
     if len(out_graph_fn_column.op_records) == 1:
         return out_graph_fn_column.op_records[0]
