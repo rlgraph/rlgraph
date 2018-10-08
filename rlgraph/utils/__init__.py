@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.utils.decorators import api
 from rlgraph.utils.rlgraph_error import RLGraphError
 from rlgraph.utils.ops import DataOp, SingleDataOp, DataOpDict, DataOpTuple, ContainerDataOp, FlattenedDataOp
 from rlgraph.utils.specifiable import Specifiable
@@ -28,6 +27,7 @@ from rlgraph.utils.numpy import softmax, relu, one_hot
 from rlgraph.utils.pytorch_util import pytorch_one_hot, PyTorchVariable
 from rlgraph.utils.execution_util import print_call_chain
 # from rlgraph.utils.specifiable_server import SpecifiableServer, SpecifiableServerHook
+from rlgraph.utils.decorators import api
 
 
 __all__ = [

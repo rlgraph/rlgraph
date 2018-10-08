@@ -26,7 +26,7 @@ from rlgraph.utils.decorators import api
 from rlgraph.tests.dummy_components import *
 
 
-class TestTwoSubComponents(unittest.TestCase):
+class TestAPIMethods(unittest.TestCase):
     """
     Tests for different ways to place and then connect two or more sub-Components into the root-Component.
     Tests different ways of defining these connections using API-methods.
