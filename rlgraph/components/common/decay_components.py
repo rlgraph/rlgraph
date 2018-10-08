@@ -121,6 +121,8 @@ class DecayComponent(Component):
                     ),
                 )
         elif get_backend() == "pytorch":
+            if time_step is None:
+                time_step = torch.tensor([0])
             smaller_than_start = time_step <= self.start_timestep
             if time_step.dim() == 0:
                 time_step = time_step.unsqueeze(-1)

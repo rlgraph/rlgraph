@@ -193,7 +193,7 @@ class GraphExecutor(Specifiable):
         Returns:
             any: Weights for this graph..
         """
-        raise NotImplementedError
+        return self.execute("_variables")
 
     def set_weights(self, weights):
         """
@@ -205,7 +205,7 @@ class GraphExecutor(Specifiable):
         Raises:
             ValueError if weights do not match graph weights in shapes and types.
         """
-        raise NotImplementedError
+        self.execute(("sync", weights))
 
     def terminate(self):
         """
