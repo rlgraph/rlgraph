@@ -325,53 +325,61 @@ class DummyCallingSubComponentsAPIFromWithinGraphFn(Component):
 class FlattenSplitDummy(Component):
     """
     A dummy component with a 2-to-2 graph_fn mapping with flatten/split settings set to True.
-
-    API:
-        run(in1, in2) (flatten+split) -> (in1 + 1.0, in1 + in2)
     """
     def __init__(self, scope="dummy-2-to-2-all-options", constant_value=1.0, **kwargs):
         super(FlattenSplitDummy, self).__init__(scope=scope, **kwargs)
 
         self.constant_value = np.array(constant_value)
 
-    @api(name="run", returns=2)
+    @api(name="run", returns=2, flatten_ops=True, split_ops=True)
     def _graph_fn_2_to_2(self, input1, input2):
+        """
+        Returns:
+            Tuple:
+                - in1 + 1.0
+                - in1 + in2
+        """
         return input1 + self.constant_value, input1 + input2
 
 
 class NoFlattenNoSplitDummy(Component):
     """
     A dummy component with a 2-to-2 graph_fn mapping with flatten/split settings all set to False.
-
-    API:
-        run(in1, in2) -> (in2, in1)
     """
     def __init__(self, scope="dummy-2-to-2-no-options", **kwargs):
         super(NoFlattenNoSplitDummy, self).__init__(scope=scope, **kwargs)
 
     @api(name="run", returns=2)
     def _graph_fn_2_to_2(self, input1, input2):
+        """
+        Returns:
+            Tuple:
+                - in2
+                - in1
+        """
         return input2, input1
 
 
 class OnlyFlattenDummy(Component):
     """
     A dummy component with a 2-to-3 graph_fn mapping with only flatten_ops=True.
-
-    API:
-        run(in1, in2) (flatten) -> (dict(in1 key: in1 + in2),
-                                    dict(in1 key: in1 - in2),
-                                    in2)
     """
     def __init__(self, scope="dummy-2-to-2-all-options", constant_value=1.0, **kwargs):
         super(OnlyFlattenDummy, self).__init__(scope=scope, **kwargs)
 
         self.constant_value = np.array(constant_value)
 
-    @api(name="run", returns=3)
+    @api(name="run", returns=3, flatten_ops=True)
     def _graph_fn_2_to_3(self, input1, input2):
         """
         NOTE: Both input1 and input2 are flattened dicts.
+
+        Returns:
+            Tuple:
+                - in1 + in2
+                - in1 - in2
+                - in2
+
         """
         ret = FlattenedDataOp()
         ret2 = FlattenedDataOp()
