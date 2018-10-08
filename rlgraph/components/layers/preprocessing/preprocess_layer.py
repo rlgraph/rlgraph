@@ -20,6 +20,7 @@ from __future__ import division
 from rlgraph import get_backend
 from rlgraph.components.layers import Layer
 from rlgraph.utils.util import default_dict
+from rlgraph.utils.decorators import api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -30,27 +31,24 @@ class PreprocessLayer(Layer):
     A Layer that - additionally to `apply` - implements the `reset` API-method.
     `apply` is usually used for preprocessing inputs. `reset` is used to reset some state information of this
     preprocessor (e.g reset/reinitialize a variable).
-
-    API:
-        apply(input\_): Preprocesses a single input value and returns the preprocessed data.
-        reset(): Optional; Does some reset operations e.g. in case this PreprocessLayer contains variables and state.
     """
     def __init__(self, scope="pre-process", **kwargs):
-        default_dict(kwargs, dict(flatten_ops=True, split_ops=True))
         super(PreprocessLayer, self).__init__(scope=scope, **kwargs)
 
-        self.define_api_method("reset", self._graph_fn_reset)
-
+    @api(name="reset")
     def _graph_fn_reset(self):
         """
+        Does some reset operations e.g. in case this PreprocessLayer contains variables and state.
+
         Returns:
-            An op that resets this processor to some initial state.
-            E.g. could be called whenever an episode ends.
-            This could be useful if the preprocessor stores certain episode-sequence information
-            to do the processing and this information has to be reset after the episode terminates.
+            SingleDataOp: The op that resets this processor to some initial state.
         """
         if get_backend() == "tf":
             return tf.no_op(name="reset-op")  # Not mandatory.
 
         # TODO: fix for python backend.
         return
+
+    @api(name="apply", flatten_ops=True, split_ops=True)
+    def _graph_fn_apply(self, *inputs):
+        return super(PreprocessLayer, self)._graph_fn_apply(*inputs)
