@@ -314,7 +314,7 @@ class DummyCallingSubComponentsAPIFromWithinGraphFn(Component):
         self_result = self._graph_fn_apply(sub_comp_result)  # 2*(input_ + 3.0) + 4.0 = 2*input_ + 10.0
         return self_result
 
-    @graph_fn
+    @graph_fn(returns=1)
     def _graph_fn_apply(self, input_):
         # Returns: input_ + [(input_ + 1.0) + 3.0] = 2*input_ + 4.0
         intermediate_result = input_ + self.constant_value

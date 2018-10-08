@@ -160,11 +160,14 @@ class DataOpRecordColumn(object):
                     # If incoming is an op-rec -> Link them.
                     if isinstance(args[i], DataOpRecord):
                         op_rec.previous = args[i]
+                        op_rec.op = args[i].op  # assign op if any
                         args[i].next.add(op_rec)
                     # Do constant value assignment here.
                     elif args[i] is not None:
-                        constant_op = np.array(args[i])
-                        op_rec.op = constant_op
+                        op = args[i]
+                        if is_constant(op):
+                            op = np.array(op)
+                        op_rec.op = op
                         # TODO: move space inference here.
                         #op_rec.space = get_space_from_op(constant_op)
                         component.constant_op_records.add(op_rec)
@@ -177,11 +180,14 @@ class DataOpRecordColumn(object):
                     # If incoming is an op-rec -> Link them.
                     if isinstance(value, DataOpRecord):
                         op_rec.previous = value
+                        op_rec.op = value.op  # assign op if any
                         value.next.add(op_rec)
                     # Do constant value assignment here.
                     elif value is not None:
-                        constant_op = np.array(value)
-                        op_rec.op = constant_op
+                        op = value
+                        if is_constant(op):
+                            op = np.array(op)
+                        op_rec.op = op
                         # TODO: move space inference here.
                         #op_rec.space = get_space_from_op(constant_op)
                         component.constant_op_records.add(op_rec)
@@ -613,3 +619,6 @@ def deep_tuple(x):
     else:
         return x
 
+
+def is_constant(op):
+    return type(op).__name__ in ["int", "float", "bool", "ndarray"]

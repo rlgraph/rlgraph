@@ -32,7 +32,7 @@ from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalenc
 from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.util import force_list, force_tuple, get_shape
 from rlgraph.utils.ops import DataOpTuple, FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
-    DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn
+    DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn, is_constant
 from rlgraph.utils.component_printout import component_print_out
 
 if get_backend() == "tf":
@@ -851,7 +851,7 @@ class GraphBuilder(Specifiable):
                                 format(op_rec, next_op_rec, next_op_rec, next_op_rec.previous)
                         # If not last op in this API-method -> continue.
                         if next_op_rec.is_terminal_op is False:
-                            assert next_op_rec.op is None
+                            assert next_op_rec.op is None or is_constant(next_op_rec.op)
                             self.op_records_to_process.add(next_op_rec)
                         # Push op and Space into next op-record.
                         next_op_rec.op = op_rec.op
