@@ -20,7 +20,8 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.utils.ops import FlattenedDataOp
-from rlgraph.components.component import Component, api
+from rlgraph.components.component import Component
+from rlgraph.utils.decorators import api, graph_fn
 from rlgraph.components.common.container_splitter import ContainerSplitter
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
@@ -36,11 +37,11 @@ class Dummy1To1(Component):
         super(Dummy1To1, self).__init__(scope=scope, **kwargs)
         self.constant_value = constant_value
 
-    @api(name="run")
+    @api(name="run", returns=1)
     def _graph_fn_1to1(self, input_):
         """
         Returns:
-            Result of input_ + `self.constant_value`.
+            `output` (SingleDataOp): Result of input_ + `self.constant_value`.
         """
         return input_ + self.constant_value
 
@@ -53,9 +54,7 @@ class Dummy2To1(Component):
     def __init__(self, scope="dummy-2-to-1"):
         super(Dummy2To1, self).__init__(scope=scope)
 
-        # Automatically generate an API-method around our graph_fn.
-        self.define_api_method("run", self._graph_fn_2to1)
-
+    @api(name="run", returns=1)
     def _graph_fn_2to1(self, input1, input2):
         return input1 + input2
 
@@ -69,9 +68,7 @@ class Dummy1To2(Component):
         super(Dummy1To2, self).__init__(scope=scope)
         self.constant_value = constant_value
 
-        # Automatically generate an API-method around our graph_fn.
-        self.define_api_method("run", self._graph_fn_1to2)
-
+    @api(name="run", returns=2)
     def _graph_fn_1to2(self, input_):
         return input_ + self.constant_value, input_ * self.constant_value
 
@@ -85,9 +82,7 @@ class Dummy2To2(Component):
         super(Dummy2To2, self).__init__(scope=scope)
         self.constant_value = constant_value
 
-        # Automatically generate an API-method around our graph_fn.
-        self.define_api_method("run", self._graph_fn_2to2)
-
+    @api(name="run", returns=2)
     def _graph_fn_2to2(self, input1, input2):
         return input1 + self.constant_value, input2 * self.constant_value
 
@@ -101,9 +96,7 @@ class Dummy2To2WithDefaultValue(Component):
         super(Dummy2To2WithDefaultValue, self).__init__(scope=scope)
         self.constant_value = constant_value
 
-        # Automatically generate an API-method around our graph_fn.
-        self.define_api_method("run", self._graph_fn_2to2)
-
+    @api(name="run", returns=2)
     def _graph_fn_2to2(self, input1, input2=None):
         return input1 + self.constant_value, (input2 or 5.0) * self.constant_value
 
@@ -120,11 +113,10 @@ class Dummy0To1(Component):
         self.var_value = var_value
         self.var = None
 
-        self.define_api_method("run", self._graph_fn_0to1)
-
     def create_variables(self, input_spaces, action_space=None):
         self.var = self.get_variable(initializer=self.var_value)
 
+    @api(name="run", returns=1)
     def _graph_fn_0to1(self):
         return self.var
 
@@ -142,15 +134,18 @@ class Dummy2GraphFns1To1(Component):
         super(Dummy2GraphFns1To1, self).__init__(scope=scope)
         self.constant_value = constant_value
 
+    @api
     def run(self, input_):
         # Explicit definition of an API-method using both our graph_fn.
-        result_1to1 = self.call(self._graph_fn_1to1, input_)
-        result_1to1_neg = self.call(self._graph_fn_1to1_neg, result_1to1)
+        result_1to1 = self._graph_fn_1to1(input_)
+        result_1to1_neg = self._graph_fn_1to1_neg(result_1to1)
         return result_1to1_neg
 
+    @graph_fn
     def _graph_fn_1to1(self, input_):
         return input_ + self.constant_value
 
+    @graph_fn
     def _graph_fn_1to1_neg(self, input_):
         return input_ - self.constant_value * 2
 
@@ -172,20 +167,20 @@ class DummyWithVar(Component):
         self.constant_value = constant_value
         self.constant_variable = None
 
-        # Automatically generate an API-method around one of our graph_fn.
-        self.define_api_method("run_minus", self._graph_fn_2)
-
     def create_variables(self, input_spaces, action_space=None):
         self.constant_variable = self.get_variable(name="constant-variable", initializer=2.0)
 
+    @api
     def run_plus(self, input_):
         # Explicit definition of an API-method using one of our graph_fn.
-        result = self.call(self._graph_fn_1, input_)
+        result = self._graph_fn_1(input_)
         return result
 
+    @graph_fn
     def _graph_fn_1(self, input_):
         return input_ + self.constant_value
 
+    @graph_fn
     def _graph_fn_2(self, input_):
         return input_ - self.constant_variable
 
@@ -208,13 +203,14 @@ class SimpleDummyWithVar(Component):
     def create_variables(self, input_spaces, action_space=None):
         self.constant_variable = self.get_variable(name="constant-variable", initializer=3.0)
 
+    @api
     def run(self, input_):
         # Explicit definition of an API-method using one of our graph_fn.
-        result = self.call(self._graph_fn_1, input_)
+        result = self._graph_fn_1(input_)
         return result
 
+    @graph_fn
     def _graph_fn_1(self, input_):
-
         return input_ + self.constant_variable
 
 
@@ -237,18 +233,21 @@ class DummyWithSubComponents(Component):
         self.sub_comp = DummyWithVar()
         self.add_components(self.sub_comp)
 
+    @api
     def run1(self, input_):
         # Explicit definition of an API-method using one of our graph_fn and one of
         # our child API-methods.
-        result = self.call(self.sub_comp.run_plus, input_)
-        result2 = self.call(self._graph_fn_apply, result)
+        result = self.sub_comp.run_plus(input_)
+        result2 = self._graph_fn_apply(result)
         return result, result2
 
+    @api
     def run2(self, input_):
-        result1 = self.call(self.sub_comp.run_minus, input_)
-        result3 = self.call(self._graph_fn_apply, result1)
+        result1 = self.sub_comp.run_minus(input_)
+        result3 = self._graph_fn_apply(result1)
         return result3
 
+    @graph_fn
     def _graph_fn_apply(self, input_):
         return input_ + self.constant_value
 
@@ -273,16 +272,18 @@ class DummyCallingSubCompAPIFromWithinGraphFn(Component):
         self.sub_comp = SimpleDummyWithVar()
         self.add_components(self.sub_comp)
 
+    @api
     def run(self, input_):
         # Returns 2*input_ + 10.0.
-        sub_comp_result = self.call(self.sub_comp.run, input_)  # input_ + 3.0
-        self_result = self.call(self._graph_fn_apply, sub_comp_result)  # 2*(input_ + 3.0) + 4.0 = 2*input_ + 10.0
+        sub_comp_result = self.sub_comp.run(input_)  # input_ + 3.0
+        self_result = self._graph_fn_apply(sub_comp_result)  # 2*(input_ + 3.0) + 4.0 = 2*input_ + 10.0
         return self_result
 
+    @graph_fn
     def _graph_fn_apply(self, input_):
         # Returns: input_ + [(input_ + 1.0) + 3.0] = 2*input_ + 4.0
         intermediate_result = input_ + self.constant_value
-        after_api_call = self.call(self.sub_comp.run, intermediate_result)
+        after_api_call = self.sub_comp.run(intermediate_result)
         return input_ + after_api_call
 
 
@@ -306,16 +307,18 @@ class DummyCallingSubComponentsAPIFromWithinGraphFn(Component):
         self.sub_comp = SimpleDummyWithVar()
         self.add_components(self.sub_comp)
 
+    @api
     def run(self, input_):
         # Returns 2*input_ + 10.0.
-        sub_comp_result = self.call(self.sub_comp.run, input_)  # input_ + 3.0
-        self_result = self.call(self._graph_fn_apply, sub_comp_result)  # 2*(input_ + 3.0) + 4.0 = 2*input_ + 10.0
+        sub_comp_result = self.sub_comp.run(input_)  # input_ + 3.0
+        self_result = self._graph_fn_apply(sub_comp_result)  # 2*(input_ + 3.0) + 4.0 = 2*input_ + 10.0
         return self_result
 
+    @graph_fn
     def _graph_fn_apply(self, input_):
         # Returns: input_ + [(input_ + 1.0) + 3.0] = 2*input_ + 4.0
         intermediate_result = input_ + self.constant_value
-        after_api_call = self.call(self.sub_comp.run, intermediate_result)
+        after_api_call = self.sub_comp.run(intermediate_result)
         return input_ + after_api_call
 
 
@@ -331,8 +334,7 @@ class FlattenSplitDummy(Component):
 
         self.constant_value = np.array(constant_value)
 
-        self.define_api_method("run", self._graph_fn_2_to_2, flatten_ops=True, split_ops=True)
-
+    @api(name="run", returns=2)
     def _graph_fn_2_to_2(self, input1, input2):
         return input1 + self.constant_value, input1 + input2
 
@@ -347,8 +349,7 @@ class NoFlattenNoSplitDummy(Component):
     def __init__(self, scope="dummy-2-to-2-no-options", **kwargs):
         super(NoFlattenNoSplitDummy, self).__init__(scope=scope, **kwargs)
 
-        self.define_api_method("run", self._graph_fn_2_to_2)
-
+    @api(name="run", returns=2)
     def _graph_fn_2_to_2(self, input1, input2):
         return input2, input1
 
@@ -367,8 +368,7 @@ class OnlyFlattenDummy(Component):
 
         self.constant_value = np.array(constant_value)
 
-        self.define_api_method("run", self._graph_fn_2_to_3, flatten_ops=True)
-
+    @api(name="run", returns=3)
     def _graph_fn_2_to_3(self, input1, input2):
         """
         NOTE: Both input1 and input2 are flattened dicts.
@@ -402,15 +402,16 @@ class DummyNNWithDictInput(NeuralNetwork):
         # Add all sub-components to this one.
         self.add_components(self.splitter, self.stack_a, self.stack_b, self.concat_layer)
 
+    @api
     def apply(self, input_dict):
         # Split the input dict into two streams.
-        input_a, input_b = self.call(self.splitter.split, input_dict)
+        input_a, input_b = self.splitter.split(input_dict)
 
         # Get the two stack outputs.
-        output_a = self.call(self.stack_a.apply, input_a)
-        output_b = self.call(self.stack_b.apply, input_b)
+        output_a = self.stack_a.apply(input_a)
+        output_b = self.stack_b.apply(input_b)
 
         # Concat everything together, that's the output.
-        concatenated_data = self.call(self.concat_layer.apply, output_a, output_b)
+        concatenated_data = self.concat_layer.apply(output_a, output_b)
 
         return concatenated_data
