@@ -97,6 +97,13 @@ class SpecifiableServer(Specifiable):
             callable: The callable to be executed when getting the given method name (of the Specifiable object
                 (running inside the SpecifiableServer).
         """
+        # Only seems to be necessary on Windows as multiprocessing calls __getstate__ on the SpecifiableServer object.
+        # (and `__getstate__` is not in self.output_spaces).
+        if method_name not in self.output_spaces:
+            def func():
+                pass
+            return func
+
         def call(*args):
             if isinstance(self.output_spaces, dict):
                 assert method_name in self.output_spaces, "ERROR: Method '{}' not specified in output_spaces: {}!".\
@@ -254,6 +261,6 @@ if get_backend() == "tf":
 
         def end(self, session):
             tp = multiprocessing.pool.ThreadPool()
-            tp.map(lambda server: server.stop_server(), SpecifiableServer.INSTANCES)
+            tp.map(lambda server: server.stop_server(), self.specifiable_buffer)
             tp.close()
             tp.join()
