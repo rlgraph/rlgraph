@@ -130,15 +130,6 @@ def api(api_method=None, *, component=None, name=None, returns=None,
                 # We are already in building phase (params may be coming from inside graph_fn).
                 if self.graph_builder is not None and self.graph_builder.phase == "building":
                     self.api_method_inputs[param_name] = in_op_column.op_records[i].space
-                    ## Params are op-records -> link AND pass on actual ops/Spaces.
-                    #if isinstance(value, DataOpRecord):
-                    #    in_op_column.op_records[i].space = self.api_method_inputs[param_name] = \
-                    #        get_space_from_op(value.op)
-                    ## Params are actual ops: Pass them (and Space) on to in-column records.
-                    #else:
-                    #    in_op_column.op_records[i].space = self.api_method_inputs[param_name] = \
-                    #        get_space_from_op(value)
-
                     # Check input-completeness of Component (but not strict as we are only calling API, not a graph_fn).
                     if self.input_complete is False:
                         # Check Spaces and create variables.
@@ -303,26 +294,12 @@ def graph_fn(graph_fn=None, *, returns=None,
 
 def define_api_method(component, api_method_record, copy_=True):
     """
-    Creates a very basic graph_fn based API method for this Component.
-    Alternative way for defining an API method directly in the Component via def.
+    Registers an API-method with a Component instance.
 
     Args:
-        name (Union[str,callable]): The name of the API method to create or one of the Component's method to
-            create the API-method from.
-
-        func (Optional[callable]): The graph_fn to wrap or the custom function to set as API-method.
-
-        must_be_complete (bool): Whether this API-method must have all its incoming Spaces defined in order
-            for the Component to count as "input-complete". Some API-methods may be still input-incomplete without
-            affecting the Component's build process.
-
-        ok_to_overwrite (bool): Whether to raise an Error if an API-method with that name or another property
-            with that name already exists. Default: False.
-
-    Keyword Args:
-        flatten_ops (bool,Set[int]): See `self.call` for details.
-        split_ops (bool,Set[int]): See `self.call` for details.
-        add_auto_key_as_first_param (bool): See `self.call` for details.
+        component (Component): The Component object to register the API method with.
+        api_method_record (APIMethodRecord): The APIMethodRecord describing the to-be-registered API-method.
+        copy_ (bool): Whether to deepcopy the APIMethodRecord prior to handing it to the Component for storing.
     """
     # Deep copy the record (in case this got registered the normal way with via decorating a class method).
     if copy_:
@@ -398,11 +375,12 @@ def define_graph_fn(component, graph_fn_record):
 def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs):
     """
     Executes a dry run through a graph_fn (without calling it) just generating the empty
-    op-record-columns around the graph_fn (incoming and outgoing).
+    op-record-columns around the graph_fn (incoming and outgoing). Except if the GraphBuilder
+    is already in the "building" phase, in which case the graph_fn is actually called.
 
     Args:
         component (Component): The Component that this graph_fn belongs to.
-        method (callable): The method (graph_fn or API method) to call.
+        wrapped_func (callable): The graph_fn to be called during the build process.
         returns (Optional[int]): The number of return values of the graph_fn.
         options (Dict): Dict with the following keys (optionally) set:
             - flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
@@ -451,16 +429,6 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
 
     # We are already building: Actually call the graph_fn after asserting that its Component is input-complete.
     if component.graph_builder and component.graph_builder.phase == "building":
-        # Populate in-op-column with actual ops, Space, kwarg-name.
-        #for i, (key, value) in enumerate(all_args):
-        #    if isinstance(value, DataOpRecord):
-        #        # in_graph_fn_column.op_records[i].op = value.op
-        #        in_graph_fn_column.op_records[i].space = get_space_from_op(value.op)
-        #        # in_graph_fn_column.op_records[i].kwarg = value.kwarg
-        #    elif value is not None:
-        #        # in_graph_fn_column.op_records[i].op = value
-        #        in_graph_fn_column.op_records[i].space = get_space_from_op(value)
-
         # Assert input-completeness of Component (if not already, then after this graph_fn/Space update).
         # if self.input_complete is False:
         # Check Spaces and create variables.
@@ -506,17 +474,6 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
         in_graph_fn_column.out_graph_fn_column = out_graph_fn_column
 
     component.graph_fns[wrapped_func.__name__].out_op_columns.append(out_graph_fn_column)
-
-    # Link from in-going op-recs to out-coming ones (both ways).
-    #for i, (key, value) in enumerate(all_args):
-    #    # A DataOpRecord: Link to next and from next back to op_rec.
-    #    if isinstance(value, DataOpRecord):
-    #        pass
-    #    # A fixed input value. Store directly as op with Space and register it as already known (constant).
-    #    elif value is not None:
-    #        # TODO: support fixed values with kwargs as well.
-    #        in_graph_fn_column.op_records[i].space = get_space_from_op(
-    #            in_graph_fn_column.op_records[i].op)
 
     if len(out_graph_fn_column.op_records) == 1:
         return out_graph_fn_column.op_records[0]
