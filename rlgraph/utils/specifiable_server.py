@@ -18,9 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import multiprocessing
-import numpy as np
 
-#from rlgraph.environments.deepmind_lab import DeepmindLabEnv
 from rlgraph import get_backend
 from rlgraph.spaces.space import Space
 from rlgraph.spaces.containers import ContainerSpace
@@ -129,21 +127,13 @@ class SpecifiableServer(Specifiable):
                     return_slots.append(i)
 
             if get_backend() == "tf":
-                #def quick_flatten_dict(dict_, start_slot):
-                #    ret = tuple(res for slot, (key, res) in enumerate(sorted(dict_.items())) if slot + start_slot in
-                #                return_slots)
-                #    # print("after quick flatten dict: returning {}".format(ret))
-                #    return ret
-
                 # This function will send the method-call-comment via the out-pipe to the remote (server) Specifiable
                 # object - all in-graph - and return the results to be used further by other graph ops.
                 def py_call(*args_):
                     args_ = [arg.decode('UTF-8') if isinstance(arg, bytes) else arg for arg in args_]
                     try:
-                        #print("Sending args '{}' through pipe!".format(args))
                         self.out_pipe.send(args_)
                         result_ = self.out_pipe.recv()
-                        #print("Received results_ '{}'.".format(result_))
 
                         # If an error occurred, it'll be passed back through the pipe.
                         if isinstance(result_, Exception):
@@ -151,53 +141,13 @@ class SpecifiableServer(Specifiable):
                         elif result_ is not None:
                             return result_
 
-                        # Dict output. Flatten to tuple, then filter out the return
-                        # values according to return_slots.
-                        #elif isinstance(result_, dict):
-                        #    return tuple(res for slot, (key, res) in enumerate(sorted(result_.items())) if slot in
-                        #                 return_slots) #quick_flatten_dict(result_, 0)
-                        ## Regular result. Filter out the return values according to return_slots.
-                        #elif isinstance(result_, tuple):
-                        #    #return tuple((np.asarray(r, dtype=np.float32, order="C") if type(r) == float else r) for slot, r in enumerate(result_) if slot in return_slots)
-                        #    #print("return slots={}".format(return_slots))
-                        #    ret = list()
-                        #    slot = 0
-                        #    for i, r in enumerate(result_):
-                        #        if slot in return_slots:
-                        #            if not isinstance(r, dict):
-                        #                #print("no dict, append {}".format(r))
-                        #                ret.append(r)
-                        #                slot += 1
-                        #            else:
-                        #                #print("QUICK flattening. {}".format(r))
-                        #                flat_dict = tuple(
-                        #                    res for s, (key, res) in enumerate(sorted(r.items())) if
-                        #                    s + slot in return_slots
-                        #                )  #quick_flatten_dict(r, slot)
-                        #                ret.extend(flat_dict)
-                        #                slot += len(flat_dict)
-                        #        else:
-                        #            #print("skipped slot={}".format(slot))
-                        #            slot += 1
-                        #    #print("returning {}".format(ret))
-                        #    return tuple(ret)
-                        #else:
-                        #    #return np.asarray(result_, dtype=np.float32, order="C") if type(result_) == float else result_
-                        #    return result_
                     except Exception as e:
                         if isinstance(e, IOError):
                             raise StopIteration()  # Clean exit.
                         else:
                             raise
 
-                #def dummy_py_call(*args_):
-                #    if args_[0] == b"step_for_env_stepper":
-                #        return np.zeros(shape=(1,), dtype=np.float32), np.zeros(shape=(), dtype=np.float32), np.zeros(shape=(), dtype=np.bool_)
-                #    else:
-                #        return np.zeros(shape=(1,), dtype=np.float32)
-
                 results = tf.py_func(py_call, (method_name,) + tuple(args), dtypes, name=method_name)
-                #results = tf.py_func(dummy_py_call, (method_name,) + tuple(args), dtypes, name=method_name)
 
                 # Force known shapes on the returned tensors.
                 for i, (result, shape) in enumerate(zip(results, shapes)):
@@ -219,17 +169,13 @@ class SpecifiableServer(Specifiable):
             target=self.run_server, args=(self.class_, self.spec, self.in_pipe, self.shutdown_method)
         )
         self.process.start()
-        #tf.logging.info("Started run process in specifiable server.")
 
         # Wait for the "ready" signal (which is None).
-        #tf.logging.info("Waiting for pipe ready signal ...")
         result = self.out_pipe.recv()
 
         # Check whether there were construction errors.
         if isinstance(result, Exception):
-            #tf.logging.error("Received error: {}".format(result))
             raise result
-        #tf.logging.info("Got ready signal, proceeding.")
 
     def stop_server(self):  #, session):
         try:
@@ -241,22 +187,13 @@ class SpecifiableServer(Specifiable):
 
     def run_server(self, class_, spec, in_pipe, shutdown_method=None):
         proxy_object = None
-        #tf.logging.info("Attempting to init loop.")
         try:
 
             # Construct the Specifiable object.
-            #tf.logging.info("SpecifiableServer: Constructing Specifiable object. ...")
-
-            # TODO: Remove this hardcoding. Just for testing, why threadpools do not manage to bring up env-processes.
-            #proxy_object = DeepmindLabEnv("seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4)
-
             proxy_object = class_.from_spec(spec)
-            #tf.logging.info("SpecifiableServer: Done constructing Specifiable object '{}'. Sending 'ready' signal "
-            #                "...".format(proxy_object))
 
             # Send the ready signal (no errors).
             in_pipe.send(None)
-            #tf.logging.info("Sent init signal to pipe, start main server loop.")
 
             # Start a server-loop waiting for method call requests.
             while True:
@@ -266,15 +203,12 @@ class SpecifiableServer(Specifiable):
                 if command is None:
                     # Give the proxy_object a chance to clean up via some `shutdown_method`.
                     if shutdown_method is not None and hasattr(proxy_object, shutdown_method):
-                        #tf.logging.info("SpecifiableServer: Calling shutdown method '{}'. ...".format(shutdown_method))
                         getattr(proxy_object, shutdown_method)()
-                    #tf.logging.info("SpecifiableServer: Closing pipe.")
                     in_pipe.close()
                     return
 
                 # Call the method with the given args.
                 method_name = str(command[0])  #.decode()  # must decode here as method_name comes in as bytes
-                # print(method_name + " is called on Server.")
                 inputs = command[1:]
                 results = getattr(proxy_object, method_name)(*inputs)
 
@@ -284,8 +218,6 @@ class SpecifiableServer(Specifiable):
         # If something happens during the construction and proxy run phase, pass the exception back through our pipe.
         except Exception as e:
             # Try to clean up.
-            #tf.logging.info("Caught exception during init: {}".format(e))
-
             if proxy_object is not None and shutdown_method is not None and hasattr(proxy_object, shutdown_method):
                 try:
                     getattr(proxy_object, shutdown_method)()
@@ -308,13 +240,8 @@ if get_backend() == "tf":
             """
             Starts all registered RLGraphProxyProcess processes.
             """
-            #tf.logging.info('Starting specifiable server hooks from registry: {}'.format(SpecifiableServer.INSTANCES))
-
             tp = multiprocessing.pool.ThreadPool()
             tp.map(lambda server: server.start_server(), SpecifiableServer.INSTANCES)
-
-            #for server in PyProcess.INSTANCES:
-            #    server.start()
 
             tp.close()
             tp.join()
@@ -327,9 +254,6 @@ if get_backend() == "tf":
 
         def end(self, session):
             tp = multiprocessing.pool.ThreadPool()
-            #tp.map(lambda server: server.stop(), self.specifiable_buffer)
             tp.map(lambda server: server.stop_server(), SpecifiableServer.INSTANCES)
             tp.close()
             tp.join()
-            #for server in SpecifiableServer.INSTANCES:
-            #    server.stop_server()
