@@ -510,6 +510,8 @@ class GraphBuilder(Specifiable):
         kwargs = {r.kwarg: r.op for r in op_rec_column.op_records if r.kwarg is not None}
         assert all(op is not None for op in args)  # just make sure
 
+        call_time = None
+
         # Build the ops from this input-combination.
         # Flatten input items.
         if op_rec_column.flatten_ops is not False:
@@ -526,7 +528,8 @@ class GraphBuilder(Specifiable):
                         params_kwargs = {p[0]: p[1] for p in params if isinstance(p, tuple)}
                         if create_new_out_column is False:
                             call_time = time.perf_counter()
-                        ops[key] = force_tuple(op_rec_column.graph_fn(*params_args, **params_kwargs))
+                        ops[key] = force_tuple(op_rec_column.graph_fn(op_rec_column.component,
+                                                                      *params_args, **params_kwargs))
                         if create_new_out_column is False:
                             self.graph_call_times.append(time.perf_counter() - call_time)
                         if num_return_values >= 0 and num_return_values != len(ops[key]):
@@ -549,20 +552,20 @@ class GraphBuilder(Specifiable):
                     split_args, split_kwargs = split_args_and_kwargs[0], split_args_and_kwargs[1]
                     if create_new_out_column is False:
                         call_time = time.perf_counter()
-                    ops = op_rec_column.graph_fn(*split_args, **split_kwargs)
+                    ops = op_rec_column.graph_fn(op_rec_column.component, *split_args, **split_kwargs)
                     if create_new_out_column is False:
                         self.graph_call_times.append(time.perf_counter() - call_time)
             else:
                 if create_new_out_column is False:
                     call_time = time.perf_counter()
-                ops = op_rec_column.graph_fn(*flattened_args, **flattened_kwargs)
+                ops = op_rec_column.graph_fn(op_rec_column.component, *flattened_args, **flattened_kwargs)
                 if create_new_out_column is False:
                     self.graph_call_times.append(time.perf_counter() - call_time)
         # Just pass in everything as-is.
         else:
             if create_new_out_column is False:
                 call_time = time.perf_counter()
-            ops = op_rec_column.graph_fn(*args, **kwargs)
+            ops = op_rec_column.graph_fn(op_rec_column.component, *args, **kwargs)
             if create_new_out_column is False:
                 self.graph_call_times.append(time.perf_counter() - call_time)
 
