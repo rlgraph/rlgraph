@@ -52,12 +52,14 @@ class TestDevicePlacements(unittest.TestCase):
         a = DummyWithVar(scope="A", device=dict(variables=var_device, ops=op_device))
         test = ComponentTest(component=a, input_spaces=dict(input_=float))
 
-        # Actually check the device of the variables and ops in a.
-        actual_op_device = "/device:GPU:0" if "/device:GPU:0" in test.graph_builder.available_devices else ""
-        self.assertEqual(a.api_methods["run_plus"].in_op_columns[0].op_records[0].op.device, var_device)
-        self.assertEqual(a.api_methods["run_plus"].out_op_columns[0].op_records[0].op.device, actual_op_device)
-        self.assertEqual(a.api_methods["run_minus"].in_op_columns[0].op_records[0].op.device, var_device)
-        self.assertEqual(a.api_methods["run_minus"].out_op_columns[0].op_records[0].op.device, actual_op_device)
+        # Vars -> CPU.
+        self.assertEqual(a.variables["A/constant-variable"].device, var_device)
+        # Placeholders -> GPU.
+        self.assertEqual(a.api_methods["run_plus"].in_op_columns[0].op_records[0].op.device, op_device)
+        self.assertEqual(a.api_methods["run_minus"].in_op_columns[0].op_records[0].op.device, op_device)
+        # Actual ops -> GPU.
+        self.assertEqual(a.api_methods["run_plus"].out_op_columns[0].op_records[0].op.device, op_device)
+        self.assertEqual(a.api_methods["run_minus"].out_op_columns[0].op_records[0].op.device, op_device)
 
         # Expected: in + 2.0
         test.test(("run_plus", 1.1), expected_outputs=3.1)
