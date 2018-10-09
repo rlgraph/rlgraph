@@ -141,7 +141,7 @@ class LSTMLayer(NNLayer):
     @api
     def apply(self, inputs, initial_c_and_h_states=None, sequence_length=None):
         output, last_internal_states = self._graph_fn_apply(inputs, initial_c_and_h_states, sequence_length)
-        return dict(nn_output=output, last_internal_states=last_internal_states)
+        return dict(output=output, last_internal_states=last_internal_states)
 
     @graph_fn
     def _graph_fn_apply(self, inputs, initial_c_and_h_states=None, sequence_length=None):

@@ -96,12 +96,12 @@ class ComponentTest(object):
     def build(self):
         return self.graph_executor.build([self.component], self.input_spaces)
 
-    def test(self, *api_methods, **kwargs):
+    def test(self, *api_method_calls, **kwargs):
         """
         Does one test pass through the component to test.
 
         Args:
-            api_methods (Union[str,list,tuple]): See rlgraph.graphs.graph_executor for details.
+            api_method_calls (Union[str,list,tuple]): See rlgraph.graphs.graph_executor for details.
             A specifier for an API-method call.
                 - str: Call the API-method that has the given name w/o any input args.
                 - tuple len=2: 0=the API-method name to call; 1=the input args to use for the call.
@@ -124,7 +124,7 @@ class ComponentTest(object):
         assert not kwargs
 
         # Get the outs ..
-        outs = self.graph_executor.execute(*api_methods)
+        outs = self.graph_executor.execute(*api_method_calls)
         if isinstance(outs, dict) and len(outs) == 1:
             outs = list(outs.values())[0]
 
