@@ -27,14 +27,13 @@ from rlgraph.utils.numpy import softmax, relu, one_hot
 from rlgraph.utils.pytorch_util import pytorch_one_hot, PyTorchVariable
 from rlgraph.utils.execution_util import print_call_chain
 # from rlgraph.utils.specifiable_server import SpecifiableServer, SpecifiableServerHook
-from rlgraph.utils.decorators import api
+#from rlgraph.utils.decorators import api
 
 
 __all__ = [
-    "api", "RLGraphError",
+    "RLGraphError",
     "Initializer", "Specifiable", "dtype", "get_shape", "get_rank", "force_tuple", "force_list",
     "logging_formatter", "root_logger", "tf_logger", "print_logging_handler", "softmax", "relu", "one_hot",
     "DataOp", "SingleDataOp", "DataOpDict", "DataOpTuple", "ContainerDataOp", "FlattenedDataOp",
     "pytorch_one_hot", "PyTorchVariable", "LARGE_INTEGER", "SMALL_NUMBER"
 ]
-

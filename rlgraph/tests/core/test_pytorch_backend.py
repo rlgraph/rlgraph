@@ -67,8 +67,8 @@ class TestPytorchBackend(unittest.TestCase):
         test = ComponentTest(component=core, input_spaces=dict(input_=float))
 
         # Expected output: input + (input + 1.0)
-        test.test(("run", 100.9), expected_outputs=202.8)
-        test.test(("run", -5.1), expected_outputs=-9.2)
+        test.test(("run", 100.9), expected_outputs=np.array(202.8, dtype=np.float32))
+        test.test(("run", -5.1), expected_outputs=np.array(-9.2, dtype=np.float32))
 
     def test_calling_sub_components_api_from_within_graph_fn(self):
         a = DummyCallingSubComponentsAPIFromWithinGraphFn(scope="A")

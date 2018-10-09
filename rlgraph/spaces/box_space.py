@@ -25,7 +25,7 @@ import re
 from rlgraph import get_backend
 from rlgraph.utils.util import dtype
 from rlgraph.utils.initializer import Initializer
-from rlgraph.spaces.space import Space
+from rlgraph.spaces import Space
 
 if get_backend() == "pytorch":
     import torch

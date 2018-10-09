@@ -22,7 +22,6 @@ import unittest
 
 from rlgraph.spaces import *
 from rlgraph.tests.test_util import recursive_assert_almost_equal
-from rlgraph.utils.specifiable import Specifiable
 
 
 class TestSpecifiables(unittest.TestCase):
@@ -30,8 +29,6 @@ class TestSpecifiables(unittest.TestCase):
     Tests creation of Specifiable objects via from_spec.
     """
     def test_specifiable_on_spaces(self):
-        # TODO test not portable to CI, redo.
-        return
         """
         Tests complex Container Spaces for being constructable from_spec.
         """
@@ -53,7 +50,7 @@ class TestSpecifiables(unittest.TestCase):
             )
         )
 
-        space = Tuple(
+        space = Space.from_spec(dict(type="tuple", _args=[
             Dict(
                 a=bool,
                 b=IntBox(4),
@@ -65,8 +62,8 @@ class TestSpecifiables(unittest.TestCase):
             FloatBox(shape=(3, 2)),
             Tuple(
                 bool, BoolBox()
-            )
-        )
+            )]
+        ))
         recursive_assert_almost_equal(
             space.sample(),
             (
@@ -83,7 +80,7 @@ class TestSpecifiables(unittest.TestCase):
             )
         )
 
-        space = Dict(dict(
+        space = Dict.from_spec(dict(
             a=Tuple(float, FloatBox(shape=(1, 2, 2))),
             b=FloatBox(shape=(2, 2, 2, 2)),
             c=dict(type=float, shape=(2,))
@@ -109,5 +106,5 @@ class TestSpecifiables(unittest.TestCase):
                          (((None, None), (None, None), (None, None, 4, 2)), (None, None, 2, 2), (None, None, 4)))
         self.assertEqual(space.get_shape(with_batch_rank=True, with_time_rank=10, time_major=True),
                          (((10, None), (10, None), (10, None, 4, 2)), (10, None, 2, 2), (10, None, 4)))
-        self.assertEqual(space.get_shape(with_batch_rank=5, with_time_rank=10, time_major=None),
+        self.assertEqual(space.get_shape(with_batch_rank=5, with_time_rank=10, time_major=False),
                          (((5, 10), (5, 10), (5, 10, 4, 2)), (5, 10, 2, 2), (5, 10, 4)))
