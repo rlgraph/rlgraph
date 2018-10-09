@@ -226,8 +226,8 @@ class TensorFlowExecutor(GraphExecutor):
             self.update_timeline_if_necessary()
 
         # Return single values instead of lists of 1 item, but keep inner dicts as-are.
-        ret = {key: (value[0] if len(ret[key]) == 1 else tuple(value) if not isinstance(value, dict) else value)
-               for key, value in ret.items()}
+        ret = {key: (value[0] if len(ret[key]) == 1 and not isinstance(ret[key], dict) else tuple(value) \
+            if not isinstance(value, dict) else value) for key, value in ret.items()}
 
         # If only one key in ret, remove it.
         if len(api_method_calls) == 1:

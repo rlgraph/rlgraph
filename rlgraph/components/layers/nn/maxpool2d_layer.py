@@ -18,6 +18,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.layers.nn.nn_layer import NNLayer
+from rlgraph.utils.decorators import graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -63,6 +64,7 @@ class MaxPool2DLayer(NNLayer):
                 padding=self.padding
             )
 
+    @graph_fn
     def _graph_fn_apply(self, *inputs):
         if get_backend() == "tf":
             return tf.nn.pool(

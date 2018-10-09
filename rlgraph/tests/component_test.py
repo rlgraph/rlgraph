@@ -125,8 +125,9 @@ class ComponentTest(object):
 
         # Get the outs ..
         outs = self.graph_executor.execute(*api_method_calls)
-        if isinstance(outs, dict) and len(outs) == 1:
-            outs = list(outs.values())[0]
+        #
+        #if isinstance(outs, dict) and len(outs) == 1:
+        #    outs = list(outs.values())[0]
 
         #  Optionally do test asserts here.
         if expected_outputs is not None:

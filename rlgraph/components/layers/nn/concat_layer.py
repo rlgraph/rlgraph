@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+from rlgraph.utils.decorators import graph_fn
 from rlgraph.utils.util import force_list
 
 from .nn_layer import NNLayer
@@ -67,6 +68,7 @@ class ConcatLayer(NNLayer):
                 "batch/time-ranks).".format(self.in_space_0.shape, idx, input_spaces[key].shape)
             idx += 1
 
+    @graph_fn
     def _graph_fn_apply(self, *inputs):
         if get_backend() == "tf":
             #concat_output = self.layer.apply(force_list(inputs))

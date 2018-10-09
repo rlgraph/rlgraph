@@ -425,8 +425,6 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
     # Add the column to the `graph_fns` record.
     component.graph_fns[wrapped_func.__name__].in_op_columns.append(in_graph_fn_column)
 
-    all_args = [(i, a) for i, a in enumerate(args)] + [(k, v) for k, v in sorted(kwargs.items())]
-
     # We are already building: Actually call the graph_fn after asserting that its Component is input-complete.
     if component.graph_builder and component.graph_builder.phase == "building":
         # Assert input-completeness of Component (if not already, then after this graph_fn/Space update).
@@ -455,7 +453,7 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
         elif returns is not None:
             num_graph_fn_return_values = returns
         else:
-            assert False  # num_graph_fn_return_values = util.get_num_return_values(method)
+            num_graph_fn_return_values = util.get_num_return_values(wrapped_func)
         component.logger.debug("Graph_fn has {} return values (inferred).".format(
             wrapped_func.__name__, num_graph_fn_return_values)
         )
