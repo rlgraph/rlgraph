@@ -20,13 +20,14 @@ from __future__ import print_function
 from math import log
 
 from rlgraph import get_backend
-from rlgraph.utils.util import SMALL_NUMBER
 from rlgraph.components.component import Component, api
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.utils.decorators import graph_fn
 from rlgraph.utils.ops import DataOpTuple
+from rlgraph.utils.util import SMALL_NUMBER
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -134,7 +135,8 @@ class ActionAdapter(Component):
         Returns:
             DataOpRecord: The output of the action layer (a DenseLayer) after passing `nn_output` through it.
         """
-        return self.action_layer.apply(nn_output)
+        out = self.action_layer.apply(nn_output)
+        return dict(output=out["output"])
 
     @api
     def get_logits_probabilities_log_probs(self, nn_output):
@@ -144,17 +146,17 @@ class ActionAdapter(Component):
 
         Returns:
             Tuple[SingleDataOp]:
-                - raw nn_output, BUT reshaped
-                - probabilities (softmaxed (1))
+                - logits (raw nn_output, BUT reshaped)
+                - probabilities (softmaxed(logits))
                 - log(probabilities)
         """
         aa_output = self.get_action_layer_output(nn_output)
-        aa_output_reshaped = self.reshape.apply(aa_output["output"])["output"]
+        aa_output_reshaped = self.reshape.apply(aa_output)
         probabilities, log_probs = self._graph_fn_get_probabilities_log_probs(aa_output_reshaped)
-        return dict(logits=aa_output_reshaped, probabilities=probabilities, log_probs=log_probs)
+        return aa_output_reshaped, probabilities, log_probs
 
     # TODO: Use a SoftMax Component instead (uses the same code as the one below).
-    #@graph_fn
+    @graph_fn
     def _graph_fn_get_probabilities_log_probs(self, logits):
         """
         Creates properties/parameters and log-probs from some reshaped output.
@@ -194,6 +196,7 @@ class ActionAdapter(Component):
                 raise NotImplementedError
 
             return parameters, log_probs
+
         elif get_backend() == "pytorch":
             if isinstance(self.action_space, IntBox):
                 # Discrete actions.

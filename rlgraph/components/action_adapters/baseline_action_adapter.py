@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
+from rlgraph.utils.decorators import api, graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -40,14 +41,8 @@ class BaselineActionAdapter(ActionAdapter):
     def check_input_spaces(self, input_spaces, action_space=None):
         self.input_space = input_spaces["nn_output"]
 
+    @api
     def get_logits_probabilities_log_probs(self, nn_output):
-        """
-        Override get_logits_probabilities_log_probs API-method to not use the state-value, which must be sliced.
-        """
-        _, logits = self.get_state_values_and_logits(nn_output)
-        return (logits,) + tuple(self._graph_fn_get_probabilities_log_probs(logits))
-
-    def get_state_values_and_logits(self, nn_output):
         """
         API-method. Returns separated V and logit values split from the action layer.
 
@@ -55,21 +50,20 @@ class BaselineActionAdapter(ActionAdapter):
             nn_output (DataOpRecord): The NN output of the preceding neural network.
 
         Returns:
-            tuple (2x DataOpRecord):
-                - The single state value (V).
-                - The (reshaped) logit values for the different actions.
+            dict (4x DataOpRecord):
+                `state_values`: The state values (V).
+                `logits`: The (reshaped) logits coming from the action layer.
+                `probabilities`: softmaxed(logits)
+                `log_probs`: log(probabilities)
         """
         # Run through the action layer.
         action_layer_output = self.action_layer.apply(nn_output)
         # Slice away the first node for the state value and reshape the rest to yield the action logits.
-        state_value, logits = self._graph_fn_get_state_values_and_logits(action_layer_output)
-        return state_value, logits
+        state_values, logits = self._graph_fn_get_state_values_and_logits(action_layer_output["output"])
+        probabilities, log_probs = self._graph_fn_get_probabilities_log_probs(logits)
+        return dict(state_values=state_values, logits=logits, probabilities=probabilities, log_probs=log_probs)
 
-    def get_state_values_logits_probabilities_log_probs(self, nn_output):
-        state_value, logits = self.get_state_values_and_logits(nn_output)
-        parameters, log_probs = self._graph_fn_get_probabilities_log_probs(logits)
-        return state_value, logits, parameters, log_probs
-
+    @graph_fn
     def _graph_fn_get_state_values_and_logits(self, action_layer_output):
         """
         Slices away the state-value node from the raw action_layer_output (dense) and returns the single state-value

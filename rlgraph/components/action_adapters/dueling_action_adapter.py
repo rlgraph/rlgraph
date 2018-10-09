@@ -23,6 +23,7 @@ from rlgraph import get_backend
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.spaces import IntBox, FloatBox
+from rlgraph.utils.decorators import api, graph_fn
 from rlgraph.utils.util import SMALL_NUMBER, get_rank
 from rlgraph.utils.ops import DataOpTuple
 
@@ -91,6 +92,7 @@ class DuelingActionAdapter(ActionAdapter):
             self.dense_layer_state_value_stream, self.dense_layer_advantage_stream, self.state_value_node
         )
 
+    @api
     def get_action_layer_output(self, nn_output):
         """
         Args:
@@ -104,12 +106,13 @@ class DuelingActionAdapter(ActionAdapter):
                     it. Note: These will be flat advantage nodes that have not been reshaped yet according to the
                     action_space.
         """
-        output_state_value_dense = self.dense_layer_state_value_stream.apply(nn_output)
-        output_advantage_dense = self.dense_layer_advantage_stream.apply(nn_output)
-        state_value_node = self.state_value_node.apply(output_state_value_dense)
-        advantage_nodes = self.action_layer.apply(output_advantage_dense)
-        return state_value_node, advantage_nodes
+        output_state_value_dense = self.dense_layer_state_value_stream.apply(nn_output)["output"]
+        output_advantage_dense = self.dense_layer_advantage_stream.apply(nn_output)["output"]
+        state_value_node = self.state_value_node.apply(output_state_value_dense)["output"]
+        advantage_nodes = self.action_layer.apply(output_advantage_dense)["output"]
+        return dict(state_value_node=state_value_node, output=advantage_nodes)
 
+    @api
     def get_logits_probabilities_log_probs(self, nn_output):
         """
         Args:
@@ -121,12 +124,13 @@ class DuelingActionAdapter(ActionAdapter):
                 - The probabilities obtained by softmaxing the q-values.
                 - The log-probs.
         """
-        state_value, advantage_values = self.get_action_layer_output(nn_output)
+        state_values, advantage_values = self.get_action_layer_output(nn_output)
         advantage_values_reshaped = self.reshape.apply(advantage_values)
-        q_values = self._graph_fn_calculate_q_values(state_value, advantage_values_reshaped)
-        probs_and_log_probs = self._graph_fn_get_probabilities_log_probs(q_values)
-        return (q_values,) + probs_and_log_probs
+        q_values = self._graph_fn_calculate_q_values(state_values, advantage_values_reshaped)
+        probabilities, log_probs = self._graph_fn_get_probabilities_log_probs(q_values)
+        return dict(state_values=state_values, logits=q_values, probabilities=probabilities, log_probs=log_probs)
 
+    @graph_fn
     def _graph_fn_calculate_q_values(self, state_value, advantage_values):
         """
         Args:
@@ -174,6 +178,7 @@ class DuelingActionAdapter(ActionAdapter):
             return q_values
 
     # TODO: Use a SoftMax Component instead (uses the same code as the one below).
+    @graph_fn
     def _graph_fn_get_probabilities_log_probs(self, logits):
         """
         Creates properties/parameters and log-probs from some reshaped output.
@@ -215,6 +220,7 @@ class DuelingActionAdapter(ActionAdapter):
             else:
                 raise NotImplementedError
             return parameters, log_probs
+
         elif get_backend() == "pytorch":
             if isinstance(self.action_space, IntBox):
                 # Discrete actions.
@@ -240,31 +246,5 @@ class DuelingActionAdapter(ActionAdapter):
                 log_probs = DataOpTuple(torch.log(mean), log_sd)
             else:
                 raise NotImplementedError
+
             return parameters, log_probs
-
-
-    #def get_logits_probabilities_log_probs(self, nn_output):
-    #    """
-    #    Override get_logits_probabilities_log_probs API-method to use (A minus V) Q-values, instead of raw logits from
-    #    network.
-    #    """
-    #    _, _, q_values = self.get_dueling_output(nn_output)
-    #    return (q_values,) + tuple(self._graph_fn_get_probabilities_log_probs(q_values))
-
-    #def get_dueling_output(self, nn_output):
-    #    """
-    #    API-method. Returns separated V, A, and Q-values from the DuelingLayer.
-
-    #    Args:
-    #        nn_output (DataOpRecord): The NN output of the preceding neural network.
-
-    #    Returns:
-    #        tuple (3x DataOpRecord):
-    #            - The single state value (V).
-    #            - The advantage values for the different actions.
-    #            - The Q-values for the different actions (calculated as Q=V+A-mean(A), where V and mean(A) are
-    #            broadcast to match A's shape)
-    #    """
-    #    action_layer_output = self.action_layer.apply(nn_output)
-    #    state_value, advantage_values, q_values = self.dueling_layer.apply(action_layer_output)
-    #    return state_value, advantage_values, q_values
