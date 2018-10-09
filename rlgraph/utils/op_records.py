@@ -93,6 +93,8 @@ class DataOpRecordColumn(object):
             self.op_records = list()
             if args is not None:
                 for i in range(len(args)):
+                    if args[i] is None:
+                        continue
                     op_rec = DataOpRecord(op=None, column=self, position=i)
                     # If incoming is an op-rec -> Link them.
                     if isinstance(args[i], DataOpRecord):
@@ -112,6 +114,8 @@ class DataOpRecordColumn(object):
             if kwargs is not None:
                 for key in sorted(kwargs.keys()):
                     value = kwargs[key]
+                    if value is None:
+                        continue
                     op_rec = DataOpRecord(op=None, column=self, kwarg=key)
                     # If incoming is an op-rec -> Link them.
                     if isinstance(value, DataOpRecord):
