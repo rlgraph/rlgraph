@@ -212,11 +212,12 @@ class TensorFlowExecutor(GraphExecutor):
             build_times=build_times,
         )
 
-    def execute(self, *api_methods):
+    def execute(self, *api_method_calls):
         # Fetch inputs for the different API-methods.
-        fetch_dict, feed_dict = self.graph_builder.get_execution_inputs(*api_methods)
-        ret = self.monitored_session.run(fetch_dict, feed_dict=feed_dict,
-                                         options=self.tf_session_options, run_metadata=self.run_metadata)
+        fetch_dict, feed_dict = self.graph_builder.get_execution_inputs(*api_method_calls)
+        ret = self.monitored_session.run(
+            fetch_dict, feed_dict=feed_dict, options=self.tf_session_options, run_metadata=self.run_metadata
+        )
 
         if self.profiling_enabled:
             self.update_profiler_if_necessary()
@@ -224,11 +225,12 @@ class TensorFlowExecutor(GraphExecutor):
         if self.timeline_enabled:
             self.update_timeline_if_necessary()
 
-        # Return single values instead of lists of 1 item.
-        ret = {key: (value[0] if len(ret[key]) == 1 else tuple(value)) for key, value in ret.items()}
+        # Return single values instead of lists of 1 item, but keep inner dicts as-are.
+        ret = {key: (value[0] if len(ret[key]) == 1 else tuple(value) if not isinstance(value, dict) else value)
+               for key, value in ret.items()}
 
         # If only one key in ret, remove it.
-        if len(api_methods) == 1:
+        if len(api_method_calls) == 1:
             ret = ret[next(iter(ret))]
 
         return ret

@@ -675,12 +675,12 @@ class GraphBuilder(Specifiable):
             # Recursively call this method on all the sub-component's sub-components.
             self.sanity_check_build(sub_component)
 
-    def get_execution_inputs(self, *api_methods):
+    def get_execution_inputs(self, *api_method_calls):
         """
         Creates a fetch-dict and a feed-dict for a graph session call.
 
         Args:
-            api_methods (dict): See `rlgraph.graphs.graph_executor` for details.
+            api_method_calls (dict): See `rlgraph.graphs.graph_executor` for details.
 
         Returns:
             Tuple[list,dict]: Fetch-list, feed-dict with relevant args.
@@ -688,32 +688,37 @@ class GraphBuilder(Specifiable):
         fetch_dict = {}
         feed_dict = {}
 
-        for api_method in api_methods:
-            if api_method is None:
+        for api_method_call in api_method_calls:
+            if api_method_call is None:
                 continue
 
             params = []
             return_ops = None
-            if isinstance(api_method, (list, tuple)):
-                params = force_list(api_method[1])
-                return_ops = force_list(api_method[2]) if len(api_method) > 2 and api_method[2] is not None else None
-                api_method = api_method[0]
+            if isinstance(api_method_call, (list, tuple)):
+                params = force_list(api_method_call[1])
+                return_ops = force_list(api_method_call[2]) if len(api_method_call) > 2 and \
+                                                               api_method_call[2] is not None else None
+                api_method_call = api_method_call[0]
 
-            if api_method not in self.api:
-                raise RLGraphError("No API-method with name '{}' found!".format(api_method))
+            if api_method_call not in self.api:
+                raise RLGraphError("No API-method with name '{}' found!".format(api_method_call))
 
-            if return_ops is None:
-                fetch_dict[api_method] = [op_rec.op for i, op_rec in enumerate(self.api[api_method][1])]
+            # API returns a dict.
+            if len(self.api[api_method_call][1]) > 0 and self.api[api_method_call][1][0].kwarg is not None:
+                fetch_dict[api_method_call] = {op_rec.kwarg: op_rec.op for op_rec in self.api[api_method_call][1] if
+                                               return_ops is None or op_rec.kwarg in return_ops}
+            # API returns a tuple.
             else:
-                fetch_dict[api_method] = [self.api[api_method][1][i].op for i in return_ops]
+                fetch_dict[api_method_call] = [op_rec.op for i, op_rec in enumerate(self.api[api_method_call][1]) if
+                                               return_ops is None or i in return_ops]
 
             for i, param in enumerate(params):
                 # TODO: What if len(params) < len(self.api[api_method][0])? Need to handle default API-method params also for the root-component (this one).
-                if len(self.api[api_method][0]) <= i:
+                if len(self.api[api_method_call][0]) <= i:
                     raise RLGraphError("API-method with name '{}' only has {} input parameters! You passed in "
-                                       "{}.".format(api_method, len(self.api[api_method][0]), len(params)))
+                                       "{}.".format(api_method_call, len(self.api[api_method_call][0]), len(params)))
 
-                placeholder = self.api[api_method][0][i].op  # 0=input op-recs; i=ith input op-rec
+                placeholder = self.api[api_method_call][0][i].op  # 0=input op-recs; i=ith input op-rec
                 if isinstance(placeholder, DataOpTuple):
                     for ph, p in zip(placeholder, param):
                         feed_dict[ph] = p

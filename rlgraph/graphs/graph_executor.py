@@ -101,12 +101,12 @@ class GraphExecutor(Specifiable):
         """
         raise NotImplementedError
 
-    def execute(self, *api_methods):
+    def execute(self, *api_method_calls):
         """
         Fetches one or more Socket outputs from the graph (given some api_methods) and returns their outputs.
 
         Args:
-            api_methods (Union[str,list,tuple]): A specifier for an API-method call.
+            api_method_calls (Union[str,list,tuple]): A specifier for an API-method call.
                 - str: Call the API-method that has the given name w/o any input args.
                 - tuple len=2: 0=the API-method name to call; 1=the input args to use for the call.
                 - tuple len=3: same as len=2, AND 2=list of returned op slots to pull (e.g. [0]: only pull
