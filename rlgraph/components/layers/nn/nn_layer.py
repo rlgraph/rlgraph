@@ -22,6 +22,7 @@ from rlgraph.components.layers.layer import Layer
 from rlgraph.components.layers.nn.activation_functions import get_activation_function
 from rlgraph.spaces import FloatBox, IntBox
 from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.utils.decorators import api, graph_fn
 
 
 class NNLayer(Layer):
@@ -84,6 +85,12 @@ class NNLayer(Layer):
 
                     idx += 1
 
+    @api
+    def apply(self, *inputs):
+        out = self._graph_fn_apply(*inputs)
+        return dict(output=out)
+
+    @graph_fn
     def _graph_fn_apply(self, *inputs):
         """
         The actual calculation on one or more input Ops.

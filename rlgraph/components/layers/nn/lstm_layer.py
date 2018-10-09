@@ -20,10 +20,11 @@ from __future__ import print_function
 from rlgraph import get_backend
 
 from rlgraph.components.layers.nn.nn_layer import NNLayer
-from rlgraph.utils import PyTorchVariable
-from rlgraph.utils.ops import DataOpTuple
 from rlgraph.spaces import Tuple
 from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.utils import PyTorchVariable
+from rlgraph.utils.decorators import api, graph_fn
+from rlgraph.utils.ops import DataOpTuple
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -84,7 +85,10 @@ class LSTMLayer(NNLayer):
         self.swap_memory = swap_memory
         self.in_space = None
 
-        self.lstm_cell = None
+        # tf RNNCell
+        # torch lstm and hidden state placeholder
+        self.lstm = None
+        self.hidden_state = None
 
     def check_input_spaces(self, input_spaces, action_space=None):
         super(LSTMLayer, self).check_input_spaces(input_spaces, action_space)
@@ -109,7 +113,7 @@ class LSTMLayer(NNLayer):
 
         # Wrapper for backend.
         if get_backend() == "tf":
-            self.lstm_cell = tf.contrib.rnn.LSTMBlockCell(  #tf.nn.rnn_cell.LSTMCell(
+            self.lstm = tf.contrib.rnn.LSTMBlockCell(  #tf.nn.rnn_cell.LSTMCell(
                 num_units=self.units,
                 use_peephole=self.use_peepholes,
                 cell_clip=self.cell_clip,
@@ -125,14 +129,21 @@ class LSTMLayer(NNLayer):
 
             # Now build the layer so that its variables get created.
             in_space_without_time_rank = list(self.in_space.get_shape(with_batch_rank=True))
-            self.lstm_cell.build(tf.TensorShape(in_space_without_time_rank))
+            self.lstm.build(tf.TensorShape(in_space_without_time_rank))
             # Register the generated variables with our registry.
-            self.register_variables(*self.lstm_cell.variables)
+            self.register_variables(*self.lstm.variables)
+
         elif get_backend() == "pytorch":
             self.lstm = nn.LSTM(self.in_space, self.units)
             self.hidden_state = (torch.zeros(1, 1, self.units), torch.zeros(1, 1, self.units))
             self.register_variables(PyTorchVariable(name=self.global_scope, ref=self.lstm))
 
+    @api
+    def apply(self, inputs, initial_c_and_h_states=None, sequence_length=None):
+        output, last_internal_states = self._graph_fn_apply(inputs, initial_c_and_h_states, sequence_length)
+        return dict(nn_output=output, last_internal_states=last_internal_states)
+
+    @graph_fn
     def _graph_fn_apply(self, inputs, initial_c_and_h_states=None, sequence_length=None):
         """
         Args:
@@ -160,7 +171,7 @@ class LSTMLayer(NNLayer):
             # We are running the LSTM as a dynamic while-loop.
             if self.static_loop is False:
                 lstm_out, lstm_state_tuple = tf.nn.dynamic_rnn(
-                    cell=self.lstm_cell,
+                    cell=self.lstm,
                     inputs=inputs,
                     sequence_length=sequence_length,
                     initial_state=initial_c_and_h_states,
@@ -182,7 +193,7 @@ class LSTMLayer(NNLayer):
                     # If the episode ended, the core state should be reset before the next.
                     #core_state = nest.map_structure(functools.partial(tf.where, d),
                     #                                initial_core_state, core_state)
-                    output, lstm_state_tuple = self.lstm_cell(input_, lstm_state_tuple)
+                    output, lstm_state_tuple = self.lstm(input_, lstm_state_tuple)
                     output_list.append(output)
                 lstm_out = tf.stack(output_list)
 
@@ -194,5 +205,5 @@ class LSTMLayer(NNLayer):
         elif get_backend() == "pytorch":
             # TODO init hidden state has to be available at create variable time to use.
             inputs = torch.cat(inputs).view(len(inputs), 1, -1)
-            out, self.hidden = self.lstm(inputs, self.hidden)
-            return out, self.hidden
+            out, self.hidden_state = self.lstm(inputs, self.hidden_state)
+            return out, DataOpTuple(self.hidden_state)

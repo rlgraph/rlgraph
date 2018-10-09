@@ -35,7 +35,7 @@ class PreprocessLayer(Layer):
     def __init__(self, scope="pre-process", **kwargs):
         super(PreprocessLayer, self).__init__(scope=scope, **kwargs)
 
-    @api(name="reset")
+    @api
     def _graph_fn_reset(self):
         """
         Does some reset operations e.g. in case this PreprocessLayer contains variables and state.
@@ -49,6 +49,6 @@ class PreprocessLayer(Layer):
         # TODO: fix for python backend.
         return
 
-    @api(name="apply", flatten_ops=True, split_ops=True)
+    @api(flatten_ops=True, split_ops=True)
     def _graph_fn_apply(self, *inputs):
         return super(PreprocessLayer, self)._graph_fn_apply(*inputs)

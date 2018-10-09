@@ -43,7 +43,7 @@ class Layer(Component):
         """
         return space
 
-    @api(name="apply")
+    @api
     def _graph_fn_apply(self, *inputs):
         """
         This is where the graph-logic of this layer goes.
