@@ -185,11 +185,13 @@ class Component(Specifiable):
             api_method_recs = component_api_registry.get(class_.__name__)
             if api_method_recs is not None:
                 for api_method_rec in api_method_recs:
-                    define_api_method(self, api_method_rec)
+                    if api_method_rec.name not in self.api_methods:
+                        define_api_method(self, api_method_rec)
             graph_fn_recs = component_graph_fn_registry.get(class_.__name__)
             if graph_fn_recs is not None:
                 for graph_fn_rec in graph_fn_recs:
-                    define_graph_fn(self, graph_fn_rec)
+                    if graph_fn_rec.name not in self.graph_fns:
+                        define_graph_fn(self, graph_fn_rec)
 
     def get_number_of_allowed_inputs(self, api_method_name):
         """
