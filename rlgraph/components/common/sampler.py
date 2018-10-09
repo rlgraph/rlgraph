@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components import Component
+from rlgraph.utils.decorators import api
 from rlgraph.utils.ops import FlattenedDataOp
 from rlgraph.utils.util import get_batch_size
 
@@ -40,10 +41,8 @@ class Sampler(Component):
         super(Sampler, self).__init__(scope=scope, **kwargs)
         self.sampling_strategy = sampling_strategy
 
-        # Define our interface.
-        # {1} = only flatten the 1st input arg (indexing starts from 0).
-        self.define_api_method("sample", self._graph_fn_sample, flatten_ops={1})
-
+    # {1} = only flatten the 1st input arg (indexing starts from 0).
+    @api(flatten_ops={1})
     def _graph_fn_sample(self, sample_size, inputs):
         """
         Takes a set of input tensors and uniformly samples a subset of the

@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.decorators import api
 from rlgraph.utils.ops import DataOpDict
 from rlgraph.utils.util import get_shape
 from rlgraph.components import Component
@@ -44,9 +45,6 @@ class Synchronizable(Component):
 
         super(Synchronizable, self).__init__(*args, scope=kwargs.pop("scope", "synchronizable"), **kwargs)
 
-        # Add the syncing operation.
-        self.define_api_method(name="sync", func=self._graph_fn_sync, must_be_complete=False)
-
     def check_input_completeness(self):
         # Overwrites this method as any Synchronizable should only be input-complete once the parent
         # component is variable-complete (not counting this component!). Also, the number of variables in
@@ -64,6 +62,7 @@ class Synchronizable(Component):
         # If parent component not input complete, we cannot be either.
         return False
 
+    @api(must_be_complete=False)
     def _graph_fn_sync(self, values_):
         """
         Generates the op that syncs this Synchronizable's parent's variable values from another Synchronizable

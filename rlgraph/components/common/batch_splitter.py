@@ -5,6 +5,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components import Component
+from rlgraph.utils.decorators import api
 from rlgraph.utils.ops import FlattenedDataOp, unflatten_op, DataOpTuple
 
 if get_backend() == "tf":
@@ -33,8 +34,7 @@ class BatchSplitter(Component):
         self.num_shards = num_shards
         self.shard_size = shard_size
 
-        self.define_api_method(name="split_batch", func=self._graph_fn_split_batch, flatten_ops=True)
-
+    @api(flatten_ops=True)
     def _graph_fn_split_batch(self, *inputs):
         """
         Splits all DataOps in *inputs along their batch dimension into n equally sized shards. The number of shards

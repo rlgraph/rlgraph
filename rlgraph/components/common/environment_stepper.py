@@ -25,6 +25,7 @@ from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.environments.environment import Environment
 from rlgraph.utils.ops import DataOpTuple, DataOpDict, flatten_op, unflatten_op
 from rlgraph.spaces import Space, Dict
+from rlgraph.utils.decorators import api
 from rlgraph.utils.specifiable_server import SpecifiableServer
 from rlgraph.utils.util import force_tuple, dtype as dtype_
 
@@ -180,10 +181,6 @@ class EnvironmentStepper(Component):
         # Add all sub-components (only ActorComponent).
         self.add_components(self.actor_component)
 
-        # Define our API methods.
-        self.define_api_method("reset", self._graph_fn_reset)
-        self.define_api_method("step", self._graph_fn_step)
-
     def create_variables(self, input_spaces, action_space=None):
         self.time_step = self.get_variable(
             name="time-step", dtype="int32", initializer=0, trainable=False, local=True, use_resource=True
@@ -209,6 +206,7 @@ class EnvironmentStepper(Component):
                 local=True, use_resource=True
             )
 
+    @api
     def _graph_fn_reset(self):
         """
         Resets the EnvStepper and stores:
@@ -237,10 +235,9 @@ class EnvironmentStepper(Component):
             with tf.control_dependencies(assigns):
                 return tf.no_op()
 
+    @api
     def _graph_fn_step(self):
-
         if get_backend() == "tf":
-
             def scan_func(accum, time_delta):
                 # Not needed: preprocessed-previous-states (tuple!)
                 # `state` is a tuple as well. See comment in ctor for why tf cannot use ContainerSpaces here.

@@ -21,7 +21,7 @@ import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.components.component import Component
-from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.utils.decorators import api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -41,8 +41,7 @@ class Slice(Component):
 
         self.squeeze = squeeze
 
-        self.define_api_method("slice", self._graph_fn_slice, flatten_ops=True, split_ops=True)
-
+    @api(flatten_ops=True, split_ops=True)
     def _graph_fn_slice(self, preprocessing_inputs, start_index=0, end_index=None):
         if end_index is None:
             # Return a single slice removing the rank.

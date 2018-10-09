@@ -18,25 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components import Component
+from rlgraph.utils.decorators import api
 
 
 class Optimizer(Component):
     """
     A component that takes a tuple of variables as in-Sockets and optimizes them according to some loss function
     or another criterion or method.
-
-    API:
-    ins:
-        variables (DataOpTuple): The list of variables to optimize.
-        loss (SingleDataOp): The loss function's output.
-        grads_and_vars (DataOpTuple): The zipped gradients plus corresponding variables to be fed back into the
-        Optimizer for actually applying the gradients to the variables.
-        \*api_methods (any): Other necessary api_methods for the specific type of optimizer (e.g. a time-step).
-
-    outs:
-        calc_grads_and_vars (DataOpTuple): The zipped gradients plus corresponding variables to be fed back into the
-        Optimizer for actually applying the gradients to the variables (via in-Socket `grads_and_vars`).
-        step (DataOp): Triggers applying the gradients coming in from `grads_and_vars` to the variables.
     """
     def __init__(self, learning_rate=None, **kwargs):
         """
@@ -47,12 +35,8 @@ class Optimizer(Component):
 
         self.learning_rate = learning_rate
 
-        # Make all API-methods `must_be_complete`=False as optimizers don't implement `create_variables`.
-        self.define_api_method(name="calculate_gradients", func=self._graph_fn_calculate_gradients,
-                               must_be_complete=False)
-        self.define_api_method(name="apply_gradients", func=self._graph_fn_apply_gradients, must_be_complete=False)
-        self.define_api_method(name="step", func=self._graph_fn_step, must_be_complete=False)
-
+    # Make all API-methods `must_be_complete`=False as optimizers don't implement `create_variables`.
+    @api(must_be_complete=False)
     def _graph_fn_step(self, *inputs):
         """
         Applies an optimization step to a list of variables via a loss.
@@ -66,6 +50,7 @@ class Optimizer(Component):
         """
         raise NotImplementedError
 
+    @api(must_be_complete=False)
     def _graph_fn_calculate_gradients(self, *inputs):
         """
         Calculates the gradients for the given variables and the loss function (and maybe other child-class
@@ -79,6 +64,7 @@ class Optimizer(Component):
         """
         raise NotImplementedError
 
+    @api(must_be_complete=False)
     def _graph_fn_apply_gradients(self, grads_and_vars):
         """
         Changes the given variables based on the previously calculated gradients. `gradients` is the output of

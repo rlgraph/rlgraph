@@ -25,6 +25,7 @@ from rlgraph.components.common.noise_components import NoiseComponent
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.util import dtype
+from rlgraph.utils.decorators import api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -37,12 +38,6 @@ class Exploration(Component):
     A Component that can be plugged on top of a Policy's output to produce action choices.
     It includes noise and/or epsilon-based exploration options as well as an out-Socket to draw actions from
     the Policy's distribution - either by sampling or by deterministically choosing the max-likelihood value.
-
-    API:
-        get_action(actions[, time_step]): Returns an action after applying an exploration value/noise.
-            - If epsilon-based exploration: Action depends on time-step (e.g. epsilon-decay).
-            - If noise-based exploration: Noise is added to the sampled action.
-            - If no exploration: Action is returned as is.
     """
     def __init__(self, epsilon_spec=None, noise_spec=None, scope="exploration", **kwargs):
         """
@@ -70,7 +65,11 @@ class Exploration(Component):
             self.add_components(self.epsilon_exploration)
 
             # Define our interface.
+            @api(component=self)
             def get_action(self, actions, time_step, use_exploration=True):
+                """
+                Action depends on time-step (e.g. epsilon-decay).
+                """
                 epsilon_decisions = self.epsilon_exploration.do_explore(actions, time_step)
                 return self._graph_fn_pick(use_exploration, epsilon_decisions, actions)
 
@@ -79,16 +78,22 @@ class Exploration(Component):
             self.noise_component = NoiseComponent.from_spec(noise_spec)
             self.add_components(self.noise_component)
 
+            @api(component=self)
             def get_action(self, actions, time_step=0, use_exploration=True):
+                """
+                Noise is added to the sampled action.
+                """
                 noise = self.noise_component.get_noise()
                 return self._graph_fn_add_noise(use_exploration, noise, actions)
 
         # Don't explore at all. Simple pass-through.
         else:
+            @api(component=self)
             def get_action(self, actions, time_step=0, use_exploration=False):
+                """
+                Action is returned as is.
+                """
                 return actions
-
-        self.define_api_method("get_action", get_action)
 
     def check_input_spaces(self, input_spaces, action_space=None):
         action_sample_space = input_spaces["actions"]

@@ -591,15 +591,6 @@ class TensorFlowExecutor(GraphExecutor):
         if self.profiling_enabled and not self.disable_monitoring:
             self.profiler = tf.profiler.Profiler(graph=self.session.graph)
 
-    #def start_queue_runners(self):
-    #    """
-    #    Starts all Queue Runner objects registered under collection tf.GraphKeys.QUEUE_RUNNERS.
-
-    #    Returns:
-    #        list: The list of Thread objects that were created (one for each queue runner).
-    #    """
-    #    return tf.train.start_queue_runners(sess=self.monitored_session)
-
     def load_model(self, path=None):
         self.logger.info("Attempting to restore model from path: {}.".format(path))
         self.saver.restore(self.session, path)
@@ -672,63 +663,20 @@ class TensorFlowExecutor(GraphExecutor):
                                       "there are only {} GPUs visible.".format(self.num_gpus)
             self.logger.info("Building MultiGpuSync strategy with {} GPUs.".format(self.num_gpus))
 
-            # These are the API methods we need to retain.
-            #multi_gpu_api = [""]
-
             sub_graphs = []
-            #shared_scope = "shared"
             for i, device in enumerate(self.gpu_names):
-                # TODO only copy relevant towers?
                 # Copy and assign GPU to copy.
                 self.logger.info("Creating device sub-graph for device: {}.".format(device))
-                sub_graph = root_component.copy(
-                    # Only place the ops of the tower on the GPU (variables are shared with root).
-                    device=device,
-                    scope="tower-{}".format(i)
-                    #reuse_variable_scope_for_sub_components=shared_scope
-                )
+                # Only place the ops of the tower on the GPU (variables are shared with root).
+                sub_graph = root_component.copy(device=device, scope="tower-{}".format(i))
                 sub_graph.is_multi_gpu_tower = True
 
-                ## Override `update_from_external_batch` method.
-                #sub_graph.define_api_method(
-                #    "update_from_external_batch", update_from_external_batch_for_root, ok_to_overwrite=True
-                #)
-                # TODO: what about `from_memory`?
-
-                # Unwrap optimizer.
-                #opt = sub_graph.sub_component_by_name(optimizer.name)  # "multi-gpu-sync-optimizer"
-                #local_opt = opt.optimizer
-                #local_opt.parent_component = None
-
-                #sub_graph.remove_sub_component_by_name(opt.name)
-                #sub_graph.add_components(local_opt)
                 sub_graphs.append(sub_graph)
                 self.used_devices.append(device)
 
-            # Old: root <-> local_optimizer, new: root <-> multi_gpu_optimizer <-> local_optimizer
-            # Wrap the optimizer in the root component with a MultiGpuSynchronizer.
-            #removed_root_optimizer = root_component.remove_sub_component_by_name(root_optimizer.name)
-            # Make sure we removed the correct Component.
-            #assert removed_root_optimizer is root_optimizer
-            #self.optimizer = MultiGpuSynchronizer()  #local_optimizer_name=root_optimizer.name, devices=self.gpu_names)
+            # Setup and add MultiGpuSynchronizer to root.
             multi_gpu_optimizer = MultiGpuSynchronizer(batch_size=batch_size)
             root_component.add_components(multi_gpu_optimizer)
-            # Set the root-component's reuse_variable_scope.
-            #policy = root_component.get_sub_component_by_name("policy")
-            #policy.propagate_sub_component_properties(dict(reuse_variable_scope=shared_scope))
-
-            #root_component.define_api_method(
-            #    "update_from_external_batch", update_from_external_batch_for_root, ok_to_overwrite=True
-            #)
-
-            # optimizer.parent_component = None
-            # root_component.remove_sub_component_by_name(optimizer.name)
-            # multi_gpu_optimizer = MultiGpuSynchronizer(local_optimizer=optimizer, devices=self.gpu_names)
-            # root_component.add_components(multi_gpu_optimizer)
-
-            # 4. Pass the graph copies and the splitter containing the info how to split batches into tensors.
-            # TODO: root-component may not have any container splitter (e.g. if it doesn't have a memory)?
-            #container_splitter = root_component.sub_component_by_name("container-splitter")
             multi_gpu_optimizer.setup_towers(sub_graphs, self.gpu_names)
 
     def _sanity_check_devices(self):
@@ -741,7 +689,7 @@ class TensorFlowExecutor(GraphExecutor):
 
         # Warn if some devices have not been assigned.
         self.logger.info("Checking if all visible devices are in use for strategy: {}. Available devices are: {}.".
-            format(self.device_strategy, self.available_devices))
+                         format(self.device_strategy, self.available_devices))
         for device in self.available_devices:
             if device not in used_devices:
                 self.logger.warning("Warning: Device {} is usable but has not been assigned.".format(

@@ -120,9 +120,6 @@ class Policy(Component):
                 return (state_values, logits, probs, log_probs, last_internals) if last_internals is not None else \
                     (state_values, logits, probs, log_probs)
 
-            self.define_api_method("get_state_values_logits_probabilities_log_probs",
-                                   get_state_values_logits_probabilities_log_probs)
-
         # Figure out our Distribution.
         if isinstance(action_space, IntBox):
             self.distribution = Categorical()

@@ -18,19 +18,18 @@ from __future__ import division
 from __future__ import print_function
 
 from collections import defaultdict
+import logging
+import numpy as np
 
 from rlgraph import get_backend
-from rlgraph.utils.specifiable import Specifiable
-from rlgraph.graphs.graph_executor import GraphExecutor
-from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec  #, \
-    # get_optimizer_from_device_strategy
 from rlgraph.components import Component, Exploration, PreprocessorStack, NeuralNetwork, Synchronizable, Policy, \
     Optimizer
-from rlgraph.graphs import GraphBuilder
-from rlgraph.spaces import Space
-
-import numpy as np
-import logging
+from rlgraph.graphs.graph_builder import GraphBuilder
+from rlgraph.graphs.graph_executor import GraphExecutor
+from rlgraph.spaces.space import Space
+from rlgraph.utils.decorators import api
+from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
+from rlgraph.utils.specifiable import Specifiable
 
 
 class Agent(Specifiable):
@@ -207,25 +206,22 @@ class Agent(Specifiable):
         self.policy.add_components(Synchronizable(), expose_apis="sync", exposed_must_be_complete=False)
 
         # Add api methods for syncing.
+        @api(component=self.root_component)
         def get_policy_weights(self):
             policy = self.get_sub_component_by_name(policy_scope)
             return policy._variables()
 
-        self.root_component.define_api_method("get_policy_weights", get_policy_weights)
-
+        @api(component=self.root_component, must_be_complete=False)
         def set_policy_weights(self, weights):
             policy = self.get_sub_component_by_name(policy_scope)
             return policy.sync(weights)
 
-        self.root_component.define_api_method("set_policy_weights", set_policy_weights, must_be_complete=False)
-
         # To pre-process external data if needed.
+        @api(component=self.root_component)
         def preprocess_states(self, states):
             preprocessor_stack = self.get_sub_component_by_name(pre_processor_scope)
             preprocessed_states = preprocessor_stack.preprocess(states)
             return preprocessed_states
-
-        self.root_component.define_api_method("preprocess_states", preprocess_states)
 
     def _build_graph(self, root_components, input_spaces, **kwargs):
         """

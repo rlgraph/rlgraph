@@ -24,6 +24,7 @@ from rlgraph.utils import util
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.components import Component
+from rlgraph.utils.decorators import api
 from rlgraph.utils.pytorch_util import pytorch_tile
 
 if get_backend() == "tf":
@@ -63,8 +64,6 @@ class DecayComponent(Component):
         self.start_timestep = start_timestep
         self.num_timesteps = num_timesteps
 
-        self.define_api_method(name="decayed_value", func=self._graph_fn_decayed_value)
-
     def check_input_spaces(self, input_spaces, action_space=None):
         time_step_space = input_spaces["time_step"]  # type: Space
         sanity_check_space(
@@ -72,6 +71,7 @@ class DecayComponent(Component):
             must_have_categories=False, rank=0
         )
 
+    @api
     def _graph_fn_decayed_value(self, time_step):
         """
         Args:

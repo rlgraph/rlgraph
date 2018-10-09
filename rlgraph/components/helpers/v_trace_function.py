@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components import Component
-from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.utils.decorators import api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -52,10 +52,6 @@ class VTraceFunction(Component):
         self.rho_bar_pg = rho_bar_pg
         self.c_bar = c_bar
 
-        # Define our helper API-method, which must not be completed (we don't have variables) and thus its
-        # graph_fn can be called anytime from within another graph_fn.
-        self.define_api_method("calc_v_trace_values", self._graph_fn_calc_v_trace_values)
-
     def check_input_spaces(self, input_spaces, action_space=None):
         # TODO: Complete all input arg checks.
         #log_is_weight_space = input_spaces["log_is_weights"]
@@ -73,6 +69,7 @@ class VTraceFunction(Component):
         #                   must_have_batch_rank=True, must_have_time_rank=True)
         #sanity_check_space(rewards_space, rank=log_is_weight_rank, must_have_batch_rank=True, must_have_time_rank=True)
 
+    @api(must_be_complete=False)
     def _graph_fn_calc_v_trace_values(self, logits_actions_pi, log_probs_actions_mu, actions, actions_flat,
                                       discounts, rewards,
                                       values, bootstrapped_values):

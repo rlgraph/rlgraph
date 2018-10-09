@@ -21,7 +21,8 @@ from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.ops import FlattenedDataOp, flatten_op
-from rlgraph.utils.util import dtype as dtype_, get_shape
+from rlgraph.utils.util import dtype as dtype_
+from rlgraph.utils.decorators import api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -48,15 +49,18 @@ class FIFOQueue(Memory):
         # Holds the actual backend-specific queue object.
         self.queue = None
 
-        self.define_api_method("get_size", self._graph_fn_get_size)
         # If record space given, overwrite the insert method as "must_be_complete=False".
         if self.record_space is not None:
-            self.define_api_method(
-                "insert_records", self._graph_fn_insert_records, must_be_complete=False, ok_to_overwrite=True
-            )
-            #self.define_api_method(
-            #    "insert_dummy_records", self._graph_fn_insert_dummy_records, must_be_complete=False
-            #)
+            @api(must_be_complete=False)
+            def _graph_fn_insert_records(self, records):
+                flattened_records = flatten_op(records)
+                flattened_stopped_records = {key: tf.stop_gradient(op) for key, op in flattened_records.items()}
+                # Records is just one record.
+                if self.only_insert_single_records is True:
+                    return self.queue.enqueue(flattened_stopped_records)
+                # Insert many records (with batch rank).
+                else:
+                    return self.queue.enqueue_many(flattened_stopped_records)
 
     def create_variables(self, input_spaces, action_space=None):
         # Overwrite parent's method as we don't need a custom registry.
@@ -91,20 +95,6 @@ class FIFOQueue(Memory):
                 shared_name=shared_name
             )
 
-    def _graph_fn_insert_records(self, records):
-        flattened_records = flatten_op(records)
-        flattened_stopped_records = {key: tf.stop_gradient(op) for key, op in flattened_records.items()}
-        # Records is just one record.
-        if self.only_insert_single_records is True:
-            return self.queue.enqueue(flattened_stopped_records)
-        # Insert many records (with batch rank).
-        else:
-            return self.queue.enqueue_many(flattened_stopped_records)
-
-    #def _graph_fn_insert_dummy_records(self):
-    #    records = self.record_space.sample(size=(10, 20))
-    #    return self.queue.enqueue_many(flatten_op(records))
-
     def _graph_fn_get_records(self, num_records=1):
         # Get the records as dict.
         record_dict = self.queue.dequeue_many(num_records)
@@ -114,15 +104,15 @@ class FIFOQueue(Memory):
         flat_record_space = self.record_space.flatten()
         for flat_key, op in record_dict.items():
             if flat_record_space[flat_key].has_time_rank:
-                #op = tf.placeholder_with_default(op, shape=(None, None) + get_shape(op)[2:])
                 op._batch_rank = 0
                 op._time_rank = 1
                 flattened_records[flat_key] = op
             else:
                 op._batch_rank = 0
-                flattened_records[flat_key] = op  #tf.placeholder_with_default(op, shape=(None,) + get_shape(op)[1:])
+                flattened_records[flat_key] = op
         return flattened_records
 
+    @api
     def _graph_fn_get_size(self):
         """
         Returns the current size of the queue.

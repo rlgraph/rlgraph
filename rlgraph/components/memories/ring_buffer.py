@@ -22,6 +22,7 @@ import tensorflow as tf
 from rlgraph.components.memories.memory import Memory
 from rlgraph.utils.util import get_batch_size
 from rlgraph.utils.ops import FlattenedDataOp
+from rlgraph.utils.decorators import api
 
 
 class RingBuffer(Memory):
@@ -45,9 +46,36 @@ class RingBuffer(Memory):
         self.num_episodes = None
         self.episode_indices = None
 
+        # Extend our interface ("get_episodes").
         if self.episode_semantics:
-            # Extend our interface ("get_episodes").
-            self.define_api_method(name="get_episodes", func=self._graph_fn_get_episodes)
+            @api(name="get_episodes")
+            def _graph_fn_get_episodes(self, num_episodes):
+                stored_episodes = self.read_variable(self.num_episodes)
+                available_episodes = tf.minimum(x=num_episodes, y=stored_episodes)
+                # available_episodes = tf.Print(available_episodes, [available_episodes, stored_episodes], summarize=100,
+                #                               message='\n available eps, stored eps =')
+
+                # Say we have two episodes with this layout:
+                # terminals = [0 0 1 0 1]
+                # episode_indices = [2, 4]
+                # If we want to fetch the most recent episode, the start index is:
+                # stored_episodes - 1 - num_episodes = 2 - 1 - 1 = 0, which points to buffer index 2
+                # The next episode starts one element after this, hence + 1.
+                # However, this points to index -1 if stored_episodes = available_episodes,
+                # in this case we want start = 0 to get everything.
+                start = tf.cond(
+                    pred=tf.equal(x=stored_episodes, y=available_episodes),
+                    true_fn=lambda: 0,
+                    false_fn=lambda: self.episode_indices[stored_episodes - available_episodes - 1] + 1
+                )
+
+                # End index is just the pointer to the most recent episode.
+                limit = self.episode_indices[stored_episodes - 1]
+                limit += tf.where(condition=(start < limit), x=0, y=self.capacity)
+
+                indices = tf.range(start=start, limit=limit) % self.capacity
+                # indices = tf.Print(indices, [start, limit, indices], summarize=100, message='\n start, limit, indices = ')
+                return self.read_records(indices=indices)
 
     def create_variables(self, input_spaces, action_space=None):
         super(RingBuffer, self).create_variables(input_spaces, action_space)
@@ -178,32 +206,4 @@ class RingBuffer(Memory):
     def _graph_fn_get_records(self, num_records):
         index = self.read_variable(self.index)
         indices = tf.range(start=index - 1 - num_records, limit=index - 1) % self.capacity
-        return self.read_records(indices=indices)
-
-    def _graph_fn_get_episodes(self, num_episodes):
-        stored_episodes = self.read_variable(self.num_episodes)
-        available_episodes = tf.minimum(x=num_episodes, y=stored_episodes)
-        # available_episodes = tf.Print(available_episodes, [available_episodes, stored_episodes], summarize=100,
-        #                               message='\n available eps, stored eps =')
-
-        # Say we have two episodes with this layout:
-        # terminals = [0 0 1 0 1]
-        # episode_indices = [2, 4]
-        # If we want to fetch the most recent episode, the start index is:
-        # stored_episodes - 1 - num_episodes = 2 - 1 - 1 = 0, which points to buffer index 2
-        # The next episode starts one element after this, hence + 1.
-        # However, this points to index -1 if stored_episodes = available_episodes,
-        # in this case we want start = 0 to get everything.
-        start = tf.cond(
-            pred=tf.equal(x=stored_episodes, y=available_episodes),
-            true_fn=lambda: 0,
-            false_fn=lambda: self.episode_indices[stored_episodes - available_episodes - 1] + 1
-        )
-
-        # End index is just the pointer to the most recent episode.
-        limit = self.episode_indices[stored_episodes - 1]
-        limit += tf.where(condition=(start < limit), x=0, y=self.capacity)
-
-        indices = tf.range(start=start, limit=limit) % self.capacity
-        # indices = tf.Print(indices, [start, limit, indices], summarize=100, message='\n start, limit, indices = ')
         return self.read_records(indices=indices)

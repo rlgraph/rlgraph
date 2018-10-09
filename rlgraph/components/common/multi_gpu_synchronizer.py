@@ -23,6 +23,7 @@ from rlgraph import get_backend
 from rlgraph.components.common.batch_splitter import BatchSplitter
 from rlgraph.components.component import Component
 from rlgraph.spaces import Dict
+from rlgraph.utils.decorators import api
 from rlgraph.utils.ops import DataOpTuple
 
 if get_backend() == "tf":
@@ -58,12 +59,6 @@ class MultiGpuSynchronizer(Component):
 
         self.tower_placeholders = list()
         self.device_input_space = None
-
-        self.define_api_method("calculate_update_from_external_batch",
-                               self._graph_fn_calculate_update_from_external_batch)
-        # These API methods are circularly dependent on the one above -> set must_be_complete=False.
-        self.define_api_method("sync_policy_weights_to_towers", self._graph_fn_sync_policy_weights_to_towers,
-                               must_be_complete=False)
 
     def setup_towers(self, towers, devices):
         """
@@ -130,6 +125,7 @@ class MultiGpuSynchronizer(Component):
     def _graph_fn_group(self, *tower_ops):
         return tf.group(*tower_ops)
 
+    @api
     def _graph_fn_calculate_update_from_external_batch(self, main_variables, *inputs):
         # - Init device memory, i.e. load batch to GPU memory.
         # - Call gradient calculation on multi-gpu optimizer which splits batch
@@ -183,6 +179,7 @@ class MultiGpuSynchronizer(Component):
         # Return averaged gradients.
         return tuple(ret)
 
+    @api(must_be_complete=False)
     def _graph_fn_sync_policy_weights_to_towers(self, optimizer_step_op, policy_variables):
         # Wait for the optimizer update, then sync all variables from the main (root) policy to each tower.
         with tf.control_dependencies([optimizer_step_op]):

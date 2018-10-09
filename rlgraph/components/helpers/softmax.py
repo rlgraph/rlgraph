@@ -22,6 +22,7 @@ from math import log
 from rlgraph import get_backend
 from rlgraph.utils.util import SMALL_NUMBER
 from rlgraph.components.component import Component
+from rlgraph.utils.decorators import api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -37,8 +38,7 @@ class SoftMax(Component):
     def __init__(self, scope="softmax", **kwargs):
         super(SoftMax, self).__init__(scope=scope, **kwargs)
 
-        self.define_api_method("get_probabilities_and_log_probs", self._graph_fn_get_probabilities_and_log_probs)
-
+    @api(must_be_complete=False)
     def _graph_fn_get_probabilities_and_log_probs(self, logits):
         """
         Creates properties/parameters and log-probs from some reshaped output.

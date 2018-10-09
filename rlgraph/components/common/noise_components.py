@@ -20,6 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components import Component
 from rlgraph.utils.util import dtype
+from rlgraph.utils.decorators import api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -38,9 +39,7 @@ class NoiseComponent(Component):
     def __init__(self, scope="noise", **kwargs):
         super(NoiseComponent, self).__init__(scope=scope, **kwargs)
 
-        # Our interface.
-        self.define_api_method(name="get_noise", func=self._graph_fn_get_noise)
-
+    @api
     def _graph_fn_get_noise(self):
         """
         The function that returns the DataOp to actually compute the noise.

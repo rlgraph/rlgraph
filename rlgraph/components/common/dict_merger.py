@@ -20,6 +20,7 @@ from __future__ import print_function
 import re
 
 from rlgraph.components import Component
+from rlgraph.utils.decorators import api
 from rlgraph.utils.ops import DataOpDict
 
 
@@ -47,8 +48,6 @@ class DictMerger(Component):
             "them, which are not allowed.".format(self.global_scope)
         self.input_names = input_names
 
-        self.define_api_method(name="merge", func=self._graph_fn_merge)
-
     def check_input_spaces(self, input_spaces, action_space=None):
         spaces = list()
         idx = 0
@@ -68,6 +67,7 @@ class DictMerger(Component):
     #    #        "ERROR: Single Space ({}) going into merger '{}' must not be a Container " \
     #    #        "Space!".format(space, self.global_scope)
 
+    @api
     def _graph_fn_merge(self, *inputs):
         """
         Merges the inputs into a single FlattenedDataOp with the flat keys given in input_names.

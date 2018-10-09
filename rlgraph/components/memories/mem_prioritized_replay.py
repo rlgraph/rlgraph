@@ -19,13 +19,13 @@ from __future__ import print_function
 
 import numpy as np
 import operator
-
-from rlgraph import get_backend
-from rlgraph.utils import SMALL_NUMBER, get_rank, util
 from six.moves import xrange as range_
 
+from rlgraph import get_backend
+from rlgraph.utils.util import SMALL_NUMBER, get_rank, dtype as dtype_
 from rlgraph.components.memories.memory import Memory
 from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
+from rlgraph.utils.decorators import api
 from rlgraph.spaces.space_utils import get_list_registry
 from rlgraph.spaces import Dict
 
@@ -55,12 +55,6 @@ class MemPrioritizedReplay(Memory):
         self.next_states = next_states
 
         self.default_new_weight = np.power(self.max_priority, self.alpha)
-        self.define_api_method(
-            name="update_records",
-            func=self._graph_fn_update_records,
-            flatten_ops=False,
-            must_be_complete=False
-        )
 
     def create_variables(self, input_spaces, action_space=None):
         # Store our record-space for convenience.
@@ -86,6 +80,38 @@ class MemPrioritizedReplay(Memory):
             min_tree=min_segment_tree,
             capacity=self.priority_capacity
         )
+
+    def _read_records(self, indices):
+        """
+        Obtains record values for the provided indices.
+
+        Args:
+            indices ndarray: Indices to read. Assumed to be not contiguous.
+
+        Returns:
+             dict: Record value dict.
+        """
+        records = {}
+        for name in self.record_registry.keys():
+            records[name] = []
+
+        if self.size > 0:
+            for index in indices:
+                record = self.memory_values[index]
+                for name in self.record_registry.keys():
+                    records[name].append(record[name])
+
+        else:
+            # TODO figure out how to do default handling in pytorch builds.
+            # Fill with default vals for build.
+            for name in self.record_registry.keys():
+                if get_backend() == "pytorch":
+                    records[name] = torch.zeros(self.record_space_flat[name].shape,
+                                                dtype=dtype_(self.record_space_flat[name].dtype, "pytorch"))
+                else:
+                    records[name] = np.zeros(self.record_space_flat[name].shape)
+
+        return records
 
     def _graph_fn_insert_records(self, records):
         if records is None or get_rank(records['/rewards']) == 0:
@@ -116,38 +142,6 @@ class MemPrioritizedReplay(Memory):
         self.index = (self.index + num_records) % self.capacity
         self.size = min(self.size + num_records, self.capacity)
 
-    def read_records(self, indices):
-        """
-        Obtains record values for the provided indices.
-
-        Args:
-            indices ndarray: Indices to read. Assumed to be not contiguous.
-
-        Returns:
-             dict: Record value dict.
-        """
-        records = {}
-        for name in self.record_registry.keys():
-            records[name] = []
-
-        if self.size > 0:
-            for index in indices:
-                record = self.memory_values[index]
-                for name in self.record_registry.keys():
-                    records[name].append(record[name])
-
-        else:
-            # TODO figure out how to do default handling in pytorch builds.
-            # Fill with default vals for build.
-            for name in self.record_registry.keys():
-                if get_backend() == "pytorch":
-                    records[name] = torch.zeros(self.record_space_flat[name].shape,
-                                                dtype=util.dtype(self.record_space_flat[name].dtype, "pytorch"))
-                else:
-                    records[name] = np.zeros(self.record_space_flat[name].shape)
-
-        return records
-
     def _graph_fn_get_records(self, num_records=1):
         indices = []
         prob_sum = self.merged_segment_tree.sum_segment_tree.get_sum(0, self.size - 1)
@@ -170,8 +164,9 @@ class MemPrioritizedReplay(Memory):
         else:
             indices = np.asarray(indices)
             weights = np.asarray(weights)
-        return self.read_records(indices=indices), indices, weights
+        return self._read_records(indices=indices), indices, weights
 
+    @api(must_be_complete=False)
     def _graph_fn_update_records(self, indices, update):
         if len(indices) > 0 and indices[0]:
             for index, loss in zip(indices, update):

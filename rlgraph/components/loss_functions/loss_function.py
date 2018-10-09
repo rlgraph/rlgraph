@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components import Component
+from rlgraph.utils.decorators import api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -42,10 +43,7 @@ class LossFunction(Component):
 
         self.discount = discount
 
-        # Define our API.
-        self.define_api_method(name="loss_per_item", func=self._graph_fn_loss_per_item)
-        self.define_api_method(name="loss_average", func=self._graph_fn_loss_average, must_be_complete=False)
-
+    @api
     def _graph_fn_loss_per_item(self, *inputs):
         """
         Returns the single loss values (one for each item in a batch).
@@ -59,6 +57,7 @@ class LossFunction(Component):
         """
         raise NotImplementedError
 
+    @api(must_be_complete=False)
     def _graph_fn_loss_average(self, loss_per_item):
         """
         The actual loss function that an optimizer will try to minimize. This is usually the average over a batch.
