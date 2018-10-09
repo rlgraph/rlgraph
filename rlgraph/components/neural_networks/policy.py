@@ -90,16 +90,16 @@ class Policy(Component):
 
             #@api
             #def get_baseline_output(self, nn_input, internal_states=None):
-            #    nn_output, last_internals = unify_nn_and_rnn_api_output(
+            #    nn_output, last_internal_states = unify_nn_and_rnn_api_output(
             #        self.neural_network.apply(nn_input, internal_states)
             #    )
             #    state_value, logits = self.action_adapter.get_state_values_and_logits(nn_output)
-            #    return (state_value, logits, last_internals) if last_internals is not None else (state_value, logits)
+            #    return (state_value, logits, last_internal_states) if last_internal_states is not None else (state_value, logits)
             #
 
             @api
             def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
-                nn_output, last_internals = unify_nn_and_rnn_api_output(
+                nn_output, last_internal_states = unify_nn_and_rnn_api_output(
                     self.neural_network.apply(nn_input, internal_states)
                 )
 
@@ -117,8 +117,8 @@ class Policy(Component):
                     probs = self.time_rank_unfolder_a_probs.apply(probs, nn_output)
                     log_probs = self.time_rank_unfolder_log_probs.apply(log_probs, nn_output)
 
-                return (state_values, logits, probs, log_probs, last_internals) if last_internals is not None else \
-                    (state_values, logits, probs, log_probs)
+                return (state_values, logits, probs, log_probs, last_internal_states) if \
+                    last_internal_states is not None else (state_values, logits, probs, log_probs)
 
         # Figure out our Distribution.
         if isinstance(action_space, IntBox):
@@ -174,11 +174,11 @@ class Policy(Component):
         # over the logits, which is the same as the argmax over the probabilities (or log-probabilities)).
         if max_likelihood is True and isinstance(self.action_space, IntBox):
             out = self.action_adapter.get_logits_probabilities_log_probs(nn_output["nn_output"])
-            sample = self._graph_fn_get_max_likelihood_action_wo_distribution(out["logits"])
+            action = self._graph_fn_get_max_likelihood_action_wo_distribution(out["logits"])
         else:
             out = self.action_adapter.get_logits_probabilities_log_probs(nn_output["nn_output"])
-            sample = self.distribution.draw(out["probabilities"], max_likelihood)
-        return dict(sample=sample, last_internals=nn_output.get("last_internals"))
+            action = self.distribution.draw(out["probabilities"], max_likelihood)
+        return dict(action=action, last_internal_states=nn_output.get("last_internal_states"))
 
     @api
     def get_max_likelihood_action(self, nn_input, internal_states=None):
@@ -197,7 +197,7 @@ class Policy(Component):
         else:
             action = self.distribution.sample_deterministic(out["probabilities"])
 
-        return dict(action=action, last_internals=out["last_internals"])
+        return dict(action=action, last_internal_states=out["last_internal_states"])
 
     @api
     def get_stochastic_action(self, nn_input, internal_states=None):
@@ -211,7 +211,7 @@ class Policy(Component):
         """
         out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
         action = self.distribution.sample_stochastic(out["probabilities"])
-        return dict(action=action, last_internals=out["last_internals"])
+        return dict(action=action, last_internal_states=out["last_internal_states"])
 
     @api
     def get_action_layer_output(self, nn_input, internal_states=None):
@@ -227,7 +227,7 @@ class Policy(Component):
         nn_output = self.get_nn_output(nn_input, internal_states)
         action_layer_output = self.action_adapter.get_action_layer_output(nn_output["nn_output"])
         # Add last internal states to return value.
-        action_layer_output["last_internals"] = nn_output["last_internals"]
+        action_layer_output["last_internal_states"] = nn_output["last_internal_states"]
         return action_layer_output
 
     @api
@@ -246,7 +246,7 @@ class Policy(Component):
         nn_output = self.get_nn_output(nn_input, internal_states)
         aa_output = self.action_adapter.get_logits_probabilities_log_probs(nn_output["nn_output"])
         return dict(logits=aa_output["logits"], probabilities=aa_output["probabilities"],
-                    log_probs=aa_output["log_probs"], last_internals=nn_output["last_internals"])
+                    log_probs=aa_output["log_probs"], last_internal_states=nn_output["last_internal_states"])
 
     @api
     def get_entropy(self, nn_input, internal_states=None):
@@ -260,7 +260,7 @@ class Policy(Component):
         """
         out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
         entropy = self.distribution.entropy(out["probabilities"])
-        return dict(entropy=entropy, last_internals=out["last_internals"])
+        return dict(entropy=entropy, last_internal_states=out["last_internal_states"])
 
     #@graph_fn
     def _graph_fn_get_max_likelihood_action_wo_distribution(self, logits):
