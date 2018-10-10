@@ -27,7 +27,7 @@ from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 
 
-class TestPreprocessors(unittest.TestCase):
+class TestPreprocessorLayers(unittest.TestCase):
 
     def test_multiply(self):
         multiply = Multiply(factor=2.0)
@@ -209,7 +209,7 @@ class TestPreprocessors(unittest.TestCase):
         expected = cv2.imread(os.path.join(os.path.dirname(__file__), "images/8x12x3_image_cropped.bmp"))
         assert expected is not None
 
-        out = image_crop._graph_fn_apply("", input_image)
+        out = image_crop._graph_fn_apply(input_image)
         recursive_assert_almost_equal(out, expected)
 
     def test_black_and_white(self):

@@ -132,7 +132,7 @@ class Component(Specifiable):
         self.synthetic_methods = set()
 
         # How this component executes its 'call' method.
-        self.execution_mode = "static_graph"
+        self.execution_mode = "static_graph" if self.backend != "python" else "define_by_run"
 
         # `self.api_method_inputs`: Registry for all unique API-method input parameter names and their Spaces.
         # Two API-methods may share the same input if their input parameters have the same names.

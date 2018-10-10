@@ -77,6 +77,8 @@ def api(api_method=None, *, component=None, name=None, returns=None,
     Returns:
         callable: The decorator function.
     """
+    _sanity_check_decorator_options(flatten_ops, split_ops, add_auto_key_as_first_param)
+
     def decorator_func(wrapped_func):
 
         def api_method_wrapper(self, *args, **kwargs):
@@ -91,15 +93,15 @@ def api(api_method=None, *, component=None, name=None, returns=None,
                 start = time.perf_counter()
                 # Check with owner if extra args needed.
                 if name_ in self.api_methods and self.api_methods[name_].add_auto_key_as_first_param:
-                    return_dict = wrapped_func("", *args, **kwargs)
+                    output = wrapped_func(self, "", *args, **kwargs)
                 else:
-                    return_dict = wrapped_func(*args, **kwargs)
+                    output = wrapped_func(self, *args, **kwargs)
 
                 # Store runtime for this method.
                 type(self).call_times.append(  # Component.call_times
                     (self.name, wrapped_func.__name__, time.perf_counter() - start)
                 )
-                return return_dict
+                return output
 
             api_method_rec = self.api_methods[name_]
 
@@ -260,6 +262,8 @@ def graph_fn(graph_fn=None, *, returns=None,
     Returns:
         callable: The decorator function.
     """
+    _sanity_check_decorator_options(flatten_ops, split_ops, add_auto_key_as_first_param)
+
     def decorator_func(wrapped_func):
         def _graph_fn_wrapper(self, *args, **kwargs):
             return graph_fn_wrapper(
@@ -504,3 +508,12 @@ def _sanity_check_call_parameters(self, params, method, method_type, add_auto_ke
                                                   len(actual_params), len(params), params)
             )
 
+
+def _sanity_check_decorator_options(flatten_ops, split_ops, add_auto_key_as_first_param):
+    if split_ops:
+        assert flatten_ops,\
+            "ERROR in decorator options: `split_ops` cannot be True if `flatten_ops` is False!"
+
+    if add_auto_key_as_first_param:
+        assert split_ops,\
+            "ERROR in decorator options: `add_auto_key_as_first_param` cannot be True if `split_ops` is False!"

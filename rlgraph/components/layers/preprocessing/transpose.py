@@ -19,7 +19,8 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
-from rlgraph.utils.ops import flatten_op, unflatten_op
+from rlgraph.utils.ops import unflatten_op
+from rlgraph.utils.decorators import api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -55,6 +56,7 @@ class Transpose(PreprocessLayer):
         ret = unflatten_op(ret)
         return ret
 
+    @api(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
     def _graph_fn_apply(self, key, preprocessing_inputs):
         """
         Transposes the input by flipping batch and time ranks.

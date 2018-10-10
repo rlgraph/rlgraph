@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.spaces.float_box import FloatBox
+from rlgraph.utils.decorators import api
 from rlgraph.utils.ops import unflatten_op
 
 
@@ -42,6 +43,7 @@ class Multiply(PreprocessLayer):
                                 add_time_rank=value.has_time_rank)
         return unflatten_op(ret)
 
+    @api
     def _graph_fn_apply(self, preprocessing_inputs):
         """
         Multiplies the input with our factor.
@@ -75,6 +77,7 @@ class Divide(PreprocessLayer):
                                 add_time_rank=value.has_time_rank)
         return unflatten_op(ret)
 
+    @api
     def _graph_fn_apply(self, preprocessing_inputs):
         """
         Divides the input by with our divisor.

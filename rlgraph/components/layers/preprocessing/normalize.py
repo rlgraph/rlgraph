@@ -19,8 +19,9 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.spaces import Space
-from rlgraph.utils.util import SMALL_NUMBER
 from rlgraph.components.layers.preprocessing import PreprocessLayer
+from rlgraph.utils.decorators import api
+from rlgraph.utils.util import SMALL_NUMBER
 
 
 class Normalize(PreprocessLayer):
@@ -45,6 +46,7 @@ class Normalize(PreprocessLayer):
         # A list of all axes over which to normalize (exclude batch rank).
         self.axes = list(range(1 if in_space.has_batch_rank else 0, len(in_space.get_shape(with_batch_rank=False))))
 
+    @api
     def _graph_fn_apply(self, preprocessing_inputs):
         min_value = preprocessing_inputs
         max_value = preprocessing_inputs

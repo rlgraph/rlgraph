@@ -24,6 +24,7 @@ from six.moves import xrange as range_
 
 from rlgraph import get_backend
 from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.utils.decorators import api
 from rlgraph.utils.ops import FlattenedDataOp, unflatten_op
 from rlgraph.utils.util import get_rank, get_shape, force_list
 from rlgraph.components.layers.preprocessing import PreprocessLayer
@@ -126,6 +127,7 @@ class Sequence(PreprocessLayer):
         elif get_backend() == "tf":
             return tf.variables_initializer([self.index])
 
+    @api
     def _graph_fn_apply(self, preprocessing_inputs):
         """
         Sequences (stitches) together the incoming inputs by using our buffer (with stored older records).

@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
+from rlgraph.utils.decorators import api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -47,6 +48,7 @@ class ImageBinary(PreprocessLayer):
         in_space = input_spaces["preprocessing_inputs"]
         self.last_rank = in_space.shape[-1]
 
+    @api
     def _graph_fn_apply(self, preprocessing_inputs):
         """
         Converts the images into binary images by replacing all non-black (at least one channel value is not 0.0)
