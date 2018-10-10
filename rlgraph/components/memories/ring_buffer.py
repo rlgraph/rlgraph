@@ -48,7 +48,7 @@ class RingBuffer(Memory):
 
         # Extend our interface ("get_episodes").
         if self.episode_semantics:
-            @api(name="get_episodes")
+            @api(name="get_episodes", component=self)
             def _graph_fn_get_episodes(self, num_episodes):
                 stored_episodes = self.read_variable(self.num_episodes)
                 available_episodes = tf.minimum(x=num_episodes, y=stored_episodes)
@@ -188,7 +188,12 @@ class RingBuffer(Memory):
         with tf.control_dependencies(control_inputs=record_updates):
             return tf.no_op()
 
-    def read_records(self, indices):
+    def _graph_fn_get_records(self, num_records=1):
+        index = self.read_variable(self.index)
+        indices = tf.range(start=index - 1 - num_records, limit=index - 1) % self.capacity
+        return self._read_records(indices=indices)
+
+    def _read_records(self, indices):
         """
         Obtains record values for the provided indices.
 
@@ -203,7 +208,3 @@ class RingBuffer(Memory):
             records[name] = self.read_variable(variable, indices)
         return records
 
-    def _graph_fn_get_records(self, num_records):
-        index = self.read_variable(self.index)
-        indices = tf.range(start=index - 1 - num_records, limit=index - 1) % self.capacity
-        return self.read_records(indices=indices)

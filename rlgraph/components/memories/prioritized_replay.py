@@ -104,7 +104,7 @@ class PrioritizedReplay(Memory):
         )
         self.min_segment_tree = SegmentTree(self.min_segment_buffer, self.priority_capacity)
 
-    @api
+    @api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
         num_records = get_batch_size(records["/terminals"])
         index = self.read_variable(self.index)
@@ -156,7 +156,7 @@ class PrioritizedReplay(Memory):
             return tf.no_op()
 
     @api
-    def _graph_fn_get_records(self, num_records):
+    def _graph_fn_get_records(self, num_records=1):
         # Sum total mass.
         current_size = self.read_variable(self.size)
         stored_elements_prob_sum = self.sum_segment_tree.reduce(start=0, limit=current_size - 1)

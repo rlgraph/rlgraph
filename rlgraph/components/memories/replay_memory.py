@@ -17,12 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import re
 import tensorflow as tf
 
 from rlgraph.components.memories.memory import Memory
 from rlgraph.utils.ops import FlattenedDataOp
 from rlgraph.utils.util import get_batch_size
+from rlgraph.utils.decorators import api
 
 
 class ReplayMemory(Memory):
@@ -56,6 +56,7 @@ class ReplayMemory(Memory):
         # Number of elements present.
         self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
 
+    @api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
         num_records = get_batch_size(records["/terminals"])
         # List of indices to update (insert from `index` forward and roll over at `self.capacity`).
@@ -83,7 +84,19 @@ class ReplayMemory(Memory):
         with tf.control_dependencies(control_inputs=index_updates):
             return tf.no_op()
 
-    def read_records(self, indices):
+    @api
+    def _graph_fn_get_records(self, num_records=1):
+        size = self.read_variable(self.size)
+
+        # Sample and retrieve a random range, including terminals.
+        index = self.read_variable(self.index)
+        indices = tf.random_uniform(shape=(num_records,), maxval=size, dtype=tf.int32)
+        indices = (index - 1 - indices) % self.capacity
+
+        # Return default importance weight one.
+        return self._read_records(indices=indices), indices, tf.ones_like(tensor=indices, dtype=tf.float32)
+
+    def _read_records(self, indices):
         """
         Obtains record values for the provided indices.
 
@@ -99,13 +112,3 @@ class ReplayMemory(Memory):
             records[name] = self.read_variable(variable, indices)
         return records
 
-    def _graph_fn_get_records(self, num_records):
-        size = self.read_variable(self.size)
-
-        # Sample and retrieve a random range, including terminals.
-        index = self.read_variable(self.index)
-        indices = tf.random_uniform(shape=(num_records,), maxval=size, dtype=tf.int32)
-        indices = (index - 1 - indices) % self.capacity
-
-        # Return default importance weight one.
-        return self.read_records(indices=indices), indices, tf.ones_like(tensor=indices, dtype=tf.float32)

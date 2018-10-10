@@ -65,7 +65,7 @@ class Memory(Component):
         raise NotImplementedError
 
     @api
-    def _graph_fn_get_records(self, num_records):
+    def _graph_fn_get_records(self, num_records=1):
         """
         Returns a number of records according to the retrieval strategy implemented by
         the memory.
@@ -79,7 +79,7 @@ class Memory(Component):
         raise NotImplementedError
 
     @api
-    def _graph_fn_get_episodes(self, num_episodes):
+    def _graph_fn_get_episodes(self, num_episodes=1):
         """
         Retrieves a given number of episodes.
 
@@ -96,17 +96,4 @@ class Memory(Component):
         Removes all entries from memory.
         """
         # Optional?
-        pass
-
-    @api
-    def _graph_fn_update_records(self, indices, update):
-        """
-        Optionally updates memory records using information such as losses, e.g. to
-        compute priorities.
-
-        Args:
-            indices (Union[ndarray,tf.Tensor]): The indices in the memory to update.
-            update (any): Any information relevant to update records, e.g. losses of most recently read batch
-                of records.
-        """
         pass

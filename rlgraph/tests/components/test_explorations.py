@@ -27,6 +27,7 @@ from rlgraph.components.explorations.exploration import Exploration, EpsilonExpl
 from rlgraph.components.distributions import Categorical, Normal
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
+from rlgraph.utils.decorators import api
 
 
 class TestExplorations(unittest.TestCase):
@@ -56,9 +57,9 @@ class TestExplorations(unittest.TestCase):
         exploration_pipeline = Component(action_adapter, distribution, exploration, scope="exploration-pipeline")
 
         @api(component=exploration_pipeline)
-        def get_action(self, nn_output, time_step):
-            _, parameters, _ = action_adapter.get_logits_probabilities_log_probs(nn_output)
-            sample = distribution.sample_deterministic(parameters)
+        def get_action(self_, nn_output, time_step):
+            out = action_adapter.get_logits_probabilities_log_probs(nn_output)
+            sample = distribution.sample_deterministic(out["probabilities"])
             action = exploration.get_action(sample, time_step)
             return action
 

@@ -113,6 +113,7 @@ class MemPrioritizedReplay(Memory):
 
         return records
 
+    @api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
         if records is None or get_rank(records['/rewards']) == 0:
             return
@@ -142,6 +143,7 @@ class MemPrioritizedReplay(Memory):
         self.index = (self.index + num_records) % self.capacity
         self.size = min(self.size + num_records, self.capacity)
 
+    @api
     def _graph_fn_get_records(self, num_records=1):
         indices = []
         prob_sum = self.merged_segment_tree.sum_segment_tree.get_sum(0, self.size - 1)

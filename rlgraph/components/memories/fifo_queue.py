@@ -51,7 +51,7 @@ class FIFOQueue(Memory):
 
         # If record space given, overwrite the insert method as "must_be_complete=False".
         if self.record_space is not None:
-            @api(must_be_complete=False)
+            @api(component=self, must_be_complete=False, ok_to_overwrite=True)
             def _graph_fn_insert_records(self, records):
                 flattened_records = flatten_op(records)
                 flattened_stopped_records = {key: tf.stop_gradient(op) for key, op in flattened_records.items()}
@@ -95,6 +95,7 @@ class FIFOQueue(Memory):
                 shared_name=shared_name
             )
 
+    @api
     def _graph_fn_get_records(self, num_records=1):
         # Get the records as dict.
         record_dict = self.queue.dequeue_many(num_records)

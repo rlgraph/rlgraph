@@ -50,7 +50,7 @@ class TestFIFOQueue(unittest.TestCase):
         """
         Simply tests insert op without checking internal logic.
         """
-        fifo_queue = FIFOQueue(capacity=self.capacity)
+        fifo_queue = FIFOQueue(capacity=self.capacity, record_space=self.record_space)
         test = ComponentTest(component=fifo_queue, input_spaces=self.input_spaces)
 
         first_record = self.record_space.sample(size=1)
@@ -73,7 +73,7 @@ class TestFIFOQueue(unittest.TestCase):
         """
         Tests if insert correctly blocks when capacity is reached.
         """
-        fifo_queue = FIFOQueue(capacity=self.capacity)
+        fifo_queue = FIFOQueue(capacity=self.capacity, record_space=self.record_space)
         test = ComponentTest(component=fifo_queue, input_spaces=self.input_spaces)
 
         def run(expected_):

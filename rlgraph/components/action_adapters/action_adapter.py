@@ -139,6 +139,19 @@ class ActionAdapter(Component):
         return dict(output=out["output"])
 
     @api
+    def get_logits(self, nn_output):
+        """
+        Args:
+            nn_output (DataOpRecord): The NN output of the preceding neural network.
+
+        Returns:
+            SingleDataOp: The logits (raw nn_output, BUT reshaped).
+        """
+        aa_output = self.get_action_layer_output(nn_output)
+        logits = self.reshape.apply(aa_output["output"])
+        return logits
+
+    @api
     def get_logits_probabilities_log_probs(self, nn_output):
         """
         Args:
@@ -150,10 +163,9 @@ class ActionAdapter(Component):
                 - probabilities (softmaxed(logits))
                 - log(probabilities)
         """
-        aa_output = self.get_action_layer_output(nn_output)
-        aa_output_reshaped = self.reshape.apply(aa_output)
-        probabilities, log_probs = self._graph_fn_get_probabilities_log_probs(aa_output_reshaped)
-        return aa_output_reshaped, probabilities, log_probs
+        logits = self.get_logits(nn_output)
+        probabilities, log_probs = self._graph_fn_get_probabilities_log_probs(logits)
+        return dict(logits=logits, probabilities=probabilities, log_probs=log_probs)
 
     # TODO: Use a SoftMax Component instead (uses the same code as the one below).
     @graph_fn

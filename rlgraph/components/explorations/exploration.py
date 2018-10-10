@@ -25,7 +25,7 @@ from rlgraph.components.common.noise_components import NoiseComponent
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.util import dtype
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import api, graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -114,6 +114,7 @@ class Exploration(Component):
         elif self.noise_component:
             sanity_check_space(self.action_space, allowed_types=[FloatBox])
 
+    @graph_fn
     def _graph_fn_pick(self, use_exploration, epsilon_decisions, sample):
         """
         Exploration for discrete action spaces.
@@ -166,6 +167,7 @@ class Exploration(Component):
                     epsilon_decisions = epsilon_decisions.byte()
                 return torch.where(use_exploration & epsilon_decisions, random_actions, sample)
 
+    @graph_fn
     def _graph_fn_add_noise(self, use_exploration, noise, sample):
         """
         Noise for continuous action spaces.

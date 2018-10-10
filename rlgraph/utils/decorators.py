@@ -36,7 +36,7 @@ component_graph_fn_registry = dict()
 
 def api(api_method=None, *, component=None, name=None, returns=None,
         flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False,
-        must_be_complete=True
+        must_be_complete=True, ok_to_overwrite=False
         ):
     """
     API-method decorator used to tag any Component's methods as API-methods.
@@ -71,6 +71,8 @@ def api(api_method=None, *, component=None, name=None, returns=None,
             Has no effect if `split_ops` is False.
             (default: False).
         must_be_complete (bool): Whether the exposed API methods must be input-complete or not.
+        ok_to_overwrite (bool): Set to True to indicate that this API-decorator will overwrite an already existing
+            API-method in the Component. Default: False.
 
     Returns:
         callable: The decorator function.
@@ -201,7 +203,7 @@ def api(api_method=None, *, component=None, name=None, returns=None,
         api_method_rec = APIMethodRecord(
             func=wrapped_func, wrapper_func=api_method_wrapper,
             name=name_,
-            must_be_complete=must_be_complete, #ok_to_overwrite=ok_to_overwrite,
+            must_be_complete=must_be_complete, ok_to_overwrite=ok_to_overwrite,
             is_graph_fn_wrapper=is_graph_fn_wrapper, is_class_method=(component is None),
             flatten_ops=flatten_ops, split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param
         )
