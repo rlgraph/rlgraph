@@ -140,7 +140,7 @@ class TestReShapePreprocessors(unittest.TestCase):
         inputs = in_space.sample(size=8)
         inputs_before_folding = in_space_before_folding.sample(size=(4, 2))
         expected = np.reshape(inputs, newshape=(4, 2, 4, 4))
-        out = reshape._graph_fn_apply("", inputs, inputs_before_folding)
+        out = reshape._graph_fn_apply(inputs, inputs_before_folding)
 
         recursive_assert_almost_equal(out, expected)
 

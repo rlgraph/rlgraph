@@ -35,14 +35,6 @@ class Stack(Component):
     All sub-components' API-methods need to match in the number of input and output values. E.g. the third
     sub-component's api-metehod's number of return values has to match the forth sub-component's api-method's number of
     input parameters.
-
-    API:
-        apply(input[, input2, ...]?): Sends one (or more, depending on the 1st sub-Component's `apply` method)
-            DataOpRecord(s) through the stack and returns one (or more, depending on the last sub-Component's `apply`
-            method) DataOpRecords.
-
-        Optional:
-            Other API-methods that all sub-Component have in common.
     """
     def __init__(self, *sub_components, **kwargs):
         """
@@ -84,11 +76,15 @@ class Stack(Component):
         """
         # Loop through the API-method set.
         for api_method_spec in api_methods:
+
+            function_to_use = None
+
             # API-method of sub-Components and this Stack should have different names.
             if isinstance(api_method_spec, tuple):
                 # Custom method given, use that instead of creating one automatically.
                 if callable(api_method_spec[1]):
                     stack_api_method_name = components_api_method_name = api_method_spec[0]
+                    function_to_use = api_method_spec[1]
                 else:
                     stack_api_method_name, components_api_method_name = api_method_spec[0], api_method_spec[1]
             # API-method of sub-Components and this Stack should have the same name.
@@ -98,44 +94,55 @@ class Stack(Component):
             # API-method for this Stack does not exist yet -> Automatically create it.
             if not hasattr(self, stack_api_method_name):
 
-                @api(name=stack_api_method_name, component=self)
-                def method(self_, *inputs):
-                    if get_backend() == "pytorch" and self.execution_mode == "define_by_run":
-                        # Avoid jumping back between layers and calls at runtime.
-                        return self.fast_path_exec(inputs)
-                    else:
-                        result = inputs
-                        for sub_component in self_.sub_components.values():  # type: Component
-                            num_allowed_inputs = sub_component.get_number_of_allowed_inputs(components_api_method_name)
-                            num_actual_inputs = len(result) if isinstance(result, (tuple, list)) else 1
-                            # Check whether number of inputs to this sub-component's API-method is ok.
-                            if num_allowed_inputs[0] > num_actual_inputs:
-                                raise RLGraphError(
-                                    "Number of given input args ({}) to Stack's API-method '{}' is too low! Needs to "
-                                    "be at least {}.".format(num_actual_inputs, stack_api_method_name,
-                                                             num_allowed_inputs[0])
-                                )
-                            elif num_allowed_inputs[1] is not None and num_allowed_inputs[1] < num_actual_inputs:
-                                raise RLGraphError(
-                                    "Number of given input args ({}) to Stack's API-method '{}' is too high! Needs to "
-                                    "be at most {}.".format(num_actual_inputs, stack_api_method_name, num_allowed_inputs[1])
-                                )
+                # Custom API-method is given (w/o decorator) -> Call the decorator directly here to register it.
+                if function_to_use is not None:
+                    api(api_method=function_to_use, component=self, name=stack_api_method_name)
 
-                            # TODO: python-Components: For now, we call each preprocessor's graph_fn
-                            #  directly (assuming that inputs are not ContainerSpaces).
-                            if self_.backend == "python" or get_backend() == "python":
-                                graph_fn = getattr(sub_component, "_graph_fn_" + components_api_method_name)
-                                if sub_component.api_methods[components_api_method_name].add_auto_key_as_first_param:
-                                    result = graph_fn("", *force_tuple(result))
-                                else:
-                                    result = graph_fn(*force_tuple(result))
-                            elif get_backend() == "pytorch":
-                                # Do NOT convert to tuple, has to be in unpacked again immediately.n
-                                result = getattr(sub_component, components_api_method_name)(*force_list(result))
-                            elif get_backend() == "tf":
-                                result = getattr(sub_component, components_api_method_name)(*force_tuple(result))
+                # No API-method given -> Create auto-API-method and set it up through decorator.
+                else:
+                    @api(name=stack_api_method_name, component=self)
+                    def method(self_, *inputs):  # TODO: use args and kwargs here to stay completely flexible?
+                                                 # TODO: Then for NNs, we can specialize on layer in- and outputs.
+                        if get_backend() == "pytorch" and self.execution_mode == "define_by_run":
+                            # Avoid jumping back between layers and calls at runtime.
+                            return self.fast_path_exec(inputs)
+                        else:
+                            result = inputs
+                            for sub_component in self_.sub_components.values():  # type: Component
+                                # TODO: scrap all this and do a try below, then raise RLGraphStackError if something doesn't match.
+                                #num_allowed_inputs = sub_component.get_number_of_allowed_inputs(components_api_method_name)
+                                #num_actual_inputs = len(result) if isinstance(result, (tuple, list)) else 1
+                                ## Check whether number of inputs to this sub-component's API-method is ok.
+                                #if num_allowed_inputs[0] > num_actual_inputs:
+                                #    raise RLGraphError(
+                                #        "Number of given input args ({}) to Stack's API-method '{}' is too low! Needs "
+                                #        "to be at least {}.".format(
+                                #            num_actual_inputs, stack_api_method_name, num_allowed_inputs[0]
+                                #        )
+                                #    )
+                                #elif num_allowed_inputs[1] is not None and num_allowed_inputs[1] < num_actual_inputs:
+                                #    raise RLGraphError(
+                                #        "Number of given input args ({}) to Stack's API-method '{}' is too high! Needs "
+                                #        "to be at most {}.".format(
+                                #            num_actual_inputs, stack_api_method_name, num_allowed_inputs[1]
+                                #        )
+                                #    )
 
-                        return result
+                                # TODO: python-Components: For now, we call each preprocessor's graph_fn
+                                #  directly (assuming that inputs are not ContainerSpaces).
+                                if self_.backend == "python" or get_backend() == "python":
+                                    graph_fn = getattr(sub_component, "_graph_fn_" + components_api_method_name)
+                                    if sub_component.api_methods[components_api_method_name].add_auto_key_as_first_param:
+                                        result = graph_fn("", *force_tuple(result))
+                                    else:
+                                        result = graph_fn(*force_tuple(result))
+                                elif get_backend() == "pytorch":
+                                    # Do NOT convert to tuple, has to be in unpacked again immediately.n
+                                    result = getattr(sub_component, components_api_method_name)(*force_list(result))
+                                elif get_backend() == "tf":
+                                    result = getattr(sub_component, components_api_method_name)(*force_tuple(result))
+
+                            return result
 
         # Build fast-path execution method for pytorch / eager.
         if get_backend() == "pytorch":
