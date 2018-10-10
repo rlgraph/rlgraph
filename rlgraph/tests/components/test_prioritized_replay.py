@@ -171,7 +171,6 @@ class TestPrioritizedReplay(unittest.TestCase):
         """
         memory = PrioritizedReplay(
             capacity=self.capacity,
-            next_states=True,
             alpha=self.alpha,
             beta=self.beta
         )

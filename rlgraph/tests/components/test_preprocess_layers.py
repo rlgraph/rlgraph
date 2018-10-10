@@ -27,11 +27,13 @@ from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 
 
-class TestPreprocessorLayers(unittest.TestCase):
+class TestPreprocessLayers(unittest.TestCase):
 
     def test_multiply(self):
         multiply = Multiply(factor=2.0)
-        test = ComponentTest(component=multiply, input_spaces=dict(preprocessing_inputs=FloatBox(shape=(2, 1), add_batch_rank=True)))
+        test = ComponentTest(component=multiply, input_spaces=dict(preprocessing_inputs=FloatBox(
+            shape=(2, 1), add_batch_rank=True)
+        ))
 
         test.test("reset")
         # Batch=2
