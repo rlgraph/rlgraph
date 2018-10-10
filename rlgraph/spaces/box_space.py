@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from cached_property import cached_property
 import numpy as np
 from six.moves import xrange as range_
 import re
@@ -57,7 +56,7 @@ class BoxSpace(Space):
         super(BoxSpace, self).__init__(add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
                                        time_major=time_major)
 
-        self._dtype = dtype
+        self.dtype = dtype
 
         # Determine the shape.
         if shape is None:
@@ -131,15 +130,11 @@ class BoxSpace(Space):
         else:
             return time_rank + batch_rank + self.shape
 
-    @cached_property
+    @property
     def flat_dim(self):
         return int(np.prod(self.shape))  # also works for shape=()
 
-    @cached_property
-    def dtype(self):
-        return self._dtype
-
-    @cached_property
+    @property
     def bounds(self):
         return self.low, self.high
 
@@ -203,6 +198,15 @@ class BoxSpace(Space):
                     **kwargs
                 )
 
+    def zeros(self, size=None):
+        return self.sample(size=size, fill_value=0)
+
+    def contains(self, sample):
+        sample_shape = sample.shape if not isinstance(sample, int) else ()
+        if sample_shape != self.shape:
+            return False
+        return (sample >= self.low).all() and (sample <= self.high).all()
+
     def __repr__(self):
         return "{}({} {} {}{})".format(
             type(self).__name__.title(), self.shape, str(self.dtype), "; +batch" if self.has_batch_rank else
@@ -218,13 +222,3 @@ class BoxSpace(Space):
         if self.shape == ():
             return hash((self.low, self.high))
         return hash((tuple(self.low), tuple(self.high)))
-
-    def zeros(self, size=None):
-        return self.sample(size=size, fill_value=0)
-
-    def contains(self, sample):
-        sample_shape = sample.shape if not isinstance(sample, int) else ()
-        if sample_shape != self.shape:
-            return False
-        return (sample >= self.low).all() and (sample <= self.high).all()
-

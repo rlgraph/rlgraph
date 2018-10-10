@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from cached_property import cached_property
 import numpy as np
 import re
 
@@ -103,7 +102,7 @@ class Dict(ContainerSpace, dict):
     def force_batch(self, samples):
         return dict([(key, self[key].force_batch(samples[key])) for key in sorted(self.keys())])
 
-    @cached_property
+    @property
     def shape(self):
         return tuple([self[key].shape for key in sorted(self.keys())])
 
@@ -113,15 +112,15 @@ class Dict(ContainerSpace, dict):
             with_category_rank=with_category_rank
         ) for key in sorted(self.keys())])
 
-    @cached_property
+    @property
     def rank(self):
         return tuple([self[key].rank for key in sorted(self.keys())])
 
-    @cached_property
+    @property
     def flat_dim(self):
         return int(np.sum([c.flat_dim for c in self.values()]))
 
-    @cached_property
+    @property
     def dtype(self):
         return DataOpDict([(key, subspace.dtype) for key, subspace in self.items()])
 
@@ -140,14 +139,6 @@ class Dict(ContainerSpace, dict):
         for key in sorted(self.keys()):
             self[key].flatten(mapping, custom_scope_separator, scope_separator_at_start, scope_ + key, list_)
 
-    def __repr__(self):
-        return "Dict({})".format([(key, self[key].__repr__()) for key in self.keys()])
-
-    def __eq__(self, other):
-        if not isinstance(other, Dict):
-            return False
-        return dict(self) == dict(other)
-
     def sample(self, size=None, horizontal=False):
         if horizontal:
             return np.array([{key: self[key].sample() for key in sorted(self.keys())}] * (size or 1))
@@ -159,6 +150,14 @@ class Dict(ContainerSpace, dict):
 
     def contains(self, sample):
         return isinstance(sample, dict) and all(self[key].contains(sample[key]) for key in self.keys())
+
+    def __repr__(self):
+        return "Dict({})".format([(key, self[key].__repr__()) for key in self.keys()])
+
+    def __eq__(self, other):
+        if not isinstance(other, Dict):
+            return False
+        return dict(self) == dict(other)
 
 
 class Tuple(ContainerSpace, tuple):
@@ -218,7 +217,7 @@ class Tuple(ContainerSpace, tuple):
     def force_batch(self, samples):
         return tuple([c.force_batch(samples[i]) for i, c in enumerate(self)])
 
-    @cached_property
+    @property
     def shape(self):
         return tuple([c.shape for c in self])
 
@@ -228,15 +227,15 @@ class Tuple(ContainerSpace, tuple):
             with_category_rank=with_category_rank
         ) for c in self])
 
-    @cached_property
+    @property
     def rank(self):
         return tuple([c.rank for c in self])
 
-    @cached_property
+    @property
     def flat_dim(self):
         return np.sum([c.flat_dim for c in self])
 
-    @cached_property
+    @property
     def dtype(self):
         return DataOpTuple([c.dtype for c in self])
 
@@ -257,12 +256,6 @@ class Tuple(ContainerSpace, tuple):
                 mapping, custom_scope_separator, scope_separator_at_start, scope_ + str(i) + FLAT_TUPLE_CLOSE, list_
             )
 
-    def __repr__(self):
-        return "Tuple({})".format(tuple([cmp.__repr__() for cmp in self]))
-
-    def __eq__(self, other):
-        return tuple.__eq__(self, other)
-
     def sample(self, size=None, horizontal=False):
         if horizontal:
             return np.array([tuple(subspace.sample() for subspace in self)] * (size or 1))
@@ -276,3 +269,8 @@ class Tuple(ContainerSpace, tuple):
         return isinstance(sample, (tuple, list, np.ndarray)) and len(self) == len(sample) and \
                all(c.contains(xi) for c, xi in zip(self, sample))
 
+    def __repr__(self):
+        return "Tuple({})".format(tuple([cmp.__repr__() for cmp in self]))
+
+    def __eq__(self, other):
+        return tuple.__eq__(self, other)

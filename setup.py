@@ -26,7 +26,6 @@ with open(os.path.join(os.path.dirname(__file__), 'rlgraph', 'version.py')) as f
     exec(fp.read(), version_vars)
 
 install_requires = [
-    'cached_property',  # TODO: remove b/c not multi-processing save?
     'opencv-python',
     'numpy',
     'pyyaml',

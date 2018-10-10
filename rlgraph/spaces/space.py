@@ -182,15 +182,6 @@ class Space(Specifiable):
         """
         raise NotImplementedError
 
-    @property
-    def dtype(self):
-        """
-        Returns:
-            np.dtype: The dtype (as numpy dtype) of this Space. Can be converted to tf/np/python dtypes via the
-            utils.dtype function. Tf seems to understand strings as well, though.
-        """
-        raise NotImplementedError
-
     def get_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None,
                      time_major=False, is_python=False, local=False, **kwargs):
         """

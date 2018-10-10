@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from cached_property import cached_property
 import numpy as np
 
 from rlgraph.spaces.box_space import BoxSpace
@@ -67,7 +66,7 @@ class IntBox(BoxSpace):
             return shape + ((self.num_categories,) if self.num_categories is not None else ())
         return shape
 
-    @cached_property
+    @property
     def flat_dim_with_categories(self):
         """
         If we were to flatten this Space and also consider each single possible int value (assuming global bounds)
