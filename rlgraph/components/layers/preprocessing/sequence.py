@@ -59,7 +59,7 @@ class Sequence(PreprocessLayer):
         """
         # Switch off split (it's switched on for all LayerComponents by default).
         # -> accept any Space -> flatten to OrderedDict -> input & return OrderedDict -> re-nest.
-        super(Sequence, self).__init__(scope=scope, split_ops=False, **kwargs)
+        super(Sequence, self).__init__(scope=scope, **kwargs)
 
         self.sequence_length = sequence_length
         self.batch_size = batch_size
@@ -121,13 +121,14 @@ class Sequence(PreprocessLayer):
                 add_time_rank=self.sequence_length, time_major=True, flatten=True
             )
 
+    @api
     def _graph_fn_reset(self):
         if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
             self.index = -1
         elif get_backend() == "tf":
             return tf.variables_initializer([self.index])
 
-    @api
+    @api(flatten_ops=True, split_ops=False)
     def _graph_fn_apply(self, preprocessing_inputs):
         """
         Sequences (stitches) together the incoming inputs by using our buffer (with stored older records).
