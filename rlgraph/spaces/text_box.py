@@ -38,7 +38,7 @@ class TextBox(BoxSpace):
         super(TextBox, self).__init__(low=0, high=0, **kwargs)
 
         # Set dtype to numpy's unicode type.
-        self._dtype = np.unicode_
+        self.dtype = np.unicode_
 
         assert isinstance(shape, tuple), "ERROR: `shape` must be a tuple."
         self._shape = shape

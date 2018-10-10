@@ -102,10 +102,6 @@ class BoxSpace(Space):
             return np.asarray(samples)
         return samples
 
-    @property
-    def shape(self):
-        return self._shape
-
     def get_shape(self, with_batch_rank=False, with_time_rank=False, time_major=None, **kwargs):
         if with_batch_rank is not False:
             # None shapes are typically only allowed in static graphs.

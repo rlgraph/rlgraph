@@ -140,7 +140,7 @@ class Space(Specifiable):
         Returns:
             tuple: The shape of this Space as a tuple. Without batch or time ranks.
         """
-        raise NotImplementedError
+        return self._shape
 
     def get_shape(self, with_batch_rank=False, with_time_rank=False, time_major=None, **kwargs):
         """
