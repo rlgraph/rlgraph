@@ -934,9 +934,12 @@ class GraphBuilder(Specifiable):
             if op_records_list == new_op_records_list:
                 # Ok for some
                 if loop_counter > 10000:
-                    raise RLGraphError("Build procedure is deadlocked. Most likely, you are having a circularly "
-                                       "dependent Component in your meta-graph. The following Components are still "
-                                       "input-incomplete:\n{}".format(non_complete_components))
+                    #print()
+                    raise RLGraphError(
+                        "Build procedure is deadlocked. Most likely, you are having a circularly dependent Component "
+                        "in your meta-graph. The following Components are still input-incomplete:\n{}".
+                        format(non_complete_components)
+                    )
 
             op_records_list = new_op_records_list
 
@@ -953,7 +956,7 @@ class GraphBuilder(Specifiable):
                     # Loop through the op_records list and sanity check for "variables"-dependent Spaces, then get these
                     # Spaces, create the placeholders and keep building.
                     for op_rec in op_records_list:
-                        space_desc = op_rec.space
+                        space_desc = op_rec.space  # type: str
                         mo = re.search(r'^variables:(.+)', space_desc)
                         assert mo
                         component_path = mo.group(1).split("/")

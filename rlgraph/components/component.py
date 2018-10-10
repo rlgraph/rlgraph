@@ -740,7 +740,7 @@ class Component(Specifiable):
                 that should be exposed as the parent's API via a simple wrapper API-method for the parent (that
                 calls the child's API-method).
 
-            exposed_must_be_complete (bool): Whether the exposed API methods must be input-complete or not.
+            #exposed_must_be_complete (bool): Whether the exposed API methods must be input-complete or not.
         """
         expose_apis = kwargs.pop("expose_apis", set())
         if isinstance(expose_apis, str):
@@ -779,13 +779,17 @@ class Component(Specifiable):
             )
 
             # Should we expose some API-methods of the child?
-            must_be_complete = kwargs.get("exposed_must_be_complete", True)
+            #must_be_complete = kwargs.get("exposed_must_be_complete", True)
             for api_method_name, api_method_rec in component.api_methods.items():
                 if api_method_name in expose_apis:
-                    @api(name=api_method_name, component=component, must_be_complete=must_be_complete)
+                    name_ = api_method_name
+                    component_name = component.name
+                    must_be_complete = api_method_rec.must_be_complete
+                    @api(component=self, name=api_method_name, must_be_complete=must_be_complete)
                     def exposed_api_method_wrapper(self, *inputs):
-                        # Complicated way to lookup sub-component's method to avoid fixtures when original component gets copied.
-                        return self.sub_components[api_method_rec.func.__self__.name].api_methods[api_method_name].func(*inputs)
+                        # Complicated way to lookup sub-component's method to avoid fixtures when original
+                        # component gets copied.
+                        return getattr(self.sub_components[component_name], name_)(*inputs)
 
     def get_all_sub_components(self, list_=None, level_=0):
         """

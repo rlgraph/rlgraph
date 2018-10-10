@@ -203,7 +203,7 @@ class Agent(Specifiable):
         """
         # Done by default.
         # TODO: Move this to ctor as this belongs to the init phase and doesn't really have to do with API-methods.
-        self.policy.add_components(Synchronizable(), expose_apis="sync", exposed_must_be_complete=False)
+        self.policy.add_components(Synchronizable(), expose_apis="sync")
 
         # Add api methods for syncing.
         @api(component=self.root_component)

@@ -23,6 +23,7 @@ import unittest
 from rlgraph.components import Component, Synchronizable
 from rlgraph.spaces import FloatBox
 from rlgraph.tests import ComponentTest
+from rlgraph.utils.decorators import api
 
 VARIABLE_NAMES = ["variable_to_sync1", "variable_to_sync2"]
 
