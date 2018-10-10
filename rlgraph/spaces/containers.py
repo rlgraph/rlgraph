@@ -150,9 +150,9 @@ class Dict(ContainerSpace, dict):
 
     def sample(self, size=None, horizontal=False):
         if horizontal:
-            return np.array([dict([(key, subspace.sample()) for key, subspace in self.items()])] * (size or 1))
+            return np.array([{key: self[key].sample() for key in sorted(self.keys())}] * (size or 1))
         else:
-            return dict([(key, subspace.sample(size=size)) for key, subspace in self.items()])
+            return {key: self[key].sample(size=size) for key in sorted(self.keys())}
 
     def zeros(self, size=None):
         return DataOpDict([(key, subspace.zeros(size=size)) for key, subspace in self.items()])
