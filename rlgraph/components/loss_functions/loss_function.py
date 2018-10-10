@@ -44,6 +44,22 @@ class LossFunction(Component):
         self.discount = discount
 
     @api
+    def loss(self, *inputs):
+        """
+        API-method that calculates the total loss (average over per-batch-item loss) from the original input to
+        per-item-loss.
+
+        Args:
+            see `self._graph_fn_loss_per_item`.
+
+        Returns:
+            Tuple (2x SingleDataOp):
+                - The tensor specifying the final loss (over the entire batch).
+                - The loss values vector (one single value for each batch item).
+        """
+        raise NotImplementedError
+
+    @api
     def _graph_fn_loss_per_item(self, *inputs):
         """
         Returns the single loss values (one for each item in a batch).

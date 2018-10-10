@@ -19,12 +19,13 @@ from __future__ import print_function
 
 import numpy as np
 from rlgraph import get_backend
-from rlgraph.utils import pytorch_one_hot
-from rlgraph.utils.pytorch_util import pytorch_reduce_mean
-from rlgraph.utils.util import get_rank
 from rlgraph.components.loss_functions import LossFunction
 from rlgraph.spaces import IntBox
 from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.utils import pytorch_one_hot
+from rlgraph.utils.decorators import api
+from rlgraph.utils.pytorch_util import pytorch_reduce_mean
+from rlgraph.utils.util import get_rank
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -79,23 +80,15 @@ class DQNLossFunction(LossFunction):
         )
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 
+    @api
     def loss(self, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None, importance_weights=None):
-        """
-        API-method that calculates the total loss (average over per-batch-item loss) from the original input to
-        per-item-loss.
-
-        Args:
-            see `self._graph_fn_loss_per_item`.
-
-        Returns:
-            SingleDataOp: The tensor specifying the final loss (over the entire batch).
-        """
-        loss_per_item = self._graph_fn_loss_per_item(
+        loss_per_item = self.loss_per_item(
             q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
         )
-        total_loss = self._graph_fn_loss_average(loss_per_item)
+        total_loss = self.loss_average(loss_per_item)
         return total_loss, loss_per_item
 
+    @api
     def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, terminals,
                                 qt_values_sp, q_values_sp=None, importance_weights=None):
         """
