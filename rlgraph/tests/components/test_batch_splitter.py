@@ -41,7 +41,7 @@ class TestBatchSplitter(unittest.TestCase):
         sample = space.sample(size=21)
 
         test_inputs = [sample["states"], sample["actions"], sample["rewards"], sample["terminals"]]
-        splitter = BatchSplitter(num_shards=num_shards)
+        splitter = BatchSplitter(num_shards=num_shards, shard_size=5)
         test = ComponentTest(component=splitter, input_spaces=dict(
             inputs=[space["states"], space["actions"], space["rewards"], space["terminals"]]
         ))
