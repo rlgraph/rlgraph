@@ -97,6 +97,7 @@ class Stack(Component):
 
             # API-method for this Stack does not exist yet -> Automatically create it.
             if not hasattr(self, stack_api_method_name):
+
                 @api(name=stack_api_method_name, component=self)
                 def method(self_, *inputs):
                     if get_backend() == "pytorch" and self.execution_mode == "define_by_run":

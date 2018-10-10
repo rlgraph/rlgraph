@@ -59,6 +59,7 @@ class ConstantNoise(NoiseComponent):
 
         self.value = value
 
+    @api
     def _graph_fn_get_noise(self):
         if get_backend() == "tf":
             return tf.constant(self.value)
@@ -80,6 +81,7 @@ class GaussianNoise(NoiseComponent):
         assert action_space is not None
         self.action_space = action_space
 
+    @api
     def _graph_fn_get_noise(self):
         if get_backend() == "tf":
             return tf.random_normal(
@@ -121,6 +123,7 @@ class OrnsteinUhlenbeckNoise(NoiseComponent):
             initializer=self.mu
         )
 
+    @api
     def _graph_fn_get_noise(self):
         drift = self.theta * (self.mu - self.ou_state)
         diffusion = self.sigma * tf.random_normal(shape=self.action_space.shape, dtype=dtype(self.action_space.dtype))
