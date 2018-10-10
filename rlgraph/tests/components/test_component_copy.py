@@ -25,6 +25,7 @@ from rlgraph.components import Component
 from rlgraph.components.layers.preprocessing import ReShape
 from rlgraph.spaces import FloatBox
 from rlgraph.tests import ComponentTest
+from rlgraph.utils.decorators import api
 
 
 class TestComponentCopy(unittest.TestCase):
