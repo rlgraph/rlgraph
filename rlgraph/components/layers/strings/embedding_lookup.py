@@ -21,6 +21,7 @@ from rlgraph import get_backend
 from rlgraph.utils.util import dtype
 from rlgraph.components.layers.layer import Layer
 from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.utils.decorators import api
 from rlgraph.utils.initializer import Initializer
 
 if get_backend() == "tf":
@@ -83,6 +84,7 @@ class EmbeddingLookup(Layer):
 
         self.ids_space = input_spaces["ids"]
 
+    @api(flatten_ops=True, split_ops=True)
     def _graph_fn_apply(self, ids):
         if get_backend() == "tf":
             embedding_lookup_output = tf.nn.embedding_lookup(
