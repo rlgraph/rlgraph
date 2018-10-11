@@ -124,7 +124,8 @@ def api(api_method=None, *, component=None, name=None, returns=None,
 
             # Link from incoming op_recs into the new column or populate new column with ops/Spaces (this happens
             # if this call was made from within a graph_fn such that ops and Spaces are already known).
-            all_args = [(i, a) for i, a in enumerate(args)] + [(k, v) for k, v in sorted(kwargs.items())]
+            all_args = [(i, a) for i, a in enumerate(args) if a is not None] + \
+                       [(k, v) for k, v in sorted(kwargs.items()) if v is not None]
             flex = None
             for i, (key, value) in enumerate(all_args):
                 # Named arg/kwarg -> get input_name from that and peel op_rec.

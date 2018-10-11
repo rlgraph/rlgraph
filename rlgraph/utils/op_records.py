@@ -100,7 +100,10 @@ class DataOpRecordColumn(object):
                     # If incoming is an op-rec -> Link them.
                     if isinstance(args[i], DataOpRecord):
                         op_rec.previous = args[i]
-                        op_rec.op = args[i].op  # assign op if any
+                        op = args[i].op
+                        if op is not None:
+                            op_rec.op = op
+                            op_rec.space = get_space_from_op(op)
                         args[i].next.add(op_rec)
                     # Do constant value assignment here.
                     elif args[i] is not None:
