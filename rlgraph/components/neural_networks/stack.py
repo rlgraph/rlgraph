@@ -100,12 +100,12 @@ class Stack(Component):
                 # No API-method given -> Create auto-API-method and set it up through decorator.
                 else:
                     @api(name=stack_api_method_name, component=self)
-                    def method(self_, *args, **kwargs):
+                    def method(self_, *inputs, **kwargs):
                         if get_backend() == "pytorch" and self.execution_mode == "define_by_run":
                             # Avoid jumping back between layers and calls at runtime.
-                            return self.fast_path_exec(args)  # TODO: what about the **kwargs?
+                            return self.fast_path_exec(inputs)  # TODO: what about the **kwargs?
                         else:
-                            args_ = args
+                            args_ = inputs
                             kwargs_ = kwargs
                             for i, sub_component in enumerate(self_.sub_components.values()):  # type: Component
                                 # TODO: python-Components: For now, we call each preprocessor's graph_fn

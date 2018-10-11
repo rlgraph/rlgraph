@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import inspect
 import numpy as np
 
 from rlgraph.spaces.space_utils import get_space_from_op
@@ -418,6 +419,26 @@ class APIMethodRecord(object):
 
         self.in_op_columns = list()
         self.out_op_columns = list()
+
+        # Update the api_method_inputs dict (with empty Spaces if not defined yet).
+        skip_args = 1
+        skip_args += (self.is_graph_fn_wrapper and self.add_auto_key_as_first_param)
+        param_list = list(inspect.signature(self.func).parameters.values())[skip_args:]
+
+        for param in param_list:
+            # This param has a default value.
+            if param.default != inspect.Parameter.empty:
+                self.non_args_kwargs.append(param.name)
+                self.default_args.append(param.name)
+            # *args
+            elif param.kind == inspect.Parameter.VAR_POSITIONAL:
+                self.args_name = param.name
+            # **kwargs
+            elif param.kind == inspect.Parameter.VAR_KEYWORD:
+                self.kwargs_name = param.name
+            # Normal, non-default.
+            else:
+                self.non_args_kwargs.append(param.name)
 
     def __str__(self):
         return "APIMethodRecord({} {} called {}x)".format(self.name, self.input_names, len(self.in_op_columns))

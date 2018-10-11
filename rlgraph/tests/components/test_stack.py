@@ -34,7 +34,7 @@ class TestStack(unittest.TestCase):
     """
     def test_one_sub_component(self):
         stack = Stack(Dummy1To1(constant_value=3.0), api_methods={"run"})
-        test = ComponentTest(component=stack, input_spaces=dict(args=[float]))
+        test = ComponentTest(component=stack, input_spaces=dict(inputs=float))
 
         test.test(("run", 4.6), expected_outputs=7.6)
 
@@ -42,7 +42,7 @@ class TestStack(unittest.TestCase):
         stack = Stack(Dummy1To1(scope="A", constant_value=3.0),
                       Dummy1To1(scope="B", constant_value=1.0),
                       api_methods={"run"})
-        test = ComponentTest(component=stack, input_spaces=dict(args=[float]))
+        test = ComponentTest(component=stack, input_spaces=dict(inputs=[float]))
 
         test.test(("run", 4.6), expected_outputs=np.array(8.6, dtype=np.float32))
 
@@ -50,7 +50,7 @@ class TestStack(unittest.TestCase):
         stack = Stack(Dummy1To2(scope="A", constant_value=1.5),
                       Dummy2To1(scope="B"),
                       api_methods={"run"})
-        test = ComponentTest(component=stack, input_spaces=dict(args=FloatBox()))
+        test = ComponentTest(component=stack, input_spaces=dict(inputs=FloatBox()))
 
         # Expect: (in + 1.5, in * 1.5) -> (1.5, 0.0) -> (1.5 + 0.0) = 1.5
         test.test(("run", 0.0), expected_outputs=np.array(1.5, dtype=np.float32))
@@ -58,7 +58,7 @@ class TestStack(unittest.TestCase):
     def test_two_sub_components_2to1_1to2(self):
         # Try different ctor with list as first item.
         stack = Stack([Dummy2To1(scope="A"), Dummy1To2(scope="B", constant_value=2.3)], api_methods={"run"})
-        test = ComponentTest(component=stack, input_spaces=dict(args=[FloatBox(), float]))
+        test = ComponentTest(component=stack, input_spaces=dict(inputs=[FloatBox(), float]))
 
         # Expect: (in1 + in2) -> 0.1 -> (0.1 + 2.3, 0.1 * 2.3)
         test.test(("run", [0.0, 0.1]), expected_outputs=(2.4, 0.23))
@@ -66,7 +66,7 @@ class TestStack(unittest.TestCase):
     def test_repeater_stack_with_n_sub_components(self):
         repeater_stack = RepeaterStack(sub_component=Dummy2To2(scope="2To2", constant_value=0.5), repeats=10,
                                        api_methods={("some_crazy_new_api_method_name", "run")})
-        test = ComponentTest(component=repeater_stack, input_spaces=dict(args=[FloatBox(), float]))
+        test = ComponentTest(component=repeater_stack, input_spaces=dict(inputs=[FloatBox(), float]))
 
         # 1st return value: 10 times add 0.5 (to initially 0.0).
         # 2nd return value: 10 times multiply with 0.5 (to initially 2048)
@@ -76,7 +76,7 @@ class TestStack(unittest.TestCase):
     def test_non_matching_sub_components_in_stack(self):
         stack = Stack(Dummy2To1(scope="A"), Dummy2To1(scope="B"), api_methods={"run"})
         try:
-            ComponentTest(component=stack, input_spaces=dict(args=[float, float]))
+            ComponentTest(component=stack, input_spaces=dict(inputs=[float, float]))
         except RLGraphAPICallParamError:
             print("expected this error.")
             return
@@ -88,7 +88,7 @@ class TestStack(unittest.TestCase):
         stack = Stack(Dummy1To2(scope="A"), Dummy2To1(scope="B"), Dummy1To1(scope="C"), Dummy0To1(scope="D"),
                       api_methods={"run"})
         try:
-            ComponentTest(component=stack, input_spaces=dict(args=FloatBox()))
+            ComponentTest(component=stack, input_spaces=dict(inputs=FloatBox()))
         except RLGraphAPICallParamError:
             print("expected this error.")
             return

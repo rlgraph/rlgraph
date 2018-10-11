@@ -370,22 +370,17 @@ def define_api_method(component, api_method_record, copy_=True):
                 else:
                     space = get_space_from_op(param.default)
                     component.api_method_inputs[param.name] = space
-                api_method_record.non_args_kwargs.append(param.name)
-                api_method_record.default_args.append(param.name)
             # This param is an *args param. Store as "*flex". Then with upcoming API calls, we determine the Spaces
             # for the single items in *args and set them under "param[0]", "param[1]", etc..
             elif param.kind == inspect.Parameter.VAR_POSITIONAL:
                 component.api_method_inputs[param.name] = "*flex"
-                api_method_record.args_name = param.name
             # This param is a **kwargs param. Store as "**flex". Then with upcoming API calls, we determine the Spaces
             # for the single items in **kwargs and set them under "param[some-key]", "param[some-other-key]", etc..
             elif param.kind == inspect.Parameter.VAR_KEYWORD:
                 component.api_method_inputs[param.name] = "**flex"
-                api_method_record.kwargs_name = param.name
             # Normal POSITIONAL_ONLY parameter. Store as None (needed) for now.
             else:
                 component.api_method_inputs[param.name] = None
-                api_method_record.non_args_kwargs.append(param.name)
 
 
 def define_graph_fn(component, graph_fn_record):
