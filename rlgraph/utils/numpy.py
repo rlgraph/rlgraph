@@ -109,3 +109,78 @@ def one_hot(x, depth=0, on_value=1, off_value=0):
     indices.append(x)
     out[tuple(indices)] = on_value
     return out
+
+
+def dense_layer(x, weights, biases=None):
+    """
+    Calculates the outputs of a dense layer given weights/biases and an input.
+
+    Args:
+        x (np.ndarray): The input to the dense layer.
+        weights (np.ndarray): The weights matrix.
+        biases (Optional[np.ndarray]): The biases vector. All 0s if None.
+
+    Returns:
+        The dense layer's output.
+    """
+    return np.matmul(x, weights) + (0.0 if biases is None else biases)
+
+
+def lstm_layer(x, weights, biases=None, initial_internal_states=None, time_major=False, forget_bias=1.0):
+    """
+    Calculates the outputs of a dense layer given weights/biases and an input.
+
+    Args:
+        x (np.ndarray): The inputs to the LSTM layer including time-rank (oth if time-major, else 1st) and
+            the batch-rank (1st if time-major, else 0th).
+        weights (np.ndarray): The weights matrix.
+        biases (Optional[np.ndarray]): The biases vector. All 0s if None.
+        initial_internal_states (Optional[np.ndarray]): The initial internal states to pass into the layer.
+            All 0s if None.
+        time_major (bool): Whether to use time-major or not. Default: False.
+        forget_bias (float): Gets added to first sigmoid (forget gate) output.
+            Default: 1.0.
+
+    Returns:
+        The LSTM layer's output.
+    """
+    sequence_length = x.shape[0 if time_major else 1]
+    batch_size = x.shape[1 if time_major else 0]
+    units = weights.shape[1] // 4  # 4 internal layers (3x sigmoid, 1x tanh)
+
+    if initial_internal_states is None:
+        c_states = np.zeros(shape=(batch_size, units))
+        h_states = np.zeros(shape=(batch_size, units))
+    else:
+        c_states = initial_internal_states[0]
+        h_states = initial_internal_states[1]
+
+    # Create a placeholder for all n-time step outputs.
+    if time_major:
+        unrolled_outputs = np.zeros(shape=(sequence_length, batch_size, units))
+    else:
+        unrolled_outputs = np.zeros(shape=(batch_size, sequence_length, units))
+
+    # Push the batch 4 times through the LSTM cell and capture the outputs plus the final h- and c-states.
+    for t in range(sequence_length):
+        input_matrix = x[t, :, :] if time_major else x[:, t, :]
+        input_matrix = np.concatenate((input_matrix, h_states), axis=1)
+        input_matmul_matrix = np.matmul(input_matrix, weights) + biases
+        # Forget gate (3rd slot in tf output matrix). Add static forget bias.
+        sigmoid_1 = sigmoid(input_matmul_matrix[:, units*2:units*3] + forget_bias)
+        c_states = np.multiply(c_states, sigmoid_1)
+        # Add gate (1st and 2nd slots in tf output matrix).
+        sigmoid_2 = sigmoid(input_matmul_matrix[:, 0:units])
+        tanh_3 = np.tanh(input_matmul_matrix[:, units:units*2])
+        c_states = np.add(c_states, np.multiply(sigmoid_2, tanh_3))
+        # Output gate (last slot in tf output matrix).
+        sigmoid_4 = sigmoid(input_matmul_matrix[:, units*3:units*4])
+        h_states = np.multiply(sigmoid_4, np.tanh(c_states))
+
+        # Store this output time-slice.
+        if time_major:
+            unrolled_outputs[t, :, :] = h_states
+        else:
+            unrolled_outputs[:, t, :] = h_states
+
+    return unrolled_outputs, (c_states, h_states)

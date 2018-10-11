@@ -35,4 +35,3 @@ class StringLayer(Layer):
         Must be string type.
         """
         sanity_check_space(input_spaces["text_inputs"], allowed_types=[TextBox], must_have_batch_rank=True)
-

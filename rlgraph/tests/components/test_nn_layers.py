@@ -24,7 +24,7 @@ from rlgraph.components.layers.nn import NNLayer, DenseLayer, Conv2DLayer, Conca
     LSTMLayer, ResidualLayer
 from rlgraph.spaces import FloatBox
 from rlgraph.tests import ComponentTest
-from rlgraph.utils.numpy import sigmoid, relu
+from rlgraph.utils.numpy import sigmoid, relu, lstm_layer, dense_layer
 
 
 class TestNNLayer(unittest.TestCase):
@@ -184,38 +184,19 @@ class TestNNLayer(unittest.TestCase):
         sequence_length = 2
         input_space = FloatBox(shape=(3,), add_batch_rank=True, add_time_rank=True)
 
-        lstm_layer = LSTMLayer(units=5)
-        test = ComponentTest(component=lstm_layer, input_spaces=dict(inputs=input_space))
+        lstm_layer_component = LSTMLayer(units=5)
+        test = ComponentTest(component=lstm_layer_component, input_spaces=dict(inputs=input_space))
 
         # Batch of n samples.
         inputs = np.ones(shape=(batch_size, sequence_length, 3))
 
         # First matmul the inputs times the LSTM matrix:
-        var_values = test.read_variable_values(lstm_layer.variables)
+        var_values = test.read_variable_values(lstm_layer_component.variables)
         lstm_matrix = var_values["lstm-layer/lstm-cell/kernel"]
         lstm_biases = var_values["lstm-layer/lstm-cell/bias"]
-        h_states = np.zeros(shape=(batch_size, 5))
-        c_states = np.zeros(shape=(batch_size, 5))
-        unrolled_outputs = np.zeros(shape=(batch_size, sequence_length, 5))
-        # Push the batch 4 times through the LSTM cell and capture the outputs plus the final h- and c-states.
-        for t in range(sequence_length):
-            input_matrix = inputs[:, t, :]
-            input_matrix = np.concatenate((input_matrix, h_states), axis=1)
-            input_matmul_matrix = np.matmul(input_matrix, lstm_matrix) + lstm_biases
-            # Forget gate (3rd slot in tf output matrix). Add static forget bias.
-            sigmoid_1 = sigmoid(input_matmul_matrix[:, 10:15] + lstm_layer.forget_bias)
-            c_states = np.multiply(c_states, sigmoid_1)
-            # Add gate (1st and 2nd slots in tf output matrix).
-            sigmoid_2 = sigmoid(input_matmul_matrix[:, 0:5])
-            tanh_3 = np.tanh(input_matmul_matrix[:, 5:10])
-            c_states = np.add(c_states, np.multiply(sigmoid_2, tanh_3))
-            # Output gate (last slot in tf output matrix).
-            sigmoid_4 = sigmoid(input_matmul_matrix[:, 15:20])
-            h_states = np.multiply(sigmoid_4, np.tanh(c_states))
 
-            # Store this output time-slice.
-            unrolled_outputs[:, t, :] = h_states
+        expected_outputs, expected_internal_states = lstm_layer(inputs, lstm_matrix, lstm_biases, time_major=False)
 
-        expected = dict(output=unrolled_outputs, last_internal_states=(c_states, h_states))
+        expected = dict(output=expected_outputs, last_internal_states=expected_internal_states)
         test.test(("apply", inputs), expected_outputs=expected)
 
