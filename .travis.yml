@@ -41,29 +41,38 @@ script:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/core/test_specifiable_server.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/core/test_specifiables.py';
 
+  #- docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_action_adapters.py';
+  #- docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_actor_components.py';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_batch_splitter.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_component_copy.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_decay_components.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_dict_preprocessor_stack.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_dqn_loss_functions.py';
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_nn_layers.py';
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_noise_components.py';
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_batch_splitter.py';
+  #- docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_environment_stepper.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_epsilon_exploration.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_explorations.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_fifo_queue.py';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_fixed_loop_component.py';
+  #- docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_local_optimizers.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_neural_networks.py';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_nn_layers.py';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_noise_components.py';
+  #- docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_policies.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_preprocess_layers.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_preprocessor_stacks.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_prioritized_replay.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_replay_memory.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_reshape_preprocessor.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_ring_buffer.py';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_sampler_component.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_sequence_preprocessor.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_slice.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_splitter_merger_components.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_stack.py';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_staging_area.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_string_layers.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_synchronizable.py';
+  #- docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_v_trace_function.py';
   #- docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components';
   ## Test if all agents compile.
   #- docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s
