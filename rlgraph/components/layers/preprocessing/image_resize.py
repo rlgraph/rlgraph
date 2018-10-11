@@ -25,7 +25,7 @@ from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.utils.decorators import api
 from rlgraph.utils.ops import unflatten_op
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 
 cv2.ocl.setUseOpenCL(False)
 

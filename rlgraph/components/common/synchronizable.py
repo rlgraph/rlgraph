@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.decorators import api
 from rlgraph.utils.ops import DataOpDict
 from rlgraph.utils.util import get_shape

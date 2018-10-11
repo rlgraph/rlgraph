@@ -21,7 +21,7 @@ import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.utils import pytorch_one_hot
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space

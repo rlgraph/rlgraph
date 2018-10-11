@@ -18,10 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from collections import OrderedDict
-import numpy as np
 import re
 
-from rlgraph.utils.rlgraph_error import RLGraphError
 
 # Defines how to generate auto-keys for flattened Tuple-Space items.
 # _T\d+_

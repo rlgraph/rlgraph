@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 import re
 
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.ops import DataOpDict, DataOpTuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE
 from rlgraph.spaces.space import Space
 

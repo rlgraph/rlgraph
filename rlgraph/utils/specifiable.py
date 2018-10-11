@@ -26,7 +26,7 @@ import re
 import yaml
 import logging
 
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.util import default_dict
 
 

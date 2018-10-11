@@ -21,7 +21,7 @@ import deepmind_lab
 import numpy as np
 import time
 
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.environments.environment import Environment
 from rlgraph.spaces import *
 from rlgraph.utils.util import force_list, default_dict

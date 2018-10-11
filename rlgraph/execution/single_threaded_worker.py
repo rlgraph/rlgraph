@@ -24,7 +24,7 @@ from rlgraph.components import PreprocessorStack
 from six.moves import xrange as range_
 import time
 
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.util import default_dict
 from rlgraph.execution.worker import Worker
 

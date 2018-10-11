@@ -24,7 +24,7 @@ from rlgraph.graphs import MetaGraph
 from rlgraph.spaces import Space
 from rlgraph.utils import force_list
 from rlgraph.utils.op_records import DataOpRecord
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
 
 

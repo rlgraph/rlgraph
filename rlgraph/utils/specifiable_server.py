@@ -22,7 +22,7 @@ import multiprocessing
 from rlgraph import get_backend
 from rlgraph.spaces.space import Space
 from rlgraph.spaces.containers import ContainerSpace
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.util import force_list, dtype
 

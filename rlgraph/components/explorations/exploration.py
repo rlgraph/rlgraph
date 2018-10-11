@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.components.component import Component
 from rlgraph.components.explorations.epsilon_exploration import EpsilonExploration
 from rlgraph.components.common.noise_components import NoiseComponent

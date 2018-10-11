@@ -23,7 +23,7 @@ import time
 from rlgraph import get_backend, get_distributed_backend
 import rlgraph.utils as util
 from rlgraph.components.common.multi_gpu_synchronizer import MultiGpuSynchronizer
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.graphs.graph_executor import GraphExecutor
 
 if get_backend() == "tf":

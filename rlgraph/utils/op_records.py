@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.spaces.space_utils import get_space_from_op
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.ops import FlattenedDataOp, flatten_op, unflatten_op, is_constant
 
 

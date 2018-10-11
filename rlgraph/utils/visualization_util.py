@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import requests
 
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.spaces import Space
 
 

@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.utils.decorators import api
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphStackMismatchError
 from rlgraph.components.component import Component
 from rlgraph.utils.util import force_tuple, force_list
 
@@ -101,48 +101,44 @@ class Stack(Component):
                 # No API-method given -> Create auto-API-method and set it up through decorator.
                 else:
                     @api(name=stack_api_method_name, component=self)
-                    def method(self_, *inputs):  # TODO: use args and kwargs here to stay completely flexible?
-                                                 # TODO: Then for NNs, we can specialize on layer in- and outputs.
+                    def method(self_, *args, **kwargs):
                         if get_backend() == "pytorch" and self.execution_mode == "define_by_run":
                             # Avoid jumping back between layers and calls at runtime.
-                            return self.fast_path_exec(inputs)
+                            return self.fast_path_exec(args)  # TODO: what about the **kwargs?
                         else:
-                            result = inputs
-                            for sub_component in self_.sub_components.values():  # type: Component
-                                # TODO: scrap all this and do a try below, then raise RLGraphStackError if something doesn't match.
-                                #num_allowed_inputs = sub_component.get_number_of_allowed_inputs(components_api_method_name)
-                                #num_actual_inputs = len(result) if isinstance(result, (tuple, list)) else 1
-                                ## Check whether number of inputs to this sub-component's API-method is ok.
-                                #if num_allowed_inputs[0] > num_actual_inputs:
-                                #    raise RLGraphError(
-                                #        "Number of given input args ({}) to Stack's API-method '{}' is too low! Needs "
-                                #        "to be at least {}.".format(
-                                #            num_actual_inputs, stack_api_method_name, num_allowed_inputs[0]
-                                #        )
-                                #    )
-                                #elif num_allowed_inputs[1] is not None and num_allowed_inputs[1] < num_actual_inputs:
-                                #    raise RLGraphError(
-                                #        "Number of given input args ({}) to Stack's API-method '{}' is too high! Needs "
-                                #        "to be at most {}.".format(
-                                #            num_actual_inputs, stack_api_method_name, num_allowed_inputs[1]
-                                #        )
-                                #    )
-
+                            args_ = args
+                            kwargs_ = kwargs
+                            for i, sub_component in enumerate(self_.sub_components.values()):  # type: Component
                                 # TODO: python-Components: For now, we call each preprocessor's graph_fn
                                 #  directly (assuming that inputs are not ContainerSpaces).
-                                if self_.backend == "python" or get_backend() == "python":
-                                    graph_fn = getattr(sub_component, "_graph_fn_" + components_api_method_name)
-                                    if sub_component.api_methods[components_api_method_name].add_auto_key_as_first_param:
-                                        result = graph_fn("", *force_tuple(result))
-                                    else:
-                                        result = graph_fn(*force_tuple(result))
-                                elif get_backend() == "pytorch":
-                                    # Do NOT convert to tuple, has to be in unpacked again immediately.n
-                                    result = getattr(sub_component, components_api_method_name)(*force_list(result))
-                                elif get_backend() == "tf":
-                                    result = getattr(sub_component, components_api_method_name)(*force_tuple(result))
+                                try:
+                                    if self_.backend == "python" or get_backend() == "python":
+                                        graph_fn = getattr(sub_component, "_graph_fn_" + components_api_method_name)
+                                        if sub_component.api_methods[components_api_method_name].add_auto_key_as_first_param:
+                                            results = graph_fn("", *args_)  # TODO: kwargs??
+                                        else:
+                                            results = graph_fn(*args_)
+                                    elif get_backend() == "pytorch":
+                                        # Do NOT convert to tuple, has to be in unpacked again immediately.n
+                                        results = getattr(sub_component, components_api_method_name)(*force_list(args_))
+                                    else:  #if get_backend() == "tf":
+                                        results = getattr(sub_component, components_api_method_name)(*args_, **kwargs_)
+                                except Exception:
+                                    raise RLGraphStackMismatchError(
+                                        "Stack mismatch in '{}': sub-Component #{}'s API-method '{}' cannot be "
+                                        "called with previous output!".
+                                        format(self.global_scope, i, components_api_method_name)
+                                    )
 
-                            return result
+                                # Recycle args_, kwargs_ for reuse in next sub-Component's API-method call.
+                                if isinstance(results, dict):
+                                    args_ = ()
+                                    kwargs_ = results
+                                else:
+                                    args_ = force_tuple(results)
+                                    kwargs_ = {}
+
+                            return kwargs_ if args_ == () else args_
 
         # Build fast-path execution method for pytorch / eager.
         if get_backend() == "pytorch":

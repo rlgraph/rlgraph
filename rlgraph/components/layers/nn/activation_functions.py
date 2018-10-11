@@ -20,7 +20,7 @@ from __future__ import print_function
 from functools import partial
 
 from rlgraph import get_backend
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 
 
 if get_backend() == "tf":

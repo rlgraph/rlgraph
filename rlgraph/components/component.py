@@ -28,7 +28,7 @@ import re
 from rlgraph import get_backend
 from rlgraph.utils.decorators import api, component_api_registry, component_graph_fn_registry, define_api_method, \
     define_graph_fn
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.ops import DataOpDict, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE
 from rlgraph.utils import util
@@ -779,12 +779,13 @@ class Component(Specifiable):
             )
 
             # Should we expose some API-methods of the child?
-            #must_be_complete = kwargs.get("exposed_must_be_complete", True)
             for api_method_name, api_method_rec in component.api_methods.items():
                 if api_method_name in expose_apis:
+                    # Hold these here to avoid fixtures (when Components get copied).
                     name_ = api_method_name
                     component_name = component.name
                     must_be_complete = api_method_rec.must_be_complete
+
                     @api(component=self, name=api_method_name, must_be_complete=must_be_complete)
                     def exposed_api_method_wrapper(self, *inputs):
                         # Complicated way to lookup sub-component's method to avoid fixtures when original

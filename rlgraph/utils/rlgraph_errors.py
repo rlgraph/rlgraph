@@ -24,3 +24,10 @@ class RLGraphError(Exception):
     """
     pass
 
+
+class RLGraphStackMismatchError(RLGraphError):
+    """
+    Raised if two sub-Components in a Stack do not have matching API-methods (sub-Component A's API output does not
+    go well into sub-Component B's API input).
+    """
+    pass

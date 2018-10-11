@@ -21,7 +21,7 @@ import math
 import numpy as np
 
 from rlgraph import get_backend
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.util import dtype
 

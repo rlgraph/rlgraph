@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 import numpy as np
 
-from rlgraph.utils.rlgraph_error import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.components.neural_networks import Stack
 from rlgraph.components.common import RepeaterStack
 from rlgraph.tests.dummy_components import Dummy1To1, Dummy2To1, Dummy1To2, Dummy2To2, Dummy0To1
@@ -42,7 +42,7 @@ class TestStack(unittest.TestCase):
         stack = Stack(Dummy1To1(scope="A", constant_value=3.0),
                       Dummy1To1(scope="B", constant_value=1.0),
                       api_methods={"run"})
-        test = ComponentTest(component=stack, input_spaces=dict(inputs=float))
+        test = ComponentTest(component=stack, input_spaces=dict(args=[float]))
 
         test.test(("run", 4.6), expected_outputs=np.array(8.6, dtype=np.float32))
 
