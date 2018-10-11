@@ -89,15 +89,25 @@ class MetaGraphBuilder(Specifiable):
                         use_named = True
                 # No default values -> Must be provided in `input_spaces`.
                 else:
-                    # TODO: If space not provided in input_spaces -> Try to call this API method later (maybe another API-method).
-                    assert param_name in input_spaces, \
-                        "ERROR: arg-name '{}' not defined in input_spaces!".format(param_name)
+                    ## TODO: If space not provided in input_spaces -> Try to call this API method later (maybe another API-method).
+                    #assert param_name in input_spaces, \
+                    #    "ERROR: arg-name '{}' not defined in input_spaces!".format(param_name)
                     # A var-positional param.
                     if root_component.api_method_inputs[param_name] == "*flex":
                         assert use_named is False
                         in_ops_records.extend([DataOpRecord(position=i + j)
                                                for j in range(len(force_list(input_spaces[param_name])))])
+                    # A keyword param.
+                    elif root_component.api_method_inputs[param_name] == "**flex":
+                        if param_name in input_spaces:
+                            assert use_named is False
+                            in_ops_records.extend([
+                                DataOpRecord(kwarg=key) for key in sorted(input_spaces[param_name].keys())
+                            ])
+                        use_named = True
                     else:
+                        assert param_name in input_spaces, \
+                            "ERROR: arg-name '{}' not defined in input_spaces!".format(param_name)
                         in_ops_records.append(DataOpRecord(position=i, kwarg=param_name if use_named else None))
 
             # Do the actual core API-method call (thereby assembling the meta-graph).

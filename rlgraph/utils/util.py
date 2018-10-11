@@ -181,17 +181,18 @@ def get_batch_size(tensor):
         return tensor.shape[0]
 
 
-def force_list(elements, to_tuple=False):
+def force_list(elements=None, to_tuple=False):
     """
     Makes sure `elements` is returned as a list, whether `elements` is a single item, already a list, or a tuple.
 
     Args:
-        elements (Optional[any]): The input single item, list, or tuple to be converted into a list/tuple.
+        elements (Optional[any]): The inputs as single item, list, or tuple to be converted into a list/tuple.
             If None, returns empty list/tuple.
         to_tuple (bool): Whether to use tuple (instead of list).
 
     Returns:
-        Union[list,tuple]: All given elements in a list/tuple depending on `to_tuple`'s value.
+        Union[list,tuple]: All given elements in a list/tuple depending on `to_tuple`'s value. If elements is None,
+            returns an empty list/tuple.
     """
     ctor = list
     if to_tuple is True:

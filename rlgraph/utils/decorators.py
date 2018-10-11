@@ -360,6 +360,10 @@ def define_api_method(component, api_method_record, copy_=True):
             # for the single items in *args and set them under "param[0]", "param[1]", etc..
             elif param.kind == inspect.Parameter.VAR_POSITIONAL:
                 component.api_method_inputs[param.name] = "*flex"
+            # This param is a **kwargs param. Store as "**flex". Then with upcoming API calls, we determine the Spaces
+            # for the single items in **kwargs and set them under "param[some-key]", "param[some-other-key]", etc..
+            elif param.kind == inspect.Parameter.VAR_KEYWORD:
+                component.api_method_inputs[param.name] = "**flex"
             # Normal POSITIONAL_ONLY parameter. Store as None (needed) for now.
             else:
                 component.api_method_inputs[param.name] = None

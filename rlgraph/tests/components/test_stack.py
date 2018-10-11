@@ -34,7 +34,7 @@ class TestStack(unittest.TestCase):
     """
     def test_one_sub_component(self):
         stack = Stack(Dummy1To1(constant_value=3.0), api_methods={"run"})
-        test = ComponentTest(component=stack, input_spaces=dict(inputs=float))
+        test = ComponentTest(component=stack, input_spaces=dict(args=[float]))
 
         test.test(("run", 4.6), expected_outputs=7.6)
 

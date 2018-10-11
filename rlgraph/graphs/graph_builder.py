@@ -238,10 +238,16 @@ class GraphBuilder(Specifiable):
                     if input_spaces is not None and param_name in input_spaces:
                         spaces.append(self.root_component.api_method_inputs[param_name])
                 else:
-                    assert param_name in input_spaces
                     if self.root_component.api_method_inputs[param_name] == "*flex":
-                        spaces.extend(force_list(input_spaces[param_name]))
+                        if param_name in input_spaces:
+                            spaces.extend(force_list(input_spaces[param_name]))
+                    elif self.root_component.api_method_inputs[param_name] == "**flex":
+                        if param_name in input_spaces:
+                            spaces.extend([
+                                input_spaces[param_name][k] for k in sorted(input_spaces[param_name].keys())
+                            ])
                     else:
+                        assert param_name in input_spaces
                         spaces.append(input_spaces[param_name])
             assert len(spaces) == len(in_op_records)
 
@@ -866,16 +872,22 @@ class GraphBuilder(Specifiable):
                         # Also push Space into possible API-method record if slot's Space is still None.
                         if isinstance(op_rec.column, DataOpRecordColumnIntoAPIMethod):
                             api_method_component = op_rec.column.api_method_rec.component
+
+                            name_ = op_rec.column.api_method_rec.input_names[op_rec.position]
+                            type_ = api_method_component.api_method_inputs[name_]
+
+                            if type_ == "**flex":
+                                assert op_rec.kwarg is not None
+                                param_name = "{}[{}]".format(name_, op_rec.kwarg)
                             # Get param name for var-positional arg: "[param_name][idx]".
-                            if api_method_component.api_method_inputs[op_rec.column.api_method_rec.input_names[-1]] == \
-                                    "*flex" and op_rec.position >= len(op_rec.column.api_method_rec.input_names) - 1:
-                                param_name = "{}[{}]".format(
-                                    op_rec.column.api_method_rec.input_names[-1], str(op_rec.position - (
-                                            len(op_rec.column.api_method_rec.input_names) - 1))
-                                )
+                            elif type_ == "*flex":
+                                has_kwargs = api_method_component.api_method_inputs[op_rec.column.api_method_rec.input_names[-1]] == "**flex"
+                                num_before = len(op_rec.column.api_method_rec.input_names) - (2 if has_kwargs else 1)
+                                param_name = "{}[{}]".format(name_, str(op_rec.position - num_before))
                             # Get param name directly from op-rec's kwarg OR - if None - by its position.
                             else:
                                 param_name = op_rec.kwarg or op_rec.column.api_method_rec.input_names[op_rec.position]
+
                             # Place Space for this input-param name (valid for all input params of same name even of
                             # different API-method of the same Component).
                             if api_method_component.api_method_inputs[param_name] is None or \
