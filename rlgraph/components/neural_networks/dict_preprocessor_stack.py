@@ -69,6 +69,7 @@ class DictPreprocessorStack(PreprocessorStack):
         else:
             return inputs
 
+    @api
     def reset(self):
         # TODO: python-Components: For now, we call each preprocessor's graph_fn directly.
         if self.backend == "python" or get_backend() == "python":

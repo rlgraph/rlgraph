@@ -258,10 +258,13 @@ class TestPreprocessorStacks(unittest.TestCase):
             # Call fake API-method directly (ok for PreprocessorStack).
             stack.reset()
             input_ = np.asarray([[1.0], [2.0], [3.0], [4.0]])
+            expected = input_
+            #test.test(("preprocess", input_), expected_outputs=expected)
             out = stack.preprocess(input_)
             recursive_assert_almost_equal(out, input_)
 
             input_ = space.sample()
+            #test.test(("preprocess", input_), expected_outputs=expected)
             out = stack.preprocess(input_)
             recursive_assert_almost_equal(out, input_)
 
@@ -295,9 +298,9 @@ class TestPreprocessorStacks(unittest.TestCase):
         input_ = dict(
             a=np.array([[3.0, 5.0]]),
             b=np.array([[[2.0, 4.0], [2.0, 4.0]], [[2.0, 4.0], [2.0, 4.0]]]),
-            c=(np.array([10.0, 20.0]), dict(ca=np.array([[[1.0, 2.0],[1.0, 2.0],[1.0, 2.0]],
-                                                         [[1.0, 2.0],[1.0, 2.0],[1.0, 2.0]],
-                                                         [[1.0, 2.0],[1.0, 2.0],[1.0, 2.0]]])))
+            c=(np.array([10.0, 20.0]), dict(ca=np.array([[[1.0, 2.0], [1.0, 2.0], [1.0, 2.0]],
+                                                         [[1.0, 2.0], [1.0, 2.0], [1.0, 2.0]],
+                                                         [[1.0, 2.0], [1.0, 2.0], [1.0, 2.0]]])))
         )
         expected = dict(
             a=np.array([8.0]),

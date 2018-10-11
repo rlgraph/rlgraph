@@ -21,6 +21,7 @@ from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.utils.util import default_dict
 from rlgraph.components.neural_networks.stack import Stack
+from rlgraph.utils.decorators import api, graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -50,6 +51,7 @@ class PreprocessorStack(Stack):
         default_dict(kwargs, dict(scope=kwargs.pop("scope", "preprocessor-stack")))
         super(PreprocessorStack, self).__init__(*preprocessors, **kwargs)
 
+    @api
     def reset(self):
         # TODO: python-Components: For now, we call each preprocessor's graph_fn directly.
         if self.backend == "python" or get_backend() == "python":
@@ -59,11 +61,12 @@ class PreprocessorStack(Stack):
         elif get_backend() == "tf":
             # Connect each pre-processor's "reset" output op via our graph_fn into one op.
             resets = list()
-            for preprocessor in self.sub_components.values():  # type: PreprocessLayer
-                resets.append(preprocessor.reset())
+            for preprocess_layer in self.sub_components.values():  # type: PreprocessLayer
+                resets.append(preprocess_layer.reset())
             reset_op = self._graph_fn_reset(*resets)
             return reset_op
 
+    @graph_fn
     def _graph_fn_reset(self, *preprocessor_resets):
         if get_backend() == "tf":
             with tf.control_dependencies(preprocessor_resets):

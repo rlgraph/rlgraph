@@ -112,10 +112,10 @@ class Stack(Component):
                                 #  directly (assuming that inputs are not ContainerSpaces).
                                 if self_.backend == "python" or get_backend() == "python":
                                     graph_fn = getattr(sub_component, "_graph_fn_" + components_api_method_name)
-                                    if sub_component.api_methods[components_api_method_name].add_auto_key_as_first_param:
-                                        results = graph_fn("", *args_)  # TODO: kwargs??
-                                    else:
-                                        results = graph_fn(*args_)
+                                    #if sub_component.api_methods[components_api_method_name].add_auto_key_as_first_param:
+                                    #    results = graph_fn("", *args_)  # TODO: kwargs??
+                                    #else:
+                                    results = graph_fn(*args_)
                                 elif get_backend() == "pytorch":
                                     # Do NOT convert to tuple, has to be in unpacked again immediately.n
                                     results = getattr(sub_component, components_api_method_name)(*force_list(args_))
@@ -130,7 +130,7 @@ class Stack(Component):
                                     args_ = force_tuple(results)
                                     kwargs_ = {}
 
-                            return kwargs_ if args_ == () else args_
+                            return kwargs_ if args_ == () else args_[0] if len(args_) == 1 else args_
 
         # Build fast-path execution method for pytorch / eager.
         if get_backend() == "pytorch":

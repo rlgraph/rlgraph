@@ -775,7 +775,7 @@ class Component(Specifiable):
 
             # Execution modes must be coherent within one component subgraph.
             self.propagate_sub_component_properties(
-                properties=dict(execution_mode=component.execution_mode), component=component
+                properties=dict(execution_mode=self.execution_mode), component=component
             )
 
             # Should we expose some API-methods of the child?

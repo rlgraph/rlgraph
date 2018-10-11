@@ -43,7 +43,7 @@ class Multiply(PreprocessLayer):
                                 add_time_rank=value.has_time_rank)
         return unflatten_op(ret)
 
-    @api
+    @api(flatten_ops=True, split_ops=True)
     def _graph_fn_apply(self, preprocessing_inputs):
         """
         Multiplies the input with our factor.
@@ -77,7 +77,7 @@ class Divide(PreprocessLayer):
                                 add_time_rank=value.has_time_rank)
         return unflatten_op(ret)
 
-    @api
+    @api(flatten_ops=True, split_ops=True)
     def _graph_fn_apply(self, preprocessing_inputs):
         """
         Divides the input by with our divisor.
