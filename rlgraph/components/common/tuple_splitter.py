@@ -20,7 +20,7 @@ from __future__ import print_function
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.components import Component
 from rlgraph.spaces import Tuple
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 
 
 class TupleSplitter(Component):
@@ -53,7 +53,7 @@ class TupleSplitter(Component):
             raise RLGraphError("Length of input Space ({}) != `self.tuple_length` ({})! Input space is '{}'.".
                                format(len(in_space), self.tuple_length, in_space))
 
-    @api
+    @rlgraph_api
     def _graph_fn_split(self, inputs):
         """
         Splits the inputs at 0th level into the Spaces at that level (may still be ContainerSpaces in returned

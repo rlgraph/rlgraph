@@ -21,7 +21,7 @@ import numpy as np
 
 from rlgraph.utils.ops import FlattenedDataOp
 from rlgraph.components.component import Component
-from rlgraph.utils.decorators import api, graph_fn
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.components.common.container_splitter import ContainerSplitter
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
@@ -37,7 +37,7 @@ class Dummy1To1(Component):
         super(Dummy1To1, self).__init__(scope=scope, **kwargs)
         self.constant_value = constant_value
 
-    @api(name="run", returns=1)
+    @rlgraph_api(name="run", returns=1)
     def _graph_fn_1to1(self, input_):
         """
         Returns:
@@ -54,7 +54,7 @@ class Dummy2To1(Component):
     def __init__(self, scope="dummy-2-to-1"):
         super(Dummy2To1, self).__init__(scope=scope)
 
-    @api(name="run", returns=1)
+    @rlgraph_api(name="run", returns=1)
     def _graph_fn_2to1(self, input1, input2):
         return input1 + input2
 
@@ -68,7 +68,7 @@ class Dummy1To2(Component):
         super(Dummy1To2, self).__init__(scope=scope)
         self.constant_value = constant_value
 
-    @api(name="run", returns=2)
+    @rlgraph_api(name="run", returns=2)
     def _graph_fn_1to2(self, input_):
         return input_ + self.constant_value, input_ * self.constant_value
 
@@ -82,7 +82,7 @@ class Dummy2To2(Component):
         super(Dummy2To2, self).__init__(scope=scope)
         self.constant_value = constant_value
 
-    @api(name="run", returns=2)
+    @rlgraph_api(name="run", returns=2)
     def _graph_fn_2to2(self, input1, input2):
         return input1 + self.constant_value, input2 * self.constant_value
 
@@ -96,7 +96,7 @@ class Dummy2To2WithDefaultValue(Component):
         super(Dummy2To2WithDefaultValue, self).__init__(scope=scope)
         self.constant_value = constant_value
 
-    @api(name="run", returns=2)
+    @rlgraph_api(name="run", returns=2)
     def _graph_fn_2to2(self, input1, input2=None):
         return input1 + self.constant_value, (input2 or 5.0) * self.constant_value
 
@@ -116,7 +116,7 @@ class Dummy0To1(Component):
     def create_variables(self, input_spaces, action_space=None):
         self.var = self.get_variable(initializer=self.var_value)
 
-    @api(name="run", returns=1)
+    @rlgraph_api(name="run", returns=1)
     def _graph_fn_0to1(self):
         return self.var
 
@@ -134,7 +134,7 @@ class Dummy2GraphFns1To1(Component):
         super(Dummy2GraphFns1To1, self).__init__(scope=scope)
         self.constant_value = constant_value
 
-    @api
+    @rlgraph_api
     def run(self, input_):
         # Explicit definition of an API-method using both our graph_fn.
         result_1to1 = self._graph_fn_1to1(input_)
@@ -170,7 +170,7 @@ class DummyWithVar(Component):
     def create_variables(self, input_spaces, action_space=None):
         self.constant_variable = self.get_variable(name="constant-variable", initializer=2.0)
 
-    @api
+    @rlgraph_api
     def run_plus(self, input_):
         # Explicit definition of an API-method using one of our graph_fn.
         result = self._graph_fn_1(input_)
@@ -180,7 +180,7 @@ class DummyWithVar(Component):
     def _graph_fn_1(self, input_):
         return input_ + self.constant_value
 
-    @api(name="run_minus", returns=1)
+    @rlgraph_api(name="run_minus", returns=1)
     def _graph_fn_2(self, input_):
         return input_ - self.constant_variable
 
@@ -203,7 +203,7 @@ class SimpleDummyWithVar(Component):
     def create_variables(self, input_spaces, action_space=None):
         self.constant_variable = self.get_variable(name="constant-variable", initializer=3.0)
 
-    @api
+    @rlgraph_api
     def run(self, input_):
         # Explicit definition of an API-method using one of our graph_fn.
         result = self._graph_fn_1(input_)
@@ -233,7 +233,7 @@ class DummyWithSubComponents(Component):
         self.sub_comp = DummyWithVar()
         self.add_components(self.sub_comp)
 
-    @api
+    @rlgraph_api
     def run1(self, input_):
         # Explicit definition of an API-method using one of our graph_fn and one of
         # our child API-methods.
@@ -241,7 +241,7 @@ class DummyWithSubComponents(Component):
         result2 = self._graph_fn_apply(result)
         return result, result2
 
-    @api
+    @rlgraph_api
     def run2(self, input_):
         result1 = self.sub_comp.run_minus(input_)
         result3 = self._graph_fn_apply(result1)
@@ -272,7 +272,7 @@ class DummyCallingSubCompAPIFromWithinGraphFn(Component):
         self.sub_comp = SimpleDummyWithVar()
         self.add_components(self.sub_comp)
 
-    @api
+    @rlgraph_api
     def run(self, input_):
         # Returns 2*input_ + 10.0.
         sub_comp_result = self.sub_comp.run(input_)  # input_ + 3.0
@@ -307,7 +307,7 @@ class DummyCallingSubComponentsAPIFromWithinGraphFn(Component):
         self.sub_comp = SimpleDummyWithVar()
         self.add_components(self.sub_comp)
 
-    @api
+    @rlgraph_api
     def run(self, input_):
         # Returns 2*input_ + 10.0.
         sub_comp_result = self.sub_comp.run(input_)  # input_ + 3.0
@@ -331,7 +331,7 @@ class FlattenSplitDummy(Component):
 
         self.constant_value = np.array(constant_value)
 
-    @api(name="run", returns=2, flatten_ops=True, split_ops=True)
+    @rlgraph_api(name="run", returns=2, flatten_ops=True, split_ops=True)
     def _graph_fn_2_to_2(self, input1, input2):
         """
         Returns:
@@ -349,7 +349,7 @@ class NoFlattenNoSplitDummy(Component):
     def __init__(self, scope="dummy-2-to-2-no-options", **kwargs):
         super(NoFlattenNoSplitDummy, self).__init__(scope=scope, **kwargs)
 
-    @api(name="run", returns=2)
+    @rlgraph_api(name="run", returns=2)
     def _graph_fn_2_to_2(self, input1, input2):
         """
         Returns:
@@ -369,7 +369,7 @@ class OnlyFlattenDummy(Component):
 
         self.constant_value = np.array(constant_value)
 
-    @api(name="run", returns=3, flatten_ops=True)
+    @rlgraph_api(name="run", returns=3, flatten_ops=True)
     def _graph_fn_2_to_3(self, input1, input2):
         """
         NOTE: Both input1 and input2 are flattened dicts.
@@ -410,7 +410,7 @@ class DummyNNWithDictInput(NeuralNetwork):
         # Add all sub-components to this one.
         self.add_components(self.splitter, self.stack_a, self.stack_b, self.concat_layer)
 
-    @api
+    @rlgraph_api
     def apply(self, input_dict):
         # Split the input dict into two streams.
         input_a, input_b = self.splitter.split(input_dict)

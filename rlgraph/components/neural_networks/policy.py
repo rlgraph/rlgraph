@@ -20,7 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.spaces import IntBox, FloatBox
-from rlgraph.components.component import Component, api
+from rlgraph.components.component import Component, rlgraph_api
 from rlgraph.components.distributions import Normal, Categorical
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
@@ -97,7 +97,7 @@ class Policy(Component):
             #    return (state_value, logits, last_internal_states) if last_internal_states is not None else (state_value, logits)
             #
 
-            @api
+            @rlgraph_api
             def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
                 nn_output, last_internal_states = unify_nn_and_rnn_api_output(
                     self.neural_network.apply(nn_input, internal_states)
@@ -139,7 +139,7 @@ class Policy(Component):
             )
 
     # Define our interface.
-    @api
+    @rlgraph_api
     def get_nn_output(self, nn_input, internal_states=None):
         """
         Args:
@@ -151,7 +151,7 @@ class Policy(Component):
         """
         return self.neural_network.apply(nn_input, internal_states)
 
-    @api
+    @rlgraph_api
     def get_action(self, nn_input, internal_states=None, max_likelihood=None):
         """
         Returns an action based on NN output, action adapter output and distribution sampling.
@@ -180,7 +180,7 @@ class Policy(Component):
             action = self.distribution.draw(out["probabilities"], max_likelihood)
         return dict(action=action, last_internal_states=nn_output.get("last_internal_states"))
 
-    @api
+    @rlgraph_api
     def get_max_likelihood_action(self, nn_input, internal_states=None):
         """
         Args:
@@ -199,7 +199,7 @@ class Policy(Component):
 
         return dict(action=action, last_internal_states=out["last_internal_states"])
 
-    @api
+    @rlgraph_api
     def get_stochastic_action(self, nn_input, internal_states=None):
         """
         Args:
@@ -213,7 +213,7 @@ class Policy(Component):
         action = self.distribution.sample_stochastic(out["probabilities"])
         return dict(action=action, last_internal_states=out["last_internal_states"])
 
-    @api
+    @rlgraph_api
     def get_action_layer_output(self, nn_input, internal_states=None):
         """
         Args:
@@ -230,7 +230,7 @@ class Policy(Component):
         action_layer_output["last_internal_states"] = nn_output["last_internal_states"]
         return action_layer_output
 
-    @api
+    @rlgraph_api
     def get_logits_probabilities_log_probs(self, nn_input, internal_states=None):
         """
         Args:
@@ -248,7 +248,7 @@ class Policy(Component):
         return dict(logits=aa_output["logits"], probabilities=aa_output["probabilities"],
                     log_probs=aa_output["log_probs"], last_internal_states=nn_output["last_internal_states"])
 
-    @api
+    @rlgraph_api
     def get_entropy(self, nn_input, internal_states=None):
         """
         Args:

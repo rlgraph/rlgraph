@@ -20,7 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.layers.strings.string_layer import StringLayer
 from rlgraph.spaces.space_utils import sanity_check_space
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.util import dtype as dtype_
 
 if get_backend() == "tf":
@@ -75,7 +75,7 @@ class StringToHashBucket(StringLayer):
         # tf.string_split does not support more complex shapes.
         sanity_check_space(input_spaces["text_inputs"], must_have_batch_rank=True, must_have_time_rank=False, rank=0)
 
-    @api(flatten_ops=True, split_ops=True)
+    @rlgraph_api(flatten_ops=True, split_ops=True)
     def _graph_fn_apply(self, text_inputs):
         """
         Args:

@@ -21,7 +21,7 @@ import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -41,7 +41,7 @@ class Clip(PreprocessLayer):
         self.min = min
         self.max = max
 
-    @api
+    @rlgraph_api
     def _graph_fn_apply(self, preprocessing_inputs):
         if self.backend == "python" or get_backend() == "python":
             return np.clip(preprocessing_inputs, a_min=self.min, a_max=self.max)

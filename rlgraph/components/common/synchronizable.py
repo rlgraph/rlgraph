@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.utils.rlgraph_errors import RLGraphError
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import DataOpDict
 from rlgraph.utils.util import get_shape
 from rlgraph.components import Component
@@ -74,7 +74,7 @@ class Synchronizable(Component):
 
         return False
 
-    @api(must_be_complete=False)
+    @rlgraph_api(must_be_complete=False)
     def _graph_fn_sync(self, values_):
         """
         Generates the op that syncs this Synchronizable's parent's variable values from another Synchronizable

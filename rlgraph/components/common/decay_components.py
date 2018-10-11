@@ -24,7 +24,7 @@ from rlgraph.utils import util
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.components import Component
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.pytorch_util import pytorch_tile
 
 if get_backend() == "tf":
@@ -71,7 +71,7 @@ class DecayComponent(Component):
             must_have_categories=False, rank=0
         )
 
-    @api
+    @rlgraph_api
     def _graph_fn_decayed_value(self, time_step):
         """
         Args:

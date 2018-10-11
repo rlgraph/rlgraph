@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.component import Component
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import flatten_op, unflatten_op, FlattenedDataOp
 from rlgraph.utils.util import dtype as dtype_
 
@@ -71,7 +71,7 @@ class StagingArea(Component):
         if get_backend() == "tf":
             self.area = tf.contrib.staging.StagingArea(dtypes, shapes)
 
-    @api
+    @rlgraph_api
     def _graph_fn_stage(self, *inputs):
         """
         Stages all incoming ops (after flattening them).
@@ -91,7 +91,7 @@ class StagingArea(Component):
         stage_op = self.area.put(flattened_ops)
         return stage_op
 
-    @api
+    @rlgraph_api
     def _graph_fn_unstage(self):
         """
         Unstages (and unflattens) all staged data.

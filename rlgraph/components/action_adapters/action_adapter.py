@@ -20,7 +20,7 @@ from __future__ import print_function
 from math import log
 
 from rlgraph import get_backend
-from rlgraph.components.component import Component, api
+from rlgraph.components.component import Component, rlgraph_api
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
@@ -123,7 +123,7 @@ class ActionAdapter(Component):
             # Fixme: Are there other restraints on continuous action spaces? E.g. no dueling layers?
             pass
 
-    @api
+    @rlgraph_api
     def get_action_layer_output(self, nn_output):
         """
         Returns the raw, non-reshaped output of the action-layer (DenseLayer) after passing through it the raw
@@ -138,7 +138,7 @@ class ActionAdapter(Component):
         out = self.action_layer.apply(nn_output)
         return dict(output=out["output"])
 
-    @api
+    @rlgraph_api
     def get_logits(self, nn_output):
         """
         Args:
@@ -151,7 +151,7 @@ class ActionAdapter(Component):
         logits = self.reshape.apply(aa_output["output"])
         return logits
 
-    @api
+    @rlgraph_api
     def get_logits_probabilities_log_probs(self, nn_output):
         """
         Args:

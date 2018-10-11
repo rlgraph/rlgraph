@@ -22,7 +22,7 @@ import tensorflow as tf
 from rlgraph.components.memories.memory import Memory
 from rlgraph.utils.util import get_batch_size
 from rlgraph.utils.ops import FlattenedDataOp
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 
 
 class RingBuffer(Memory):
@@ -48,7 +48,7 @@ class RingBuffer(Memory):
 
         # Extend our interface ("get_episodes").
         if self.episode_semantics:
-            @api(component=self, ok_to_overwrite=True)
+            @rlgraph_api(component=self, ok_to_overwrite=True)
             def _graph_fn_get_episodes(self, num_episodes=1):
                 stored_episodes = self.read_variable(self.num_episodes)
                 available_episodes = tf.minimum(x=num_episodes, y=stored_episodes)
@@ -100,7 +100,7 @@ class RingBuffer(Memory):
                 trainable=False
             )
 
-    @api(flatten_ops=True)
+    @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
         num_records = get_batch_size(records["/terminals"])
         index = self.read_variable(self.index)
@@ -189,7 +189,7 @@ class RingBuffer(Memory):
         with tf.control_dependencies(control_inputs=record_updates):
             return tf.no_op()
 
-    @api
+    @rlgraph_api
     def _graph_fn_get_records(self, num_records=1):
         index = self.read_variable(self.index)
         indices = tf.range(start=index - 1 - num_records, limit=index - 1) % self.capacity

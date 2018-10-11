@@ -21,7 +21,7 @@ from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.components.common.decay_components import DecayComponent
 from rlgraph.spaces.space_utils import sanity_check_space
-from rlgraph.utils.decorators import api, graph_fn
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -70,7 +70,7 @@ class EpsilonExploration(Component):
         if get_backend() == "tf":
             sanity_check_space(self.sample_space, must_have_batch_rank=True)
 
-    @api
+    @rlgraph_api
     def do_explore(self, sample, time_step=0):
         """
         API-method taking a timestep and returning a bool type tensor on whether to explore or not (per batch item).

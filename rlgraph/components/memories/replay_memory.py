@@ -22,7 +22,7 @@ import tensorflow as tf
 from rlgraph.components.memories.memory import Memory
 from rlgraph.utils.ops import FlattenedDataOp
 from rlgraph.utils.util import get_batch_size
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 
 
 class ReplayMemory(Memory):
@@ -56,7 +56,7 @@ class ReplayMemory(Memory):
         # Number of elements present.
         self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
 
-    @api(flatten_ops=True)
+    @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
         num_records = get_batch_size(records["/terminals"])
         # List of indices to update (insert from `index` forward and roll over at `self.capacity`).
@@ -84,7 +84,7 @@ class ReplayMemory(Memory):
         with tf.control_dependencies(control_inputs=index_updates):
             return tf.no_op()
 
-    @api
+    @rlgraph_api
     def _graph_fn_get_records(self, num_records=1):
         size = self.read_variable(self.size)
 

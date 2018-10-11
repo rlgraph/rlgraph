@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components import Component
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 
 
 class Optimizer(Component):
@@ -36,7 +36,7 @@ class Optimizer(Component):
         self.learning_rate = learning_rate
 
     # Make all API-methods `must_be_complete`=False as optimizers don't implement `create_variables`.
-    @api(must_be_complete=False)
+    @rlgraph_api(must_be_complete=False)
     def _graph_fn_step(self, *inputs):
         """
         Applies an optimization step to a list of variables via a loss.
@@ -50,7 +50,7 @@ class Optimizer(Component):
         """
         raise NotImplementedError
 
-    @api(must_be_complete=False)
+    @rlgraph_api(must_be_complete=False)
     def _graph_fn_calculate_gradients(self, *inputs):
         """
         Calculates the gradients for the given variables and the loss function (and maybe other child-class
@@ -64,7 +64,7 @@ class Optimizer(Component):
         """
         raise NotImplementedError
 
-    @api(must_be_complete=False)
+    @rlgraph_api(must_be_complete=False)
     def _graph_fn_apply_gradients(self, grads_and_vars):
         """
         Changes the given variables based on the previously calculated gradients. `gradients` is the output of

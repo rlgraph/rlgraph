@@ -25,7 +25,7 @@ from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.environments.environment import Environment
 from rlgraph.utils.ops import DataOpTuple, DataOpDict, flatten_op, unflatten_op
 from rlgraph.spaces import Space, Dict
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.specifiable_server import SpecifiableServer
 from rlgraph.utils.util import force_tuple, dtype as dtype_
 
@@ -206,7 +206,7 @@ class EnvironmentStepper(Component):
                 local=True, use_resource=True
             )
 
-    @api
+    @rlgraph_api
     def _graph_fn_reset(self):
         """
         Resets the EnvStepper and stores:
@@ -235,7 +235,7 @@ class EnvironmentStepper(Component):
             with tf.control_dependencies(assigns):
                 return tf.no_op()
 
-    @api
+    @rlgraph_api
     def _graph_fn_step(self):
         if get_backend() == "tf":
             def scan_func(accum, time_delta):

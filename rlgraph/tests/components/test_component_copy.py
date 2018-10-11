@@ -25,7 +25,7 @@ from rlgraph.components import Component
 from rlgraph.components.layers.preprocessing import ReShape
 from rlgraph.spaces import FloatBox
 from rlgraph.tests import ComponentTest
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 
 
 class TestComponentCopy(unittest.TestCase):
@@ -40,11 +40,11 @@ class TestComponentCopy(unittest.TestCase):
         flatten_copy = flatten_orig.copy(scope="B")
         container = Component(flatten_orig, flatten_copy)
 
-        @api(component=container)
+        @rlgraph_api(component=container)
         def flatten1(self, input_):
             return self.sub_components["A"].apply(input_)
 
-        @api(component=container)
+        @rlgraph_api(component=container)
         def flatten2(self, input_):
             return self.sub_components["B"].apply(input_)
 

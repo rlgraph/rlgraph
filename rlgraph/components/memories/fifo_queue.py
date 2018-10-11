@@ -22,7 +22,7 @@ from rlgraph.components.memories.memory import Memory
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.ops import FlattenedDataOp, flatten_op
 from rlgraph.utils.util import dtype as dtype_
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -51,7 +51,7 @@ class FIFOQueue(Memory):
 
         # If record space given, overwrite the insert method as "must_be_complete=False".
         if self.record_space is not None:
-            @api(component=self, must_be_complete=False, ok_to_overwrite=True)
+            @rlgraph_api(component=self, must_be_complete=False, ok_to_overwrite=True)
             def _graph_fn_insert_records(self, records):
                 flattened_records = flatten_op(records)
                 flattened_stopped_records = {key: tf.stop_gradient(op) for key, op in flattened_records.items()}
@@ -95,7 +95,7 @@ class FIFOQueue(Memory):
                 shared_name=shared_name
             )
 
-    @api
+    @rlgraph_api
     def _graph_fn_get_records(self, num_records=1):
         # Get the records as dict.
         record_dict = self.queue.dequeue_many(num_records)
@@ -113,7 +113,7 @@ class FIFOQueue(Memory):
                 flattened_records[flat_key] = op
         return flattened_records
 
-    @api
+    @rlgraph_api
     def _graph_fn_get_size(self):
         """
         Returns the current size of the queue.

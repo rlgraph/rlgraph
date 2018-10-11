@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.component import Component
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 
 
 class Layer(Component):
@@ -43,7 +43,7 @@ class Layer(Component):
         """
         return space
 
-    @api
+    @rlgraph_api
     def _graph_fn_apply(self, *inputs):
         """
         This is where the graph-logic of this layer goes.

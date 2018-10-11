@@ -22,7 +22,7 @@ import numpy as np
 
 from rlgraph.components.memories.memory import Memory
 from rlgraph.components.helpers.segment_tree import SegmentTree
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import FlattenedDataOp
 from rlgraph.utils.util import get_batch_size
 
@@ -104,7 +104,7 @@ class PrioritizedReplay(Memory):
         )
         self.min_segment_tree = SegmentTree(self.min_segment_buffer, self.priority_capacity)
 
-    @api(flatten_ops=True)
+    @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
         num_records = get_batch_size(records["/terminals"])
         index = self.read_variable(self.index)
@@ -155,7 +155,7 @@ class PrioritizedReplay(Memory):
         with tf.control_dependencies(control_inputs=[min_insert]):
             return tf.no_op()
 
-    @api
+    @rlgraph_api
     def _graph_fn_get_records(self, num_records=1):
         # Sum total mass.
         current_size = self.read_variable(self.size)
@@ -188,7 +188,7 @@ class PrioritizedReplay(Memory):
         #                           message='sample indices, segment tree values = ')
         return self._read_records(indices=sample_indices), sample_indices, corrected_weights
 
-    @api(must_be_complete=False)
+    @rlgraph_api(must_be_complete=False)
     def _graph_fn_update_records(self, indices, update):
         num_records = get_batch_size(indices)
         max_priority = 0.0

@@ -20,7 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components import Component
 from rlgraph.utils.util import dtype
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -39,7 +39,7 @@ class NoiseComponent(Component):
     def __init__(self, scope="noise", **kwargs):
         super(NoiseComponent, self).__init__(scope=scope, **kwargs)
 
-    @api
+    @rlgraph_api
     def _graph_fn_get_noise(self):
         """
         The function that returns the DataOp to actually compute the noise.
@@ -59,7 +59,7 @@ class ConstantNoise(NoiseComponent):
 
         self.value = value
 
-    @api
+    @rlgraph_api
     def _graph_fn_get_noise(self):
         if get_backend() == "tf":
             return tf.constant(self.value)
@@ -81,7 +81,7 @@ class GaussianNoise(NoiseComponent):
         assert action_space is not None
         self.action_space = action_space
 
-    @api
+    @rlgraph_api
     def _graph_fn_get_noise(self):
         if get_backend() == "tf":
             return tf.random_normal(
@@ -123,7 +123,7 @@ class OrnsteinUhlenbeckNoise(NoiseComponent):
             initializer=self.mu
         )
 
-    @api
+    @rlgraph_api
     def _graph_fn_get_noise(self):
         drift = self.theta * (self.mu - self.ou_state)
         diffusion = self.sigma * tf.random_normal(shape=self.action_space.shape, dtype=dtype(self.action_space.dtype))

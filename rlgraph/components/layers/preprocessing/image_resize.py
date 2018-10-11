@@ -23,7 +23,7 @@ from six.moves import xrange as range_
 
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import unflatten_op
 from rlgraph.utils.rlgraph_errors import RLGraphError
 
@@ -110,7 +110,7 @@ class ImageResize(PreprocessLayer):
         in_space = input_spaces["preprocessing_inputs"]
         self.output_spaces = self.get_preprocessed_space(in_space)
 
-    @api
+    @rlgraph_api
     def _graph_fn_apply(self, preprocessing_inputs):
         """
         Images come in with either a batch dimension or not.

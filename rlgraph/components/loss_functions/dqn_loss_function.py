@@ -23,7 +23,7 @@ from rlgraph.components.loss_functions import LossFunction
 from rlgraph.spaces import IntBox
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import pytorch_one_hot
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.pytorch_util import pytorch_reduce_mean
 from rlgraph.utils.util import get_rank
 
@@ -80,7 +80,7 @@ class DQNLossFunction(LossFunction):
         )
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 
-    @api
+    @rlgraph_api
     def loss(self, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None, importance_weights=None):
         loss_per_item = self.loss_per_item(
             q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
@@ -88,7 +88,7 @@ class DQNLossFunction(LossFunction):
         total_loss = self.loss_average(loss_per_item)
         return total_loss, loss_per_item
 
-    @api
+    @rlgraph_api
     def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, terminals,
                                 qt_values_sp, q_values_sp=None, importance_weights=None):
         """

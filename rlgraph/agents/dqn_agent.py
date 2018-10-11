@@ -23,7 +23,7 @@ from rlgraph.agents import Agent
 from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, DictMerger, \
     ContainerSplitter
 from rlgraph.spaces import FloatBox, BoolBox
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.util import strip_list
 
 
@@ -192,32 +192,32 @@ class DQNAgent(Agent):
 
         # Reset operation (resets preprocessor).
         if self.preprocessing_required:
-            @api(component=self.root_component)
+            @rlgraph_api(component=self.root_component)
             def reset_preprocessor(self):
                 reset_op = preprocessor.reset()
                 return reset_op
 
         # Act from preprocessed states.
-        @api(component=self.root_component)
+        @rlgraph_api(component=self.root_component)
         def action_from_preprocessed_state(self, preprocessed_states, time_step=0, use_exploration=True):
             sample_deterministic = policy.get_max_likelihood_action(preprocessed_states)
             actions = exploration.get_action(sample_deterministic, time_step, use_exploration)
             return preprocessed_states, actions
 
         # State (from environment) to action with preprocessing.
-        @api(component=self.root_component)
+        @rlgraph_api(component=self.root_component)
         def get_preprocessed_state_and_action(self, states, time_step=0, use_exploration=True):
             preprocessed_states = preprocessor.preprocess(states)
             return self.action_from_preprocessed_state(preprocessed_states, time_step, use_exploration)
 
         # Insert into memory.
-        @api(component=self.root_component)
+        @rlgraph_api(component=self.root_component)
         def insert_records(self, preprocessed_states, actions, rewards, next_states, terminals):
             records = merger.merge(preprocessed_states, actions, rewards, next_states, terminals)
             return memory.insert_records(records)
 
         # Syncing target-net.
-        @api(component=self.root_component)
+        @rlgraph_api(component=self.root_component)
         def sync_target_qnet(self):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -229,7 +229,7 @@ class DQNAgent(Agent):
                 return self.get_sub_component_by_name("target-policy").sync(policy_vars)
 
         # Learn from memory.
-        @api(component=self.root_component)
+        @rlgraph_api(component=self.root_component)
         def update_from_memory(self_):
             # Non prioritized memory will just return weight 1.0 for all samples.
             records, sample_indices, importance_weights = memory.get_records(self.update_spec["batch_size"])
@@ -247,7 +247,7 @@ class DQNAgent(Agent):
                 return step_op, loss, loss_per_item, records, q_values_s
 
         # Learn from an external batch.
-        @api(component=self.root_component)
+        @rlgraph_api(component=self.root_component)
         def update_from_external_batch(
                 self_, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights
         ):
@@ -299,7 +299,7 @@ class DQNAgent(Agent):
                 return step_op, loss, loss_per_item, q_values_s
 
         # TODO for testing
-        @api(component=self.root_component)
+        @rlgraph_api(component=self.root_component)
         def get_td_loss(self_, preprocessed_states, actions, rewards,
                         terminals, preprocessed_next_states, importance_weights):
             # Get the different Q-values.

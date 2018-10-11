@@ -20,7 +20,7 @@ from __future__ import print_function
 import copy
 
 from rlgraph import get_backend
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils import RLGraphError
 from rlgraph.agents.agent import Agent
 from rlgraph.components.common.dict_merger import DictMerger
@@ -432,15 +432,15 @@ class IMPALAAgent(Agent):
     def define_api_methods_single(self, fifo_output_splitter, fifo_queue, queue_runner, transpose_actions,
                                   transpose_rewards, transpose_terminals, transpose_action_probs, preprocessor,
                                   staging_area, concat, policy, loss_function, optimizer):
-        @api(component=self.root_component)
+        @rlgraph_api(component=self.root_component)
         def setup_queue_runner(self_):
             return queue_runner.setup()
 
-        @api(component=self.root_component)
+        @rlgraph_api(component=self.root_component)
         def get_queue_size(self_):
             return fifo_queue.get_size()
 
-        @api(component=self.root_component)
+        @rlgraph_api(component=self.root_component)
         def update_from_memory(self_):
             # Pull n records from the queue.
             # Note that everything will come out as batch-major and must be transposed before the main-LSTM.
@@ -519,7 +519,7 @@ class IMPALAAgent(Agent):
             fifo_queue (FIFOQueue): The FIFOQueue Component used to enqueue env sample runs (n-step).
         """
         # Perform n-steps in the env and insert the results into our FIFO-queue.
-        @api(component=self.root_component)
+        @rlgraph_api(component=self.root_component)
         def perform_n_steps_and_insert_into_fifo(self_):  #, internal_states, time_step=0):
             # Take n steps in the environment.
             step_results = env_stepper.step()
@@ -534,7 +534,7 @@ class IMPALAAgent(Agent):
 
             return insert_op, terminals
 
-        @api(component=self.root_component)
+        @rlgraph_api(component=self.root_component)
         def reset(self):
             # Resets the environment running inside the agent.
             reset_op = env_stepper.reset()
@@ -559,7 +559,7 @@ class IMPALAAgent(Agent):
             loss_function (IMPALALossFunction): The IMPALALossFunction Component.
             optimizer (Optimizer): The optimizer that we use to calculate an update and apply it.
         """
-        @api(component=self.root_component)
+        @rlgraph_api(component=self.root_component)
         def update_from_memory(self_):
             # Pull n records from the queue.
             # Note that everything will come out as batch-major and must be transposed before the main-LSTM.
@@ -614,7 +614,7 @@ class IMPALAAgent(Agent):
             # TODO: Make it possible to return None from API-method without messing with the meta-graph.
             return step_op, (stage_op if stage_op else step_op), loss, loss_per_item
 
-        @api(component=self.root_component)
+        @rlgraph_api(component=self.root_component)
         def get_queue_size(self_):
             return fifo_queue.get_size()
 

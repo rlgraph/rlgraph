@@ -25,7 +25,7 @@ from rlgraph.components.common.noise_components import NoiseComponent
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.util import dtype
-from rlgraph.utils.decorators import api, graph_fn
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -65,7 +65,7 @@ class Exploration(Component):
             self.add_components(self.epsilon_exploration)
 
             # Define our interface.
-            @api(component=self)
+            @rlgraph_api(component=self)
             def get_action(self, actions, time_step, use_exploration=True):
                 """
                 Action depends on time-step (e.g. epsilon-decay).
@@ -78,7 +78,7 @@ class Exploration(Component):
             self.noise_component = NoiseComponent.from_spec(noise_spec)
             self.add_components(self.noise_component)
 
-            @api(component=self)
+            @rlgraph_api(component=self)
             def get_action(self, actions, time_step=0, use_exploration=True):
                 """
                 Noise is added to the sampled action.
@@ -88,7 +88,7 @@ class Exploration(Component):
 
         # Don't explore at all. Simple pass-through.
         else:
-            @api(component=self)
+            @rlgraph_api(component=self)
             def get_action(self, actions, time_step=0, use_exploration=False):
                 """
                 Action is returned as is.

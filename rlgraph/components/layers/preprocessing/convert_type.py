@@ -23,7 +23,7 @@ from rlgraph import get_backend
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.spaces import IntBox, FloatBox, BoolBox, ContainerSpace
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils import util
 
 if get_backend() == "tf":
@@ -85,7 +85,7 @@ class ConvertType(PreprocessLayer):
         # No conversion.
         return space
 
-    @api
+    @rlgraph_api
     def _graph_fn_apply(self, preprocessing_inputs):
         if self.backend == "python" or get_backend() == "python":
             if isinstance(preprocessing_inputs, list):

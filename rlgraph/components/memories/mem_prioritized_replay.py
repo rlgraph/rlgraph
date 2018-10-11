@@ -25,7 +25,7 @@ from rlgraph import get_backend
 from rlgraph.utils.util import SMALL_NUMBER, get_rank, dtype as dtype_
 from rlgraph.components.memories.memory import Memory
 from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.spaces.space_utils import get_list_registry
 from rlgraph.spaces import Dict
 
@@ -113,7 +113,7 @@ class MemPrioritizedReplay(Memory):
 
         return records
 
-    @api(flatten_ops=True)
+    @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
         if records is None or get_rank(records['/rewards']) == 0:
             return
@@ -143,7 +143,7 @@ class MemPrioritizedReplay(Memory):
         self.index = (self.index + num_records) % self.capacity
         self.size = min(self.size + num_records, self.capacity)
 
-    @api
+    @rlgraph_api
     def _graph_fn_get_records(self, num_records=1):
         indices = []
         prob_sum = self.merged_segment_tree.sum_segment_tree.get_sum(0, self.size - 1)
@@ -168,7 +168,7 @@ class MemPrioritizedReplay(Memory):
             weights = np.asarray(weights)
         return self._read_records(indices=indices), indices, weights
 
-    @api(must_be_complete=False)
+    @rlgraph_api(must_be_complete=False)
     def _graph_fn_update_records(self, indices, update):
         if len(indices) > 0 and indices[0]:
             for index, loss in zip(indices, update):

@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
-from rlgraph.utils.decorators import api, graph_fn
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -41,7 +41,7 @@ class BaselineActionAdapter(ActionAdapter):
     def check_input_spaces(self, input_spaces, action_space=None):
         self.input_space = input_spaces["nn_output"]
 
-    @api
+    @rlgraph_api
     def get_logits_probabilities_log_probs(self, nn_output):
         """
         API-method. Returns separated V and logit values split from the action layer.

@@ -23,7 +23,7 @@ from six.moves import xrange as range_
 
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import flatten_op, unflatten_op
 from rlgraph.utils.util import get_rank, get_shape, dtype as dtype_
 
@@ -72,7 +72,7 @@ class GrayScale(PreprocessLayer):
         in_space = input_spaces["preprocessing_inputs"]
         self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
 
-    @api(flatten_ops=True, split_ops=True)
+    @rlgraph_api(flatten_ops=True, split_ops=True)
     def _graph_fn_apply(self, preprocessing_inputs):
         """
         Gray-scales images of arbitrary rank.

@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components import Component
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -69,7 +69,7 @@ class VTraceFunction(Component):
         #                   must_have_batch_rank=True, must_have_time_rank=True)
         #sanity_check_space(rewards_space, rank=log_is_weight_rank, must_have_batch_rank=True, must_have_time_rank=True)
 
-    @api(must_be_complete=False)
+    @rlgraph_api(must_be_complete=False)
     def _graph_fn_calc_v_trace_values(self, logits_actions_pi, log_probs_actions_mu, actions, actions_flat,
                                       discounts, rewards,
                                       values, bootstrapped_values):

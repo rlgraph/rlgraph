@@ -20,7 +20,7 @@ from __future__ import division
 from rlgraph import get_backend
 from rlgraph.components.layers import Layer
 from rlgraph.utils.util import default_dict
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -35,7 +35,7 @@ class PreprocessLayer(Layer):
     def __init__(self, scope="pre-process", **kwargs):
         super(PreprocessLayer, self).__init__(scope=scope, **kwargs)
 
-    @api
+    @rlgraph_api
     def _graph_fn_reset(self):
         """
         Does some reset operations e.g. in case this PreprocessLayer contains variables and state.
@@ -49,6 +49,6 @@ class PreprocessLayer(Layer):
         # TODO: fix for python backend.
         return
 
-    @api(flatten_ops=True, split_ops=True)
+    @rlgraph_api(flatten_ops=True, split_ops=True)
     def _graph_fn_apply(self, *preprocessing_inputs):
         return super(PreprocessLayer, self)._graph_fn_apply(*preprocessing_inputs)

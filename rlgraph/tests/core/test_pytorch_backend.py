@@ -59,7 +59,7 @@ class TestPytorchBackend(unittest.TestCase):
         sub_comp2 = Dummy2To1(scope="comp2")  # out =in1+in2
         core.add_components(sub_comp1, sub_comp2)
 
-        @api(component=core)
+        @rlgraph_api(component=core)
         def run(self_, input_):
             out1, out2 = sub_comp1.run(input_)
             return sub_comp2.run(out1, out2)
@@ -87,7 +87,7 @@ class TestPytorchBackend(unittest.TestCase):
         sub_comp2 = Dummy2To1(scope="B")
         core.add_components(sub_comp1, sub_comp2)
 
-        @api(component=core)
+        @rlgraph_api(component=core)
         def run(self_, input_):
             out = sub_comp1.run(input_)
             return sub_comp2.run(out, 1.1)

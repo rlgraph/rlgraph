@@ -23,7 +23,7 @@ from rlgraph.components.layers.nn.nn_layer import NNLayer
 from rlgraph.spaces import Tuple
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import PyTorchVariable
-from rlgraph.utils.decorators import api, graph_fn
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.ops import DataOpTuple
 
 if get_backend() == "tf":
@@ -138,7 +138,7 @@ class LSTMLayer(NNLayer):
             self.hidden_state = (torch.zeros(1, 1, self.units), torch.zeros(1, 1, self.units))
             self.register_variables(PyTorchVariable(name=self.global_scope, ref=self.lstm))
 
-    @api
+    @rlgraph_api
     def apply(self, inputs, initial_c_and_h_states=None, sequence_length=None):
         output, last_internal_states = self._graph_fn_apply(inputs, initial_c_and_h_states, sequence_length)
         return dict(output=output, last_internal_states=last_internal_states)

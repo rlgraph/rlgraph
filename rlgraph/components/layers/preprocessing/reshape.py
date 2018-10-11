@@ -25,7 +25,7 @@ from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import flatten_op, unflatten_op
 from rlgraph.utils.numpy import one_hot
 
@@ -190,7 +190,7 @@ class ReShape(PreprocessLayer):
                 # TODO: adjust for input ContainerSpaces. For now only support single space (flat-key=="")
                 self.num_categories = {"": self.flatten_categories}
 
-    @api(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
+    @rlgraph_api(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
     def _graph_fn_apply(self, key, preprocessing_inputs, input_before_time_rank_folding=None):
         """
         Reshapes the input to the specified new shape.

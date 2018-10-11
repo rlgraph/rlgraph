@@ -27,7 +27,7 @@ from rlgraph.components import Component, Exploration, PreprocessorStack, Neural
 from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.spaces.space import Space
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
 from rlgraph.utils.specifiable import Specifiable
 
@@ -206,18 +206,18 @@ class Agent(Specifiable):
         self.policy.add_components(Synchronizable(), expose_apis="sync")
 
         # Add api methods for syncing.
-        @api(component=self.root_component)
+        @rlgraph_api(component=self.root_component)
         def get_policy_weights(self):
             policy = self.get_sub_component_by_name(policy_scope)
             return policy._variables()
 
-        @api(component=self.root_component, must_be_complete=False)
+        @rlgraph_api(component=self.root_component, must_be_complete=False)
         def set_policy_weights(self, weights):
             policy = self.get_sub_component_by_name(policy_scope)
             return policy.sync(weights)
 
         # To pre-process external data if needed.
-        @api(component=self.root_component)
+        @rlgraph_api(component=self.root_component)
         def preprocess_states(self, states):
             preprocessor_stack = self.get_sub_component_by_name(pre_processor_scope)
             preprocessed_states = preprocessor_stack.preprocess(states)

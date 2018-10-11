@@ -21,7 +21,7 @@ from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.spaces import ContainerSpace, Dict
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import flatten_op, unflatten_op
 from rlgraph.utils.util import default_dict
 
@@ -60,7 +60,7 @@ class DictPreprocessorStack(PreprocessorStack):
         default_dict(kwargs, dict(scope=kwargs.pop("scope", "dict-preprocessor-stack")))
         super(DictPreprocessorStack, self).__init__(*list(self.preprocessors.values()), **kwargs)
 
-    @api(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
+    @rlgraph_api(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
     def _graph_fn_preprocess(self, key, inputs):
         # Is a PreprocessorStack defined for this key?
         if key in self.preprocessors:
@@ -69,7 +69,7 @@ class DictPreprocessorStack(PreprocessorStack):
         else:
             return inputs
 
-    @api
+    @rlgraph_api
     def reset(self):
         # TODO: python-Components: For now, we call each preprocessor's graph_fn directly.
         if self.backend == "python" or get_backend() == "python":

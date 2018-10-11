@@ -27,7 +27,7 @@ from rlgraph.components.explorations.exploration import Exploration, EpsilonExpl
 from rlgraph.components.distributions import Categorical, Normal
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 
 
 class TestExplorations(unittest.TestCase):
@@ -56,7 +56,7 @@ class TestExplorations(unittest.TestCase):
         # The Component to test.
         exploration_pipeline = Component(action_adapter, distribution, exploration, scope="exploration-pipeline")
 
-        @api(component=exploration_pipeline)
+        @rlgraph_api(component=exploration_pipeline)
         def get_action(self_, nn_output, time_step):
             out = action_adapter.get_logits_probabilities_log_probs(nn_output)
             sample = distribution.sample_deterministic(out["probabilities"])
@@ -123,7 +123,7 @@ class TestExplorations(unittest.TestCase):
         exploration_pipeline = Component(scope="continuous-plus-noise")
         exploration_pipeline.add_components(action_adapter, distribution, exploration, scope="exploration-pipeline")
 
-        @api(component=exploration_pipeline)
+        @rlgraph_api(component=exploration_pipeline)
         def get_action(self_, nn_output):
             _, parameters, _ = action_adapter.get_logits_probabilities_log_probs(nn_output)
             sample_stochastic = distribution.sample_stochastic(parameters)
@@ -131,7 +131,7 @@ class TestExplorations(unittest.TestCase):
             action = exploration.get_action(sample_stochastic, sample_deterministic)
             return action
 
-        @api(component=exploration_pipeline)
+        @rlgraph_api(component=exploration_pipeline)
         def get_noise(self_):
             return exploration.noise_component.get_noise()
 

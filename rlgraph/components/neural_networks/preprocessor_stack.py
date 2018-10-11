@@ -21,7 +21,7 @@ from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.utils.util import default_dict
 from rlgraph.components.neural_networks.stack import Stack
-from rlgraph.utils.decorators import api, graph_fn
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -51,7 +51,7 @@ class PreprocessorStack(Stack):
         default_dict(kwargs, dict(scope=kwargs.pop("scope", "preprocessor-stack")))
         super(PreprocessorStack, self).__init__(*preprocessors, **kwargs)
 
-    @api
+    @rlgraph_api
     def reset(self):
         # TODO: python-Components: For now, we call each preprocessor's graph_fn directly.
         if self.backend == "python" or get_backend() == "python":

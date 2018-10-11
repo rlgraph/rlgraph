@@ -23,7 +23,7 @@ import unittest
 from rlgraph.components import Component, Synchronizable
 from rlgraph.spaces import FloatBox
 from rlgraph.tests import ComponentTest
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 
 VARIABLE_NAMES = ["variable_to_sync1", "variable_to_sync2"]
 
@@ -76,7 +76,7 @@ class TestSynchronizableComponent(unittest.TestCase):
         container = Component(name="container")
         container.add_components(sync_from, sync_to)
 
-        @api(component=container)
+        @rlgraph_api(component=container)
         def execute_sync(self):
             values_ = sync_from._variables()
             return sync_to.sync(values_)
@@ -114,7 +114,7 @@ class TestSynchronizableComponent(unittest.TestCase):
 
         container = Component(comp1, comp2_writable, scope="container")
 
-        @api(component=container)
+        @rlgraph_api(component=container)
         def execute_sync(self):
             values_ = comp1._variables()
             return comp2_writable.sync(values_)

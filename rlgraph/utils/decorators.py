@@ -34,10 +34,9 @@ component_api_registry = dict()
 component_graph_fn_registry = dict()
 
 
-def api(api_method=None, *, component=None, name=None, returns=None,
-        flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False,
-        must_be_complete=True, ok_to_overwrite=False
-        ):
+def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
+                flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False,
+                must_be_complete=True, ok_to_overwrite=False):
     """
     API-method decorator used to tag any Component's methods as API-methods.
 

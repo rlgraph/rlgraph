@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components.component import Component, api
+from rlgraph.components.component import Component, rlgraph_api
 
 
 class Memory(Component):
@@ -53,7 +53,7 @@ class Memory(Component):
             initializer=0
         )
 
-    @api(flatten_ops=True)
+    @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
         """
         Inserts one or more complex records.
@@ -64,7 +64,7 @@ class Memory(Component):
         """
         raise NotImplementedError
 
-    @api
+    @rlgraph_api
     def _graph_fn_get_records(self, num_records=1):
         """
         Returns a number of records according to the retrieval strategy implemented by
@@ -78,7 +78,7 @@ class Memory(Component):
         """
         raise NotImplementedError
 
-    @api
+    @rlgraph_api
     def _graph_fn_get_episodes(self, num_episodes=1):
         """
         Retrieves a given number of episodes.
@@ -90,7 +90,7 @@ class Memory(Component):
         """
         pass
 
-    @api
+    @rlgraph_api
     def _graph_fn_clear(self):
         """
         Removes all entries from memory.

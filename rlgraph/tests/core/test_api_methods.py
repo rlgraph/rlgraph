@@ -22,7 +22,7 @@ import unittest
 
 from rlgraph.tests import ComponentTest
 from rlgraph.utils import root_logger
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.tests.dummy_components import *
 
 
@@ -51,7 +51,7 @@ class TestAPIMethods(unittest.TestCase):
         sub_comp2 = Dummy1To1(scope="comp2")
         core.add_components(sub_comp1, sub_comp2)
 
-        @api(component=core)
+        @rlgraph_api(component=core)
         def run(self_, input_):
             out = sub_comp1.run(input_)
             return sub_comp2.run(out)
@@ -71,7 +71,7 @@ class TestAPIMethods(unittest.TestCase):
         sub_comp2 = Dummy2To1(scope="comp2")  # out =in1+in2
         core.add_components(sub_comp1, sub_comp2)
 
-        @api(component=core)
+        @rlgraph_api(component=core)
         def run(self_, input_):
             out1, out2 = sub_comp1.run(input_)
             return sub_comp2.run(out1, out2)
@@ -92,7 +92,7 @@ class TestAPIMethods(unittest.TestCase):
         sub_comp2 = Dummy2To1(scope="B")
         core.add_components(sub_comp1, sub_comp2)
 
-        @api(component=core)
+        @rlgraph_api(component=core)
         def run(self_, input_):
             out = sub_comp1.run(input_)
             return sub_comp2.run(out, 1.1)
@@ -123,7 +123,7 @@ class TestAPIMethods(unittest.TestCase):
         container.add_components(a, b, c, d)
 
         # Define container's API:
-        @api(name="run", component=container)
+        @rlgraph_api(name="run", component=container)
         def container_run(self_, input1, input2):
             """
             Describes the diamond setup in1->A->B; in2->A->C; C,B->D->output

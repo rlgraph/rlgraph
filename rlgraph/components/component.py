@@ -26,7 +26,7 @@ import numpy as np
 import re
 
 from rlgraph import get_backend
-from rlgraph.utils.decorators import api, component_api_registry, component_graph_fn_registry, define_api_method, \
+from rlgraph.utils.decorators import rlgraph_api, component_api_registry, component_graph_fn_registry, define_api_method, \
     define_graph_fn
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
@@ -786,7 +786,7 @@ class Component(Specifiable):
                     component_name = component.name
                     must_be_complete = api_method_rec.must_be_complete
 
-                    @api(component=self, name=api_method_name, must_be_complete=must_be_complete)
+                    @rlgraph_api(component=self, name=api_method_name, must_be_complete=must_be_complete)
                     def exposed_api_method_wrapper(self, *inputs):
                         # Complicated way to lookup sub-component's method to avoid fixtures when original
                         # component gets copied.
@@ -1113,7 +1113,7 @@ class Component(Specifiable):
         """
         pass
 
-    @api(returns=1)
+    @rlgraph_api(returns=1)
     def _graph_fn__variables(self):
         """
         Outputs all of this Component's variables in a DataOpDict (API-method "_variables").

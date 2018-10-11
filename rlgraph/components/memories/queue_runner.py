@@ -20,7 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.utils.ops import flatten_op
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -74,7 +74,7 @@ class QueueRunner(Component):
         self.add_components(self.env_output_splitter, self.fifo_input_merger, self.next_states_slicer,
                             self.internal_states_slicer, *self.data_producing_components)
 
-    @api
+    @rlgraph_api
     def _graph_fn_setup(self):
         enqueue_ops = list()
 

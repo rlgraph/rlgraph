@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.components import Component
 from rlgraph.spaces import ContainerSpace
 
@@ -61,12 +61,12 @@ class Distribution(Component):
         # For define-by-run to avoid creating new objects when calling `get_distribution`.
         self.dist_object = None
 
-        @api(component=self, must_be_complete=False)
+        @rlgraph_api(component=self, must_be_complete=False)
         def log_prob(self_, parameters, values):
             distribution = self_._graph_fn_get_distribution(parameters)
             return self_._graph_fn_log_prob(distribution, values)
 
-        @api(component=self, must_be_complete=False)
+        @rlgraph_api(component=self, must_be_complete=False)
         def kl_divergence(self_, parameters, other_parameters):
             distribution = self_._graph_fn_get_distribution(parameters)
             other_distribution = self_._graph_fn_get_distribution(other_parameters)
@@ -101,7 +101,7 @@ class Distribution(Component):
                     "ERROR: Cannot handle container parameter Spaces in distribution '{}' " \
                     "(atm; may soon do)!".format(self.name)
 
-    @api
+    @rlgraph_api
     def _graph_fn_get_distribution(self, *parameters):
         """
         Parameterizes this distribution (normally from an NN-output vector). Returns

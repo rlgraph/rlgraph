@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.components.component import Component
 from rlgraph.utils.util import force_tuple, force_list
 
@@ -95,11 +95,11 @@ class Stack(Component):
 
                 # Custom API-method is given (w/o decorator) -> Call the decorator directly here to register it.
                 if function_to_use is not None:
-                    api(api_method=function_to_use, component=self, name=stack_api_method_name)
+                    rlgraph_api(api_method=function_to_use, component=self, name=stack_api_method_name)
 
                 # No API-method given -> Create auto-API-method and set it up through decorator.
                 else:
-                    @api(name=stack_api_method_name, component=self)
+                    @rlgraph_api(name=stack_api_method_name, component=self)
                     def method(self_, *inputs, **kwargs):
                         if get_backend() == "pytorch" and self.execution_mode == "define_by_run":
                             # Avoid jumping back between layers and calls at runtime.

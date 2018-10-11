@@ -23,7 +23,7 @@ from rlgraph import get_backend
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.spaces import IntBox, FloatBox
-from rlgraph.utils.decorators import api, graph_fn
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.util import SMALL_NUMBER, get_rank
 from rlgraph.utils.ops import DataOpTuple
 
@@ -92,7 +92,7 @@ class DuelingActionAdapter(ActionAdapter):
             self.dense_layer_state_value_stream, self.dense_layer_advantage_stream, self.state_value_node
         )
 
-    @api
+    @rlgraph_api
     def get_action_layer_output(self, nn_output):
         """
         Args:
@@ -112,7 +112,7 @@ class DuelingActionAdapter(ActionAdapter):
         advantage_nodes = self.action_layer.apply(output_advantage_dense)["output"]
         return dict(state_value_node=state_value_node, output=advantage_nodes)
 
-    @api
+    @rlgraph_api
     def get_logits_probabilities_log_probs(self, nn_output):
         """
         Args:
