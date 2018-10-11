@@ -24,8 +24,8 @@ import time
 
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils.op_records import GraphFnRecord, APIMethodRecord, DataOpRecord, DataOpRecordColumnIntoAPIMethod, \
-    DataOpRecordColumnFromAPIMethod, DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn
-from rlgraph.utils.rlgraph_errors import RLGraphError
+    DataOpRecordColumnFromAPIMethod, DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn, get_call_param_name
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphAPICallParamError
 from rlgraph.utils import util
 
 
@@ -113,6 +113,15 @@ def api(api_method=None, *, component=None, name=None, returns=None,
             # Add the column to the API-method record.
             api_method_rec.in_op_columns.append(in_op_column)
 
+            # Check minimum number of passed args.
+            minimum_num_call_params = len(in_op_column.api_method_rec.non_args_kwargs) - \
+                len(in_op_column.api_method_rec.default_args)
+            if len(in_op_column.op_records) < minimum_num_call_params:
+                raise RLGraphAPICallParamError(
+                    "Number of call params ({}) for call to API-method '{}' is too low. Needs to be at least {} "
+                    "params!".format(len(in_op_column.op_records), api_method_rec.name, minimum_num_call_params)
+                )
+
             # Link from incoming op_recs into the new column or populate new column with ops/Spaces (this happens
             # if this call was made from within a graph_fn such that ops and Spaces are already known).
             all_args = [(i, a) for i, a in enumerate(args)] + [(k, v) for k, v in sorted(kwargs.items())]
@@ -123,7 +132,12 @@ def api(api_method=None, *, component=None, name=None, returns=None,
                     param_name = key
                 # Positional arg -> get input_name from input_names list.
                 else:
-                    param_name = api_method_rec.input_names[key if flex is None else flex]
+                    slot = key if flex is None else flex
+                    if slot >= len(api_method_rec.input_names):
+                        raise RLGraphAPICallParamError(
+                            "Too many input args given in call to API-method '{}'!".format(api_method_rec.name)
+                        )
+                    param_name = api_method_rec.input_names[slot]
 
                 # Var-positional arg, attach the actual position to input_name string.
                 if self.api_method_inputs[param_name] == "*flex":
@@ -152,6 +166,7 @@ def api(api_method=None, *, component=None, name=None, returns=None,
 
             # Regular API-method: Call it here.
             args_, kwargs_ = in_op_column.get_args_and_kwargs()
+
             if api_method_rec.is_graph_fn_wrapper is False:
                 return_values = wrapped_func(self, *args_, **kwargs_)
             # Wrapped graph_fn: Call it through yet another wrapper.
@@ -342,7 +357,6 @@ def define_api_method(component, api_method_record, copy_=True):
     skip_args += (api_method_record.is_graph_fn_wrapper and api_method_record.add_auto_key_as_first_param)
     param_list = list(inspect.signature(api_method_record.func).parameters.values())[skip_args:]
 
-    component.api_methods[api_method_record.name].input_names = list()
     for param in param_list:
         component.api_methods[api_method_record.name].input_names.append(param.name)
         if param.name not in component.api_method_inputs:
@@ -356,17 +370,22 @@ def define_api_method(component, api_method_record, copy_=True):
                 else:
                     space = get_space_from_op(param.default)
                     component.api_method_inputs[param.name] = space
+                api_method_record.non_args_kwargs.append(param.name)
+                api_method_record.default_args.append(param.name)
             # This param is an *args param. Store as "*flex". Then with upcoming API calls, we determine the Spaces
             # for the single items in *args and set them under "param[0]", "param[1]", etc..
             elif param.kind == inspect.Parameter.VAR_POSITIONAL:
                 component.api_method_inputs[param.name] = "*flex"
+                api_method_record.args_name = param.name
             # This param is a **kwargs param. Store as "**flex". Then with upcoming API calls, we determine the Spaces
             # for the single items in **kwargs and set them under "param[some-key]", "param[some-other-key]", etc..
             elif param.kind == inspect.Parameter.VAR_KEYWORD:
                 component.api_method_inputs[param.name] = "**flex"
+                api_method_record.kwargs_name = param.name
             # Normal POSITIONAL_ONLY parameter. Store as None (needed) for now.
             else:
                 component.api_method_inputs[param.name] = None
+                api_method_record.non_args_kwargs.append(param.name)
 
 
 def define_graph_fn(component, graph_fn_record):

@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 import numpy as np
 
-from rlgraph.utils.rlgraph_errors import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphAPICallParamError
 from rlgraph.components.neural_networks import Stack
 from rlgraph.components.common import RepeaterStack
 from rlgraph.tests.dummy_components import Dummy1To1, Dummy2To1, Dummy1To2, Dummy2To2, Dummy0To1
@@ -50,7 +50,7 @@ class TestStack(unittest.TestCase):
         stack = Stack(Dummy1To2(scope="A", constant_value=1.5),
                       Dummy2To1(scope="B"),
                       api_methods={"run"})
-        test = ComponentTest(component=stack, input_spaces=dict(inputs=FloatBox()))
+        test = ComponentTest(component=stack, input_spaces=dict(args=FloatBox()))
 
         # Expect: (in + 1.5, in * 1.5) -> (1.5, 0.0) -> (1.5 + 0.0) = 1.5
         test.test(("run", 0.0), expected_outputs=np.array(1.5, dtype=np.float32))
@@ -58,7 +58,7 @@ class TestStack(unittest.TestCase):
     def test_two_sub_components_2to1_1to2(self):
         # Try different ctor with list as first item.
         stack = Stack([Dummy2To1(scope="A"), Dummy1To2(scope="B", constant_value=2.3)], api_methods={"run"})
-        test = ComponentTest(component=stack, input_spaces=dict(inputs=[FloatBox(), float]))
+        test = ComponentTest(component=stack, input_spaces=dict(args=[FloatBox(), float]))
 
         # Expect: (in1 + in2) -> 0.1 -> (0.1 + 2.3, 0.1 * 2.3)
         test.test(("run", [0.0, 0.1]), expected_outputs=(2.4, 0.23))
@@ -66,7 +66,7 @@ class TestStack(unittest.TestCase):
     def test_repeater_stack_with_n_sub_components(self):
         repeater_stack = RepeaterStack(sub_component=Dummy2To2(scope="2To2", constant_value=0.5), repeats=10,
                                        api_methods={("some_crazy_new_api_method_name", "run")})
-        test = ComponentTest(component=repeater_stack, input_spaces=dict(inputs=[FloatBox(), float]))
+        test = ComponentTest(component=repeater_stack, input_spaces=dict(args=[FloatBox(), float]))
 
         # 1st return value: 10 times add 0.5 (to initially 0.0).
         # 2nd return value: 10 times multiply with 0.5 (to initially 2048)
@@ -76,8 +76,8 @@ class TestStack(unittest.TestCase):
     def test_non_matching_sub_components_in_stack(self):
         stack = Stack(Dummy2To1(scope="A"), Dummy2To1(scope="B"), api_methods={"run"})
         try:
-            ComponentTest(component=stack, input_spaces=dict(inputs=[float, float]))
-        except RLGraphError:
+            ComponentTest(component=stack, input_spaces=dict(args=[float, float]))
+        except RLGraphAPICallParamError:
             print("expected this error.")
             return
         else:
@@ -88,8 +88,8 @@ class TestStack(unittest.TestCase):
         stack = Stack(Dummy1To2(scope="A"), Dummy2To1(scope="B"), Dummy1To1(scope="C"), Dummy0To1(scope="D"),
                       api_methods={"run"})
         try:
-            ComponentTest(component=stack, input_spaces=dict(inputs=FloatBox()))
-        except RLGraphError:
+            ComponentTest(component=stack, input_spaces=dict(args=FloatBox()))
+        except RLGraphAPICallParamError:
             print("expected this error.")
             return
         else:

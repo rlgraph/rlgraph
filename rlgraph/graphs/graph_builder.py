@@ -33,7 +33,7 @@ from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.util import force_list, force_tuple, get_shape
 from rlgraph.utils.ops import DataOpTuple, is_constant
 from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
-    DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn
+    DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn, get_call_param_name
 from rlgraph.utils.component_printout import component_print_out
 
 if get_backend() == "tf":
@@ -871,43 +871,29 @@ class GraphBuilder(Specifiable):
 
                         # Also push Space into possible API-method record if slot's Space is still None.
                         if isinstance(op_rec.column, DataOpRecordColumnIntoAPIMethod):
-                            api_method_component = op_rec.column.api_method_rec.component
-
-                            name_ = op_rec.column.api_method_rec.input_names[op_rec.position]
-                            type_ = api_method_component.api_method_inputs[name_]
-
-                            if type_ == "**flex":
-                                assert op_rec.kwarg is not None
-                                param_name = "{}[{}]".format(name_, op_rec.kwarg)
-                            # Get param name for var-positional arg: "[param_name][idx]".
-                            elif type_ == "*flex":
-                                has_kwargs = api_method_component.api_method_inputs[op_rec.column.api_method_rec.input_names[-1]] == "**flex"
-                                num_before = len(op_rec.column.api_method_rec.input_names) - (2 if has_kwargs else 1)
-                                param_name = "{}[{}]".format(name_, str(op_rec.position - num_before))
-                            # Get param name directly from op-rec's kwarg OR - if None - by its position.
-                            else:
-                                param_name = op_rec.kwarg or op_rec.column.api_method_rec.input_names[op_rec.position]
+                            param_name = get_call_param_name(op_rec)
+                            component = op_rec.column.api_method_rec.component
 
                             # Place Space for this input-param name (valid for all input params of same name even of
                             # different API-method of the same Component).
-                            if api_method_component.api_method_inputs[param_name] is None or \
-                                    api_method_component.api_method_inputs[param_name] == "flex":
-                                api_method_component.api_method_inputs[param_name] = next_op_rec.space
+                            if component.api_method_inputs[param_name] is None or \
+                                    component.api_method_inputs[param_name] == "flex":
+                                component.api_method_inputs[param_name] = next_op_rec.space
                             # Sanity check, whether Spaces are equivalent.
                             else:
                                 generic_space = check_space_equivalence(
-                                    api_method_component.api_method_inputs[param_name], next_op_rec.space
+                                    component.api_method_inputs[param_name], next_op_rec.space
                                 )
                                 # Spaces are not equivalent.
                                 if generic_space is False:
                                     raise RLGraphError(
                                         "ERROR: op-rec '{}' has Space '{}', but input-param '{}' already has Space "
                                         "'{}'!".format(next_op_rec, next_op_rec.space, param_name,
-                                                       api_method_component.api_method_inputs[param_name])
+                                                       component.api_method_inputs[param_name])
                                     )
                                 # Overwrite both entries with the more generic Space.
                                 else:
-                                    next_op_rec.space = api_method_component.api_method_inputs[param_name] = \
+                                    next_op_rec.space = component.api_method_inputs[param_name] = \
                                         generic_space
 
                         # Did we enter a new Component? If yes, check input-completeness and
@@ -946,12 +932,12 @@ class GraphBuilder(Specifiable):
             if op_records_list == new_op_records_list:
                 # Ok for some
                 if loop_counter > 10000:
-                    #print()
-                    raise RLGraphError(
-                        "Build procedure is deadlocked. Most likely, you are having a circularly dependent Component "
-                        "in your meta-graph. The following Components are still input-incomplete:\n{}".
-                        format(non_complete_components)
-                    )
+                    print()
+                    #raise RLGraphError(
+                    #    "Build procedure is deadlocked. Most likely, you are having a circularly dependent Component "
+                    #    "in your meta-graph. The following Components are still input-incomplete:\n{}".
+                    #    format(non_complete_components)
+                    #)
 
             op_records_list = new_op_records_list
 
@@ -998,5 +984,3 @@ class GraphBuilder(Specifiable):
         # Recurse:
         for component in component.sub_components.values():
             self.purge_op_records(component)
-
-

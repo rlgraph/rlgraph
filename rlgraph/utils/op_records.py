@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.spaces.space_utils import get_space_from_op
-from rlgraph.utils.rlgraph_errors import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphAPICallParamError
 from rlgraph.utils.ops import FlattenedDataOp, flatten_op, unflatten_op, is_constant
 
 
@@ -406,7 +406,15 @@ class APIMethodRecord(object):
         self.add_auto_key_as_first_param = add_auto_key_as_first_param
 
         # List of the input-parameter names (str) of this API-method.
-        self.input_names = None
+        self.input_names = list()
+        # Name of the *args arg (usually "args") w/o the *.
+        self.args_name = None
+        # Name of the **kwargs arg (usually "kwargs") w/o the *.
+        self.kwargs_name = None
+        # List of the names of all non-arg/non-kwarg arguments (the ones that come first in the signature).
+        self.non_args_kwargs = list()
+        # List of args that have a default value.
+        self.default_args = list()
 
         self.in_op_columns = list()
         self.out_op_columns = list()
@@ -433,3 +441,70 @@ class GraphFnRecord(object):
         self.out_op_columns = list()
 
 
+def get_call_param_name(op_rec):
+    api_method_rec = op_rec.column.api_method_rec  # type: APIMethodRecord
+    pos_past_normals = op_rec.position - len(api_method_rec.non_args_kwargs)
+
+    # There are *args in the signature.
+    if api_method_rec.args_name is not None:
+        # op_rec has no name -> Can only be normal arg or one of *args.
+        if op_rec.kwarg is None:
+            # Position is higher than number of "normal" args -> must be one of *args.
+            if pos_past_normals >= 0:
+                param_name = api_method_rec.args_name + "[{}]".format(pos_past_normals)
+            # Normal arg (not part of *args).
+            else:
+                param_name = api_method_rec.input_names[op_rec.position]
+        # op_rec has name -> Can only be normal arg of one of **kwargs (if any).
+        else:
+            if op_rec.kwarg in api_method_rec.non_args_kwargs:
+                param_name = op_rec.kwarg
+            else:
+                if api_method_rec.kwargs_name is None:
+                    raise RLGraphAPICallParamError(
+                        "ERROR: API-method '{}' has no **kwargs, but op-rec {} indicates that it does!".
+                        format(api_method_rec.name, op_rec.id)
+                    )
+                param_name = api_method_rec.kwargs_name + "[{}]".format(op_rec.kwarg)
+    # There are *kwargs in the signature.
+    elif api_method_rec.kwargs_name is not None:
+        # op_rec has no name -> Can only be a normal arg.
+        if op_rec.kwarg is None:
+            # Position is higher than number of "normal" args -> ERROR.
+            if pos_past_normals >= 0:
+                raise RLGraphAPICallParamError(
+                    "Op-rec '{}' has no kwarg, but its position ({}) indicates that it's part "
+                    "of {}'s **kwargs!".format(op_rec.id, op_rec.position, api_method_rec.name)
+                )
+            # Normal arg (by position).
+            else:
+                param_name = api_method_rec.input_names[op_rec.position]
+        # op_rec has name -> Can only be normal arg of one of **kwargs.
+        else:
+            if op_rec.kwarg in api_method_rec.non_args_kwargs:
+                param_name = op_rec.kwarg
+            else:
+                param_name = api_method_rec.kwargs_name + "[{}]".format(op_rec.kwarg)
+    else:
+        # op_rec has no name -> Can only be normal arg.
+        if op_rec.kwarg is None:
+            # Position is higher than number of "normal" args -> ERROR.
+            if pos_past_normals >= 0:
+                raise RLGraphAPICallParamError(
+                    "Op-rec {}'s position ({}) is higher than {}'s number of args!".
+                    format(op_rec.id, op_rec.position, api_method_rec.name)
+                )
+            # Normal arg (by position).
+            else:
+                param_name = api_method_rec.input_names[op_rec.position]
+        # op_rec has name -> Can only be normal arg.
+        else:
+            if op_rec.kwarg in api_method_rec.non_args_kwargs:
+                param_name = op_rec.kwarg
+            else:
+                raise RLGraphAPICallParamError(
+                    "Op-rec's kwarg ({}) is not an parameter of API-method {}'s signature!".
+                    format(op_rec.kwarg, api_method_rec.name)
+                )
+
+    return param_name
