@@ -48,42 +48,41 @@ class TestPolicies(unittest.TestCase):
         states = np.array([[-0.08, 0.4, -0.05, -0.55], [13.0, -14.0, 10.0, -16.0]])
         # Raw NN-output.
         expected_nn_output = np.matmul(states, policy_params["policy/test-network/hidden-layer/dense/kernel"])
-        test.test(("get_nn_output", states), expected_outputs=expected_nn_output, decimals=6)
+        test.test(("get_nn_output", states), expected_outputs=dict(output=expected_nn_output), decimals=6)
 
         # Raw action layer output; Expected shape=(2,5): 2=batch, 5=action categories
         expected_action_layer_output = np.matmul(
             expected_nn_output, policy_params["policy/action-adapter/action-layer/dense/kernel"]
         )
         expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(2, 5))
-        test.test(("get_action_layer_output", states), expected_outputs=expected_action_layer_output,
+        test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
                   decimals=5)
 
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)
-        test.test(("get_action", states), expected_outputs=expected_actions)
+        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
 
         # Logits, parameters (probs) and skip log-probs (numerically unstable for small probs).
         expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
-        test.test(("get_logits_probabilities_log_probs", states, [0, 1]), expected_outputs=[
-            expected_action_layer_output,
-            np.array(expected_probabilities_output, dtype=np.float32)
-            #np.log(expected_probabilities_output)
-        ], decimals=5)
+        test.test(("get_logits_probabilities_log_probs", states, [0, 1]), expected_outputs=dict(
+            logits=expected_action_layer_output, probabilities=np.array(expected_probabilities_output, dtype=np.float32)
+        ), decimals=5)
 
         print("Probs: {}".format(expected_probabilities_output))
 
         # Stochastic sample.
-        expected_actions = np.array([2, 4])
-        test.test(("get_stochastic_action", states), expected_outputs=expected_actions)
+        expected_actions = np.array([0, 3])
+        test.test(("get_stochastic_action", states), expected_outputs=dict(action=expected_actions))
 
         # Deterministic sample.
-        expected_actions = np.array([4, 4])
-        test.test(("get_max_likelihood_action", states), expected_outputs=expected_actions)
+        expected_actions = np.array([0, 3])
+        test.test(("get_max_likelihood_action", states), expected_outputs=dict(action=expected_actions))
 
         # Distribution's entropy.
-        expected_h = np.array([1.572, 0.003])
-        test.test(("get_entropy", states), expected_outputs=expected_h, decimals=3)
+        expected_h = np.array([1.576, 0.01])
+        test.test(("get_entropy", states), expected_outputs=dict(entropy=expected_h), decimals=3)
 
     def test_policy_for_discrete_action_space_with_dueling_layer(self):
+        np.random.seed(10)
         # state_space (NN is a simple single fc-layer relu network (2 units), random biases, random weights).
         nn_input_space = FloatBox(shape=(3,), add_batch_rank=True)
 
@@ -98,7 +97,6 @@ class TestPolicies(unittest.TestCase):
                 units_state_value_stream=10,
                 units_advantage_stream=10
             ),
-            #switched_off_apis={"get_q_values"}
         )
         test = ComponentTest(
             component=policy,
@@ -108,12 +106,11 @@ class TestPolicies(unittest.TestCase):
         policy_params = test.read_variable_values(policy.variables)
 
         # Some NN inputs (3 input nodes, batch size=3).
-        np.random.seed(10)
         nn_input = nn_input_space.sample(size=3)
         # Raw NN-output (3 hidden nodes). All weights=1.5, no biases.
         expected_nn_output = relu(np.matmul(nn_input, policy_params["policy/test-network/hidden-layer/dense/kernel"]),
                                   0.1)
-        test.test(("get_nn_output", nn_input), expected_outputs=expected_nn_output)
+        test.test(("get_nn_output", nn_input), expected_outputs=dict(output=expected_nn_output))
 
         # Raw action layer output; Expected shape=(3,3): 3=batch, 2=action categories + 1 state value
         expected_state_value = np.matmul(relu(np.matmul(
@@ -123,10 +120,9 @@ class TestPolicies(unittest.TestCase):
         expected_raw_advantages = np.matmul(relu(np.matmul(
             expected_nn_output, policy_params["policy/dueling-action-adapter/dense-layer-advantage-stream/dense/kernel"]
         )), policy_params["policy/dueling-action-adapter/action-layer/dense/kernel"])
-        test.test(
-            ("get_action_layer_output", nn_input), expected_outputs=(expected_state_value, expected_raw_advantages),
-            decimals=5
-        )
+        test.test(("get_action_layer_output", nn_input), expected_outputs=dict(
+            state_value_node=expected_state_value, output=expected_raw_advantages
+        ), decimals=5)
 
         # State-values: One for each item in the batch (simply take first out-node of action_layer).
         #expected_state_value_output = np.squeeze(expected_action_layer_output[:, :1], axis=-1)
@@ -135,35 +131,36 @@ class TestPolicies(unittest.TestCase):
         # Q-values: One for each action-choice per item in the batch (calculate from state-values and advantage-values
         expected_q_values_output = expected_state_value + expected_raw_advantages - \
             np.mean(expected_raw_advantages, axis=-1, keepdims=True)
-        test.test(("get_q_values", nn_input), expected_outputs=expected_q_values_output, decimals=5)
+        test.test(("get_logits_probabilities_log_probs", nn_input, ["state_values", "logits"]), expected_outputs=dict(
+            state_values=expected_state_value, logits=expected_q_values_output
+        ), decimals=5)
 
         expected_actions = np.argmax(expected_q_values_output, axis=-1)
-        test.test(("get_action", nn_input), expected_outputs=expected_actions)
+        test.test(("get_action", nn_input), expected_outputs=dict(action=expected_actions))
 
         # Parameter (probabilities). Softmaxed q_values.
         expected_probabilities_output = softmax(expected_q_values_output, axis=-1)
-        test.test(("get_logits_probabilities_log_probs", nn_input, [0, 1]),
-                  expected_outputs=[
-                      expected_q_values_output,
-                      expected_probabilities_output
-                      #np.log(expected_probabilities_output),
-                  ], decimals=5)
+        test.test(("get_logits_probabilities_log_probs", nn_input, ["logits", "probabilities"]), expected_outputs=dict(
+            logits=expected_q_values_output,
+            probabilities=expected_probabilities_output
+        ), decimals=5)
 
         print("Probs: {}".format(expected_probabilities_output))
 
         # Stochastic sample.
         expected_actions = np.array([1, 1, 1])
-        test.test(("get_stochastic_action", nn_input), expected_outputs=expected_actions)
+        test.test(("get_stochastic_action", nn_input), expected_outputs=dict(action=expected_actions))
 
         # Deterministic sample.
-        expected_actions = np.array([1, 1, 1])
-        test.test(("get_max_likelihood_action", nn_input), expected_outputs=expected_actions)
+        expected_actions = np.array([0, 0, 0])
+        test.test(("get_max_likelihood_action", nn_input), expected_outputs=dict(action=expected_actions))
 
         # Distribution's entropy.
-        expected_h = np.array([0.447, 0.435, 0.522])
-        test.test(("get_entropy", nn_input), expected_outputs=expected_h, decimals=3)
+        expected_h = np.array([0.675, 0.674, 0.682])
+        test.test(("get_entropy", nn_input), expected_outputs=dict(entropy=expected_h), decimals=3)
 
     def test_policy_for_discrete_action_space_with_baseline_layer(self):
+        np.random.seed(11)
         # state_space (NN is a simple single fc-layer relu network (2 units), random biases, random weights).
         state_space = FloatBox(shape=(4,), add_batch_rank=True)
 
@@ -184,49 +181,49 @@ class TestPolicies(unittest.TestCase):
         policy_params = test.read_variable_values(policy.variables)
 
         # Some NN inputs (4 input nodes, batch size=3).
-        np.random.seed(11)
         states = state_space.sample(size=3)
         # Raw NN-output (3 hidden nodes). All weights=1.5, no biases.
         expected_nn_output = np.matmul(states, policy_params["policy/test-network/hidden-layer/dense/kernel"])
         expected_nn_output = relu(expected_nn_output, 0.1)
-        test.test(("get_nn_output", states), expected_outputs=expected_nn_output, decimals=5)
+        test.test(("get_nn_output", states), expected_outputs=dict(output=expected_nn_output), decimals=5)
 
         # Raw action layer output; Expected shape=(3,3): 3=batch, 2=action categories + 1 state value
         expected_action_layer_output = np.matmul(
             expected_nn_output, policy_params["policy/baseline-action-adapter/action-layer/dense/kernel"]
         )
         expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(3, 4))
-        test.test(("get_action_layer_output", states), expected_outputs=expected_action_layer_output, decimals=5)
+        test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
+                  decimals=5)
 
         # State-values: One for each item in the batch (simply take first out-node of action_layer).
         expected_state_value_output = expected_action_layer_output[:, :1]
         # logits-values: One for each action-choice per item in the batch (simply take the remaining out nodes).
         expected_logits_output = expected_action_layer_output[:, 1:]
-        test.test(("get_baseline_output", states),
-                  expected_outputs=[expected_state_value_output, expected_logits_output], decimals=5)
+        test.test(("get_state_values_logits_probabilities_log_probs", states, ["state_values", "logits"]),
+                  expected_outputs=dict(state_values=expected_state_value_output, logits=expected_logits_output),
+                  decimals=5)
 
         expected_actions = np.argmax(expected_logits_output, axis=-1)
-        test.test(("get_action", states), expected_outputs=expected_actions)
+        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
 
         # Parameter (probabilities). Softmaxed logits.
         expected_probabilities_output = softmax(expected_logits_output, axis=-1)
-        test.test(("get_logits_probabilities_log_probs", states, [0, 1]),
-                  expected_outputs=[
-                      expected_logits_output,
-                      expected_probabilities_output
-                  ], decimals=5)
+        test.test(("get_logits_probabilities_log_probs", states, ["logits", "probabilities"]), expected_outputs=dict(
+            logits=expected_logits_output,
+            probabilities=expected_probabilities_output
+        ), decimals=5)
 
         print("Probs: {}".format(expected_probabilities_output))
 
         # Stochastic sample.
-        expected_actions = np.array([0, 1, 1])
-        test.test(("get_stochastic_action", states), expected_outputs=expected_actions)
+        expected_actions = np.array([0, 2, 2])
+        test.test(("get_stochastic_action", states), expected_outputs=dict(action=expected_actions))
 
         # Deterministic sample.
-        expected_actions = np.array([1, 1, 1])
-        test.test(("get_max_likelihood_action", states), expected_outputs=expected_actions)
+        expected_actions = np.array([2, 2, 2])
+        test.test(("get_max_likelihood_action", states), expected_outputs=dict(action=expected_actions))
 
         # Distribution's entropy.
-        expected_h = np.array([0.31, 0.3, 0.05])
-        test.test(("get_entropy", states), expected_outputs=expected_h, decimals=2)
+        expected_h = np.array([1.08, 1.08, 1.03])
+        test.test(("get_entropy", states), expected_outputs=dict(entropy=expected_h), decimals=2)
 
