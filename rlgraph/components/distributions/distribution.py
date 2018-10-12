@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.components import Component
 from rlgraph.spaces import ContainerSpace
 
@@ -61,16 +61,17 @@ class Distribution(Component):
         # For define-by-run to avoid creating new objects when calling `get_distribution`.
         self.dist_object = None
 
-        @rlgraph_api(component=self, must_be_complete=False)
-        def log_prob(self_, parameters, values):
-            distribution = self_._graph_fn_get_distribution(parameters)
-            return self_._graph_fn_log_prob(distribution, values)
-
-        @rlgraph_api(component=self, must_be_complete=False)
-        def kl_divergence(self_, parameters, other_parameters):
-            distribution = self_._graph_fn_get_distribution(parameters)
-            other_distribution = self_._graph_fn_get_distribution(other_parameters)
-            return self_._graph_fn_kl_divergence(distribution, other_distribution)
+    def check_input_spaces(self, input_spaces, action_space=None):
+        ## The first arg of all API-methods is always the distribution parameters. Check them for ContainerSpaces.
+        #for key in ["sample_stochastic", "sample_deterministic", "draw",
+        #            "entropy", "log_prob", "kl_divergence"]:
+        for key in ["distribution", "distribution_b"]:
+            if key in input_spaces:
+                parameter_space = input_spaces[key]
+                # Must not be ContainerSpace (not supported yet for Distributions, doesn't seem to make sense).
+                assert not isinstance(parameter_space, ContainerSpace),\
+                    "ERROR: Cannot handle container parameter Spaces in distribution '{}' " \
+                    "(atm; may soon do)!".format(self.name)
 
     # Now use that API-method to get the distribution object to implement all other API-methods.
     def sample_stochastic(self, parameters):
@@ -89,17 +90,16 @@ class Distribution(Component):
         distribution = self._graph_fn_get_distribution(parameters)
         return self._graph_fn_entropy(distribution)
 
-    def check_input_spaces(self, input_spaces, action_space=None):
-        ## The first arg of all API-methods is always the distribution parameters. Check them for ContainerSpaces.
-        #for key in ["sample_stochastic", "sample_deterministic", "draw",
-        #            "entropy", "log_prob", "kl_divergence"]:
-        for key in ["distribution", "distribution_b"]:
-            if key in input_spaces:
-                parameter_space = input_spaces[key]
-                # Must not be ContainerSpace (not supported yet for Distributions, doesn't seem to make sense).
-                assert not isinstance(parameter_space, ContainerSpace),\
-                    "ERROR: Cannot handle container parameter Spaces in distribution '{}' " \
-                    "(atm; may soon do)!".format(self.name)
+    @rlgraph_api(must_be_complete=False)
+    def log_prob(self_, parameters, values):
+        distribution = self_._graph_fn_get_distribution(parameters)
+        return self_._graph_fn_log_prob(distribution, values)
+
+    @rlgraph_api(must_be_complete=False)
+    def kl_divergence(self_, parameters, other_parameters):
+        distribution = self_._graph_fn_get_distribution(parameters)
+        other_distribution = self_._graph_fn_get_distribution(other_parameters)
+        return self_._graph_fn_kl_divergence(distribution, other_distribution)
 
     @rlgraph_api
     def _graph_fn_get_distribution(self, *parameters):
@@ -117,6 +117,7 @@ class Distribution(Component):
         """
         raise NotImplementedError
 
+    @graph_fn
     def _graph_fn_draw(self, distribution, max_likelihood):
         """
         Takes a sample from the (already parameterized) distribution. The parameterization also includes a possible
@@ -144,6 +145,7 @@ class Distribution(Component):
             else:
                 self._graph_fn_sample_stochastic(distribution)
 
+    @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
         """
         Returns the maximum-likelihood value for a given distribution.
@@ -157,6 +159,7 @@ class Distribution(Component):
         """
         raise NotImplementedError
 
+    @graph_fn
     def _graph_fn_sample_stochastic(self, distribution):
         """
         Returns an actual sample for a given distribution.
@@ -170,6 +173,7 @@ class Distribution(Component):
         """
         return distribution.sample(seed=self.seed)
 
+    @graph_fn
     def _graph_fn_log_prob(self, distribution, values):
         """
         Probability density/mass function.
@@ -184,6 +188,7 @@ class Distribution(Component):
         """
         return distribution.log_prob(value=values)
 
+    @graph_fn
     def _graph_fn_entropy(self, distribution):
         """
         Returns the DataOp holding the entropy value of the distribution.
@@ -197,6 +202,7 @@ class Distribution(Component):
         """
         return distribution.entropy()
 
+    @graph_fn
     def _graph_fn_kl_divergence(self, distribution, distribution_b):
         """
         Kullback-Leibler divergence between two distribution objects.
