@@ -20,7 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.layers.nn.activation_functions import get_activation_function
 from rlgraph.components.layers.nn.nn_layer import NNLayer
-from rlgraph.utils.decorators import graph_fn
+from rlgraph.utils.decorators import rlgraph_api
 
 
 class ResidualLayer(NNLayer):
@@ -52,7 +52,7 @@ class ResidualLayer(NNLayer):
         ]
         self.add_components(*self.residual_units)
 
-    @graph_fn
+    @rlgraph_api
     def _graph_fn_apply(self, inputs):
         """
         Args:
@@ -66,7 +66,7 @@ class ResidualLayer(NNLayer):
             results = inputs
             # Apply the residual unit n times to the input.
             for i in range(self.repeats):
-                results = self.residual_units[i].apply(results)["output"]
+                results = self.residual_units[i].apply(results)
 
             # Then activate and add up.
             added_with_input = results + inputs

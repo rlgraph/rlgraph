@@ -40,7 +40,7 @@ class TestNNLayer(unittest.TestCase):
         test = ComponentTest(component=dummy_layer, input_spaces=dict(inputs=space))
 
         input_ = space.sample(size=5)
-        test.test(("apply", input_), expected_outputs=dict(output=input_))
+        test.test(("apply", input_), expected_outputs=input_)
 
     def test_activation_functions(self):
         # Test single activation functions (no other custom computations in layer).
@@ -51,12 +51,12 @@ class TestNNLayer(unittest.TestCase):
         test = ComponentTest(component=relu_layer, input_spaces=dict(inputs=space))
 
         input_ = space.sample(size=5)
-        expected = dict(output=relu(input_))
+        expected = relu(input_)
         test.test(("apply", input_), expected_outputs=expected)
 
         # Again manually in case util numpy-relu is broken.
         input_ = np.array([[1.0, 2.0, -5.0], [-10.0, -100.1, 4.5]])
-        expected = dict(output=np.array([[1.0, 2.0, 0.0], [0.0, 0.0, 4.5]]))
+        expected = np.array([[1.0, 2.0, 0.0], [0.0, 0.0, 4.5]])
         test.test(("apply", input_), expected_outputs=expected)
 
         # Sigmoid.
@@ -64,7 +64,7 @@ class TestNNLayer(unittest.TestCase):
         test = ComponentTest(component=sigmoid_layer, input_spaces=dict(inputs=space))
 
         input_ = space.sample(size=10)
-        expected = dict(output=sigmoid(input_))
+        expected = sigmoid(input_)
         test.test(("apply", input_), expected_outputs=expected)
 
     def test_dense_layer(self):
@@ -77,7 +77,7 @@ class TestNNLayer(unittest.TestCase):
 
         # Batch of size=1 (can increase this to any larger number).
         input_ = np.array([[0.5, 2.0]])
-        expected = dict(output=np.array([[2.5, 2.5]]))
+        expected = np.array([[2.5, 2.5]])
         test.test(("apply", input_), expected_outputs=expected)
 
     def test_dense_layer_with_leaky_relu_activation(self):
@@ -88,8 +88,8 @@ class TestNNLayer(unittest.TestCase):
 
         # Batch of size=1 (can increase this to any larger number).
         input_ = np.array([[0.5, 2.0, 1.5], [-1.0, -2.0, -1.5]])
-        expected = dict(output=np.array([[8.5, 8.5, 8.5, 8.5], [-8.5*0.2, -8.5*0.2, -8.5*0.2, -8.5*0.2]],
-                                        dtype=np.float32))  # 0.2=leaky-relu
+        expected = np.array([[8.5, 8.5, 8.5, 8.5], [-8.5*0.2, -8.5*0.2, -8.5*0.2, -8.5*0.2]],
+                            dtype=np.float32)  # 0.2=leaky-relu
         test.test(("apply", input_), expected_outputs=expected)
 
     def test_conv2d_layer(self):
@@ -106,9 +106,9 @@ class TestNNLayer(unittest.TestCase):
                            [[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],  # sample 2 (2x2x3)
                             [[0.7, 0.8, 0.9], [1.00, 1.10, 1.20]]]
                            ])
-        expected = dict(output=np.array([[[[39.0, 39.0, 39.0, 39.0]]],  # output 1 (1x1x4)
-                                         [[[3.9, 3.9, 3.9, 3.9]]],  # output 2 (1x1x4)
-                                         ]))
+        expected = np.array([[[[39.0, 39.0, 39.0, 39.0]]],  # output 1 (1x1x4)
+                             [[[3.9, 3.9, 3.9, 3.9]]],  # output 2 (1x1x4)
+                             ])
         test.test(("apply", input_), expected_outputs=expected)
 
     def test_maxpool2d_layer(self):
@@ -126,7 +126,7 @@ class TestNNLayer(unittest.TestCase):
         item1_ch0 = max(input_[1][0][0][0], input_[1][0][1][0], input_[1][1][0][0], input_[1][1][1][0])
         item1_ch1 = max(input_[1][0][0][1], input_[1][0][1][1], input_[1][1][0][1], input_[1][1][1][1])
         item1_ch2 = max(input_[1][0][0][2], input_[1][0][1][2], input_[1][1][0][2], input_[1][1][1][2])
-        expected = dict(output=np.array([[[[item0_ch0, item0_ch1, item0_ch2]]], [[[item1_ch0, item1_ch1, item1_ch2]]]]))
+        expected = np.array([[[[item0_ch0, item0_ch1, item0_ch2]]], [[[item1_ch0, item1_ch1, item1_ch2]]]])
         test.test(("apply", input_), expected_outputs=expected)
 
     def test_concat_layer(self):
@@ -144,10 +144,10 @@ class TestNNLayer(unittest.TestCase):
             np.array([[[1.0], [2.0]], [[3.0], [4.0]]]),
             np.array([[[1.2, 2.2], [3.2, 4.2]], [[1.3, 2.3], [3.3, 4.3]]])
         )
-        expected = dict(output=np.array([[[1.0, 2.0, 3.0, 1.0, 1.2, 2.2],
-                                          [4.0, 5.0, 6.0, 2.0, 3.2, 4.2]],
-                                         [[1.1, 2.1, 3.1, 3.0, 1.3, 2.3],
-                                          [4.1, 5.1, 6.1, 4.0, 3.3, 4.3]]], dtype=np.float32))
+        expected = np.array([[[1.0, 2.0, 3.0, 1.0, 1.2, 2.2],
+                              [4.0, 5.0, 6.0, 2.0, 3.2, 4.2]],
+                             [[1.1, 2.1, 3.1, 3.0, 1.3, 2.3],
+                              [4.1, 5.1, 6.1, 4.0, 3.3, 4.3]]], dtype=np.float32)
         test.test(("apply", inputs), expected_outputs=expected)
 
     def test_residual_layer(self):
@@ -175,7 +175,7 @@ class TestNNLayer(unittest.TestCase):
         """
         conv2d_1 = np.tile(np.sum(inputs, axis=3, keepdims=True) * 0.5 + 1.0, (1, 1, 1, 3))
         conv2d_2 = np.tile(np.sum(conv2d_1, axis=3, keepdims=True) * 0.5 + 1.0, (1, 1, 1, 3))
-        expected = dict(output=conv2d_2 + inputs)
+        expected = conv2d_2 + inputs
         test.test(("apply", inputs), expected_outputs=expected, decimals=5)
 
     def test_lstm_layer(self):

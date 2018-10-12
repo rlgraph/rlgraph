@@ -18,7 +18,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.layers.nn.nn_layer import NNLayer
-from rlgraph.utils.decorators import graph_fn
+from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -48,15 +48,6 @@ class MaxPool2DLayer(NNLayer):
         self.padding = padding
         self.data_format = data_format
 
-        # Create MaxPool layer right away as it doesn't have variables anyway.
-        #if get_backend() == "tf":
-        #    #self.layer = tf.layers.MaxPooling2D(
-        #    self.layer = tf.nn.pool(
-        #        pool_size=self.pool_size,
-        #        strides=self.strides,
-        #        padding=self.padding,
-        #        data_format=self.data_format
-        #    )
         if get_backend() == "pytorch":
             self.layer = nn.MaxPool2d(
                 kernel_size=self.pool_size,
@@ -64,7 +55,7 @@ class MaxPool2DLayer(NNLayer):
                 padding=self.padding
             )
 
-    @graph_fn
+    @rlgraph_api
     def _graph_fn_apply(self, *inputs):
         if get_backend() == "tf":
             return tf.nn.pool(

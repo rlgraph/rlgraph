@@ -85,12 +85,12 @@ class NNLayer(Layer):
 
                     idx += 1
 
-    @rlgraph_api
-    def apply(self, *inputs):
-        out = self._graph_fn_apply(*inputs)
-        return dict(output=out)
+    #@rlgraph_api
+    #def apply(self, *inputs):
+    #    out = self._graph_fn_apply(*inputs)
+    #    return dict(output=out)
 
-    @graph_fn
+    @rlgraph_api
     def _graph_fn_apply(self, *inputs):
         """
         The actual calculation on one or more input Ops.

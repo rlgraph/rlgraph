@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.decorators import graph_fn
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.util import force_list
 
 from .nn_layer import NNLayer
@@ -47,10 +47,6 @@ class ConcatLayer(NNLayer):
         # Whether input spaces are time-major or not.
         self.time_major = None
 
-        # Wrapper for backend.
-        #if get_backend() == "tf":
-        #    self.layer = tf.keras.layers.Concatenate(axis=self.axis)
-
     def check_input_spaces(self, input_spaces, action_space=None):
         super(ConcatLayer, self).check_input_spaces(input_spaces, action_space)
         # Make sure all inputs have the same shape except for the last rank.
@@ -68,10 +64,9 @@ class ConcatLayer(NNLayer):
                 "batch/time-ranks).".format(self.in_space_0.shape, idx, input_spaces[key].shape)
             idx += 1
 
-    @graph_fn
+    @rlgraph_api
     def _graph_fn_apply(self, *inputs):
         if get_backend() == "tf":
-            #concat_output = self.layer.apply(force_list(inputs))
             concat_output = tf.concat(values=inputs, axis=self.axis)
             # Add batch/time-rank information.
             concat_output._batch_rank = 0 if self.time_major is False else 1
