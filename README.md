@@ -1,3 +1,4 @@
+[![PyPI version](https://badge.fury.io/py/rlgraph.svg)](https://badge.fury.io/py/rlgraph)
 [![Python 3.5](https://img.shields.io/badge/python-3.5-orange.svg)](https://www.python.org/downloads/release/python-356/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/rlgraph/rlgraph/blob/master/LICENSE)
 [![Documentation Status](https://readthedocs.org/projects/rlgraph/badge/?version=latest)](https://rlgraph.readthedocs.io/en/latest/?badge=latest)
