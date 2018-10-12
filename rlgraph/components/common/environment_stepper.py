@@ -198,8 +198,8 @@ class EnvironmentStepper(Component):
             )
         if self.add_action_probs:
             self.current_action_probs = self.get_variable(
-                name="current-action-probs", from_space=self.action_probs_space, trainable=False,
-                local=True, use_resource=True
+                name="current-action-probs", from_space=self.action_probs_space,
+                initializer=0.0, trainable=False, local=True, use_resource=True
             )
 
     @rlgraph_api

@@ -68,13 +68,10 @@ class TestEnvironmentStepper(unittest.TestCase):
         test.test("reset")
 
         # Step 3 times through the Env and collect results.
-        # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
-        # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
         expected = (
             np.array([True, False, False, False]),  # t_
             np.array([[0.77132064], [0.74880385], [0.19806287], [0.08833981]]),  # s' (raw)
         )
-
         test.test("step", expected_outputs=expected)
 
         # Step again, check whether stitching of states/etc.. works.
@@ -117,35 +114,29 @@ class TestEnvironmentStepper(unittest.TestCase):
         test.test("reset")
 
         # Step 3 times through the Env and collect results.
-        # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
-        # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
-        expected_r = np.array([0.19806287, 0.68535984, 0.81262094])
-        expected = (None, (
-            np.array([[2.313962, 0.06225585], [1.4955211, 0.67438996], [0.5073325, 0.26501945]]),  # p(s)
-            np.array([2, 2, 2]),  # a
-            expected_r,  # r
-            np.array([expected_r[:1].sum(), expected_r[:2].sum(), expected_r[:3].sum()]),  # episode's accumulated returns
-            np.array([False, False, False]),
-            np.array([[0.49850702, 0.22479665], [0.16911083, 0.08833981], [0.00394827, 0.51219225]]),  # s' (raw)
-            np.array([[0.168184, 0.2111401, 0.477176, 0.1435],
-                      [0.2094879, 0.2496581, 0.3276633, 0.2131907],
-                      [0.2366966, 0.2516184, 0.2719373, 0.2397477]])  # action probs
-        ))
+        expected = (
+            # t_
+            np.array([True, False, False, False]),
+            # s' (raw)
+            np.array([[0.7713206, 0.0207519], [0.498507, 0.2247967], [0.1691108, 0.0883398], [0.0039483, 0.5121922]]),
+            # action probs
+            np.array([[0.0, 0.0, 0.0, 0.0],
+                      [0.3181699, 0.0138463, 0.0614877, 0.606496],
+                      [0.2051629, 0.0250753, 0.0531823, 0.7165795],
+                      [0.2692995, 0.1314247, 0.1675677, 0.4317082]])
+        )
         test.test("step", expected_outputs=expected)
 
         # Step again, check whether stitching of states/etc.. works.
-        expected_r2 = np.array([0.91777414, 0.37334076, 0.617767])
-        expected = (None, (
-            np.array([[0.0118448, 1.5365767], [2.165266, 0.87562823], [1.6276331, 0.42651013]]),  # p(s)
-            np.array([3, 2, 2]),  # a
-            expected_r2,  # r
-            np.array([expected_r.sum() + expected_r2[0], expected_r.sum() + expected_r2[:2].sum(), expected_r.sum() + expected_r2[:3].sum()]),
-            np.array([False, False, False]),
-            np.array([[0.7217553, 0.29187608], [0.54254436, 0.14217004], [0.44183317, 0.434014]]),  # s' (raw)
-            np.array([[0.25065, 0.26882, 0.14552, 0.33502],
-                      [0.18973, 0.24348, 0.37587, 0.19092],
-                      [0.20114, 0.24013, 0.36531, 0.19342]])
-        ))
+        expected = (
+            np.array([True, False, False, False]),
+            np.array([[0.77132064, 0.02075195], [0.7217553 , 0.29187608], [0.54254436, 0.14217004],
+                      [0.44183317, 0.434014]]),  # s' (raw)
+            np.array([[0.0, 0.0, 0.0, 0.0],
+                      [0.3181699, 0.01384631, 0.06148774, 0.60649604],
+                      [0.15260467, 0.00736472, 0.02262114, 0.8174095],
+                      [0.2516627, 0.02650555, 0.06656916, 0.6552626]])
+        )
         test.test("step", expected_outputs=expected, decimals=5)
 
         # Make sure we close the session (to shut down the Env on the server).
@@ -182,40 +173,28 @@ class TestEnvironmentStepper(unittest.TestCase):
         # Reset the stepper.
         test.test("reset")
 
-        #time_start = time.perf_counter()
-        #loops = 10
-        #for _ in range(loops):
-        #    test.test("step")
-        #time_total = time.perf_counter() - time_start
-        #print("Done running 1x{} steps in RandomEnv with action-prob AND LSTM in {}sec ({} actions/sec).".format(
-        #    environment_stepper.num_steps, time_total, environment_stepper.num_steps * loops / time_total )
-        #)
-
         # Step 3 times through the Env and collect results.
-        # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
-        # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
-        expected_r = np.array([0.19806287, 0.68535984, 0.81262094])
-        expected = (None, (
-            np.array([[2.313962 , 0.06225585], [1.4955211, 0.67438996], [0.5073325, 0.26501945]]),  # p(s)
-            np.array([3, 3, 3]),  # a
-            expected_r,  # r
-            np.array([expected_r[:1].sum(), expected_r[:2].sum(), expected_r[:3].sum()]),  # episode's accumulated returns
-            np.array([False, False, False]),
-            np.array([[0.49850702, 0.22479665], [0.16911083, 0.08833981], [0.00394827, 0.51219225]]),  # s' (raw)
-            np.array([[0.20024028, 0.25693908, 0.23471089, 0.30810973],
-                      [0.21508023, 0.24714646, 0.22775203, 0.31002134],
-                      [0.23234254, 0.2535993 , 0.22014092, 0.29391727]]),  # action probs
+        expected = (
+            np.array([True, False, False, False]),
+            np.array([[0.77132064, 0.02075195], [0.49850702, 0.22479665], [0.16911083, 0.08833981],
+                      [0.00394827, 0.51219225]]),  # s' (raw)
+            np.array([[0.0, 0.0, 0.0, 0.0],
+                      [0.29184222, 0.27833143, 0.20141664, 0.22840966],
+                      [0.31360343, 0.28261214, 0.18345872, 0.22032563],
+                      [0.30973074, 0.28645274, 0.18394111, 0.2198754 ]]),  # action probs
             # internal states
             (
-                np.array([[-0.5856517, 0.3419532, 0.50878733],
-                          [-0.9513306, 0.55670494, 0.39051518],
-                          [-0.862099, 0.48455, 0.15737523]]),
-                np.array([[-0.26508498, 0.25246134, 0.20725276],
-                          [-0.33897927, 0.3385909, 0.15902701],
-                          [-0.33717796, 0.26452374, 0.06823984]])
+                np.array([[0.0, 0.0, 0.0],
+                          [0.17770568, -0.02882081, -0.44086117],
+                          [0.30588162, 0.02668203, -0.7707858 ],
+                          [0.25770405, 0.00710323, -0.81886315]]),
+                np.array([[0.0, 0.0, 0.0],
+                          [0.10143799, -0.01267258, -0.27671543],
+                          [0.18374527, 0.01430159, -0.3720673],
+                          [0.1395069, 0.00376055, -0.37974578]])
             )
-        ))
-        out = test.test("step", expected_outputs=expected)
+        )
+        test.test("step", expected_outputs=expected)
 
         # Make sure we close the session (to shut down the Env on the server).
         test.terminate()
@@ -259,29 +238,28 @@ class TestEnvironmentStepper(unittest.TestCase):
         ))
 
         # Check types of outputs.
-        self.assertTrue(out[0] is None)  # the step op (no_op).
-        self.assertTrue(isinstance(out[1], DataOpTuple))  # the step results as a tuple (see below)
+        self.assertTrue(isinstance(out, DataOpTuple))  # the step results as a tuple (see below)
 
         # Check types of single data.
-        self.assertTrue(out[1][0].dtype == np.float32)  # preprocessed states
-        self.assertTrue(out[1][0].min() >= 0.0)  # make sure we have pixels / 255
-        self.assertTrue(out[1][0].max() <= 1.0)
-        self.assertTrue(out[1][1].dtype == np.int32)  # actions
-        self.assertTrue(out[1][2].dtype == np.float32)  # rewards
-        self.assertTrue(out[1][3].dtype == np.float32)  # episode return
-        self.assertTrue(out[1][4].dtype == np.bool_)  # next-state is terminal?
-        self.assertTrue(out[1][5].dtype == np.uint8)  # next state (raw, not preprocessed)
-        self.assertTrue(out[1][5].min() >= 0)  # make sure we have pixels
-        self.assertTrue(out[1][5].max() <= 255)
+        #self.assertTrue(out[0].dtype == np.float32)  # preprocessed states
+        #self.assertTrue(out[0].min() >= 0.0)  # make sure we have pixels / 255
+        #self.assertTrue(out[0].max() <= 1.0)
+        #self.assertTrue(out[1].dtype == np.int32)  # actions
+        #self.assertTrue(out[2].dtype == np.float32)  # rewards
+        #self.assertTrue(out[3].dtype == np.float32)  # episode return
+        self.assertTrue(out[0].dtype == np.bool_)  # next-state is terminal?
+        self.assertTrue(out[1].dtype == np.uint8)  # next state (raw, not preprocessed)
+        self.assertTrue(out[1].min() >= 0)  # make sure we have pixels
+        self.assertTrue(out[1].max() <= 255)
 
         # Check whether episode returns match single rewards (including resetting after each terminal signal).
-        episode_returns = 0.0
-        for i in range(environment_stepper.num_steps):
-            episode_returns += out[1][2][i]
-            self.assertAlmostEqual(episode_returns, out[1][3][i])
-            # Terminal: Reset accumulated episode-return before next step.
-            if out[1][4][i] is np.bool_(True):
-                episode_returns = 0.0
+        #episode_returns = 0.0
+        #for i in range(environment_stepper.num_steps):
+        #    episode_returns += out[2][i]
+        #    self.assertAlmostEqual(episode_returns, out[1][3][i])
+        #    # Terminal: Reset accumulated episode-return before next step.
+        #    if out[1][4][i] is np.bool_(True):
+        #        episode_returns = 0.0
 
         # Make sure we close the session (to shut down the Env on the server).
         test.terminate()
@@ -308,7 +286,9 @@ class TestEnvironmentStepper(unittest.TestCase):
         time_steps = 2000
         time_start = time.monotonic()
         for i in range(time_steps):
-            preprocessed_s, a = test.test(("get_preprocessed_state_and_action", np.array([s])))
+            out = test.test(("get_preprocessed_state_and_action", np.array([s])))
+            #preprocessed_s = out["preprocessed_state"]
+            a = out["action"]
             # Act in env.
             s, r, t, _ = dummy_env.step(a[0])  # remove batch
             if t is True:
@@ -385,11 +365,11 @@ class TestEnvironmentStepper(unittest.TestCase):
         #self.assertTrue(out[0].max() <= 1.0)
         #self.assertTrue(out[1].dtype == np.int32)  # actions
         #self.assertTrue(out[2].dtype == np.float32)  # rewards
-        self.assertTrue(out[0].dtype == np.float32)  # episode return
-        self.assertTrue(out[1].dtype == np.bool_)  # next-state is terminal?
-        self.assertTrue(out[2].dtype == np.uint8)  # next state (raw, not preprocessed)
-        self.assertTrue(out[2].min() >= 0)  # make sure we have pixels
-        self.assertTrue(out[2].max() <= 255)
+        #self.assertTrue(out[0].dtype == np.float32)  # episode return
+        self.assertTrue(out[0].dtype == np.bool_)  # next-state is terminal?
+        self.assertTrue(out[1].dtype == np.uint8)  # next state (raw, not preprocessed)
+        self.assertTrue(out[1].min() >= 0)  # make sure we have pixels
+        self.assertTrue(out[1].max() <= 255)
         # action probs (test whether sum to one).
         #self.assertTrue(out[1][6].dtype == np.float32)
         #self.assertTrue(out[1][6].min() >= 0.0)
@@ -397,10 +377,10 @@ class TestEnvironmentStepper(unittest.TestCase):
         #recursive_assert_almost_equal(out[1][6].sum(axis=-1, keepdims=False),
         #                              np.ones(shape=(environment_stepper.num_steps,)), decimals=4)
         # internal states (c- and h-state)
-        self.assertTrue(out[4][0].dtype == np.float32)
-        self.assertTrue(out[4][1].dtype == np.float32)
-        self.assertTrue(out[4][0].shape == (environment_stepper.num_steps, 3))
-        self.assertTrue(out[4][1].shape == (environment_stepper.num_steps, 3))
+        self.assertTrue(out[3][0].dtype == np.float32)
+        self.assertTrue(out[3][1].dtype == np.float32)
+        self.assertTrue(out[3][0].shape == (environment_stepper.num_steps, 3))
+        self.assertTrue(out[3][1].shape == (environment_stepper.num_steps, 3))
 
         # Check whether episode returns match single rewards (including terminal signals).
         #episode_returns = 0.0
