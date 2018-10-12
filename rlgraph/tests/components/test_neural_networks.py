@@ -49,7 +49,7 @@ class TestNeuralNetworks(unittest.TestCase):
         w1_value = test.read_variable_values(var_dict["hidden-layer/dense/kernel"])
         b1_value = test.read_variable_values(var_dict["hidden-layer/dense/bias"])
 
-        expected = dict(output=dense_layer(input_, w1_value, b1_value))
+        expected = dense_layer(input_, w1_value, b1_value)
 
         test.test(("apply", input_), expected_outputs=expected, decimals=5)
 
@@ -64,9 +64,9 @@ class TestNeuralNetworks(unittest.TestCase):
 
         def custom_apply(self, input_, internal_states=None):
             d0_out = self.get_sub_component_by_name("d0").apply(input_)
-            lstm_out = self.get_sub_component_by_name("lstm").apply(d0_out["output"], internal_states)
+            lstm_out = self.get_sub_component_by_name("lstm").apply(d0_out, internal_states)
             d1_out = self.get_sub_component_by_name("d1").apply(lstm_out["output"])
-            return dict(output=d1_out["output"], last_internal_states=lstm_out["last_internal_states"])
+            return dict(output=d1_out, last_internal_states=lstm_out["last_internal_states"])
 
         # Create a simple neural net with the above custom API-method.
         neural_net = NeuralNetwork(
