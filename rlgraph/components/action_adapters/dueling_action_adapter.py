@@ -63,11 +63,6 @@ class DuelingActionAdapter(ActionAdapter):
         self.biases_spec_advantage_stream = biases_spec_advantage_stream
         self.activation_advantage_stream = activation_advantage_stream
 
-        # TODO: Obsolete dueling layer.
-        ## Add the extra DuelingLayer.
-        #self.dueling_layer = DuelingLayer()
-        #self.add_components(self.dueling_layer)
-
         # Create all 4 extra DenseLayers.
         self.dense_layer_state_value_stream = DenseLayer(
             units=self.units_state_value_stream, weights_spec=self.weights_spec_state_value_stream,
@@ -106,10 +101,10 @@ class DuelingActionAdapter(ActionAdapter):
                     it. Note: These will be flat advantage nodes that have not been reshaped yet according to the
                     action_space.
         """
-        output_state_value_dense = self.dense_layer_state_value_stream.apply(nn_output)["output"]
-        output_advantage_dense = self.dense_layer_advantage_stream.apply(nn_output)["output"]
-        state_value_node = self.state_value_node.apply(output_state_value_dense)["output"]
-        advantage_nodes = self.action_layer.apply(output_advantage_dense)["output"]
+        output_state_value_dense = self.dense_layer_state_value_stream.apply(nn_output)
+        output_advantage_dense = self.dense_layer_advantage_stream.apply(nn_output)
+        state_value_node = self.state_value_node.apply(output_state_value_dense)
+        advantage_nodes = self.action_layer.apply(output_advantage_dense)
         return dict(state_value_node=state_value_node, output=advantage_nodes)
 
     @rlgraph_api
@@ -119,16 +114,18 @@ class DuelingActionAdapter(ActionAdapter):
             nn_output (DataOpRecord): The NN output of the preceding neural network.
 
         Returns:
-            tuple (3x DataOpRecord):
+            tuple (4x DataOpRecord):
+                - The single state value node output.
                 - The (already reshaped) q-values (the logits).
                 - The probabilities obtained by softmaxing the q-values.
                 - The log-probs.
         """
-        state_values, advantage_values = self.get_action_layer_output(nn_output)
-        advantage_values_reshaped = self.reshape.apply(advantage_values)
-        q_values = self._graph_fn_calculate_q_values(state_values, advantage_values_reshaped)
+        out = self.get_action_layer_output(nn_output)
+        advantage_values_reshaped = self.reshape.apply(out["output"])
+        q_values = self._graph_fn_calculate_q_values(out["state_value_node"], advantage_values_reshaped)
         probabilities, log_probs = self._graph_fn_get_probabilities_log_probs(q_values)
-        return dict(state_values=state_values, logits=q_values, probabilities=probabilities, log_probs=log_probs)
+        return dict(state_values=out["state_value_node"],
+                    logits=q_values, probabilities=probabilities, log_probs=log_probs)
 
     @graph_fn
     def _graph_fn_calculate_q_values(self, state_value, advantage_values):

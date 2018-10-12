@@ -51,13 +51,14 @@ class TestActionAdapters(unittest.TestCase):
         expected_action_layer_output = np.matmul(
             inputs, action_adapter_params["action-adapter/action-layer/dense/kernel"]
         )
-        test.test(("get_action_layer_output", inputs), expected_outputs=expected_action_layer_output)
+        test.test(("get_action_layer_output", inputs), expected_outputs=dict(output=expected_action_layer_output))
 
         expected_logits = np.reshape(expected_action_layer_output, newshape=(2, 3, 2, 2))
         expected_probabilities = softmax(expected_logits)
         expected_log_probs = np.log(expected_probabilities)
-        test.test(("get_logits_probabilities_log_probs", inputs),
-                  expected_outputs=[expected_logits, expected_probabilities, expected_log_probs])
+        test.test(("get_logits_probabilities_log_probs", inputs), expected_outputs=dict(
+            logits=expected_logits, probabilities=expected_probabilities, log_probs=expected_log_probs
+        ))
 
     def test_action_adapter_with_complex_lstm_output(self):
         # Last NN layer (LSTM with time rank).
@@ -79,7 +80,7 @@ class TestActionAdapters(unittest.TestCase):
         expected_action_layer_output = np.matmul(
             inputs_reshaped, action_adapter_params["action-adapter/action-layer/dense/kernel"]
         ).reshape((3, 2, -1))
-        test.test(("get_action_layer_output", inputs), expected_outputs=expected_action_layer_output)
+        test.test(("get_action_layer_output", inputs), expected_outputs=dict(output=expected_action_layer_output))
 
         # Logits (already well reshaped (same as action space)).
         expected_logits = np.reshape(expected_action_layer_output, newshape=(3, 2, 3, 2, 2))
@@ -87,11 +88,9 @@ class TestActionAdapters(unittest.TestCase):
         expected_probabilities = softmax(expected_logits)
         # Log probs.
         expected_log_probs = np.log(expected_probabilities)
-        test.test(
-            ("get_logits_probabilities_log_probs", inputs),
-            expected_outputs=[expected_logits, expected_probabilities, expected_log_probs],
-            decimals=5
-        )
+        test.test(("get_logits_probabilities_log_probs", inputs), expected_outputs=dict(
+            logits=expected_logits, probabilities=expected_probabilities, log_probs=expected_log_probs
+        ), decimals=5)
 
     def test_dueling_action_adapter(self):
         # Last NN layer.
@@ -123,9 +122,9 @@ class TestActionAdapters(unittest.TestCase):
             inputs, dueling_action_adapter_vars["aa/dense-layer-state-value-stream/dense/kernel"]
         )), dueling_action_adapter_vars["aa/state-value-node/dense/kernel"])
 
-        test.test(("get_action_layer_output", inputs),
-                  expected_outputs=(expected_state_values, expected_raw_advantages),
-                  decimals=5)
+        test.test(("get_action_layer_output", inputs), expected_outputs=dict(
+            state_value_node=expected_state_values, output=expected_raw_advantages
+        ), decimals=5)
 
         expected_advantages = np.reshape(expected_raw_advantages, newshape=(batch_size, 2, 4))
 
@@ -135,8 +134,11 @@ class TestActionAdapters(unittest.TestCase):
             np.mean(expected_advantages, axis=-1, keepdims=True)
         expected_probs = softmax(expected_q_values)
 
-        test.test(("get_logits_probabilities_log_probs", inputs), expected_outputs=(
-            expected_q_values, expected_probs, np.log(expected_probs)
+        test.test(("get_logits_probabilities_log_probs", inputs), expected_outputs=dict(
+            state_values=expected_state_values,
+            logits=expected_q_values,
+            probabilities=expected_probs,
+            log_probs=np.log(expected_probs)
         ), decimals=5)
 
     """
@@ -191,7 +193,8 @@ class TestActionAdapters(unittest.TestCase):
             nn_output, action_layer_vars["baseline-action-adapter/action-layer/dense/kernel"]
         ) + action_layer_vars["baseline-action-adapter/action-layer/dense/bias"]
 
-        test.test(("get_action_layer_output", nn_output), expected_outputs=expected_action_layer_output, decimals=5)
+        test.test(("get_action_layer_output", nn_output), expected_outputs=dict(output=expected_action_layer_output),
+                  decimals=5)
 
         expected_state_values = expected_action_layer_output[:, 0:1]
         expected_action_logits = np.reshape(expected_action_layer_output[:, 1:], newshape=(-1, 2, 2, 2))

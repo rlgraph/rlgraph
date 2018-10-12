@@ -89,9 +89,6 @@ class MetaGraphBuilder(Specifiable):
                         use_named = True
                 # No default values -> Must be provided in `input_spaces`.
                 else:
-                    ## TODO: If space not provided in input_spaces -> Try to call this API method later (maybe another API-method).
-                    #assert param_name in input_spaces, \
-                    #    "ERROR: arg-name '{}' not defined in input_spaces!".format(param_name)
                     # A var-positional param.
                     if root_component.api_method_inputs[param_name] == "*flex":
                         assert use_named is False
@@ -106,6 +103,7 @@ class MetaGraphBuilder(Specifiable):
                             ])
                         use_named = True
                     else:
+                        # TODO: If space not provided in input_spaces -> Try to call this API method later (maybe another API-method).
                         assert param_name in input_spaces, \
                             "ERROR: arg-name '{}' not defined in input_spaces!".format(param_name)
                         in_ops_records.append(DataOpRecord(position=i, kwarg=param_name if use_named else None))

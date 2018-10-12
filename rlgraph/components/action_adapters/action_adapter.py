@@ -136,7 +136,7 @@ class ActionAdapter(Component):
             DataOpRecord: The output of the action layer (a DenseLayer) after passing `nn_output` through it.
         """
         out = self.action_layer.apply(nn_output)
-        return dict(output=out["output"])
+        return dict(output=out)
 
     @rlgraph_api
     def get_logits(self, nn_output):

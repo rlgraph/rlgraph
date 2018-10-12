@@ -42,6 +42,19 @@ class BaselineActionAdapter(ActionAdapter):
         self.input_space = input_spaces["nn_output"]
 
     @rlgraph_api
+    def get_logits(self, nn_output):
+        """
+        Args:
+            nn_output (DataOpRecord): The NN output of the preceding neural network.
+
+        Returns:
+            SingleDataOp: The logits (raw nn_output, BUT reshaped).
+        """
+        aa_output = self.get_action_layer_output(nn_output)
+        _, logits = self._graph_fn_get_state_values_and_logits(aa_output["output"])
+        return logits
+
+    @rlgraph_api
     def get_logits_probabilities_log_probs(self, nn_output):
         """
         API-method. Returns separated V and logit values split from the action layer.
@@ -56,12 +69,17 @@ class BaselineActionAdapter(ActionAdapter):
                 `probabilities`: softmaxed(logits)
                 `log_probs`: log(probabilities)
         """
-        # Run through the action layer.
-        action_layer_output = self.action_layer.apply(nn_output)
         # Slice away the first node for the state value and reshape the rest to yield the action logits.
-        state_values, logits = self._graph_fn_get_state_values_and_logits(action_layer_output["output"])
+        state_values, logits = self.get_state_values_and_logits(nn_output)
         probabilities, log_probs = self._graph_fn_get_probabilities_log_probs(logits)
         return dict(state_values=state_values, logits=logits, probabilities=probabilities, log_probs=log_probs)
+
+    @rlgraph_api
+    def get_state_values_and_logits(self, nn_output):
+        # Run through the action layer.
+        aa_output = self.get_action_layer_output(nn_output)
+        state_values, logits = self._graph_fn_get_state_values_and_logits(aa_output["output"])
+        return state_values, logits
 
     @graph_fn
     def _graph_fn_get_state_values_and_logits(self, action_layer_output):
@@ -82,10 +100,6 @@ class BaselineActionAdapter(ActionAdapter):
             state_value, flat_logits = tf.split(
                 value=action_layer_output, num_or_size_splits=(1, self.action_layer.units - 1), axis=-1
             )
-
-            # OBSOLETE: Don't squeeze
-            ## Have to squeeze the state-value as it's coming from just one node anyway.
-            #state_value = tf.squeeze(state_value, axis=-1)
 
             # TODO: automate this: batch in -> batch out; time in -> time out; batch+time in -> batch+time out, etc..
             # TODO: if not default behavior: have to specify in decorator (see design_problems.txt).
