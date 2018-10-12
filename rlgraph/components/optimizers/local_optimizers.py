@@ -20,6 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.optimizers.optimizer import Optimizer
 from rlgraph.utils.ops import DataOpTuple
+from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -47,6 +48,7 @@ class LocalOptimizer(Optimizer):
         # For define-by-run instances.
         self.optimizer_obj = None
 
+    @rlgraph_api(must_be_complete=False)
     def _graph_fn_step(self, variables, loss, loss_per_item, *inputs):
         # TODO n.b. PyTorch does not call api functions because other optimization semantics.
         if get_backend() == "tf":
@@ -65,6 +67,7 @@ class LocalOptimizer(Optimizer):
 
             return self.optimizer_obj.step(), loss, loss_per_item
 
+    @rlgraph_api(must_be_complete=False)
     def _graph_fn_calculate_gradients(self, variables, loss):
         """
         Args:
@@ -82,6 +85,7 @@ class LocalOptimizer(Optimizer):
                         grads_and_vars[i] = (tf.clip_by_norm(t=grad, clip_norm=self.clip_grad_norm), var)
             return DataOpTuple(grads_and_vars)
 
+    @rlgraph_api(must_be_complete=False)
     def _graph_fn_apply_gradients(self, grads_and_vars):
         if get_backend() == "tf":
             return self.optimizer.apply_gradients(

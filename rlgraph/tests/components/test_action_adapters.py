@@ -139,7 +139,7 @@ class TestActionAdapters(unittest.TestCase):
             logits=expected_q_values,
             probabilities=expected_probs,
             log_probs=np.log(expected_probs)
-        ), decimals=5)
+        ), decimals=3)
 
     """
     def test_dueling_layer(self):
