@@ -30,8 +30,8 @@ from rlgraph.utils import util
 
 
 # Global registries for Component classes' API-methods and graph_fn.
-component_api_registry = dict()
-component_graph_fn_registry = dict()
+component_api_registry = {}
+component_graph_fn_registry = {}
 
 
 def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
