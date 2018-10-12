@@ -25,10 +25,9 @@ from rlgraph.environments.environment import Environment
 from rlgraph.components.explorations.exploration import Exploration
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
-from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork
 from rlgraph.spaces import FloatBox, IntBox, Tuple
 from rlgraph.tests import ComponentTest
-from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
+from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils.ops import DataOpTuple
 
 
@@ -63,7 +62,6 @@ class TestEnvironmentStepper(unittest.TestCase):
         test = ComponentTest(
             component=environment_stepper,
             action_space=action_space,
-            #enable_profiler=True
         )
 
         # Reset the stepper.
@@ -72,35 +70,19 @@ class TestEnvironmentStepper(unittest.TestCase):
         # Step 3 times through the Env and collect results.
         # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
         # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
-        expected_r = np.array([0.5121922, 0.7605307, 0.68535984])
         expected = (
-            #np.array([[0.77132064], [0.74880385], [0.19806287]]),  # p(s)
-            #np.array([0, 0, 0]),  # a
-            #expected_r,  # r
-            np.array([expected_r[:1].sum(), expected_r[:2].sum(), expected_r[:3].sum()]),  # episode's accumulated returns
-            np.array([False, False, False]),
-            np.array([[0.00394827], [0.61252606], [0.91777414]]),  # s' (raw)
+            np.array([True, False, False, False]),  # t_
+            np.array([[0.77132064], [0.74880385], [0.19806287], [0.08833981]]),  # s' (raw)
         )
-        #time_start = time.perf_counter()
-        #test.test("step")
-        #time_total = time.perf_counter() - time_start
-        #print("Done running {} steps in RandomEnv using simple nn in {}sec ({} actions/sec).".format(
-        #    environment_stepper.num_steps, time_total, environment_stepper.num_steps / time_total )
-        #)
 
         test.test("step", expected_outputs=expected)
 
         # Step again, check whether stitching of states/etc.. works.
-        expected_r2 = np.array([0.51219225, 0.7217553, 0.71457577])
         expected = (
-            #np.array([[0.08833981], [0.00394827], [0.61252606]]),  # p(s)
-            #np.array([0, 0, 0]),  # a
-            #expected_r2,  # r
-            np.array([expected_r.sum() + expected_r2[0], expected_r.sum() + expected_r2[:2].sum(), expected_r.sum() + expected_r2[:3].sum()]),
-            np.array([False, False, False]),
-            np.array([[0.00394827], [0.61252606], [0.91777414]]),  # s' (raw)
+            np.array([True, False, False, False]),  # t_
+            np.array([[0.77132064], [0.00394827], [0.61252606], [0.91777414]]),  # s' (raw)
         )
-        out = test.test("step", expected_outputs=expected)
+        test.test("step", expected_outputs=expected)
 
         # Make sure we close the session (to shut down the Env on the server).
         test.terminate()
@@ -134,20 +116,12 @@ class TestEnvironmentStepper(unittest.TestCase):
         # Reset the stepper.
         test.test("reset")
 
-        #time_start = time.perf_counter()
-        #for _ in range(10):
-        #    test.test("step")
-        #time_total = time.perf_counter() - time_start
-        #print("Done running 10x{} steps in RandomEnv with action-prob returns using simple nn in {}sec ({} actions/sec).".format(
-        #    environment_stepper.num_steps * 10, time_total, environment_stepper.num_steps * 10 / time_total )
-        #)
-
         # Step 3 times through the Env and collect results.
         # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
         # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
         expected_r = np.array([0.19806287, 0.68535984, 0.81262094])
         expected = (None, (
-            np.array([[2.313962 , 0.06225585], [1.4955211, 0.67438996], [0.5073325, 0.26501945]]),  # p(s)
+            np.array([[2.313962, 0.06225585], [1.4955211, 0.67438996], [0.5073325, 0.26501945]]),  # p(s)
             np.array([2, 2, 2]),  # a
             expected_r,  # r
             np.array([expected_r[:1].sum(), expected_r[:2].sum(), expected_r[:3].sum()]),  # episode's accumulated returns

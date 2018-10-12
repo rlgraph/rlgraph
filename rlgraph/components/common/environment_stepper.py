@@ -168,12 +168,10 @@ class EnvironmentStepper(Component):
         self.num_steps = num_steps
 
         # Variables that hold information of last step through Env.
-        #self.current_action = None
-        #self.current_reward = None
-        #self.episode_return = None
         self.current_terminal = None
         self.current_state = None
         self.current_internal_states = None
+        self.current_action_probs = None
         self.time_step = 0
 
         self.has_rnn = self.actor_component.policy.neural_network.has_rnn()
@@ -185,8 +183,6 @@ class EnvironmentStepper(Component):
         self.time_step = self.get_variable(
             name="time-step", dtype="int32", initializer=0, trainable=False, local=True, use_resource=True
         )
-        #self.current_action = self.get_variable(
-        #    name="current-action", from_space=self.action_space, trainable=False, local=True, use_resource=True
         self.current_terminal = self.get_variable(
             name="current-terminal", dtype="bool", initializer=True, trainable=False, local=True, use_resource=True
         )
@@ -253,7 +249,6 @@ class EnvironmentStepper(Component):
                     else:
                         _, state, _, internal_states = accum
 
-                #terminal = tf.convert_to_tensor(value=terminal)
                 state = tuple(tf.convert_to_tensor(value=s) for s in state)
 
                 flat_state = OrderedDict()
@@ -283,27 +278,14 @@ class EnvironmentStepper(Component):
                 )
 
                 # Get output depending on whether it contains internal_states or not.
-                current_internal_states = None
-                action_probs = None
-                if self.has_rnn is True:
-                    if self.add_action_probs is False:
-                        _, a, current_internal_states = out
-                    else:
-                        _, a, action_probs, current_internal_states = out
-                else:
-                    if self.add_action_probs is False:
-                        _, a = out
-                    else:
-                        _, a, action_probs = out
+                a = out["action"]
+                action_probs = out.get("action_probs")
+                current_internal_states = out.get("last_internal_states")
 
                 # Strip the batch (and maybe time) ranks again from the action in case the Env doesn't like it.
                 a_no_extra_ranks = a[0, 0] if self.has_rnn is True else a[0]
                 # Step through the Env and collect next state (tuple!), reward and terminal as single values
                 # (not batched).
-                # TODO: Remove this IMPALA hack: it's only to confirm whether looking up the exact action vector
-                # TODO: in graph is faster than doing it in python in the env (step).
-                #actual_dm_lab_action = tf.gather(self.DEFAULT_ACTION_SET, a_no_extra_ranks)
-
                 out = self.environment_server.step_for_env_stepper(a_no_extra_ranks)
                 s_, r, t_ = out[:-2], out[-2], out[-1]
                 r = tf.cast(r, dtype="float32")
@@ -338,13 +320,7 @@ class EnvironmentStepper(Component):
                 initializer.append(tuple(
                     tf.placeholder_with_default(
                         internal_s.read_value(), shape=(None,) + tuple(internal_s.shape.as_list()[1:])
-                        #tf.expand_dims(internal_s, axis=0), shape=(None,) + tuple(internal_s.shape.as_list())
                     ) for internal_s in self.current_internal_states.values()
-
-                    #tf.expand_dims(internal_s.read_value(), axis=0) for internal_s in self.current_internal_states.values()
-
-                ## tf.expand_dims(internal_s.read_value(), axis=0), shape=(None,) + tuple(internal_s.shape.as_list())
-                    #tf.expand_dims(internal_s, axis=0) for internal_s in self.current_internal_states.values()
                 ))
 
             # Scan over n time-steps (tf.range produces the time_delta with respect to the current time_step).
