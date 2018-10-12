@@ -362,33 +362,6 @@ def strip_source_code(method, remove_nested_functions=True):
     return src
 
 
-# TODO: Solve this problem by always returning a single dict from any API-method, which carries named return values.
-def unify_nn_and_rnn_api_output(nn_output, return_values_wo_internal_state=1):
-    """
-    Makes sure always two elements are returned, no matter whether nn_output is a single DataOpRec with
-    only simple NN output in it or a tuple of DataOpRecs (one NN output, one last internal state(s) of the RNN(s)).
-
-    Args:
-        nn_output (Union[Tuple[DataOpRecord,DataOpRecord],DataOpRecord]): The output coming from a call to a
-            `NeuralNetwork.apply()` API-method.
-        return_values_wo_internal_state (int): Number of return value if no internal_state is expected to be returned.
-
-    Returns:
-        tuple:
-            - The actual NN output DataOpRec.
-            - The actual NN internal state DataOpRec or None (if no RNN).
-    """
-    # Single output -> return plus None
-    if not isinstance(nn_output, tuple):
-        return nn_output, None
-    # Output and internal-state.
-    elif len(nn_output) == (return_values_wo_internal_state + 1):
-        return nn_output
-    # Output without internal-state.
-    else:
-        return nn_output + (None,)
-
-
 def force_torch_tensors(params, requires_grad=False):
     """
     Converts input params to torch tensors

@@ -67,10 +67,9 @@ class TestActorComponents(unittest.TestCase):
         # Final actions (max-likelihood/greedy pick).
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)
         expected_preprocessed_state = states * 2
-        test.test(
-            ("get_preprocessed_state_and_action", states),
-            expected_outputs=(expected_preprocessed_state, expected_actions)
-        )
+        test.test(("get_preprocessed_state_and_action", states), expected_outputs=dict(
+            preprocessed_state=expected_preprocessed_state, action=expected_actions
+        ))
 
         # Get actions and action-probs by calling a different API-method.
         states = state_space.sample(5)
@@ -90,10 +89,9 @@ class TestActorComponents(unittest.TestCase):
         # Final actions (max-likelihood/greedy pick).
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)
         expected_preprocessed_state = states * 2
-        test.test(
-            ("get_preprocessed_state_action_and_action_probs", states),
-            expected_outputs=(expected_preprocessed_state, expected_actions, expected_action_probs)
-        )
+        test.test(("get_preprocessed_state_action_and_action_probs", states), expected_outputs=dict(
+            preprocessed_state=expected_preprocessed_state, action=expected_actions, action_probs=expected_action_probs
+        ))
 
     def test_actor_component_with_lstm_network(self):
         # state space and internal state space
@@ -135,11 +133,11 @@ class TestActorComponents(unittest.TestCase):
                 # expand time dim at 1st slot as we are time-major == False
                 [np.expand_dims(states[i], 1), initial_internal_states, time_step]
             ))
-            preprocessed_states[i] = ret[0][:, 0, :]  # take out time-rank again ()
-            actions[i] = ret[1]
+            preprocessed_states[i] = ret["preprocessed_state"][:, 0, :]  # take out time-rank again ()
+            actions[i] = ret["action"]
             # Check c/h-state shape.
-            self.assertEqual(ret[2][0].shape, (2, 3))  # batch-size=2, LSTM units=3
-            self.assertEqual(ret[2][1].shape, (2, 3))
+            self.assertEqual(ret["last_internal_states"][0].shape, (2, 3))  # batch-size=2, LSTM units=3
+            self.assertEqual(ret["last_internal_states"][1].shape, (2, 3))
 
         # Check all preprocessed states (easy: just divided by 10).
         expected_preprocessed_state = states / 10
@@ -203,5 +201,5 @@ class TestActorComponents(unittest.TestCase):
         expected_preprocessed_state = dict(a=states["a"] * 0.5, b=states["b"])
         test.test(
             ("get_preprocessed_state_and_action", states),
-            expected_outputs=(expected_preprocessed_state, expected_actions)
+            expected_outputs=dict(preprocessed_state=expected_preprocessed_state, action=expected_actions)
         )

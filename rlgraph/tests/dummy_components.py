@@ -422,4 +422,4 @@ class DummyNNWithDictInput(NeuralNetwork):
         # Concat everything together, that's the output.
         concatenated_data = self.concat_layer.apply(output_a, output_b)
 
-        return concatenated_data
+        return dict(output=concatenated_data)

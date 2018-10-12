@@ -57,7 +57,11 @@ class NeuralNetwork(Stack):
             @rlgraph_api
             def apply(self, *inputs):
                 out = self.apply_shadowed_(*inputs)
-                return dict(output=out)
+                if isinstance(out, dict):
+                    assert "output" in out
+                    return out
+                else:
+                    return dict(output=out)
 
             kwargs["api_methods"] = {("apply_shadowed_", "apply")}
         else:
