@@ -22,8 +22,7 @@ from rlgraph.components.component import Component
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.components.neural_networks.policy import Policy
 from rlgraph.components.explorations.exploration import Exploration
-from rlgraph.utils.ops import flatten_op, FlattenedDataOp
-from rlgraph.utils.util import unify_nn_and_rnn_api_output
+from rlgraph.utils.decorators import rlgraph_api
 
 
 class ActorComponent(Component):
@@ -59,7 +58,7 @@ class ActorComponent(Component):
 
         self.add_components(self.policy, self.exploration, self.preprocessor)
 
-    # @rlgraph.api_method
+    @rlgraph_api
     def get_preprocessed_state_and_action(self, states, internal_states=None, time_step=0, use_exploration=True):
         """
         API-method to get the preprocessed state and an action based on a raw state from an Env.
@@ -71,26 +70,26 @@ class ActorComponent(Component):
             use_exploration (Optional[DataOp]): Whether to use exploration or not.
 
         Returns:
-            tuple:
-                - DataOp: The preprocessed states.
-                - DataOp: The chosen action.
+            dict (3x DataOp):
+                `preprocessed_state` (DataOp): The preprocessed states.
+                `action` (DataOp): The chosen action.
+                `last_internal_states` (DataOp): If RNN-based, the last internal states after passing through
+                states. Or None.
         """
         max_likelihood = self.max_likelihood if self.max_likelihood is not None else self.policy.max_likelihood
 
         preprocessed_states = self.preprocessor.preprocess(states)
 
         if max_likelihood is True:
-            action_sample, last_internal_states = unify_nn_and_rnn_api_output(self.policy.get_max_likelihood_action(
-                preprocessed_states, internal_states
-            ))
+            out = self.policy.get_max_likelihood_action(preprocessed_states, internal_states)
         else:
-            action_sample, last_internal_states = unify_nn_and_rnn_api_output(self.policy.get_stochastic_action(
-                preprocessed_states, internal_states
-            ))
-        actions = self.exploration.get_action(action_sample, time_step, use_exploration)
-        ret = (preprocessed_states, actions) + ((last_internal_states,) if last_internal_states else ())
-        return ret
+            out = self.policy.get_stochastic_action(preprocessed_states, internal_states)
+        actions = self.exploration.get_action(out["action"], time_step, use_exploration)
+        return dict(
+            preprocessed_state=preprocessed_states, action=actions, last_internal_states=out["last_internal_states"]
+        )
 
+    @rlgraph_api
     def get_preprocessed_state_action_and_action_probs(
             self, states, internal_states=None, time_step=0, use_exploration=True
     ):
@@ -105,10 +104,12 @@ class ActorComponent(Component):
             use_exploration (Optional[DataOp]): Whether to use exploration or not.
 
         Returns:
-            tuple:
-                - DataOp: The preprocessed states.
-                - DataOp: The chosen action.
-                - DataOp: The probabilities of all possible actions.
+            dict (4x DataOp):
+                `preprocessed_state` (DataOp): The preprocessed states.
+                `action` (DataOp): The chosen action.
+                `action_probs` (DataOp): The different action probabilities.
+                `last_internal_states` (DataOp): If RNN-based, the last internal states after passing through
+                states. Or None.
         """
         max_likelihood = self.max_likelihood if self.max_likelihood is not None else self.policy.max_likelihood
 
@@ -117,20 +118,16 @@ class ActorComponent(Component):
         # TODO: IMPALA specific code. state-value is not really needed, but dynamic batching requires us to run through
         # TODO: the exact same partial-graph as the learner (which does need the extra state-value output).
         if isinstance(self.policy.action_adapter, BaselineActionAdapter):
-            _, _, action_probs, _, last_internal_states = unify_nn_and_rnn_api_output(
-                self.policy.get_state_values_logits_probabilities_log_probs(preprocessed_states, internal_states),
-                return_values_wo_internal_state=4
-            )
+            out = self.policy.get_state_values_logits_probabilities_log_probs(preprocessed_states, internal_states)
         else:
-            _, action_probs, _, last_internal_states = unify_nn_and_rnn_api_output(
-                self.policy.get_logits_probabilities_log_probs(preprocessed_states, internal_states),
-                return_values_wo_internal_state=3
-            )
+            out = self.policy.get_logits_probabilities_log_probs(preprocessed_states, internal_states)
 
         if max_likelihood is True:
-            action_sample = self.policy.distribution.sample_deterministic(action_probs)
+            action_sample = self.policy.distribution.sample_deterministic(out["probabilities"])
         else:
-            action_sample = self.policy.distribution.sample_stochastic(action_probs)
+            action_sample = self.policy.distribution.sample_stochastic(out["probabilities"])
         actions = self.exploration.get_action(action_sample, time_step, use_exploration)
-        ret = (preprocessed_states, actions, action_probs) + ((last_internal_states,) if last_internal_states else ())
-        return ret
+        return dict(
+            preprocessed_state=preprocessed_states, action=actions, action_probs=out["probabilities"],
+            last_internal_states=out["last_internal_states"]
+        )

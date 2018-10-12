@@ -26,7 +26,6 @@ from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.action_adapters.baseline_action_adapter import BaselineActionAdapter
 from rlgraph.components.layers.preprocessing.reshape import ReShape
-from rlgraph.utils.util import unify_nn_and_rnn_api_output
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
@@ -88,15 +87,6 @@ class Policy(Component):
                     self.time_rank_unfolder_log_probs,
                     self.time_rank_unfolder_logits
                 )
-
-            #@api
-            #def get_baseline_output(self, nn_input, internal_states=None):
-            #    nn_output, last_internal_states = unify_nn_and_rnn_api_output(
-            #        self.neural_network.apply(nn_input, internal_states)
-            #    )
-            #    state_value, logits = self.action_adapter.get_state_values_and_logits(nn_output)
-            #    return (state_value, logits, last_internal_states) if last_internal_states is not None else (state_value, logits)
-            #
 
             @rlgraph_api(component=self)
             def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
