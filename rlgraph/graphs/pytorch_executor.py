@@ -153,11 +153,5 @@ class PyTorchExecutor(GraphExecutor):
     def get_device_assignments(self, device_names=None):
         pass
 
-    def get_weights(self):
-        return self.execute("_variables")
-
-    def set_weights(self, weights):
-        self.execute(("sync", weights))
-
     def terminate(self):
         pass

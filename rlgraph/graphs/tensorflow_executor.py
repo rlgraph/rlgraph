@@ -624,13 +624,6 @@ class TensorFlowExecutor(GraphExecutor):
             self.logger.warn('Filename for TensorFlow meta graph should end with .meta.')
         self.saver.export_meta_graph(filename=filename)
 
-    def get_weights(self):
-        return self.execute("_variables")
-
-    def set_weights(self, weights):
-        # Note that this can only assign components which have been declared synchronizable.
-        self.execute(("sync", weights))
-
     def terminate(self):
         """
         Terminates the GraphExecutor, so it will no longer be usable.
