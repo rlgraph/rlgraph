@@ -819,9 +819,6 @@ class GraphBuilder(Specifiable):
         op_records_list = sorted(self.op_records_to_process, key=lambda rec: rec.id)
         iterations = self._build(op_records_list)
 
-        # Delete op-records as we do not need them for define-by-run.
-        # self.purge_op_records(component=self.root_component)
-
         # Set execution mode in components to change `call` behaviour to direct function evaluation.
         self.root_component.propagate_sub_component_properties(properties=dict(execution_mode="define_by_run"))
 
@@ -881,6 +878,10 @@ class GraphBuilder(Specifiable):
                                 component.api_method_inputs[param_name] = next_op_rec.space
                             # Sanity check, whether Spaces are equivalent.
                             else:
+                                # print("component {}, param name {}".format(component, param_name))
+                                # print("component.api_method_inputs[param_name]",
+                                # component.api_method_inputs[param_name])
+                                # print("next_op_rec.space", next_op_rec.space)
                                 generic_space = check_space_equivalence(
                                     component.api_method_inputs[param_name], next_op_rec.space
                                 )
@@ -972,15 +973,3 @@ class GraphBuilder(Specifiable):
 
             loop_counter += 1
         return loop_counter
-
-    def purge_op_records(self, component):
-        """
-        Recursively deletes op records which are not needed after building
-        variables for define-by-run execution.
-        """
-        # Purge this components op records -> still use keys for lookups of names.
-        for name in component.api_methods.keys():
-            component.api_methods[name] = None
-        # Recurse:
-        for component in component.sub_components.values():
-            self.purge_op_records(component)
