@@ -367,7 +367,7 @@ class DataOpRecordColumnIntoAPIMethod(DataOpRecordColumn):
         super(DataOpRecordColumnIntoAPIMethod, self).__init__(component=component, args=args, kwargs=kwargs)
 
     def __str__(self):
-        return "OpRecCol(ops: {})->APIMethod('{}')".format(self.op_id_list, self.api_method_rec.method.__name__)
+        return "OpRecCol(ops: {})->APIMethod('{}')".format(self.op_id_list, self.api_method_rec.name)
 
 
 class DataOpRecordColumnFromAPIMethod(DataOpRecordColumn):
