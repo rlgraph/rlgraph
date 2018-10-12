@@ -20,7 +20,7 @@ from __future__ import print_function
 
 def print_call_chain(profile_data, sort=True, filter_threshold=None):
     """
-    Prints a component call chain stdout. Useful to analyze
+    Prints a component call chain stdout. Useful to analyze define by run performance.
 
     Args:
         profile_data (list): Component file data.
