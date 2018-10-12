@@ -94,6 +94,8 @@ class PyTorchExecutor(GraphExecutor):
                     requires_grad = True
                 tensor_params = force_torch_tensors(params=params, requires_grad=requires_grad)
                 api_ret = self.graph_builder.execute_define_by_run_op(api_method, tensor_params)
+                if not isinstance(api_ret, list):
+                    api_ret = [api_ret]
 
                 to_return = []
                 if return_ops is not None:
