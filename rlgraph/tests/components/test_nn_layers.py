@@ -199,4 +199,3 @@ class TestNNLayer(unittest.TestCase):
 
         expected = dict(output=expected_outputs, last_internal_states=expected_internal_states)
         test.test(("apply", inputs), expected_outputs=expected)
-

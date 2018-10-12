@@ -128,7 +128,7 @@ def dense_layer(x, weights, biases=None):
 
 def lstm_layer(x, weights, biases=None, initial_internal_states=None, time_major=False, forget_bias=1.0):
     """
-    Calculates the outputs of a dense layer given weights/biases and an input.
+    Calculates the outputs of an LSTM layer given weights/biases, internal_states, an input.
 
     Args:
         x (np.ndarray): The inputs to the LSTM layer including time-rank (oth if time-major, else 1st) and
@@ -142,7 +142,9 @@ def lstm_layer(x, weights, biases=None, initial_internal_states=None, time_major
             Default: 1.0.
 
     Returns:
-        The LSTM layer's output.
+        Tuple:
+            - The LSTM layer's output.
+            - Tuple: Last (c-state, h-state).
     """
     sequence_length = x.shape[0 if time_major else 1]
     batch_size = x.shape[1 if time_major else 0]
