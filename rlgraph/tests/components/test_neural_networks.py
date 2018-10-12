@@ -51,7 +51,7 @@ class TestNeuralNetworks(unittest.TestCase):
 
         expected = dense_layer(input_, w1_value, b1_value)
 
-        test.test(("apply", input_), expected_outputs=expected, decimals=5)
+        test.test(("apply", input_), expected_outputs=dict(output=expected), decimals=5)
 
     def test_lstm_nn(self):
         # Space must contain batch dimension (otherwise, NNlayer will complain).

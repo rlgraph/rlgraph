@@ -17,12 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-#from rlgraph import get_backend
 from rlgraph.components.neural_networks.stack import Stack
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
-#from rlgraph.utils.rlgraph_error import RLGraphError
-#from rlgraph.utils.util import force_tuple, force_list
-#from rlgraph.utils.decorators import api
+from rlgraph.utils.decorators import rlgraph_api
 
 
 # MOVED TO Stack base-Component.
@@ -32,7 +29,10 @@ from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 
 class NeuralNetwork(Stack):
     """
-    Simple placeholder class that's a Stack.
+    A NeuralNetwork is a Stack, in which the apply method is defined either by custom-API-method OR by connecting
+    through all sub-Components' `apply` methods.
+    In both cases, a dict should be returned with at least the `output` key set. Possible further keys could
+    be `last_internal_states` for RNN-based NNs and other keys.
     """
     def __init__(self, *layers, **kwargs):
         """
@@ -51,10 +51,25 @@ class NeuralNetwork(Stack):
         layers_args = kwargs.pop("layers", layers)
         # Add a default scope (if not given) and pass on via kwargs.
         kwargs["scope"] = kwargs.get("scope", "neural-network")
-        super(NeuralNetwork, self).__init__(*layers_args, **kwargs)
 
-        # Assert that the apply API-method has been defined.
-        assert "apply" in self.api_methods
+        # Force the only API-method to be `apply`. No matter whether custom-API or auto-generated (via Stack).
+        if "api_methods" not in kwargs:
+            @rlgraph_api
+            def apply(self, *inputs):
+                out = self.apply_shadowed_(*inputs)
+                return dict(output=out)
+
+            kwargs["api_methods"] = {("apply_shadowed_", "apply")}
+        else:
+            assert len(kwargs["api_methods"]) == 1,\
+                "ERROR: Only 0 or 1 given API-methods are allowed in NeuralNetwork ctor! You provided " \
+                "'{}'.".format(kwargs["api_methods"])
+            # Make sure the only allowed api_method is `apply`.
+            assert next(iter(kwargs["api_methods"]))[0] == "apply",\
+                "ERROR: NeuralNetwork's custom API-method must be called `apply`! You named it '{}'.".\
+                format(next(iter(kwargs["api_methods"]))[0])
+
+        super(NeuralNetwork, self).__init__(*layers_args, **kwargs)
 
     # MOVED TO Stack base-Component.
     #def _build_stack(self, api_methods):
