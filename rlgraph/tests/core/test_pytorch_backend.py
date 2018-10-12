@@ -98,33 +98,6 @@ class TestPytorchBackend(unittest.TestCase):
         test.test(("run", 78.4), expected_outputs=80.5)
         test.test(("run", -5.2), expected_outputs=-3.1)
 
-    # TODO delete most of these after debugging. Unify tests.
-    def test_layer_passes(self):
-        import torch
-        torch.set_default_tensor_type("torch.FloatTensor")
-        env_spec = dict(
-            type="openai",
-            gym_env="CartPole-v0",
-            fire_reset=False
-        )
-        env = Environment.from_spec(env_spec)
-        space = env.state_space
-        print(space.shape)
-
-        # This works
-        self.fc1 = torch.nn.Linear(space.get_shape()[0], 1, bias=False)
-
-        # Test single forward pass.
-        space_sample = space.sample()
-        print(space_sample)
-        from_numpy_in = torch.tensor(space_sample, dtype=torch.float32, requires_grad=False)
-        print(self.fc1(from_numpy_in))
-
-        # Test batch forward pass
-        space_sample = space.sample(size=10)
-        from_numpy_in = torch.tensor(space_sample, dtype=torch.float32, requires_grad=False)
-        print(self.fc1(from_numpy_in))
-
     def test_dqn_compilation(self):
         """
         Creates a DQNAgent and runs it via a Runner on an openAI Pong Env.

@@ -94,6 +94,8 @@ class PyTorchExecutor(GraphExecutor):
                     requires_grad = True
                 tensor_params = force_torch_tensors(params=params, requires_grad=requires_grad)
                 api_ret = self.graph_builder.execute_define_by_run_op(api_method, tensor_params)
+                if not isinstance(api_ret, list):
+                    api_ret = [api_ret]
 
                 to_return = []
                 if return_ops is not None:
@@ -150,12 +152,6 @@ class PyTorchExecutor(GraphExecutor):
 
     def get_device_assignments(self, device_names=None):
         pass
-
-    def get_weights(self):
-        return self.execute("_variables")
-
-    def set_weights(self, weights):
-        self.execute(("sync", weights))
 
     def terminate(self):
         pass
