@@ -115,7 +115,7 @@ class ApexExecutor(RayExecutor):
 
         # Set sample batch size:
         self.apex_replay_spec["sample_batch_size"] = self.agent_config["update_spec"]["batch_size"]
-        self.logger.info("Sampling batch size".format(self.apex_replay_spec["sample_batch_size"]))
+        self.logger.info("Sampling batch size {}".format(self.apex_replay_spec["sample_batch_size"]))
 
         self.ray_local_replay_memories = create_colocated_ray_actors(
             cls=RayMemoryActor.as_remote(num_cpus=self.num_cpus_per_replay_actor),
