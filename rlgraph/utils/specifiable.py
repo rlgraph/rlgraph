@@ -106,13 +106,13 @@ class Specifiable(object):
             type_ = spec
             ctor_kwargs = kwargs
         # Special `_args` field in kwargs for *args-utilizing constructors.
-        ctor_args = ctor_kwargs.pop("_args", list())
+        ctor_args = ctor_kwargs.pop("_args", [])
 
         # Figure out the actual constructor (class) from `type_`.
         # None: Try __default__object (if no args/kwargs), only then constructor of cls (using args/kwargs).
         if type_ is None:
             # We have a default constructor that was defined directly by cls (not by its children).
-            if cls.__default_constructor__ is not None and ctor_args == list() and \
+            if cls.__default_constructor__ is not None and ctor_args == [] and \
                     (not hasattr(cls.__bases__[0], "__default_constructor__") or
                      cls.__bases__[0].__default_constructor__ is None or
                      cls.__bases__[0].__default_constructor__ is not cls.__default_constructor__
@@ -122,7 +122,7 @@ class Specifiable(object):
                 if isinstance(constructor, partial):
                     kwargs = default_dict(ctor_kwargs, constructor.keywords)
                     constructor = partial(constructor.func, **kwargs)
-                    ctor_kwargs = dict()  # erase to avoid duplicate kwarg error
+                    ctor_kwargs = {} # erase to avoid duplicate kwarg error
             # Try our luck with this class itself.
             else:
                 constructor = cls
