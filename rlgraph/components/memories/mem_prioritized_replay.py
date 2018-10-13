@@ -110,6 +110,11 @@ class MemPrioritizedReplay(Memory):
                 else:
                     records[name] = np.zeros(self.record_space_flat[name].shape)
 
+        # Convert if necessary: list of tensors fails at space inference otherwise.
+        if get_backend() == "pytorch":
+            for name in self.record_space_flat_keys:
+                records[name] = torch.squeeze(torch.stack(records[name]))
+
         return records
 
     @rlgraph_api(flatten_ops=True)

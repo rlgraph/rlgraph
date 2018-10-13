@@ -57,7 +57,7 @@ class Dict(ContainerSpace, dict):
         if spec is None:
             spec = kwargs
 
-        dict_ = dict()
+        dict_ = {}
         for key in sorted(spec.keys()):
             # Keys must be strings.
             if not isinstance(key, str):
