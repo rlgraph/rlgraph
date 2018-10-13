@@ -61,8 +61,6 @@ class MemPrioritizedReplay(Memory):
         self.record_space = input_spaces["records"]
         self.record_space_flat = Dict(self.record_space.flatten(
             custom_scope_separator="-", scope_separator_at_start=False), add_batch_rank=True)
-        self.record_space_flat_keys = list(self.record_space.flatten().keys())
-
         self.priority_capacity = 1
 
         while self.priority_capacity < self.capacity:
@@ -91,19 +89,22 @@ class MemPrioritizedReplay(Memory):
              dict: Record value dict.
         """
         records = {}
-        for name in self.record_space_flat_keys:
+        # 'actions', not '/actions'
+        for name in self.record_space_flat.keys():
             records[name] = []
 
         if self.size > 0:
             for index in indices:
+                # Record is indexed with "/action"
                 record = self.memory_values[index]
-                for name in self.record_space_flat_keys:
-                    records[name].append(record[name])
+                # TODO Output is "actions" -> This should be handled somewhere centrally?
+                for name in self.record_space_flat.keys():
+                    records[name].append(record["/" + name])
 
         else:
             # TODO figure out how to do default handling in pytorch builds.
             # Fill with default vals for build.
-            for name in self.record_space_flat_keys:
+            for name in self.record_space_flat.keys():
                 if get_backend() == "pytorch":
                     records[name] = torch.zeros(self.record_space_flat[name].shape,
                                                 dtype=dtype_(self.record_space_flat[name].dtype, "pytorch"))
@@ -112,7 +113,7 @@ class MemPrioritizedReplay(Memory):
 
         # Convert if necessary: list of tensors fails at space inference otherwise.
         if get_backend() == "pytorch":
-            for name in self.record_space_flat_keys:
+            for name in self.record_space_flat.keys():
                 records[name] = torch.squeeze(torch.stack(records[name]))
 
         return records
