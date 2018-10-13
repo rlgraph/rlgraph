@@ -61,9 +61,8 @@ class MemPrioritizedReplay(Memory):
         self.record_space = input_spaces["records"]
         self.record_space_flat = Dict(self.record_space.flatten(
             custom_scope_separator="-", scope_separator_at_start=False), add_batch_rank=True)
+        self.record_space_flat_keys = list(self.record_space.flatten().keys())
 
-        # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
-        self.record_registry = get_list_registry(self.record_space_flat)
         self.priority_capacity = 1
 
         while self.priority_capacity < self.capacity:
@@ -92,19 +91,19 @@ class MemPrioritizedReplay(Memory):
              dict: Record value dict.
         """
         records = {}
-        for name in self.record_registry.keys():
+        for name in self.record_space_flat_keys:
             records[name] = []
 
         if self.size > 0:
             for index in indices:
                 record = self.memory_values[index]
-                for name in self.record_registry.keys():
+                for name in self.record_space_flat_keys:
                     records[name].append(record[name])
 
         else:
             # TODO figure out how to do default handling in pytorch builds.
             # Fill with default vals for build.
-            for name in self.record_registry.keys():
+            for name in self.record_space_flat_keys:
                 if get_backend() == "pytorch":
                     records[name] = torch.zeros(self.record_space_flat[name].shape,
                                                 dtype=dtype_(self.record_space_flat[name].dtype, "pytorch"))
