@@ -335,6 +335,10 @@ def check_space_equivalence(space1, space2):
     elif space2.has_batch_rank and not space1.has_batch_rank and \
             (np.asarray(space2.rank) == np.asarray(space1.rank) - 1).all():
         return space2
+    elif get_backend() == "pytorch":
+        if not space1.has_batch_rank and not space2.has_batch_rank and \
+                (np.asarray(space1.rank) == np.asarray(space2.rank)).all():
+            return space1
 
     # TODO: time rank?
 

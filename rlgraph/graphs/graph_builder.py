@@ -878,10 +878,6 @@ class GraphBuilder(Specifiable):
                                 component.api_method_inputs[param_name] = next_op_rec.space
                             # Sanity check, whether Spaces are equivalent.
                             else:
-                                # print("component {}, param name {}".format(component, param_name))
-                                # print("component.api_method_inputs[param_name]",
-                                # component.api_method_inputs[param_name])
-                                # print("next_op_rec.space", next_op_rec.space)
                                 generic_space = check_space_equivalence(
                                     component.api_method_inputs[param_name], next_op_rec.space
                                 )
