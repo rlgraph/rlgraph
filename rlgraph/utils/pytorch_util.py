@@ -144,6 +144,9 @@ def pytorch_reduce_mean(tensor, axes, keepdims):
 
 
 if get_backend() == "pytorch":
+    SMALL_NUMBER_TORCH = torch.tensor([1e-6])
+    LOG_SMALL_NUMBER = torch.log(SMALL_NUMBER_TORCH)
+
     class SamePaddedConv2d(torch.nn.Module):
         """
         Implements a Conv2d layer with padding 'same' as PyTorch does not have

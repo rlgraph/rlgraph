@@ -27,6 +27,7 @@ from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import graph_fn
 from rlgraph.utils.ops import DataOpTuple
+from rlgraph.utils.pytorch_util import SMALL_NUMBER_TORCH, LOG_SMALL_NUMBER
 from rlgraph.utils.util import SMALL_NUMBER
 
 if get_backend() == "tf":
@@ -213,7 +214,7 @@ class ActionAdapter(Component):
             if isinstance(self.action_space, IntBox):
                 # Discrete actions.
                 softmax_logits = torch.softmax(logits, dim=-1)
-                parameters = torch.max(softmax_logits, y=SMALL_NUMBER)
+                parameters = torch.max(softmax_logits, SMALL_NUMBER_TORCH)
                 # Log probs.
                 log_probs = torch.log(parameters)
             elif isinstance(self.action_space, FloatBox):
@@ -224,7 +225,7 @@ class ActionAdapter(Component):
                 log_sd = torch.squeeze(log_sd, dim=1)
 
                 # Clip log_sd. log(SMALL_NUMBER) is negative.
-                log_sd = torch.clamp(log_sd, min=torch.log(SMALL_NUMBER), max=-torch.log(SMALL_NUMBER))
+                log_sd = torch.clamp(log_sd, min=LOG_SMALL_NUMBER, max=-LOG_SMALL_NUMBER)
 
                 # Turn log sd into sd.
                 sd = torch.exp(log_sd)
