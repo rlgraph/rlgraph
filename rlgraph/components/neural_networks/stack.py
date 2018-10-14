@@ -130,7 +130,12 @@ class Stack(Component):
                                     args_ = force_tuple(results)
                                     kwargs_ = {}
 
-                            return kwargs_ if args_ == () else args_[0] if len(args_) == 1 else args_
+                            if args_ == ():
+                                return kwargs_
+                            elif len(args_) == 1:
+                                return args_[0]
+                            else:
+                                return args_
 
         # Build fast-path execution method for pytorch / eager.
         if get_backend() == "pytorch":
