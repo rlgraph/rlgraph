@@ -340,6 +340,12 @@ def check_space_equivalence(space1, space2):
                 (np.asarray(space1.rank) == np.asarray(space2.rank)).all():
             return space1
 
+        # TODO problem is that batch ranks are principally not handled correctly here ->
+        # e.g. (batch_size, 256), (256,) can both be valid between layers
+        if not space1.has_batch_rank and not space2.has_batch_rank and space1.rank > space2.rank:
+            return space2
+        if not space1.has_batch_rank and not space2.has_batch_rank and space1.rank < space2.rank:
+            return space1
     # TODO: time rank?
 
     return False
