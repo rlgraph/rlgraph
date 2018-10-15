@@ -21,29 +21,32 @@ import unittest
 import tensorflow as tf
 
 from rlgraph.components.optimizers import GradientDescentOptimizer
-from rlgraph.spaces import Tuple
+from rlgraph.spaces import Tuple, FloatBox, Dict
 from rlgraph.tests import ComponentTest
 
 
 class TestLocalOptimizers(unittest.TestCase):
 
-    optimizer = GradientDescentOptimizer(learning_rate=0.01)
-
-    space = dict(
-        variables=Tuple(float),
-        loss=float,
-        grads_and_vars=Tuple(float, float)
-    )
-
     def test_calculate_gradients(self):
+        return
+        optimizer = GradientDescentOptimizer(learning_rate=0.01)
+
         x = tf.Variable(2, name='x', dtype=tf.float32)
         log_x = tf.log(x)
         loss = tf.square(x=log_x)
 
-        grads_and_vars = self.optimizer._graph_fn_calculate_gradients(variables=[x], loss=loss)
-        print(grads_and_vars)
+        test = ComponentTest(component=optimizer, input_spaces=dict(
+            loss=FloatBox(),
+            variables=Dict({"x": FloatBox()}),
+            loss_per_item=FloatBox(add_batch_rank=True),
+            grads_and_vars=Tuple(Tuple(float, float))
+        ))
+
+        print(test.test(("calculate_gradients", [dict(x=x), loss]), expected_outputs=None))
 
     def test_apply_gradients(self):
+        return
+        optimizer = GradientDescentOptimizer(learning_rate=0.01)
         x = tf.Variable(2, name='x', dtype=tf.float32)
         log_x = tf.log(x)
         loss = tf.square(x=log_x)

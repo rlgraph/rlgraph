@@ -42,6 +42,8 @@ class LocalOptimizer(Optimizer):
             assert isinstance(self.clip_grad_norm, float) or isinstance(self.clip_grad_norm, int),\
                 "ERROR: 'clip_grad_norm' must be of type float or int but is type {}".format(type(self.clip_grad_norm))
 
+        self.input_complete = True
+
         # The wrapped, backend-specific optimizer object.
         self.optimizer = None
 

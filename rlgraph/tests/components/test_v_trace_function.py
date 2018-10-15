@@ -23,6 +23,7 @@ import unittest
 from rlgraph.components.helpers.v_trace_function import VTraceFunction
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
+from rlgraph.utils.numpy import one_hot, softmax
 
 
 class TestVTraceFunctions(unittest.TestCase):
@@ -30,32 +31,60 @@ class TestVTraceFunctions(unittest.TestCase):
     def test_v_trace_function(self):
         v_trace_function = VTraceFunction()
 
-        batch_x_time_space = FloatBox(add_batch_rank=True, add_time_rank=True)
-        #batch_space = FloatBox(add_batch_rank=True, add_time_rank=False)
+        #time_x_batch_space = FloatBox(add_batch_rank=True, add_time_rank=True)
+        time_x_batch_x_3_space = FloatBox(shape=(3,), add_batch_rank=True, add_time_rank=True)
+        time_x_batch_x_1_space = FloatBox(shape=(1,), add_batch_rank=True, add_time_rank=True)
+        action_space = IntBox(3, add_batch_rank=True, add_time_rank=True)
+        action_space_flat = FloatBox(shape=(3,), add_batch_rank=True, add_time_rank=True)
         input_spaces = dict(
             # Log rhos, discounts, rewards, values, bootstrapped_value.
-            log_is_weights=batch_x_time_space,
-            discounts=batch_x_time_space,
-            rewards=batch_x_time_space,
-            values=batch_x_time_space,
-            bootstrapped_values=batch_x_time_space
+            logits_actions_pi=time_x_batch_x_3_space,
+            log_probs_actions_mu=time_x_batch_x_3_space,
+            actions=action_space,
+            actions_flat=action_space_flat,
+            discounts=time_x_batch_x_1_space,
+            rewards=time_x_batch_x_1_space,
+            values=time_x_batch_x_1_space,
+            bootstrapped_values=time_x_batch_x_1_space
         )
 
         test = ComponentTest(component=v_trace_function, input_spaces=input_spaces)
 
+        actions = np.array([[1, 0], [1, 2], [2, 2]])
+        # log_is_weights = log(prob_pi(a) / prob_mu(a)) =  - log(prob_mu(a))
+        # => log(prob_pi(a)) = log_is_weights + log(prob_mu(a))
+        # => prob_pi(a) = exp(log_is_weights + log(prob_mu(a)))
+        # => logit_pi(a) = exp(log_is_weights + log(prob_mu(a)))
+        log_is_weights = np.array([
+            [[0.1, 1.0, 0.1], [0.65, 0.1, 0.1]],
+            [[0.1, -0.4, 0.1], [0.1, 0.1, 0.2]],
+            [[0.1, 0.1, 1.5], [0.1, 0.1, -1.0]]
+        ])
+        log_probs_actions_mu = np.array([
+            [[-0.1, -4.5, -0.1], [-0.3, -0.1, -0.1]],
+            [[-0.1, -2.0, -0.1], [-0.1, -0.1, -0.5]],
+            [[-0.1, -0.1, -0.01], [-0.1, -0.1, -0.23]]
+        ])
+        logits_actions_pi = np.exp(log_is_weights + log_probs_actions_mu)
         # Batch of size=2, time-steps=3.
         # time_major=True (time axis is 0th, batch 1st).
         input_ = [
-            # log_is_weights
-            np.array([[1.0, 0.65], [-0.4, 0.2], [1.5, -1.0]]),
+            # logits actions pi
+            logits_actions_pi,
+            # log-probs actions mu
+            log_probs_actions_mu,
+            # actions
+            actions,
+            # actions flat
+            one_hot(actions, depth=3),
             # discounts
-            np.array([[0.99, 0.98], [0.97, 0.96], [0.5, 0.4]]),
+            np.array([[[0.99], [0.98]], [[0.97], [0.96]], [[0.5], [0.4]]]),
             # rewards
-            np.array([[1.0, 0.0], [2.0, 1.0], [-5.0, 2.0]]),
+            np.array([[[1.0], [0.0]], [[2.0], [1.0]], [[-5.0], [2.0]]]),
             # values
-            np.array([[2.3, -1.1], [1.563, -2.0], [0.9, -0.3]]),
+            np.array([[[2.3], [-1.1]], [[1.563], [-2.0]], [[0.9], [-0.3]]]),
             # bootstrapped value
-            np.array([[2.3, -1.0]])
+            np.array([[[2.3], [-1.0]]])
         ]
 
         """
@@ -101,7 +130,7 @@ class TestVTraceFunctions(unittest.TestCase):
         At = rho_t_pg * (rt + discounts * vs_t_plus_1 - values) =
             [-1.94090657, 2.45535192], [-2.21038035, 3.38301216], [-4.75, 0.69897094]
         """
-        expected_vs = np.array([[0.35909343, 1.35535192], [-0.64738037, 1.38301216], [-3.85, 0.398971]])
+        expected_vs = np.array([[[0.35909343], [1.35535192]], [[-0.64738037], [1.38301216]], [[-3.85], [0.398971]]])
         expected_advantages = np.array([[-1.94090657, 2.45535192], [-2.21038035, 3.38301216], [-4.75, 0.69897094]])
 
         test.test(("calc_v_trace_values", input_), expected_outputs=[expected_vs, expected_advantages], decimals=4)

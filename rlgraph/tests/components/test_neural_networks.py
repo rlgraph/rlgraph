@@ -53,6 +53,8 @@ class TestNeuralNetworks(unittest.TestCase):
 
         test.test(("apply", input_), expected_outputs=dict(output=expected), decimals=5)
 
+        test.terminate()
+
     def test_lstm_nn(self):
         # Space must contain batch dimension (otherwise, NNlayer will complain).
         units = 3
@@ -101,6 +103,8 @@ class TestNeuralNetworks(unittest.TestCase):
 
         expected = dict(output=d1_out, last_internal_states=last_internal_states)
         test.test(("apply", [input_, internal_states]), expected_outputs=expected, decimals=5)
+
+        test.terminate()
 
     def test_dictionary_input_nn(self):
         pass
