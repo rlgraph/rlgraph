@@ -27,12 +27,12 @@ from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import graph_fn
 from rlgraph.utils.ops import DataOpTuple
-from rlgraph.utils.pytorch_util import SMALL_NUMBER_TORCH, LOG_SMALL_NUMBER
 from rlgraph.utils.util import SMALL_NUMBER
 
 if get_backend() == "tf":
     import tensorflow as tf
 elif get_backend() == "pytorch":
+    from rlgraph.utils.pytorch_util import SMALL_NUMBER_TORCH, LOG_SMALL_NUMBER
     import torch
 
 
