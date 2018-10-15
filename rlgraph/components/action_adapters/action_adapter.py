@@ -32,8 +32,8 @@ from rlgraph.utils.util import SMALL_NUMBER
 if get_backend() == "tf":
     import tensorflow as tf
 elif get_backend() == "pytorch":
-    from rlgraph.utils.pytorch_util import SMALL_NUMBER_TORCH, LOG_SMALL_NUMBER
     import torch
+    from rlgraph.utils.pytorch_util import SMALL_NUMBER_TORCH, LOG_SMALL_NUMBER
 
 
 # TODO: Create a more primitive base class only defining the API-methods.
