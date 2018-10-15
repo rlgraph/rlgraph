@@ -92,8 +92,10 @@ class MetaGraphBuilder(Specifiable):
                     # A var-positional param.
                     if root_component.api_method_inputs[param_name] == "*flex":
                         assert use_named is False
-                        in_ops_records.extend([DataOpRecord(position=i + j)
-                                               for j in range(len(force_list(input_spaces[param_name])))])
+                        if param_name in input_spaces:
+                            in_ops_records.extend([
+                                DataOpRecord(position=i + j) for j in range(len(force_list(input_spaces[param_name])))
+                            ])
                     # A keyword param.
                     elif root_component.api_method_inputs[param_name] == "**flex":
                         if param_name in input_spaces:

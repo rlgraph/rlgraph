@@ -17,6 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
+import random
+
 from rlgraph import get_backend
 from rlgraph.utils import root_logger
 from rlgraph.utils.input_parsing import parse_execution_spec
@@ -65,6 +68,9 @@ class ComponentTest(object):
             auto_build (Optional[bool]): If false, build has to be triggered manually to eval build stats.
         """
         self.seed = seed
+        np.random.seed(seed)
+        random.seed(seed)
+
         if logging_level is not None:
             root_logger.setLevel(logging_level)
 
@@ -125,9 +131,6 @@ class ComponentTest(object):
 
         # Get the outs ..
         outs = self.graph_executor.execute(*api_method_calls)
-        #
-        #if isinstance(outs, dict) and len(outs) == 1:
-        #    outs = list(outs.values())[0]
 
         #  Optionally do test asserts here.
         if expected_outputs is not None:

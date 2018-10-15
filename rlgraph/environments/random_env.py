@@ -41,12 +41,14 @@ class RandomEnv(Environment):
         self.terminal_prob = terminal_prob
 
         if deterministic is True:
-            self.seed(10)
+            np.random.seed(10)
+        self.last_state = np.random.get_state()
 
     def seed(self, seed=None):
         if seed is None:
             seed = time.time()
         np.random.seed(seed)
+        self.last_state = np.random.get_state()
         return seed
 
     def reset(self):
@@ -59,8 +61,16 @@ class RandomEnv(Environment):
         if actions is not None:
             assert self.action_space.contains(actions), \
                 "ERROR: Given action ({}) in step is not part of action Space ({})!".format(actions, self.action_space)
-        return self.state_space.sample(), self.reward_space.sample(), \
-            np.random.choice([True, False], p=[self.terminal_prob, 1.0 - self.terminal_prob]), None
+
+        # Set the seed to the last observed state for this instance.
+        np.random.set_state(self.last_state)
+        # Do the random sampling (using numpy).
+        state = self.state_space.sample()
+        reward = self.reward_space.sample()
+        terminal = np.random.choice([True, False], p=[self.terminal_prob, 1.0 - self.terminal_prob])
+        # Store the current state of the RNG.
+        self.last_state = np.random.get_state()
+        return state, reward, terminal, None
 
     def step_for_env_stepper(self, actions=None):
         ret = self.step(actions)

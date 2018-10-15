@@ -226,7 +226,7 @@ class GraphBuilder(Specifiable):
             Set[DataOpRecord]: A set of DataOpRecords with which we should start the building
                 process.
         """
-        for api_method_name, (in_op_records, _) in self.api.items():
+        for api_method_name, (in_op_records, _) in sorted(self.api.items()):
             api_method_rec = self.root_component.api_methods[api_method_name]
             spaces = list()
             for param_name in api_method_rec.input_names:
@@ -857,7 +857,7 @@ class GraphBuilder(Specifiable):
                         # Assert that next-record's `previous` field points back to op_rec.
                         assert next_op_rec.previous is op_rec, \
                             "ERROR: Op-rec {} in meta-graph has {} as next, but {}'s previous field points to {}!". \
-                                format(op_rec, next_op_rec, next_op_rec, next_op_rec.previous)
+                            format(op_rec, next_op_rec, next_op_rec, next_op_rec.previous)
                         # If not last op in this API-method -> continue.
                         if next_op_rec.is_terminal_op is False:
                             assert next_op_rec.op is None or is_constant(next_op_rec.op)
