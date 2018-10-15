@@ -29,6 +29,7 @@ RLgraph's documentation
 
    readme_link.rst
    intro.rst
+   spaces.rst
    how_to_build_an_algorithm_with_rlgraph.rst
    how_to_code_against_rlgraph.rst
    reference/index.rst
