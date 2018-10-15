@@ -21,7 +21,6 @@ import numpy as np
 import time
 import unittest
 
-from rlgraph.environments import DeepmindLabEnv
 from rlgraph.spaces.int_box import IntBox
 
 
@@ -30,6 +29,12 @@ class TestDeepmindLabEnv(unittest.TestCase):
     Tests creation, resetting and stepping through a deepmind Lab Env.
     """
     def test_deepmind_lab_env(self):
+        try:
+            from rlgraph.environments import DeepmindLabEnv
+        except ModuleNotFoundError:
+            print("Deepmind Lab not installed -> skipping this test case.")
+            return
+
         frameskip = 4
         env = DeepmindLabEnv("seekavoid_arena_01", observations=["RGB_INTERLEAVED", "MAP_FRAME_NUMBER"],
                              frameskip=frameskip)
@@ -68,6 +73,12 @@ class TestDeepmindLabEnv(unittest.TestCase):
         print("Accumulated Reward: ".format(accum_reward))
 
     def test_deepmind_lab_env_performance(self):
+        try:
+            from rlgraph.environments import DeepmindLabEnv
+        except ModuleNotFoundError:
+            print("Deepmind Lab not installed -> skipping this test case.")
+            return
+
         frameskip = 4
         env = DeepmindLabEnv("seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
                              frameskip=frameskip, seed=1)
