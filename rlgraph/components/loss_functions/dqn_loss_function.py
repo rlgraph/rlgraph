@@ -189,18 +189,18 @@ class DQNLossFunction(LossFunction):
                 terminals = terminals.byte()
             # Add batch dim in case of single sample.
             if q_values_s.dim() == 1:
-                #pass
                 q_values_s = q_values_s.unsqueeze(-1)
                 actions = actions.unsqueeze(-1)
                 rewards = rewards.unsqueeze(-1)
                 terminals = terminals.unsqueeze(-1)
                 q_values_sp = q_values_sp.unsqueeze(-1)
                 qt_values_sp = qt_values_sp.unsqueeze(-1)
-                importance_weights = importance_weights.unsqueeze(-1)
+                if self.importance_weights:
+                    importance_weights = importance_weights.unsqueeze(-1)
 
             # Make sure the target policy's outputs are treated as constant when calculating gradients.
             qt_values_sp = qt_values_sp.detach()
-
+            print("qt_values_sp", qt_values_sp)
             if self.double_q:
                 # For double-Q, we no longer use the max(a')Qt(s'a') value.
                 # Instead, the a' used to get the Qt(s'a') is given by argmax(a') Q(s',a') <- Q=q-net, not target net!
