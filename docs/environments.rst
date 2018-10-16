@@ -24,25 +24,25 @@ The generic reinforcement learning problem can be broken down into the following
 This sequence is also often referred to as a Markov Decision Process (MDP). An environment describes a particular
 MDP:
 
-- An agent that "lives" in some environment observes the current state of that environment. The state could be \
-   anything from a simple x/y position tuple of the agent to an image of a camera (that the agent has \
-   access to) or a line of text from the agent's chat partner (the agent is a chat bot). The nature of this \
-   state signal - its data type and shape - is called the "state space".
+- An agent that "lives" in some environment observes the current state of that environment. The state could be
+  anything from a simple x/y position tuple of the agent to an image of a camera (that the agent has
+  access to) or a line of text from the agent's chat partner (the agent is a chat bot). The nature of this
+  state signal - its data type and shape - is called the "state space".
 
-- Based on that state observation, the agent now picks an action. The environment dictates from which space this \
-   action may be chosen. For example, one could think of a computer game environment, in which an agent has to \
-   move through a \
-   2D maze and can pick the actions up, down, left, and right at each time step. This space from which to chose is \
-   called the "action space". In RLgraph, both state- and action spaces are usually given by the environment.
+- Based on that state observation, the agent now picks an action. The environment dictates from which space this
+  action may be chosen. For example, one could think of a computer game environment, in which an agent has to
+  move through a
+  2D maze and can pick the actions up, down, left, and right at each time step. This space from which to chose is
+  called the "action space". In RLgraph, both state- and action spaces are usually given by the environment.
 
-- The chosen action is now executed on the environment (e.g. the agent decided to move left) and the environment \
-   changes because of that action. This change is described by the transition function :math:`P(S'|S,A)`, which \
-   outputs the probability for ending up in next state `S'` given that the agent chose action `A` after having \
-   observed state `S`.
+- The chosen action is now executed on the environment (e.g. the agent decided to move left) and the environment
+  changes because of that action. This change is described by the transition function :math:`P(S'|S,A)`, which
+  outputs the probability for ending up in next state `S'` given that the agent chose action `A` after having
+  observed state `S`.
 
-- Besides producing a next state (`S'`), the environment also emits a reward signal (`R`), which is determined by \
-   the reward function :math:`R(S'|S,A)`, which describes the expected reward when reaching state `S'` after having \
-   chosen action `A` in (the previous) state `S`.
+- Besides producing a next state (`S'`), the environment also emits a reward signal (`R`), which is determined by
+  the reward function :math:`R(S'|S,A)`, which describes the expected reward when reaching state `S'` after having
+  chosen action `A` in (the previous) state `S`.
 
 .. figure:: images/mdp_basic_concept.png
    :alt: The basic cycle in reinforcement learning.
@@ -51,13 +51,13 @@ MDP:
    The basic cycle in reinforcement learning. (source:
    `Reinforcement Learning - An Introduction - 2nd Edition <https://https://www.amazon.com/dp/0262039249/>`_)
 
-- We now start this procedure again, using `S'` as our \
-   new observation. We pick another action, change the environment through that action (transition function `P`),
-   observe the next state (`S''`) and receive another reward (:math:`R_{t+1}`), and so on and so forth (see figure above).
+- We now start this procedure again, using `S'` as our
+  new observation. We pick another action, change the environment through that action (transition function `P`),
+  observe the next state (`S''`) and receive another reward (:math:`R_{t+1}`), and so on and so forth (see figure above).
 
-- The collected rewards (:math:`R_t`) can be used by the agent for learning to act smarter, in fact the reinforcement \
-   learning incentive is to pick actions in such a way as to maximize the accumulated reward over some amount of \
-   time (usually some episode, after which the environment must be reset to some initial state).
+- The collected rewards (:math:`R_t`) can be used by the agent for learning to act smarter, in fact the reinforcement
+  learning incentive is to pick actions in such a way as to maximize the accumulated reward over some amount of
+  time (usually some episode, after which the environment must be reset to some initial state).
 
 
 RLgraph's environment adapters.
