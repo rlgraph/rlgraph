@@ -27,9 +27,33 @@ The generic reinforcement learning problem can be broken down into the following
    access to) or a line of text from the agent's chat partner (think: the agent is a chat bot). The nature of this \
    state signal (its data type and shape) is called the "state space".
 
-- Based on that state observation, the agent now picks an action. The environment dictates from which space this action may be chosen. For example, one could think of a computer game, in which an agent has to move through a 2D maze and can pick the actions up, down, left, and right at each time step. This space from which to chose is called the "action space". In RLgraph, both state- and action space are usually given by the environment.
-- The chosen action is now executed on the environment (e.g. the agent decided to move left) and the environment changes because of that action. This change is described by the transition function :math:`P(s'|s,a)`, which outputs the probability for ending up in next state `s'` given that the agent chose action `a` after having observed state `s`.
--
+- Based on that state observation, the agent now picks an action. The environment dictates from which space this \
+   action may be chosen. For example, one could think of a computer game, in which an agent has to move through a \
+   2D maze and can pick the actions up, down, left, and right at each time step. This space from which to chose is \
+   called the "action space". In RLgraph, both state- and action space are usually given by the environment.
+
+- The chosen action is now executed on the environment (e.g. the agent decided to move left) and the environment \
+   changes because of that action. This change is described by the transition function :math:`P(s'|s,a)`, which \
+   outputs the probability for ending up in next state `s'` given that the agent chose action `a` after having \
+   observed state `s`.
+
+- On top of producing a next state (`s'`), the environment also emits a reward signal, which is determined by \
+   the reward function :math:`R(s'|s,a)`, which describes the expected reward when reaching state `s'` after having \
+   chosen action `a` in (the previous) state `s`.
+
+.. figure:: images/mdp_basic_concept.png
+   :alt: The basic cycle in reinforcement learning.
+
+   The basic cycle in reinforcement learning.
+
+- We now start this procedure again, using `s'` as our \
+   new observation. We pick another action, change the environment through that action (transition function `P`),
+   observe the next state (`s''`) and receive another reward, and so on and so forth (see figure above).
+
+- The collected rewards (`r`) can be used by the agent for learning to act smarter, in fact the reinforcement \
+   learning incentive is to pick actions in such a way as to maximize the accumulated reward over some amount of \
+   time (usually some episode, after which the environment must be reset to some initial state).
+
 
 RLgraph's environment adapters.
 -------------------------------
@@ -50,8 +74,11 @@ learning research. It contains the famous set of Atari 2600 games (each game has
 simple text-rendered grid-worlds, a set of robotics tasks, continuous control tasks (via the MuJoCO physics simulator),
 and many others.
 
-.. image:: images/mujoco_environment.png
-    :alt: The "Ant-v2" environment of the many MuJoCo-simulator tasks of the OpenAI Gym.
+.. figure:: images/mujoco_environment.png
+   :alt: The "Ant-v2" environment of the many MuJoCo-simulator tasks of the OpenAI Gym.
+   :scale: 70%
+
+   Above: The "Ant-v2" environment of the many MuJoCo-simulator tasks of the OpenAI Gym.
 
 RLgraph's OpenAIGymEnv class serves as an adapter between RLgraph code and any of these openAI Gym
 environments. For example, in order to have your agent learn how to play Breakout from image pixels, you would create
@@ -80,8 +107,11 @@ Deepmind Lab
 RL research. It's a fully customizable suite of 3D environments (including mazes and other interesting worlds),
 which are usually navigated by the agent through a 1st person's perspective.
 
-.. image:: images/dm_lab_environment.png
-    :alt: The "Nav Maze Arena" environment of the DM Lab.
+.. figure:: images/dm_lab_environment.png
+   :alt: The "Nav Maze Arena" environment of the DM Lab.
+   :scale: 80%
+
+   Above: The "Nav Maze Arena" environment of the DM Lab.
 
 Different state observation items can be configured as needed at environment construction time, e.g. an image
 capturing the 1st person view from inside the
