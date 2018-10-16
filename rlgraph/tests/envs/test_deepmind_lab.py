@@ -83,8 +83,6 @@ class TestDeepmindLabEnv(unittest.TestCase):
         env = DeepmindLabEnv("seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
                              frameskip=frameskip, seed=1)
 
-        #random_state = np.random.RandomState(seed=1)
-
         # Simple test runs with fixed actions.
         num_steps = 1000
         s = env.reset()

@@ -30,8 +30,11 @@ RLgraph's documentation
    readme_link.rst
    intro.rst
    spaces.rst
+   environments.rst
+   components.rst
+   how_to_write_your_own_component.rst
+   agents.rst
    how_to_build_an_algorithm_with_rlgraph.rst
-   how_to_code_against_rlgraph.rst
    reference/index.rst
 
 

@@ -17,10 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from six.moves import xrange as range_
-
 import gym
 import numpy as np
+from six.moves import xrange as range_
 import time
 
 from rlgraph.utils.rlgraph_errors import RLGraphError
