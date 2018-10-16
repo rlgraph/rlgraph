@@ -14,8 +14,8 @@
    :scale: 25%
    :alt:
 
-How to Write Our Own Custom Components.
-=======================================
+How to Write Our Own Custom Component
+=====================================
 
 A Simple Single-Value Memory Component
 --------------------------------------

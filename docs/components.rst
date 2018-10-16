@@ -89,7 +89,7 @@ For example:
     # inside some component class ...
     ...
     @rlgraph_api
-    def my_api_method(self, a, b=5, c=None)
+    def my_api_method(self, a, b=5, c=None):
         # do and return something
 
 Calling the above API-method (e.g. from its parent component) requires the call argument `a` to be provided, whereas
@@ -131,5 +131,35 @@ own custom component.
 Graph Functions
 +++++++++++++++
 
-So far, we have only covered the
+Every component serves a certain computation purpose within a machine learning model. A neural network layer maps
+input data to output data via, for example, a matrix-matrix multiplication (and adding maybe some bias). An optimizer
+calculates the gradient of a loss function over the weights of a trainable layer and applies the resulting gradients
+in a certain way to these weights. All these calculation steps happen inside a component's graph functions, the
+only place in RLgraph, were we can find backend specific code, such as calls to tensorflow's static graph building
+functions or computations on pytorch tensors.
+
+Unlike API-methods, graph functions can only be called from within the same component that owns them (not by parents
+or grandparents of the component). These calls happen from within the component's different API-methods (similar to
+calling another API-method).
+
+Graph functions are - similar to API-methods - regular python class methods, but must be tagged with the `@graph_fn`
+decorator as follows:
+
+.. code-block:: python
+
+    # inside some component class ...
+    ...
+    @graph_fn
+    def _graph_fn_do_some_computation(self, a, b):
+        # All backend-specific code in RLgraph goes into graph functions.
+        if get_backend() == "tf":
+            # do some computation in tf.
+            some_result = tf.add(a, b)
+
+        elif get_backend() == "pytorch":
+            # do some computation in pytorch.
+            some_result = a + b
+
+        return some_result
+
 
