@@ -170,6 +170,7 @@ class NeuralNetwork(Stack):
                 layer_objects.append(component.layer)
 
                 # Append activation fn if needed.
+                # N.b. linear returns None here.
                 if component.activation_fn is not None:
                     layer_objects.append(component.activation_fn)
             else:

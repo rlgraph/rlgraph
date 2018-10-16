@@ -93,7 +93,7 @@ def get_activation_function(activation_function=None, *other_parameters):
             return activation_function
         elif activation_function == "linear":
             # Do nothing.
-            return lambda t: t
+            return None
         # Rectifier linear unit (ReLU) : 0 if x < 0 else x
         elif activation_function == "relu":
             return nn.ReLU()
