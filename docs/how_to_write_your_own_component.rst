@@ -14,8 +14,20 @@
    :scale: 25%
    :alt:
 
-How to Write Our Own Custom Component
-=====================================
+How to Write Your Own Custom Component
+======================================
+
+In the following, we will build in RLgraph an entire component from scratch, including its API-methods, graph
+functions, and variable generating code.
+Our component, once done, will look as follows:
+
+We are building a simplistic memory that holds a single scalar floating point value. Clients of the component will be
+able to read that value via the API-method `get_value`, overwrite the value via `set_value`, and do some simple
+calculation via `get_value_plus_n` (which adds some given number to the current value of the variable and returns
+the result).
+
+
+
 
 A Simple Single-Value Memory Component
 --------------------------------------

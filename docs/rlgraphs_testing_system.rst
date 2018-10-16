@@ -10,38 +10,30 @@
    limitations under the License.
    ============================================================================
 
-.. rlgraph documentation master file, created by
-   sphinx-quickstart on Mon Oct  1 09:55:20 2018.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 .. image:: images/rlcore-logo-full.png
    :scale: 25%
    :alt:
 
-RLgraph's documentation
-=======================
+How to Test Your Components
+===========================
 
-**RLgraph is a library for designing flexible reinforcement learning graphs**
-
-.. toctree::
-   :maxdepth: 2
-
-   README <https://github.com/rlgraph/rlgraph/blob/master/README.md>
-   intro.rst
-   spaces.rst
-   environments.rst
-   components.rst
-   how_to_write_your_own_component.rst
-   agents.rst
-   how_to_build_an_algorithm_with_rlgraph.rst
-   rlgraphs_testing_system.rst
-   reference/index.rst
+Here we will show you, how one can very easily test a single component via RLgraph's testing system.
+As an example, we will use our custom component built from scratch in
+`this chapter here <how_to_write_your_own_component.rst>`_.
 
 
-Indices and tables
-==================
+Writing a New Test Case with Python's Unittest Module
+-----------------------------------------------------
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+
+Test 1: Writing a New Value
++++++++++++++++++++++++++++
+
+
+Test 2: Retrieving the Value
+++++++++++++++++++++++++++++
+
+
+Test 3: Testing for the Correct Computation Results
++++++++++++++++++++++++++++++++++++++++++++++++++++
+

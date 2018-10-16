@@ -48,7 +48,7 @@ MDP:
    :alt: The basic cycle in reinforcement learning.
    :scale: 60%
 
-   The basic cycle in reinforcement learning. (source:
+   Above: The basic cycle in reinforcement learning. |br| (source:
    `Reinforcement Learning - An Introduction - 2nd Edition <https://https://www.amazon.com/dp/0262039249/>`_)
 
 - We now start this procedure again, using `S'` as our
@@ -132,4 +132,10 @@ order to get it up and running.
 Simple Grid Worlds
 ++++++++++++++++++
 
-Grid worlds are great to quickly test learning capabilities of our agents.
+Grid worlds are a great way to quickly test the learning capabilities of our agents. They are simple worlds with square
+fields on which an agent can move up, down, left or right. There are walls, through which an agent cannot move,
+fire, on which a negative reward is collected, a starting state, from which the agent starts after a reset, and
+a goal state, which the agent has to reach in order to end the episode and to collect a large reward.
+RLgraph comes with its own GridWorld environment class that can be customized in its map (dimensions, locations of
+walls, etc..), the transition- and the reward function.
+
