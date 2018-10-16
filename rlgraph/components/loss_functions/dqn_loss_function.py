@@ -200,7 +200,6 @@ class DQNLossFunction(LossFunction):
 
             # Make sure the target policy's outputs are treated as constant when calculating gradients.
             qt_values_sp = qt_values_sp.detach()
-            print("qt_values_sp", qt_values_sp)
             if self.double_q:
                 # For double-Q, we no longer use the max(a')Qt(s'a') value.
                 # Instead, the a' used to get the Qt(s'a') is given by argmax(a') Q(s',a') <- Q=q-net, not target net!
@@ -211,7 +210,7 @@ class DQNLossFunction(LossFunction):
                 qt_sp_ap_values = torch.sum(qt_values_sp * one_hot, dim=-1)
             else:
                 # Qt(s',a') -> Use the max(a') value (from the target network).
-                qt_sp_ap_values = torch.max(qt_values_sp, dim=-1)
+                qt_sp_ap_values = torch.max(qt_values_sp)
 
             # Make sure the rewards vector (batch) is broadcast correctly.
             for _ in range(get_rank(qt_sp_ap_values) - 1):
