@@ -404,4 +404,4 @@ def convert_param(param, requires_grad):
             # Only floats can require grad.
             return torch.tensor(param, dtype=convert_type, requires_grad=requires_grad)
         else:
-            torch.tensor(param, dtype=convert_type)
+            return torch.tensor(param, dtype=convert_type)

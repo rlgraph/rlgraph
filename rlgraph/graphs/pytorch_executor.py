@@ -76,10 +76,10 @@ class PyTorchExecutor(GraphExecutor):
             build_times=build_times,
         )
 
-    def execute(self, *api_methods):
+    def execute(self, *api_method_calls):
         # Have to call each method separately.
         ret = []
-        for api_method in api_methods:
+        for api_method in api_method_calls:
             if api_method is None:
                 continue
             elif isinstance(api_method, (list, tuple)):
