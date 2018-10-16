@@ -22,22 +22,14 @@ What is an environment?
 
 The generic reinforcement learning problem can be broken down into the following ever repeating sequence of steps:
 
-- An agent that "lives" in some environment observes the current state of that environment. The state could be anything
-   from something simple like the x/y position of the agent to an image of a camera (that the agent has access to) or
-   a line of text from the agent's chat partner (think: the agent is a chat bot). The nature of this state signal (its
-   data type and shape) is called the "state space".
+- An agent that "lives" in some environment observes the current state of that environment. The state could be \
+   anything from something simple like the x/y position of the agent to an image of a camera (that the agent has \
+   access to) or a line of text from the agent's chat partner (think: the agent is a chat bot). The nature of this \
+   state signal (its data type and shape) is called the "state space".
 
-- Based on that state observation, the agent now picks an action. The environment dictates from which space this
-   action may be chosen. For example, one could think of a computer game, in which an agent has to move through
-   a 2D maze and can pick the actions up, down, left, and right at each time step. This space from which to chose is called
-   the "action space". In RLgraph, both state- and action space are usually given by the environment.
-
-- The chosen action is now executed on the environment (e.g. the agent decided to move left) and the environment
-   changes because of that action. This change is described by the transition function :math:`P(s'|s,a)`, which outputs
-   the probability for ending up in next state `s'` given that the agent chose action `a` after having observed state
-   `s`.
-
-
+- Based on that state observation, the agent now picks an action. The environment dictates from which space this action may be chosen. For example, one could think of a computer game, in which an agent has to move through a 2D maze and can pick the actions up, down, left, and right at each time step. This space from which to chose is called the "action space". In RLgraph, both state- and action space are usually given by the environment.
+- The chosen action is now executed on the environment (e.g. the agent decided to move left) and the environment changes because of that action. This change is described by the transition function :math:`P(s'|s,a)`, which outputs the probability for ending up in next state `s'` given that the agent chose action `a` after having observed state `s`.
+-
 
 RLgraph's environment adapters.
 -------------------------------
@@ -56,7 +48,12 @@ OpenAI Gym
 The `OpenAI Gym <https://gym.openai.com/envs/>`_ standard is the most widely used type of environment in reinforcement
 learning research. It contains the famous set of Atari 2600 games (each game has a RAM state- and a 2D image version),
 simple text-rendered grid-worlds, a set of robotics tasks, continuous control tasks (via the MuJoCO physics simulator),
-and many others. RLgraph's OpenAIGymEnv class serves as an adapter between RLgraph code and any of these openAI Gym
+and many others.
+
+.. image:: images/mujoco_environment.png
+    :alt: The "Ant-v2" environment of the many MuJoCo-simulator tasks of the OpenAI Gym.
+
+RLgraph's OpenAIGymEnv class serves as an adapter between RLgraph code and any of these openAI Gym
 environments. For example, in order to have your agent learn how to play Breakout from image pixels, you would create
 the environment under RLgraph via:
 
@@ -75,13 +72,24 @@ the environment under RLgraph via:
             breakout_env.reset()
 
 
+
 Deepmind Lab
 ++++++++++++
 
-`Deepmind Lab <http://https://github.com/deepmind/lab>`_ is Google deepmind's environment of choice for advanced
-RL research. It's a fully customizable suite of 3D maze-like environments, which are usually navigated by the agent
-in 1st person perspective. Different state observation items can be added as needed, e.g. an image capturing the
-1st person view from inside the maze or a textual input offering instructions on where to go next (e.g. "blue ladder").
-When using many state observation items, the state space is a Dict with the keys describing the nature of the
-observation item (e.g. "RGB_INTERLEAVED" for an RGB image).
+`Deepmind Lab <http://https://github.com/deepmind/lab>`_ is Google DeepMind's environment of choice for their advanced
+RL research. It's a fully customizable suite of 3D environments (including mazes and other interesting worlds),
+which are usually navigated by the agent through a 1st person's perspective.
 
+.. image:: images/dm_lab_environment.png
+    :alt: The "Nav Maze Arena" environment of the DM Lab.
+
+Different state observation items can be configured as needed at environment construction time, e.g. an image
+capturing the 1st person view from inside the
+maze or a textual input offering instructions on where to go next (e.g. "blue ladder").
+When using more than one state observation items, the Rlgraph state space will be a Dict with the keys describing the
+nature of the different observation items (e.g. "RGB_INTERLEAVED" for an RGB image, "INSTR" for the instruction string).
+
+DM Lab itself (and hence also its RLgraph adapter) is somewhat hard to install and only runs on Linux and Mac.
+For details, you can take a look at our
+`Docker file <https://github.com/rlgraph/rlgraph/blob/master/docker/Dockerfile>`_ to see which steps are required in
+order to get it up and running.
