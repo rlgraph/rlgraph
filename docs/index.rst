@@ -25,7 +25,7 @@ RLgraph's documentation
 **RLgraph is a library for designing flexible reinforcement learning graphs**
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 2
 
    readme_link.rst
    intro.rst
