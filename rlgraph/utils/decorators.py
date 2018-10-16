@@ -24,7 +24,7 @@ import time
 
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils.op_records import GraphFnRecord, APIMethodRecord, DataOpRecord, DataOpRecordColumnIntoAPIMethod, \
-    DataOpRecordColumnFromAPIMethod, DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn, get_call_param_name
+    DataOpRecordColumnFromAPIMethod, DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphAPICallParamError
 from rlgraph.utils import util
 
@@ -281,12 +281,15 @@ def graph_fn(graph_fn=None, *, returns=None,
 
     def decorator_func(wrapped_func):
         def _graph_fn_wrapper(self, *args, **kwargs):
-            return graph_fn_wrapper(
-                self, wrapped_func, returns, dict(
-                    flatten_ops=flatten_ops, split_ops=split_ops,
-                    add_auto_key_as_first_param=add_auto_key_as_first_param
-                ), *args, **kwargs
-            )
+            if self.execution_mode == "define_by_run":
+                return wrapped_func(self, *args, **kwargs)
+            else:
+                return graph_fn_wrapper(
+                    self, wrapped_func, returns, dict(
+                        flatten_ops=flatten_ops, split_ops=split_ops,
+                        add_auto_key_as_first_param=add_auto_key_as_first_param
+                    ), *args, **kwargs
+                )
 
         graph_fn_rec = GraphFnRecord(
             func=wrapped_func, wrapper_func=_graph_fn_wrapper, is_class_method=True,

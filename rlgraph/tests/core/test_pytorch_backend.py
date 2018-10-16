@@ -21,9 +21,10 @@ import logging
 import unittest
 import time
 
+from rlgraph import get_backend
 from rlgraph.agents import DQNAgent, ApexAgent
 from rlgraph.components import Policy, MemPrioritizedReplay
-from rlgraph.environments import Environment, OpenAIGymEnv
+from rlgraph.environments import OpenAIGymEnv
 from rlgraph.spaces import FloatBox, IntBox, Dict, BoolBox
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path
@@ -229,6 +230,8 @@ class TestPytorchBackend(unittest.TestCase):
     def test_act(self):
         env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
         agent_config = config_from_path("configs/ray_apex_for_pong.json")
+        if get_backend() == "pytorch":
+            agent_config["memory_spec"]["type"] = "mem_prioritized_replay"
         agent = DQNAgent.from_spec(
             # Uses 2015 DQN parameters as closely as possible.
             agent_config,
