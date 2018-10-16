@@ -22,9 +22,6 @@ from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.components.component import Component
 from rlgraph.utils.util import force_tuple, force_list
 
-if get_backend() == "pytorch":
-    import torch
-
 
 class Stack(Component):
     """
@@ -101,76 +98,37 @@ class Stack(Component):
                 else:
                     @rlgraph_api(name=stack_api_method_name, component=self)
                     def method(self_, *inputs, **kwargs):
-                        if get_backend() == "pytorch" and self.execution_mode == "define_by_run":
-                            # Avoid jumping back between layers and calls at runtime.
-                            return self.fast_path_exec(inputs)  # TODO: what about the **kwargs?
-                        else:
-                            args_ = inputs
-                            kwargs_ = kwargs
-                            for i, sub_component in enumerate(self_.sub_components.values()):  # type: Component
-                                # TODO: python-Components: For now, we call each preprocessor's graph_fn
-                                #  directly (assuming that inputs are not ContainerSpaces).
-                                if self_.backend == "python" or get_backend() == "python":
-                                    graph_fn = getattr(sub_component, "_graph_fn_" + components_api_method_name)
-                                    #if sub_component.api_methods[components_api_method_name].add_auto_key_as_first_param:
-                                    #    results = graph_fn("", *args_)  # TODO: kwargs??
-                                    #else:
-                                    results = graph_fn(*args_)
-                                elif get_backend() == "pytorch":
-                                    # Do NOT convert to tuple, has to be in unpacked again immediately.n
-                                    results = getattr(sub_component, components_api_method_name)(*force_list(args_))
-                                else:  #if get_backend() == "tf":
-                                    results = getattr(sub_component, components_api_method_name)(*args_, **kwargs_)
+                        args_ = inputs
+                        kwargs_ = kwargs
+                        for i, sub_component in enumerate(self_.sub_components.values()):  # type: Component
+                            # TODO: python-Components: For now, we call each preprocessor's graph_fn
+                            #  directly (assuming that inputs are not ContainerSpaces).
+                            if self_.backend == "python" or get_backend() == "python":
+                                graph_fn = getattr(sub_component, "_graph_fn_" + components_api_method_name)
+                                #if sub_component.api_methods[components_api_method_name].add_auto_key_as_first_param:
+                                #    results = graph_fn("", *args_)  # TODO: kwargs??
+                                #else:
+                                results = graph_fn(*args_)
+                            elif get_backend() == "pytorch":
+                                # Do NOT convert to tuple, has to be in unpacked again immediately.n
+                                results = getattr(sub_component, components_api_method_name)(*force_list(args_))
+                            else:  #if get_backend() == "tf":
+                                results = getattr(sub_component, components_api_method_name)(*args_, **kwargs_)
 
-                                # Recycle args_, kwargs_ for reuse in next sub-Component's API-method call.
-                                if isinstance(results, dict):
-                                    args_ = ()
-                                    kwargs_ = results
-                                else:
-                                    args_ = force_tuple(results)
-                                    kwargs_ = {}
-
-                            if args_ == ():
-                                return kwargs_
-                            elif len(args_) == 1:
-                                return args_[0]
+                            # Recycle args_, kwargs_ for reuse in next sub-Component's API-method call.
+                            if isinstance(results, dict):
+                                args_ = ()
+                                kwargs_ = results
                             else:
-                                return args_
+                                args_ = force_tuple(results)
+                                kwargs_ = {}
 
-        # Build fast-path execution method for pytorch / eager.
-        if get_backend() == "pytorch":
-            def fast_path_exec(*inputs):
-                inputs = inputs[0]
-                forward_inputs = []
-                for v in inputs:
-                    if v is not None:
-                        if isinstance(v, tuple):
-                            # Unitary tuples
-                            forward_inputs.append(v[0])
+                        if args_ == ():
+                            return kwargs_
+                        elif len(args_) == 1:
+                            return args_[0]
                         else:
-                            forward_inputs.append(v)
-                result = self.stack_obj.forward(*forward_inputs)
-                # Problem: Not everything in the neural network stack is a true layer.
-                for c in self.non_layer_components:
-                    result = getattr(c, "apply")(*force_list(result))
-                return result
-            self.fast_path_exec = fast_path_exec
-
-    def _post_define_by_run_build(self):
-        # Layer objects only exist after build - define torch neural network.
-        layer_objects = []
-        self.non_layer_components = []
-        for component in self.sub_components.values():
-            if hasattr(component, "layer"):
-                # Store Layer object itself.
-                layer_objects.append(component.layer)
-
-                # Append activation fn if needed.
-                if component.activation_fn is not None:
-                    layer_objects.append(component.activation_fn)
-            else:
-                self.non_layer_components.append(component)
-        self.stack_obj = torch.nn.Sequential(*layer_objects)
+                            return args_
 
     @classmethod
     def from_spec(cls, spec=None, **kwargs):
