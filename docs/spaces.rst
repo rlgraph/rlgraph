@@ -53,13 +53,12 @@ An example rank-3 tensor is shown in the figure below.
    Above: Example for a rank-3 tensor (e.g. an RGB-image).
 
 A Space's rank is often confused with it's dimensions. In RLgraph (as well as e.g. in tensorflow), we speak of
-dimensions only as the size of each rank (see figure above): In the figure above, the dimensions are 4
+dimensions only as the size of each rank. Compare this to the figure above: The dimensions for each rank are 4
 (1st rank), 3 (2nd rank), and 3 (3rd rank).
 
-Another often used term for the set of all dimension numbers is the "shape" and it's often provided as a tuple of
-numbers. The shape of our image is (80, 80, 3) and
-this shape tuple is sufficient to determine both a space's rank (len(shape)) and its dimensions (shape[0], shape[1],
-and shape[2]).
+Another often used term for the set of all dimensionality values is the "shape" and it's often provided as a
+tuple. The shape of our example image is (80, 80, 3) and this shape tuple is sufficient to determine both a space's
+rank (len(shape)) and its dimensions (shape[0], shape[1], and shape[2]).
 
 
 There are two major types of Spaces: BoxSpaces and ContainerSpaces.
@@ -71,8 +70,9 @@ Box Spaces
 A BoxSpace is simply an n-dimensional cube of numbers (or strings), where the numbers must all be of the same data type
 ("dtype" from here on). RLgraph's dtypes are based on the numpy type system and supported types are np.ints (such as
 np.int32 or np.uint8), np.floats (e.g. np.float32), np.bool\_, as well as a box type for String data, which has the
-dtype np.string\_. The dimensionality of a box can be anything from 0D (a single scalar value), 1D (a vector of values),
-2D (a matrix of values), 3D (a cube), to any higher dimensional box.
+dtype np.string\_. The rank of a box can be anything from rank-0 (a single scalar value), rank-1 (a vector of
+values), rank-2 (a matrix of values), rank-3 (a cube), to any higher dimensional box. All tensors shown in the
+figures on top are examples for box-space tensors.
 
 
 Container Spaces
@@ -84,14 +84,31 @@ supported container types are Tuple and Dict.
 A Tuple is an ordered sequence of other Spaces (similar to a python tuple). For example:
 An environment that produces an RGB image and a
 text string at each time step could have the space: Tuple(IntBox(80,80,3, np.uint8), TextBox()).
+
+Another example for a tuple space is shown below:
+
+.. figure:: images/tuple-space.png
+   :alt: Example Tuple space with 3 box-type child-spaces.
+
+   Above: Example Tuple space with 3 box-type child-spaces.
+   *Note* that a Tuple can contain other container spaces in a deeply nested fashion. Shown here is only a
+   relatively simple Tuple with only box spaces as single elements.
+
+
 Another way to describe this space is through a keyed Dict space (similar to python dicts), with the keys
 "image" and "text". For example: Dict({"image": IntBox(80,80,3, np.uint8), "text": TextBox()}).
 
 Containers are fully equivalent to Box Space classes in that they also have shapes and dtypes. However, these are
 represented by heterogeneous tuples. Our Image-and-Text Dict space from above, for example, would have a shape of
 ((80,80,3),()), a rank of (3, 0) and a dtype of (np.uint8, np.string\_).
+
+.. figure:: images/dict-space.png
+   :alt: Example Dict space with 2 keys, each one holding a box-type child-space.
+
+   Above: Example Dict space with 2 keys, each one holding a box-type child-space.
+
 Note here that for Dict spaces, the order of the keys are sorted alphabetically before generating shape, rank and
-dtype tuples. In this case: The "image" key comes before the "text" key. For Tuple spaces this order is given by
+dtype tuples. In this case: "key A" comes before "key Z". For Tuple spaces, this order is given by
 the sequence of sub-Spaces inside the Tuple. Nested Container Spaces (e.g. a Dict inside another Dict) generate
 equally nested shape, rank and dtype tuples.
 
