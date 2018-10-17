@@ -25,17 +25,110 @@ As an example, we will use our custom component built from scratch in
 Writing a New Test Case with Python's Unittest Module
 -----------------------------------------------------
 
+Create a new python file and call it `test_my_component.py`. Then add the following import statements to it:
+
+.. code-block:: python
+
+   import numpy as np
+   import unittest
+
+   from rlgraph.spaces import *
+   from rlgraph.tests import ComponentTest
+
+   # Import our custom component.
+   from my_component import MyComponent
 
 
+And start a unittest.TestCase class stub as follows:
 
-Test 1: Writing a New Value
-+++++++++++++++++++++++++++
+.. code-block:: python
 
+   class TestMyComponent(unittest.TestCase):
 
-Test 2: Retrieving the Value
+       # The user has to provide all input spaces because our component will be the root.
+       # (RLgraph always needs only the root component's input spaces).
+       input_spaces = dict(
+           value=FloatBox(shape=(2,)),  # Our memory will store float vectors of dimension 2.
+           n=float  # <- same as "FloatBox()", same as "FloatBox(shape=())"
+       )
+
+The above code creates a TestCase class and defines the input spaces to our root component (the one we would like to
+test). RLgraph must always know up front the spaces going into the root component (not those of any of the inner
+components) because it has to create the placeholders for any values of future API-method call arguments.
+
+Test 1: Retrieving the Value
 ++++++++++++++++++++++++++++
+
+.. code-block:: python
+
+    def test_read_value(self):
+        # Create an instance of the Component to test.
+        my_component = MyComponent(initial_value=2.0)
+
+        # Create a ComponentTest object.
+        test = ComponentTest(
+            component=my_component,
+            input_spaces=self.input_spaces
+        )
+
+        # Make the API-method call.
+        # Get the current value of the memory (should be all 2.0).
+        # Output values are always numpy arrays.
+        test.test(("get_value"), expected_outputs=np.array([2.0, 2.0]))
+
+
+
+Test 2: Writing a New Value (and then checking it)
+++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Next, we will test overwriting our memory's 2 floating point numbers, then check again their current values.
+
+.. code-block:: python
+
+    def test_write_values(self):
+        # Create an instance of the Component to test.
+        my_component = MyComponent()
+
+        # Create a ComponentTest object.
+        test = ComponentTest(
+            component=my_component,
+            input_spaces=self.input_spaces
+        )
+
+        # Make the API-method call to overwrite the memory's values with the vector [0.5, 0.6].
+        # Note that we do not expect any output from that API-call.
+        test.test(("set_value", np.array([0.5, 0.6])), expected_outputs=None)
+
+        # Now test, whether the new value has actually been written.
+        test.test(("get_value"), expected_outputs=np.array([0.5, 0.6]))
+
 
 
 Test 3: Testing for the Correct Computation Results
 +++++++++++++++++++++++++++++++++++++++++++++++++++
 
+Finally, we test for the correct execution of our "complicated" computation method, the one where we add a constant
+value (via tf.add) to all numbers in the memory.
+
+.. code-block:: python
+
+    def test_computation_plus_n(self):
+        # Create an instance of the Component to test.
+        my_component = MyComponent(initial_value=10.0)
+
+        # Create a ComponentTest object.
+        test = ComponentTest(
+            component=my_component,
+            input_spaces=self.input_spaces
+        )
+
+        # Make the API-method call to add 5.0 to all values (they should all be 10.0 right now)
+        # and expect the result as the return value.
+        test.test(("get_value_plus_n", 5.0), expected_outputs=np.array([15.0, 15.0]))
+
+That's it. Our custom component is now fully tested an operational.
+
+Now that we know (almost) everything about single components, let's take a look at
+`what an RLgraph agent is <agents.html>`_ (a simple shell for a root component), or - if you feel daring -
+skip directly ahead and use all that knowledge on components and already build
+`your first complete learning agent <how_to_build_an_algorithm_with_rlgraph.html>`_ from scratch using RLgraph.

@@ -52,7 +52,7 @@ Environment Stepper
 Multi-GPU-Sync Synchronizer
 +++++++++++++++++++++++++++
 
-.. automodule:: rlgraph.components.optimizers.multi_gpu_synchronizer
+.. automodule:: rlgraph.components.common.multi_gpu_synchronizer
     :members:
     :undoc-members:
     :show-inheritance:
