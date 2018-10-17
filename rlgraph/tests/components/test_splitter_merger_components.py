@@ -27,7 +27,7 @@ from rlgraph.tests import ComponentTest
 
 class TestSplitterMergerComponents(unittest.TestCase):
     """
-    Tests the ContainerSplitter-, TupleSplitter- and DictMerger-Components.
+    Tests the ContainerSplitter-, and DictMerger-Components.
     """
 
     def test_dict_splitter(self):
