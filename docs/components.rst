@@ -14,6 +14,7 @@
    :scale: 25%
    :alt:
 
+
 What is an RLgraph Component?
 =============================
 
@@ -35,7 +36,6 @@ Each component contains:
    :scale: 40%
 
    Above: A DenseLayer component (1) with two API-methods (2), one graph function (3) and two variables (4).
-
 
 - ... any number of so called "Graph Functions", which are special component methods, which contain the actual
   computation code. These are the only places, where you will find backend (tensorflow, pytorch, etc..) specific code.
