@@ -33,7 +33,7 @@ Each component contains:
 
 .. figure:: images/dense_layer_component.png
    :alt: A DenseLayer component (1) with two API-methods (2), one graph function (3) and two variables (kernel and bias) (4).
-   :scale: 50%
+   :scale: 60%
 
    Above: A DenseLayer component (1) with two API-methods (2), one graph function (3) and two variables (kernel and
    bias) (4).

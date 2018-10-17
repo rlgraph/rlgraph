@@ -17,13 +17,15 @@
 How to Test Your Components
 ===========================
 
-Here we will show you, how one can very easily test a single component via RLgraph's testing system.
+Now we will show you, how one can very easily test a single component via RLgraph's testing system.
 As an example, we will use our custom component built from scratch in
 `this chapter here <how_to_write_your_own_component.rst>`_.
 
 
 Writing a New Test Case with Python's Unittest Module
 -----------------------------------------------------
+
+
 
 
 Test 1: Writing a New Value
