@@ -42,11 +42,3 @@ Horovod Optimizer
     :show-inheritance:
 
 
-Multi-GPU-Sync Optimizer
-++++++++++++++++++++++++
-
-.. automodule:: rlgraph.components.optimizers.multi_gpu_sync_optimizer
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
