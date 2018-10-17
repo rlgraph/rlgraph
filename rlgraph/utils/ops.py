@@ -110,16 +110,13 @@ def flatten_op(op, scope_="", list_=None, scope_separator_at_start=False):
         ret = True
 
     if isinstance(op, dict):
-        print("scope_ = ", scope_)
         if scope_separator_at_start:
             scope_ += "/"
         else:
             scope_ = ""
-        print("flattening op.keys = ", op.keys())
         for key in sorted(op.keys()):
             # Make sure we have no double slashes from flattening an already FlattenedDataOp.
             scope = (scope_[:-1] if len(key) == 0 or key[0] == "/" else scope_) + key
-            print("Mapping key {} to scope {}".format(key, scope))
             flatten_op(op[key], scope_=scope, list_=list_, scope_separator_at_start=True)
     elif isinstance(op, tuple):
         if scope_separator_at_start:

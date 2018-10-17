@@ -60,7 +60,7 @@ class MemPrioritizedReplay(Memory):
         # Store our record-space for convenience.
         self.record_space = input_spaces["records"]
         self.record_space_flat = Dict(self.record_space.flatten(
-            custom_scope_separator="-", scope_separator_at_start=False), add_batch_rank=True)
+            custom_scope_separator="/", scope_separator_at_start=False), add_batch_rank=True)
         self.priority_capacity = 1
 
         while self.priority_capacity < self.capacity:
@@ -97,9 +97,8 @@ class MemPrioritizedReplay(Memory):
             for index in indices:
                 # Record is indexed with "/action"
                 record = self.memory_values[index]
-                # TODO Output is "actions" -> This should be handled somewhere centrally?
                 for name in self.record_space_flat.keys():
-                    records[name].append(record["/" + name])
+                    records[name].append(record[name])
 
         else:
             # TODO figure out how to do default handling in pytorch builds.
@@ -120,9 +119,9 @@ class MemPrioritizedReplay(Memory):
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
-        if records is None or get_rank(records['/rewards']) == 0:
+        if records is None or get_rank(records['rewards']) == 0:
             return
-        num_records = len(records['/rewards'])
+        num_records = len(records['rewards'])
 
         if num_records == 1:
             if self.index >= self.size:
