@@ -221,7 +221,7 @@ class Space(Specifiable):
         """
         raise NotImplementedError
 
-    def flatten(self, mapping=None, custom_scope_separator='/', scope_separator_at_start=True,
+    def flatten(self, mapping=None, custom_scope_separator='/', scope_separator_at_start=False,
                 scope_=None, list_=None):
         """
         A mapping function to flatten this Space into an OrderedDict whose only values are
@@ -236,7 +236,7 @@ class Space(Specifiable):
                 Default: '/'.
 
             scope_separator_at_start (bool): Whether to add the scope-separator also at the beginning.
-                Default: True.
+                Default: False.
 
             scope\_ (Optional[str]): For recursive calls only. Used for automatic key generation.
 
@@ -254,7 +254,7 @@ class Space(Specifiable):
         # Are we in the non-recursive (first) call?
         ret = False
         if list_ is None:
-            list_ = list()
+            list_ = []
             ret = True
             scope_ = ""
 
@@ -276,7 +276,7 @@ class Space(Specifiable):
                 Default: '/'.
 
             scope_separator_at_start (bool): Whether to add the scope-separator also at the beginning.
-                Default: True.
+                Default: False.
 
             scope\_ (str): The flat-key to use to store the mapped result in list_.
             list\_ (list): The list to append the mapped results to (under key=`scope_`).

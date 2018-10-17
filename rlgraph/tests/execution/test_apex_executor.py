@@ -45,7 +45,9 @@ class TestApexExecutor(unittest.TestCase):
             save_mode=False
         )
         agent_config = config_from_path("configs/apex_agent_gridworld_for_2x2_grid.json")
-
+        # TODO remove after unified backends
+        if get_backend() == "pytorch":
+            agent_config["memory_spec"]["type"] = "mem_prioritized_replay"
         executor = ApexExecutor(
             environment_spec=env_spec,
             agent_config=agent_config,

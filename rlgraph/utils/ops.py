@@ -85,7 +85,7 @@ class FlattenedDataOp(DataOp, OrderedDict):
     pass
 
 
-def flatten_op(op, scope_="", list_=None):
+def flatten_op(op, scope_="", list_=None, scope_separator_at_start=False):
     """
     Flattens a single ContainerDataOp or a native python dict/tuple into a FlattenedDataOp with auto-key generation.
 
@@ -93,6 +93,8 @@ def flatten_op(op, scope_="", list_=None):
         op (Union[ContainerDataOp,dict,tuple]): The item to flatten.
         scope_ (str): The recursive scope for auto-key generation.
         list_ (list): The list of tuples (key, value) to be converted into the final FlattenedDataOp.
+        scope_separator_at_start (bool): If to prepend a scope separator before the first key in a
+            recursive structure. Default false.
 
     Returns:
         FlattenedDataOp: The flattened representation of the op.
@@ -104,18 +106,29 @@ def flatten_op(op, scope_="", list_=None):
         # Flatten a SingleDataOp -> return FlattenedDataOp with only-key=""
         if not isinstance(op, (ContainerDataOp, dict, tuple)):
             return FlattenedDataOp([("", op)])
-        list_ = list()
+        list_ = []
         ret = True
 
     if isinstance(op, dict):
-        scope_ += "/"
+        print("scope_ = ", scope_)
+        if scope_separator_at_start:
+            scope_ += "/"
+        else:
+            scope_ = ""
+        print("flattening op.keys = ", op.keys())
         for key in sorted(op.keys()):
             # Make sure we have no double slashes from flattening an already FlattenedDataOp.
-            flatten_op(op[key], scope_=(scope_[:-1] if len(key) == 0 or key[0] == "/" else scope_) + key, list_=list_)
+            scope = (scope_[:-1] if len(key) == 0 or key[0] == "/" else scope_) + key
+            print("Mapping key {} to scope {}".format(key, scope))
+            flatten_op(op[key], scope_=scope, list_=list_, scope_separator_at_start=True)
     elif isinstance(op, tuple):
-        scope_ += "/" + FLAT_TUPLE_OPEN
+        if scope_separator_at_start:
+            scope_ += "/" + FLAT_TUPLE_OPEN
+        else:
+            scope_ += "" + FLAT_TUPLE_OPEN
         for i, c in enumerate(op):
-            flatten_op(c, scope_=scope_ + str(i) + FLAT_TUPLE_CLOSE, list_=list_)
+            flatten_op(c, scope_=scope_ + str(i) + FLAT_TUPLE_CLOSE, list_=list_,
+                       scope_separator_at_start=True)
     else:
         assert not isinstance(op, (dict, tuple))
         list_.append((scope_, op))
@@ -152,7 +165,8 @@ def unflatten_op(op):
         current_structure = None
         type_ = None
 
-        op_key_list = op_name[1:].split("/")  # skip 1st char (/)
+        # N.b. removed this because we do not prepend / any more before first key.
+        op_key_list = op_name.split("/")  # skip 1st char (/)
         for sub_key in op_key_list:
             mo = re.match(r'^{}(\d+){}$'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), sub_key)
             if mo:
