@@ -32,12 +32,13 @@ Each component contains:
   can use it.
 
 .. figure:: images/dense_layer_component.png
-   :alt: A DenseLayer component (1) with two API-methods (2), one graph function (3) and two variables (4).
-   :scale: 40%
+   :alt: A DenseLayer component (1) with two API-methods (2), one graph function (3) and two variables (kernel and bias) (4).
+   :scale: 50%
 
-   Above: A DenseLayer component (1) with two API-methods (2), one graph function (3) and two variables (4).
+   Above: A DenseLayer component (1) with two API-methods (2), one graph function (3) and two variables (kernel and
+   bias) (4).
 
-- ... any number of so called "Graph Functions", which are special component methods, which contain the actual
+- ... any number of "graph functions", which are special component methods, which contain the actual
   computation code. These are the only places, where you will find backend (tensorflow, pytorch, etc..) specific code.
 
 - ... any number of variables for the component to use for its computations (graph functions).
@@ -55,10 +56,10 @@ Its most important methods are listed below. For a more detailed overview, pleas
 `Component reference documentation <reference/components/component_base.html>`_.
 
 #. `add_components`: This method is used to add an arbitrary number of sub-components to the component itself.
-#. `check_input_spaces`: Can be used to sanity check the spaces (see the
-   `documentation on RLgraph's Space classes <spaces.rst>`_) of all incoming call arguments
-#. `create_variables`: This method is called automatically by the RLgraph build process and can be implemented
-   in order to create an arbitrary number of variables to use by the component's computation functions
+#. `check_input_spaces`: Can be used to sanity check the incoming spaces (see the
+   `documentation on RLgraph's Space classes <spaces.rst>`_) of all API-method call arguments.
+#. `create_variables`: This method is called automatically by the RLgraph build system and can be implemented
+   in order to create an arbitrary number of variables used by the component's computation functions
    ("graph functions").
 #. `copy`: Copies the component and returns a new Component object that is identical to the original one. This is
    useful, for example, to create a target network as a copy of the main policy network in a DQN-type agent.
@@ -73,7 +74,7 @@ For example, a typical memory component would need an `insert_records` API-metho
 a `get_records` method to retrieve a certain number of already stored records, and maybe a `clear` method to wipe out
 all stored information from the memory.
 
-API-methods are regular class methods, but must be tagged with the `@rlgraph_api` decorator, which can be imported as
+API-methods are normal class methods, but must be tagged with the `@rlgraph_api` decorator, which can be imported as
 follows:
 
 .. code-block:: python
@@ -94,18 +95,24 @@ For example:
 
 Calling the above API-method (e.g. from its parent component) requires the call argument `a` to be provided, whereas
 `b` and `c` are optional arguments. As you may recall from the `spaces chapter <spaces.rst>`_, information in RLgraph
-is passed around between components within fixed space constraints. In fact, each API-method call argumen (`a`, `b`,
+is passed around between components within fixed space constraints. In fact, each API-method call argument (`a`, `b`,
 and `c` in our example above) has a dedicated space after the final graph has been built from all components in it.
-We will explain the
+
+**Important note:** Up until now, if an API-method is called more than once by the component's client(s), the spaces of
+the provided call arguments (e.g. the space of `a`) in the different API-calls have to match. So if in the first
+call, `a` is an IntBox, in the second call, it has to be an IntBox as well.
+This is because of a possible dependency of the component's variables (see below) on these "input-spaces". We
+will try to further loosen this restriction in future releases
+and only require it if RLgraph knows for sure that the space of the argument in question is being used to define
+variables of the component.
 
 
 Variables
 +++++++++
 
-Variables are the data that each component can store for the duration of its existence (which is the lifetime of
-the computation graph). A variable has a fixed data type and shape, hence a fixed Rlgraph space. As a
-matter of fact, variables are often created directly from `Space` instances via the practical `Space.get_variable()`
-method.
+Variables are the data that each component can store for the lifetime of the computation graph. A variable has a
+fixed data type and shape, hence a fixed Rlgraph space. As a matter of fact, variables are often created directly
+from `Space` instances via the practical `Space.get_variable()` method.
 
 Variables can be accessed inside graph functions (see below) and can be read as well as be written to.
 Examples for variables are:
@@ -118,7 +125,7 @@ Examples for variables are:
 
 Variables are created in a component's `create_variables` method, which gets called automatically, once all input
 spaces of the component (all its API-method arguments' spaces) are known to the RLgraph build system. In the
-next paragraph, we will explain how this so called "input-completeness" is reached and why it's important for
+next paragraph, we will explain how this stage of "input-completeness" is reached and why it's important for
 the component.
 
 Input Spaces and the concept of "input-completeness"
@@ -185,11 +192,11 @@ decorator as follows:
     def _graph_fn_do_some_computation(self, a, b):
         # All backend-specific code in RLgraph goes into graph functions.
         if get_backend() == "tf":
-            # do some computation in tf.
+            # Do some computation in tf.
             some_result = tf.add(a, b)
 
         elif get_backend() == "pytorch":
-            # do some computation in pytorch.
+            # Do some computation in pytorch.
             some_result = a + b
 
         return some_result
@@ -198,3 +205,4 @@ decorator as follows:
 
 Inside a graph function, any type of backend specific computations are allowed to be coded. A graph function then
 returns the result of the computation or many results as a tuple.
+

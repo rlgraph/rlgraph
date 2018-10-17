@@ -84,6 +84,7 @@ and many others.
    :scale: 70%
 
    Above: The "Ant-v2" environment, one of the many MuJoCo-simulator tasks of the OpenAI Gym.
+   (source: `openAI <https://gym.openai.com/>`_).
 
 RLgraph's OpenAIGymEnv class serves as an adapter between RLgraph code and any of these openAI Gym
 environments. For example, in order to have your agent learn how to play Breakout from image pixels, you would create
@@ -116,6 +117,7 @@ which are usually navigated by the agent through a 1st person's perspective.
    :scale: 80%
 
    Above: The "Nav Maze Arena" environment of the DM Lab.
+   (source: `deepmind <https://deepmind.com/blog/open-sourcing-deepmind-lab/>`_).
 
 Different state observation items can be configured as needed at environment construction time, e.g. an image
 capturing the 1st person view from inside the
@@ -133,8 +135,19 @@ Simple Grid Worlds
 
 Grid worlds are a great way to quickly test the learning capabilities of our agents. They are simple worlds with square
 fields on which an agent can move up, down, left or right. There are walls, through which an agent cannot move,
-fire, on which a negative reward is collected, a starting state, from which the agent starts after a reset, and
-a goal state, which the agent has to reach in order to end the episode and to collect a large reward.
+fire, on which a negative reward is collected, holes, into which an agent will fall to collect a negative reward
+and end the episode, a starting state, from which the agent starts after a reset, and a goal state, which the agent
+has to reach in order to end the episode and to collect a large reward.
+
 RLgraph comes with its own GridWorld environment class that can be customized in its map (dimensions, locations of
 walls, etc..), the transition- and the reward function.
+
+.. figure:: images/grid-world-4x4.png
+   :alt: The 4x4 grid world showing the agent's position (X), some holes (H) and the to-be-reached goal state (G). Allowed actions are up, down, left and right.
+
+   Above: The 4x4 grid world showing the agent's position (X), some holes (H) and the to-be-reached
+   goal state (G). Allowed actions are up, down, left and right.
+
+Check out the `reference documentation on the GridWorld and other supported environments here
+<reference/environments/>`_.
 

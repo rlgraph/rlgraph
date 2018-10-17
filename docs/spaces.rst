@@ -23,28 +23,29 @@ What is a Space?
 Spaces in RLgraph are used to define the types and shapes of data flowing into, between, and from the different
 machine learning components. For example, an environment may output an RGB color image (e.g. 80x80 pixels) at any
 time step, which our RL algorithm will use as its only input to determine the next action.
-An RGB color image is usually represented by an int-type space with the exact data type being uint8
-(value can range from 0 to 255) and with a shape of [80 x 80 x 3], where the 80 represent the width and height
-of the image and the 3 represents the three color channels: red, green, and blue.
+An RGB color image is usually a member of an int-type space with the exact data type being uint8
+(meaning the value can range from 0 to 255) and with a shape of [width x height x 3], where the 3 represents the three
+color channels: red, green, and blue.
 Values of 0 mean no intensity in a color channel, 255 means full intensity.
 
-*Difference between Space and Tensor*
-Tensors are the members or instances of a Space. Tensors hold actual numeric values, which adhere to
-the rules and
-bounds of the given Space in terms of data type and dimensionality.
+Difference between Space and Tensor
++++++++++++++++++++++++++++++++++++
+
+Whereas a space defines the constraints in terms of dimensionality and data type of some data,
+a tensor is an members (or an instance) of a Space. Tensors hold actual numeric values (other than a space),
+which obey the rules and bounds of the given Space.
 
 .. figure:: images/rank-0-1-and-2-tensors.png
    :alt: Examples for a rank-0 (scalar), a rank-1 (vector), and a rank-2 (matrix) int-type tensor.
 
    Above: Examples for a rank-0 (scalar), a rank-1 (vector), and a rank-2 (matrix) int-type tensor.
 
-For example, a specific RGB image coming from the environment is a tensor (or an instance) of the
-IntBox-[80 x 80 x 3] space.
 
-*Rank, dimension and shape*
-The rank of our example image space is 3, since we have - for each image - a 3D cube of numbers, which represents that
-image. The 3 ranks stand for the width, height and color depth of the image.
+Ranks, Dimensions and Shapes
+++++++++++++++++++++++++++++
 
+The rank of an example image tensor is 3, since we have - for each image instance - a 3D cube of numbers defining the
+exact look of that image. The 3 ranks stand for the width, height and color depth of the image.
 An example rank-3 tensor is shown in the figure below.
 
 .. figure:: images/rank-3-tensor.png
@@ -52,9 +53,10 @@ An example rank-3 tensor is shown in the figure below.
 
    Above: Example for a rank-3 tensor (e.g. an RGB-image).
 
-A Space's rank is often confused with it's dimensions. In RLgraph (as well as e.g. in tensorflow), we speak of
-dimensions only as the size of each rank. Compare this to the figure above: The dimensions for each rank are 4
-(1st rank), 3 (2nd rank), and 3 (3rd rank).
+A space's or a tensor's rank is often confused with it's dimensions. In RLgraph, we
+speak of dimensions only as the size of each rank. Compare this to the figure above: The dimensions for each rank are 4
+(1st rank), 3 (2nd rank), and 3 (3rd rank). In the tensorflow documentation, you will often find the term nD tensor
+for a rank-n tensor, which is a little misleading.
 
 Another often used term for the set of all dimensionality values is the "shape" and it's often provided as a
 tuple. The shape of our example image is (80, 80, 3) and this shape tuple is sufficient to determine both a space's
@@ -106,11 +108,10 @@ represented by heterogeneous tuples. Our Image-and-Text Dict space from above, f
    :alt: Example Dict space with 2 keys, each one holding a box-type child-space.
 
    Above: Example Dict space with 2 keys, each one holding a box-type child-space.
-
-Note here that for Dict spaces, the order of the keys are sorted alphabetically before generating shape, rank and
-dtype tuples. In this case: "key A" comes before "key Z". For Tuple spaces, this order is given by
-the sequence of sub-Spaces inside the Tuple. Nested Container Spaces (e.g. a Dict inside another Dict) generate
-equally nested shape, rank and dtype tuples.
+   Note here that for Dict spaces, the order of the keys are sorted alphabetically before generating shape, rank and
+   dtype tuples. In this case: "key A" comes before "key Z". For Tuple spaces, this order is given by
+   the sequence of sub-Spaces inside the Tuple. Nested Container Spaces (e.g. a Dict inside another Dict) generate
+   equally nested shape, rank and dtype tuples.
 
 
 Special Ranks of BoxSpaces.
