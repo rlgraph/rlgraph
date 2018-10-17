@@ -30,11 +30,11 @@ Each component contains:
 - ... at least one API-method, so that clients of the component (in the end this will be our reinforcement learning agent)
   can use it.
 
-.. figure:: images/component.png
-   :alt: A PrioritizedReplay example component with one child component, 3 API-methods, 3 graph functions and variables.
-   :scale: 50%
+.. figure:: images/dense_layer_component.png
+   :alt: A DenseLayer component (1) with two API-methods (2), one graph function (3) and two variables (4).
+   :scale: 40%
 
-   Above: A PrioritizedReplay example component with one child component, 3 API-methods, 3 graph functions and variables.
+   Above: A DenseLayer component (1) with two API-methods (2), one graph function (3) and two variables (4).
 
 
 - ... any number of so called "Graph Functions", which are special component methods, which contain the actual
@@ -99,33 +99,65 @@ and `c` in our example above) has a dedicated space after the final graph has be
 We will explain the
 
 
-Input Spaces and the concept of "input-completeness"
-++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-
-
 Variables
 +++++++++
 
-Variables are simply data that a component can store for the duration of its existence (the lifetime of the computation
-graph). Similar to API-method call arguments, a variable has a fixed data type and shape (hence a space). As a
-matter of fact, variables are often created directly from Space instances via a practical `Space.get_variable` method.
+Variables are the data that each component can store for the duration of its existence (which is the lifetime of
+the computation graph). A variable has a fixed data type and shape, hence a fixed Rlgraph space. As a
+matter of fact, variables are often created directly from `Space` instances via the practical `Space.get_variable()`
+method.
 
 Variables can be accessed inside graph functions (see below) and can be read as well as be written to.
 Examples for variables are:
 
-- The buffer of a memory that stores a certain part of a memory record, for example an image.
+- The buffer of a memory that stores a certain part of a memory record, for example an image (rank-3 uint8 tensor).
 
-- A memory component's index pointer (which record should we retrieve next?).
+- A memory component's index pointer (which record should we retrieve next?). This is usually a single int scalar.
 
-- The weights matrix of some neural network layer.
+- The weights matrix of some neural network layer. This is always a rank-2 float tensor.
 
 Variables are created in a component's `create_variables` method, which gets called automatically, once all input
-spaces of the component (all its API-method arguments' spaces) are known to the RLgraph build system.
+spaces of the component (all its API-method arguments' spaces) are known to the RLgraph build system. In the
+next paragraph, we will explain how this so called "input-completeness" is reached and why it's important for
+the component.
 
-We will go into more details on the `next page <how_to_write_your_own_component.html>`_, when we will build our
-own custom component.
+Input Spaces and the concept of "input-completeness"
+++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Let's look at a Component's API-method and its variable generating code to understand the concept of
+"input-completeness".
+
+.. code-block:: python
+
+    # inside some component class ...
+    ...
+    @rlgraph_api
+    def insert(self, record):
+        # Call a graph function that will take care of the assignment.
+        return self._graph_fn_insert(record)
+
+    def create_variables(input_spaces, action_space=None):
+        """
+        Override this base class method to create variables based on the
+        spaces that are underlying each API-method's call argument
+        (in our case, this is only the call arg "records" of the "insert" API-method).
+        """
+        # Lookup the input space by the name of the API-method's call arg ("record").
+        in_space = input_spaces["record"]
+        self.storage_buffer = in_space.get_variable(trainable=False, ... other options)
+
+A component reaches input-completeness, if all spaces to all its unique call parameters (by their names) are known.
+A space for a call argument (e.g. `record`) gets known once the respective API-method (here: `insert`) gets called by a
+client (a parent component). Only the outermost component, also called the "root", needs its spaces to be provided
+manually by the user, since its API-methods are only executed (called) at graph-execution time.
+
+If a component has many API-methods, each with the only call argument `a` , which share the call parameter's names (e.g. a component has API-methods:
+`one(a, b)`)
+
+A client of this component (a parent component or the RL agent directly) will eventually make a call to the
+component's API-method `insert()`. At that point, the space of the `record` argument will be known. If the component
+above only has that one API-method, and hence only that one API-method call argument (`record`), it is then
+input-complete.
 
 
 Graph Functions
@@ -163,3 +195,6 @@ decorator as follows:
         return some_result
 
 
+
+Inside a graph function, any type of backend specific computations are allowed to be coded. A graph function then
+returns the result of the computation or many results as a tuple.

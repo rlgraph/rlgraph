@@ -104,7 +104,6 @@ the environment under RLgraph via:
             breakout_env.reset()
 
 
-
 Deepmind Lab
 ++++++++++++
 
