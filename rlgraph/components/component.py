@@ -603,7 +603,7 @@ class Component(Specifiable):
             # Return all variables of this Component (for some collection).
             if len(names) == 0:
                 collection_variables = tf.get_collection(collections)
-                ret = dict()
+                ret = {}
                 for v in collection_variables:
                     lookup = re.sub(r':\d+$', "", v.name)
                     if lookup in self.variables:
@@ -647,7 +647,7 @@ class Component(Specifiable):
         global_scope = kwargs.pop("global_scope", False)
         assert not kwargs
 
-        variables = dict()
+        variables = {}
         if get_backend() == "tf":
             for name in names:
                 global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name

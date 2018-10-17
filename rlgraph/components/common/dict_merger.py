@@ -49,7 +49,7 @@ class DictMerger(Component):
         self.input_names = input_names
 
     def check_input_spaces(self, input_spaces, action_space=None):
-        spaces = list()
+        spaces = []
         idx = 0
         while True:
             key = "inputs[{}]".format(idx)

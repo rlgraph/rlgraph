@@ -50,7 +50,7 @@ class MetaGraphBuilder(Specifiable):
         # Time the meta-graph build:
         DataOpRecord.reset()
         time_start = time.perf_counter()
-        api = dict()
+        api = {}
 
         # Sanity check input_spaces dict.
         if input_spaces is not None:
@@ -70,7 +70,7 @@ class MetaGraphBuilder(Specifiable):
 
             # Create the loose list of in-op-records depending on signature and input-spaces given.
             # If an arg has a default value, its input-space does not have to be provided.
-            in_ops_records = list()
+            in_ops_records = []
             use_named = False
             for i, param_name in enumerate(api_method_rec.input_names):
                 # Arg has a default of None (flex). If in input_spaces, arg will be provided.
