@@ -761,9 +761,9 @@ class GraphBuilder(Specifiable):
                 return self.root_component.api_fn_by_name[api_method](*params)
         else:
             if api_method in self.root_component.synthetic_methods:
-                return self.root_component.api_fn_by_name[api_method]()
-            else:
                 return self.root_component.api_fn_by_name[api_method](self.root_component)
+            else:
+                return self.root_component.api_fn_by_name[api_method]()
 
     def build_define_by_run_graph(self, meta_graph, input_spaces, available_devices,
                                   device_strategy="default", default_device=None, device_map=None):
