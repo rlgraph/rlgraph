@@ -388,6 +388,9 @@ def force_torch_tensors(params, requires_grad=False):
 
 def convert_param(param, requires_grad):
     if get_backend() == "pytorch":
+        # Do nothing.
+        if isinstance(param, torch.Tensor):
+            return param
         if isinstance(param, list):
             param = np.asarray(param)
         if isinstance(param, np.ndarray):
