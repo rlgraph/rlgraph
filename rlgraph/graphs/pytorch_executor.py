@@ -96,7 +96,6 @@ class PyTorchExecutor(GraphExecutor):
                 api_ret = self.graph_builder.execute_define_by_run_op(api_method, tensor_params)
                 if not isinstance(api_ret, list) and not isinstance(api_ret, tuple):
                     api_ret = [api_ret]
-
                 to_return = []
                 if op_indices_to_return is not None:
                     # Build return ops in correct order.
@@ -115,17 +114,35 @@ class PyTorchExecutor(GraphExecutor):
                             to_return.append(op_result)
 
                 # Clean and return.
-                for result in to_return:
-                    if self.remove_batch_dims and isinstance(result, np.ndarray):
-                        ret.append(np.array(np.squeeze(result)))
-                    elif hasattr(result, "numpy"):
-                        ret.append(np.array(result.numpy()))
-                    else:
-                        ret.append(result)
+                self.clean_results(ret, to_return)
+            else:
+                # Api method is string without args:
+                to_return = []
+                api_ret = self.graph_builder.execute_define_by_run_op(api_method)
+                if api_ret is None:
+                    continue
+                if not isinstance(api_ret, list) and not isinstance(api_ret, tuple):
+                    api_ret = [api_ret]
+                for op_result in api_ret:
+                    if isinstance(op_result, torch.Tensor) and op_result.requires_grad is True:
+                        op_result = op_result.detach()
+                    to_return.append(op_result)
+
+                # Clean and return.
+                self.clean_results(ret, to_return)
 
         # Unwrap if len 1.
         ret = ret[0] if len(ret) == 1 else ret
         return ret
+
+    def clean_results(self, ret, to_return):
+        for result in to_return:
+            if self.remove_batch_dims and isinstance(result, np.ndarray):
+                ret.append(np.array(np.squeeze(result)))
+            elif hasattr(result, "numpy"):
+                ret.append(np.array(result.numpy()))
+            else:
+                ret.append(result)
 
     def read_variable_values(self, variables):
         # For test compatibility.
