@@ -929,12 +929,12 @@ class GraphBuilder(Specifiable):
             if op_records_list == new_op_records_list:
                 # Ok for some
                 if loop_counter > 10000:
-                    print()
-                    #raise RLGraphError(
-                    #    "Build procedure is deadlocked. Most likely, you are having a circularly dependent Component "
-                    #    "in your meta-graph. The following Components are still input-incomplete:\n{}".
-                    #    format(non_complete_components)
-                    #)
+                    #print()
+                    raise RLGraphError(
+                        "Build procedure is deadlocked. Most likely, you are having a circularly dependent Component "
+                        "in your meta-graph. The following Components are still input-incomplete:\n{}".
+                        format(non_complete_components)
+                    )
 
             op_records_list = new_op_records_list
 

@@ -74,7 +74,7 @@ class Synchronizable(Component):
 
         return False
 
-    @rlgraph_api(must_be_complete=False)
+    @rlgraph_api(must_be_complete=False, returns=1)
     def _graph_fn_sync(self, values_):
         """
         Generates the op that syncs this Synchronizable's parent's variable values from another Synchronizable
@@ -111,6 +111,7 @@ class Synchronizable(Component):
             # Bundle everything into one "sync"-op.
             with tf.control_dependencies(syncs):
                 return tf.no_op()
+
         elif get_backend() == "pytorch":
             # Get refs(!)
             parents_vars = self.parent_component.get_variables(collections=self.collections,
