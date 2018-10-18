@@ -110,7 +110,7 @@ class TestSpaces(unittest.TestCase):
             result += "{}:{},".format(key, value)
 
         tuple_txt = [FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE] * 10
-        expected = "/{}0{}/a:1,/{}0{}/b:1,/{}0{}/c/d:1,/{}1{}:1,/{}2{}:1,/{}3{}:6,/{}4{}/{}0{}:1,/{}4{}/{}1{}:1,".\
+        expected = "{}0{}/a:1,{}0{}/b:1,{}0{}/c/d:1,{}1{}:1,{}2{}:1,{}3{}:6,{}4{}/{}0{}:1,{}4{}/{}1{}:1,".\
             format(*tuple_txt)
 
         self.assertTrue(result == expected)
