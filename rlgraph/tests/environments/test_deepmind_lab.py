@@ -31,7 +31,7 @@ class TestDeepmindLabEnv(unittest.TestCase):
     def test_deepmind_lab_env(self):
         try:
             from rlgraph.environments import DeepmindLabEnv
-        except ModuleNotFoundError:
+        except (ModuleNotFoundError, ImportError):
             print("Deepmind Lab not installed -> skipping this test case.")
             return
 
@@ -75,7 +75,7 @@ class TestDeepmindLabEnv(unittest.TestCase):
     def test_deepmind_lab_env_performance(self):
         try:
             from rlgraph.environments import DeepmindLabEnv
-        except ModuleNotFoundError:
+        except (ModuleNotFoundError, ImportError):
             print("Deepmind Lab not installed -> skipping this test case.")
             return
 

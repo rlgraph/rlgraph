@@ -45,5 +45,5 @@ class TestRandomEnv(unittest.TestCase):
         s, r, t, _ = env.step(env.action_space.sample())
         self.assertEqual(t, False)
         s, r, t, _ = env.step(env.action_space.sample())
-        recursive_assert_almost_equal(s, np.array([[0.4418332, 0.434014 ], [0.617767 , 0.5131382]]))
+        recursive_assert_almost_equal(s, np.array([[0.4418332, 0.434014], [0.617767 , 0.5131382]]))
         s, r, t, _ = env.step(env.action_space.sample())
