@@ -14,8 +14,11 @@
    :scale: 25%
    :alt:
 
+RLgraph Agents
+==============
+
 What is an Agent?
-=================
+-----------------
 
 As we have learnt already in the `chapter on environments <environments.html>`_, the agent in a reinforcement learning
 problem is the part of our setup that chooses actions (from a usually fixed set of available ones) at every
@@ -41,7 +44,7 @@ very happy to receive your PRs.
 
 
 The Agent Base Class
-====================
+--------------------
 
 In RLgraph, an Agent is the owner of the outermost component, the "root" component. Note that in the future,
 an RLgraph agent will be able to hold more than one root component. The agent interacts with the root(s)
@@ -133,6 +136,15 @@ somewhat expensive (tf session calls) and via this python buffering, we consider
 Update (method: `update`)
 +++++++++++++++++++++++++
 
+Finally, the `update` methods is used to perform an actual learning (update) step with the agent.
+Different agents have different updating strategies. Some may pull a batch from a memory (a SARS'-replay buffer
+or an episode ring buffer), others from some type of queue, yet others simply do step-by-step (or episode by episode)
+updates.
 
+An update is often achieved by running a batch of states through a policy (or Q-learning)
+neural network, in addition to some calculation of a loss function on a) the outcome of that forward pass, b) the
+actually chosen actions and c) the actually observed rewards, and then passing that loss to an optimizer component
+together with a list of trainable variables to update (via e.g. error-gradient calculation) and then actually
+updating the values of these variables.
 
 

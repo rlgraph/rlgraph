@@ -18,6 +18,7 @@ Components Reference
 
    component_base.rst
    action_adapters_reference.rst
+   common_components_reference.rst
    distributions_reference.rst
    explorations_reference.rst
    helpers_reference.rst
