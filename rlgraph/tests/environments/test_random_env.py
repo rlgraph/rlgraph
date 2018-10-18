@@ -33,17 +33,17 @@ class TestRandomEnv(unittest.TestCase):
         """
         Tests deterministic functionality of RandomEnv.
         """
-        env = RandomEnv(state_space=FloatBox(shape=(2,2)), action_space=IntBox(2), deterministic=True)
+        env = RandomEnv(state_space=FloatBox(shape=(2, 2)), action_space=IntBox(2), deterministic=True)
 
         # Simple test runs with fixed actions.
         s = env.reset()
         recursive_assert_almost_equal(s, np.array([[0.77132064, 0.02075195], [0.63364823, 0.74880388]]))
         s, r, t, _ = env.step(env.action_space.sample())
-        recursive_assert_almost_equal(s, np.array([[0.76053071, 0.16911084], [0.08833981, 0.68535982]]))
+        recursive_assert_almost_equal(s, np.array([[0.1980629, 0.7605307], [0.1691108, 0.0883398]]))
         s, r, t, _ = env.step(env.action_space.sample())
-        recursive_assert_almost_equal(r, np.array(0.9177741225129434))
+        recursive_assert_almost_equal(r, np.array(0.7217553))
         s, r, t, _ = env.step(env.action_space.sample())
         self.assertEqual(t, False)
         s, r, t, _ = env.step(env.action_space.sample())
-        recursive_assert_almost_equal(s, np.array([[0.65039718, 0.60103895], [0.8052232 , 0.52164715]]))
+        recursive_assert_almost_equal(s, np.array([[0.4418332, 0.434014 ], [0.617767 , 0.5131382]]))
         s, r, t, _ = env.step(env.action_space.sample())
