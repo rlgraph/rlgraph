@@ -120,7 +120,7 @@ class DQNAgent(Agent):
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
-        self.define_roots_api_methods("policy", "preprocessor-stack", self.optimizer.scope, *sub_components)
+        self.define_graph_api("policy", "preprocessor-stack", self.optimizer.scope, *sub_components)
 
         # markup = get_graph_markup(self.graph_builder.root_component)
         # print(markup)
@@ -141,8 +141,8 @@ class DQNAgent(Agent):
             #        lambda step_context: step_context.session.run(stage_op)
             #    )
 
-    def define_roots_api_methods(self, policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
-        super(DQNAgent, self).define_roots_api_methods(policy_scope, pre_processor_scope)
+    def define_graph_api(self, policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
+        super(DQNAgent, self).define_graph_api(policy_scope, pre_processor_scope)
 
         preprocessor, merger, memory, splitter, policy, target_policy, exploration, loss_function, optimizer = \
             sub_components

@@ -128,12 +128,14 @@ class Agent(Specifiable):
         # operations.
         self.loss_function = None
 
-        # The behavioral policy of the algorithm. Also the one that gets updated.
+        # The action adapter mapping raw NN output to (shaped) actions.
         action_adapter_dict = dict(action_space=self.action_space)
         if self.action_adapter_spec is None:
             self.action_adapter_spec = action_adapter_dict
         else:
             self.action_adapter_spec.update(action_adapter_dict)
+
+        # The behavioral policy of the algorithm. Also the one that gets updated.
         self.policy = Policy(
             network_spec=self.neural_network,
             action_adapter_spec=self.action_adapter_spec
@@ -191,7 +193,7 @@ class Agent(Specifiable):
         self.next_states_buffer[env_id] = []
         self.terminals_buffer[env_id] = []
 
-    def define_roots_api_methods(self, policy_scope, pre_processor_scope, *params):
+    def define_graph_api(self, policy_scope, pre_processor_scope, *params):
         """
         Can be used to specify and then `self.define_api_method` the Agent's CoreComponent's API methods.
         Each agent implements this to build its algorithm logic.
