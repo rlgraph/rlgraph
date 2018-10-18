@@ -26,13 +26,10 @@ if get_backend() == "tf":
 elif get_backend() == "pytorch":
     import torch
 
+
 class LossFunction(Component):
     """
     A loss function component offers a simple interface into some error/loss calculation function.
-
-    API:
-        loss_per_item(*inputs) -> The loss value vector holding single loss values (one per item in a batch).
-        loss_average(loss_per_item) -> The average value of the input `loss_per_item`.
     """
     def __init__(self, discount=0.98, **kwargs):
         """

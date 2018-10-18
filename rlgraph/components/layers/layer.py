@@ -24,9 +24,6 @@ from rlgraph.utils.decorators import rlgraph_api
 class Layer(Component):
     """
     A Layer is a simple Component that implements the `apply` method with n inputs and m return values.
-
-    API:
-        apply(*inputs): Applies the layer's logic to the inputs and returns one or more result values.
     """
     def __init__(self, **kwargs):
         super(Layer, self).__init__(scope=kwargs.pop("scope", "layer"), **kwargs)
@@ -46,7 +43,7 @@ class Layer(Component):
     @rlgraph_api
     def _graph_fn_apply(self, *inputs):
         """
-        This is where the graph-logic of this layer goes.
+        Applies the layer's logic to the inputs and returns one or more result values.
 
         Args:
             *inputs (any): The input(s) to this layer.

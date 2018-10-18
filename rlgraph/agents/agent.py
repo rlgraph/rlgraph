@@ -298,11 +298,14 @@ class Agent(Specifiable):
         Args:
             preprocessed_states (Union[dict, ndarray]): Preprocessed states dict or array.
             actions (Union[dict, ndarray]): Actions dict or array containing actions performed for the given state(s).
+
             internals (Union[list]): Internal state(s) returned by agent for the given states.Must be
                 empty list if no internals available.
+
             rewards (float): Scalar reward(s) observed.
             terminals (bool): Boolean indicating terminal.
             next_states (Union[dict, ndarray]): Preprocessed next states dict or array.
+
             env_id (Optional[str]): Environment id to observe for. When using vectorized execution and
                 buffering, using environment ids is necessary to ensure correct trajectories are inserted.
                 See `SingleThreadedWorker` for example usage.

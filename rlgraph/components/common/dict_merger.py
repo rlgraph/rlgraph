@@ -27,9 +27,6 @@ from rlgraph.utils.ops import DataOpDict
 class DictMerger(Component):
     """
     Merges incoming items into one FlattenedDataOp.
-
-    API:
-        merge(*inputs) -> DataOpDict with keys=`self.input_names` and values=inputs
     """
     def __init__(self, *input_names, **kwargs):
         """
@@ -44,8 +41,8 @@ class DictMerger(Component):
         super(DictMerger, self).__init__(scope=kwargs.pop("scope", "dict-merger"), **kwargs)
 
         assert all(isinstance(i, str) and not re.search(r'/', i) for i in input_names), \
-            "ERROR: Not all input names of DictMerger Component '{}' are strings or some of them have '/' characters in " \
-            "them, which are not allowed.".format(self.global_scope)
+            "ERROR: Not all input names of DictMerger Component '{}' are strings or some of them have '/' " \
+            "characters in them, which are not allowed.".format(self.global_scope)
         self.input_names = input_names
 
     def check_input_spaces(self, input_spaces, action_space=None):
@@ -70,7 +67,7 @@ class DictMerger(Component):
     @rlgraph_api
     def _graph_fn_merge(self, *inputs):
         """
-        Merges the inputs into a single FlattenedDataOp with the flat keys given in input_names.
+        Merges the inputs into a single FlattenedDataOp with the flat keys given in `self.input_names`.
 
         Args:
             *inputs (FlattenedDataOp): The input items to be merged into a FlattenedDataOp.

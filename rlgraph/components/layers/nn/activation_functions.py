@@ -38,6 +38,7 @@ def get_activation_function(activation_function=None, *other_parameters):
             - already a callable (return just that)
             - a lookup key (str)
             - None: Use linear activation.
+
         other_parameters (any): Possible extra parameter(s) used for some of the activation functions.
 
     Returns:

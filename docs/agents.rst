@@ -35,9 +35,9 @@ very happy to receive your PRs.
 .. figure:: images/agents-in-environment.png
    :alt: Left: One single agent in a grid-world environment. Right: Two (friendly or cooperative) agents in the same environment at the same time.
 
-   Left: One single agent in a grid-world environment. Right: Two (friendly or cooperative) agents in the
-   same environment at the same time, each one possibly making their own observations, picking their own actions and
-   receiving their own rewards.
+   **Left:** One single agent (the guy on field 4) in a grid-world environment.
+   **Right:** Two (certainly non-adversarial) agents in the same environment at the same time, each one making
+   their own observations, picking their own actions and receiving their own rewards.
 
 
 The Agent Base Class
@@ -88,33 +88,51 @@ For a complete overview of all of the Agent class' API-methods, take a look at i
 `In the next chapter <how_to_build_an_algorithm_with_rlgraph.html>`_, we will then dive deeper into agents and
 their features, when we will actually build one ourselves in RLgraph from scratch.
 
-Build (`build`)
-+++++++++++++++
+Build (method: `build`)
++++++++++++++++++++++++
 
 This step get the computation graph of the agent ready for execution calls.
 It must be done only once via a call to `Agent.build()`, which should happen either in the Agent's ctor or manually
 prior to doing any exploration, observation, or learning tasks. This is because none of these will be possible
 without a readily compiled or setup computation graph.
 
-Preprocessing States (`preprocess_states`)
-++++++++++++++++++++++++++++++++++++++++++
+Preprocessing States (method: `preprocess_states`)
+++++++++++++++++++++++++++++++++++++++++++++++++++
 
 This is an optional API-method (as it can also be included in a `get_action()` call (see below).
-A state coming from the environment is passed through the agent's preprocessing facilities (usually a
-PreprocessorStack component).
+A state, usually a numpy array and coming from the environment, is passed through the agent's preprocessing facilities
+(usually a PreprocessorStack component) and returned as a numpy array holding the preprocessed state.
 
 
-Act (`get_action`)
-++++++++++++++++++
+Act (method: `get_action`)
+++++++++++++++++++++++++++
+
+Given a state from the environment, `get_action` returns the chosen action. This is usually done by passing the state
+through the agent's preprocessor and the result of that through a policy or Q-value network.
+Optionally, an exploration process (e.g. noise or some other form of randomization, such as epsilon greedy
+exploration) is applied on top of the network's output and returned.
+
+Most of the time, actions are represented via an IntBox space with an upper limit (categorical int).
 
 
+Observe (method: `observe`)
++++++++++++++++++++++++++++
 
-Observe
-+++++++
+Agents can use the `observe` method to store experiences (e.g. SARS'-tuples) from the environment and the agent's
+interaction with the environment in some agent-internal memory or queue.
+
+A common example is the `2015 DQN agent <https://www.nature.com/articles/nature14236>`_, which stores
+SARS'-tuples (S=state, A=action, R=reward, S'=next state) in a replay buffer for future batch learning/update runs
+through the agent's network, loss function and optimizer components.
+
+Observe also takes care of possible python-side buffering (e.g. collect n SARS'-tuples in a python list) before
+actually moving all the data into the computation graph. Note that calls to the computation graph might be
+somewhat expensive (tf session calls) and via this python buffering, we considerably gain performance.
 
 
-Update
-++++++
+Update (method: `update`)
++++++++++++++++++++++++++
+
 
 
 
