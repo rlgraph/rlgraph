@@ -89,26 +89,34 @@ class Synchronizable(Component):
             DataOp: The op that executes the syncing.
         """
         # Loop through all incoming vars and our own and collect assign ops.
-        syncs = list()
-        parents_vars = self.parent_component.get_variables(collections=self.collections, custom_scope_separator="-")
-
+        syncs = []
         # Sanity checking
-        syncs_from, syncs_to = (sorted(values_.items()), sorted(parents_vars.items()))
-        if len(syncs_from) != len(syncs_to):
-            raise RLGraphError("ERROR: Number of Variables to sync must match! "
-                               "We have {} syncs_from and {} syncs_to.".format(len(syncs_from), len(syncs_to)))
-        for (key_from, var_from), (key_to, var_to) in zip(syncs_from, syncs_to):
-            # Sanity checking. TODO: Check the names' ends? Without the global scope?
-            #if key_from != key_to:
-            #    raise RLGraphError("ERROR: Variable names for syncing must match in order and name! "
-            #                    "Mismatch at from={} and to={}.".format(key_from, key_to))
-            if get_shape(var_from) != get_shape(var_to):
-                raise RLGraphError("ERROR: Variable shapes for syncing must match! "
-                                   "Shape mismatch between from={} ({}) and to={} ({}).".
-                                   format(key_from, get_shape(var_from), key_to, get_shape(var_to)))
-            syncs.append(self.assign_variable(var_to, var_from))
-
-        # Bundle everything into one "sync"-op.
         if get_backend() == "tf":
+            parents_vars = self.parent_component.get_variables(collections=self.collections, custom_scope_separator="-")
+            syncs_from, syncs_to = (sorted(values_.items()), sorted(parents_vars.items()))
+            if len(syncs_from) != len(syncs_to):
+                raise RLGraphError("ERROR: Number of Variables to sync must match! "
+                                   "We have {} syncs_from and {} syncs_to.".format(len(syncs_from), len(syncs_to)))
+            for (key_from, var_from), (key_to, var_to) in zip(syncs_from, syncs_to):
+                # Sanity checking. TODO: Check the names' ends? Without the global scope?
+                #if key_from != key_to:
+                #    raise RLGraphError("ERROR: Variable names for syncing must match in order and name! "
+                #                    "Mismatch at from={} and to={}.".format(key_from, key_to))
+                    if get_shape(var_from) != get_shape(var_to):
+                        raise RLGraphError("ERROR: Variable shapes for syncing must match! "
+                                           "Shape mismatch between from={} ({}) and to={} ({}).".
+                                           format(key_from, get_shape(var_from), key_to, get_shape(var_to)))
+                    syncs.append(self.assign_variable(var_to, var_from))
+
+            # Bundle everything into one "sync"-op.
             with tf.control_dependencies(syncs):
                 return tf.no_op()
+        elif get_backend() == "pytorch":
+            # Get refs(!)
+            parents_vars = self.parent_component.get_variables(collections=self.collections,
+                                                               custom_scope_separator="-", get_ref=True)
+            syncs_from, sync_to_ref = (sorted(values_.items()), sorted(parents_vars.items()))
+
+            # Assign parameters of layers.
+            for (key_from, var_from), (key_to, ref_to) in zip(syncs_from, sync_to_ref):
+                ref_to.set_value(var_from)
