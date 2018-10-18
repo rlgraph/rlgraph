@@ -47,7 +47,14 @@ class PyTorchVariable(object):
     def set_value(self, value):
         if get_backend() == "pytorch":
             if isinstance(self.ref, torch.nn.Module):
-                self.ref.weight = torch.nn.Parameter(value, requires_grad=True)
+                if isinstance(value, torch.Tensor):
+                    self.ref.weight = torch.nn.Parameter(value, requires_grad=True)
+                elif isinstance(value, torch.nn.Parameter):
+                    self.ref.weight = value
+                else:
+                    raise ValueError("Value assigned must be torch.Tensor or Parameter but is {}.".format(
+                        type(value)
+                    ))
 
 
 def pytorch_one_hot(tensor, depth=0):
