@@ -620,9 +620,11 @@ class Component(Specifiable):
                     *names, custom_scope_separator=custom_scope_separator, global_scope=global_scope
                 )
         elif get_backend() == "pytorch":
-            # Just return variables for this component.
+            # There are no collections - just return variables for this component if names are empty.
             custom_scope_separator = kwargs.pop("custom_scope_separator", "/")
             global_scope = kwargs.pop("global_scope", True)
+            if len(names) == 0:
+                names = list(self.variables.keys())
             return self.get_variables_by_name(
                 *names, custom_scope_separator=custom_scope_separator, global_scope=global_scope
             )
