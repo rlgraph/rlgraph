@@ -102,13 +102,13 @@ class RingBuffer(Memory):
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
-        num_records = get_batch_size(records["/terminals"])
+        num_records = get_batch_size(records["terminals"])
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
         # update_indices = tf.Print(update_indices, [index, num_records, update_indices], summarize=100, message='index|num|indices')
         # update_indices = tf.Print(update_indices, [tf.shape(update_indices),
-        #                                            tf.shape(records["/terminals"])],
+        #                                            tf.shape(records["terminals"])],
         #                           summarize=100, message='shape indices|shape recods')
         # Update indices and size.
         with tf.control_dependencies([update_indices]):
