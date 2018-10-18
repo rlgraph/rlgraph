@@ -62,7 +62,8 @@ class LocalOptimizer(Optimizer):
             if self.optimizer_obj is None:
                 # self.optimizer is a lambda creating the respective optimizer
                 # with params prefilled.
-                self.optimizer_obj = self.optimizer(variables)
+                parameters = variables.values()
+                self.optimizer_obj = self.optimizer(parameters)
             # Reset gradients.
             self.optimizer_obj.zero_grad()
             loss.backward()
