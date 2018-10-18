@@ -35,6 +35,7 @@ RLgraph's documentation
    how_to_write_your_own_component.rst
    complete_custom_component.rst
    agents.rst
+   op_records_and_data_ops.rst
    how_to_build_an_algorithm_with_rlgraph.rst
    rlgraphs_testing_system.rst
    reference/index.rst

@@ -76,6 +76,14 @@ Test 1: Retrieving the Value
         # Output values are always numpy arrays.
         test.test(("get_value"), expected_outputs=np.array([2.0, 2.0]))
 
+From here on, you can run the above test case via a simple: `python -m unittest test_my_component.py`.
+Note that the API-call via `test.test()` is defined by the tuple `("get_value")`. This is due to the fact, that
+you can:
+
+a) Execute more than one single API-method call inside a single call to `ComponentTest.test()`.
+
+b) Sometimes, you have to specify the call arguments (`get_value` doesn't have any). See the next examples on
+   how to do so.
 
 
 Test 2: Writing a New Value (and then checking it)

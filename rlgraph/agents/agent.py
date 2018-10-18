@@ -237,14 +237,32 @@ class Agent(Specifiable):
         Args:
             build_options (Optional[dict]): Optional build options, see build doc.
         """
-        assert not self.graph_built, "ERROR: Attempting to build agent which has already been built. Ensure" \
-                                     "auto_build parameter is set to False (was {}), and" \
-                                     "method has not been called twice".format(self.auto_build)
+        assert not self.graph_built,\
+            "ERROR: Attempting to build agent which has already been built. Ensure auto_build parameter is set to " \
+            "False (was {}), and method has not been called twice".format(self.auto_build)
+
         # TODO let agent have a list of root-components
         return self._build_graph(
             [self.root_component], self.input_spaces, optimizer=self.optimizer,
             build_options=build_options, batch_size=self.update_spec["batch_size"]
         )
+
+    def preprocess_states(self, states):
+        """
+        Applies the agent's preprocessor to one or more states, e.g. to preprocess external data
+        before inserting to memory without acting. Returns identity if no preprocessor defined.
+
+        Args:
+            states (np.array): State(s) to preprocess.
+
+        Returns:
+            np.array: Preprocessed states.
+        """
+        if self.preprocessing_required:
+            return self.call_api_method("preprocess_states", states)
+        else:
+            # Return identity.
+            return states
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
@@ -408,23 +426,6 @@ class Agent(Specifiable):
             any: Result of the op call.
         """
         return self.graph_executor.execute((op, inputs, return_ops))
-
-    def preprocess_states(self, states):
-        """
-        Applies the agent's preprocessor to one or more states, e.g. to preprocess external data
-        before inserting to memory without acting. Returns identity if no preprocessor defined.
-
-        Args:
-            states (np.array): State(s) to preprocess.
-
-        Returns:
-            np.array: Preprocessed states.
-        """
-        if self.preprocessing_required:
-            return self.call_api_method("preprocess_states", states)
-        else:
-            # Return identity.
-            return states
 
     def export_graph(self, filename=None):
         """

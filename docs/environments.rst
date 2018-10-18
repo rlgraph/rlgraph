@@ -17,7 +17,7 @@
 The Environment Classes
 =======================
 
-What is an environment?
+What is an Environment?
 -----------------------
 
 The generic reinforcement learning problem can be broken down into the following ever repeating sequence of steps.
@@ -44,12 +44,12 @@ MDP:
   the reward function :math:`R(S'|S,A)`, which describes the expected reward when reaching state `S'` after having
   chosen action `A` in (the previous) state `S`.
 
-.. figure:: images/mdp_basic_concept.png
+.. figure:: images/mdp-basic-concept.png
    :alt: The basic cycle in reinforcement learning.
    :scale: 60%
 
-   Above: The basic cycle in reinforcement learning. |br| (source:
-   `Reinforcement Learning - An Introduction - 2nd Edition <https://https://www.amazon.com/dp/0262039249/>`_)
+   Above: The basic cycle in reinforcement learning.
+   (source: `Reinforcement Learning - An Introduction - 2nd Edition <https://https://www.amazon.com/dp/0262039249/>`_)
 
 - We now start this procedure again, using `S'` as our
   new observation. We pick another action, change the environment through that action (transition function `P`),
@@ -60,8 +60,8 @@ MDP:
   time (usually some episode, after which the environment must be reset to some initial state).
 
 
-RLgraph's environment adapters.
--------------------------------
+RLgraph's Environment Adapters
+------------------------------
 
 RLGraph supports many popular environment types and standards and offers a common interface into all these.
 The base class is the `Environment` and its most important API-methods are `reset` (to reset the environment) and `step`
@@ -79,7 +79,7 @@ learning research. It contains the famous set of Atari 2600 games (each game has
 simple text-rendered grid-worlds, a set of robotics tasks, continuous control tasks (via the MuJoCO physics simulator),
 and many others.
 
-.. figure:: images/mujoco_environment.png
+.. figure:: images/mujoco-environment.png
    :alt: The "Ant-v2" environment, one of the many MuJoCo-simulator tasks of the OpenAI Gym.
    :scale: 70%
 
@@ -112,7 +112,7 @@ Deepmind Lab
 RL research. It's a fully customizable suite of 3D environments (including mazes and other interesting worlds),
 which are usually navigated by the agent through a 1st person's perspective.
 
-.. figure:: images/dm_lab_environment.png
+.. figure:: images/dm-lab-environment.png
    :alt: The "Nav Maze Arena" environment of the DM Lab.
    :scale: 80%
 

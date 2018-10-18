@@ -31,7 +31,7 @@ Each component contains:
 - ... at least one API-method, so that clients of the component (in the end this will be our reinforcement learning agent)
   can use it.
 
-.. figure:: images/dense_layer_component.png
+.. figure:: images/dense-layer-component.png
    :alt: A DenseLayer component (1) with two API-methods (2), one graph function (3) and two variables (kernel and bias) (4).
    :scale: 60%
 

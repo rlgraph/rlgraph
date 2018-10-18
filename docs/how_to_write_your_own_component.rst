@@ -25,7 +25,7 @@ A Simple Single-Value Memory Component
 
 Our component, once done, will look as follows:
 
-.. figure:: images/custom_single_value_memory.png
+.. figure:: images/custom-single-value-memory.png
    :scale: 60%
    :alt: The custom memory component we are about to build from scratch.
 
