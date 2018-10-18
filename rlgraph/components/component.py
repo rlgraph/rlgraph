@@ -587,7 +587,8 @@ class Component(Specifiable):
                 Default: '/'.
             global_scope (bool): Whether to use keys in the returned dict that include the global-scopes of the
                 Variables. Default: False.
-
+            get_ref (bool): Whether to return the ref or the value when using PyTorch. Default: False (return
+                values).
         Returns:
             dict: A dict mapping variable names to their get_backend variables.
         """
@@ -623,10 +624,13 @@ class Component(Specifiable):
             # There are no collections - just return variables for this component if names are empty.
             custom_scope_separator = kwargs.pop("custom_scope_separator", "/")
             global_scope = kwargs.pop("global_scope", True)
+            get_ref = kwargs.pop("get_ref", False)
+
             if len(names) == 0:
                 names = list(self.variables.keys())
             return self.get_variables_by_name(
-                *names, custom_scope_separator=custom_scope_separator, global_scope=global_scope
+                *names, custom_scope_separator=custom_scope_separator, global_scope=global_scope,
+                get_ref=get_ref
             )
 
     def get_variables_by_name(self, *names, **kwargs):
@@ -641,12 +645,14 @@ class Component(Specifiable):
                 Default: '/'.
             global_scope (bool): Whether to use keys in the returned dict that include the global-scopes of the
                 Variables. Default: False.
-
+            get_ref (bool): Whether to return the ref or the value when using PyTorch. Default: False (return
+                values).
         Returns:
             dict: Dict containing the requested names as keys and variables as values.
         """
         custom_scope_separator = kwargs.pop("custom_scope_separator", "/")
         global_scope = kwargs.pop("global_scope", False)
+        get_ref = kwargs.pop("get_ref", False)
         assert not kwargs
 
         variables = {}
@@ -665,14 +671,23 @@ class Component(Specifiable):
             for name in names:
                 global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
                 if name in self.variables:
-                    pytorch_var = self.variables[name]
-                    variables[re.sub(r'/', custom_scope_separator, name)] = pytorch_var.get_value()
+                    if get_ref:
+                        variables[re.sub(r'/', custom_scope_separator, name)] = self.variables[name]
+                    else:
+                        variables[re.sub(r'/', custom_scope_separator, name)] = self.variables[name].get_value()
                 elif global_scope_name in self.variables:
                     if global_scope:
-                        pytorch_var = self.variables[global_scope_name]
-                        variables[re.sub(r'/', custom_scope_separator, global_scope_name)] = pytorch_var.get_value()
+                        if get_ref:
+                            variables[re.sub(r'/', custom_scope_separator, global_scope_name)] = \
+                                self.variables[global_scope_name]
+                        else:
+                            variables[re.sub(r'/', custom_scope_separator, global_scope_name)] = \
+                                self.variables[global_scope_name].get_value()
                     else:
-                        variables[name] = self.variables[global_scope_name].get_value()
+                        if get_ref:
+                            variables[name] = self.variables[global_scope_name]
+                        else:
+                            variables[name] = self.variables[global_scope_name].get_value()
         return variables
 
     def create_summary(self, name, values, type_="histogram"):
