@@ -191,7 +191,7 @@ class Agent(Specifiable):
         self.next_states_buffer[env_id] = []
         self.terminals_buffer[env_id] = []
 
-    def define_api_methods(self, policy_scope, pre_processor_scope, optimizer_scope, *params):
+    def define_roots_api_methods(self, policy_scope, pre_processor_scope, *params):
         """
         Can be used to specify and then `self.define_api_method` the Agent's CoreComponent's API methods.
         Each agent implements this to build its algorithm logic.

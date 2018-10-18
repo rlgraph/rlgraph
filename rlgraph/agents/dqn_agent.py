@@ -35,7 +35,6 @@ class DQNAgent(Agent):
     [3] Dueling Network Architectures for Deep Reinforcement Learning, Wang et al. - 2016
     [4] https://en.wikipedia.org/wiki/Huber_loss
     """
-
     def __init__(self, double_q=True, dueling_q=True, huber_loss=False, n_step=1, memory_spec=None,
                  store_last_memory_batch=False, store_last_q_table=False, **kwargs):
         """
@@ -121,7 +120,7 @@ class DQNAgent(Agent):
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
-        self.define_api_methods("policy", "preprocessor-stack", self.optimizer.scope, *sub_components)
+        self.define_roots_api_methods("policy", "preprocessor-stack", self.optimizer.scope, *sub_components)
 
         # markup = get_graph_markup(self.graph_builder.root_component)
         # print(markup)
@@ -142,50 +141,8 @@ class DQNAgent(Agent):
             #        lambda step_context: step_context.session.run(stage_op)
             #    )
 
-    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
-        """
-        Args:
-            extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return
-                values (besides the actions). Possible values are:
-                - 'preprocessed_states': The preprocessed states after passing the given states through the
-                preprocessor stack.
-                - 'internal_states': The internal states returned by the RNNs in the NN pipeline.
-                - 'used_exploration': Whether epsilon- or noise-based exploration was used or not.
-
-        Returns:
-            tuple or single value depending on `extra_returns`:
-                - action
-                - the preprocessed states
-        """
-        extra_returns = {extra_returns} if isinstance(extra_returns, str) else (extra_returns or set())
-        # States come in without preprocessing -> use state space.
-        if apply_preprocessing:
-            call_method = "get_preprocessed_state_and_action"
-            batched_states = self.state_space.force_batch(states)
-        else:
-            call_method = "action_from_preprocessed_state"
-            batched_states = states
-        remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
-
-        # Increase timesteps by the batch size (number of states in batch).
-        batch_size = len(batched_states)
-        self.timesteps += batch_size
-
-        # Control, which return value to "pull" (depending on `additional_returns`).
-        return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
-        ret = self.graph_executor.execute((
-            call_method,
-            [batched_states, self.timesteps, use_exploration],
-            # 0=preprocessed_states, 1=action
-            return_ops
-        ))
-        if remove_batch_rank:
-            return strip_list(ret)
-        else:
-            return ret
-
-    def define_api_methods(self, policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
-        super(DQNAgent, self).define_api_methods(policy_scope, pre_processor_scope, optimizer_scope)
+    def define_roots_api_methods(self, policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
+        super(DQNAgent, self).define_roots_api_methods(policy_scope, pre_processor_scope)
 
         preprocessor, merger, memory, splitter, policy, target_policy, exploration, loss_function, optimizer = \
             sub_components
@@ -314,6 +271,48 @@ class DQNAgent(Agent):
                 q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
             )
             return loss, loss_per_item
+
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
+        """
+        Args:
+            extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return
+                values (besides the actions). Possible values are:
+                - 'preprocessed_states': The preprocessed states after passing the given states through the
+                preprocessor stack.
+                - 'internal_states': The internal states returned by the RNNs in the NN pipeline.
+                - 'used_exploration': Whether epsilon- or noise-based exploration was used or not.
+
+        Returns:
+            tuple or single value depending on `extra_returns`:
+                - action
+                - the preprocessed states
+        """
+        extra_returns = {extra_returns} if isinstance(extra_returns, str) else (extra_returns or set())
+        # States come in without preprocessing -> use state space.
+        if apply_preprocessing:
+            call_method = "get_preprocessed_state_and_action"
+            batched_states = self.state_space.force_batch(states)
+        else:
+            call_method = "action_from_preprocessed_state"
+            batched_states = states
+        remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
+
+        # Increase timesteps by the batch size (number of states in batch).
+        batch_size = len(batched_states)
+        self.timesteps += batch_size
+
+        # Control, which return value to "pull" (depending on `additional_returns`).
+        return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
+        ret = self.graph_executor.execute((
+            call_method,
+            [batched_states, self.timesteps, use_exploration],
+            # 0=preprocessed_states, 1=action
+            return_ops
+        ))
+        if remove_batch_rank:
+            return strip_list(ret)
+        else:
+            return ret
 
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, next_states, terminals]))

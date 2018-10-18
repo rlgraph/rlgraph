@@ -56,12 +56,12 @@ class PPOAgent(Agent):
         self.splitter = ContainerSplitter(input_space=splitter_input_space)
         self.loss_function = PPOLossFunction(clip_ratio=clip_ratio, discount=self.discount)
 
-        self.define_api_methods()
+        self.define_roots_api_methods()
         if self.auto_build:
             self._build_graph()
             self.graph_built = True
 
-    def define_api_methods(self, *params):
+    def define_roots_api_methods(self, *params):
         # Define our interface.
         pass
         # TODO define and connect missing components

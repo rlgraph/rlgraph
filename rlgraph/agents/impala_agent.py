@@ -380,7 +380,7 @@ class IMPALAAgent(Agent):
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root Component's) API.
-        self.define_api_methods(*sub_components)
+        self.define_roots_api_methods(*sub_components)
 
         if self.auto_build:
             if self.type == "learner":
@@ -412,24 +412,24 @@ class IMPALAAgent(Agent):
                 self.enqueue_op = self.root_component.sub_components["fifo-queue"].api_methods["insert_records"]. \
                     out_op_columns[0].op_records[0].op
 
-    def define_api_methods(self, *sub_components):
+    def define_roots_api_methods(self, *sub_components):
         # TODO: Unify agents with/w/o synchronizable policy.
         # TODO: Unify Agents with/w/o get_action method (w/ env-stepper vs w/o).
         #global_scope_base = "environment-stepper/actor-component/" if self.type == "actor" else ""
-        #super(IMPALAAgent, self).define_api_methods(
+        #super(IMPALAAgent, self).define_roots_api_methods(
         #    global_scope_base+"policy",
         #    global_scope_base+"dict-preprocessor-stack"
         #)
 
         # Assemble the specific agent.
         if self.type == "single":
-            self.define_api_methods_single(*sub_components)
+            self.define_roots_api_methods_single(*sub_components)
         elif self.type == "actor":
-            self.define_api_methods_actor(*sub_components)
+            self.define_roots_api_methods_actor(*sub_components)
         else:
-            self.define_api_methods_learner(*sub_components)
+            self.define_roots_api_methods_learner(*sub_components)
 
-    def define_api_methods_single(self, fifo_output_splitter, fifo_queue, queue_runner, transpose_actions,
+    def define_roots_api_methods_single(self, fifo_output_splitter, fifo_queue, queue_runner, transpose_actions,
                                   transpose_rewards, transpose_terminals, transpose_action_probs, preprocessor,
                                   staging_area, concat, policy, loss_function, optimizer):
         @rlgraph_api(component=self.root_component)
@@ -504,7 +504,7 @@ class IMPALAAgent(Agent):
             # TODO: Make it possible to return None from API-method without messing with the meta-graph.
             return step_op, (stage_op if stage_op else step_op), loss, loss_per_item
 
-    def define_api_methods_actor(self, env_stepper, env_output_splitter, internal_states_slicer, merger,
+    def define_roots_api_methods_actor(self, env_stepper, env_output_splitter, internal_states_slicer, merger,
                                  states_dict_splitter, fifo_queue):
         """
         Defines the API-methods used by an IMPALA actor. Actors only step through an environment (n-steps at
@@ -540,7 +540,7 @@ class IMPALAAgent(Agent):
             reset_op = env_stepper.reset()
             return reset_op
 
-    def define_api_methods_learner(
+    def define_roots_api_methods_learner(
             self, fifo_output_splitter, fifo_queue, states_dict_splitter, transpose_states, transpose_terminals,
             transpose_action_probs, staging_area, preprocessor, policy, loss_function, optimizer
     ):
