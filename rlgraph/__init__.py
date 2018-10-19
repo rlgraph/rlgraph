@@ -121,20 +121,20 @@ if DISTRIBUTED_BACKEND == 'distributed_tf':
     assert BACKEND == "tf"
     try:
         import tensorflow
-    except ModuleNotFoundError as e:
-        raise ModuleNotFoundError(
+    except ImportError as e:
+        raise ImportError(
             "INIT ERROR: Cannot run distributed_tf without backend (tensorflow)! Please install tensorflow first "
             "via `pip install tensorflow` or `pip install tensorflow-gpu`."
         )
 elif DISTRIBUTED_BACKEND == "horovod":
     try:
         import horovod
-    except ModuleNotFoundError as e:
+    except ImportError as e:
         raise ValueError("INIT ERROR: Cannot run RLGraph with distributed backend Horovod.")
 elif DISTRIBUTED_BACKEND == "ray":
     try:
         import ray
-    except ModuleNotFoundError as e:
+    except ImportError as e:
         raise ValueError("INIT ERROR: Cannot run RLGraph with distributed backend Ray.")
 else:
     raise ValueError("Distributed backend {} not supported".format(DISTRIBUTED_BACKEND))

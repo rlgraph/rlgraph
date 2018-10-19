@@ -305,7 +305,7 @@ class TestEnvironmentStepper(unittest.TestCase):
     def test_environment_stepper_on_deepmind_lab(self):
         try:
             from rlgraph.environments.deepmind_lab import DeepmindLabEnv
-        except ModuleNotFoundError:
+        except ImportError:
             print("DeepmindLab not installed: Skipping this test case.")
             return
 
