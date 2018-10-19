@@ -70,6 +70,7 @@ agent.observe(
   preprocessed_states=preprocessed_state,
   actions=action,
   internals=[],
+  next_states=next_state,
   rewards=reward
 )
 
