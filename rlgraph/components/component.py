@@ -38,6 +38,8 @@ if get_backend() == "tf":
 elif get_backend() == "tf-eager":
     import tensorflow as tf
     import tensorflow.contrib.eager as eager
+elif get_backend() == "pytorch":
+    from rlgraph.utils import PyTorchVariable
 
 
 class Component(Specifiable):
@@ -1096,8 +1098,12 @@ class Component(Specifiable):
             else:
                 return variable
         elif get_backend() == "pytorch":
-            # This is not a useful call but for interop in some components
-            return variable.get_value()
+            if not isinstance(variable, PyTorchVariable):
+                raise RLGraphError("Variable must be of type PyTorchVariable but is {}.".format(
+                    type(variable)
+                ))
+            else:
+                return variable.get_value()
 
     def sub_component_by_name(self, scope_name):
         """
@@ -1120,11 +1126,11 @@ class Component(Specifiable):
         return self.sub_components[scope_name]
 
     def _post_build(self, component):
-        component._post_define_by_run_build()
+        component.post_define_by_run_build()
         for sub_component in component.sub_components.values():
             self._post_build(sub_component)
 
-    def _post_define_by_run_build(self):
+    def post_define_by_run_build(self):
         """
         Optionally execute post-build calls.
         """

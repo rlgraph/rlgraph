@@ -22,6 +22,7 @@ import time
 import numpy as np
 
 from rlgraph import get_backend
+from rlgraph.components import Component
 from rlgraph.graphs import GraphExecutor
 from rlgraph.utils import util
 from rlgraph.utils.util import force_torch_tensors
@@ -146,7 +147,16 @@ class PyTorchExecutor(GraphExecutor):
 
     def read_variable_values(self, variables):
         # For test compatibility.
-        return variables
+        if isinstance(variables, dict):
+            ret = {}
+            for name, var in variables.items():
+                ret[name] = Component.read_variable(var)
+            return ret
+        elif isinstance(variables, list):
+            return [Component.read_variable(var) for var in variables]
+        else:
+            # Attempt to read as single var.
+            return Component.read_variable(variables)
 
     def init_execution(self): \
         # TODO Import guards here are annoying but otherwise breaks if torch is not installed.

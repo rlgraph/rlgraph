@@ -50,9 +50,6 @@ class Stack(Component):
                 result - calling the second sub-Component's API-method, etc..
                 This is done for all API-methods in the given set.
         """
-        # Network object for fast-path execution where we do not repeatedely call `call` between layers.
-        self.stack_obj = None
-
         api_methods = kwargs.pop("api_methods", {"apply"})
         super(Stack, self).__init__(*sub_components, scope=kwargs.pop("scope", "stack"), **kwargs)
 
@@ -70,22 +67,21 @@ class Stack(Component):
         Args:
             api_methods (Set[Union[str,Tuple[str,str]]]): See ctor kwargs.
         """
-        # Loop through the API-method set.
+        # Loop through the API-method set and register each one.
         for api_method_spec in api_methods:
-
             function_to_use = None
 
             # API-method of sub-Components and this Stack should have different names.
             if isinstance(api_method_spec, tuple):
                 # Custom method given, use that instead of creating one automatically.
                 if callable(api_method_spec[1]):
-                    stack_api_method_name = components_api_method_name = api_method_spec[0]
+                    stack_api_method_name = component_api_method_name = api_method_spec[0]
                     function_to_use = api_method_spec[1]
                 else:
-                    stack_api_method_name, components_api_method_name = api_method_spec[0], api_method_spec[1]
+                    stack_api_method_name, component_api_method_name = api_method_spec[0], api_method_spec[1]
             # API-method of sub-Components and this Stack should have the same name.
             else:
-                stack_api_method_name = components_api_method_name = api_method_spec
+                stack_api_method_name = component_api_method_name = api_method_spec
 
             # API-method for this Stack does not exist yet -> Automatically create it.
             if not hasattr(self, stack_api_method_name):
@@ -96,39 +92,51 @@ class Stack(Component):
 
                 # No API-method given -> Create auto-API-method and set it up through decorator.
                 else:
-                    @rlgraph_api(name=stack_api_method_name, component=self)
-                    def method(self_, *inputs, **kwargs):
-                        args_ = inputs
-                        kwargs_ = kwargs
-                        for i, sub_component in enumerate(self_.sub_components.values()):  # type: Component
-                            # TODO: python-Components: For now, we call each preprocessor's graph_fn
-                            #  directly (assuming that inputs are not ContainerSpaces).
-                            if self_.backend == "python" or get_backend() == "python":
-                                graph_fn = getattr(sub_component, "_graph_fn_" + components_api_method_name)
-                                #if sub_component.api_methods[components_api_method_name].add_auto_key_as_first_param:
-                                #    results = graph_fn("", *args_)  # TODO: kwargs??
-                                #else:
-                                results = graph_fn(*args_)
-                            elif get_backend() == "pytorch":
-                                # Do NOT convert to tuple, has to be in unpacked again immediately.n
-                                results = getattr(sub_component, components_api_method_name)(*force_list(args_))
-                            else:  #if get_backend() == "tf":
-                                results = getattr(sub_component, components_api_method_name)(*args_, **kwargs_)
+                    self.build_auto_api_method(stack_api_method_name, component_api_method_name)
 
-                            # Recycle args_, kwargs_ for reuse in next sub-Component's API-method call.
-                            if isinstance(results, dict):
-                                args_ = ()
-                                kwargs_ = results
-                            else:
-                                args_ = force_tuple(results)
-                                kwargs_ = {}
+    def build_auto_api_method(self, stack_api_method_name, component_api_method_name):
+        """
+        Creates and registers an auto-API method for this stack.
 
-                        if args_ == ():
-                            return kwargs_
-                        elif len(args_) == 1:
-                            return args_[0]
-                        else:
-                            return args_
+        Args:
+            stack_api_method_name (str): The name for the (exposed) API-method of the Stack.
+
+            component_api_method_name (str): The name of the single sub-components in the Stack to call one after
+                another.
+        """
+        @rlgraph_api(name=stack_api_method_name, component=self)
+        def method(self_, *inputs, **kwargs):
+            args_ = inputs
+            kwargs_ = kwargs
+            for i, sub_component in enumerate(self_.sub_components.values()):  # type: Component
+                # TODO: python-Components: For now, we call each preprocessor's graph_fn
+                #  directly (assuming that inputs are not ContainerSpaces).
+                if self_.backend == "python" or get_backend() == "python":
+                    graph_fn = getattr(sub_component, "_graph_fn_" + component_api_method_name)
+                    # if sub_component.api_methods[components_api_method_name].add_auto_key_as_first_param:
+                    #    results = graph_fn("", *args_)  # TODO: kwargs??
+                    # else:
+                    results = graph_fn(*args_)
+                elif get_backend() == "pytorch":
+                    # Do NOT convert to tuple, has to be in unpacked again immediately.n
+                    results = getattr(sub_component, component_api_method_name)(*force_list(args_))
+                else:  # if get_backend() == "tf":
+                    results = getattr(sub_component, component_api_method_name)(*args_, **kwargs_)
+
+                # Recycle args_, kwargs_ for reuse in next sub-Component's API-method call.
+                if isinstance(results, dict):
+                    args_ = ()
+                    kwargs_ = results
+                else:
+                    args_ = force_tuple(results)
+                    kwargs_ = {}
+
+            if args_ == ():
+                return kwargs_
+            elif len(args_) == 1:
+                return args_[0]
+            else:
+                return args_
 
     @classmethod
     def from_spec(cls, spec=None, **kwargs):
