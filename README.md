@@ -13,7 +13,7 @@ TensorFlow (or static graphs in general) or eager/define-by run execution (PyTor
 a single component interface.
  
 RLgraph exposes a well defined API for using agents, and offers a novel component concept
-for testing and assembly of components. By separating graph definition, compilation and execution,
+for testing and assembly of machine learning models. By separating graph definition, compilation and execution,
 multiple distributed backends and device execution strategies can be accessed without modifying
 agent definitions.
 
@@ -24,7 +24,8 @@ The simplest way to install RLgraph is from pip:
 
 ```pip install rlgraph```
 
-Note that some backends (e.g. ray) need additional dependencies (see setup.py). For example, to install dependencies for the distributed backend ray, enter:
+Note that some backends (e.g. ray) need additional dependencies (see setup.py).
+For example, to install dependencies for the distributed backend ray, enter:
 
 ```pip install rlgraph[ray]```
 
@@ -34,8 +35,8 @@ To successfully run tests, please also install OpenAI gym, e.g.
 
 Upon calling RLgraph, a config JSON is created under ~.rlgraph/rlgraph.json
 which can be used to change backend settings. The current default stable
-backend is TensorFlow ("tf"), the PyTorch backend ("pytorch") supports
-component build and execution but not all utilities support all backends yet
+backend is TensorFlow ("tf"). The PyTorch backend ("pytorch") supports
+component build and execution, but not all utilities support all backends yet
 in pre-alpha phase.
 
 ## Import and use agents
@@ -103,4 +104,5 @@ print(result)
 
 ## More detailed examples and docs coming soon. 
 
-
+For more detailed documentation on RLgraph and its API-reference, please visit
+[our readthedocs page here](https://rlgraph.readthedocs.io).
