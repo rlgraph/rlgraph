@@ -1120,11 +1120,11 @@ class Component(Specifiable):
         return self.sub_components[scope_name]
 
     def _post_build(self, component):
-        component._post_define_by_run_build()
+        component.post_define_by_run_build()
         for sub_component in component.sub_components.values():
             self._post_build(sub_component)
 
-    def _post_define_by_run_build(self):
+    def post_define_by_run_build(self):
         """
         Optionally execute post-build calls.
         """
