@@ -21,7 +21,6 @@ import tensorflow as tf
 
 from rlgraph.components.memories.memory import Memory
 from rlgraph.utils.util import get_batch_size
-from rlgraph.utils.ops import FlattenedDataOp
 from rlgraph.utils.decorators import rlgraph_api
 
 
@@ -110,7 +109,7 @@ class RingBuffer(Memory):
         #                           summarize=100, message='shape indices|shape recods')
         # Update indices and size.
         with tf.control_dependencies([update_indices]):
-            index_updates = list()
+            index_updates = []
             if self.episode_semantics:
                 # Episodes before inserting these records.
                 prev_num_episodes = self.read_variable(self.num_episodes)
@@ -154,7 +153,7 @@ class RingBuffer(Memory):
                 # )
 
                 with tf.control_dependencies(index_updates):
-                    index_updates = list()
+                    index_updates = []
                     mask = tf.boolean_mask(tensor=update_indices, mask=records['terminals'])
                     # mask = tf.Print(mask, [mask, update_indices, records['/terminals']], summarize=100,
                     #     message='\n mask /  update indices / records-terminal')
@@ -175,7 +174,7 @@ class RingBuffer(Memory):
 
         # Updates all the necessary sub-variables in the record.
         with tf.control_dependencies(index_updates):
-            record_updates = list()
+            record_updates = []
             for key in self.record_registry:
                 record_updates.append(self.scatter_update_variable(
                     variable=self.record_registry[key],
