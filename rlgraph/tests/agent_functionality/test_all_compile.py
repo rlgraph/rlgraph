@@ -21,6 +21,7 @@ import unittest
 
 from rlgraph import get_backend
 from rlgraph.agents import DQNAgent, ApexAgent, IMPALAAgent
+from rlgraph.agents.dqfd_agent import DQFDAgent
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.spaces import FloatBox, Tuple
 from rlgraph.tests.test_util import config_from_path
@@ -32,7 +33,7 @@ class TestAllCompile(unittest.TestCase):
     """
     def test_dqn_compilation(self):
         """
-        Creates a DQNAgent and runs it via a Runner on an openAI Pong Env.
+        Tests DQN Agent compilation.
         """
         env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
         agent_config = config_from_path("configs/dqn_agent_for_pong.json")
@@ -41,6 +42,18 @@ class TestAllCompile(unittest.TestCase):
             agent_config,
             state_space=env.state_space,
             # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
+            action_space=env.action_space
+        )
+
+    def test_dqfd_compilation(self):
+        """
+        Tests DQfD Agent compilation.
+        """
+        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
+        agent_config = config_from_path("configs/dqfd_agent_for_pong.json")
+        agent = DQFDAgent.from_spec(
+            agent_config,
+            state_space=env.state_space,
             action_space=env.action_space
         )
 
