@@ -88,6 +88,8 @@ class DQFDAgent(Agent):
             weights="variables:policy",
             time_step=int,
             use_exploration=bool,
+            demo_batch_size=int,
+            apply_demo_loss=bool,
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
             terminals=terminal_space,
@@ -187,37 +189,31 @@ class DQFDAgent(Agent):
 
         # Learn from online memory AND demo memory.
         @rlgraph_api(component=self.root_component)
-        def update_from_memory(self_):
+        def update_from_memory(self_, apply_demo_loss):
             # Sample from online memory.
             records, sample_indices, importance_weights = memory.get_records(self.demo_batch_size)
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = splitter.split(records)
 
             # Do not apply demo loss to online experience.
             online_step_op, loss, loss_per_item, q_values_s = self_.update_from_external_batch(
-                preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights, False
+                preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights, apply_demo_loss
             )
-
-            # Now also call update from demo memory, which calls update from external using demo memory data.
-            demo_step_op, demo_loss, demo_loss_per_item, demo_records, demo_q_values_s = self_.update_from_demos(
-                self.demo_batch_size)
 
             if isinstance(memory, PrioritizedReplay):
                 update_pr_step_op = memory.update_records(sample_indices, loss_per_item)
 
-                return online_step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op, demo_step_op,\
-                       demo_loss, demo_loss_per_item, demo_records, demo_q_values_s
+                return online_step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
             else:
-                return online_step_op, loss, loss_per_item, records, q_values_s, \
-                       demo_step_op, demo_loss, demo_loss_per_item, demo_records, demo_q_values_s
+                return online_step_op, loss, loss_per_item, records, q_values_s
 
         # Learn from demo-data.
         @rlgraph_api(component=self.root_component)
-        def update_from_demos(self_, batch_size):
+        def update_from_demos(self_, demo_batch_size, apply_demo_loss):
             # Sample from demo memory.
-            records, sample_indices, importance_weights = demo_memory.get_records(batch_size)
+            records, sample_indices, importance_weights = demo_memory.get_records(demo_batch_size)
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = splitter.split(records)
             step_op, loss, loss_per_item, q_values_s = self_.update_from_external_batch(
-                preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights
+                preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights, apply_demo_loss
             )
             return step_op, loss, loss_per_item, records, q_values_s
 
@@ -273,7 +269,7 @@ class DQFDAgent(Agent):
         # TODO for testing
         @rlgraph_api(component=self.root_component)
         def get_td_loss(self_, preprocessed_states, actions, rewards,
-                        terminals, preprocessed_next_states, importance_weights):
+                        terminals, preprocessed_next_states, importance_weights, apply_demo_loss):
             # Get the different Q-values.
             q_values_s = policy.get_logits_probabilities_log_probs(preprocessed_states)["logits"]
             qt_values_sp = target_policy.get_logits_probabilities_log_probs(preprocessed_next_states)["logits"]
@@ -283,7 +279,7 @@ class DQFDAgent(Agent):
                 q_values_sp = policy.get_logits_probabilities_log_probs(preprocessed_next_states)["logits"]
 
             loss, loss_per_item = loss_function.loss(
-                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
+                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights, apply_demo_loss
             )
             return loss, loss_per_item
 
@@ -351,7 +347,11 @@ class DQFDAgent(Agent):
                 return_ops += [3, 4]  # 3=batch, 4=q-values
             elif self.store_last_memory_batch is True:
                 return_ops += [3]  # 3=batch
-            ret = self.graph_executor.execute(("update_from_memory", None, return_ops), sync_call)
+
+            # Combine: Update from memory (apply_demo_loss=False), update_from_demo (apply=True).
+            ret = self.graph_executor.execute(("update_from_memory", False, return_ops),
+                                              ("update_from_demos", [self.demo_batch_size, True], return_ops),
+                                              sync_call)
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
@@ -368,9 +368,12 @@ class DQFDAgent(Agent):
             if self.store_last_q_table is True:
                 return_ops += [3]  # 3=q-values
 
+            # Add false: no demo loss.
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
-                           batch["next_states"], batch["importance_weights"]]
-            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops), sync_call)
+                           batch["next_states"], batch["importance_weights"], False]
+            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops),
+                                              ("update_from_demos", [self.demo_batch_size, True], return_ops),
+                                              sync_call)
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
@@ -412,7 +415,7 @@ class DQFDAgent(Agent):
         if batch_size is None:
             batch_size = self.demo_batch_size
         for _ in range(num_updates):
-            self.graph_builder.execute(("update_from_demos", batch_size))
+            self.graph_builder.execute(("update_from_demos", [batch_size, True]))
 
     def observe_demos(self, preprocessed_states, actions, rewards, next_states, terminals):
         """
