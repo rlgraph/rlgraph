@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, DictMerger, \
+from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DictMerger, \
     ContainerSplitter, DQFDLossFunction
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils.decorators import rlgraph_api
@@ -69,6 +69,7 @@ class DQFDAgent(Agent):
         self.double_q = double_q
         self.dueling_q = dueling_q
         self.huber_loss = huber_loss
+        self.demo_batch_size = int(demo_sample_ratio * self.update_spec['batch_size'] / (1.0 - demo_sample_ratio))
 
         # Debugging tools.
         self.store_last_memory_batch = store_last_memory_batch
@@ -92,11 +93,7 @@ class DQFDAgent(Agent):
             terminals=terminal_space,
             next_states=preprocessed_state_space,
             preprocessed_next_states=preprocessed_state_space,
-            importance_weights=weight_space,
-            # TODO: This is currently necessary for multi-GPU handling (as the update_from_external_batch
-            # TODO: gets overridden by a generic function with args=*inputs)
-            #inputs=[preprocessed_state_space, self.action_space.with_batch_rank(), reward_space, terminal_space,
-            #        preprocessed_state_space, weight_space]
+            importance_weights=weight_space
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.
@@ -168,6 +165,12 @@ class DQFDAgent(Agent):
             records = merger.merge(preprocessed_states, actions, rewards, next_states, terminals)
             return memory.insert_records(records)
 
+        # Insert into demo memory.
+        @rlgraph_api(component=self.root_component)
+        def insert_demos(self, preprocessed_states, actions, rewards, next_states, terminals):
+            records = merger.merge(preprocessed_states, actions, rewards, next_states, terminals)
+            return demo_memory.insert_records(records)
+
         # Syncing target-net.
         @rlgraph_api(component=self.root_component)
         def sync_target_qnet(self):
@@ -183,8 +186,8 @@ class DQFDAgent(Agent):
         # Learn from memory.
         @rlgraph_api(component=self.root_component)
         def update_from_memory(self_):
-            # Non prioritized memory will just return weight 1.0 for all samples.
-            records, sample_indices, importance_weights = demo_memory.get_records(self.demo_batch_size)
+            # Sample from online memory.
+            records, sample_indices, importance_weights = memory.get_records(self.demo_batch_size)
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = splitter.split(records)
 
             step_op, loss, loss_per_item, q_values_s = self_.update_from_external_batch(
@@ -199,14 +202,13 @@ class DQFDAgent(Agent):
         # Learn from demo-data.
         @rlgraph_api(component=self.root_component)
         def update_from_demos(self_, batch_size):
-            records, sample_indices, importance_weights = memory.get_records(batch_size)
+            # Sample from demo memory.
+            records, sample_indices, importance_weights = demo_memory.get_records(batch_size)
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = splitter.split(records)
 
             step_op, loss, loss_per_item, q_values_s = self_.update_from_external_batch(
                 preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights
             )
-
-            # TODO this is really annoying.. will be solved once we have dict returns.
             if isinstance(memory, PrioritizedReplay):
                 update_pr_step_op = memory.update_records(sample_indices, loss_per_item)
                 return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
@@ -254,10 +256,6 @@ class DQFDAgent(Agent):
 
             # Args are passed in again because some device strategies may want to split them to different devices.
             policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
-
-            # TODO: for a fully automated multi-GPU strategy, we would have to make sure that:
-            # TODO: - every agent (root_component) has an update_from_external_batch method
-            # TODO: - this if check is somehow automated and not necessary anymore (local optimizer must be called with different API-method, not step)
             if hasattr(self_, "is_multi_gpu_tower") and self_.is_multi_gpu_tower is True:
                 grads_and_vars = self_.get_sub_component_by_name(optimizer_scope).calculate_gradients(policy_vars, loss)
                 return grads_and_vars, loss, loss_per_item, q_values_s
@@ -410,6 +408,12 @@ class DQFDAgent(Agent):
             batch_size = self.demo_batch_size
         for _ in range(num_updates):
             self.graph_builder.execute(("update_from_demos", batch_size))
+
+    def observe_demos(self, preprocessed_states, actions, rewards, next_states, terminals):
+        """
+        Inserts observations into the demonstration memory.
+        """
+        self.graph_executor.execute(("insert_demos", [preprocessed_states, actions, rewards, next_states, terminals]))
 
     def __repr__(self):
         return "DQFDAgent(doubleQ={} duelingQ={})".format(self.double_q, self.dueling_q)
