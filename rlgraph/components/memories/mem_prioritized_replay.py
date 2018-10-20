@@ -26,7 +26,6 @@ from rlgraph.utils.util import SMALL_NUMBER, get_rank, dtype as dtype_
 from rlgraph.components.memories.memory import Memory
 from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
 from rlgraph.utils.decorators import rlgraph_api
-from rlgraph.spaces.space_utils import get_list_registry
 from rlgraph.spaces import Dict
 
 if get_backend() == "pytorch":
@@ -89,13 +88,11 @@ class MemPrioritizedReplay(Memory):
              dict: Record value dict.
         """
         records = {}
-        # 'actions', not '/actions'
         for name in self.record_space_flat.keys():
             records[name] = []
 
         if self.size > 0:
             for index in indices:
-                # Record is indexed with "/action"
                 record = self.memory_values[index]
                 for name in self.record_space_flat.keys():
                     records[name].append(record[name])
