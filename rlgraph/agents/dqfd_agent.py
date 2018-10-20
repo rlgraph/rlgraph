@@ -33,8 +33,8 @@ class DQFDAgent(Agent):
     uses a supervised large-margin loss to pretrain an agent from expert demonstrations.
     """
     def __init__(self, expert_margin=0.5, supervised_weight=1.0,double_q=True, dueling_q=True,
-                 huber_loss=False, n_step=1, memory_spec=None, store_last_memory_batch=False,
-                 store_last_q_table=False, **kwargs):
+                 huber_loss=False, n_step=1, memory_spec=None, demo_memory_spec=None,
+                 demo_sample_ratio=0.2, store_last_memory_batch=False, store_last_q_table=False, **kwargs):
         # TODO Most of this is DQN duplicate but the way the loss function is instantiated, inheriting
         # from DQN does not work well.
         """
@@ -46,7 +46,8 @@ class DQFDAgent(Agent):
             dueling_q (bool): Whether to use a dueling layer in the ActionAdapter  (see [3]).
             huber_loss (bool) : Whether to apply a Huber loss. (see [4]).
             n_step (Optional[int]): n-step adjustment to discounting.
-            memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
+            memory_spec (Optional[dict,Memory]): The spec for the Memory to use.
+            demo_memory_spec (Optional[dict,Memory]): The spec for the Demo-Memory to use.
             store_last_memory_batch (bool): Whether to store the last pulled batch from the memory in
                 `self.last_memory_batch` for debugging purposes.
                 Default: False.
@@ -100,9 +101,12 @@ class DQFDAgent(Agent):
 
         # The merger to merge inputs into one record Dict going into the memory.
         self.merger = DictMerger("states", "actions", "rewards", "next_states", "terminals")
+
         # The replay memory.
         self.memory = Memory.from_spec(memory_spec)
-        # The splitter for splitting up the records coming from the memory.
+        self.demo_memory = Memory.from_spec(demo_memory_spec)
+
+        # The splitter for splitting up the records from the memories.
         self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals", "next_states")
 
         # Copy our Policy (target-net), make target-net synchronizable.
@@ -119,8 +123,9 @@ class DQFDAgent(Agent):
         )
 
         # Add all our sub-components to the core.
-        sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
-                          self.target_policy, self.exploration, self.loss_function, self.optimizer]
+        sub_components = [self.preprocessor, self.merger, self.memory, self.demo_memory,
+                          self.splitter, self.policy, self.target_policy, self.exploration,
+                          self.loss_function, self.optimizer]
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
@@ -131,12 +136,10 @@ class DQFDAgent(Agent):
                               batch_size=self.update_spec["batch_size"])
             self.graph_built = True
 
-
-
     def define_graph_api(self, policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
         super(DQFDAgent, self).define_graph_api(policy_scope, pre_processor_scope)
 
-        preprocessor, merger, memory, splitter, policy, target_policy, exploration, loss_function, optimizer = \
+        preprocessor, merger, memory, demo_memory, splitter, policy, target_policy, exploration, loss_function, optimizer = \
             sub_components
 
         # Reset operation (resets preprocessor).
@@ -181,7 +184,22 @@ class DQFDAgent(Agent):
         @rlgraph_api(component=self.root_component)
         def update_from_memory(self_):
             # Non prioritized memory will just return weight 1.0 for all samples.
-            records, sample_indices, importance_weights = memory.get_records(self.update_spec["batch_size"])
+            records, sample_indices, importance_weights = demo_memory.get_records(self.demo_batch_size)
+            preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = splitter.split(records)
+
+            step_op, loss, loss_per_item, q_values_s = self_.update_from_external_batch(
+                preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights
+            )
+            if isinstance(memory, PrioritizedReplay):
+                update_pr_step_op = memory.update_records(sample_indices, loss_per_item)
+                return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
+            else:
+                return step_op, loss, loss_per_item, records, q_values_s
+
+        # Learn from demo-data.
+        @rlgraph_api(component=self.root_component)
+        def update_from_demos(self_, batch_size):
+            records, sample_indices, importance_weights = memory.get_records(batch_size)
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = splitter.split(records)
 
             step_op, loss, loss_per_item, q_values_s = self_.update_from_external_batch(
@@ -379,6 +397,19 @@ class DQFDAgent(Agent):
         """
         if self.preprocessing_required and len(self.preprocessor.variables) > 0:
             self.graph_executor.execute("reset_preprocessor")
+
+    def update_from_demos(self, num_updates=1, batch_size=None):
+        """
+        Executes a number of updates by sampling from the expert memory.
+        Args:
+            num_updates (int): The number of samples to execute.
+            batch_size (Optional[int]): Sampling batch size to use. If None, uses the demo
+                batch size computed via the sampling ratio /
+        """
+        if batch_size is None:
+            batch_size = self.demo_batch_size
+        for _ in range(num_updates):
+            self.graph_builder.execute(("update_from_demos", batch_size))
 
     def __repr__(self):
         return "DQFDAgent(doubleQ={} duelingQ={})".format(self.double_q, self.dueling_q)
