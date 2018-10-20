@@ -90,7 +90,7 @@ class MultiGpuSynchronizer(Component):
         super(MultiGpuSynchronizer, self).create_variables(input_spaces, action_space)
 
         # Get input space to load device fun.
-        device_input_space = dict()
+        device_input_space = {}
         idx = 0
         while True:
             key = "inputs[{}]".format(idx)
@@ -139,9 +139,9 @@ class MultiGpuSynchronizer(Component):
         # Load shards to the different devices.
         per_device_assign_ops, loaded_input_batches = self._load_to_device(*input_batches)
 
-        all_grads_and_vars = list()
-        all_loss = list()
-        all_loss_per_item = list()
+        all_grads_and_vars = []
+        all_loss = []
+        all_loss_per_item = []
         all_rest = None
 
         assert len(loaded_input_batches) == self.num_gpus
@@ -206,9 +206,9 @@ class MultiGpuSynchronizer(Component):
         """
         if get_backend() == "tf":
             # Assign shard values to device.
-            per_device_assign_ops = list()
+            per_device_assign_ops = []
             for gpu, shard in enumerate(device_inputs):
-                assign_ops = list()
+                assign_ops = []
                 for i, var in enumerate(self.tower_placeholders[gpu]):
                     assign_op = tf.assign(var, shard[i])
                     assign_ops.append(assign_op)

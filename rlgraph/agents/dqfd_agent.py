@@ -183,21 +183,30 @@ class DQFDAgent(Agent):
                 policy_vars = self.get_sub_component_by_name(policy_scope)._variables()
                 return self.get_sub_component_by_name("target-policy").sync(policy_vars)
 
-        # Learn from memory.
+        # Learn from online memory AND demo memory.
         @rlgraph_api(component=self.root_component)
         def update_from_memory(self_):
             # Sample from online memory.
             records, sample_indices, importance_weights = memory.get_records(self.demo_batch_size)
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = splitter.split(records)
 
-            step_op, loss, loss_per_item, q_values_s = self_.update_from_external_batch(
-                preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights
+            # Do not apply demo loss to online experience.
+            online_step_op, loss, loss_per_item, q_values_s = self_.update_from_external_batch(
+                preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights, False
             )
+
+            # Now also call update from demo memory, which calls update from external using demo memory data.
+            demo_step_op, demo_loss, demo_loss_per_item, demo_records, demo_q_values_s = self_.update_from_demos(
+                self.demo_batch_size)
+
             if isinstance(memory, PrioritizedReplay):
                 update_pr_step_op = memory.update_records(sample_indices, loss_per_item)
-                return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
+
+                return online_step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op, demo_step_op,\
+                       demo_loss, demo_loss_per_item, demo_records, demo_q_values_s
             else:
-                return step_op, loss, loss_per_item, records, q_values_s
+                return online_step_op, loss, loss_per_item, records, q_values_s, \
+                       demo_step_op, demo_loss, demo_loss_per_item, demo_records, demo_q_values_s
 
         # Learn from demo-data.
         @rlgraph_api(component=self.root_component)
@@ -205,20 +214,16 @@ class DQFDAgent(Agent):
             # Sample from demo memory.
             records, sample_indices, importance_weights = demo_memory.get_records(batch_size)
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = splitter.split(records)
-
             step_op, loss, loss_per_item, q_values_s = self_.update_from_external_batch(
                 preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights
             )
-            if isinstance(memory, PrioritizedReplay):
-                update_pr_step_op = memory.update_records(sample_indices, loss_per_item)
-                return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
-            else:
-                return step_op, loss, loss_per_item, records, q_values_s
+            return step_op, loss, loss_per_item, records, q_values_s
 
-        # Learn from an external batch.
+        # Learn from an external batch - note the flag to apply demo loss.
         @rlgraph_api(component=self.root_component)
         def update_from_external_batch(
-                self_, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights
+                self_, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights,
+                apply_demo_loss
         ):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -228,7 +233,7 @@ class DQFDAgent(Agent):
                 grads_and_vars, loss, loss_per_item, q_values_s = \
                     self_.sub_components["multi-gpu-sync-optimizer"].calculate_update_from_external_batch(
                         main_policy_vars, preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
-                        importance_weights
+                        importance_weights, apply_demo_loss
                     )
                 step_op = self_.get_sub_component_by_name(optimizer_scope).apply_gradients(grads_and_vars)
                 step_and_sync_op = self_.sub_components["multi-gpu-sync-optimizer"].sync_policy_weights_to_towers(
@@ -251,7 +256,7 @@ class DQFDAgent(Agent):
                 )["logits"]
 
             loss, loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
-                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
+                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights, apply_demo_loss
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
@@ -345,8 +350,6 @@ class DQFDAgent(Agent):
             elif self.store_last_memory_batch is True:
                 return_ops += [3]  # 3=batch
             ret = self.graph_executor.execute(("update_from_memory", None, return_ops), sync_call)
-
-            # print("Loss: {}".format(ret["update_from_memory"][1]))
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
