@@ -22,6 +22,7 @@ from rlgraph.components import Categorical
 from rlgraph.components.loss_functions import LossFunction
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.utils.decorators import graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -65,6 +66,7 @@ class PPOLossFunction(LossFunction):
         # TODO: Make this flexible with different distributions.
         self.distribution = Categorical()
 
+    @graph_fn
     def _graph_fn_loss_per_item(self, distribution, actions, rewards, terminals, prev_log_likelihood):
         """
         Args:
