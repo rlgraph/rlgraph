@@ -48,6 +48,15 @@ class DQFDLossFunction(DQNLossFunction):
         super(DQFDLossFunction, self).__init__(scope=scope, **kwargs)
 
     @rlgraph_api
+    def loss(self, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None, importance_weights=None,
+             apply_demo_loss=False):
+        loss_per_item = self.loss_per_item(
+            q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights, apply_demo_loss
+        )
+        total_loss = self.loss_average(loss_per_item)
+        return total_loss, loss_per_item
+
+    @rlgraph_api
     def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, terminals,
                                 qt_values_sp, q_values_sp=None, importance_weights=None, apply_demo_loss=False):
         """
