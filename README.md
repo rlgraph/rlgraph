@@ -17,6 +17,13 @@ for testing and assembly of machine learning models. By separating graph definit
 multiple distributed backends and device execution strategies can be accessed without modifying
 agent definitions.
 
+The current state of RLgraph in version 0.1.0 is alpha. The core engine is substantially complete
+and works for TensorFlow and PyTorch. Distributed execution on Ray is exemplified via Distributed
+Prioritized Experience Replay (Ape-X), which also supports multi-gpu mode. Ape-X can be used both with PyTorch and
+TensorFlow. Distributed TensorFlow can be tested via the IMPALA agent. We will add a number of key
+algorithms and other distributed coordination mechanisms in the  coming weeks. Please create an issue
+to discuss improvements or contributions.
+
 
 ## Install
 
@@ -35,9 +42,9 @@ To successfully run tests, please also install OpenAI gym, e.g.
 
 Upon calling RLgraph, a config JSON is created under ~.rlgraph/rlgraph.json
 which can be used to change backend settings. The current default stable
-backend is TensorFlow ("tf"). The PyTorch backend ("pytorch") supports
-component build and execution, but not all utilities support all backends yet
-in pre-alpha phase.
+backend is TensorFlow ("tf"). The PyTorch backend ("pytorch") does not support
+all utilities available in TF yet. Namely, device handling for PyTorch is incomplete,
+and we will likely wait until a stable PyTorch 1.0 release in the coming weeks.
 
 ## Import and use agents
 
@@ -103,7 +110,7 @@ result = exec.execute_workload(workload=dict(num_timesteps=10000, report_interva
 print(result)
 ```
 
-## More detailed examples and docs coming soon. 
+## More detailed examples coming soon.
 
 For more detailed documentation on RLgraph and its API-reference, please visit
 [our readthedocs page here](https://rlgraph.readthedocs.io).
