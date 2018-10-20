@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.component import Component, rlgraph_api
+from rlgraph.utils import FlattenedDataOp
 
 
 class Memory(Component):
@@ -97,3 +98,18 @@ class Memory(Component):
         """
         # Optional?
         pass
+
+    def _read_records(self, indices):
+        """
+        Obtains record values for the provided indices.
+
+        Args:
+            indices (Union[ndarray,tf.Tensor]): Indices to read. Assumed to be not contiguous.
+
+        Returns:
+             FlattenedDataOp: Record value dict.
+        """
+        records = FlattenedDataOp()
+        for name, variable in self.record_registry.items():
+            records[name] = self.read_variable(variable, indices)
+        return records
