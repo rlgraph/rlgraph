@@ -101,6 +101,8 @@ class DQFDAgent(Agent):
 
         # The replay memory.
         self.memory = Memory.from_spec(memory_spec)
+        # Cannot have same default name.
+        demo_memory_spec["scope"] = "demo-memory"
         self.demo_memory = Memory.from_spec(demo_memory_spec)
 
         # The splitter for splitting up the records from the memories.
