@@ -18,8 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components import DQNLossFunction
 from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.components.loss_functions.dqn_loss_function import DQNLossFunction
 from rlgraph.utils.util import get_rank
 
 if get_backend() == "tf":
@@ -49,7 +49,7 @@ class DQFDLossFunction(DQNLossFunction):
 
     @rlgraph_api
     def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, terminals,
-                                qt_values_sp, q_values_sp=None, importance_weights=None):
+                                qt_values_sp, q_values_sp=None, importance_weights=None, apply_demo_loss=False):
         """
         Args:
             q_values_s (SingleDataOp): The batch of Q-values representing the expected accumulated discounted returns
@@ -65,7 +65,8 @@ class DQFDLossFunction(DQNLossFunction):
                 different actions a'.
             importance_weights (Optional[SingleDataOp]): If 'self.importance_weights' is True: The batch of weights to
                 apply to the losses.
-
+            apply_demo_loss (Optional[SingleDataOp]): If 'apply_demo_loss' is True: The large-margin loss is applied.
+                Should be set to True when updating from demo data, False when updating from online data.
         Returns:
             SingleDataOp: The loss values vector (one single value for each batch item).
         """
