@@ -121,8 +121,11 @@ class DQFDLossFunction(DQNLossFunction):
 
             # Subtract Q-values of action actually taken.
             supervised_delta = supervised_loss - q_s_a_values
-            if apply_demo_loss:
-                td_delta = td_delta + self.supervised_weight * supervised_delta
+            td_delta = tf.cond(
+                pred=apply_demo_loss,
+                true_fn=lambda: td_delta + self.supervised_weight * supervised_delta,
+                false_fn=lambda: td_delta
+            )
 
             # Reduce over the composite actions, if any.
             if get_rank(td_delta) > 1:
