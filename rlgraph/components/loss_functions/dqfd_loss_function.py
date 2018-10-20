@@ -45,7 +45,7 @@ class DQFDLossFunction(DQNLossFunction):
         """
         self.expert_margin = expert_margin
         self.supervised_weight = supervised_weight
-        super(DQNLossFunction, self).__init__(scope=scope, **kwargs)
+        super(DQFDLossFunction, self).__init__(scope=scope, **kwargs)
 
     @rlgraph_api
     def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, terminals,
