@@ -104,6 +104,17 @@ class DQFDLossFunction(DQNLossFunction):
             # Calculate the TD-delta (target - current estimate).
             td_delta = (rewards + (self.discount ** self.n_step) * qt_sp_ap_values) - q_s_a_values
 
+            # Calculate the demo-loss.
+            #  J_E(Q) = max_a([Q(s, a_taken) + l(s, a_expert, a_taken)] - Q(s, a_expert)
+            mask = tf.ones_like(tensor=one_hot, dtype=tf.float32)
+            action_mask = mask - one_hot
+            supervised_loss = tf.reduce_max(input_tensor=q_values_s + action_mask * self.expert_margin, axis=-1)
+
+            # Subtract Q-values of action actually taken.
+            supervised_delta = supervised_loss - q_s_a_values
+            if apply_demo_loss:
+                td_delta = td_delta + self.supervised_weight * supervised_delta
+
             # Reduce over the composite actions, if any.
             if get_rank(td_delta) > 1:
                 td_delta = tf.reduce_mean(input_tensor=td_delta, axis=list(range(1, self.ranks_to_reduce + 1)))
