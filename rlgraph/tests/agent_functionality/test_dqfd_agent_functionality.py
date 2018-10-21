@@ -75,7 +75,7 @@ class TestDQNAgentFunctionality(unittest.TestCase):
             gym_env="PongNoFrameskip-v4"
         )
         env = OpenAIGymEnv.from_spec(env_spec)
-
+        # TODO use smaller network/env for this test.
         agent_config = config_from_path("configs/dqfd_agent_for_pong.json")
         agent = DQFDAgent.from_spec(
             agent_config,
@@ -117,10 +117,10 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         agent.update_from_demos(num_updates=100, batch_size=16)
 
         # Test if fixed states and actions map.
-        action = agent.get_action(states=state_1)
+        action = agent.get_action(states=state_1, apply_preprocessing=False)
         self.assertEqual(action, action_1)
 
-        action = agent.get_action(states=state_2)
+        action = agent.get_action(states=state_2, apply_preprocessing=False)
         self.assertEqual(action, action_2)
 
     def test_update_online(self):
