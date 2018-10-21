@@ -279,7 +279,7 @@ class Component(Specifiable):
             bool: Whether this Component is "variables-complete".
         """
         # We are already variable-complete -> shortcut return here.
-        if self.variable_complete:
+        if self.variable_complete is True:
             return True
         # We are not input-complete yet (our own variables have not been created) -> return False.
         elif self.input_complete is False:

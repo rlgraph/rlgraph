@@ -57,12 +57,19 @@ class Synchronizable(Component):
 
         # Pretend we are input-complete (which we may not be) and then check parent's variable completeness
         # under this condition.
+        parent_was_variable_complete = True
         if self.parent_component.variable_complete is False:
+            parent_was_variable_complete = False
             self.input_complete = True
             self.parent_component.check_variable_completeness()
             self.input_complete = False
 
-        if self.parent_component.variable_complete:
+        if self.parent_component.variable_complete is True:
+            # Set back parent's variable completeness to where it was before, no matter what.
+            # To not interfere with variable complete checking logic of graph-builder after this
+            # Synchronizable Component becomes input-complete.
+            if parent_was_variable_complete is False:
+                self.parent_component.variable_complete = False
             parents_vars = self.parent_component.get_variables(collections=self.collections, custom_scope_separator="-")
             # We don't have any value yet from the sync-in Component OR
             # some of the parent's variables (or its other children) have not been created yet.
