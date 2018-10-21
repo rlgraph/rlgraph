@@ -31,7 +31,8 @@ install_requires = [
     'pyyaml',
     'pytest',
     'six',
-    'requests'
+    'requests',
+    'absl-py'
 ]
 
 setup_requires = []

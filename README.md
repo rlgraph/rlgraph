@@ -46,6 +46,19 @@ backend is TensorFlow ("tf"). The PyTorch backend ("pytorch") does not support
 all utilities available in TF yet. Namely, device handling for PyTorch is incomplete,
 and we will likely wait until a stable PyTorch 1.0 release in the coming weeks.
 
+### Quickstart / example usage
+
+We provide an example script for training the Ape-X algorith on ALE using Ray in the [examples](examples) folder:
+
+```bash
+# Start ray on the head machine
+ray start --head --redis-port 6379
+# Optionally join to this cluster from other machines with ray start --redis-address=...
+
+# Run script
+python apex_ale.py
+```
+
 ## Import and use agents
 
 Agents can be imported and used as follows:
