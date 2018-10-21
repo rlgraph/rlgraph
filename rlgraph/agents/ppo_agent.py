@@ -26,6 +26,7 @@ from rlgraph.spaces import Dict, BoolBox
 
 
 class PPOAgent(Agent):
+    # TODO finish assembly
     """
     Proximal policy optimization is a variant of policy optimization in which
     the likelihood ratio between updated and prior policy is constrained by clipping, and
@@ -83,7 +84,7 @@ class PPOAgent(Agent):
 
     def _observe_graph(self, states, actions, internals, rewards, next_states, terminals):
         self.graph_executor.execute(
-            ("insert_records", [states, actions, rewards, terminals])
+            ("insert_records", [states, actions, rewards, next_states, terminals])
         )
 
     def update(self, batch=None):

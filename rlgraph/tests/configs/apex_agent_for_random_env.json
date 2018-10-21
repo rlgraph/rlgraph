@@ -43,5 +43,9 @@
         "num_timesteps": 10000
       }
     }
+  },
+    "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.05
   }
 }

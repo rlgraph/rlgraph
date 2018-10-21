@@ -92,7 +92,7 @@ class DataOpRecordColumn(object):
         self.id = self.get_id()
 
         if num_op_records is None:
-            self.op_records = list()
+            self.op_records = []
             if args is not None:
                 for i in range(len(args)):
                     if args[i] is None:
@@ -231,7 +231,7 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
                 ret.append(op)
 
         # Process kwargs, if given.
-        kwarg_ret = dict()
+        kwarg_ret = {}
         if len(kwarg_ops) > 0:
             for key, op in kwarg_ops.items():
                 if self.flatten_ops is True or (isinstance(self.flatten_ops, set) and key in self.flatten_ops):
@@ -411,18 +411,18 @@ class APIMethodRecord(object):
         self.add_auto_key_as_first_param = add_auto_key_as_first_param
 
         # List of the input-parameter names (str) of this API-method.
-        self.input_names = list()
+        self.input_names = []
         # Name of the *args arg (usually "args") w/o the *.
         self.args_name = None
         # Name of the **kwargs arg (usually "kwargs") w/o the *.
         self.kwargs_name = None
         # List of the names of all non-arg/non-kwarg arguments (the ones that come first in the signature).
-        self.non_args_kwargs = list()
+        self.non_args_kwargs = []
         # List of args that have a default value.
-        self.default_args = list()
+        self.default_args = []
 
-        self.in_op_columns = list()
-        self.out_op_columns = list()
+        self.in_op_columns = []
+        self.out_op_columns = []
 
         # Update the api_method_inputs dict (with empty Spaces if not defined yet).
         skip_args = 1
@@ -462,8 +462,8 @@ class GraphFnRecord(object):
         self.split_ops = split_ops
         self.add_auto_key_as_first_param = add_auto_key_as_first_param
 
-        self.in_op_columns = list()
-        self.out_op_columns = list()
+        self.in_op_columns = []
+        self.out_op_columns = []
 
 
 def get_call_param_name(op_rec):

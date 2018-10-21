@@ -68,9 +68,9 @@ class FIFOQueue(Memory):
             self.record_space = input_spaces["records"]
 
         # Make sure all input-records have a batch rank and determine the shapes and dtypes.
-        shapes = list()
-        dtypes = list()
-        names = list()
+        shapes = []
+        dtypes = []
+        names = []
         for key, value in self.record_space.flatten().items():
             # TODO: what if single items come in without a time-rank? Then this check here will fail.
             # We are expecting single items. The incoming batch-rank is actually a time-rank: Add the batch rank.

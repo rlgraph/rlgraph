@@ -112,51 +112,6 @@ class SegmentTree(object):
         with tf.control_dependencies(control_inputs=[assignment]):
             return tf.no_op()
 
-    # def insert(self, index, element, insert_op=tf.add):
-    #     """
-    #     Inserts an element into the segment tree by determining
-    #     its position in the tree.
-    #
-    #     Args:
-    #         index (int): Insertion index.
-    #         element (any): Element to insert.
-    #         insert_op (Union(tf.add, tf.minimum, tf, maximum)): Insert operation on the tree.
-    #     """
-    #     # index = tf.Print(index, [index], summarize=100, message='index before add = ')
-    #     index += self.capacity
-    #     # index = tf.Print(index, [index], summarize=100, message='index after add = ')
-    #
-    #     assignment = tf.assign(ref=self.values[index], value=element)
-    #
-    #     # Search and update values while index >=1
-    #     loop_update_index = tf.div(x=index, y=2)
-    #
-    #     def insert_body(loop_update_index):
-    #
-    #         update_val = insert_op(
-    #             x=self.values[2 * loop_update_index],
-    #             y=self.values[2 * loop_update_index + 1]
-    #         )
-    #         loop_update_index = tf.Print(loop_update_index,
-    #                                      [loop_update_index,update_val],
-    #                                      summarize=100, message='index, update val= ')
-    #         assignment = tf.assign(ref=self.values[loop_update_index], value=update_val)
-    #
-    #         with tf.control_dependencies(control_inputs=[assignment]):
-    #             return tf.div(x=loop_update_index, y=2)
-    #
-    #     def cond(loop_update_index):
-    #         return loop_update_index >= 1
-    #
-    #     with tf.control_dependencies(control_inputs=[assignment]):
-    #         return tf.while_loop(
-    #             cond=cond,
-    #             body=insert_body,
-    #             loop_vars=[loop_update_index],
-    #             parallel_iterations=1,
-    #             back_prop=False
-    #         )
-
     def get(self, index):
         """
         Reads an item from the segment tree.

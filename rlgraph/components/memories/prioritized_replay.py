@@ -226,19 +226,3 @@ class PrioritizedReplay(Memory):
         assignment = self.assign_variable(ref=self.max_priority, value=max_priority)
         with tf.control_dependencies(control_inputs=[assignment]):
             return tf.no_op()
-
-    def _read_records(self, indices):
-        """
-        Obtains record values for the provided indices.
-
-        Args:
-            indices (Union[ndarray,tf.Tensor]): Indices to read. Assumed to be not contiguous.
-
-        Returns:
-             FlattenedDataOp: Record value dict.
-        """
-        records = FlattenedDataOp()
-        for name, variable in self.record_registry.items():
-            records[name] = self.read_variable(variable, indices)
-        return records
-

@@ -21,7 +21,6 @@ import tensorflow as tf
 
 from rlgraph.components.memories.memory import Memory
 from rlgraph.utils.util import get_batch_size
-from rlgraph.utils.ops import FlattenedDataOp
 from rlgraph.utils.decorators import rlgraph_api
 
 
@@ -52,8 +51,6 @@ class RingBuffer(Memory):
             def _graph_fn_get_episodes(self, num_episodes=1):
                 stored_episodes = self.read_variable(self.num_episodes)
                 available_episodes = tf.minimum(x=num_episodes, y=stored_episodes)
-                # available_episodes = tf.Print(available_episodes, [available_episodes, stored_episodes], summarize=100,
-                #                               message='\n available eps, stored eps =')
 
                 # Say we have two episodes with this layout:
                 # terminals = [0 0 1 0 1]
@@ -74,7 +71,6 @@ class RingBuffer(Memory):
                 limit += tf.where(condition=(start < limit), x=0, y=self.capacity)
 
                 indices = tf.range(start=start, limit=limit) % self.capacity
-                # indices = tf.Print(indices, [start, limit, indices], summarize=100, message='\n start, limit, indices = ')
                 return self._read_records(indices=indices)
 
     def create_variables(self, input_spaces, action_space=None):
@@ -106,13 +102,14 @@ class RingBuffer(Memory):
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
-        # update_indices = tf.Print(update_indices, [index, num_records, update_indices], summarize=100, message='index|num|indices')
+        # update_indices = tf.Print(update_indices, [index, num_records, update_indices],
+        #  summarize=100, message='index|num|indices')
         # update_indices = tf.Print(update_indices, [tf.shape(update_indices),
         #                                            tf.shape(records["terminals"])],
         #                           summarize=100, message='shape indices|shape recods')
         # Update indices and size.
         with tf.control_dependencies([update_indices]):
-            index_updates = list()
+            index_updates = []
             if self.episode_semantics:
                 # Episodes before inserting these records.
                 prev_num_episodes = self.read_variable(self.num_episodes)
@@ -156,7 +153,7 @@ class RingBuffer(Memory):
                 # )
 
                 with tf.control_dependencies(index_updates):
-                    index_updates = list()
+                    index_updates = []
                     mask = tf.boolean_mask(tensor=update_indices, mask=records['terminals'])
                     # mask = tf.Print(mask, [mask, update_indices, records['/terminals']], summarize=100,
                     #     message='\n mask /  update indices / records-terminal')
@@ -177,7 +174,7 @@ class RingBuffer(Memory):
 
         # Updates all the necessary sub-variables in the record.
         with tf.control_dependencies(index_updates):
-            record_updates = list()
+            record_updates = []
             for key in self.record_registry:
                 record_updates.append(self.scatter_update_variable(
                     variable=self.record_registry[key],
@@ -194,19 +191,4 @@ class RingBuffer(Memory):
         index = self.read_variable(self.index)
         indices = tf.range(start=index - 1 - num_records, limit=index - 1) % self.capacity
         return self._read_records(indices=indices)
-
-    def _read_records(self, indices):
-        """
-        Obtains record values for the provided indices.
-
-        Args:
-            indices (Union[ndarray,tf.Tensor]): Indices to read. Assumed to be not contiguous.
-
-        Returns:
-             FlattenedDataOp: Record value dict.
-        """
-        records = FlattenedDataOp()
-        for name, variable in self.record_registry.items():
-            records[name] = self.read_variable(variable, indices)
-        return records
 

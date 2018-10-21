@@ -19,11 +19,13 @@ from __future__ import print_function
 
 from rlgraph.components.loss_functions.loss_function import LossFunction
 from rlgraph.components.loss_functions.dqn_loss_function import DQNLossFunction
+from rlgraph.components.loss_functions.dqfd_loss_function import DQFDLossFunction
 from rlgraph.components.loss_functions.ppo_loss_function import PPOLossFunction
 
 LossFunction.__lookup_classes__ = dict(
     dqnlossfunction=DQNLossFunction,
+    dqfdlossfunction=DQFDLossFunction,
     ppolossfunction=PPOLossFunction
 )
 
-__all__ = ["LossFunction", "DQNLossFunction", "PPOLossFunction"]
+__all__ = ["LossFunction", "DQNLossFunction", "DQFDLossFunction","PPOLossFunction"]
