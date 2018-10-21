@@ -29,8 +29,10 @@ from rlgraph.utils.util import strip_list
 
 class DQFDAgent(Agent):
     """
-    Deep-Q-learning from demonstration is an extension compatible to Double/Dueling DQN which
-    uses a supervised large-margin loss to pretrain an agent from expert demonstrations.
+    Deep-Q-learning from demonstration is an extension compatible with Double/Dueling DQN which
+    uses a supervised large-margin loss to pretrain an agent from expert demonstrations. Paper:
+
+    https://arxiv.org/abs/1704.03732
     """
     def __init__(self, expert_margin=0.5, supervised_weight=1.0, double_q=True, dueling_q=True,
                  huber_loss=False, n_step=1, memory_spec=None, demo_memory_spec=None,
