@@ -24,8 +24,8 @@ ray start --head --redis-port 6379
 # Optionally join to this cluster from other machines with ray start --redis-address=...
 
 # Run script
+python apex_ale.py
 ```
-
 """
 
 import csv
