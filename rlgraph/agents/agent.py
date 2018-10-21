@@ -325,7 +325,9 @@ class Agent(Specifiable):
             internals = np.asarray([internals])
             rewards = np.asarray([rewards])
             terminals = np.asarray([terminals])
-            next_states = np.asarray([next_states])
+            # Also batch next_states (or already done?).
+            if next_states.ndim == preprocessed_states.ndim - 1:
+                next_states = np.asarray([next_states])
 
         if self.observe_spec["buffer_enabled"] is True:
             if env_id is None:
