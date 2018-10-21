@@ -18,6 +18,8 @@ Example script for training an APEX agent on the Arcade Learning Environment (AL
 
 Usage:
 
+python apex_ale.py [--config configs/apex_ale.json] [--gpu/--nogpu] [--env PongNoFrameSkip-v4] [--output results.csv]
+
 ```
 # Start ray on the head machine
 ray start --head --redis-port 6379
