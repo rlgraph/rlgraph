@@ -24,6 +24,7 @@ import logging
 from rlgraph.environments import GridWorld, OpenAIGymEnv
 from rlgraph.agents import DQNAgent
 from rlgraph.execution import SingleThreadedWorker
+from rlgraph.spaces import FloatBox
 from rlgraph.utils import root_logger
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 
@@ -33,19 +34,22 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
     Tests whether the DQNAgent can learn in simple environments.
     """
     root_logger.setLevel(level=logging.INFO)
+    grid_world_preprocessing_spec = [dict(
+        type="reshape",
+        flatten=True
+    )]
 
     def test_dqn_on_2x2_grid_world(self):
         """
         Creates a DQNAgent and runs it via a Runner on a simple 2x2 GridWorld.
         """
-        env = GridWorld("2x2")
+        dummy_env = GridWorld("2x2")
         agent = DQNAgent.from_spec(
             config_from_path("configs/dqn_agent_for_2x2_grid.json"),
-            #discount=1.0,  # very short episodes -> no discount.
             double_q=False,
             dueling_q=False,
-            state_space=env.state_space,
-            action_space=env.action_space,
+            state_space=FloatBox(shape=(4,), add_batch_rank=True),
+            action_space=dummy_env.action_space,
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=12),
             update_spec=dict(update_interval=4, batch_size=24, sync_interval=32),
@@ -54,7 +58,12 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         )
 
         time_steps = 1000
-        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent)
+        worker = SingleThreadedWorker(
+            env_spec=lambda: GridWorld("2x2"),
+            agent=agent,
+            preprocessing_spec=self.grid_world_preprocessing_spec,
+            worker_executes_preprocessing=True
+        )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         print("STATES:\n{}".format(agent.last_q_table["states"]))
