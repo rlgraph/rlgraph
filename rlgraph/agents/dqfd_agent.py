@@ -417,7 +417,7 @@ class DQFDAgent(Agent):
         if batch_size is None:
             batch_size = self.demo_batch_size
         for _ in range(num_updates):
-            self.graph_builder.execute(("update_from_demos", [batch_size, True]))
+            self.graph_executor.execute(("update_from_demos", [batch_size, True]))
 
     def observe_demos(self, preprocessed_states, actions, rewards, next_states, terminals):
         """
