@@ -72,16 +72,21 @@ class SingleThreadedWorker(Worker):
         # The current state of the running episode.
         self.env_states = [None for _ in range_(self.num_environments)]
 
-    def setup_preprocessor(self, preprocessing_spec, in_space):
+    @staticmethod
+    def setup_preprocessor(preprocessing_spec, in_space):
         if preprocessing_spec is not None:
             # TODO move ingraph for python component assembly.
             preprocessing_spec = deepcopy(preprocessing_spec)
             in_space = deepcopy(in_space)
-            # Set scopes.
-            scopes = [preprocessor["scope"] for preprocessor in preprocessing_spec]
-            # Set backend to python.
-            for spec in preprocessing_spec:
-                spec["backend"] = "python"
+            # Store scopes (set if not given).
+            scopes = []
+            for i, preprocessor in enumerate(preprocessing_spec):
+                if "scope" not in preprocessor:
+                    preprocessor["scope"] = "preprocessor-{}".format(i)
+                scopes.append(preprocessor["scope"])
+                # Set backend to python.
+                preprocessor["backend"] = "python"
+
             processor_stack = PreprocessorStack(*preprocessing_spec, backend="python")
             build_space = in_space
             for sub_comp_scope in scopes:
@@ -208,7 +213,7 @@ class SingleThreadedWorker(Worker):
                 )
                 preprocessed_states = np.array(self.preprocessed_states_buffer)
             else:
-                actions, preprocessed_states = self.agent.get_action(
+                preprocessed_states, actions = self.agent.get_action(
                     states=np.array(env_states), use_exploration=use_exploration,
                     apply_preprocessing=True, extra_returns="preprocessed_states"
                 )
