@@ -20,6 +20,7 @@ from __future__ import print_function
 import logging
 
 from rlgraph.graphs import MetaGraphBuilder
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.input_parsing import parse_saver_spec, parse_execution_spec
 
@@ -214,3 +215,33 @@ class GraphExecutor(Specifiable):
         and other open connections.
         """
         pass  # optional
+
+    def sanity_check_component_tree(self, root_component):
+        """
+        Checks the initial component nesting setup (parent and their child components).
+
+        Raises:
+              RLGraphError: If sanity of the init nesting setup could not be confirmed.
+        """
+        # Check whether every component (except root-component) has a parent.
+        components = root_component.get_all_sub_components()
+
+        self.logger.info("Components created: {}".format(len(components)))
+
+        core_found = False
+        for component in components:
+            if component.parent_component is None:
+                if component is not root_component:
+                    raise RLGraphError(
+                        "ERROR: Component '{}' has no parent Component but is not the root-component! Only the "
+                        "root-component has a `parent_component` of None.".format(component)
+                    )
+                else:
+                    core_found = True
+            elif component.parent_component is not None and component is root_component:
+                raise RLGraphError(
+                    "ERROR: Root-Component '{}' has a parent Component ({}), but is not allowed to!".
+                    format(component, component.parent_component)
+                )
+        if core_found is False:
+            raise RLGraphError("ERROR: Root-component '{}' was not found in meta-graph!".format(root_component))

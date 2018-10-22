@@ -183,8 +183,11 @@ class GraphBuilder(Specifiable):
 
         # Collect all components and add those op-recs to the set that are constant.
         components = self.root_component.get_all_sub_components()
+        # Point to us.
         for component in components:
-            component.graph_builder = self  # point to us.
+            component.graph_builder = self
+        # Try to build if already input complete.
+        for component in components:
             self.op_records_to_process.update(component.constant_op_records)
             # Check whether the Component is input-complete (and build already if it is).
             self.build_component_when_input_complete(component)
@@ -202,6 +205,10 @@ class GraphBuilder(Specifiable):
 
         self.num_trainable_parameters = self.count_trainable_parameters()
         self.logger.info("Number of trainable parameters: {}".format(self.num_trainable_parameters))
+
+        # Sanity check the build.
+        self.sanity_check_build()
+
         # The build here is the actual build overhead, so build time minus the tensorflow calls and variable
         # creations which would have to happen either way.
         build_overhead = time_build - sum(self.graph_call_times) - sum(self.var_call_times)
@@ -640,46 +647,25 @@ class GraphBuilder(Specifiable):
             return len(tf.get_default_graph().as_graph_def().node)
         return 0
 
-    def sanity_check_build(self, component=None):
-        # TODO: Obsolete method?
+    def sanity_check_build(self):
         """
-        Checks whether all the `component`'s and sub-components's in-Sockets and graph_fns are input-complete and
-        raises detailed error messages if not. Input-completeness means that ..
-        a) all in-Sockets of a Component or
-        b) all connected incoming Sockets to a GraphFunction
-        .. have their `self.space` field defined (is not None).
+        Checks whether some of the root component's API-method output columns contain ops that are still None.
+        """
+        for api_method_rec in self.root_component.api_methods.values():
+            for out_op_column in api_method_rec.out_op_columns:
+                for op_rec in out_op_column.op_records:
+                    if op_rec.op is None:
+                        self.analyze_build_problem(op_rec)
 
+    def analyze_build_problem(self, op_rec):
+        """
         Args:
-            component (Component): The Component to analyze for input-completeness.
+            op_rec (DataOpRecord): The op-rec to analyze for errors (whose op property is None).
+
+        Raises:
+            RLGraphError: After the problem has been identified.
         """
-        component = component or self.root_component
-
-        if self.logger.level <= logging.INFO:
-            component_print_out(component)
-
-        # Check all the component's graph_fns for input-completeness.
-        for graph_fn in component.graph_fns:
-            if graph_fn.input_complete is False:
-                # Look for the missing in-Socket and raise an Error.
-                for in_sock_name, in_sock_record in graph_fn.input_sockets.items():
-                    if len(in_sock_record["socket"].op_records) == 0 and \
-                            in_sock_name not in component.unconnected_sockets_in_meta_graph:
-                        raise RLGraphError("in-Socket '{}' of GraphFunction '{}' of Component '{}' does not have "
-                                           "any incoming ops!".format(in_sock_name, graph_fn.name,
-                                                                      component.global_scope))
-
-        # Check component's sub-components for input-completeness (recursively).
-        for sub_component in component.sub_components.values():  # type: Component
-            if sub_component.input_complete is False:
-                # Look for the missing Socket and raise an Error.
-                for in_sock in sub_component.input_sockets:
-                    if in_sock.space is None:
-                        raise RLGraphError("Component '{}' is not input-complete. In-Socket '{}' does not " \
-                                           "have any incoming connections.".
-                                           format(sub_component.global_scope, in_sock.name))
-
-            # Recursively call this method on all the sub-component's sub-components.
-            self.sanity_check_build(sub_component)
+        pass
 
     def get_execution_inputs(self, *api_method_calls):
         """
@@ -860,7 +846,7 @@ class GraphBuilder(Specifiable):
                             format(op_rec, next_op_rec, next_op_rec, next_op_rec.previous)
                         # If not last op in this API-method -> continue.
                         if next_op_rec.is_terminal_op is False:
-                            assert next_op_rec.op is None or is_constant(next_op_rec.op)
+                            assert next_op_rec.op is None or is_constant(next_op_rec.op) or next_op_rec.op is op_rec.op
                             self.op_records_to_process.add(next_op_rec)
                         # Push op and Space into next op-record.
                         next_op_rec.op = op_rec.op

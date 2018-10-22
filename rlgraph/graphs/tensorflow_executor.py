@@ -171,8 +171,8 @@ class TensorFlowExecutor(GraphExecutor):
     def build(self, root_components, input_spaces, optimizer=None, build_options=None, batch_size=32):
         # Use perf_counter for short tasks.
         start = time.perf_counter()
-        # 0. Init phase: Component construction and nesting (child/parent Components).
-        # Components can still be modified and re-arranged after this.
+
+        # Check graph setup and construct the static graph object.
         self.init_execution()
         self.setup_graph()
 
@@ -184,6 +184,9 @@ class TensorFlowExecutor(GraphExecutor):
         build_times = []
 
         for component in root_components:
+            # Sanity-check the component tree (from root all the way down).
+            self.sanity_check_component_tree(root_component=component)
+
             self._build_device_strategy(component, optimizer, batch_size=batch_size)
             start = time.perf_counter()
             meta_graph = self.meta_graph_builder.build(component, input_spaces)
