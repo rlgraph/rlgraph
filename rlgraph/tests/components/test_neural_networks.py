@@ -24,7 +24,8 @@ from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 from rlgraph.components.neural_networks import NeuralNetwork
 from rlgraph.spaces import FloatBox, Tuple
-from rlgraph.tests import ComponentTest
+from rlgraph.tests.test_util import config_from_path
+from rlgraph.tests.component_test import ComponentTest
 from rlgraph.utils.numpy import dense_layer, lstm_layer
 
 
@@ -37,7 +38,7 @@ class TestNeuralNetworks(unittest.TestCase):
         space = FloatBox(shape=(3,), add_batch_rank=True)
 
         # Create a simple neural net from json.
-        neural_net = NeuralNetwork.from_spec("../configs/test_simple_nn.json")  # type: NeuralNetwork
+        neural_net = NeuralNetwork.from_spec(config_from_path("configs/test_simple_nn.json"))  # type: NeuralNetwork
 
         # Do not seed, we calculate expectations manually.
         test = ComponentTest(component=neural_net, input_spaces=dict(inputs=space))
