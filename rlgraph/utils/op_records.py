@@ -468,7 +468,7 @@ class GraphFnRecord(object):
 
 def get_call_param_name(op_rec):
     api_method_rec = op_rec.column.api_method_rec  # type: APIMethodRecord
-    pos_past_normals = op_rec.position - len(api_method_rec.non_args_kwargs)
+    pos_past_normals = None if op_rec.position is None else op_rec.position - len(api_method_rec.non_args_kwargs)
 
     # There are *args in the signature.
     if api_method_rec.args_name is not None:
