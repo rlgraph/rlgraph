@@ -126,8 +126,9 @@ class OrnsteinUhlenbeckNoise(NoiseComponent):
     @rlgraph_api
     def _graph_fn_get_noise(self):
         drift = self.theta * (self.mu - self.ou_state)
-        diffusion = self.sigma * tf.random_normal(shape=self.action_space.shape, dtype=dtype(self.action_space.dtype))
-
-        delta = drift + diffusion
         if get_backend() == "tf":
+            diffusion = self.sigma * tf.random_normal(
+                shape=self.action_space.shape, dtype=dtype(self.action_space.dtype)
+            )
+            delta = drift + diffusion
             return tf.assign_add(ref=self.ou_state, value=delta)
