@@ -25,7 +25,7 @@ from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.tests.test_util import config_from_path
 
 
-class TestDQNAgentFunctionality(unittest.TestCase):
+class TestDQFDAgentFunctionality(unittest.TestCase):
     """
     Tests the DQFD Agent's functionality.
     """
