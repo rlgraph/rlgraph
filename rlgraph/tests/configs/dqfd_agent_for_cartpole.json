@@ -4,12 +4,12 @@
   "memory_spec":
   {
     "type": "replay",
-    "capacity": 10000
+    "capacity": 100
   },
   "demo_memory_spec":
   {
     "type": "replay",
-    "capacity": 10000
+    "capacity": 100
   },
   "preprocessing_spec":
   [],
@@ -18,7 +18,7 @@
   [
     {
       "type": "dense",
-      "units": 20,
+      "units": 16,
       "activation": "tanh",
       "scope": "hidden"
     }
@@ -46,7 +46,7 @@
 
   "observe_spec":
   {
-    "buffer_size": 3000
+    "buffer_size": 100
   },
 
   "update_spec": {
@@ -59,8 +59,7 @@
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0001,
-    "clip_grad_norm": 20
+    "learning_rate": 0.01
   },
   "expert_margin": 0.5,
   "supervised_weight": 1.0,

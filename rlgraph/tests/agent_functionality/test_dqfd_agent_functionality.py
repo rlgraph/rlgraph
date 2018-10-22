@@ -84,6 +84,7 @@ class TestDQNAgentFunctionality(unittest.TestCase):
 
         # Insert two states with fixed actions and a few random examples.
         for _ in range(10):
+            # State with correct action
             agent.observe_demos(
                 preprocessed_states=state_1,
                 actions=action_1,
@@ -98,22 +99,15 @@ class TestDQNAgentFunctionality(unittest.TestCase):
                 next_states=agent.preprocessed_state_space.with_batch_rank().sample(1),
                 terminals=terminals.sample(1),
             )
-            agent.observe_demos(
-                preprocessed_states=agent.preprocessed_state_space.sample(2),
-                actions=env.action_space.sample(2),
-                rewards=FloatBox().sample(2),
-                terminals=terminals.sample(2),
-                next_states=agent.preprocessed_state_space.sample(2)
-            )
 
         # Update.
-        agent.update_from_demos(num_updates=100, batch_size=16)
+        agent.update_from_demos(num_updates=1000, batch_size=8)
 
         # Test if fixed states and actions map.
-        action = agent.get_action(states=state_1, apply_preprocessing=False)
+        action = agent.get_action(states=state_1, apply_preprocessing=False, use_exploration=False)
         self.assertEqual(action, action_1)
 
-        action = agent.get_action(states=state_2, apply_preprocessing=False)
+        action = agent.get_action(states=state_2, apply_preprocessing=False, use_exploration=False)
         self.assertEqual(action, action_2)
 
     def test_update_online(self):
