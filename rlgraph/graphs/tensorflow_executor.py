@@ -157,7 +157,7 @@ class TensorFlowExecutor(GraphExecutor):
                 # if self.default_device not in self.available_devices:
                 #    raise RLGraphError("Provided `default_device` ('{}') is not in `available_devices` ({})".
                 #                       format(self.default_device, self.available_devices))
-            self.device_map = dict()
+            self.device_map = {}
             # Clean up device map so it only contains devices that are actually available (otherwise,
             # use the default device).
             for component_name, device in self.execution_spec["device_map"].items():

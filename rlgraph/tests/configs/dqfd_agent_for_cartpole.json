@@ -1,0 +1,68 @@
+{
+  "type": "dqfd",
+  "discount": 0.99,
+  "memory_spec":
+  {
+    "type": "replay",
+    "capacity": 10000
+  },
+  "demo_memory_spec":
+  {
+    "type": "replay",
+    "capacity": 10000
+  },
+  "preprocessing_spec":
+  [],
+
+  "network_spec":
+  [
+    {
+      "type": "dense",
+      "units": 20,
+      "activation": "tanh",
+      "scope": "hidden"
+    }
+  ],
+
+  "action_adapter_spec":
+  {
+    "type": "dueling-action-adapter",
+    "units_state_value_stream": 3,
+    "units_advantage_stream": 3
+  },
+
+  "exploration_spec":
+  {
+    "epsilon_spec": {
+      "decay_spec": {
+        "type": "linear_decay",
+        "from": 1.0,
+        "to": 0.05,
+        "start_timestep": 0,
+        "num_timesteps": 1500
+      }
+    }
+  },
+
+  "observe_spec":
+  {
+    "buffer_size": 3000
+  },
+
+  "update_spec": {
+    "do_updates": true,
+    "update_interval": 4,
+    "steps_before_update": 50000,
+    "batch_size": 32,
+    "sync_interval": 10000
+  },
+
+  "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.0001,
+    "clip_grad_norm": 20
+  },
+  "expert_margin": 0.5,
+  "supervised_weight": 1.0,
+  "demo_sample_ratio": 0.2
+}

@@ -29,17 +29,15 @@ class TestDQNAgentFunctionality(unittest.TestCase):
     """
     Tests the DQFD Agent's functionality.
     """
+    env_spec = dict(type="openai", gym_env="CartPole-v0")
+
     def test_insert_demos(self):
         """
         Tests inserting into the demo memory.
         """
-        env_spec = dict(
-            type="openai",
-            gym_env="PongNoFrameskip-v4"
-        )
-        env = OpenAIGymEnv.from_spec(env_spec)
+        env = OpenAIGymEnv.from_spec(self.env_spec)
 
-        agent_config = config_from_path("configs/dqfd_agent_for_pong.json")
+        agent_config = config_from_path("configs/dqfd_agent_for_cartpole.json")
         agent = DQFDAgent.from_spec(
             agent_config,
             state_space=env.state_space,
@@ -70,13 +68,8 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         """
         Tests the separate API method to update from demos.
         """
-        env_spec = dict(
-            type="openai",
-            gym_env="PongNoFrameskip-v4"
-        )
-        env = OpenAIGymEnv.from_spec(env_spec)
-        # TODO use smaller network/env for this test.
-        agent_config = config_from_path("configs/dqfd_agent_for_pong.json")
+        env = OpenAIGymEnv.from_spec(self.env_spec)
+        agent_config = config_from_path("configs/dqfd_agent_for_cartpole.json")
         agent = DQFDAgent.from_spec(
             agent_config,
             state_space=env.state_space,
@@ -85,7 +78,7 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         terminals = BoolBox(add_batch_rank=True)
         rewards = FloatBox(add_batch_rank=True)
         state_1 = agent.preprocessed_state_space.with_batch_rank().sample(1)
-        action_1 = [2]
+        action_1 = [1]
         state_2 = agent.preprocessed_state_space.with_batch_rank().sample(1)
         action_2 = [0]
 
@@ -127,13 +120,8 @@ class TestDQNAgentFunctionality(unittest.TestCase):
         """
         Tests if joint updates from demo and online memory work.
         """
-        env_spec = dict(
-            type="openai",
-            gym_env="PongNoFrameskip-v4"
-        )
-        env = OpenAIGymEnv.from_spec(env_spec)
-
-        agent_config = config_from_path("configs/dqfd_agent_for_pong.json")
+        env = OpenAIGymEnv.from_spec(self.env_spec)
+        agent_config = config_from_path("configs/dqfd_agent_for_cartpole.json")
         agent = DQFDAgent.from_spec(
             agent_config,
             state_space=env.state_space,
