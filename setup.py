@@ -21,7 +21,7 @@ import os
 from setuptools import setup, find_packages
 
 # Read __version__ avoiding imports that might be in install_requires
-version_vars = dict()
+version_vars = {}
 with open(os.path.join(os.path.dirname(__file__), 'rlgraph', 'version.py')) as fp:
     exec(fp.read(), version_vars)
 
