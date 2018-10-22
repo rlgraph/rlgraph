@@ -21,7 +21,7 @@ from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.spaces import ContainerSpace, Dict
-from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.ops import flatten_op, unflatten_op
 from rlgraph.utils.util import default_dict
 
@@ -84,6 +84,7 @@ class DictPreprocessorStack(PreprocessorStack):
             reset_op = self._graph_fn_reset(*resets)
             return reset_op
 
+    @graph_fn
     def _graph_fn_reset(self, *preprocessor_resets):
         if get_backend() == "tf":
             with tf.control_dependencies(preprocessor_resets):
