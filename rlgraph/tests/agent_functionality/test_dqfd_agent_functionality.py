@@ -101,7 +101,7 @@ class TestDQNAgentFunctionality(unittest.TestCase):
             )
 
         # Update.
-        agent.update_from_demos(num_updates=1000, batch_size=8)
+        agent.update_from_demos(num_updates=100, batch_size=8)
 
         # Test if fixed states and actions map.
         action = agent.get_action(states=state_1, apply_preprocessing=False, use_exploration=False)
@@ -137,6 +137,7 @@ class TestDQNAgentFunctionality(unittest.TestCase):
             preprocessed_states=agent.preprocessed_state_space.sample(32),
             actions=env.action_space.sample(32),
             rewards=FloatBox().sample(32),
+            internals=[],
             terminals=terminals.sample(32),
             next_states=agent.preprocessed_state_space.sample(32)
         )
