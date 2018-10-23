@@ -50,7 +50,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         """
         dummy_env = GridWorld("2x2")
         agent = DQNAgent.from_spec(
-            config_from_path("configs/dqn_agent_for_2x2_grid.json"),
+            config_from_path("configs/dqn_agent_for_2x2_gridworld.json"),
             double_q=False,
             dueling_q=False,
             state_space=self.grid_world_2x2_flattened_state_space,
@@ -97,7 +97,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         """
         dummy_env = GridWorld("2x2")
         agent = DQNAgent.from_spec(
-            config_from_path("configs/dqn_agent_for_2x2_grid.json"),
+            config_from_path("configs/dqn_agent_for_2x2_gridworld.json"),
             dueling_q=False,
             state_space=self.grid_world_2x2_flattened_state_space,
             action_space=dummy_env.action_space,
@@ -143,7 +143,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         """
         dummy_env = GridWorld("4x4")
         agent = DQNAgent.from_spec(
-            config_from_path("configs/dqn_agent_for_4x4_grid.json"),
+            config_from_path("configs/dqn_agent_for_4x4_gridworld.json"),
             dueling_q=False,
             state_space=self.grid_world_4x4_flattened_state_space,
             action_space=dummy_env.action_space,

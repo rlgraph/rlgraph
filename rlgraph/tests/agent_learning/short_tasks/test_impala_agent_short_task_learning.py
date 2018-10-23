@@ -36,20 +36,17 @@ class TestIMPALAAgentShortTaskLearning(unittest.TestCase):
 
     def test_impala_on_2x2_grid_world(self):
         """
-        Creates a DQNAgent and runs it via a Runner on a simple 2x2 GridWorld.
+        Creates a single IMPALAAgent and runs it via the IMPALAWorker on a simple 2x2 GridWorld.
         """
         env = GridWorld("2x2")
         agent = IMPALAAgent.from_spec(
-            config_from_path("configs/dqn_agent_for_2x2_grid.json"),
-            double_q=False,
-            dueling_q=False,
+            config_from_path("configs/impala_agent_for_2x2_gridworld.json"),
             state_space=env.state_space,
             action_space=env.action_space,
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=12),
             update_spec=dict(update_interval=4, batch_size=24, sync_interval=32),
             optimizer_spec=dict(type="adam", learning_rate=0.05),
-            store_last_q_table=True
         )
 
         time_steps = 1000

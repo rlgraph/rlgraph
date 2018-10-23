@@ -1,0 +1,45 @@
+{
+  "type": "impala",
+
+  "memory_spec":
+  {
+    "type": "fifo_queue",
+    "capacity": 100
+  },
+
+  "preprocessing_spec":
+  [
+    {
+      "type": "reshape",
+      "flatten": true
+    }
+  ],
+
+  "network_spec":
+  [
+    {
+      "type": "dense",
+      "units": 10,
+      "activation": "linear",
+      "scope": "hidden-layer"
+    }
+  ],
+
+  "exploration_spec":
+  {
+    "epsilon_spec": {
+      "decay_spec": {
+        "type": "linear_decay",
+        "from": 1.0,
+        "to": 0.1,
+        "start_timestep": 0,
+        "num_timesteps": 100
+      }
+    }
+  },
+
+  "update_spec": {
+    "do_updates": true,
+    "batch_size": 16
+  }
+}

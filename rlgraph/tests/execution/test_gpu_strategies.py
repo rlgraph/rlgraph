@@ -99,7 +99,7 @@ class TestGpuStrategies(unittest.TestCase):
         #root_logger.setLevel(DEBUG)  # test
         env = GridWorld("2x2")
         agent = DQNAgent.from_spec(
-            config_from_path("configs/multi_gpu_dqn_for_gridworld_2x2.json"),
+            config_from_path("configs/multi_gpu_dqn_for_2x2_gridworld.json"),
             dueling_q=False,
             state_space=env.state_space,
             action_space=env.action_space,
