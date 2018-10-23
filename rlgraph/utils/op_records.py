@@ -300,7 +300,7 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
         # We don't have any container ops: No splitting possible. Return args and kwargs as is.
         else:
             return tuple(([""] if self.add_auto_key_as_first_param is True else []) + [op[""] for op in ops]),\
-                   {key: value[""] for key, value in kwarg_ops}
+                   {key: value[""] for key, value in kwarg_ops.items()}
 
     @staticmethod
     def unflatten_output_ops(*ops):
