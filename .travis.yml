@@ -35,7 +35,7 @@ install:
 script:
   # Test learning capabilities (only one test per Agent).
   # DQN: Cartpole with dueling- and double-Q.
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_dqn_agent_short_task_learning.py -p dueling_dqn_on_cart_pole';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_dqn_agent_short_task_learning.py::test_double_dueling_dqn_on_cart_pole';
   # IMPALA: TODO:
   #- docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_dqn_agent_short_task_learning.py -p dueling_dqn_on_cart_pole';
 
