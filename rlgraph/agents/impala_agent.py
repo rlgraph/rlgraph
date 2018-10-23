@@ -94,10 +94,16 @@ class IMPALAAgent(Agent):
         self.dynamic_batching = dynamic_batching
 
         # Network-spec by default is a "large architecture" IMPALA network.
-        network_spec = default_dict(kwargs.pop(
-            "network_spec", dict(type="rlgraph.components.papers.impala.impala_networks.{}IMPALANetwork".
-                                 format("Large" if architecture == "large" else "Small"))
-        ), dict(worker_sample_size=1 if self.type == "actor" else self.worker_sample_size + 1))
+        network_spec = kwargs.pop(
+            "network_spec",
+            dict(type="rlgraph.components.papers.impala.impala_networks.{}IMPALANetwork".
+                 format("Large" if architecture == "large" else "Small"))
+        )
+        if isinstance(network_spec, dict):
+            network_spec = default_dict(
+                network_spec,
+                dict(worker_sample_size=1 if self.type == "actor" else self.worker_sample_size + 1)
+            )
         action_adapter_spec = kwargs.pop("action_adapter_spec", dict(type="baseline-action-adapter"))
 
         # Depending on the job-type, remove the pieces from the Agent-spec/graph we won't need.

@@ -1,11 +1,18 @@
 {
   "type": "impala",
 
-  "memory_spec":
+  "fifo_queue_spec":
   {
-    "type": "fifo_queue",
     "capacity": 100
   },
+
+  "environment_spec":
+  {
+    "type": "gridworld",
+    "world": "2x2"
+  },
+
+  "worker_sample_size": 5,
 
   "preprocessing_spec":
   [
