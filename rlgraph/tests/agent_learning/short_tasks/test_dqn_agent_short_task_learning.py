@@ -17,9 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
-import unittest
 import logging
+import numpy as np
+import os
+import unittest
 
 from rlgraph.environments import GridWorld, OpenAIGymEnv
 from rlgraph.agents import DQNAgent
@@ -38,6 +39,10 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         type="reshape",
         flatten=True
     )]
+    # Preprocessed state spaces.
+    grid_world_2x2_flattened_state_space = FloatBox(shape=(4,), add_batch_rank=True)
+    grid_world_4x4_flattened_state_space = FloatBox(shape=(16,), add_batch_rank=True)
+    is_windows = os.name == "nt"
 
     def test_dqn_on_2x2_grid_world(self):
         """
@@ -48,7 +53,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             config_from_path("configs/dqn_agent_for_2x2_grid.json"),
             double_q=False,
             dueling_q=False,
-            state_space=FloatBox(shape=(4,), add_batch_rank=True),
+            state_space=self.grid_world_2x2_flattened_state_space,
             action_space=dummy_env.action_space,
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=12),
@@ -90,12 +95,12 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         """
         Creates a double DQNAgent and runs it via a Runner on a simple 2x2 GridWorld.
         """
-        env = GridWorld("2x2")
+        dummy_env = GridWorld("2x2")
         agent = DQNAgent.from_spec(
             config_from_path("configs/dqn_agent_for_2x2_grid.json"),
             dueling_q=False,
-            state_space=env.state_space,
-            action_space=env.action_space,
+            state_space=self.grid_world_2x2_flattened_state_space,
+            action_space=dummy_env.action_space,
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=10),
             update_spec=dict(update_interval=4, batch_size=24, sync_interval=32),
@@ -103,8 +108,13 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             store_last_q_table=True
         )
 
-        time_steps = 500
-        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, worker_executes_preprocessing=False)
+        time_steps = 1000
+        worker = SingleThreadedWorker(
+            env_spec=lambda: GridWorld("2x2"),
+            agent=agent,
+            preprocessing_spec=self.grid_world_preprocessing_spec,
+            worker_executes_preprocessing=True
+        )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         print("STATES:\n{}".format(agent.last_q_table["states"]))
@@ -114,7 +124,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         self.assertEqual(results["env_frames"], time_steps)
         self.assertGreaterEqual(results["mean_episode_reward"], -4.5)
         self.assertGreaterEqual(results["max_episode_reward"], 0.0)
-        self.assertLessEqual(results["episodes_executed"], 250)
+        self.assertLessEqual(results["episodes_executed"], 350)
 
         # Check q-table for correct values.
         expected_q_values_per_state = {
@@ -131,12 +141,12 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         """
         Creates a double DQNAgent and runs it via a Runner on a simple 2x2 GridWorld.
         """
-        env = GridWorld("4x4")
+        dummy_env = GridWorld("4x4")
         agent = DQNAgent.from_spec(
             config_from_path("configs/dqn_agent_for_4x4_grid.json"),
             dueling_q=False,
-            state_space=env.state_space,
-            action_space=env.action_space,
+            state_space=self.grid_world_4x4_flattened_state_space,
+            action_space=dummy_env.action_space,
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=10),
             update_spec=dict(update_interval=4, batch_size=32, sync_interval=32),
@@ -145,7 +155,12 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         )
 
         time_steps = 3000
-        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, worker_executes_preprocessing=False)
+        worker = SingleThreadedWorker(
+            env_spec=lambda: GridWorld("4x4"),
+            agent=agent,
+            preprocessing_spec=self.grid_world_preprocessing_spec,
+            worker_executes_preprocessing=True
+        )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         print("STATES:\n{}".format(agent.last_q_table["states"]))
@@ -186,14 +201,13 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         """
         Creates a DQNAgent and runs it via a Runner on the CartPole Env.
         """
-        env = OpenAIGymEnv("CartPole-v0")
-        env.seed(10)
+        dummy_env = OpenAIGymEnv("CartPole-v0")
         agent = DQNAgent.from_spec(
             config_from_path("configs/dqn_agent_for_cartpole.json"),
             double_q=False,
             dueling_q=False,
-            state_space=env.state_space,
-            action_space=env.action_space,
+            state_space=dummy_env.state_space,
+            action_space=dummy_env.action_space,
             observe_spec=dict(buffer_size=200),
             execution_spec=dict(seed=15),
             update_spec=dict(update_interval=4, batch_size=24, sync_interval=64),
@@ -201,42 +215,13 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             store_last_q_table=True
         )
 
-        time_steps = 5000
-        worker = SingleThreadedWorker(env_spec=lambda : env, agent=agent, render=False,
-                                      worker_executes_preprocessing=False)
-        results = worker.execute_timesteps(time_steps, use_exploration=True)
-
-        #print("STATES:\n{}".format(agent.last_q_table["states"]))
-        #print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
-
-        self.assertEqual(results["timesteps_executed"], time_steps)
-        self.assertEqual(results["env_frames"], time_steps)
-        self.assertGreaterEqual(results["mean_episode_reward"], 20)
-        self.assertGreaterEqual(results["max_episode_reward"], 100.0)
-        self.assertLessEqual(results["episodes_executed"], 200)
-
-    def test_double_dueling_dqn_on_cart_pole(self):
-        """
-        Creates a double and dueling DQNAgent and runs it via a Runner on the CartPole Env.
-        """
-        env = OpenAIGymEnv("CartPole-v0")
-        env.seed(10)
-        agent = DQNAgent.from_spec(
-            config_from_path("configs/dqn_agent_for_cartpole.json"),
-            double_q=True,
-            dueling_q=True,
-            state_space=env.state_space,
-            action_space=env.action_space,
-            observe_spec=dict(buffer_size=200),
-            execution_spec=dict(seed=156),
-            update_spec=dict(update_interval=4, batch_size=64, sync_interval=16),
-            optimizer_spec=dict(type="adam", learning_rate=0.05),
-            store_last_q_table=True
-        )
-
         time_steps = 3000
-        worker = SingleThreadedWorker(env_spec=lambda : env, agent=agent, render=False,
-                                      worker_executes_preprocessing=False)
+        worker = SingleThreadedWorker(
+            env_spec=lambda: OpenAIGymEnv("CartPole-v0", seed=15),
+            agent=agent,
+            render=self.is_windows,
+            worker_executes_preprocessing=False
+        )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         #print("STATES:\n{}".format(agent.last_q_table["states"]))
@@ -245,6 +230,42 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
         self.assertGreaterEqual(results["mean_episode_reward"], 25)
-        self.assertGreaterEqual(results["max_episode_reward"], 200.0)
+        self.assertGreaterEqual(results["max_episode_reward"], 100.0)
         self.assertLessEqual(results["episodes_executed"], 200)
+
+    def test_double_dueling_dqn_on_cart_pole(self):
+        """
+        Creates a double and dueling DQNAgent and runs it via a Runner on the CartPole Env.
+        """
+        dummy_env = OpenAIGymEnv("CartPole-v0")
+        agent = DQNAgent.from_spec(
+            config_from_path("configs/dqn_agent_for_cartpole.json"),
+            double_q=True,
+            dueling_q=True,
+            state_space=dummy_env.state_space,
+            action_space=dummy_env.action_space,
+            observe_spec=dict(buffer_size=200),
+            execution_spec=dict(seed=156),
+            update_spec=dict(update_interval=4, batch_size=64, sync_interval=16),
+            optimizer_spec=dict(type="adam", learning_rate=0.05),
+            store_last_q_table=True
+        )
+
+        time_steps = 3000
+        worker = SingleThreadedWorker(
+            env_spec=lambda: OpenAIGymEnv("CartPole-v0", seed=10),
+            agent=agent,
+            render=self.is_windows,
+            worker_executes_preprocessing=False
+        )
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
+
+        #print("STATES:\n{}".format(agent.last_q_table["states"]))
+        #print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
+
+        self.assertEqual(results["timesteps_executed"], time_steps)
+        self.assertEqual(results["env_frames"], time_steps)
+        self.assertGreaterEqual(results["mean_episode_reward"], 35)
+        self.assertGreaterEqual(results["max_episode_reward"], 200.0)
+        self.assertLessEqual(results["episodes_executed"], 100)
 
