@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.environments.environment import Environment
+from rlgraph.environments.deterministic_env import DeterministicEnv
 from rlgraph.environments.grid_world import GridWorld
 from rlgraph.environments.openai_gym import OpenAIGymEnv
 from rlgraph.environments.random_env import RandomEnv
@@ -26,6 +27,8 @@ from rlgraph.environments.sequential_vector_env import SequentialVectorEnv
 
 
 Environment.__lookup_classes__ = dict(
+    deterministic=DeterministicEnv,
+    deterministicenv=DeterministicEnv,
     gridworld=GridWorld,
     openai=OpenAIGymEnv,
     openaigymenv=OpenAIGymEnv,

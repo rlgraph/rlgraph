@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
+
 from rlgraph.environments import Environment
 import rlgraph.spaces as spaces
 
@@ -51,7 +53,7 @@ class DeterministicEnv(Environment):
         self.steps_into_episode = 0
         self.state = self.state_start
         self.reward = self.reward_start
-        return self.state
+        return np.array([self.state], dtype=np.float32)
 
     def reset_for_env_stepper(self):
         return self.reset()
@@ -66,9 +68,9 @@ class DeterministicEnv(Environment):
         self.reward += 1.0
         self.steps_into_episode += 1
         terminal = False
-        if self.steps_into_episode > self.steps_to_terminal:
+        if self.steps_into_episode >= self.steps_to_terminal:
             terminal = True
-        return self.state, reward, terminal, None
+        return np.array([self.state], dtype=np.float32), np.array(reward, dtype=np.float32), terminal, None
 
     def step_for_env_stepper(self, actions=None):
         ret = self.step(actions)

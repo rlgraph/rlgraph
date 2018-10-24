@@ -54,14 +54,14 @@ class TestDeterministicEnv(unittest.TestCase):
         """
         env = DeterministicEnv(state_start=0.0, reward_start=50.0, steps_to_terminal=5)
 
-        # Simple test runs with fixed actions.
+        # Simple test runs with random actions.
         s = env.reset()
-        recursive_assert_almost_equal(s, 0.0)
+        recursive_assert_almost_equal(s, [0.0])
 
         # Perform 5 steps
         for i in range(5):
             s, r, t, _ = env.step(env.action_space.sample())
-            recursive_assert_almost_equal(s, 1.0 + i)
+            recursive_assert_almost_equal(s, [1.0 + i])
             recursive_assert_almost_equal(r, 50.0 + i)
             if i == 4:
                 self.assertTrue(t)
@@ -69,12 +69,12 @@ class TestDeterministicEnv(unittest.TestCase):
                 self.assertFalse(t)
 
         s = env.reset()
-        recursive_assert_almost_equal(s, 0.0)
+        recursive_assert_almost_equal(s, [0.0])
 
-        # Perform another 10 steps.
+        # Perform another 5 steps.
         for i in range(5):
             s, r, t, _ = env.step(env.action_space.sample())
-            recursive_assert_almost_equal(s, 1.0 + i)
+            recursive_assert_almost_equal(s, [1.0 + i])
             recursive_assert_almost_equal(r, 50.0 + i)
             if i == 4:
                 self.assertTrue(t)
