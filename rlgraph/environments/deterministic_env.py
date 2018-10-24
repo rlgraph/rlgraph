@@ -74,7 +74,10 @@ class DeterministicEnv(Environment):
 
     def step_for_env_stepper(self, actions=None):
         ret = self.step(actions)
-        return ret[0], ret[1], ret[2]
+        state = ret[0]
+        if ret[2]:
+            state = self.reset()
+        return state, ret[1], ret[2]
 
     def __str__(self):
         return "DeterministicEnv()"

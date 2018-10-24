@@ -42,8 +42,7 @@ class TestEnvironmentStepper(unittest.TestCase):
 
     time_steps = 500
 
-    def test_environment_stepper_on_random_env(self):
-        np.random.seed(10)
+    def test_environment_stepper_on_deterministic_env(self):
         state_space = FloatBox(shape=(1,))
         action_space = IntBox(2)
         preprocessor_spec = None
@@ -53,9 +52,7 @@ class TestEnvironmentStepper(unittest.TestCase):
             preprocessor_spec, dict(network_spec=network_spec, action_space=action_space), exploration_spec
         )
         environment_stepper = EnvironmentStepper(
-            environment_spec=dict(
-                type="random_env", state_space=state_space, action_space=action_space, deterministic=True
-            ),
+            environment_spec=dict(type="deterministic_env", steps_to_terminal=5),
             actor_component_spec=actor_component,
             state_space=state_space,
             reward_space="float32",
@@ -71,17 +68,17 @@ class TestEnvironmentStepper(unittest.TestCase):
         test.test("reset")
 
         # Step 3 times through the Env and collect results.
-        expected = (
+        expected = (None, (
             np.array([True, False, False, False]),  # t_
-            np.array([[0.77132064], [0.74880385], [0.19806287], [0.08833981]]),  # s' (raw)
-        )
+            np.array([[0.0], [1.0], [2.0], [3.0]]),  # s' (raw)
+        ))
         test.test("step", expected_outputs=expected)
 
         # Step again, check whether stitching of states/etc.. works.
-        expected = (
-            np.array([True, False, False, False]),  # t_
-            np.array([[0.77132064], [0.00394827], [0.61252606], [0.91777414]]),  # s' (raw)
-        )
+        expected = (None, (
+            np.array([False, False, True, False]),  # t_
+            np.array([[3.0], [4.0], [0.0], [1.0]]),  # s' (raw)
+        ))
         test.test("step", expected_outputs=expected)
 
         # Make sure we close the session (to shut down the Env on the server).
@@ -342,8 +339,8 @@ class TestEnvironmentStepper(unittest.TestCase):
             internal_states_space=self.internal_states_space_test_lstm,
             num_steps=1000,
             # Add both prev-action and -reward into the state sent through the network.
-            #add_previous_action=True,
-            #add_previous_reward=True,
+            #add_previous_action_to_state=True,
+            #add_previous_reward_to_state=True,
             add_action_probs=True,
             action_probs_space=FloatBox(shape=(9,), add_batch_rank=True)
         )
