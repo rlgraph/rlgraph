@@ -29,13 +29,17 @@ from rlgraph.spaces import FloatBox, IntBox, Tuple
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils.ops import DataOpTuple
-from rlgraph.utils.numpy import dense_layer, softmax
+from rlgraph.utils.numpy import dense_layer, softmax, lstm_layer
 
 
 class TestEnvironmentStepper(unittest.TestCase):
     """
     Tests for the EnvironmentStepper Component using a simple RandomEnv.
     """
+    deterministic_env_state_space = FloatBox(shape=(1,))
+    deterministic_env_action_space = IntBox(2)
+    deterministic_action_probs_space = FloatBox(shape=(2,), add_batch_rank=True)
+
     internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True)
     internal_states_space_test_lstm = Tuple(FloatBox(shape=(3,)), FloatBox(shape=(3,)), add_batch_rank=True)
 
@@ -44,25 +48,25 @@ class TestEnvironmentStepper(unittest.TestCase):
     time_steps = 500
 
     def test_environment_stepper_on_deterministic_env(self):
-        state_space = FloatBox(shape=(1,))
-        action_space = IntBox(2)
         preprocessor_spec = None
         network_spec = config_from_path("configs/test_simple_nn.json")
         exploration_spec = None
         actor_component = ActorComponent(
-            preprocessor_spec, dict(network_spec=network_spec, action_space=action_space), exploration_spec
+            preprocessor_spec,
+            dict(network_spec=network_spec, action_space=self.deterministic_env_action_space),
+            exploration_spec
         )
         environment_stepper = EnvironmentStepper(
             environment_spec=dict(type="deterministic_env", steps_to_terminal=5),
             actor_component_spec=actor_component,
-            state_space=state_space,
+            state_space=self.deterministic_env_state_space,
             reward_space="float32",
             num_steps=3
         )
 
         test = ComponentTest(
             component=environment_stepper,
-            action_space=action_space,
+            action_space=self.deterministic_env_action_space,
         )
 
         # Reset the stepper.
@@ -86,27 +90,27 @@ class TestEnvironmentStepper(unittest.TestCase):
         test.terminate()
 
     def test_environment_stepper_on_deterministic_env_with_returning_action_probs(self):
-        state_space = FloatBox(shape=(1,))
-        action_space = IntBox(2)
         preprocessor_spec = [dict(type="divide", divisor=2)]
         network_spec = config_from_path("configs/test_simple_nn.json")
         exploration_spec = None
         actor_component = ActorComponent(
-            preprocessor_spec, dict(network_spec=network_spec, action_space=action_space), exploration_spec
+            preprocessor_spec,
+            dict(network_spec=network_spec, action_space=self.deterministic_env_action_space),
+            exploration_spec
         )
         environment_stepper = EnvironmentStepper(
             environment_spec=dict(type="deterministic_env", steps_to_terminal=6),
             actor_component_spec=actor_component,
-            state_space=state_space,
+            state_space=self.deterministic_env_state_space,
             reward_space="float32",
             add_action_probs=True,
-            action_probs_space=FloatBox(shape=(2,), add_batch_rank=True),
+            action_probs_space=self.deterministic_action_probs_space,
             num_steps=3
         )
 
         test = ComponentTest(
             component=environment_stepper,
-            action_space=action_space,
+            action_space=self.deterministic_env_action_space,
         )
 
         weights = test.read_variable_values(environment_stepper.actor_component.policy.variables)
@@ -151,59 +155,63 @@ class TestEnvironmentStepper(unittest.TestCase):
         test.terminate()
 
     def test_environment_stepper_on_deterministic_env_with_action_probs_lstm(self):
-        np.random.seed(10)
-        state_space = FloatBox(shape=(1,))
-        action_space = IntBox(2)
         internal_states_space = Tuple(FloatBox(shape=(3,)), FloatBox(shape=(3,)))
-        preprocessor_spec = [dict(type="multiply", factor=3)]
+        preprocessor_spec = [dict(type="multiply", factor=0.1)]
         network_spec = config_from_path("configs/test_lstm_nn.json")
         exploration_spec = None
         actor_component = ActorComponent(
-            preprocessor_spec, dict(network_spec=network_spec, action_space=action_space), exploration_spec
+            preprocessor_spec,
+            dict(network_spec=network_spec, action_space=self.deterministic_env_action_space),
+            exploration_spec
         )
         environment_stepper = EnvironmentStepper(
-            environment_spec=dict(
-                type="random_env", state_space=state_space, action_space=action_space, deterministic=True
-            ),
+            environment_spec=dict(type="deterministic_env", steps_to_terminal=3),
             actor_component_spec=actor_component,
-            state_space=state_space,
+            state_space=self.deterministic_env_state_space,
             reward_space="float32",
             internal_states_space=internal_states_space,
             add_action_probs=True,
-            action_probs_space=self.action_probs_space,
-            num_steps=3,
+            action_probs_space=self.deterministic_action_probs_space,
+            num_steps=4,
         )
 
         test = ComponentTest(
             component=environment_stepper,
-            action_space=action_space,
+            action_space=self.deterministic_env_action_space,
         )
+
+        weights = test.read_variable_values(environment_stepper.actor_component.policy.variables)
+        weights_lstm = weights["environment-stepper/actor-component/policy/test-lstm-network/"
+                               "lstm-layer/lstm-cell/kernel"]
+        biases_lstm = weights["environment-stepper/actor-component/policy/test-lstm-network/lstm-layer/lstm-cell/bias"]
+        weights_action = weights["environment-stepper/actor-component/policy/action-adapter/action-layer/dense/kernel"]
+        biases_action = weights["environment-stepper/actor-component/policy/action-adapter/action-layer/dense/bias"]
 
         # Reset the stepper.
         test.test("reset")
 
         # Step 3 times through the Env and collect results.
-        expected = (
-            np.array([True, False, False, False]),
-            np.array([[0.77132064, 0.02075195], [0.49850702, 0.22479665], [0.16911083, 0.08833981],
-                      [0.00394827, 0.51219225]]),  # s' (raw)
-            np.array([[0.0, 0.0, 0.0, 0.0],
-                      [0.29184222, 0.27833143, 0.20141664, 0.22840966],
-                      [0.31360343, 0.28261214, 0.18345872, 0.22032563],
-                      [0.30973074, 0.28645274, 0.18394111, 0.2198754]]),  # action probs
+        lstm_1 = lstm_layer(np.array([[[0.0]]]), weights_lstm, biases_lstm)
+        lstm_2 = lstm_layer(np.array([[[0.1]]]), weights_lstm, biases_lstm, lstm_1[1])
+        lstm_3 = lstm_layer(np.array([[[0.2]]]), weights_lstm, biases_lstm, lstm_2[1])
+        lstm_4 = lstm_layer(np.array([[[0.0]]]), weights_lstm, biases_lstm, lstm_3[1])
+        expected = (None, (
+            np.array([True, False, False, True, False]),
+            np.array([[0.0], [1.0], [2.0], [0.0], [1.0]]),  # s' (raw)
+            np.array([
+                [0.0, 0.0],
+                softmax(dense_layer(np.squeeze(lstm_1[0]), weights_action, biases_action)),
+                softmax(dense_layer(np.squeeze(lstm_2[0]), weights_action, biases_action)),
+                softmax(dense_layer(np.squeeze(lstm_3[0]), weights_action, biases_action)),
+                softmax(dense_layer(np.squeeze(lstm_4[0]), weights_action, biases_action)),
+            ]),  # action probs
             # internal states
             (
-                np.array([[0.0, 0.0, 0.0],
-                          [0.17770568, -0.02882081, -0.44086117],
-                          [0.30588162, 0.02668203, -0.7707858 ],
-                          [0.25770405, 0.00710323, -0.81886315]]),
-                np.array([[0.0, 0.0, 0.0],
-                          [0.10143799, -0.01267258, -0.27671543],
-                          [0.18374527, 0.01430159, -0.3720673],
-                          [0.1395069, 0.00376055, -0.37974578]])
+                np.squeeze(np.array([[[0.0, 0.0, 0.0]], lstm_1[1][0], lstm_2[1][0], lstm_3[1][0], lstm_4[1][0]])),
+                np.squeeze(np.array([[[0.0, 0.0, 0.0]], lstm_1[1][1], lstm_2[1][1], lstm_3[1][1], lstm_4[1][1]]))
             )
-        )
-        print(test.test("step", expected_outputs=None))
+        ))
+        test.test("step", expected_outputs=expected)
 
         # Make sure we close the session (to shut down the Env on the server).
         test.terminate()
@@ -226,6 +234,7 @@ class TestEnvironmentStepper(unittest.TestCase):
             actor_component_spec=actor_component,
             state_space=state_space,
             reward_space="float",
+            add_reward=True,
             num_steps=self.time_steps
         )
 
@@ -247,19 +256,23 @@ class TestEnvironmentStepper(unittest.TestCase):
         ))
 
         # Check types of outputs.
-        self.assertTrue(isinstance(out, DataOpTuple))  # the step results as a tuple (see below)
+        self.assertTrue(out[0] is None)
+        self.assertTrue(isinstance(out[1], DataOpTuple))  # the step results as a tuple (see below)
 
         # Check types of single data.
-        #self.assertTrue(out[0].dtype == np.float32)  # preprocessed states
-        #self.assertTrue(out[0].min() >= 0.0)  # make sure we have pixels / 255
-        #self.assertTrue(out[0].max() <= 1.0)
-        #self.assertTrue(out[1].dtype == np.int32)  # actions
-        #self.assertTrue(out[2].dtype == np.float32)  # rewards
-        #self.assertTrue(out[3].dtype == np.float32)  # episode return
-        self.assertTrue(out[0].dtype == np.bool_)  # next-state is terminal?
-        self.assertTrue(out[1].dtype == np.uint8)  # next state (raw, not preprocessed)
-        self.assertTrue(out[1].min() >= 0)  # make sure we have pixels
-        self.assertTrue(out[1].max() <= 255)
+        #self.assertTrue(out[1][0].dtype == np.float32)  # preprocessed states
+        #self.assertTrue(out[1][0].min() >= 0.0)  # make sure we have pixels / 255
+        #self.assertTrue(out[1][0].max() <= 1.0)
+        #self.assertTrue(out[1][1].dtype == np.int32)  # actions
+        #self.assertTrue(out[1][2].dtype == np.float32)  # rewards
+        #self.assertTrue(out[1][3].dtype == np.float32)  # episode return
+        self.assertTrue(out[1][0].dtype == np.bool_)  # next-state is terminal?
+        self.assertTrue(out[1][1].dtype == np.uint8)  # next state (raw, not preprocessed)
+        self.assertTrue(out[1][1].min() >= 0)  # make sure we have pixels
+        self.assertTrue(out[1][1].max() <= 255)
+        self.assertTrue(out[1][2].dtype == np.float32)  # rewards
+        self.assertTrue(out[1][2].min() >= -1.0)  # -1.0 to 1.0
+        self.assertTrue(out[1][2].max() <= 1.0)
 
         # Check whether episode returns match single rewards (including resetting after each terminal signal).
         #episode_returns = 0.0
@@ -363,6 +376,7 @@ class TestEnvironmentStepper(unittest.TestCase):
         # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
         time_start = time.monotonic()
         steps = 10
+        out = None
         for _ in range(steps):
             out = test.test("step")
         time_total = time.monotonic() - time_start
@@ -371,7 +385,8 @@ class TestEnvironmentStepper(unittest.TestCase):
         )
 
         # Check types of outputs.
-        self.assertTrue(isinstance(out, DataOpTuple))  # the step results as a tuple (see below)
+        self.assertTrue(out[0] is None)
+        self.assertTrue(isinstance(out[1], DataOpTuple))  # the step results as a tuple (see below)
 
         # Check types of single data.
         #self.assertTrue(out[0].dtype == np.float32)
@@ -380,10 +395,10 @@ class TestEnvironmentStepper(unittest.TestCase):
         #self.assertTrue(out[1].dtype == np.int32)  # actions
         #self.assertTrue(out[2].dtype == np.float32)  # rewards
         #self.assertTrue(out[0].dtype == np.float32)  # episode return
-        self.assertTrue(out[0].dtype == np.bool_)  # next-state is terminal?
-        self.assertTrue(out[1].dtype == np.uint8)  # next state (raw, not preprocessed)
-        self.assertTrue(out[1].min() >= 0)  # make sure we have pixels
-        self.assertTrue(out[1].max() <= 255)
+        self.assertTrue(out[1][0].dtype == np.bool_)  # next-state is terminal?
+        self.assertTrue(out[1][1].dtype == np.uint8)  # next state (raw, not preprocessed)
+        self.assertTrue(out[1][1].min() >= 0)  # make sure we have pixels
+        self.assertTrue(out[1][1].max() <= 255)
         # action probs (test whether sum to one).
         #self.assertTrue(out[1][6].dtype == np.float32)
         #self.assertTrue(out[1][6].min() >= 0.0)
