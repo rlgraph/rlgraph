@@ -22,6 +22,7 @@ from rlgraph.components.helpers.v_trace_function import VTraceFunction
 from rlgraph.components.loss_functions import LossFunction
 from rlgraph.spaces import IntBox
 from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -77,6 +78,7 @@ class IMPALALossFunction(LossFunction):
             self.action_space, allowed_types=[IntBox], must_have_categories=True
         )
 
+    @rlgraph_api
     def loss(self, logits_actions_pi, action_probs_mu, values, actions, rewards, terminals):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
@@ -87,15 +89,14 @@ class IMPALALossFunction(LossFunction):
         Returns:
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
-        #fake_step_op,
         loss_per_item = self._graph_fn_loss_per_item(
             logits_actions_pi, action_probs_mu, values, actions, rewards, terminals
         )
         total_loss = self._graph_fn_loss_average(loss_per_item)
-        # TODO: REMOVE no_op again. Only for IMPALA testing w/o update step.
-        # fake_step_op,
+
         return total_loss, loss_per_item
 
+    @graph_fn
     def _graph_fn_loss_per_item(self, logits_actions_pi, action_probs_mu, values, actions,
                                 rewards, terminals):  #, bootstrapped_values):
         """
@@ -120,8 +121,6 @@ class IMPALALossFunction(LossFunction):
         """
         if get_backend() == "tf":
             values, bootstrapped_values = values[:-1], values[-1:]
-
-            #return tf.no_op(), tf.ones_like(tf.squeeze(bootstrapped_values, axis=0))
 
             logits_actions_pi = logits_actions_pi[:-1]
             # Ignore very first actions/rewards (these are the previous ones only used as part of the state input
@@ -157,9 +156,6 @@ class IMPALALossFunction(LossFunction):
             cross_entropy = tf.expand_dims(tf.nn.sparse_softmax_cross_entropy_with_logits(
                 labels=actions, logits=logits_actions_pi
             ), axis=-1)
-
-            #vs = tf.ones_like(values)
-            #pg_advantages = tf.ones_like(log_probs_actions_taken_pi)
 
             # Make sure vs and advantage values are treated as constants for the gradient calculation.
             #vs = tf.stop_gradient(vs)

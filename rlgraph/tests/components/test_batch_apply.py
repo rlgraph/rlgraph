@@ -46,3 +46,20 @@ class TestBatchApply(unittest.TestCase):
 
         test.test(("apply", sample), expected_outputs=expected)
 
+    def test_batch_apply_component_with_dict_input_space(self):
+        return
+        input_space = FloatBox(shape=(3,), add_batch_rank=True, add_time_rank=True)
+        sample = input_space.sample(size=(5, 10))
+        sample_folded = np.reshape(sample, newshape=(50, 3))
+
+        sub_component = DenseLayer(units=4, biases_spec=False)
+
+        batch_apply = BatchApply(sub_component=sub_component, api_method_name="apply")
+        test = ComponentTest(component=batch_apply, input_spaces=dict(input_=input_space))
+        weights = test.read_variable_values(batch_apply.variables["batch-apply/dense-layer/dense/kernel"])
+
+        expected = dense_layer(sample_folded, weights)
+        expected = np.reshape(expected, newshape=(5, 10, 4))
+
+        test.test(("apply", sample), expected_outputs=expected)
+

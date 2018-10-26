@@ -119,3 +119,20 @@ class ContainerSplitter(Component):
                 ret[self.output_order.index(index)] = value
 
         return tuple(ret)
+
+    @rlgraph_api
+    def split_into_dict(self, inputs):
+        """
+        Same as `split`, but returns a dict with keys.
+
+        Args:
+            inputs ():
+
+        Returns:
+
+        """
+        if self.type == Dict:
+            ret = dict()
+            for key, value in inputs.items():
+                ret[key] = value
+            return ret

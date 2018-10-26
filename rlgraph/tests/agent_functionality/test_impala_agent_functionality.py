@@ -253,8 +253,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             internal_states_space=self.internal_states_space,
             num_steps=100,
             # Add both prev-action and -reward into the state sent through the network.
-            add_previous_action=True,
-            add_previous_reward=True,
+            add_previous_action_to_state=True,
+            add_previous_reward_to_state=True,
             add_action_probs=True,
             action_probs_space=self.action_probs_space
         )
@@ -352,8 +352,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             internal_states_space=self.internal_states_space,
             num_steps=100,
             # Add both prev-action and -reward into the state sent through the network.
-            add_previous_action=True,
-            add_previous_reward=True,
+            add_previous_action_to_state=True,
+            add_previous_reward_to_state=True,
             add_action_probs=True,
             action_probs_space=self.action_probs_space
         )
