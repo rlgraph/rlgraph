@@ -29,6 +29,7 @@ from rlgraph.spaces import FloatBox, IntBox, Tuple
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils.ops import DataOpTuple
+from rlgraph.utils.numpy import dense_layer, softmax
 
 
 class TestEnvironmentStepper(unittest.TestCase):
@@ -84,24 +85,22 @@ class TestEnvironmentStepper(unittest.TestCase):
         # Make sure we close the session (to shut down the Env on the server).
         test.terminate()
 
-    def test_environment_stepper_on_random_env_with_returning_action_probs(self):
-        state_space = FloatBox(shape=(2,))
-        action_space = IntBox(4)
-        preprocessor_spec = [dict(type="multiply", factor=3)]
+    def test_environment_stepper_on_deterministic_env_with_returning_action_probs(self):
+        state_space = FloatBox(shape=(1,))
+        action_space = IntBox(2)
+        preprocessor_spec = [dict(type="divide", divisor=2)]
         network_spec = config_from_path("configs/test_simple_nn.json")
         exploration_spec = None
         actor_component = ActorComponent(
             preprocessor_spec, dict(network_spec=network_spec, action_space=action_space), exploration_spec
         )
         environment_stepper = EnvironmentStepper(
-            environment_spec=dict(
-                type="random_env", state_space=state_space, action_space=action_space, deterministic=True
-            ),
+            environment_spec=dict(type="deterministic_env", steps_to_terminal=6),
             actor_component_spec=actor_component,
             state_space=state_space,
             reward_space="float32",
             add_action_probs=True,
-            action_probs_space=self.action_probs_space,
+            action_probs_space=FloatBox(shape=(2,), add_batch_rank=True),
             num_steps=3
         )
 
@@ -110,44 +109,51 @@ class TestEnvironmentStepper(unittest.TestCase):
             action_space=action_space,
         )
 
-        np.random.seed(10)
+        weights = test.read_variable_values(environment_stepper.actor_component.policy.variables)
+        weights_hid = weights["environment-stepper/actor-component/policy/test-network/hidden-layer/dense/kernel"]
+        biases_hid = weights["environment-stepper/actor-component/policy/test-network/hidden-layer/dense/bias"]
+        weights_action = weights["environment-stepper/actor-component/policy/action-adapter/action-layer/dense/kernel"]
+        biases_action = weights["environment-stepper/actor-component/policy/action-adapter/action-layer/dense/bias"]
 
         # Reset the stepper.
         test.test("reset")
 
         # Step 3 times through the Env and collect results.
-        expected = (
+        expected = (None, (
             # t_
             np.array([True, False, False, False]),
             # s' (raw)
-            np.array([[0.7713206, 0.0207519], [0.498507, 0.2247967], [0.1691108, 0.0883398], [0.0039483, 0.5121922]]),
+            np.array([[0.0], [1.0], [2.0], [3.0]]),
             # action probs
-            np.array([[0.0, 0.0, 0.0, 0.0],
-                      [0.3181699, 0.0138463, 0.0614877, 0.606496],
-                      [0.2051629, 0.0250753, 0.0531823, 0.7165795],
-                      [0.2692995, 0.1314247, 0.1675677, 0.4317082]])
-        )
-        print(test.test("step", expected_outputs=None))
+            np.array([
+                [0.0, 0.0],  # <- init (no input gets sent through NN).
+                softmax(dense_layer(dense_layer(np.array([0.0]), weights_hid, biases_hid), weights_action, biases_action)),
+                softmax(dense_layer(dense_layer(np.array([0.5]), weights_hid, biases_hid), weights_action, biases_action)),
+                softmax(dense_layer(dense_layer(np.array([1.0]), weights_hid, biases_hid), weights_action, biases_action))
+            ])
+        ))
+        test.test("step", expected_outputs=expected, decimals=3)
 
         # Step again, check whether stitching of states/etc.. works.
-        expected = (
-            np.array([True, False, False, False]),
-            np.array([[0.77132064, 0.02075195], [0.7217553, 0.29187608], [0.54254436, 0.14217004],
-                      [0.44183317, 0.434014]]),  # s' (raw)
-            np.array([[0.0, 0.0, 0.0, 0.0],
-                      [0.31817, 0.01385, 0.06149, 0.6065],
-                      [0.1526, 0.00736, 0.02262, 0.81741],
-                      [0.25166, 0.02651, 0.06657, 0.65526]])
-        )
-        test.test("step", expected_outputs=expected, decimals=5)
+        expected = (None, (
+            np.array([False, False, False, True]),
+            np.array([[3.0], [4.0], [5.0], [0.0]]),  # s' (raw)
+            np.array([
+                [0.0, 0.0],  # <- init (no input gets sent through NN).
+                softmax(dense_layer(dense_layer(np.array([1.5]), weights_hid, biases_hid), weights_action, biases_action)),
+                softmax(dense_layer(dense_layer(np.array([2.0]), weights_hid, biases_hid), weights_action, biases_action)),
+                softmax(dense_layer(dense_layer(np.array([2.5]), weights_hid, biases_hid), weights_action, biases_action))
+            ])
+        ))
+        test.test("step", expected_outputs=expected, decimals=3)
 
         # Make sure we close the session (to shut down the Env on the server).
         test.terminate()
 
-    def test_environment_stepper_on_random_env_with_action_probs_lstm(self):
+    def test_environment_stepper_on_deterministic_env_with_action_probs_lstm(self):
         np.random.seed(10)
-        state_space = FloatBox(shape=(2,))
-        action_space = IntBox(4)
+        state_space = FloatBox(shape=(1,))
+        action_space = IntBox(2)
         internal_states_space = Tuple(FloatBox(shape=(3,)), FloatBox(shape=(3,)))
         preprocessor_spec = [dict(type="multiply", factor=3)]
         network_spec = config_from_path("configs/test_lstm_nn.json")
