@@ -51,7 +51,7 @@ and we will likely wait until a stable PyTorch 1.0 release in the coming weeks.
 
 ### Quickstart / example usage
 
-We provide an example script for training the Ape-X algorith on ALE using Ray in the [examples](examples) folder:
+We provide an example script for training the Ape-X algorithm on ALE using Ray in the [examples](examples) folder:
 
 ```bash
 # Start ray on the head machine
@@ -59,8 +59,15 @@ ray start --head --redis-port 6379
 # Optionally join to this cluster from other machines with ray start --redis-address=...
 
 # Run script
-python apex_ale.py
+python apex_pong.py
 ```
+
+You can also train a simple DQN agent locally on OpenAI gym environments such as CartPole:
+
+```bash
+python dqn_cartpole.py
+```
+
 
 ## Import and use agents
 

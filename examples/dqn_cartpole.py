@@ -18,13 +18,9 @@ Example script for training a DQN agent on an OpenAI gym environment.
 
 Usage:
 
-python dqn_qym.py [--config configs/apex_ale.json] [--gpu/--nogpu] [--env PongNoFrameSkip-v4] [--output results.csv]
+python dqn_cartpole.py [--config configs/dqn_cartpole.json] [--env CartPole-v0]
 
 ```
-# Start ray on the head machine
-ray start --head --redis-port 6379
-# Optionally join to this cluster from other machines with ray start --redis-address=...
-
 # Run script
 python apex_ale.py
 ```
@@ -45,7 +41,7 @@ from rlgraph.execution import SingleThreadedWorker
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('config', './configs/dqn_gym_cartpole.json', 'Agent config file.')
+flags.DEFINE_string('config', './configs/dqn_cartpole.json', 'Agent config file.')
 flags.DEFINE_string('env', 'CartPole-v0', 'gym environment ID.')
 
 
@@ -61,10 +57,7 @@ def main(argv):
 
     env = OpenAIGymEnv.from_spec({
         "type": "openai",
-        "gym_env": FLAGS.env,
-        "max_num_noops": 30,
-        "episodic_life": False,
-        "fire_reset": False
+        "gym_env": FLAGS.env
     })
 
     agent = Agent.from_spec(
@@ -80,8 +73,8 @@ def main(argv):
     def episode_finished_callback(reward, duration, timesteps, **kwargs):
         rewards.append(reward)
         if len(rewards) % 10 == 0:
-            print("Episode {} finished: reward={}, timesteps={}.".format(
-                len(rewards), reward, timesteps
+            print("Episode {} finished: reward={:.2f}, average reward={:.2f}.".format(
+                len(rewards), reward, np.mean(rewards[-10:])
             ))
 
     worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, render=False, worker_executes_preprocessing=False,
