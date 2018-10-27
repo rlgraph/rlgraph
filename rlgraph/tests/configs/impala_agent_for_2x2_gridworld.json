@@ -1,5 +1,5 @@
 {
-  "type": "impala",
+  "type": "single-impala",
 
   "fifo_queue_spec":
   {
@@ -14,14 +14,15 @@
 
   "worker_sample_size": 5,
 
-  "add_previous_action": false,
-  "add_previous_reward": false,
+  "feed_previous_action_through_nn": false,
+  "feed_previous_reward_through_nn": false,
 
   "preprocessing_spec":
   [
     {
       "type": "reshape",
-      "flatten": true
+      "flatten": true,
+      "flatten_categories": 4
     }
   ],
 

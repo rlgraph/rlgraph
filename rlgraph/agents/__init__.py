@@ -21,7 +21,7 @@ from rlgraph.agents.agent import Agent
 from rlgraph.agents.dqn_agent import DQNAgent
 from rlgraph.agents.dqfd_agent import DQFDAgent
 from rlgraph.agents.apex_agent import ApexAgent
-from rlgraph.agents.impala_agent import IMPALAAgent
+from rlgraph.agents.impala_agents import IMPALAAgent, SingleIMPALAAgent
 from rlgraph.agents.ppo_agent import PPOAgent
 from rlgraph.agents.random_agent import RandomAgent
 
@@ -33,11 +33,12 @@ Agent.__lookup_classes__ = dict(
     dqnagent=DQNAgent,
     dqfd=DQFDAgent,
     dqfdagent=DQFDAgent,
-    impala=IMPALAAgent,
-    impalaagent=IMPALAAgent,
+    singleimpala=SingleIMPALAAgent,
+    singleimpalaagent=SingleIMPALAAgent,
     ppo=PPOAgent,
     ppoagent=PPOAgent,
-    random=RandomAgent
+    random=RandomAgent,
+    randomagent=RandomAgent
 )
 
 __all__ = ["Agent"] + \

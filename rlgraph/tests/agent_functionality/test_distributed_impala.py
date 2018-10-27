@@ -22,7 +22,7 @@ import numpy as np
 import time
 import unittest
 
-from rlgraph.agents.impala_agent import IMPALAAgent
+from rlgraph.agents.impala_agents import IMPALAAgent
 from rlgraph.environments import DeepmindLabEnv
 from rlgraph.execution.distributed_tf.impala.impala_worker import IMPALAWorker
 from rlgraph.spaces import *
