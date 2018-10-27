@@ -766,6 +766,10 @@ class Component(Specifiable):
             expose_apis = {expose_apis}
 
         for component in components:
+            # Safety measure: Ignore Nones.
+            if component is None:
+                continue
+
             # Try to create Component from spec.
             if not isinstance(component, Component):
                 component = Component.from_spec(component)
@@ -814,7 +818,7 @@ class Component(Specifiable):
     def get_all_sub_components(self, list_=None, level_=0):
         """
         Returns all sub-Components (including self) sorted by their nesting-level (... grand-children before children
-        before parents).
+        before parents). If the nesting level is the same, sort alphabetically by the scope (name) of the Components.
 
         Args:
             list\_ (Optional[List[Component]])): A list of already collected components to append to.
