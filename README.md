@@ -51,7 +51,17 @@ and we will likely wait until a stable PyTorch 1.0 release in the coming weeks.
 
 ### Quickstart / example usage
 
-We provide an example script for training the Ape-X algorithm on ALE using Ray in the [examples](examples) folder:
+We provide an example script for training the Ape-X algorithm on ALE using Ray in the [examples](examples) folder.
+
+First, you'll have to ensure, that Ray is used as the distributed backend. RLgraph checks the file
+`~/.rlgraph/rlgraph.json` for this configuration. You can use this command to
+configure RLgraph to use TensorFlow as the backend and Ray as the distributed backend:
+
+```bash
+echo '{"BACKEND":"tf","DISTRIBUTED_BACKEND":"ray"}' > $HOME/.rlgraph/rlgraph.json
+```
+
+Then you can run our Ape-X example:
 
 ```bash
 # Start ray on the head machine
@@ -62,7 +72,7 @@ ray start --head --redis-port 6379
 python apex_pong.py
 ```
 
-You can also train a simple DQN agent locally on OpenAI gym environments such as CartPole:
+You can also train a simple DQN agent locally on OpenAI gym environments such as CartPole (this doesn't require Ray):
 
 ```bash
 python dqn_cartpole.py

@@ -20,7 +20,15 @@ Usage:
 
 python apex_ale.py [--config configs/apex_pong.json] [--gpu/--nogpu] [--env PongNoFrameSkip-v4] [--output results.csv]
 
+Please make sure that Ray is configured as the distributed backend for RLgraph, e.g. by running this command:
+
+```bash
+echo '{"BACKEND":"tf","DISTRIBUTED_BACKEND":"ray"}' > $HOME/.rlgraph/rlgraph.json
 ```
+
+Then you can start up the Ape-X agent:
+
+```bash
 # Start ray on the head machine
 ray start --head --redis-port 6379
 # Optionally join to this cluster from other machines with ray start --redis-address=...
