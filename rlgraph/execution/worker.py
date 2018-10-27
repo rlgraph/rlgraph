@@ -30,7 +30,7 @@ class Worker(Specifiable):
     Generic worker to locally interact with simulator environments.
     """
     def __init__(self, agent, env_spec=None, num_envs=1, frameskip=1, render=False,
-                 worker_executes_exploration=True, exploration_epsilon=0.1):
+                 worker_executes_exploration=True, exploration_epsilon=0.1, episode_finish_callback=None):
         """
         Args:
             agent (Agent): Agent to execute environment on.
@@ -66,6 +66,8 @@ class Worker(Specifiable):
 
         self.worker_executes_exploration = worker_executes_exploration
         self.exploration_epsilon = exploration_epsilon
+
+        self.episode_finish_callback = episode_finish_callback
 
     def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
                           frameskip=1, reset=True):
@@ -227,4 +229,9 @@ class Worker(Specifiable):
             return self.agent.get_action(states=states, use_exploration=use_exploration,
                                          apply_preprocessing=apply_preprocessing, extra_returns=extra_returns)
 
+    def log_finished_episode(self, reward, duration, timesteps, env_num=0):
+        self.logger.debug("Finished episode: reward={}, actions={}, duration={}s.".format(
+            reward, duration, timesteps))
 
+        if self.episode_finish_callback:
+            self.episode_finish_callback(reward=reward, duration=duration, timesteps=timesteps, env_num=env_num)
