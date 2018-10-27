@@ -97,7 +97,7 @@ class ActorCriticLossFunction(LossFunction):
 
     @graph_fn
     def _graph_fn_loss_per_item(self, logits_actions_pi, action_probs_mu, baseline_values, actions,
-                                rewards, terminals):  #, bootstrapped_values):
+                                rewards, terminals):
         """
         Calculates the loss per batch item (summed over all timesteps) using the formula described above in
         the docstring to this class.
@@ -117,7 +117,6 @@ class ActorCriticLossFunction(LossFunction):
             SingleDataOp: The loss values per item in the batch, but summed over all timesteps.
         """
         if get_backend() == "tf":
-
             logits_actions_pi = logits_actions_pi[:-1]
             # Ignore very first actions/rewards (these are the previous ones only used as part of the state input
             # for the network)
@@ -130,8 +129,6 @@ class ActorCriticLossFunction(LossFunction):
             terminals = terminals[1:]
             action_probs_mu = action_probs_mu[1:]
 
-            # Discounts are simply 0.0, if there is a terminal, otherwise: `discount`.
-            discounts = tf.expand_dims(tf.to_float(~terminals) * self.discount, axis=-1, name="discounts")
             # `clamp_one`: Clamp rewards between -1.0 and 1.0.
             if self.reward_clipping == "clamp_one":
                 rewards = tf.clip_by_value(rewards, -1, 1, name="reward-clipping")
@@ -140,14 +137,15 @@ class ActorCriticLossFunction(LossFunction):
                 squeezed = tf.tanh(rewards / 5.0)
                 rewards = tf.where(rewards < 0.0, 0.3 * squeezed, squeezed) * 5.0
 
-            # # Let the gae-helper function calculate the value-targets (vs) and the pg-advantages
-            v_targets, pg_advantages = self.gae_function.calc_gae_values()
-
+            # # Let the gae-helper function calculate the pg-advantages.
+            # TODO need terminal/sequence length info for this.
+            pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards)
             cross_entropy = tf.expand_dims(tf.nn.sparse_softmax_cross_entropy_with_logits(
                 labels=actions, logits=logits_actions_pi
             ), axis=-1)
 
             # Make sure vs and advantage values are treated as constants for the gradient calculation.
+            v_targets = pg_advantages + baseline_values
             v_targets = tf.stop_gradient(v_targets)
             pg_advantages = tf.stop_gradient(pg_advantages)
 
