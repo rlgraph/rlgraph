@@ -130,7 +130,7 @@ More detailed examples coming soon.
 
 ## Cite
 
-If you use RLgraph in your research, please cite the following paper: [https://arxiv.org/abs/1810.09028](link):
+If you use RLgraph in your research, please cite the following paper: [link](https://arxiv.org/abs/1810.09028)
 
 
 ```
