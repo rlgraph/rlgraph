@@ -181,12 +181,16 @@ class GraphBuilder(Specifiable):
         # Some ops can only be created later when variable-based-Spaces are known (op_records_to_process_later).
         self.build_input_space_ops(input_spaces)
 
-        # Collect all components and add those op-recs to the set that are constant.
+        # Collect all components.
         components = self.root_component.get_all_sub_components()
+        # Point to this GraphBuilder object.
+        # Add those op-recs to the set that are constant.
         for component in components:
-            component.graph_builder = self  # point to us.
+            component.graph_builder = self
             self.op_records_to_process.update(component.constant_op_records)
-            # Check whether the Component is input-complete (and build already if it is).
+
+        # Check whether the Component is input-complete (and build already, if it is).
+        for component in components:
             self.build_component_when_input_complete(component)
 
         op_records_list = sorted(self.op_records_to_process, key=lambda rec: rec.id)
