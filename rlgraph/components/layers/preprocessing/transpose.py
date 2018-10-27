@@ -34,7 +34,7 @@ class Transpose(PreprocessLayer):
     def __init__(self, scope="transpose", **kwargs):
         """
         """
-        super(Transpose, self).__init__(add_auto_key_as_first_param=True, scope=scope, **kwargs)
+        super(Transpose, self).__init__(scope=scope, **kwargs)
 
         self.output_time_majors = dict()
 
