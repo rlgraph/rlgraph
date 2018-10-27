@@ -131,8 +131,8 @@ class ContainerSplitter(Component):
         Returns:
 
         """
-        if self.type == Dict:
-            ret = dict()
-            for key, value in inputs.items():
-                ret[key] = value
-            return ret
+        out = self._graph_fn_split(inputs)
+        ret = dict()
+        for i, key in enumerate(self.output_order):
+            ret[key] = out[i]
+        return ret
