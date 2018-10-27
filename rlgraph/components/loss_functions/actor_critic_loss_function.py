@@ -117,18 +117,6 @@ class ActorCriticLossFunction(LossFunction):
             SingleDataOp: The loss values per item in the batch, but summed over all timesteps.
         """
         if get_backend() == "tf":
-            logits_actions_pi = logits_actions_pi[:-1]
-            # Ignore very first actions/rewards (these are the previous ones only used as part of the state input
-            # for the network)
-            actions_flat = actions[1:]
-            actions = tf.reduce_sum(
-                tf.cast(actions_flat * tf.range(self.action_space.num_categories, dtype=tf.float32), dtype=tf.int32),
-                axis=-1
-            )
-            rewards = rewards[1:]
-            terminals = terminals[1:]
-            action_probs_mu = action_probs_mu[1:]
-
             # `clamp_one`: Clamp rewards between -1.0 and 1.0.
             if self.reward_clipping == "clamp_one":
                 rewards = tf.clip_by_value(rewards, -1, 1, name="reward-clipping")
