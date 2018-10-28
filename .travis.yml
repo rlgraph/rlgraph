@@ -19,13 +19,17 @@ before_install:
   - docker run -d --rm --name ${DOCKER_JOB_NAME} -v $(pwd):/rlgraph ${DOCKER_IMAGE} /bin/bash -c 'while true; do sleep 1; done';
 
 install:
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'apt-get update && apt-get -y install libsm6 libxrender-dev libxext6 cmake libz-dev';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'apt-get update && apt-get -y install git libsm6 libxrender-dev libxext6 cmake libz-dev';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'curl https://bootstrap.pypa.io/get-pip.py | python';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U pip';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U setuptools';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U numpy';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install opencv-python psutil pytest-xdist';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install pytest-xdist';
+  # For TRFL.
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install tensorflow-probability wrapt';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install git+git://github.com/deepmind/trfl.git';
+
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install pyyaml six requests lz4';
   # In the future, add further extra packages here, like horovod, pytorch, or ray
   # TODO: Use our `extras_require` in setup.py, instead of specifying individual packages.

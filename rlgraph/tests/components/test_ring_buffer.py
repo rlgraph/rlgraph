@@ -58,55 +58,13 @@ class TestRingBufferMemory(unittest.TestCase):
         num_records=int,
     )
 
-    def test_insert_no_episodes(self):
-        """
-        Simply tests insert op without checking internal logic, episode
-        semantics disabled.
-        """
-        ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=False)
-        test = ComponentTest(component=ring_buffer, input_spaces=self.input_spaces_no_episodes)
-
-        observation = self.record_space.sample(size=1)
-        test.test(("insert_records", observation), expected_outputs=None)
-
-        observation = self.record_space.sample(size=10)
-        test.test(("insert_records", observation), expected_outputs=None)
-
-    def test_capacity_no_episodes(self):
-        """
-        Tests if insert correctly manages capacity, no episode indices updated..
-        """
-        ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=False)
-        test = ComponentTest(component=ring_buffer, input_spaces=self.input_spaces_no_episodes)
-        # Internal state variables.
-        memory_variables = ring_buffer.get_variables(self.memory_variables, global_scope=False)
-        buffer_size = memory_variables['size']
-        buffer_index = memory_variables['index']
-        size_value, index_value = test.read_variable_values(buffer_size, buffer_index)
-
-        # Assert indices 0 before insert.
-        self.assertEqual(size_value, 0)
-        self.assertEqual(index_value, 0)
-
-        # Insert one more element than capacity
-        observation = self.record_space.sample(size=self.capacity + 1)
-        test.test(("insert_records", observation), expected_outputs=None)
-
-        size_value, index_value = test.read_variable_values(buffer_size, buffer_index)
-        # Size should be equivalent to capacity when full.
-        self.assertEqual(size_value, self.capacity)
-
-        # Index should be one over capacity due to modulo.
-        self.assertEqual(index_value, 1)
-
     def test_capacity_with_episodes(self):
         """
-        Tests if inserts of non-terminals work when turning
-        on episode semantics.
+        Tests if inserts of non-terminals work.
 
         Note that this does not test episode semantics itself, which are tested below.
         """
-        ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=True)
+        ring_buffer = RingBuffer(capacity=self.capacity)
         test = ComponentTest(component=ring_buffer, input_spaces=self.input_spaces)
         # Internal memory variables.
         ring_buffer_variables = ring_buffer.get_variables(self.ring_buffer_variables, global_scope=False)
@@ -148,7 +106,7 @@ class TestRingBufferMemory(unittest.TestCase):
         Tests if episodes indices and counts are set correctly when inserting
         terminals.
         """
-        ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=True)
+        ring_buffer = RingBuffer(capacity=self.capacity)
         test = ComponentTest(component=ring_buffer, input_spaces=self.input_spaces)
         # Internal memory variables.
         ring_buffer_variables = ring_buffer.get_variables(self.ring_buffer_variables, global_scope=False)
@@ -188,7 +146,7 @@ class TestRingBufferMemory(unittest.TestCase):
         Edge case: What if only terminals are inserted when episode
         semantics are enabled?
         """
-        ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=True)
+        ring_buffer = RingBuffer(capacity=self.capacity)
         test = ComponentTest(component=ring_buffer, input_spaces=self.input_spaces)
         ring_buffer_variables = ring_buffer.get_variables(self.ring_buffer_variables, global_scope=False)
         num_episodes = ring_buffer_variables["num-episodes"]
@@ -206,7 +164,7 @@ class TestRingBufferMemory(unittest.TestCase):
         """
         Test if we can accurately fetch most recent episodes.
         """
-        ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=True)
+        ring_buffer = RingBuffer(capacity=self.capacity)
         test = ComponentTest(component=ring_buffer, input_spaces=self.input_spaces)
         # Insert 2 non-terminals, 1 terminal
         observation = non_terminal_records(self.record_space, 2)
@@ -244,7 +202,7 @@ class TestRingBufferMemory(unittest.TestCase):
         """
         Tests if we can fetch latest steps.
         """
-        ring_buffer = RingBuffer(capacity=self.capacity, episode_semantics=True)
+        ring_buffer = RingBuffer(capacity=self.capacity)
         test = ComponentTest(component=ring_buffer, input_spaces=self.input_spaces)
 
         # Insert 5 random elements.
