@@ -27,7 +27,7 @@ install:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install opencv-python psutil pytest-xdist';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install pytest-xdist';
   # For TRFL.
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install tensorflow-probability';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install tensorflow-probability wrapt';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install git+git://github.com/deepmind/trfl.git';
 
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install pyyaml six requests lz4';
