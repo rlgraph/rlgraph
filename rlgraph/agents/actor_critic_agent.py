@@ -39,8 +39,9 @@ class ActorCriticAgent(Agent):
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
             a ring-buffer.
         """
-        # Fix action-adapter before passing it to the super constructor.
-        action_adapter_spec = kwargs.pop("action_adapter_spec", {})
+
+        # Use baseline adapter to have critic.
+        action_adapter_spec = kwargs.pop("action_adapter_spec", dict(type="baseline-action-adapter"))
 
         super(ActorCriticAgent, self).__init__(
             action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "actor-critic-agent"), **kwargs
@@ -132,11 +133,11 @@ class ActorCriticAgent(Agent):
         # Learn from memory.
         @rlgraph_api(component=self.root_component)
         def update_from_memory(self_):
-            records, episode_lengths = memory.get_records(self.update_spec["batch_size"])
+            records = memory.get_records(self.update_spec["batch_size"])
             preprocessed_s, actions, rewards, terminals = splitter.split(records)
 
             step_op, loss, loss_per_item = self_.update_from_external_batch(
-                preprocessed_s, actions, rewards, terminals, episode_lengths
+                preprocessed_s, actions, rewards, terminals
             )
 
             return step_op, loss, loss_per_item, records
@@ -144,7 +145,7 @@ class ActorCriticAgent(Agent):
         # Learn from an external batch.
         @rlgraph_api(component=self.root_component)
         def update_from_external_batch(
-                self_, preprocessed_states, actions, rewards, terminals, episode_lengths
+                self_, preprocessed_states, actions, rewards, terminals
         ):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -160,7 +161,9 @@ class ActorCriticAgent(Agent):
                 )
                 return step_and_sync_op, loss, loss_per_item
 
-            loss, loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss()
+            loss, loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
+                #logits_actions_pi, action_probs_mu, baseline_values, actions, rewards, terminals
+            )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
             policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
