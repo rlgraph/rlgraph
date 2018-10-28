@@ -23,7 +23,6 @@ from rlgraph.components.helpers import SequenceHelper
 from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
-    import tensorflow as tf
     import trfl
 
 
@@ -65,8 +64,13 @@ class GeneralizedAdvantageEstimation(Component):
             gae_discount = self.gae_lambda * self.discount
             sequence_lengths = self.sequence_helper.calc_sequence_lengths(terminals)
 
-            # deltas = rewards + self.discount * baseline_values[1:]
-            # TODO call TRFL
-            advantages = None
+            # Use TRFL utilities to compute discount.
+            advantages = trfl.sequence_ops.scan_discounted_sum(
+                sequence=terminals,
+                decay=gae_discount,
+                initial_value=rewards,
+                sequence_lengths=sequence_lengths,
+                backprop=False
+            )
 
             return advantages
