@@ -20,8 +20,8 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DictMerger, \
-    ContainerSplitter
+from rlgraph.components import Memory, DictMerger, ContainerSplitter
+from rlgraph.components.loss_functions.actor_critic_loss_function import ActorCriticLossFunction
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.util import strip_list
@@ -29,12 +29,13 @@ from rlgraph.utils.util import strip_list
 
 class ActorCriticAgent(Agent):
     """
-    Basic actor-critic policy gradient architecture. Suitable for execution with A2C, A3C.
-
+    Basic actor-critic policy gradient architecture with generalized advantage estimation,
+    and entropy regularization. Suitable for execution with A2C, A3C.
     """
-    def __init__(self, memory_spec=None, **kwargs):
+    def __init__(self, gae_lambda=1.0, memory_spec=None, **kwargs):
         """
         Args:
+            gae_lambda (float): Lambda for generalized advantage estimation.
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
             a ring-buffer.
         """
@@ -42,14 +43,13 @@ class ActorCriticAgent(Agent):
         action_adapter_spec = kwargs.pop("action_adapter_spec", {})
 
         super(ActorCriticAgent, self).__init__(
-            action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "dqn-agent"), **kwargs
+            action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "actor-critic-agent"), **kwargs
         )
 
         # Extend input Space definitions to this Agent's specific API-methods.
         preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()
         reward_space = FloatBox(add_batch_rank=True)
         terminal_space = BoolBox(add_batch_rank=True)
-        weight_space = FloatBox(add_batch_rank=True)
 
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
@@ -58,29 +58,22 @@ class ActorCriticAgent(Agent):
             use_exploration=bool,
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
-            terminals=terminal_space,
-            next_states=preprocessed_state_space,
-            preprocessed_next_states=preprocessed_state_space
+            terminals=terminal_space
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.
         self.merger = DictMerger("states", "actions", "rewards", "terminals")
         # The replay memory.
+        assert memory_spec["type"] == "ring_buffer", "Actor-critic memory must be ring-buffer for episode-handling."
         self.memory = Memory.from_spec(memory_spec)
         # The splitter for splitting up the records coming from the memory.
         self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
 
-        # Copy our Policy (target-net), make target-net synchronizable.
-        self.target_policy = self.policy.copy(scope="target-policy", trainable=False)
-        self.target_policy.add_components(Synchronizable(), expose_apis="sync")
-        # Number of steps since the last target-net synching from the main policy.
-        self.steps_since_target_net_sync = 0
-
-        self.loss_function = None
+        self.loss_function = ActorCriticLossFunction(discount=self.discount, gae_lambda=gae_lambda)
 
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
-                          self.target_policy, self.exploration, self.loss_function, self.optimizer]
+                        self.exploration, self.loss_function, self.optimizer]
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
@@ -96,8 +89,7 @@ class ActorCriticAgent(Agent):
     def define_graph_api(self, policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
         super(ActorCriticAgent, self).define_graph_api(policy_scope, pre_processor_scope)
 
-        preprocessor, merger, memory, splitter, policy, target_policy, exploration, loss_function, optimizer = \
-            sub_components
+        preprocessor, merger, memory, splitter, policy, exploration, loss_function, optimizer = sub_components
 
         # Reset operation (resets preprocessor).
         if self.preprocessing_required:
@@ -140,32 +132,25 @@ class ActorCriticAgent(Agent):
         # Learn from memory.
         @rlgraph_api(component=self.root_component)
         def update_from_memory(self_):
-            # Non prioritized memory will just return weight 1.0 for all samples.
-            records, sample_indices, importance_weights = memory.get_records(self.update_spec["batch_size"])
-            preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = splitter.split(records)
+            records, episode_lengths = memory.get_records(self.update_spec["batch_size"])
+            preprocessed_s, actions, rewards, terminals = splitter.split(records)
 
-            step_op, loss, loss_per_item, q_values_s = self_.update_from_external_batch(
-                preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights
+            step_op, loss, loss_per_item = self_.update_from_external_batch(
+                preprocessed_s, actions, rewards, terminals, episode_lengths
             )
 
-            # TODO this is really annoying.. will be solved once we have dict returns.
-            if isinstance(memory, PrioritizedReplay):
-                update_pr_step_op = memory.update_records(sample_indices, loss_per_item)
-                return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
-            else:
-                return step_op, loss, loss_per_item, records, q_values_s
+            return step_op, loss, loss_per_item, records
 
         # Learn from an external batch.
         @rlgraph_api(component=self.root_component)
         def update_from_external_batch(
-                self_, preprocessed_states, actions, rewards, terminals, importance_weights
+                self_, preprocessed_states, actions, rewards, terminals, episode_lengths
         ):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
             if "multi-gpu-sync-optimizer" in self_.sub_components:
                 main_policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
-                # TODO: This may be called differently in other agents (replace by root-policy).
-                grads_and_vars, loss, loss_per_item, q_values_s = \
+                grads_and_vars, loss, loss_per_item = \
                     self_.sub_components["multi-gpu-sync-optimizer"].calculate_update_from_external_batch(
                         main_policy_vars, preprocessed_states, actions, rewards, terminals
                     )
@@ -173,7 +158,7 @@ class ActorCriticAgent(Agent):
                 step_and_sync_op = self_.sub_components["multi-gpu-sync-optimizer"].sync_policy_weights_to_towers(
                     step_op, main_policy_vars
                 )
-                return step_and_sync_op, loss, loss_per_item, q_values_s
+                return step_and_sync_op, loss, loss_per_item
 
             loss, loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss()
 
@@ -248,8 +233,6 @@ class ActorCriticAgent(Agent):
 
         if batch is None:
             ret = self.graph_executor.execute(("update_from_memory", None, return_ops), sync_call)
-
-            # print("Loss: {}".format(ret["update_from_memory"][1]))
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
