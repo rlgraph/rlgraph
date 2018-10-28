@@ -64,7 +64,7 @@ class SequenceHelper(Component):
 
                 # Update tensor array, reset length to 0.
                 sequence_lengths, write_index, length = tf.cond(
-                    pred=sequence_indices[index] == 1,
+                    pred=tf.equal(sequence_indices[index], 1),
                     true_fn=lambda: update(write_index, sequence_lengths, length),
                     false_fn=lambda: (sequence_lengths, write_index, length)
                 )
@@ -82,13 +82,12 @@ class SequenceHelper(Component):
             )
 
             # If the final element was terminal -> already included.
-            sequence_lengths, write_index, length = tf.cond(
-                pred=final_length > 0,
-                true_fn=lambda: update(write_index, sequence_lengths, length),
-                false_fn=lambda: (sequence_lengths, write_index, length)
+            sequence_lengths, _, _ = tf.cond(
+                pred=tf.greater(final_length, 0),
+                true_fn=lambda: update(write_index, sequence_lengths, final_length),
+                false_fn=lambda: (sequence_lengths, write_index, final_length)
             )
-            return  sequence_lengths.stack()
-
+            return sequence_lengths.stack()
         elif get_backend() == "pytorch" or get_backend() == "python":
             sequence_lengths = []
             length = 0
