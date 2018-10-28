@@ -64,11 +64,11 @@ class ActorCriticAgent(Agent):
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.
-        self.merger = DictMerger("states", "actions", "rewards", "next_states", "terminals")
+        self.merger = DictMerger("states", "actions", "rewards", "terminals")
         # The replay memory.
         self.memory = Memory.from_spec(memory_spec)
         # The splitter for splitting up the records coming from the memory.
-        self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals", "next_states")
+        self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
 
         # Copy our Policy (target-net), make target-net synchronizable.
         self.target_policy = self.policy.copy(scope="target-policy", trainable=False)
@@ -92,18 +92,6 @@ class ActorCriticAgent(Agent):
             self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
                               batch_size=self.update_spec["batch_size"])
             self.graph_built = True
-
-            # TODO: What should the external batch be? 0s.
-            #if "multi-gpu-sync-optimizer" in self.root_component.sub_components:
-            #    # Get 1st return op of API-method `calculate_update_from_external_batch`
-            #    # (which is the group of stage-ops).
-            #    stage_op = self.root_component.sub_components["multi-gpu-sync-optimizer"].\
-            #        api_methods["calculate_update_from_external_batch"].\
-            #        out_op_columns[0].op_records[0].op
-            #    # Initialize the stage.
-            #    self.graph_executor.monitored_session.run_step_fn(
-            #        lambda step_context: step_context.session.run(stage_op)
-            #    )
 
     def define_graph_api(self, policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
         super(ActorCriticAgent, self).define_graph_api(policy_scope, pre_processor_scope)
@@ -133,8 +121,8 @@ class ActorCriticAgent(Agent):
 
         # Insert into memory.
         @rlgraph_api(component=self.root_component)
-        def insert_records(self, preprocessed_states, actions, rewards, next_states, terminals):
-            records = merger.merge(preprocessed_states, actions, rewards, next_states, terminals)
+        def insert_records(self, preprocessed_states, actions, rewards, terminals):
+            records = merger.merge(preprocessed_states, actions, rewards, terminals)
             return memory.insert_records(records)
 
         # Syncing target-net.
@@ -170,7 +158,7 @@ class ActorCriticAgent(Agent):
         # Learn from an external batch.
         @rlgraph_api(component=self.root_component)
         def update_from_external_batch(
-                self_, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights
+                self_, preprocessed_states, actions, rewards, terminals, importance_weights
         ):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -179,8 +167,7 @@ class ActorCriticAgent(Agent):
                 # TODO: This may be called differently in other agents (replace by root-policy).
                 grads_and_vars, loss, loss_per_item, q_values_s = \
                     self_.sub_components["multi-gpu-sync-optimizer"].calculate_update_from_external_batch(
-                        main_policy_vars, preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
-                        importance_weights
+                        main_policy_vars, preprocessed_states, actions, rewards, terminals
                     )
                 step_op = self_.get_sub_component_by_name(optimizer_scope).apply_gradients(grads_and_vars)
                 step_and_sync_op = self_.sub_components["multi-gpu-sync-optimizer"].sync_policy_weights_to_towers(
@@ -188,36 +175,17 @@ class ActorCriticAgent(Agent):
                 )
                 return step_and_sync_op, loss, loss_per_item, q_values_s
 
-            # Get the different Q-values.
-            q_values_s = self_.get_sub_component_by_name(policy_scope).get_logits_probabilities_log_probs(
-                preprocessed_states
-            )["logits"]
-            qt_values_sp = self_.get_sub_component_by_name(target_policy.scope).get_logits_probabilities_log_probs(
-                preprocessed_next_states
-            )["logits"]
-
-            q_values_sp = None
-            if self.double_q:
-                q_values_sp = self_.get_sub_component_by_name(policy_scope).get_logits_probabilities_log_probs(
-                    preprocessed_next_states
-                )["logits"]
-
-            loss, loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
-                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
-            )
+            loss, loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss()
 
             # Args are passed in again because some device strategies may want to split them to different devices.
             policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
 
-            # TODO: for a fully automated multi-GPU strategy, we would have to make sure that:
-            # TODO: - every agent (root_component) has an update_from_external_batch method
-            # TODO: - this if check is somehow automated and not necessary anymore (local optimizer must be called with different API-method, not step)
             if hasattr(self_, "is_multi_gpu_tower") and self_.is_multi_gpu_tower is True:
                 grads_and_vars = self_.get_sub_component_by_name(optimizer_scope).calculate_gradients(policy_vars, loss)
-                return grads_and_vars, loss, loss_per_item, q_values_s
+                return grads_and_vars, loss, loss_per_item
             else:
                 step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
-                return step_op, loss, loss_per_item, q_values_s
+                return step_op, loss, loss_per_item
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
@@ -261,8 +229,9 @@ class ActorCriticAgent(Agent):
         else:
             return ret
 
+    # TODO make next states optional in observe API.
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
-        self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, next_states, terminals]))
+        self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
     def update(self, batch=None):
         # Should we sync the target net?
