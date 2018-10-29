@@ -57,7 +57,7 @@ class SequenceHelper(Component):
             def update(write_index, sequence_array, length):
                 # Write to index, increase
                 sequence_array = sequence_array.write(write_index, length)
-                return sequence_array, write_index, 0
+                return sequence_array, write_index + 1, 0
 
             def insert_body(index, length, sequence_lengths, write_index):
                 length += 1
@@ -80,7 +80,7 @@ class SequenceHelper(Component):
                 parallel_iterations=1,
                 back_prop=False
             )
-
+            final_length = tf.Print(final_length, [final_length], message="final_length=")
             # If the final element was terminal -> already included.
             sequence_lengths, _, _ = tf.cond(
                 pred=tf.greater(final_length, 0),
