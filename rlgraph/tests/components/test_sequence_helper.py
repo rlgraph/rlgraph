@@ -41,4 +41,8 @@ class TestSequenceHelper(unittest.TestCase):
         test.test(("calc_sequence_lengths", input_), expected_outputs=[3, 1])
 
         input_ = np.asarray([1, 1, 1, 1])
-        test.test(("calc_sequence_lengths", input_), expected_outputs=[0, 0, 0, 0])
+        test.test(("calc_sequence_lengths", input_), expected_outputs=[1, 1, 1, 1])
+
+        input_ = np.asarray([1, 0, 0, 1])
+        test.test(("calc_sequence_lengths", input_), expected_outputs=[1, 3])
+
