@@ -79,7 +79,6 @@ class SequenceHelper(Component):
                 cond=cond,
                 body=insert_body,
                 loop_vars=[0, 0, sequence_lengths, 0],
-                parallel_iterations=1,
                 back_prop=False
             )
             # If the final element was terminal -> already included.
@@ -163,11 +162,10 @@ class SequenceHelper(Component):
             def cond(index, length, sequence_lengths, write_index, decays):
                 return index < elems
 
-            _, final_length, sequence_lengths, write_index, decays = tf.while_loop(
+            index, final_length, sequence_lengths, write_index, decays = tf.while_loop(
                 cond=cond,
                 body=insert_body,
                 loop_vars=[0, 0, sequence_lengths, 0, decays],
-                parallel_iterations=1,
                 back_prop=False
             )
 
@@ -178,8 +176,7 @@ class SequenceHelper(Component):
                 true_fn=lambda: update(write_index, sequence_lengths, final_length),
                 false_fn=lambda: (sequence_lengths, write_index, final_length)
             )
-
-            return sequence_lengths.stack(), decays.stack()
+            return tf.stop_gradient(sequence_lengths.stack()), tf.stop_gradient(decays.stack())
         elif get_backend() == "pytorch":
             sequence_lengths = []
             decays = []
