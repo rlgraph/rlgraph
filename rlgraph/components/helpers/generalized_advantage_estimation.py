@@ -23,6 +23,7 @@ from rlgraph.components.helpers import SequenceHelper
 from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
+    import tensorflow as tf
     import trfl
 
 
@@ -49,28 +50,71 @@ class GeneralizedAdvantageEstimation(Component):
         self.add_components(self.sequence_helper)
 
     @rlgraph_api(must_be_complete=False)
-    def _graph_fn_calc_gae_values(self, rewards, terminals):
+    def _graph_fn_calc_gae_values(self, baseline_values, rewards, terminals):
         """
         Returns advantage values based on GAE.
 
         Args:
+            baseline_values (DataOp): Baseline predictions V(s).
             rewards (DataOp): Rewards in sample trajectory.
-            terminals (DataOp): Termnials in sample trajectory.
+            terminals (DataOp): Terminals in sample trajectory.
 
         Returns:
             PG-advantage values used for training via policy gradient with baseline.
         """
         if get_backend() == "tf":
             gae_discount = self.gae_lambda * self.discount
-            sequence_lengths = self.sequence_helper.calc_sequence_lengths(terminals)
+            # Use helper to calculate sequence lengths and decay sequences.
+            sequence_lengths, decays = self.sequence_helper.calc_sequence_decays(terminals, gae_discount)
 
-            # Use TRFL utilities to compute discount.
+            # Next, we need to set the next value after the end of each subsequence to 0/its prior value
+            # depending on terminal.
+            elems = tf.shape(rewards)[0]
+            bootstrap_value = baseline_values[-1]
+            adjusted_values = tf.TensorArray(dtype=tf.float32, infer_shape=False,
+                                             size=1, dynamic_size=True, clear_after_read=False)
+
+            def write(write_index, values, value):
+                values = values.write(write_index, value)
+                write_index += 1
+                return values, write_index
+
+            def body(index, write_index, values):
+                adjusted_values.write(write_index, baseline_values[index])
+                write_index += 1
+
+                # Append 0 whenever we terminate.
+                values, write_index = tf.cond(pred=tf.equal(terminals[index], 1),
+                                              true_fn=write(write_index, values, 0.0),
+                                              false_fn=lambda: (values, write_index))
+                return index + 1, write_index, values
+
+            def cond(index, write_index, values):
+                return index < elems
+
+            index, write_index, adjusted_values = tf.while_loop(
+                cond=cond,
+                body=body,
+                loop_vars=[0, 0, adjusted_values],
+                back_prop=False
+            )
+
+            # In case the last element was not a terminal, append boot_strap_value.
+            values, write_index = tf.cond(pred=tf.equal(terminals[-1], 1),
+                                          true_fn=write(write_index, adjusted_values, bootstrap_value),
+                                          false_fn=lambda: (values, write_index))
+
+            adjusted_v = adjusted_values.stack()
+            deltas = rewards + self.discount * adjusted_v[1:] - adjusted_v[:-1]
+
+            # Use TRFL utilities to compute decays.
+            # Note: TRFL requires shapes: [T x B x ..]
             advantages = trfl.sequence_ops.scan_discounted_sum(
-                sequence=terminals,
-                decay=gae_discount,
+                sequence=deltas,
+                decay=decays,
                 initial_value=rewards,
                 sequence_lengths=sequence_lengths,
-                backprop=False
+                back_prop=False
             )
 
             return advantages
