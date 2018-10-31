@@ -146,7 +146,7 @@ class SequenceHelper(Component):
 
             def insert_body(index, length, sequence_lengths, write_index, decays):
                 # Decay is based on length, so val = decay^length
-                decay_val = tf.pow(x=decay, y=length)
+                decay_val = tf.pow(x=decay, y=tf.cast(length, dtype=tf.float32))
 
                 # Write decay val into array.
                 decays = decays.write(index, decay_val)
@@ -163,7 +163,7 @@ class SequenceHelper(Component):
             def cond(index, length, sequence_lengths, write_index, decays):
                 return index < elems
 
-            _, final_length, sequence_lengths, write_index = tf.while_loop(
+            _, final_length, sequence_lengths, write_index, decays = tf.while_loop(
                 cond=cond,
                 body=insert_body,
                 loop_vars=[0, 0, sequence_lengths, 0, decays],
