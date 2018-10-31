@@ -95,7 +95,8 @@ class IMPALAAgent(Agent):
             dict(type="rlgraph.components.papers.impala.impala_networks.{}IMPALANetwork".
                  format("Large" if architecture == "large" else "Small"))
         )
-        if isinstance(self.network_spec, dict):
+        if isinstance(self.network_spec, dict) and "type" in self.network_spec and \
+                "IMPALANetwork" in self.network_spec["type"]:
             self.network_spec = default_dict(
                 self.network_spec,
                 dict(worker_sample_size=1 if self.type == "actor" else self.worker_sample_size + 1)

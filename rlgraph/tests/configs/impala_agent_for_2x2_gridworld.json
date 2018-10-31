@@ -27,14 +27,17 @@
   ],
 
   "network_spec":
-  [
-    {
-      "type": "dense",
-      "units": 10,
-      "activation": "linear",
-      "scope": "hidden-layer"
-    }
-  ],
+  {
+    "layers": [
+      {
+        "type": "dense",
+        "units": 10,
+        "activation": "linear",
+        "scope": "hidden-layer"
+      }
+    ],
+    "scope": "impala-net"
+  },
 
   "exploration_spec":
   {

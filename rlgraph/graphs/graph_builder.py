@@ -652,6 +652,9 @@ class GraphBuilder(Specifiable):
         Checks whether some of the root component's API-method output columns contain ops that are still None.
         """
         for api_method_rec in self.root_component.api_methods.values():
+            # Ignore `_variables` API-method for now.
+            if api_method_rec.name == "_variables":
+                continue
             for out_op_column in api_method_rec.out_op_columns:
                 for op_rec in out_op_column.op_records:
                     if op_rec.op is None:
@@ -913,14 +916,9 @@ class GraphBuilder(Specifiable):
             # Sanity check, whether we are stuck.
             new_op_records_list = sorted(self.op_records_to_process, key=lambda rec: rec.id)
             if op_records_list == new_op_records_list:
-                # Ok for some
+                # Probably deadlocked. Do a premature return and let sanity check do the exact error analysis.
                 if loop_counter > 10000:
-                    #print()
-                    raise RLGraphError(
-                        "Build procedure is deadlocked. Most likely, you are having a circularly dependent Component "
-                        "in your meta-graph. The following Components are still input-incomplete:\n{}".
-                        format(non_complete_components)
-                    )
+                    return loop_counter
 
             op_records_list = new_op_records_list
 

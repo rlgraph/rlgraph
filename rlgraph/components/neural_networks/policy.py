@@ -66,7 +66,7 @@ class Policy(Component):
 
         # TODO: Hacky trick to implement IMPALA post-LSTM256 time-rank folding and unfolding.
         # TODO: Replace entirely via sonnet-like BatchApply Component.
-        is_impala = "IMPALANetwork" in type(self.neural_network).__name__
+        is_impala = "IMPALANetwork" in type(self.neural_network).__name__ or "impala" in self.neural_network.name
 
         # Add API-method to get baseline output (if we use an extra value function baseline node).
         if isinstance(self.action_adapter, BaselineActionAdapter):
@@ -126,12 +126,6 @@ class Policy(Component):
                                format(type(action_space).__name__, self.name))
 
         self.add_components(self.neural_network, self.action_adapter, self.distribution)
-
-        if is_impala:
-            self.add_components(
-                self.time_rank_folder, self.time_rank_unfolder_v, self.time_rank_unfolder_a_probs,
-                self.time_rank_unfolder_log_probs, self.time_rank_unfolder_logits
-            )
 
     # Define our interface.
     @rlgraph_api

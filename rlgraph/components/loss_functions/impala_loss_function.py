@@ -89,14 +89,14 @@ class IMPALALossFunction(LossFunction):
         Returns:
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
-        loss_per_item = self._graph_fn_loss_per_item(
+        loss_per_item = self.loss_per_item(
             logits_actions_pi, action_probs_mu, values, actions, rewards, terminals
         )
-        total_loss = self._graph_fn_loss_average(loss_per_item)
+        total_loss = self.loss_average(loss_per_item)
 
         return total_loss, loss_per_item
 
-    @graph_fn
+    @rlgraph_api
     def _graph_fn_loss_per_item(self, logits_actions_pi, action_probs_mu, values, actions,
                                 rewards, terminals):  #, bootstrapped_values):
         """
@@ -110,9 +110,8 @@ class IMPALALossFunction(LossFunction):
             action_probs_mu (DataOp): The probabilities for all actions coming from the
                 actor's policies (mu). Dimensions are: (time+1) x batch x action-space+categories.
             values (DataOp): The state value estimates coming from baseline node of the learner's policy (pi).
-                Dimensions are: (time+1) x batch. +1 b/c last-next-state (aka "bootstrapped" value).
-            actions (DataOp): The actually taken (already one-hot flattened) actions.
-                Dimensions are: (time+1) x batch x N (N=number of discrete actions).
+                Dimensions are: (time+1) x batch x 1.
+            actions (DataOp): The actually taken actions. Dimensions are: (time+1) x batch (discrete int actions).
             rewards (DataOp): The received rewards. Dimensions are: (time+1) x batch.
             terminals (DataOp): The observed terminal signals. Dimensions are: (time+1) x batch.
 
