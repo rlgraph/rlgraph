@@ -47,7 +47,7 @@ class GeneralizedAdvantageEstimation(Component):
         self.sequence_helper = SequenceHelper()
         self.add_components(self.sequence_helper)
 
-    @rlgraph_api(must_be_complete=False, returns=2)
+    @rlgraph_api(must_be_complete=False)
     def _graph_fn_calc_gae_values(self, baseline_values, rewards, terminals):
         """
         Returns advantage values based on GAE.
@@ -65,7 +65,7 @@ class GeneralizedAdvantageEstimation(Component):
             gae_discount = self.gae_lambda * self.discount
             # Use helper to calculate sequence lengths and decay sequences.
 
-            # Next, we need to set the next value after the end of each subsequence to 0/its prior value
+            # Next, we need to set the next value after the end of each sub-sequence to 0/its prior value
             # depending on terminal.
             bootstrap_value = baseline_values[-1]
             adjusted_values = tf.TensorArray(dtype=tf.float32, infer_shape=False,
@@ -105,8 +105,6 @@ class GeneralizedAdvantageEstimation(Component):
                                 false_fn=lambda: write(write_index, adjusted_values, bootstrap_value))
 
             adjusted_v = values.stack()
-            rewards = tf.Print(rewards, [rewards], message="rewards = ")
-            adjusted_v = tf.Print(adjusted_v, [adjusted_v], message="adjusted_v = ")
             deltas = rewards + self.discount * adjusted_v[1:] - adjusted_v[:-1]
 
             # Apply gae discount to each sub-sequence.
