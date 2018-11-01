@@ -222,6 +222,8 @@ class SequenceHelper(Component):
 
             def insert_body(index, write_index, length, prev_v, decayed_values):
                 # Reset length to 0 if terminal encountered.
+                # NOTE: We cannot prev_v to 0.0 because values[index] might have a more complex shape,
+                # so this violates shape checks.
                 length, prev_v = tf.cond(
                     pred=tf.equal(sequence_indices[index], 1),
                     true_fn=lambda: (0, tf.zeros_like(prev_v)),
@@ -235,13 +237,8 @@ class SequenceHelper(Component):
                 # Write decayed val into array.
                 decayed_values = decayed_values.write(write_index, accum_v)
 
-                # Update previous value.
-                # NOTE: We cannot set this to 0.0 because values[index] might have a more complex shape,
-                # so this violates shape checks.
-                prev_v = tf.zeros_like(values[index])
-
                 # Increase write-index and length of sub-sequence, decrease loop index in reverse iteration.
-                return index - 1, write_index + 1, length + 1, prev_v, decayed_values
+                return index - 1, write_index + 1, length + 1, values[index], decayed_values
 
             def cond(index, write_index, length, prev_v, decayed_values):
                 # Scan in reverse.

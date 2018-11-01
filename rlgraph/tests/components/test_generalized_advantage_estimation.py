@@ -78,5 +78,5 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
         )
 
         print("Advantage expected:", advantage_expected)
-        advantage, deltas = test.test(("calc_gae_values", input_))
+        advantage = test.test(("calc_gae_values", input_))
         print("Got advantage = ", advantage)
