@@ -77,7 +77,7 @@ class GeneralizedAdvantageEstimation(Component):
                 return values, write_index
 
             def body(index, write_index, values):
-                adjusted_values.write(write_index, baseline_values[index])
+                values = values.write(write_index, baseline_values[index])
                 write_index += 1
 
                 # Append 0 whenever we terminate.
