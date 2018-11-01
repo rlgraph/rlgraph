@@ -60,6 +60,41 @@ class TestActionAdapters(unittest.TestCase):
             logits=expected_logits, probabilities=expected_probabilities, log_probs=expected_log_probs
         ))
 
+    def test_simple_action_adapter_with_batch_apply(self):
+        # Last NN layer.
+        last_nn_layer_space = FloatBox(shape=(16,), add_batch_rank=True, add_time_rank=True, time_major=True)
+        # Action Space.
+        action_space = IntBox(2, shape=(3, 2))
+
+        action_adapter = ActionAdapter(
+            action_space=action_space, weights_spec=1.0, biases_spec=False, batch_apply=True, activation="relu"
+        )
+        test = ComponentTest(
+            component=action_adapter, input_spaces=dict(nn_output=last_nn_layer_space), action_space=action_space
+        )
+        action_adapter_params = test.read_variable_values(action_adapter.variables)
+
+        # Batch of (4, 5).
+        inputs = last_nn_layer_space.sample(size=(4, 5))
+
+        inputs_folded = np.reshape(inputs, newshape=(20, -1))
+        expected_action_layer_output = np.matmul(
+            inputs_folded, action_adapter_params["action-adapter/batch-apply/action-layer/dense/kernel"]
+        )
+        expected_action_layer_output_unfolded = np.reshape(expected_action_layer_output, newshape=(4, 5, -1))
+        test.test(
+            ("get_action_layer_output", inputs),
+            expected_outputs=dict(output=expected_action_layer_output_unfolded),
+            decimals=4
+        )
+
+        expected_logits = np.reshape(expected_action_layer_output, newshape=(4, 5, 3, 2, 2))
+        expected_probabilities = softmax(expected_logits)
+        expected_log_probs = np.log(expected_probabilities)
+        test.test(("get_logits_probabilities_log_probs", inputs), expected_outputs=dict(
+            logits=expected_logits, probabilities=expected_probabilities, log_probs=expected_log_probs
+        ), decimals=4)
+
     def test_action_adapter_with_complex_lstm_output(self):
         # Last NN layer (LSTM with time rank).
         last_nn_layer_space = FloatBox(shape=(4,), add_batch_rank=True, add_time_rank=True, time_major=True)
