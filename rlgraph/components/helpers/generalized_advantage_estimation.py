@@ -111,4 +111,4 @@ class GeneralizedAdvantageEstimation(Component):
 
             # Apply gae discount to each sub-sequence.
             advantages = self.sequence_helper.reverse_apply_decays_to_sequence(deltas, terminals, gae_discount)
-            return advantages, deltas
+            return advantages

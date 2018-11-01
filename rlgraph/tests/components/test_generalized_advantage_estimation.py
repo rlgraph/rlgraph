@@ -23,7 +23,6 @@ import unittest
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
-import scipy.signal
 
 
 class TestGeneralizedAdvantageEstimation(unittest.TestCase):
@@ -49,7 +48,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
         # This is John Schulman's original way of implementing GAE.
         terminal_corrected_baseline = np.append(baseline, 0 if terminated else baseline[-1])
         deltas = reward + gamma * terminal_corrected_baseline[1:] - terminal_corrected_baseline[:-1]
-        return self.discount(deltas, gamma * gae_lambda), deltas
+        return self.discount(deltas, gamma * gae_lambda)
 
     def test_gae(self):
         gae = GeneralizedAdvantageEstimation(gae_lambda=self.gae_lambda, discount=self.gamma)
@@ -63,7 +62,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
             baseline_values=baseline_values,
             terminals=terminals
         )
-        # test = ComponentTest(component=gae, input_spaces=input_spaces)
+        test = ComponentTest(component=gae, input_spaces=input_spaces)
 
         rewards_ = rewards.sample(10, fill_value=0.5)
         baseline_values_ = baseline_values.sample(10, fill_value=1.0)
@@ -79,7 +78,5 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
         )
 
         print("Advantage expected:", advantage_expected)
-        print("Deltas expected:", deltas_expected)
-        # advantage, deltas = test.test(("calc_gae_values", input_))
-        # print("Got advantage = ", advantage)
-        # print("Got deltas = ", deltas)
+        advantage, deltas = test.test(("calc_gae_values", input_))
+        print("Got advantage = ", advantage)
