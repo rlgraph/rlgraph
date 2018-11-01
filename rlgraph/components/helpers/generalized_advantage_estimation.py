@@ -24,7 +24,6 @@ from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
-    import trfl
 
 
 class GeneralizedAdvantageEstimation(Component):
@@ -66,7 +65,6 @@ class GeneralizedAdvantageEstimation(Component):
         if get_backend() == "tf":
             gae_discount = self.gae_lambda * self.discount
             # Use helper to calculate sequence lengths and decay sequences.
-            sequence_lengths, decays = self.sequence_helper.calc_sequence_decays(terminals, gae_discount)
 
             # Next, we need to set the next value after the end of each subsequence to 0/its prior value
             # depending on terminal.
@@ -109,17 +107,6 @@ class GeneralizedAdvantageEstimation(Component):
             adjusted_v = adjusted_values.stack()
             deltas = rewards + self.discount * adjusted_v[1:] - adjusted_v[:-1]
 
-            # Use TRFL utilities to compute decays.
-            # Note: TRFL requires shapes: [T x B x ..] for various args.
-            # TRFL compares shapes of dim 0 -> cannot be unkown.
-            deltas.set_shape((self.batch_size, None))
-            decays.set_shape((self.batch_size, None))
-            advantages = trfl.sequence_ops.scan_discounted_sum(
-                sequence=deltas,
-                decay=decays,
-                initial_value=rewards,
-                sequence_lengths=sequence_lengths,
-                back_prop=False
-            )
-
+            # Apply gae discount to each subsequence.
+            advantages = self.sequence_helper.apply_decays_to_sequence(deltas, terminals, gae_discount)
             return advantages

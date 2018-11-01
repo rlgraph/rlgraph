@@ -36,15 +36,14 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
         # This is John Schulman's original way of implementing GAE.
         terminal_corrected_baseline = np.append(baseline, 0 if terminated else baseline[-1])
         deltas = reward + gamma * terminal_corrected_baseline[1:] - terminal_corrected_baseline[:-1]
-
         return self.discount(deltas, gamma * gae_lambda)
 
     def test_gae(self):
-        gae = GeneralizedAdvantageEstimation(gae_lambda=1.0, discount=0.99)
+        gae = GeneralizedAdvantageEstimation(batch_size=10, gae_lambda=1.0, discount=0.99)
 
-        rewards = FloatBox(add_batch_rank=True, add_time_rank=True)
-        baseline_values = FloatBox(add_batch_rank=True, add_time_rank= True)
-        terminals = IntBox(low=0, high=1, add_batch_rank=True, add_time_rank=True)
+        rewards = FloatBox(add_batch_rank=True)
+        baseline_values = FloatBox(add_batch_rank=True)
+        terminals = IntBox(low=0, high=1, add_batch_rank=True)
 
         input_spaces = dict(
             rewards=rewards,
@@ -65,5 +64,6 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
             gae_lambda=1.0,
             terminated=False
         )
+        print(len(advantage_expected))
         print(advantage_expected)
-        print(test.test(("calc_gae_values", input_)))
+        # print(test.test(("calc_gae_values", input_)))

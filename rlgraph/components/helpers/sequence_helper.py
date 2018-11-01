@@ -196,5 +196,65 @@ class SequenceHelper(Component):
             return torch.tensor(sequence_lengths, dtype=torch.int32),\
                    torch.tensor(decays, dtype=torch.int32)
 
+    @rlgraph_api
+    def _graph_fn_apply_decays_to_sequence(self, values, sequence_indices, decay):
+        """
+        Computes decays for sequence indices and applies them directly to a sequence of values.
+
+        Args:
+            values (DataOp): Values to apply decays to.
+            sequence_indices (DataOp): Indices denoting sequences, e.g. terminal values.
+            decay (float): Initial decay value to start sub-sequence with.
+
+        Returns:
+            Decayed sequence values.
+        """
+        if get_backend() == "tf":
+            elems = tf.shape(input=sequence_indices)[0]
+            decayed_values = tf.TensorArray(
+                dtype=tf.float32,
+                infer_shape=False,
+                size=1,
+                dynamic_size=True,
+                clear_after_read=False
+            )
+
+            def insert_body(index, length, decayed_values):
+                # Decay is based on length, so val = decay^length
+                decay_val = tf.pow(x=decay, y=tf.cast(length, dtype=tf.float32))
+
+                # Write decayed val into array.
+                decayed_values = decayed_values.write(index, decay_val * values[index])
+                length += 1
+
+                # Reset length to 0 if terminal encountered.
+                length = tf.cond(
+                    pred=tf.equal(sequence_indices[index], 1),
+                    true_fn=lambda: 0,
+                    false_fn=lambda: length
+                )
+                return index + 1, length, decayed_values
+
+            def cond(index, length, decayed_values):
+                return index < elems
+
+            _, _, decayed_values = tf.while_loop(
+                cond=cond,
+                body=insert_body,
+                loop_vars=[0, 0,  decayed_values],
+                back_prop=False
+            )
+
+            return tf.stop_gradient(decayed_values.stack())
+        elif get_backend() == "pytorch":
+            decayed_values = []
+            length = 0
+            for index in sequence_indices:
+                # Apply decay.
+                decayed_values.append(pow(decay, length) * values[index])
+                length += 1
+                if index == 1:
+                    length = 0
+            return torch.tensor(decayed_values, dtype=torch.float32)
 
 
