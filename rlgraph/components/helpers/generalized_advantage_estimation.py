@@ -17,13 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph import get_backend
 from rlgraph.components import Component
 from rlgraph.components.helpers import SequenceHelper
 from rlgraph.utils.decorators import rlgraph_api
-
-if get_backend() == "tf":
-    import tensorflow as tf
 
 
 class GeneralizedAdvantageEstimation(Component):
@@ -60,14 +56,12 @@ class GeneralizedAdvantageEstimation(Component):
         Returns:
             PG-advantage values used for training via policy gradient with baseline.
         """
-        if get_backend() == "tf":
-            gae_discount = self.gae_lambda * self.discount
+        gae_discount = self.gae_lambda * self.discount
 
-            # Next, we need to set the next value after the end of each sub-sequence to 0/its prior value
-            # depending on terminal.
-            adjusted_v = self.sequence_helper.bootstrap_values(baseline_values, terminals)
-            deltas = rewards + self.discount * adjusted_v[1:] - adjusted_v[:-1]
+        # Next, we need to set the next value after the end of each sub-sequence to 0/its prior value
+        # depending on terminal.
+        adjusted_v = self.sequence_helper.bootstrap_values(baseline_values, terminals)
+        deltas = rewards + self.discount * adjusted_v[1:] - adjusted_v[:-1]
 
-            # Apply gae discount to each sub-sequence.
-            advantages = self.sequence_helper.reverse_apply_decays_to_sequence(deltas, terminals, gae_discount)
-            return advantages
+        # Apply gae discount to each sub-sequence.
+        return self.sequence_helper.reverse_apply_decays_to_sequence(deltas, terminals, gae_discount)
