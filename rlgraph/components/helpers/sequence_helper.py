@@ -29,7 +29,7 @@ elif get_backend() == "pytorch":
 
 class SequenceHelper(Component):
     """
-    A helper Component that helps prepare sequences.
+    A helper Component that helps manipulate sequences with various utilities, e.g. for discounting.
     """
 
     def __init__(self, scope="sequence-helper", **kwargs):
@@ -327,7 +327,24 @@ class SequenceHelper(Component):
             # In case the last element was not a terminal, append boot_strap_value.
             # If was terminal -> already appended in loop.
             adjusted_values, _ = tf.cond(pred=tf.greater(sequence_indices[-1], 0),
-                                true_fn=lambda: (adjusted_values, write_index),
-                                false_fn=lambda: write(write_index, adjusted_values, bootstrap_value))
+                                         true_fn=lambda: (adjusted_values, write_index),
+                                         false_fn=lambda: write(write_index, adjusted_values, bootstrap_value))
 
             return adjusted_values.stack()
+        elif get_backend() == "pytorch":
+            adjusted = []
+            for i, val in enumerate(values.tolist()):
+                adjusted.append(val)
+
+                # Append 0 as next val.
+                if sequence_indices[i] == 1:
+                    adjusted.append(0)
+
+            # If terminal, we already appended.
+            if sequence_indices[-1] == 0:
+                # Append last value.
+                adjusted.append(values[-1])
+
+            # Convert and return.
+            return torch.tensor(adjusted)
+
