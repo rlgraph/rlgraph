@@ -118,18 +118,6 @@ class ActorCriticAgent(Agent):
             records = merger.merge(preprocessed_states, actions, rewards, terminals)
             return memory.insert_records(records)
 
-        # Syncing target-net.
-        @rlgraph_api(component=self.root_component)
-        def sync_target_qnet(self):
-            # If we are a multi-GPU root:
-            # Simply feeds everything into the multi-GPU sync optimizer's method and return.
-            if "multi-gpu-sync-optimizer" in self.sub_components:
-                multi_gpu_syncer = self.sub_components["multi-gpu-sync-optimizer"]
-                return multi_gpu_syncer.sync_target_qnets()
-            else:
-                policy_vars = self.get_sub_component_by_name(policy_scope)._variables()
-                return self.get_sub_component_by_name("target-policy").sync(policy_vars)
-
         # Learn from memory.
         @rlgraph_api(component=self.root_component)
         def update_from_memory(self_):
@@ -222,20 +210,11 @@ class ActorCriticAgent(Agent):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
     def update(self, batch=None):
-        # Should we sync the target net?
-        self.steps_since_target_net_sync += self.update_spec["update_interval"]
-        if self.steps_since_target_net_sync >= self.update_spec["sync_interval"]:
-            sync_call = "sync_target_qnet"
-            self.steps_since_target_net_sync = 0
-        else:
-            sync_call = None
 
         # [0]=no-op step; [1]=the loss; [2]=loss-per-item, [3]=memory-batch (if pulled)
         return_ops = [0, 1, 2]
-        q_table = None
-
         if batch is None:
-            ret = self.graph_executor.execute(("update_from_memory", None, return_ops), sync_call)
+            ret = self.graph_executor.execute(("update_from_memory", None, return_ops))
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
@@ -245,7 +224,7 @@ class ActorCriticAgent(Agent):
 
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
                            batch["next_states"], batch["importance_weights"]]
-            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops), sync_call)
+            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):

@@ -23,12 +23,14 @@ from rlgraph.agents.dqfd_agent import DQFDAgent
 from rlgraph.agents.apex_agent import ApexAgent
 from rlgraph.agents.impala_agent import IMPALAAgent
 from rlgraph.agents.ppo_agent import PPOAgent
+from rlgraph.agents.actor_critic_agent import ActorCriticAgent
 from rlgraph.agents.random_agent import RandomAgent
 
 
 Agent.__lookup_classes__ = dict(
     apex=ApexAgent,
     apexagent=ApexAgent,
+    actorcritic=ActorCriticAgent,
     dqn=DQNAgent,
     dqnagent=DQNAgent,
     dqfd=DQFDAgent,
