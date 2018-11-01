@@ -197,9 +197,10 @@ class SequenceHelper(Component):
                    torch.tensor(decays, dtype=torch.int32)
 
     @rlgraph_api
-    def _graph_fn_apply_decays_to_sequence(self, values, sequence_indices, decay):
+    def _graph_fn_reverse_apply_decays_to_sequence(self, values, sequence_indices, decay):
         """
-        Computes decays for sequence indices and applies them directly to a sequence of values.
+        Computes decays for sequence indices and applies them (in reverse manner to a sequence of values).
+        Useful to compute discounted reward estimates across a sequence of estimates.
 
         Args:
             values (DataOp): Values to apply decays to.
@@ -247,14 +248,26 @@ class SequenceHelper(Component):
 
             return tf.stop_gradient(decayed_values.stack())
         elif get_backend() == "pytorch":
-            decayed_values = []
+            # Scan all sequences in reverse:
+            discounted = []
+            i = 0
             length = 0
-            for index in sequence_indices:
-                # Apply decay.
-                decayed_values.append(pow(decay, length) * values[index])
-                length += 1
-                if index == 1:
+            prev_v = 0
+            for v in reversed(values):
+                # Arrived at new sequence, start over.
+                if sequence_indices[i] == 1:
                     length = 0
-            return torch.tensor(decayed_values, dtype=torch.float32)
+                    prev_v = 0
+
+                # Accumulate prior value.
+                accum_v = prev_v + v * pow(decay, length)
+                discounted.append(accum_v)
+                prev_v = v
+
+                # Increase length of current sub-sequence.
+                length += 1
+
+            # Reverse, convert, and return final.
+            return torch.tensor(list(reversed(discounted)), dtype=torch.float32)
 
 

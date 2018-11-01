@@ -47,7 +47,7 @@ class GeneralizedAdvantageEstimation(Component):
         self.sequence_helper = SequenceHelper()
         self.add_components(self.sequence_helper)
 
-    @rlgraph_api(must_be_complete=False)
+    @rlgraph_api(must_be_complete=False, returns=2)
     def _graph_fn_calc_gae_values(self, baseline_values, rewards, terminals):
         """
         Returns advantage values based on GAE.
@@ -99,13 +99,16 @@ class GeneralizedAdvantageEstimation(Component):
             )
 
             # In case the last element was not a terminal, append boot_strap_value.
-            values, write_index = tf.cond(pred=tf.equal(terminals[-1], 1),
-                                          true_fn=lambda: write(write_index, adjusted_values, bootstrap_value),
-                                          false_fn=lambda: (adjusted_values, write_index))
+            # If was terminal -> already appended in loop.
+            values, _ = tf.cond(pred=tf.greater(terminals[-1], 0),
+                                true_fn=lambda: (adjusted_values, write_index),
+                                false_fn=lambda: write(write_index, adjusted_values, bootstrap_value))
 
-            adjusted_v = adjusted_values.stack()
+            adjusted_v = values.stack()
+            rewards = tf.Print(rewards, [rewards], message="rewards = ")
+            adjusted_v = tf.Print(adjusted_v, [adjusted_v], message="adjusted_v = ")
             deltas = rewards + self.discount * adjusted_v[1:] - adjusted_v[:-1]
 
-            # Apply gae discount to each subsequence.
-            advantages = self.sequence_helper.apply_decays_to_sequence(deltas, terminals, gae_discount)
-            return advantages
+            # Apply gae discount to each sub-sequence.
+            advantages = self.sequence_helper.reverse_apply_decays_to_sequence(deltas, terminals, gae_discount)
+            return advantages, deltas
