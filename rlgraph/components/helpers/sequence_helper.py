@@ -245,13 +245,13 @@ class SequenceHelper(Component):
 
             def cond(index, write_index, length, prev_v, decayed_values):
                 # Scan in reverse.
-                return index > 0
+                return index >= 0
 
             _, _, _, _, decayed_values = tf.while_loop(
                 cond=cond,
                 body=insert_body,
                 # loop index, index writing to tensor array, current length of sub-sequence, previous val (float)
-                loop_vars=[elems, 0, 0, tf.zeros_like(values[-1]), decayed_values],
+                loop_vars=[elems - 1, 0, 0, tf.zeros_like(values[-1]), decayed_values],
                 back_prop=False
             )
 
