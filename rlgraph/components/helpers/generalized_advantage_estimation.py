@@ -84,9 +84,11 @@ class GeneralizedAdvantageEstimation(Component):
                 write_index += 1
 
                 # Append 0 whenever we terminate.
-                values, write_index = tf.cond(pred=tf.equal(terminals[index], 1),
-                                              true_fn=write(write_index, values, 0.0),
-                                              false_fn=lambda: (values, write_index))
+                values, write_index = tf.cond(
+                    pred=tf.equal(terminals[index], 1),
+                    true_fn=lambda: write(write_index, values, 0.0),
+                    false_fn=lambda: (values, write_index)
+                )
                 return index + 1, write_index, values
 
             def cond(index, write_index, values):
@@ -101,8 +103,8 @@ class GeneralizedAdvantageEstimation(Component):
 
             # In case the last element was not a terminal, append boot_strap_value.
             values, write_index = tf.cond(pred=tf.equal(terminals[-1], 1),
-                                          true_fn=write(write_index, adjusted_values, bootstrap_value),
-                                          false_fn=lambda: (values, write_index))
+                                          true_fn=lambda: write(write_index, adjusted_values, bootstrap_value),
+                                          false_fn=lambda: (adjusted_values, write_index))
 
             adjusted_v = adjusted_values.stack()
             deltas = rewards + self.discount * adjusted_v[1:] - adjusted_v[:-1]
@@ -110,10 +112,10 @@ class GeneralizedAdvantageEstimation(Component):
             # Use TRFL utilities to compute decays.
             # Note: TRFL requires shapes: [T x B x ..]
             advantages = trfl.sequence_ops.scan_discounted_sum(
-                sequence=deltas,
-                decay=decays,
-                initial_value=rewards,
-                sequence_lengths=sequence_lengths,
+                sequence=tf.expand_dims(deltas, -1),
+                decay=tf.expand_dims(decays, -1),
+                initial_value=tf.expand_dims(rewards, -1),
+                sequence_lengths=tf.expand_dims(sequence_lengths, -1),
                 back_prop=False
             )
 
