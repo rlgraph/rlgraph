@@ -136,7 +136,9 @@ value (via tf.add) to all numbers in the memory.
 
 That's it. Our custom component is now fully tested an operational.
 
-Now that we know (almost) everything about single components, let's take a look at
-`what an RLgraph agent is <agents.html>`_ (a simple shell for a root component), or - if you feel daring -
-skip directly ahead and use all that knowledge on components and already build
-`your first complete learning agent <how_to_build_an_algorithm_with_rlgraph.html>`_ from scratch using RLgraph.
+Now that we know (almost) everything about single components, let's take a deeper look at
+the single building blocks of a Component. In particular, we would like to understand how
+RLgraph handles data and the computation graph under the hood. For that,
+`we need to learn, what DataOps and DataOpRecords are <op_records_and_data_ops.html>`_ and what the
+difference between those two concepts is. After that, we will be able to understand entire agent implementations
+and `write our own RLgraph agent from scratch <how_to_build_an_algorithm_with_rlgraph.html>`_.
