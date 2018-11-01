@@ -44,7 +44,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
         return self.discount(deltas, gamma * gae_lambda), deltas
 
     def test_gae(self):
-        gae = GeneralizedAdvantageEstimation(gae_lambda=self.gae_lambda, discount=self.gae_lambda)
+        gae = GeneralizedAdvantageEstimation(gae_lambda=self.gae_lambda, discount=self.gamma)
 
         rewards = FloatBox(add_batch_rank=True)
         baseline_values = FloatBox(add_batch_rank=True)
