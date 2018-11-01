@@ -35,17 +35,18 @@ class GeneralizedAdvantageEstimation(Component):
     - 2015 (https://arxiv.org/abs/1506.02438)
     """
 
-    def __init__(self, gae_lambda=1.0, discount=1.0, device="/device:CPU:0",
+    def __init__(self, batch_size=100, gae_lambda=1.0, discount=1.0, device="/device:CPU:0",
                  scope="generalized-advantage-estimation", **kwargs):
         """
         Args:
+            batch_size (int): Batch-size. Required to set static shapes for sequence utilities.
             gae_lambda (float): GAE-lambda. See paper for details.
             discount (float): Discount gamma.
         """
         super(GeneralizedAdvantageEstimation, self).__init__(device=device, scope=scope, **kwargs)
         self.gae_lambda = gae_lambda
         self.discount = discount
-
+        self.batch_size = batch_size
         self.sequence_helper = SequenceHelper()
         self.add_components(self.sequence_helper)
 
@@ -69,7 +70,6 @@ class GeneralizedAdvantageEstimation(Component):
 
             # Next, we need to set the next value after the end of each subsequence to 0/its prior value
             # depending on terminal.
-            elems = tf.shape(rewards)[0]
             bootstrap_value = baseline_values[-1]
             adjusted_values = tf.TensorArray(dtype=tf.float32, infer_shape=False,
                                              size=1, dynamic_size=True, clear_after_read=False)
@@ -92,7 +92,7 @@ class GeneralizedAdvantageEstimation(Component):
                 return index + 1, write_index, values
 
             def cond(index, write_index, values):
-                return index < elems
+                return index < self.batch_size
 
             index, write_index, adjusted_values = tf.while_loop(
                 cond=cond,
@@ -111,6 +111,9 @@ class GeneralizedAdvantageEstimation(Component):
 
             # Use TRFL utilities to compute decays.
             # Note: TRFL requires shapes: [T x B x ..] for various args.
+            # TRFL compares shapes of dim 0 -> cannot be unkown.
+            deltas.set_shape((self.batch_size, None))
+            decays.set_shape((self.batch_size, None))
             advantages = trfl.sequence_ops.scan_discounted_sum(
                 sequence=deltas,
                 decay=decays,
