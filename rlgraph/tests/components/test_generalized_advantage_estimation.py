@@ -69,7 +69,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
         terminals_ = terminals.sample(size=10, fill_value=0)
         input_ = [baseline_values_, rewards_, terminals_]
 
-        advantage_expected, deltas_expected = self.gae_helper(
+        advantage_expected = self.gae_helper(
             baseline=baseline_values_,
             reward=rewards_,
             gamma=self.gamma,
