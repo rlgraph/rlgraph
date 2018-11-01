@@ -61,50 +61,11 @@ class GeneralizedAdvantageEstimation(Component):
             PG-advantage values used for training via policy gradient with baseline.
         """
         if get_backend() == "tf":
-            num_values = tf.shape(baseline_values)[0]
             gae_discount = self.gae_lambda * self.discount
-            # Use helper to calculate sequence lengths and decay sequences.
 
             # Next, we need to set the next value after the end of each sub-sequence to 0/its prior value
             # depending on terminal.
-            bootstrap_value = baseline_values[-1]
-            adjusted_values = tf.TensorArray(dtype=tf.float32, infer_shape=False,
-                                             size=1, dynamic_size=True, clear_after_read=False)
-
-            def write(write_index, values, value):
-                values = values.write(write_index, value)
-                write_index += 1
-                return values, write_index
-
-            def body(index, write_index, values):
-                values = values.write(write_index, baseline_values[index])
-                write_index += 1
-
-                # Append 0 whenever we terminate.
-                values, write_index = tf.cond(
-                    pred=tf.equal(terminals[index], 1),
-                    true_fn=lambda: write(write_index, values, 0.0),
-                    false_fn=lambda: (values, write_index)
-                )
-                return index + 1, write_index, values
-
-            def cond(index, write_index, values):
-                return index < num_values
-
-            index, write_index, adjusted_values = tf.while_loop(
-                cond=cond,
-                body=body,
-                loop_vars=[0, 0, adjusted_values],
-                back_prop=False
-            )
-
-            # In case the last element was not a terminal, append boot_strap_value.
-            # If was terminal -> already appended in loop.
-            values, _ = tf.cond(pred=tf.greater(terminals[-1], 0),
-                                true_fn=lambda: (adjusted_values, write_index),
-                                false_fn=lambda: write(write_index, adjusted_values, bootstrap_value))
-
-            adjusted_v = values.stack()
+            adjusted_v = self.sequence_helper.bootstrap_values(baseline_values, terminals)
             deltas = rewards + self.discount * adjusted_v[1:] - adjusted_v[:-1]
 
             # Apply gae discount to each sub-sequence.

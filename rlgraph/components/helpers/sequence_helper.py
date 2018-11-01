@@ -35,7 +35,7 @@ class SequenceHelper(Component):
     def __init__(self, scope="sequence-helper", **kwargs):
         super(SequenceHelper, self).__init__(scope=scope, **kwargs)
 
-    @rlgraph_api
+    @rlgraph_api(must_be_complete=False)
     def _graph_fn_calc_sequence_lengths(self, sequence_indices):
         """
         Computes sequence lengths for a tensor containing sequence indices, where 1 indicates start
@@ -101,7 +101,7 @@ class SequenceHelper(Component):
                 sequence_lengths.append(length)
             return torch.tensor(sequence_lengths, dtype=torch.int32)
 
-    @rlgraph_api(returns=2)
+    @rlgraph_api(returns=2, must_be_complete=False)
     def _graph_fn_calc_sequence_decays(self, sequence_indices, decay):
         """
         Computes decays for sequence indices, e.g. for generalized advantage estimation.
@@ -196,7 +196,7 @@ class SequenceHelper(Component):
             return torch.tensor(sequence_lengths, dtype=torch.int32),\
                    torch.tensor(decays, dtype=torch.int32)
 
-    @rlgraph_api
+    @rlgraph_api(must_be_complete=False)
     def _graph_fn_reverse_apply_decays_to_sequence(self, values, sequence_indices, decay):
         """
         Computes decays for sequence indices and applies them (in reverse manner to a sequence of values).
@@ -277,4 +277,57 @@ class SequenceHelper(Component):
             # Reverse, convert, and return final.
             return torch.tensor(list(reversed(discounted)), dtype=torch.float32)
 
+    @rlgraph_api(must_be_complete=False)
+    def _graph_fn_bootstrap_values(self, values, sequence_indices):
+        """
+        Inserts value estimates at the end of each sub-sequence for a given sequence. That is,
+        0 is inserted after teach terminal and the final value of the sub-sequence if the sequence does not
+        end with a terminal.
 
+        Args:
+            values (DataOp): Values to adjust.
+            sequence_indices (DataOp): Indices denoting sequences, e.g. terminal values.
+
+        Returns:
+            Bootstrapped sequence.
+        """
+        if get_backend() == "tf":
+            num_values = tf.shape(values)[0]
+            bootstrap_value = values[-1]
+            adjusted_values = tf.TensorArray(dtype=tf.float32, infer_shape=False,
+                                             size=1, dynamic_size=True, clear_after_read=False)
+
+            def write(write_index, adjusted_values, value):
+                adjusted_values = adjusted_values.write(write_index, value)
+                write_index += 1
+                return adjusted_values, write_index
+
+            def body(index, write_index, adjusted_values):
+                adjusted_values = adjusted_values.write(write_index, values[index])
+                write_index += 1
+
+                # Append 0 whenever we terminate.
+                adjusted_values, write_index = tf.cond(
+                    pred=tf.equal(sequence_indices[index], 1),
+                    true_fn=lambda: write(write_index, adjusted_values, 0.0),
+                    false_fn=lambda: (adjusted_values, write_index)
+                )
+                return index + 1, write_index, adjusted_values
+
+            def cond(index, write_index, adjusted_values):
+                return index < num_values
+
+            index, write_index, adjusted_values = tf.while_loop(
+                cond=cond,
+                body=body,
+                loop_vars=[0, 0, adjusted_values],
+                back_prop=False
+            )
+
+            # In case the last element was not a terminal, append boot_strap_value.
+            # If was terminal -> already appended in loop.
+            adjusted_values, _ = tf.cond(pred=tf.greater(sequence_indices[-1], 0),
+                                true_fn=lambda: (adjusted_values, write_index),
+                                false_fn=lambda: write(write_index, adjusted_values, bootstrap_value))
+
+            return adjusted_values.stack()
