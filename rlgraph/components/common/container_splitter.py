@@ -55,6 +55,24 @@ class ContainerSplitter(Component):
         self.output_order = output_order
         if len(self.output_order) == 0:
             self.output_order = None
+        else:
+            @rlgraph_api(component=self)
+            def split_into_dict(self, inputs):
+                """
+                Same as `split`, but returns a dict with keys.
+
+                Args:
+                    inputs ():
+
+                Returns:
+
+                """
+                out = self._graph_fn_split(inputs)
+                ret = dict()
+                for i, key in enumerate(self.output_order):
+                    ret[key] = out[i]
+                return ret
+
         # Dict or Tuple?
         self.type = None
 
@@ -119,20 +137,3 @@ class ContainerSplitter(Component):
                 ret[self.output_order.index(index)] = value
 
         return tuple(ret)
-
-    @rlgraph_api
-    def split_into_dict(self, inputs):
-        """
-        Same as `split`, but returns a dict with keys.
-
-        Args:
-            inputs ():
-
-        Returns:
-
-        """
-        out = self._graph_fn_split(inputs)
-        ret = dict()
-        for i, key in enumerate(self.output_order):
-            ret[key] = out[i]
-        return ret
