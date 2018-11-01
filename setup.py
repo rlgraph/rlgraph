@@ -38,7 +38,7 @@ install_requires = [
 setup_requires = []
 
 extras_require = {
-    'tf': ['tensorflow','tensorflow-probability', 'git+git://github.com/deepmind/trfl.git'],
+    'tf': ['tensorflow','tensorflow-probability', 'git+git://github.com/deepmind/trfl.git', 'wrapt', 'protobuf'],
     'tf-gpu': ['tensorflow-gpu'],
     'pytorch': ['torch', 'torchvision'],  # TODO platform dependent.
     'gym': ['gym', 'atari-py'],
