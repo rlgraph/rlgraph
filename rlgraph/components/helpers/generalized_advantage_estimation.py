@@ -34,18 +34,16 @@ class GeneralizedAdvantageEstimation(Component):
     - 2015 (https://arxiv.org/abs/1506.02438)
     """
 
-    def __init__(self, batch_size=100, gae_lambda=1.0, discount=1.0, device="/device:CPU:0",
+    def __init__(self, gae_lambda=1.0, discount=1.0, device="/device:CPU:0",
                  scope="generalized-advantage-estimation", **kwargs):
         """
         Args:
-            batch_size (int): Batch-size. Required to set static shapes for sequence utilities.
             gae_lambda (float): GAE-lambda. See paper for details.
             discount (float): Discount gamma.
         """
         super(GeneralizedAdvantageEstimation, self).__init__(device=device, scope=scope, **kwargs)
         self.gae_lambda = gae_lambda
         self.discount = discount
-        self.batch_size = batch_size
         self.sequence_helper = SequenceHelper()
         self.add_components(self.sequence_helper)
 
@@ -63,6 +61,7 @@ class GeneralizedAdvantageEstimation(Component):
             PG-advantage values used for training via policy gradient with baseline.
         """
         if get_backend() == "tf":
+            num_values = tf.shape(baseline_values)[0]
             gae_discount = self.gae_lambda * self.discount
             # Use helper to calculate sequence lengths and decay sequences.
 
@@ -90,7 +89,7 @@ class GeneralizedAdvantageEstimation(Component):
                 return index + 1, write_index, values
 
             def cond(index, write_index, values):
-                return index < self.batch_size
+                return index < num_values
 
             index, write_index, adjusted_values = tf.while_loop(
                 cond=cond,

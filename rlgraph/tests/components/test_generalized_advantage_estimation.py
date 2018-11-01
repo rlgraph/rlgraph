@@ -64,6 +64,5 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
             gae_lambda=1.0,
             terminated=False
         )
-        print(len(advantage_expected))
         print(advantage_expected)
-        # print(test.test(("calc_gae_values", input_)))
+        print(test.test(("calc_gae_values", input_)))
