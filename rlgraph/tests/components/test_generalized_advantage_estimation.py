@@ -28,18 +28,23 @@ import scipy.signal
 
 class TestGeneralizedAdvantageEstimation(unittest.TestCase):
 
+    gamma = 0.99
+    gae_lambda = 1.0
+
     @staticmethod
     def discount(x, gamma):
-        return scipy.signal.lfilter([1],[1,-gamma],x[::-1], axis=0)[::-1]
+        return scipy.signal.lfilter([1], [1, -gamma], x[::-1], axis=0)[::-1]
 
     def gae_helper(self, baseline, reward, gamma, gae_lambda, terminated):
         # This is John Schulman's original way of implementing GAE.
         terminal_corrected_baseline = np.append(baseline, 0 if terminated else baseline[-1])
+        print(reward)
         deltas = reward + gamma * terminal_corrected_baseline[1:] - terminal_corrected_baseline[:-1]
-        return self.discount(deltas, gamma * gae_lambda)
+
+        return self.discount(deltas, gamma * gae_lambda), deltas
 
     def test_gae(self):
-        gae = GeneralizedAdvantageEstimation(batch_size=10, gae_lambda=1.0, discount=0.99)
+        gae = GeneralizedAdvantageEstimation(gae_lambda=self.gae_lambda, discount=self.gae_lambda)
 
         rewards = FloatBox(add_batch_rank=True)
         baseline_values = FloatBox(add_batch_rank=True)
@@ -52,17 +57,21 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
         )
         test = ComponentTest(component=gae, input_spaces=input_spaces)
 
-        rewards_ = rewards.sample(10)
-        baseline_values_ = baseline_values.sample(10)
+        rewards_ = rewards.sample(10, fill_value=0.5)
+        baseline_values_ = baseline_values.sample(10, fill_value=1.0)
         terminals_ = terminals.sample(size=10, fill_value=0)
-        input_ = [rewards_, baseline_values_, terminals_]
+        input_ = [baseline_values_, rewards_, terminals_]
 
-        advantage_expected = self.gae_helper(
+        advantage_expected, deltas_expected = self.gae_helper(
             baseline=baseline_values_,
             reward=rewards_,
-            gamma=0.99,
-            gae_lambda=1.0,
+            gamma=self.gamma,
+            gae_lambda=self.gae_lambda,
             terminated=False
         )
-        print(advantage_expected)
-        print(test.test(("calc_gae_values", input_)))
+
+        print("Advantage expected:", advantage_expected)
+        print("Deltas expected:", deltas_expected)
+        advantage, deltas = test.test(("calc_gae_values", input_))
+        print("Got advantage = ", advantage)
+        print("Got deltas = ", deltas)
