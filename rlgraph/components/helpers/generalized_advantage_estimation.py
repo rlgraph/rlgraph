@@ -110,12 +110,12 @@ class GeneralizedAdvantageEstimation(Component):
             deltas = rewards + self.discount * adjusted_v[1:] - adjusted_v[:-1]
 
             # Use TRFL utilities to compute decays.
-            # Note: TRFL requires shapes: [T x B x ..]
+            # Note: TRFL requires shapes: [T x B x ..] for various args.
             advantages = trfl.sequence_ops.scan_discounted_sum(
-                sequence=tf.expand_dims(deltas, -1),
-                decay=tf.expand_dims(decays, -1),
-                initial_value=tf.expand_dims(rewards, -1),
-                sequence_lengths=tf.expand_dims(sequence_lengths, -1),
+                sequence=deltas,
+                decay=decays,
+                initial_value=rewards,
+                sequence_lengths=sequence_lengths,
                 back_prop=False
             )
 
