@@ -238,7 +238,7 @@ class SequenceHelper(Component):
                 decayed_values = decayed_values.write(write_index, accum_v)
 
                 # Increase write-index and length of sub-sequence, decrease loop index in reverse iteration.
-                return index - 1, write_index + 1, length + 1, values[index], decayed_values
+                return index - 1, write_index + 1, length + 1, accum_v, decayed_values
 
             def cond(index, write_index, length, prev_v, decayed_values):
                 # Scan in reverse.
@@ -269,7 +269,7 @@ class SequenceHelper(Component):
                 # Accumulate prior value.
                 accum_v = prev_v + v * pow(decay, length)
                 discounted.append(accum_v)
-                prev_v = v
+                prev_v = accum_v
 
                 # Increase length of current sub-sequence.
                 length += 1
