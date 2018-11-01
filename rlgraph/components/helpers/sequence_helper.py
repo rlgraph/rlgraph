@@ -220,33 +220,43 @@ class SequenceHelper(Component):
                 clear_after_read=False
             )
 
-            def insert_body(index, length, decayed_values):
+            def insert_body(index, write_index, length, prev_v, decayed_values):
+                # Reset length to 0 if terminal encountered.
+                length, prev_v = tf.cond(
+                    pred=tf.equal(sequence_indices[index], 1),
+                    true_fn=lambda: (0, tf.zeros_like(prev_v)),
+                    false_fn=lambda: (length, prev_v)
+                )
+
                 # Decay is based on length, so val = decay^length
                 decay_val = tf.pow(x=decay, y=tf.cast(length, dtype=tf.float32))
+                accum_v = prev_v + values[index] * decay_val
 
                 # Write decayed val into array.
-                decayed_values = decayed_values.write(index, decay_val * values[index])
-                length += 1
+                decayed_values = decayed_values.write(write_index, accum_v)
 
-                # Reset length to 0 if terminal encountered.
-                length = tf.cond(
-                    pred=tf.equal(sequence_indices[index], 1),
-                    true_fn=lambda: 0,
-                    false_fn=lambda: length
-                )
-                return index + 1, length, decayed_values
+                # Update previous value.
+                # NOTE: We cannot set this to 0.0 because values[index] might have a more complex shape,
+                # so this violates shape checks.
+                prev_v = tf.zeros_like(values[index])
 
-            def cond(index, length, decayed_values):
-                return index < elems
+                # Increase write-index and length of sub-sequence, decrease loop index in reverse iteration.
+                return index - 1, write_index + 1, length + 1, prev_v, decayed_values
 
-            _, _, decayed_values = tf.while_loop(
+            def cond(index, write_index, length, prev_v, decayed_values):
+                # Scan in reverse.
+                return index > 0
+
+            _, _, _, _, decayed_values = tf.while_loop(
                 cond=cond,
                 body=insert_body,
-                loop_vars=[0, 0,  decayed_values],
+                # loop index, index writing to tensor array, current length of sub-sequence, previous val (float)
+                loop_vars=[elems, 0, 0, tf.zeros_like(values[-1]), decayed_values],
                 back_prop=False
             )
 
-            return tf.stop_gradient(decayed_values.stack())
+            decayed_values = decayed_values.stack()
+            return tf.stop_gradient(tf.reverse(tensor=decayed_values, axis=[0]))
         elif get_backend() == "pytorch":
             # Scan all sequences in reverse:
             discounted = []
