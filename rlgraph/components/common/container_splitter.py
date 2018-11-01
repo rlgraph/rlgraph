@@ -56,6 +56,7 @@ class ContainerSplitter(Component):
         if len(self.output_order) == 0:
             self.output_order = None
         else:
+            # Only for DictSplitter, define this convenience API-method:
             @rlgraph_api(component=self)
             def split_into_dict(self, inputs):
                 """

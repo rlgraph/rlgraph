@@ -55,38 +55,40 @@ class Policy(Component):
         """
         super(Policy, self).__init__(scope=scope, **kwargs)
 
-        self.neural_network = NeuralNetwork.from_spec(network_spec)
+        self.neural_network = NeuralNetwork.from_spec(network_spec)  # type: NeuralNetwork
+        self.has_rnn = self.neural_network.has_rnn()
         if action_space is None:
-            self.action_adapter = ActionAdapter.from_spec(action_adapter_spec)
+            self.action_adapter = ActionAdapter.from_spec(action_adapter_spec, batch_apply=self.has_rnn)
             action_space = self.action_adapter.action_space
         else:
-            self.action_adapter = ActionAdapter.from_spec(action_adapter_spec, action_space=action_space)
+            self.action_adapter = ActionAdapter.from_spec(action_adapter_spec, action_space=action_space,
+                                                          batch_apply=self.has_rnn)
         self.action_space = action_space
         self.max_likelihood = max_likelihood
 
         # TODO: Hacky trick to implement IMPALA post-LSTM256 time-rank folding and unfolding.
         # TODO: Replace entirely via sonnet-like BatchApply Component.
-        is_impala = "IMPALANetwork" in type(self.neural_network).__name__ or "impala" in self.neural_network.name
+        #is_impala = "IMPALANetwork" in type(self.neural_network).__name__ or "impala" in self.neural_network.name
 
         # Add API-method to get baseline output (if we use an extra value function baseline node).
         if isinstance(self.action_adapter, BaselineActionAdapter):
             # TODO: IMPALA attempt to speed up final pass after LSTM.
-            if is_impala:
-                self.time_rank_folder = ReShape(fold_time_rank=True, scope="time-rank-fold")
-                self.time_rank_unfolder_v = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold-v")
-                self.time_rank_unfolder_a_probs = ReShape(unfold_time_rank=True, time_major=True,
-                                                          scope="time-rank-unfold-a-probs")
-                self.time_rank_unfolder_logits = ReShape(unfold_time_rank=True, time_major=True,
-                                                         scope="time-rank-unfold-logits")
-                self.time_rank_unfolder_log_probs = ReShape(unfold_time_rank=True, time_major=True,
-                                                        scope="time-rank-unfold-log-probs")
-                self.add_components(
-                    self.time_rank_folder,
-                    self.time_rank_unfolder_v,
-                    self.time_rank_unfolder_a_probs,
-                    self.time_rank_unfolder_log_probs,
-                    self.time_rank_unfolder_logits
-                )
+            #if is_impala:
+            #    self.time_rank_folder = ReShape(fold_time_rank=True, scope="time-rank-fold")
+            #    self.time_rank_unfolder_v = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold-v")
+            #    self.time_rank_unfolder_a_probs = ReShape(unfold_time_rank=True, time_major=True,
+            #                                              scope="time-rank-unfold-a-probs")
+            #    self.time_rank_unfolder_logits = ReShape(unfold_time_rank=True, time_major=True,
+            #                                             scope="time-rank-unfold-logits")
+            #    self.time_rank_unfolder_log_probs = ReShape(unfold_time_rank=True, time_major=True,
+            #                                            scope="time-rank-unfold-log-probs")
+            #    self.add_components(
+            #        self.time_rank_folder,
+            #        self.time_rank_unfolder_v,
+            #        self.time_rank_unfolder_a_probs,
+            #        self.time_rank_unfolder_log_probs,
+            #        self.time_rank_unfolder_logits
+            #    )
 
             @rlgraph_api(component=self)
             def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
@@ -94,23 +96,23 @@ class Policy(Component):
                 last_internal_states = nn_output.get("last_internal_states")
                 nn_output = nn_output["output"]
 
-                # TODO: IMPALA attempt to speed up final pass after LSTM.
-                if is_impala:
-                    nn_output = self.time_rank_folder.apply(nn_output)
+                ## TODO: IMPALA attempt to speed up final pass after LSTM.
+                #if is_impala:
+                #    nn_output = self.time_rank_folder.apply(nn_output)
 
                 out = self.action_adapter.get_logits_probabilities_log_probs(nn_output)
 
-                # TODO: IMPALA attempt to speed up final pass after LSTM.
-                if is_impala:
-                    state_values = self.time_rank_unfolder_v.apply(out["state_values"], nn_output)
-                    logits = self.time_rank_unfolder_logits.apply(out["logits"], nn_output)
-                    probs = self.time_rank_unfolder_a_probs.apply(out["probabilities"], nn_output)
-                    log_probs = self.time_rank_unfolder_log_probs.apply(out["log_probs"], nn_output)
-                else:
-                    state_values = out["state_values"]
-                    logits = out["logits"]
-                    probs = out["probabilities"]
-                    log_probs = out["log_probs"]
+                ## TODO: IMPALA attempt to speed up final pass after LSTM.
+                #if is_impala:
+                #    state_values = self.time_rank_unfolder_v.apply(out["state_values"], nn_output)
+                #    logits = self.time_rank_unfolder_logits.apply(out["logits"], nn_output)
+                #    probs = self.time_rank_unfolder_a_probs.apply(out["probabilities"], nn_output)
+                #    log_probs = self.time_rank_unfolder_log_probs.apply(out["log_probs"], nn_output)
+                #else:
+                state_values = out["state_values"]
+                logits = out["logits"]
+                probs = out["probabilities"]
+                log_probs = out["log_probs"]
 
                 return dict(state_values=state_values, logits=logits, probabilities=probs, log_probs=log_probs,
                             last_internal_states=last_internal_states)
@@ -162,11 +164,10 @@ class Policy(Component):
         # Skip our distribution, iff discrete action-space and max-likelihood acting (greedy).
         # In that case, one does not need to create a distribution in the graph each act (only to get the argmax
         # over the logits, which is the same as the argmax over the probabilities (or log-probabilities)).
+        out = self.action_adapter.get_logits_probabilities_log_probs(nn_output["output"])
         if max_likelihood is True and isinstance(self.action_space, IntBox):
-            out = self.action_adapter.get_logits_probabilities_log_probs(nn_output["output"])
             action = self._graph_fn_get_max_likelihood_action_wo_distribution(out["logits"])
         else:
-            out = self.action_adapter.get_logits_probabilities_log_probs(nn_output["output"])
             action = self.distribution.draw(out["probabilities"], max_likelihood)
         return dict(action=action, last_internal_states=nn_output["last_internal_states"])
 
