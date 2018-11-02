@@ -98,7 +98,7 @@ class IMPALALossFunction(LossFunction):
 
     @rlgraph_api
     def _graph_fn_loss_per_item(self, logits_actions_pi, action_probs_mu, values, actions,
-                                rewards, terminals):  #, bootstrapped_values):
+                                rewards, terminals):
         """
         Calculates the loss per batch item (summed over all timesteps) using the formula described above in
         the docstring to this class.
@@ -123,12 +123,13 @@ class IMPALALossFunction(LossFunction):
 
             logits_actions_pi = logits_actions_pi[:-1]
             # Ignore very first actions/rewards (these are the previous ones only used as part of the state input
-            # for the network)
-            actions_flat = actions[1:]
-            actions = tf.reduce_sum(
-                tf.cast(actions_flat * tf.range(self.action_space.num_categories, dtype=tf.float32), dtype=tf.int32),
-                axis=-1
-            )
+            # for the network).
+            actions = actions[1:]
+            actions_flat = tf.one_hot(actions, depth=self.action_space.num_categories)
+            #actions = tf.reduce_sum(
+            #    tf.cast(actions_flat * tf.range(self.action_space.num_categories, dtype=tf.float32), dtype=tf.float32),
+            #    axis=-1
+            #)
             rewards = rewards[1:]
             terminals = terminals[1:]
             action_probs_mu = action_probs_mu[1:]

@@ -122,7 +122,6 @@ class IMPALAAgent(Agent):
             environment_spec = environment_spec or self.default_environment_spec
         # Learners won't need to explore (act) or observe (insert into Queue).
         else:
-            exploration_spec = None
             observe_spec = None
             update_spec = kwargs.pop("update_spec", None)
             environment_spec = None
@@ -499,14 +498,10 @@ class IMPALAAgent(Agent):
         return "IMPALAAgent(type={})".format(self.type)
 
 
-
 class SingleIMPALAAgent(IMPALAAgent):
     """
-    An Agent implementing the IMPALA algorithm described in [1]. The Agent contains both learner and actor
-    API-methods, which will be put into the graph depending on the type ().
-
-    [1] IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures - Espeholt, Soyer,
-        Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
+    An single IMPALAAgent, performing both experience collection and learning updates via multi-threading
+    (queue runners).
     """
     def __init__(self, discount=0.99, fifo_queue_spec=None, architecture="large", environment_spec=None,
                  feed_previous_action_through_nn=True, feed_previous_reward_through_nn=True,
@@ -740,7 +735,7 @@ class SingleIMPALAAgent(IMPALAAgent):
             # Get the pi-action probs AND the values for all our states.
             out = policy.get_state_values_logits_probabilities_log_probs(states, initial_internal_states)
             state_values_pi = out["state_values"]
-            log_probabilities_pi = out["log_probs"]
+            logits_pi = out["logits"]
 
             # Isolate actions and rewards from states.
             # TODO: What if only one of actions or rewards is fed through NN, but the other not?
@@ -751,7 +746,7 @@ class SingleIMPALAAgent(IMPALAAgent):
 
             # Calculate the loss.
             loss, loss_per_item = loss_function.loss(
-                log_probabilities_pi, action_probs_mu, state_values_pi, actions, rewards, terminals
+                logits_pi, action_probs_mu, state_values_pi, actions, rewards, terminals
             )
             if self.dynamic_batching:
                 policy_vars = queue_runner.data_producing_components[0].actor_component.policy._variables()

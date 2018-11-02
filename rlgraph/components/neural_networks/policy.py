@@ -39,7 +39,8 @@ class Policy(Component):
     A Policy is a wrapper Component that contains a NeuralNetwork, an ActionAdapter and a Distribution Component.
     """
     def __init__(self, network_spec, action_space=None, action_adapter_spec=None,
-                 max_likelihood=True, scope="policy", **kwargs):
+                 max_likelihood=True, batch_apply=False, batch_apply_action_adapter=False,
+                 scope="policy", **kwargs):
         """
         Args:
             network_spec (Union[NeuralNetwork,dict]): The NeuralNetwork Component or a specification dict to build
@@ -52,17 +53,36 @@ class Policy(Component):
 
             max_likelihood (bool): Whether to pick actions according to the max-likelihood value or via sampling.
                 Default: True.
+
+            batch_apply (bool): Whether to wrap both the NN and the ActionAdapter with a BatchApply Component in order
+                to fold time rank into batch rank before a forward pass.
+                Note that only one of `batch_apply` or `batch_apply_action_adapter` may be True.
+                Default: False.
+
+            batch_apply_action_adapter (bool): Whether to wrap the ActionAdapter with a BatchApply Component in
+                order to fold time rank into batch rank before a forward pass.
+                Note that only one of `batch_apply` or `batch_apply_action_adapter` may be True.
+                Default: False.
         """
         super(Policy, self).__init__(scope=scope, **kwargs)
 
+        self.batch_apply = batch_apply
+        self.batch_apply_action_adapter = batch_apply_action_adapter
+        assert self.batch_apply is False or self.batch_apply_action_adapter is False,\
+            "ERROR: Either one of `batch_apply` or `batch_apply_action_adapter` must be False!"
+
         self.neural_network = NeuralNetwork.from_spec(network_spec)  # type: NeuralNetwork
-        self.has_rnn = self.neural_network.has_rnn()
+        if self.batch_apply is True:
+
         if action_space is None:
-            self.action_adapter = ActionAdapter.from_spec(action_adapter_spec, batch_apply=self.has_rnn)
+            self.action_adapter = ActionAdapter.from_spec(
+                action_adapter_spec, batch_apply=self.batch_apply_action_adapter
+            )
             action_space = self.action_adapter.action_space
         else:
-            self.action_adapter = ActionAdapter.from_spec(action_adapter_spec, action_space=action_space,
-                                                          batch_apply=self.has_rnn)
+            self.action_adapter = ActionAdapter.from_spec(
+                action_adapter_spec, action_space=action_space, batch_apply=self.batch_apply_action_adapter
+            )
         self.action_space = action_space
         self.max_likelihood = max_likelihood
 
