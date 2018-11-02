@@ -289,7 +289,7 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
                 for op in ops:
                     params.append(op[key] if key in op else op[""])
                 # Add kwarg_ops
-                for kwarg_key, kwarg_op in kwarg_ops:
+                for kwarg_key, kwarg_op in kwarg_ops.items():
                     params.append(tuple([
                         kwarg_key,
                         kwarg_ops[kwarg_key][key] if key in kwarg_ops[kwarg_key] else kwarg_ops[kwarg_key][""]

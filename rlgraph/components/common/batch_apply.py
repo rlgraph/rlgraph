@@ -33,29 +33,7 @@ class BatchApply(Component):
 
     @rlgraph_api
     def apply(self, input_):
-        folded = self._graph_fn_fold(input_)
-        applied = self._graph_fn_apply(folded)
-        unfolded = self._graph_fn_unfold(applied, input_)
+        folded = self.folder.apply(input_)
+        applied = getattr(self.sub_component, self.api_method_name)(folded)
+        unfolded = self.unfolder.apply(applied, input_before_time_rank_folding=input_)
         return unfolded
-
-    @graph_fn(flatten_ops=True, split_ops=True)
-    def _graph_fn_fold(self, input_):
-        if get_backend() == "tf":
-            # Fold the time rank.
-            input_folded = self.folder.apply(input_)
-            return input_folded
-
-    @graph_fn
-    def _graph_fn_apply(self, input_folded):
-        if get_backend() == "tf":
-            # Send the folded input through the sub-component.
-            sub_component_out = getattr(self.sub_component, self.api_method_name)(input_folded)
-            return sub_component_out
-
-    @graph_fn(flatten_ops=True, split_ops=True)
-    def _graph_fn_unfold(self, sub_component_out, orig_input):
-        if get_backend() == "tf":
-            # Un-fold the time rank again.
-            output = self.unfolder.apply(sub_component_out, input_before_time_rank_folding=orig_input)
-            return output
-

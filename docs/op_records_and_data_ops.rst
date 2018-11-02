@@ -14,6 +14,21 @@
    :scale: 25%
    :alt:
 
-Op-Records and Data-Ops
+Data-Ops and Op-Records
 =======================
+
+Now that we have built an entire Component in RLgraph, let's look at what we did in a little more detail.
+In this chapter, we will especially cover the question of why we separate API-methods from graph functions
+and what in particular gets returned from both of these function types.
+
+
+What is a DataOp?
+-----------------
+
+DataOps are the raw data that we work with and pass around inside RLgraph's graph functions.
+Simple DataOps (not DataOpTuples or DataOpDicts) can be tensorflow tensor objects, such as:
+`tf.placeholder(shape=(), dtype=tf.float32)` or `tf.`.
+
+
+
 

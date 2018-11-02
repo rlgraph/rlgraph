@@ -17,15 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from copy import deepcopy
 import numpy as np
-from six.moves import xrange as range_
 import unittest
 
 from rlgraph.components.neural_networks.dict_preprocessor_stack import DictPreprocessorStack
 from rlgraph.spaces import *
-from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
-from rlgraph.tests.test_util import config_from_path
+from rlgraph.tests import ComponentTest
 
 
 class TestDictPreprocessorStacks(unittest.TestCase):
