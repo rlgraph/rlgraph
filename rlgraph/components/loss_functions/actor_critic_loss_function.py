@@ -88,14 +88,14 @@ class ActorCriticLossFunction(LossFunction):
         Returns:
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
-        loss_per_item = self._graph_fn_loss_per_item(
+        loss_per_item = self.loss_per_item(
             logits_actions_pi, action_probs_mu, values, actions, rewards, terminals
         )
-        total_loss = self._graph_fn_loss_average(loss_per_item)
+        total_loss = self.loss_average(loss_per_item)
 
         return total_loss, loss_per_item
 
-    @graph_fn
+    @rlgraph_api
     def _graph_fn_loss_per_item(self, logits_actions_pi, action_probs_mu, baseline_values, actions,
                                 rewards, terminals):
         """
