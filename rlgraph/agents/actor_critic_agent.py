@@ -39,7 +39,6 @@ class ActorCriticAgent(Agent):
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
             a ring-buffer.
         """
-
         # Use baseline adapter to have critic.
         action_adapter_spec = kwargs.pop("action_adapter_spec", dict(type="baseline-action-adapter"))
 
@@ -148,9 +147,9 @@ class ActorCriticAgent(Agent):
                     step_op, main_policy_vars
                 )
                 return step_and_sync_op, loss, loss_per_item
-
+            out = policy.get_state_values_logits_probabilities_log_probs(preprocessed_states)
             loss, loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
-                #logits_actions_pi, action_probs_mu, baseline_values, actions, rewards, terminals
+                out["logits"], out["probabilities"], out["state_values"], actions, rewards, terminals
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
