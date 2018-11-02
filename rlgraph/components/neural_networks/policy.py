@@ -73,6 +73,7 @@ class Policy(Component):
 
         self.neural_network = NeuralNetwork.from_spec(network_spec)  # type: NeuralNetwork
         if self.batch_apply is True:
+            pass  # TODO
 
         if action_space is None:
             self.action_adapter = ActionAdapter.from_spec(
