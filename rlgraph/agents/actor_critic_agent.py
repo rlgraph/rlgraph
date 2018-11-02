@@ -41,7 +41,6 @@ class ActorCriticAgent(Agent):
         """
         # Use baseline adapter to have critic.
         action_adapter_spec = kwargs.pop("action_adapter_spec", dict(type="baseline-action-adapter"))
-
         super(ActorCriticAgent, self).__init__(
             action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "actor-critic-agent"), **kwargs
         )
@@ -73,7 +72,7 @@ class ActorCriticAgent(Agent):
 
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
-                        self.exploration, self.loss_function, self.optimizer]
+                          self.exploration, self.loss_function, self.optimizer]
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
@@ -218,11 +217,8 @@ class ActorCriticAgent(Agent):
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
                 ret = ret["update_from_memory"]
-
         else:
-
-            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
-                           batch["next_states"], batch["importance_weights"]]
+            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"]]
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
 
             # Remove unnecessary return dicts (e.g. sync-op).

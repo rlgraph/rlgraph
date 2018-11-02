@@ -54,7 +54,7 @@ class ActorCriticLossFunction(LossFunction):
             weight_entropy (float): The coefficient used for the entropy regularization term (L[E]).
                 In the paper, values between 0.01 and 0.00005 are used via log-uniform search.
         """
-        super(ActorCriticLossFunction, self).__init__(scope=kwargs.pop("scope", "impala-loss-func"), **kwargs)
+        super(ActorCriticLossFunction, self).__init__(scope=kwargs.pop("scope", "actor-critic-loss-func"), **kwargs)
 
         self.discount = discount
 
