@@ -15,7 +15,8 @@ a single component interface.
 RLgraph exposes a well defined API for using agents, and offers a novel component concept
 for testing and assembly of machine learning models. By separating graph definition, compilation and execution,
 multiple distributed backends and device execution strategies can be accessed without modifying
-agent definitions.
+agent definitions. This means it is especially suited for a smooth transition from applied use case prototypes
+to large scale distributed training.
 
 The current state of RLgraph in version 0.1.1 is alpha. The core engine is substantially complete
 and works for TensorFlow and PyTorch. Distributed execution on Ray is exemplified via Distributed
@@ -24,6 +25,8 @@ TensorFlow. Distributed TensorFlow can be tested via the IMPALA agent. We will a
 algorithms and other distributed coordination mechanisms in the  coming weeks. Please create an issue
 to discuss improvements or contributions.
 
+For more detailed documentation on RLgraph and its API-reference, please visit
+[our readthedocs page here](https://rlgraph.readthedocs.io).
 
 ## Install
 
@@ -48,7 +51,17 @@ and we will likely wait until a stable PyTorch 1.0 release in the coming weeks.
 
 ### Quickstart / example usage
 
-We provide an example script for training the Ape-X algorith on ALE using Ray in the [examples](examples) folder:
+We provide an example script for training the Ape-X algorithm on ALE using Ray in the [examples](examples) folder.
+
+First, you'll have to ensure, that Ray is used as the distributed backend. RLgraph checks the file
+`~/.rlgraph/rlgraph.json` for this configuration. You can use this command to
+configure RLgraph to use TensorFlow as the backend and Ray as the distributed backend:
+
+```bash
+echo '{"BACKEND":"tf","DISTRIBUTED_BACKEND":"ray"}' > $HOME/.rlgraph/rlgraph.json
+```
+
+Then you can run our Ape-X example:
 
 ```bash
 # Start ray on the head machine
@@ -56,8 +69,15 @@ ray start --head --redis-port 6379
 # Optionally join to this cluster from other machines with ray start --redis-address=...
 
 # Run script
-python apex_ale.py
+python apex_pong.py
 ```
+
+You can also train a simple DQN agent locally on OpenAI gym environments such as CartPole (this doesn't require Ray):
+
+```bash
+python dqn_cartpole.py
+```
+
 
 ## Import and use agents
 
@@ -123,7 +143,21 @@ result = exec.execute_workload(workload=dict(num_timesteps=10000, report_interva
 print(result)
 ```
 
-## More detailed examples coming soon.
+More detailed examples coming soon.
 
-For more detailed documentation on RLgraph and its API-reference, please visit
-[our readthedocs page here](https://rlgraph.readthedocs.io).
+## Cite
+
+If you use RLgraph in your research, please cite the following paper: [link](https://arxiv.org/abs/1810.09028)
+
+
+```
+@ARTICLE{Schaarschmidt2018rlgraph,
+    author = {{Schaarschmidt}, M. and {Mika}, S. and {Fricke}, K. and {Yoneki}, E.},
+    title = "{RLgraph: Flexible Computation Graphs for Deep Reinforcement Learning}",
+    journal = {ArXiv e-prints},
+    archivePrefix = "arXiv",
+    eprint = {1810.09028},
+    year = 2018,
+    month = oct
+}
+```

@@ -18,15 +18,23 @@ Example script for training an APEX agent on the Arcade Learning Environment (AL
 
 Usage:
 
-python apex_ale.py [--config configs/apex_ale.json] [--gpu/--nogpu] [--env PongNoFrameSkip-v4] [--output results.csv]
+python apex_ale.py [--config configs/apex_pong.json] [--gpu/--nogpu] [--env PongNoFrameSkip-v4] [--output results.csv]
 
+Please make sure that Ray is configured as the distributed backend for RLgraph, e.g. by running this command:
+
+```bash
+echo '{"BACKEND":"tf","DISTRIBUTED_BACKEND":"ray"}' > $HOME/.rlgraph/rlgraph.json
 ```
+
+Then you can start up the Ape-X agent:
+
+```bash
 # Start ray on the head machine
 ray start --head --redis-port 6379
 # Optionally join to this cluster from other machines with ray start --redis-address=...
 
 # Run script
-python apex_ale.py
+python apex_pong.py
 ```
 """
 
@@ -42,7 +50,7 @@ from rlgraph.execution.ray import ApexExecutor
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('config', './configs/apex_ale.json', 'Agent config file.')
+flags.DEFINE_string('config', './configs/apex_pong.json', 'Agent config file.')
 flags.DEFINE_boolean('gpu', True, 'Use GPU for training.')
 flags.DEFINE_string('env', 'PongNoFrameskip-v4', 'gym environment ID.')
 flags.DEFINE_string('output', 'results.csv', 'Output rewards file.')
