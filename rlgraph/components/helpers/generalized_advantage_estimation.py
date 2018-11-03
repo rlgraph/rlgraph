@@ -59,9 +59,8 @@ class GeneralizedAdvantageEstimation(Component):
         gae_discount = self.gae_lambda * self.discount
 
         # Next, we need to set the next value after the end of each sub-sequence to 0/its prior value
-        # depending on terminal.
-        adjusted_v = self.sequence_helper.bootstrap_values(baseline_values, terminals)
-        deltas = rewards + self.discount * adjusted_v[1:] - adjusted_v[:-1]
+        # depending on terminal, then compute deltas = r + y * v[1:] - v[:-1]
+        deltas = self.sequence_helper.bootstrap_values(rewards, baseline_values, terminals, self.discount)
 
         # Apply gae discount to each sub-sequence.
         return self.sequence_helper.reverse_apply_decays_to_sequence(deltas, terminals, gae_discount)

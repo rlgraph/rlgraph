@@ -108,7 +108,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
             baseline_values=baseline_values,
             terminals=terminals
         )
-        # test = ComponentTest(component=gae, input_spaces=input_spaces)
+        test = ComponentTest(component=gae, input_spaces=input_spaces)
 
         rewards_ = rewards.sample(10, fill_value=0.5)
         baseline_values_ = baseline_values.sample(10, fill_value=1.0)

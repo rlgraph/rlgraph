@@ -260,8 +260,9 @@ class SequenceHelper(Component):
             i = 0
             length = 0
             prev_v = 0
-            for v in reversed(values):
+            for v in reversed(values.data):
                 # Arrived at new sequence, start over.
+                # TODO what torch format we get here.
                 if sequence_indices[i] == 1:
                     length = 0
                     prev_v = 0
@@ -278,76 +279,103 @@ class SequenceHelper(Component):
             return torch.tensor(list(reversed(discounted)), dtype=torch.float32)
 
     @rlgraph_api(must_be_complete=False)
-    def _graph_fn_bootstrap_values(self, values, sequence_indices):
+    def _graph_fn_bootstrap_values(self, rewards, values, sequence_indices, discount):
         """
-        Inserts value estimates at the end of each sub-sequence for a given sequence. That is,
-        0 is inserted after teach terminal and the final value of the sub-sequence if the sequence does not
-        end with a terminal.
+        Inserts value estimates at the end of each sub-sequence for a given sequence and computes deltas
+        for generalized advantage estimation. That is, 0 is inserted after teach terminal and the final value of the
+        sub-sequence if the sequence does not end with a terminal. We then compute for each subsequence
+
+        delta = reward + discount * bootstrapped_values[1:] - bootstrapped_values[:-1]
+
 
         Args:
-            values (DataOp): Values to adjust.
+            rewards (DataOp): Rewards for the observed sequences.
+            values (DataOp): Value estimates for the observed sequences.
             sequence_indices (DataOp): Boolean indices denoting sequences, e.g. terminal values.
+            discount (float): Discount to apply to delta computation.
 
         Returns:
-            Bootstrapped sequence.
+            Sequence of deltas.
         """
         if get_backend() == "tf":
             num_values = tf.shape(values)[0]
             bootstrap_value = values[-1]
             # Cannot use 0.0 because unknown shape.
             zero_value = tf.zeros_like(tensor=bootstrap_value, dtype=tf.float32)
-            adjusted_values = tf.TensorArray(dtype=tf.float32, infer_shape=False,
-                                             size=1, dynamic_size=True, clear_after_read=False)
 
-            def write(write_index, adjusted_values, value):
-                value = tf.Print(value, [value], summarize=100, message="Writing value = ")
-                adjusted_values = adjusted_values.write(write_index, value)
-                write_index += 1
-                return adjusted_values, write_index
+            deltas = tf.TensorArray(dtype=tf.float32, infer_shape=False,
+                                    size=1, dynamic_size=True, clear_after_read=False)
 
-            def body(index, write_index, adjusted_values):
-                adjusted_values = adjusted_values.write(write_index, values[index])
-                write_index += 1
+            def write(index, write_index, deltas, start_index, value):
+                # First: Concat the slice of values representing the current sequence with bootstrap value.
+                baseline_slice = values[start_index:index]
+                # Expand so value has a batch dim when we concat.
+                value = tf.expand_dims(value, 0)
+                adjusted_v = tf.concat([baseline_slice, value], axis=0)
 
-                # Append 0 whenever we terminate.
-                adjusted_values, write_index = tf.cond(
+                # Compute deltas for this sequence.
+                seuqence_deltas = rewards[start_index:index + 1] + discount * adjusted_v[1:] - adjusted_v[:-1]
+
+                # Write delta to tensor-array.
+                deltas = deltas.write(write_index, seuqence_deltas)
+
+                # Set start-index for the next sub-sequence to index + 1
+                start_index = index + 1
+                return deltas, write_index + 1, start_index
+
+            def body(index, write_index, start_index, deltas):
+                # Whenever we encounter a sequence end, we compute deltas for that sequence.
+                deltas, write_index, start_index = tf.cond(
                     pred=sequence_indices[index],
-                    true_fn=lambda: write(write_index, adjusted_values, zero_value),
-                    false_fn=lambda: (adjusted_values, write_index)
+                    true_fn=lambda: write(index, write_index, deltas, start_index, zero_value),
+                    false_fn=lambda: (deltas, write_index, start_index)
                 )
-                return index + 1, write_index, adjusted_values
+                return index + 1, write_index, start_index, deltas
 
-            def cond(index, write_index, adjusted_values):
+            def cond(index, write_index, start_index, deltas):
                 return index < num_values
 
-            index, write_index, adjusted_values = tf.while_loop(
+            index, write_index, start_index, adjusted_values = tf.while_loop(
                 cond=cond,
                 body=body,
-                loop_vars=[0, 0, adjusted_values],
+                loop_vars=[0, 0, 0, deltas],
                 back_prop=False
             )
 
             # In case the last element was not a terminal, append boot_strap_value.
             # If was terminal -> already appended in loop.
-            adjusted_values, _ = tf.cond(pred=sequence_indices[-1],
-                                         true_fn=lambda: (adjusted_values, write_index),
-                                         false_fn=lambda: write(write_index, adjusted_values, bootstrap_value))
+            deltas, _, _ = tf.cond(pred=sequence_indices[-1],
+                                true_fn=lambda: (deltas, write_index, start_index),
+                                # Passing 0 for index because we do not need it later.
+                                false_fn=lambda: write(0, write_index, deltas, start_index, bootstrap_value))
 
-            return adjusted_values.stack()
+            return deltas.stack()
         elif get_backend() == "pytorch":
-            adjusted = []
-            for i, val in enumerate(values.tolist()):
-                adjusted.append(val)
+            deltas = []
+            start_index = 0
+            i = 0
+            for _ in range(len(values)):
+                if sequence_indices[i]:
+                    # Compute deltas for this subsequence.
+                    # Cannot do this all at once because we would need the correct offsets for each sub-sequence.
+                    baseline_slice = list(values[start_index:i])
+                    baseline_slice.append(0)
+                    adjusted_v = torch.tensor(baseline_slice)
 
-                # Append 0 as next val.
-                if sequence_indices[i] == 1:
-                    adjusted.append(0)
+                    # +1 because we want to include i-th value.
+                    delta = rewards[start_index:i + 1] + discount * adjusted_v[1:] - adjusted_v[:-1]
+                    deltas.extend(delta)
+                    start_index = i + 1
+                i += 1
 
-            # If terminal, we already appended.
-            if sequence_indices[-1] == 0:
+            # If the final sequence was terminal, we already did this in the loop above.
+            if not sequence_indices[-1]:
                 # Append last value.
-                adjusted.append(values[-1])
+                baseline_slice = list(values[start_index:i])
+                baseline_slice.append(values[-1])
+                adjusted_v = torch.tensor(baseline_slice)
+                delta = rewards[start_index:i + 1] + discount * adjusted_v[1:] - adjusted_v[:-1]
+                deltas.extend(delta)
 
-            # Convert and return.
-            return torch.tensor(adjusted)
+            return torch.tensor(deltas)
 
