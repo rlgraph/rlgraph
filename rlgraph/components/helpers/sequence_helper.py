@@ -309,7 +309,7 @@ class SequenceHelper(Component):
 
             def write(index, write_index, deltas, start_index, value):
                 # First: Concat the slice of values representing the current sequence with bootstrap value.
-                baseline_slice = values[start_index:index]
+                baseline_slice = values[start_index:index + 1]
                 # Expand so value has a batch dim when we concat.
                 value = tf.expand_dims(value, 0)
                 adjusted_v = tf.concat([baseline_slice, value], axis=0)
@@ -350,8 +350,9 @@ class SequenceHelper(Component):
                                    true_fn=lambda: (deltas, write_index, start_index),
                                    # Final index.
                                     false_fn=lambda: write(index, write_index, deltas, start_index, bootstrap_value))
+            deltas = deltas.stack()
             # Squeeze because we inserted
-            return deltas.stack()
+            return tf.squeeze(deltas)
         elif get_backend() == "pytorch":
             deltas = []
             start_index = 0
@@ -360,7 +361,7 @@ class SequenceHelper(Component):
                 if sequence_indices[i]:
                     # Compute deltas for this subsequence.
                     # Cannot do this all at once because we would need the correct offsets for each sub-sequence.
-                    baseline_slice = list(values[start_index:i])
+                    baseline_slice = list(values[start_index:i + 1])
                     baseline_slice.append(0)
                     adjusted_v = torch.tensor(baseline_slice)
 
