@@ -64,6 +64,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
 
             # Increase length of current sub-sequence.
             length += 1
+            i += 1
         return list(reversed(discounted))
 
     def gae_helper(self, baseline, reward, gamma, gae_lambda, terminals):
@@ -80,8 +81,6 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
                 adjusted_v = np.asarray(baseline_slice)
 
                 # +1 because we want to include i-th value.
-                print("reward[start_index:i + 1] len = ", len(reward[start_index:i + 1]))
-                print("adjusted_v[1:] = ", len(adjusted_v[1:]))
                 delta = reward[start_index:i + 1] + gamma * adjusted_v[1:] - adjusted_v[:-1]
                 deltas.extend(delta)
                 start_index = i + 1
@@ -97,6 +96,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
             deltas.extend(delta)
 
         deltas = np.asarray(deltas)
+        print("deltas = ", deltas)
         return np.asarray(self.discount_all(deltas, gamma * gae_lambda, terminals))
 
     def test_single_non_terminal_sequence(self):
@@ -128,6 +128,8 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
 
         advantage = test.test(("calc_gae_values", input_))
         recursive_assert_almost_equal(advantage_expected, advantage, decimals=5)
+        print("Expected advantge:", advantage_expected)
+        print("Got advantage:", advantage)
 
     def test_multiple_sequences(self):
         gae = GeneralizedAdvantageEstimation(gae_lambda=self.gae_lambda, discount=self.gamma)
