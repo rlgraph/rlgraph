@@ -142,7 +142,7 @@ class ActorCriticLossFunction(LossFunction):
                 loss = self.weight_pg * loss
 
             # The value-function baseline loss.
-            loss_baseline = 0.5 * tf.square(x=tf.subtract(baseline_values - v_targets))
+            loss_baseline = 0.5 * tf.square(x=baseline_values - v_targets)
             loss += self.weight_baseline * loss_baseline
 
             # The entropy regularizer term.
