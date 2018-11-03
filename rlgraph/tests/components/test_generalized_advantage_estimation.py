@@ -68,34 +68,29 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
 
     def gae_helper(self, baseline, reward, gamma, gae_lambda, terminals):
         # Bootstrap adjust.
-        adjusted = []
         deltas = []
         start_index = 0
         i = 0
-        for val in baseline.tolist():
-            adjusted.append(val)
-
+        for _ in range(len(baseline)):
             if np.all(terminals[i]):
                 # Compute deltas for this subsequence.
                 # Cannot do this all at once because we would need the correct offsets for each sub-sequence.
-                adjusted.append(0)
-                terminal_corrected_baseline = np.asarray(adjusted)
-
+                baseline_slice = list(baseline[start_index:i])
+                baseline_slice.append(0)
+                adjusted_v = np.asarray(baseline_slice)
                 # +1 because we want to include i-th value.
-                delta = reward[start_index:i + 1] + gamma * terminal_corrected_baseline[1:] -\
-                        terminal_corrected_baseline[:-1]
+                delta = reward[start_index:i + 1] + gamma * adjusted_v[1:] - adjusted_v[:-1]
                 deltas.extend(delta)
-                adjusted = []
                 start_index = i + 1
             i += 1
 
         # If terminal, we already appended.
         if not np.all(terminals[-1]):
             # Append last value.
-            adjusted.append(baseline[-1])
-            terminal_corrected_baseline = np.asarray(adjusted)
-            delta = reward[start_index:i + 1] + gamma * terminal_corrected_baseline[1:] - \
-                    terminal_corrected_baseline[:-1]
+            baseline_slice = list(baseline[start_index:i])
+            baseline_slice.append(baseline[-1])
+            adjusted_v = np.asarray(baseline_slice)
+            delta = reward[start_index:i + 1] + gamma * adjusted_v[1:] - adjusted_v[:-1]
             deltas.extend(delta)
 
         deltas = np.asarray(deltas)
@@ -113,7 +108,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
             baseline_values=baseline_values,
             terminals=terminals
         )
-        test = ComponentTest(component=gae, input_spaces=input_spaces)
+        # test = ComponentTest(component=gae, input_spaces=input_spaces)
 
         rewards_ = rewards.sample(10, fill_value=0.5)
         baseline_values_ = baseline_values.sample(10, fill_value=1.0)
