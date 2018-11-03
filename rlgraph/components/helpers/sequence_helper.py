@@ -219,6 +219,7 @@ class SequenceHelper(Component):
                 dynamic_size=True,
                 clear_after_read=False
             )
+            values = tf.Print(values, [values, tf.shape(values)], summarize=100, message="values =")
 
             def insert_body(index, write_index, length, prev_v, decayed_values):
                 # Reset length to 0 if terminal encountered.
@@ -314,10 +315,11 @@ class SequenceHelper(Component):
                 adjusted_v = tf.concat([baseline_slice, value], axis=0)
 
                 # Compute deltas for this sequence.
-                seuqence_deltas = rewards[start_index:index + 1] + discount * adjusted_v[1:] - adjusted_v[:-1]
+                sequence_deltas = rewards[start_index:index + 1] + discount * adjusted_v[1:] - adjusted_v[:-1]
 
+                sequence_deltas = tf.Print(sequence_deltas, [sequence_deltas], summarize=100, message="sequence_deltas")
                 # Write delta to tensor-array.
-                deltas = deltas.write(write_index, seuqence_deltas)
+                deltas = deltas.write(write_index, sequence_deltas)
 
                 # Set start-index for the next sub-sequence to index + 1
                 start_index = index + 1
@@ -345,10 +347,10 @@ class SequenceHelper(Component):
             # In case the last element was not a terminal, append boot_strap_value.
             # If was terminal -> already appended in loop.
             deltas, _, _ = tf.cond(pred=sequence_indices[-1],
-                                true_fn=lambda: (deltas, write_index, start_index),
-                                # Passing 0 for index because we do not need it later.
-                                false_fn=lambda: write(0, write_index, deltas, start_index, bootstrap_value))
-
+                                   true_fn=lambda: (deltas, write_index, start_index),
+                                   # Final index.
+                                    false_fn=lambda: write(index, write_index, deltas, start_index, bootstrap_value))
+            # Squeeze because we inserted
             return deltas.stack()
         elif get_backend() == "pytorch":
             deltas = []
