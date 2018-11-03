@@ -32,6 +32,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
 
     @staticmethod
     def discount(x, gamma):
+        # Discounts a single sequence.
         discounted = []
         prev = 0
         index = 0
@@ -43,10 +44,43 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
             prev = decayed
         return list(reversed(discounted))
 
+    @staticmethod
+    def discount_all(values, decay, terminal):
+        # Discounts multiple sub-sequences by keeping track of terminals.
+        discounted = []
+        i = 0
+        length = 0
+        prev_v = 0
+        for v in reversed(values):
+            # Arrived at new sequence, start over.
+            if terminal[i] == 1:
+                length = 0
+                prev_v = 0
+
+            # Accumulate prior value.
+            accum_v = prev_v + v * pow(decay, length)
+            discounted.append(accum_v)
+            prev_v = accum_v
+
+            # Increase length of current sub-sequence.
+            length += 1
+
     def gae_helper(self, baseline, reward, gamma, gae_lambda, terminated):
-        # N.b. this only works for a subsequence
-        # This is John Schulman's original way of implementing GAE.
-        terminal_corrected_baseline = np.append(baseline, 0 if terminated else baseline[-1])
+        # Bootstrap adjust.
+        adjusted = []
+        for i, val in enumerate(baseline.tolist()):
+            adjusted.append(val)
+
+            # Append 0 as next val.
+            if terminated[i] == 1:
+                adjusted.append(0)
+
+        # If terminal, we already appended.
+        if terminated[-1] == 0:
+            # Append last value.
+            adjusted.append(baseline[-1])
+
+        terminal_corrected_baseline = np.asarray(adjusted)
         deltas = reward + gamma * terminal_corrected_baseline[1:] - terminal_corrected_baseline[:-1]
         return self.discount(deltas, gamma * gae_lambda)
 
@@ -74,7 +108,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
             reward=rewards_,
             gamma=self.gamma,
             gae_lambda=self.gae_lambda,
-            terminated=False
+            terminated=terminals_
         )
 
         print("Advantage expected:", advantage_expected)
