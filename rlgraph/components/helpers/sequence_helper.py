@@ -225,7 +225,7 @@ class SequenceHelper(Component):
                 # NOTE: We cannot prev_v to 0.0 because values[index] might have a more complex shape,
                 # so this violates shape checks.
                 length, prev_v = tf.cond(
-                    pred=tf.equal(sequence_indices[index], 1),
+                    pred=sequence_indices[index],
                     true_fn=lambda: (0, tf.zeros_like(prev_v)),
                     false_fn=lambda: (length, prev_v)
                 )
@@ -286,7 +286,7 @@ class SequenceHelper(Component):
 
         Args:
             values (DataOp): Values to adjust.
-            sequence_indices (DataOp): Indices denoting sequences, e.g. terminal values.
+            sequence_indices (DataOp): Boolean indices denoting sequences, e.g. terminal values.
 
         Returns:
             Bootstrapped sequence.
@@ -308,7 +308,7 @@ class SequenceHelper(Component):
 
                 # Append 0 whenever we terminate.
                 adjusted_values, write_index = tf.cond(
-                    pred=tf.equal(sequence_indices[index], 1),
+                    pred=sequence_indices[index],
                     true_fn=lambda: write(write_index, adjusted_values, 0.0),
                     false_fn=lambda: (adjusted_values, write_index)
                 )
@@ -326,7 +326,7 @@ class SequenceHelper(Component):
 
             # In case the last element was not a terminal, append boot_strap_value.
             # If was terminal -> already appended in loop.
-            adjusted_values, _ = tf.cond(pred=tf.greater(sequence_indices[-1], 0),
+            adjusted_values, _ = tf.cond(pred=sequence_indices[-1],
                                          true_fn=lambda: (adjusted_values, write_index),
                                          false_fn=lambda: write(write_index, adjusted_values, bootstrap_value))
 

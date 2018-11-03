@@ -55,7 +55,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
 
         rewards = FloatBox(add_batch_rank=True)
         baseline_values = FloatBox(add_batch_rank=True)
-        terminals = IntBox(low=0, high=1, add_batch_rank=True)
+        terminals = BoolBox(add_batch_rank=True)
 
         input_spaces = dict(
             rewards=rewards,
@@ -66,7 +66,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
 
         rewards_ = rewards.sample(10, fill_value=0.5)
         baseline_values_ = baseline_values.sample(10, fill_value=1.0)
-        terminals_ = terminals.sample(size=10, fill_value=0)
+        terminals_ = terminals.sample(size=10, fill_value=False)
         input_ = [baseline_values_, rewards_, terminals_]
 
         advantage_expected = self.gae_helper(
