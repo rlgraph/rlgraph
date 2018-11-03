@@ -50,17 +50,18 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
         discounted = []
         i = 0
         length = 0
-        prev_v = 0
+        prev_v = 0.0
         for v in reversed(values):
-            # Arrived at new sequence, start over.
-            if np.all(terminal[i]):
-                length = 0
-                prev_v = 0
-
             # Accumulate prior value.
             accum_v = prev_v + v * pow(decay, length)
             discounted.append(accum_v)
             prev_v = accum_v
+
+            # Arrived at new sequence, start over.
+            if np.all(terminal[i]):
+                print("Resetting discount at i = ", i)
+                length = 0
+                prev_v = 0.0
 
             # Increase length of current sub-sequence.
             length += 1
@@ -82,6 +83,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
 
                 # +1 because we want to include i-th value.
                 delta = reward[start_index:i + 1] + gamma * adjusted_v[1:] - adjusted_v[:-1]
+                print("Length for sequence deltas: ", len(delta))
                 deltas.extend(delta)
                 start_index = i + 1
             i += 1
@@ -91,12 +93,14 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
             # Append last value.
             baseline_slice = list(baseline[start_index:i])
             baseline_slice.append(baseline[-1])
+
             adjusted_v = np.asarray(baseline_slice)
             delta = reward[start_index:i + 1] + gamma * adjusted_v[1:] - adjusted_v[:-1]
+            print("Length for sequence deltas: ", len(delta))
             deltas.extend(delta)
 
         deltas = np.asarray(deltas)
-        print("deltas = ", deltas)
+        print("len deltas = ", len(deltas))
         return np.asarray(self.discount_all(deltas, gamma * gae_lambda, terminals))
 
     def test_single_non_terminal_sequence(self):
@@ -143,12 +147,14 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
             baseline_values=baseline_values,
             terminals=terminals
         )
-        # test = ComponentTest(component=gae, input_spaces=input_spaces)
+        #test = ComponentTest(component=gae, input_spaces=input_spaces)
 
         rewards_ = rewards.sample(10, fill_value=0.5)
         baseline_values_ = baseline_values.sample(10, fill_value=1.0)
         terminals_ = [False] * 10
         terminals_[5] = True
+        terminals_[5] = True
+
         terminals_ = np.asarray(terminals_)
 
         input_ = [baseline_values_, rewards_, terminals_]
