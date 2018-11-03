@@ -292,7 +292,7 @@ class SequenceHelper(Component):
         Args:
             rewards (DataOp): Rewards for the observed sequences.
             values (DataOp): Value estimates for the observed sequences.
-            sequence_indices (DataOp): Boolean indices denoting sequences, e.g. terminal values.
+            sequence_indices (DataOp): Int indices denoting sequences, e.g. terminal values.
             discount (float): Discount to apply to delta computation.
 
         Returns:
@@ -304,7 +304,8 @@ class SequenceHelper(Component):
             # Cannot use 0.0 because unknown shape.
             zero_value = tf.zeros_like(tensor=bootstrap_value, dtype=tf.float32)
             deltas = tf.TensorArray(dtype=tf.float32, infer_shape=False,
-                                    size=1, dynamic_size=True, clear_after_read=False, name="bootstrap-deltas")
+                                    size=num_values, dynamic_size=False, clear_after_read=False, name="bootstrap-deltas")
+            sequence_indices = tf.cast(sequence_indices, dtype=tf.int32)
 
             def write(index, deltas, start_index, value):
                 # First: Concat the slice of values representing the current sequence with bootstrap value.
@@ -317,16 +318,19 @@ class SequenceHelper(Component):
                 sequence_deltas = rewards[start_index:index + 1] + discount * adjusted_v[1:] - adjusted_v[:-1]
 
                 # Write delta to tensor-array.
-                write_indices = tf.range(start=start_index, limit=index)
+                write_indices = tf.range(start=start_index, limit=index + 1)
+                # write_indices = tf.Print(write_indices, [start_index, index + 1],
+                # summarize=1000, message="writing delta to indices")
                 deltas = deltas.scatter(write_indices, sequence_deltas)
 
+                start_index = index + 1
                 # Set start-index for the next sub-sequence to index + 1
-                return deltas, start_index + 1
+                return deltas, start_index
 
             def body(index, start_index, deltas):
                 # Whenever we encounter a sequence end, we compute deltas for that sequence.
                 deltas, start_index = tf.cond(
-                    pred=sequence_indices[index],
+                    pred=tf.equal(sequence_indices[index], tf.ones_like(sequence_indices[index])),
                     true_fn=lambda: write(index, deltas, start_index, zero_value),
                     false_fn=lambda: (deltas, start_index)
                 )
@@ -335,19 +339,22 @@ class SequenceHelper(Component):
             def cond(index, start_index, deltas):
                 return index < num_values
 
-            index, start_index, adjusted_values = tf.while_loop(
+            index, start_index, deltas = tf.while_loop(
                 cond=cond,
                 body=body,
                 loop_vars=[0, 0, deltas],
+                parallel_iterations=1,
                 back_prop=False
             )
 
             # In case the last element was not a terminal, append boot_strap_value.
             # If was terminal -> already appended in loop.
-            deltas, _= tf.cond(pred=sequence_indices[-1],
-                                   true_fn=lambda: (deltas, start_index),
-                                   # Final index.
-                                   false_fn=lambda: write(index, deltas, start_index, bootstrap_value))
+            deltas, _ = tf.cond(
+                pred=tf.equal(sequence_indices[-1], tf.ones_like(sequence_indices[index])),
+                true_fn=lambda: (deltas, start_index),
+                # Final index.
+                false_fn=lambda: write(index - 1, deltas, start_index, bootstrap_value)
+            )
             deltas = deltas.stack()
             # Squeeze because we inserted
             return tf.squeeze(deltas)
