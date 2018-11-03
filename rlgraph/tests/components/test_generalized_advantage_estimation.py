@@ -59,7 +59,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
 
             # Arrived at new sequence, start over.
             if np.all(terminal[i]):
-                print("Resetting discount at i = ", i)
+                print("Resetting discount after processing i = ", i)
                 length = 0
                 prev_v = 0.0
 
@@ -168,6 +168,5 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
 
         print("Advantage expected:", advantage_expected)
         advantage = test.test(("calc_gae_values", input_))
-        print(type(advantage))
         print("Got advantage = ", advantage)
         recursive_assert_almost_equal(advantage_expected, advantage, decimals=5)

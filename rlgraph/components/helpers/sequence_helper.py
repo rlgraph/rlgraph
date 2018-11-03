@@ -219,37 +219,39 @@ class SequenceHelper(Component):
                 dynamic_size=True,
                 clear_after_read=False
             )
-            values = tf.Print(values, [values, tf.shape(values)], summarize=100, message="values =")
+            sequence_indices = tf.cast(sequence_indices, dtype=tf.int32)
 
-            def insert_body(index, write_index, length, prev_v, decayed_values):
+            def insert_body(index, forward_index, write_index, length, prev_v, decayed_values):
                 # Decay is based on length, so val = decay^length
                 decay_val = tf.pow(x=decay, y=tf.cast(length, dtype=tf.float32))
                 accum_v = prev_v + values[index] * decay_val
 
                 # Write decayed val into array.
                 decayed_values = decayed_values.write(write_index, accum_v)
+                prev_v = accum_v
 
                 # Reset length to 0 if terminal encountered.
                 # NOTE: We cannot prev_v to 0.0 because values[index] might have a more complex shape,
                 # so this violates shape checks.
                 length, prev_v = tf.cond(
-                    pred=sequence_indices[index],
+                    pred=tf.equal(sequence_indices[forward_index], tf.ones_like(sequence_indices[forward_index])),
                     true_fn=lambda: (0, tf.zeros_like(prev_v)),
                     false_fn=lambda: (length, prev_v)
                 )
+                # index = tf.Print(index, [index, prev_v], summarize=100, message="index, prev = ")
 
                 # Increase write-index and length of sub-sequence, decrease loop index in reverse iteration.
-                return index - 1, write_index + 1, length + 1, accum_v, decayed_values
+                return index - 1, forward_index + 1, write_index + 1, length + 1, prev_v, decayed_values
 
-            def cond(index, write_index, length, prev_v, decayed_values):
+            def cond(index, forward_index, write_index, length, prev_v, decayed_values):
                 # Scan in reverse.
                 return index >= 0
 
-            _, _, _, _, decayed_values = tf.while_loop(
+            _, _, _, _, _, decayed_values = tf.while_loop(
                 cond=cond,
                 body=insert_body,
                 # loop index, index writing to tensor array, current length of sub-sequence, previous val (float)
-                loop_vars=[elems - 1, 0, 0, tf.zeros_like(values[-1]), decayed_values],
+                loop_vars=[elems - 1, 0, 0, 0, tf.zeros_like(values[-1]), decayed_values],
                 back_prop=False
             )
 
