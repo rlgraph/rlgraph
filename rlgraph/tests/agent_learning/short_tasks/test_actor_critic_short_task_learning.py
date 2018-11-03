@@ -1,0 +1,70 @@
+# Copyright 2018 The RLgraph authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import logging
+import unittest
+
+from rlgraph.environments import OpenAIGymEnv
+from rlgraph.agents import ActorCriticAgent
+from rlgraph.execution import SingleThreadedWorker
+from rlgraph.utils import root_logger
+from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
+
+
+class TestDQNAgentShortTaskLearning(unittest.TestCase):
+    """
+    Tests whether the Actor-critic can learn in simple environments.
+    """
+    root_logger.setLevel(level=logging.INFO)
+
+    def test_actor_critic_on_cart_pole(self):
+        """
+        Creates a DQNAgent and runs it via a Runner on the CartPole Env.
+        """
+        dummy_env = OpenAIGymEnv("CartPole-v0")
+        agent = ActorCriticAgent.from_spec(
+            config_from_path("configs/actor_critic_for_cartpole.json"),
+            state_space=dummy_env.state_space,
+            action_space=dummy_env.action_space,
+            observe_spec=dict(buffer_size=200),
+            execution_spec=dict(seed=15),
+            update_spec=dict(update_interval=4, batch_size=24),
+            optimizer_spec=dict(type="adam", learning_rate=0.05),
+            store_last_q_table=True
+        )
+
+        time_steps = 3000
+        worker = SingleThreadedWorker(
+            env_spec=lambda: OpenAIGymEnv("CartPole-v0", seed=15),
+            agent=agent,
+            render=self.is_windows,
+            worker_executes_preprocessing=False
+        )
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
+
+        #print("STATES:\n{}".format(agent.last_q_table["states"]))
+        #print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
+
+        self.assertEqual(results["timesteps_executed"], time_steps)
+        self.assertEqual(results["env_frames"], time_steps)
+        self.assertGreaterEqual(results["mean_episode_reward"], 25)
+        self.assertGreaterEqual(results["max_episode_reward"], 100.0)
+        self.assertLessEqual(results["episodes_executed"], 100)
+
+
