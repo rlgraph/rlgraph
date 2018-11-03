@@ -22,7 +22,7 @@ import unittest
 
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.spaces import *
-from rlgraph.tests import ComponentTest
+from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 
 
 class TestGeneralizedAdvantageEstimation(unittest.TestCase):
@@ -64,27 +64,28 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
 
             # Increase length of current sub-sequence.
             length += 1
+        return list(reversed(discounted))
 
-    def gae_helper(self, baseline, reward, gamma, gae_lambda, terminated):
+    def gae_helper(self, baseline, reward, gamma, gae_lambda, terminals):
         # Bootstrap adjust.
         adjusted = []
         for i, val in enumerate(baseline.tolist()):
             adjusted.append(val)
 
             # Append 0 as next val.
-            if terminated[i] == 1:
+            if terminals[i] == 1:
                 adjusted.append(0)
 
         # If terminal, we already appended.
-        if terminated[-1] == 0:
+        if terminals[-1] == 0:
             # Append last value.
             adjusted.append(baseline[-1])
 
         terminal_corrected_baseline = np.asarray(adjusted)
         deltas = reward + gamma * terminal_corrected_baseline[1:] - terminal_corrected_baseline[:-1]
-        return self.discount(deltas, gamma * gae_lambda)
+        return np.asarray(self.discount_all(deltas, gamma * gae_lambda, terminals))
 
-    def test_gae(self):
+    def test_single_non_terminal_sequence(self):
         gae = GeneralizedAdvantageEstimation(gae_lambda=self.gae_lambda, discount=self.gamma)
 
         rewards = FloatBox(add_batch_rank=True)
@@ -108,9 +109,11 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
             reward=rewards_,
             gamma=self.gamma,
             gae_lambda=self.gae_lambda,
-            terminated=terminals_
+            terminals=terminals_
         )
 
         print("Advantage expected:", advantage_expected)
         advantage = test.test(("calc_gae_values", input_))
+        print(type(advantage))
         print("Got advantage = ", advantage)
+        recursive_assert_almost_equal(advantage_expected, advantage, decimals=5)
