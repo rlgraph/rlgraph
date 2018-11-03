@@ -1,0 +1,51 @@
+{
+  "type": "actor_critic",
+
+  "discount": 0.99,
+  "gae_lambda": 1.0,
+
+  "memory_spec":
+  {
+    "type": "ring_buffer",
+    "capacity": 1000
+  },
+
+  "preprocessing_spec":
+  [],
+
+
+  "network_spec":
+  [
+    {
+      "type": "dense",
+      "units": 20,
+      "activation": "tanh",
+      "scope": "hidden"
+    }
+  ],
+
+  "exploration_spec":
+  {
+    "epsilon_spec": {
+      "decay_spec": {
+        "type": "linear_decay",
+        "from": 1.0,
+        "to": 0.05,
+        "start_timestep": 0,
+        "num_timesteps": 1500
+      }
+    }
+  },
+
+  "update_spec": {
+    "do_updates": true,
+    "update_interval": 4,
+    "batch_size": 16,
+    "sync_interval": 32
+  },
+
+  "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.02
+  }
+}
