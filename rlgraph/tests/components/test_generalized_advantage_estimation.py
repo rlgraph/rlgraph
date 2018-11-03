@@ -75,10 +75,13 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
             if np.all(terminals[i]):
                 # Compute deltas for this subsequence.
                 # Cannot do this all at once because we would need the correct offsets for each sub-sequence.
-                baseline_slice = list(baseline[start_index:i])
+                baseline_slice = list(baseline[start_index:i + 1])
                 baseline_slice.append(0)
                 adjusted_v = np.asarray(baseline_slice)
+
                 # +1 because we want to include i-th value.
+                print("reward[start_index:i + 1] len = ", len(reward[start_index:i + 1]))
+                print("adjusted_v[1:] = ", len(adjusted_v[1:]))
                 delta = reward[start_index:i + 1] + gamma * adjusted_v[1:] - adjusted_v[:-1]
                 deltas.extend(delta)
                 start_index = i + 1
@@ -123,9 +126,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
             terminals=terminals_
         )
 
-        print("Advantage expected:", advantage_expected)
         advantage = test.test(("calc_gae_values", input_))
-        print("Got advantage = ", advantage)
         recursive_assert_almost_equal(advantage_expected, advantage, decimals=5)
 
     def test_multiple_sequences(self):
