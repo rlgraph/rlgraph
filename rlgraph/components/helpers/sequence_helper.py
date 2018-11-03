@@ -294,10 +294,13 @@ class SequenceHelper(Component):
         if get_backend() == "tf":
             num_values = tf.shape(values)[0]
             bootstrap_value = values[-1]
+            # Cannot use 0.0 because unknown shape.
+            zero_value = tf.zeros_like(tensor=bootstrap_value, dtype=tf.float32)
             adjusted_values = tf.TensorArray(dtype=tf.float32, infer_shape=False,
                                              size=1, dynamic_size=True, clear_after_read=False)
 
             def write(write_index, adjusted_values, value):
+                value = tf.Print(value, [value], summarize=100, message="Writing value = ")
                 adjusted_values = adjusted_values.write(write_index, value)
                 write_index += 1
                 return adjusted_values, write_index
@@ -309,7 +312,7 @@ class SequenceHelper(Component):
                 # Append 0 whenever we terminate.
                 adjusted_values, write_index = tf.cond(
                     pred=sequence_indices[index],
-                    true_fn=lambda: write(write_index, adjusted_values, 0.0),
+                    true_fn=lambda: write(write_index, adjusted_values, zero_value),
                     false_fn=lambda: (adjusted_values, write_index)
                 )
                 return index + 1, write_index, adjusted_values
