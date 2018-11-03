@@ -153,7 +153,6 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
         baseline_values_ = baseline_values.sample(10, fill_value=1.0)
         terminals_ = [False] * 10
         terminals_[5] = True
-        terminals_[5] = True
 
         terminals_ = np.asarray(terminals_)
 
