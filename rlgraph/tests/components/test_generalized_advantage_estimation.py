@@ -69,20 +69,36 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
     def gae_helper(self, baseline, reward, gamma, gae_lambda, terminals):
         # Bootstrap adjust.
         adjusted = []
-        for i, val in enumerate(baseline.tolist()):
+        deltas = []
+        start_index = 0
+        i = 0
+        for val in baseline.tolist():
             adjusted.append(val)
 
-            # Append 0 as next val.
             if np.all(terminals[i]):
+                # Compute deltas for this subsequence.
+                # Cannot do this all at once because we would need the correct offsets for each sub-sequence.
                 adjusted.append(0)
+                terminal_corrected_baseline = np.asarray(adjusted)
+
+                # +1 because we want to include i-th value.
+                delta = reward[start_index:i + 1] + gamma * terminal_corrected_baseline[1:] -\
+                        terminal_corrected_baseline[:-1]
+                deltas.extend(delta)
+                adjusted = []
+                start_index = i + 1
+            i += 1
 
         # If terminal, we already appended.
         if not np.all(terminals[-1]):
             # Append last value.
             adjusted.append(baseline[-1])
+            terminal_corrected_baseline = np.asarray(adjusted)
+            delta = reward[start_index:i + 1] + gamma * terminal_corrected_baseline[1:] - \
+                    terminal_corrected_baseline[:-1]
+            deltas.extend(delta)
 
-        terminal_corrected_baseline = np.asarray(adjusted)
-        deltas = reward + gamma * terminal_corrected_baseline[1:] - terminal_corrected_baseline[:-1]
+        deltas = np.asarray(deltas)
         return np.asarray(self.discount_all(deltas, gamma * gae_lambda, terminals))
 
     def test_single_non_terminal_sequence(self):
