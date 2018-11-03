@@ -222,6 +222,13 @@ class SequenceHelper(Component):
             values = tf.Print(values, [values, tf.shape(values)], summarize=100, message="values =")
 
             def insert_body(index, write_index, length, prev_v, decayed_values):
+                # Decay is based on length, so val = decay^length
+                decay_val = tf.pow(x=decay, y=tf.cast(length, dtype=tf.float32))
+                accum_v = prev_v + values[index] * decay_val
+
+                # Write decayed val into array.
+                decayed_values = decayed_values.write(write_index, accum_v)
+
                 # Reset length to 0 if terminal encountered.
                 # NOTE: We cannot prev_v to 0.0 because values[index] might have a more complex shape,
                 # so this violates shape checks.
@@ -230,13 +237,6 @@ class SequenceHelper(Component):
                     true_fn=lambda: (0, tf.zeros_like(prev_v)),
                     false_fn=lambda: (length, prev_v)
                 )
-
-                # Decay is based on length, so val = decay^length
-                decay_val = tf.pow(x=decay, y=tf.cast(length, dtype=tf.float32))
-                accum_v = prev_v + values[index] * decay_val
-
-                # Write decayed val into array.
-                decayed_values = decayed_values.write(write_index, accum_v)
 
                 # Increase write-index and length of sub-sequence, decrease loop index in reverse iteration.
                 return index - 1, write_index + 1, length + 1, accum_v, decayed_values
@@ -262,16 +262,16 @@ class SequenceHelper(Component):
             length = 0
             prev_v = 0
             for v in reversed(values.data):
+                # Accumulate prior value.
+                accum_v = prev_v + v * pow(decay, length)
+                discounted.append(accum_v)
+                prev_v = accum_v
+
                 # Arrived at new sequence, start over.
                 # TODO what torch format we get here.
                 if sequence_indices[i] == 1:
                     length = 0
                     prev_v = 0
-
-                # Accumulate prior value.
-                accum_v = prev_v + v * pow(decay, length)
-                discounted.append(accum_v)
-                prev_v = accum_v
 
                 # Increase length of current sub-sequence.
                 length += 1
@@ -305,7 +305,7 @@ class SequenceHelper(Component):
             zero_value = tf.zeros_like(tensor=bootstrap_value, dtype=tf.float32)
 
             deltas = tf.TensorArray(dtype=tf.float32, infer_shape=False,
-                                    size=1, dynamic_size=True, clear_after_read=False)
+                                    size=1, dynamic_size=True, clear_after_read=False, name="bootstrap-deltas")
 
             def write(index, write_index, deltas, start_index, value):
                 # First: Concat the slice of values representing the current sequence with bootstrap value.
@@ -317,9 +317,12 @@ class SequenceHelper(Component):
                 # Compute deltas for this sequence.
                 sequence_deltas = rewards[start_index:index + 1] + discount * adjusted_v[1:] - adjusted_v[:-1]
 
-                sequence_deltas = tf.Print(sequence_deltas, [sequence_deltas], summarize=100, message="sequence_deltas")
+                sequence_deltas = tf.Print(sequence_deltas, [sequence_deltas, start_index, index + 1], summarize=100, message="sequence_deltas")
                 # Write delta to tensor-array.
-                deltas = deltas.write(write_index, sequence_deltas)
+                write_indices = tf.range(start=start_index, limit=index)
+                write_indices = tf.Print(write_indices, [write_indices], summarize=100, message="write_indices")
+
+                deltas = deltas.scatter(write_indices, sequence_deltas)
 
                 # Set start-index for the next sub-sequence to index + 1
                 start_index = index + 1
@@ -349,7 +352,7 @@ class SequenceHelper(Component):
             deltas, _, _ = tf.cond(pred=sequence_indices[-1],
                                    true_fn=lambda: (deltas, write_index, start_index),
                                    # Final index.
-                                    false_fn=lambda: write(index, write_index, deltas, start_index, bootstrap_value))
+                                   false_fn=lambda: write(index, write_index, deltas, start_index, bootstrap_value))
             deltas = deltas.stack()
             # Squeeze because we inserted
             return tf.squeeze(deltas)
