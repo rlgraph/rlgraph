@@ -53,7 +53,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
         prev_v = 0
         for v in reversed(values):
             # Arrived at new sequence, start over.
-            if terminal[i] == 1:
+            if np.all(terminal[i]):
                 length = 0
                 prev_v = 0
 
@@ -73,11 +73,11 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
             adjusted.append(val)
 
             # Append 0 as next val.
-            if terminals[i] == 1:
+            if np.all(terminals[i]):
                 adjusted.append(0)
 
         # If terminal, we already appended.
-        if terminals[-1] == 0:
+        if not np.all(terminals[-1]):
             # Append last value.
             adjusted.append(baseline[-1])
 
@@ -114,6 +114,40 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
 
         print("Advantage expected:", advantage_expected)
         advantage = test.test(("calc_gae_values", input_))
-        print(type(advantage))
         print("Got advantage = ", advantage)
         recursive_assert_almost_equal(advantage_expected, advantage, decimals=5)
+
+    def test_multiple_sequences(self):
+        gae = GeneralizedAdvantageEstimation(gae_lambda=self.gae_lambda, discount=self.gamma)
+
+        rewards = FloatBox(add_batch_rank=True)
+        baseline_values = FloatBox(add_batch_rank=True)
+        terminals = BoolBox(add_batch_rank=True)
+
+        input_spaces = dict(
+            rewards=rewards,
+            baseline_values=baseline_values,
+            terminals=terminals
+        )
+        # test = ComponentTest(component=gae, input_spaces=input_spaces)
+
+        rewards_ = rewards.sample(10, fill_value=0.5)
+        baseline_values_ = baseline_values.sample(10, fill_value=1.0)
+        terminals_ = [False] * 10
+        terminals_[5] = True
+        terminals_ = np.asarray(terminals_)
+
+        input_ = [baseline_values_, rewards_, terminals_]
+        advantage_expected = self.gae_helper(
+            baseline=baseline_values_,
+            reward=rewards_,
+            gamma=self.gamma,
+            gae_lambda=self.gae_lambda,
+            terminals=terminals_
+        )
+
+        print("Advantage expected:", advantage_expected)
+        # advantage = test.test(("calc_gae_values", input_))
+        # print(type(advantage))
+        # print("Got advantage = ", advantage)
+        # recursive_assert_almost_equal(advantage_expected, advantage, decimals=5)
