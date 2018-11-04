@@ -18,9 +18,15 @@
   [
     {
       "type": "dense",
-      "units": 20,
+      "units": 32,
       "activation": "tanh",
-      "scope": "hidden"
+      "scope": "hidden1"
+    },
+    {
+      "type": "dense",
+      "units": 32,
+      "activation": "tanh",
+      "scope": "hidden2"
     }
   ],
 
@@ -39,13 +45,12 @@
 
   "update_spec": {
     "do_updates": true,
-    "update_interval": 4,
-    "batch_size": 16,
-    "sync_interval": 32
+    "update_interval": 32,
+    "batch_size": 32
   },
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.02
+    "learning_rate": 0.001
   }
 }
