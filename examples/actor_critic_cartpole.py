@@ -14,15 +14,15 @@
 # ==============================================================================
 
 """
-Example script for training a DQN agent on an OpenAI gym environment.
+Example script for training an actor-critic policy gradient agent on an OpenAI gym environment.
 
 Usage:
 
-python dqn_cartpole.py [--config configs/dqn_cartpole.json] [--env CartPole-v0]
+python actor_critic_cartpole.py [--config configs/actor_critic_cartpole.json] [--env CartPole-v0]
 
 ```
 # Run script
-python dqn_cartpole.py
+python actor_critic_cartpole.py
 ```
 """
 
@@ -41,7 +41,7 @@ from rlgraph.execution import SingleThreadedWorker
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('config', './configs/dqn_cartpole.json', 'Agent config file.')
+flags.DEFINE_string('config', './configs/actor_critic_cartpole.json', 'Agent config file.')
 flags.DEFINE_string('env', 'CartPole-v0', 'gym environment ID.')
 
 
@@ -78,8 +78,12 @@ def main(argv):
     worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, render=False, worker_executes_preprocessing=False,
                                   episode_finish_callback=episode_finished_callback)
     print("Starting workload, this will take some time for the agents to build.")
-    results = worker.execute_episodes(200, use_exploration=True)
 
+    # Use exploration is true for training, false for evaluation.
+    worker.execute_timesteps(10000, use_exploration=True)
+
+    # Note: A basic actor critic is very sensitive to hyper-parameters and might collapse after reaching the maximum
+    # reward. In practice, it would be recommended to stop training when a reward threshold is reached.
     print("Mean reward: {:.2f} / over the last 10 episodes: {:.2f}".format(
         np.mean(rewards), np.mean(rewards[-10:])
     ))
