@@ -126,6 +126,7 @@ class ActorCriticLossFunction(LossFunction):
                 rewards = tf.where(rewards < 0.0, 0.3 * squeezed, squeezed) * 5.0
 
             # # Let the gae-helper function calculate the pg-advantages.
+            baseline_values = tf.squeeze(input=baseline_values, axis=-1)
             pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals)
             cross_entropy = tf.expand_dims(tf.nn.sparse_softmax_cross_entropy_with_logits(
                 labels=actions, logits=logits_actions_pi

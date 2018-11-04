@@ -301,12 +301,14 @@ class SequenceHelper(Component):
             Sequence of deltas.
         """
         if get_backend() == "tf":
-            num_values = tf.shape(values)[0]
+            num_values = tf.shape(input=values)[0]
             bootstrap_value = values[-1]
             # Cannot use 0.0 because unknown shape.
             zero_value = tf.zeros_like(tensor=bootstrap_value, dtype=tf.float32)
             deltas = tf.TensorArray(dtype=tf.float32, infer_shape=False,
                                     size=num_values, dynamic_size=False, clear_after_read=False, name="bootstrap-deltas")
+            # values = tf.Print(values, [tf.shape(values)], summarize=1000, message="value shape=")
+            # sequence_indices = tf.Print(sequence_indices, [tf.shape(sequence_indices)], summarize=1000, message="indices shape=")
             sequence_indices = tf.cast(sequence_indices, dtype=tf.int32)
 
             def write(index, deltas, start_index, value):
@@ -323,6 +325,9 @@ class SequenceHelper(Component):
                 write_indices = tf.range(start=start_index, limit=index + 1)
                 # write_indices = tf.Print(write_indices, [start_index, index + 1],
                 # summarize=1000, message="writing delta to indices")
+                # sequence_deltas = tf.Print(sequence_deltas, [tf.shape(sequence_deltas), index],
+                #                            summarize=1000, message="delta shape | current index =")
+
                 deltas = deltas.scatter(write_indices, sequence_deltas)
 
                 start_index = index + 1
