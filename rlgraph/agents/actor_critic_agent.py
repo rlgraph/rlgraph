@@ -44,6 +44,8 @@ class ActorCriticAgent(Agent):
         super(ActorCriticAgent, self).__init__(
             action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "actor-critic-agent"), **kwargs
         )
+        # Use a stochastic policy.
+        self.policy.max_likelihood = False
 
         # Extend input Space definitions to this Agent's specific API-methods.
         preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()
@@ -119,7 +121,7 @@ class ActorCriticAgent(Agent):
         # Learn from memory.
         @rlgraph_api(component=self.root_component)
         def update_from_memory(self_):
-            records = memory.get_records(self.update_spec["batch_size"])
+            records = memory.get_episodes(self.update_spec["batch_size"])
             preprocessed_s, actions, rewards, terminals = splitter.split(records)
 
             step_op, loss, loss_per_item = self_.update_from_external_batch(
