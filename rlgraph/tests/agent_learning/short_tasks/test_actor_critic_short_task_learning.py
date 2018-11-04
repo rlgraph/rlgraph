@@ -42,13 +42,9 @@ class TestActorCriticShortTaskLearning(unittest.TestCase):
             config_from_path("configs/actor_critic_agent_for_cartpole.json"),
             state_space=env.state_space,
             action_space=env.action_space,
-            observe_spec=dict(buffer_size=200),
-            execution_spec=dict(seed=15),
-            update_spec=dict(update_interval=4, batch_size=24),
-            optimizer_spec=dict(type="adam", learning_rate=0.05)
         )
 
-        time_steps = 3000
+        time_steps = 10000
         worker = SingleThreadedWorker(
             env_spec=lambda: OpenAIGymEnv("CartPole-v0", seed=15),
             agent=agent,
