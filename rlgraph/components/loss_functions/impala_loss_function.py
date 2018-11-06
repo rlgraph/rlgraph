@@ -148,6 +148,7 @@ class IMPALALossFunction(LossFunction):
             # (already multiplied by rho_t_pg): A = rho_t_pg * (rt + gamma*vt - V(t)).
             # Both vs and pg_advantages will block the gradient as they should be treated as constants by the gradient
             # calculator of this loss func.
+            rewards = tf.expand_dims(rewards, axis=-1)
             vs, pg_advantages = self.v_trace_function.calc_v_trace_values(
                 logits_actions_pi, tf.log(action_probs_mu), actions, actions_flat, discounts, rewards, values,
                 bootstrapped_values
@@ -175,7 +176,7 @@ class IMPALALossFunction(LossFunction):
             # The entropy regularizer term.
             policy = tf.nn.softmax(logits=logits_actions_pi)
             log_policy = tf.nn.log_softmax(logits=logits_actions_pi)
-            loss_entropy = tf.reduce_sum(-policy * log_policy, axis=-1)
+            loss_entropy = tf.reduce_sum(-policy * log_policy, axis=-1, keepdims=True)
             loss_entropy = -tf.reduce_sum(loss_entropy, axis=0)  # reduce over the time-rank
             loss += self.weight_entropy * loss_entropy
 

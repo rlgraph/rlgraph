@@ -51,7 +51,9 @@ class TestIMPALAAgentShortTaskLearning(unittest.TestCase):
         # Setup the queue runner.
         agent.call_api_method("setup_queue_runner")
         for _ in range(learn_updates):
-            agent.update()
+            ret = agent.update()
+            print("Loss: {}".format(float(ret[1])))
+            #print("Records: {}".format(float(ret[3])))
 
         #print("STATES:\n{}".format(agent.last_q_table["states"]))
         #print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))

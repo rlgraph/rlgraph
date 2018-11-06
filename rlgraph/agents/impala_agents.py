@@ -243,7 +243,8 @@ class IMPALAAgent(Agent):
             # Merge back to insert into FIFO.
             self.fifo_input_merger = DictMerger(*self.fifo_queue_keys)
 
-            dummy_flattener = ReShape(flatten=True)  # Dummy Flattener to calculate action-probs space.
+            # Dummy Flattener to calculate action-probs space.
+            dummy_flattener = ReShape(flatten=True, flatten_categories=self.action_space.num_categories)
             self.environment_stepper = EnvironmentStepper(
                 environment_spec=environment_spec,
                 actor_component_spec=ActorComponent(self.preprocessor, self.policy, self.exploration),
@@ -490,7 +491,7 @@ class IMPALAAgent(Agent):
             if self.has_gpu:
                 return self.graph_executor.execute("update_from_memory")
             else:
-                return self.graph_executor.execute(("update_from_memory", None, ([0, 2, 3])))
+                return self.graph_executor.execute(("update_from_memory", None, ([0, 2, 3, 4])))
         else:
             raise RLGraphError("Cannot call update-from-batch on an IMPALA Agent.")
 
@@ -591,7 +592,8 @@ class SingleIMPALAAgent(IMPALAAgent):
         # Merge back to insert into FIFO.
         self.fifo_input_merger = DictMerger(*self.fifo_queue_keys)
 
-        dummy_flattener = ReShape(flatten=True)  # dummy Flattener to calculate action-probs space
+        # Dummy Flattener to calculate action-probs space.
+        dummy_flattener = ReShape(flatten=True, flatten_categories=self.action_space.num_categories)
 
         self.environment_steppers = list()
         for i in range(self.num_actors):
@@ -758,7 +760,7 @@ class SingleIMPALAAgent(IMPALAAgent):
 
             # Return optimizer op and all loss values.
             # TODO: Make it possible to return None from API-method without messing with the meta-graph.
-            return step_op, (stage_op if stage_op else step_op), loss, loss_per_item
+            return step_op, (stage_op if stage_op else step_op), loss, loss_per_item, records
 
     def __repr__(self):
         return "SingleIMPALAAgent()"

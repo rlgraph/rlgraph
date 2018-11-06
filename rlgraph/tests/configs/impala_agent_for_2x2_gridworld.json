@@ -3,7 +3,7 @@
 
   "fifo_queue_spec":
   {
-    "capacity": 100
+    "capacity": 1
   },
 
   "environment_spec":
