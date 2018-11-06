@@ -147,8 +147,8 @@ class EnvironmentStepper(Component):
             class_=Environment,
             spec=environment_spec,
             output_spaces=dict(
-                step_for_env_stepper=self.state_space_env_list + [self.reward_space, bool],
-                reset_for_env_stepper=self.state_space_env_list
+                step_flow=self.state_space_env_list + [self.reward_space, bool],
+                reset_flow=self.state_space_env_list
             ),
             shutdown_method="terminate"
         )
@@ -217,7 +217,7 @@ class EnvironmentStepper(Component):
             SingleDataOp: The assign op that stores the state after the Env reset in `last_state` variable.
         """
         if get_backend() == "tf":
-            state_after_reset = self.environment_server.reset_for_env_stepper()
+            state_after_reset = self.environment_server.reset_flow()
             # Reset current state (support ContainerSpaces as well) via our variable(s)' initializer.
             assigns = [self.assign_variable(var, s) for var, s in zip(
                     self.current_state.values(), force_tuple(state_after_reset)
@@ -285,7 +285,7 @@ class EnvironmentStepper(Component):
                 a_no_extra_ranks = a[0, 0] if self.has_rnn is True else a[0]
                 # Step through the Env and collect next state (tuple!), reward and terminal as single values
                 # (not batched).
-                out = self.environment_server.step_for_env_stepper(a_no_extra_ranks)
+                out = self.environment_server.step_flow(a_no_extra_ranks)
                 s_, r, t_ = out[:-2], out[-2], out[-1]
                 r = tf.cast(r, dtype="float32")
 

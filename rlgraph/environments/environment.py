@@ -63,9 +63,19 @@ class Environment(Specifiable):
         Resets the state of the environment, returning an initial observation.
 
         Returns:
-            tuple: The Env's state after the reset.
+            The Env's state after the reset.
         """
         raise NotImplementedError
+
+    def reset_flow(self):
+        """
+        A special implementation of `reset` in which the state after the reset is returned as a tuple of flat
+        state-component iff a Dict state is given.
+
+        Returns:
+            The Env's state (flat components if Dict) after the reset.
+        """
+        pass  # optional
 
     def step(self, **kwargs):
         """
@@ -84,6 +94,26 @@ class Environment(Specifiable):
                 - Some Environment specific info.
         """
         raise NotImplementedError
+
+    def step_flow(self, **kwargs):
+        """
+        A special implementation of `step` in which `reset` is called automatically if a terminal is encountered, such
+        that only a sequence of `step_flow` is needed in any loop. Always returns the next state or - if terminal -
+        the first state after the reset (and then the last reward before the reset and True for terminal).
+        Also, if a Dict state is given, will flatten it into its single components.
+
+        Args:
+            kwargs (any): The action(s) to be executed by the environment. Actions have to be members of this
+                Environment's action_space (a call to self.action_space.contains(action) must return True)
+
+        Returns:
+            tuple:
+                - The state s' after(!) executing the given actions(s) or after a reset if the action lead to a terminal
+                    state.
+                - The reward received after taking a in s.
+                - Whether s' is a terminal state.
+        """
+        pass  # optional
 
     def render(self):
         """

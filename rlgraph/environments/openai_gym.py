@@ -148,7 +148,7 @@ class OpenAIGymEnv(Environment):
                     state = self.gym_env.reset()
         return state
 
-    def reset_for_env_stepper(self):
+    def reset_flow(self):
         return self.reset()
 
     def terminate(self):
@@ -193,7 +193,7 @@ class OpenAIGymEnv(Environment):
             self.lives = lives
         return state, np.asarray(reward, dtype=np.float32), terminal, info
 
-    def step_for_env_stepper(self, actions):
+    def step_flow(self, actions):
         ret = self.step(actions)
         return ret[0], ret[1], ret[2]
 
