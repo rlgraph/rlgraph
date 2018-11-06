@@ -54,7 +54,7 @@ class ActorCriticLossFunction(LossFunction):
             weight_entropy (float): The coefficient used for the entropy regularization term (L[E]).
                 In the paper, values between 0.01 and 0.00005 are used via log-uniform search.
         """
-        super(ActorCriticLossFunction, self).__init__(scope=kwargs.pop("scope", "impala-loss-func"), **kwargs)
+        super(ActorCriticLossFunction, self).__init__(scope=kwargs.pop("scope", "actor-critic-loss-func"), **kwargs)
 
         self.discount = discount
 
@@ -88,14 +88,14 @@ class ActorCriticLossFunction(LossFunction):
         Returns:
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
-        loss_per_item = self._graph_fn_loss_per_item(
+        loss_per_item = self.loss_per_item(
             logits_actions_pi, action_probs_mu, values, actions, rewards, terminals
         )
-        total_loss = self._graph_fn_loss_average(loss_per_item)
+        total_loss = self.loss_average(loss_per_item)
 
         return total_loss, loss_per_item
 
-    @graph_fn
+    @rlgraph_api
     def _graph_fn_loss_per_item(self, logits_actions_pi, action_probs_mu, baseline_values, actions,
                                 rewards, terminals):
         """
@@ -126,7 +126,8 @@ class ActorCriticLossFunction(LossFunction):
                 rewards = tf.where(rewards < 0.0, 0.3 * squeezed, squeezed) * 5.0
 
             # # Let the gae-helper function calculate the pg-advantages.
-            pg_advantages = self.gae_function.calc_gae_values(rewards, terminals)
+            baseline_values = tf.squeeze(input=baseline_values, axis=-1)
+            pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals)
             cross_entropy = tf.expand_dims(tf.nn.sparse_softmax_cross_entropy_with_logits(
                 labels=actions, logits=logits_actions_pi
             ), axis=-1)
@@ -142,7 +143,7 @@ class ActorCriticLossFunction(LossFunction):
                 loss = self.weight_pg * loss
 
             # The value-function baseline loss.
-            loss_baseline = 0.5 * tf.square(x=tf.subtract(baseline_values - v_targets))
+            loss_baseline = 0.5 * tf.square(x=baseline_values - v_targets)
             loss += self.weight_baseline * loss_baseline
 
             # The entropy regularizer term.

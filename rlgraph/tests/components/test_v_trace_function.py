@@ -23,7 +23,7 @@ import unittest
 from rlgraph.components.helpers.v_trace_function import VTraceFunction
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
-from rlgraph.utils.numpy import one_hot, softmax
+from rlgraph.utils.numpy import one_hot
 
 
 class TestVTraceFunctions(unittest.TestCase):

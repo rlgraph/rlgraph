@@ -39,13 +39,13 @@ class ActorCriticAgent(Agent):
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
             a ring-buffer.
         """
-
         # Use baseline adapter to have critic.
         action_adapter_spec = kwargs.pop("action_adapter_spec", dict(type="baseline-action-adapter"))
-
         super(ActorCriticAgent, self).__init__(
             action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "actor-critic-agent"), **kwargs
         )
+        # Use a stochastic policy.
+        self.policy.max_likelihood = False
 
         # Extend input Space definitions to this Agent's specific API-methods.
         preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()
@@ -74,7 +74,7 @@ class ActorCriticAgent(Agent):
 
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
-                        self.exploration, self.loss_function, self.optimizer]
+                          self.exploration, self.loss_function, self.optimizer]
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
@@ -118,22 +118,10 @@ class ActorCriticAgent(Agent):
             records = merger.merge(preprocessed_states, actions, rewards, terminals)
             return memory.insert_records(records)
 
-        # Syncing target-net.
-        @rlgraph_api(component=self.root_component)
-        def sync_target_qnet(self):
-            # If we are a multi-GPU root:
-            # Simply feeds everything into the multi-GPU sync optimizer's method and return.
-            if "multi-gpu-sync-optimizer" in self.sub_components:
-                multi_gpu_syncer = self.sub_components["multi-gpu-sync-optimizer"]
-                return multi_gpu_syncer.sync_target_qnets()
-            else:
-                policy_vars = self.get_sub_component_by_name(policy_scope)._variables()
-                return self.get_sub_component_by_name("target-policy").sync(policy_vars)
-
         # Learn from memory.
         @rlgraph_api(component=self.root_component)
         def update_from_memory(self_):
-            records = memory.get_records(self.update_spec["batch_size"])
+            records = memory.get_episodes(self.update_spec["batch_size"])
             preprocessed_s, actions, rewards, terminals = splitter.split(records)
 
             step_op, loss, loss_per_item = self_.update_from_external_batch(
@@ -160,9 +148,9 @@ class ActorCriticAgent(Agent):
                     step_op, main_policy_vars
                 )
                 return step_and_sync_op, loss, loss_per_item
-
+            out = policy.get_state_values_logits_probabilities_log_probs(preprocessed_states)
             loss, loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
-                #logits_actions_pi, action_probs_mu, baseline_values, actions, rewards, terminals
+                out["logits"], out["probabilities"], out["state_values"], actions, rewards, terminals
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
@@ -222,30 +210,18 @@ class ActorCriticAgent(Agent):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
     def update(self, batch=None):
-        # Should we sync the target net?
-        self.steps_since_target_net_sync += self.update_spec["update_interval"]
-        if self.steps_since_target_net_sync >= self.update_spec["sync_interval"]:
-            sync_call = "sync_target_qnet"
-            self.steps_since_target_net_sync = 0
-        else:
-            sync_call = None
 
         # [0]=no-op step; [1]=the loss; [2]=loss-per-item, [3]=memory-batch (if pulled)
         return_ops = [0, 1, 2]
-        q_table = None
-
         if batch is None:
-            ret = self.graph_executor.execute(("update_from_memory", None, return_ops), sync_call)
+            ret = self.graph_executor.execute(("update_from_memory", None, return_ops))
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
                 ret = ret["update_from_memory"]
-
         else:
-
-            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
-                           batch["next_states"], batch["importance_weights"]]
-            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops), sync_call)
+            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"]]
+            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):

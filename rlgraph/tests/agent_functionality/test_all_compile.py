@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 
 from rlgraph import get_backend
-from rlgraph.agents import DQNAgent, ApexAgent, IMPALAAgent
+from rlgraph.agents import DQNAgent, ApexAgent, IMPALAAgent, ActorCriticAgent
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.spaces import FloatBox, Tuple
 from rlgraph.tests.test_util import config_from_path
@@ -60,6 +60,18 @@ class TestAllCompile(unittest.TestCase):
             action_space=environment.action_space
         )
         print('Compiled apex agent')
+
+    def test_actor_critic_compilation(self):
+        """
+        Tests Policy gradient agent compilation.
+        """
+        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
+        agent_config = config_from_path("configs/actor_critic_agent_for_pong.json")
+        agent = ActorCriticAgent.from_spec(
+            agent_config,
+            state_space=env.state_space,
+            action_space=env.action_space
+        )
 
     def test_impala_actor_compilation(self):
         """

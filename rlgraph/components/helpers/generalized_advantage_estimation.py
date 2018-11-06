@@ -17,13 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph import get_backend
 from rlgraph.components import Component
 from rlgraph.components.helpers import SequenceHelper
 from rlgraph.utils.decorators import rlgraph_api
-
-if get_backend() == "tf":
-    import trfl
 
 
 class GeneralizedAdvantageEstimation(Component):
@@ -44,33 +40,27 @@ class GeneralizedAdvantageEstimation(Component):
         super(GeneralizedAdvantageEstimation, self).__init__(device=device, scope=scope, **kwargs)
         self.gae_lambda = gae_lambda
         self.discount = discount
-
         self.sequence_helper = SequenceHelper()
         self.add_components(self.sequence_helper)
 
     @rlgraph_api(must_be_complete=False)
-    def _graph_fn_calc_gae_values(self, rewards, terminals):
+    def _graph_fn_calc_gae_values(self, baseline_values, rewards, terminals):
         """
         Returns advantage values based on GAE.
 
         Args:
+            baseline_values (DataOp): Baseline predictions V(s).
             rewards (DataOp): Rewards in sample trajectory.
-            terminals (DataOp): Termnials in sample trajectory.
+            terminals (DataOp): Terminals in sample trajectory.
 
         Returns:
             PG-advantage values used for training via policy gradient with baseline.
         """
-        if get_backend() == "tf":
-            gae_discount = self.gae_lambda * self.discount
-            sequence_lengths = self.sequence_helper.calc_sequence_lengths(terminals)
+        gae_discount = self.gae_lambda * self.discount
 
-            # Use TRFL utilities to compute discount.
-            advantages = trfl.sequence_ops.scan_discounted_sum(
-                sequence=terminals,
-                decay=gae_discount,
-                initial_value=rewards,
-                sequence_lengths=sequence_lengths,
-                backprop=False
-            )
+        # Next, we need to set the next value after the end of each sub-sequence to 0/its prior value
+        # depending on terminal, then compute deltas = r + y * v[1:] - v[:-1]
+        deltas = self.sequence_helper.bootstrap_values(rewards, baseline_values, terminals, self.discount)
 
-            return advantages
+        # Apply gae discount to each sub-sequence.
+        return self.sequence_helper.reverse_apply_decays_to_sequence(deltas, terminals, gae_discount)
