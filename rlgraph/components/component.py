@@ -75,9 +75,6 @@ class Component(Specifiable):
             device (str): Device this component will be assigned to. If None, defaults to CPU.
             trainable (Optional[bool]): Whether to make the variables of this Component always trainable or not.
                 Use None for no specific preference.
-            #global_component (bool): In distributed mode, this flag indicates if the component is part of the
-            #    shared global model or local to the worker. Defaults to False and will be ignored if set to
-            #    True in non-distributed mode.
 
             # TODO: remove when we have numpy-based Components (then we can do test calls to infer everything automatically)
             graph_fn_num_outputs (dict): A dict specifying which graph_fns have how many return values.
@@ -85,8 +82,12 @@ class Component(Specifiable):
                 utility function cannot determine the actual number of returned values.
 
             switched_off_apis (Optional[Set[str]]): Set of API-method names that should NOT be build for this Component.
+            
             backend (str): The custom backend that this Component obliges to. None to use the RLGraph global backend.
                 Default: None.
+            
+            space_agnostic (bool): Whether this component does not care about input spaces (e.g. if it does not
+                create any space-dependent variables). Default: False.
         """
         super(Component, self).__init__()
 
@@ -110,6 +111,7 @@ class Component(Specifiable):
         self.graph_fn_num_outputs = kwargs.pop("graph_fn_num_outputs", dict())
         self.switched_off_apis = kwargs.pop("switched_off_apis", set())
         self.backend = kwargs.pop("backend", None)
+        self.space_agnostic = kwargs.pop("space_agnostic", None)
 
         assert not kwargs, "ERROR: kwargs ({}) still contains items!".format(kwargs)
 
