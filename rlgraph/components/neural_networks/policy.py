@@ -59,7 +59,7 @@ class Policy(Component):
                 Note that only one of `batch_apply` or `batch_apply_action_adapter` may be True.
                 Default: False.
 
-            batch_apply_action_adapter (bool): Whether to wrap the ActionAdapter with a BatchApply Component in
+            batch_apply_action_adapter (bool): Whether to wrap only the ActionAdapter with a BatchApply Component in
                 order to fold time rank into batch rank before a forward pass.
                 Note that only one of `batch_apply` or `batch_apply_action_adapter` may be True.
                 Default: False.
@@ -71,9 +71,12 @@ class Policy(Component):
         assert self.batch_apply is False or self.batch_apply_action_adapter is False,\
             "ERROR: Either one of `batch_apply` or `batch_apply_action_adapter` must be False!"
 
-        self.neural_network = NeuralNetwork.from_spec(network_spec)  # type: NeuralNetwork
+        # Do manual folding and unfolding as not to have to wrap too many components into a BatchApply.
         if self.batch_apply is True:
-            pass  # TODO
+            self.folder = ReShape(fold_time_rank=True)
+            self.unfolder = ReShape(unfold_time_rank=True)
+
+        self.neural_network = NeuralNetwork.from_spec(network_spec)  # type: NeuralNetwork
 
         if action_space is None:
             self.action_adapter = ActionAdapter.from_spec(
@@ -113,7 +116,7 @@ class Policy(Component):
 
             @rlgraph_api(component=self)
             def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
-                nn_output = self.neural_network.apply(nn_input, internal_states)
+                nn_output = self.get_nn_output(nn_input, internal_states)
                 last_internal_states = nn_output.get("last_internal_states")
                 nn_output = nn_output["output"]
 
@@ -134,6 +137,12 @@ class Policy(Component):
                 logits = out["logits"]
                 probs = out["probabilities"]
                 log_probs = out["log_probs"]
+
+                if self.batch_apply is True:
+                    state_values = self.unfolder.apply(state_values, nn_input)
+                    logits = self.unfolder.apply(logits, nn_input)
+                    probs = self.unfolder.apply(probs, nn_input)
+                    log_probs = self.unfolder.apply(log_probs, nn_input)
 
                 return dict(state_values=state_values, logits=logits, probabilities=probs, log_probs=log_probs,
                             last_internal_states=last_internal_states)
@@ -161,6 +170,9 @@ class Policy(Component):
         Returns:
             any: The raw output of the neural network (before it's cleaned-up and passed through the ActionAdapter).
         """
+        if self.batch_apply is True:
+            nn_input = self.folder.apply(nn_input)
+
         out = self.neural_network.apply(nn_input, internal_states)
         return dict(output=out["output"], last_internal_states=out.get("last_internal_states"))
 
@@ -190,6 +202,10 @@ class Policy(Component):
             action = self._graph_fn_get_max_likelihood_action_wo_distribution(out["logits"])
         else:
             action = self.distribution.draw(out["probabilities"], max_likelihood)
+
+        if self.batch_apply is True:
+            action = self.unfolder.apply(action, nn_input)
+
         return dict(action=action, last_internal_states=nn_output["last_internal_states"])
 
     @rlgraph_api
@@ -209,6 +225,9 @@ class Policy(Component):
         else:
             action = self.distribution.sample_deterministic(out["probabilities"])
 
+        if self.batch_apply is True:
+            action = self.unfolder.apply(action, nn_input)
+
         return dict(action=action, last_internal_states=out["last_internal_states"])
 
     @rlgraph_api
@@ -223,6 +242,10 @@ class Policy(Component):
         """
         out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
         action = self.distribution.sample_stochastic(out["probabilities"])
+
+        if self.batch_apply is True:
+            action = self.unfolder.apply(action, nn_input)
+
         return dict(action=action, last_internal_states=out["last_internal_states"])
 
     @rlgraph_api
@@ -256,8 +279,16 @@ class Policy(Component):
         """
         nn_output = self.get_nn_output(nn_input, internal_states)
         aa_output = self.action_adapter.get_logits_probabilities_log_probs(nn_output["output"])
+
+        logits, probabilities, log_probs = aa_output["logits"], aa_output["probabilities"], aa_output["log_probs"]
+
+        if self.batch_apply is True:
+            logits = self.unfolder.apply(logits, nn_input)
+            probabilities = self.unfolder.apply(probabilities, nn_input)
+            log_probs = self.unfolder.apply(log_probs, nn_input)
+
         return dict(
-            logits=aa_output["logits"], probabilities=aa_output["probabilities"], log_probs=aa_output["log_probs"],
+            logits=logits, probabilities=probabilities, log_probs=log_probs,
             last_internal_states=nn_output["last_internal_states"]
         )
 
@@ -273,6 +304,10 @@ class Policy(Component):
         """
         out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
         entropy = self.distribution.entropy(out["probabilities"])
+
+        if self.batch_apply is True:
+            entropy = self.unfolder.apply(entropy, nn_input)
+
         return dict(entropy=entropy, last_internal_states=out["last_internal_states"])
 
     @graph_fn
