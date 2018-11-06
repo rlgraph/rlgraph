@@ -865,8 +865,8 @@ class GraphBuilder(Specifiable):
                             if component.api_method_inputs[param_name] is None or \
                                     component.api_method_inputs[param_name] == "flex":
                                 component.api_method_inputs[param_name] = next_op_rec.space
-                            # Sanity check, whether Spaces are equivalent.
-                            else:
+                            # For non-space agnostic Components: Sanity check, whether Spaces are equivalent.
+                            elif component.space_agnostic is False:
                                 generic_space = check_space_equivalence(
                                     component.api_method_inputs[param_name], next_op_rec.space
                                 )
@@ -878,9 +878,7 @@ class GraphBuilder(Specifiable):
                                                        component.api_method_inputs[param_name])
                                     )
                                 # Overwrite both entries with the more generic Space.
-                                else:
-                                    next_op_rec.space = component.api_method_inputs[param_name] = \
-                                        generic_space
+                                next_op_rec.space = component.api_method_inputs[param_name] = generic_space
 
                         # Did we enter a new Component? If yes, check input-completeness and
                         # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
