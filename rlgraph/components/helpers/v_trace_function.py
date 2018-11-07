@@ -17,9 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.components import Component
 from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.numpy import softmax
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -46,18 +49,19 @@ class VTraceFunction(Component):
             c_bar (float): The maximum values of the IS-weights for the time trace.
                 Use None for not applying any clipping.
         """
-        super(VTraceFunction, self).__init__(device=device, scope=scope, **kwargs)
+        super(VTraceFunction, self).__init__(device=device, space_agnostic=True, scope=scope, **kwargs)
 
         self.rho_bar = rho_bar
         self.rho_bar_pg = rho_bar_pg
         self.c_bar = c_bar
 
     def check_input_spaces(self, input_spaces, action_space=None):
+        pass
         # TODO: Complete all input arg checks.
         #log_is_weight_space = input_spaces["log_is_weights"]
-        discounts_space, rewards_space, values_space, bootstrap_value_space = \
-            input_spaces["discounts"], input_spaces["rewards"], \
-            input_spaces["values"], input_spaces["bootstrapped_values"]
+        #discounts_space, rewards_space, values_space, bootstrap_value_space = \
+        #    input_spaces["discounts"], input_spaces["rewards"], \
+        #    input_spaces["values"], input_spaces["bootstrapped_values"]
 
         #sanity_check_space(log_is_weight_space, must_have_batch_rank=True)
         #log_is_weight_rank = log_is_weight_space.rank
@@ -75,33 +79,87 @@ class VTraceFunction(Component):
                                       values, bootstrapped_values):
         """
         Returns the V-trace values calculated from log importance weights (see [1] for details).
-        T=time rank
-        B=batch rank
-        A=action Space
+        Calculation:
+        vs = V(xs) + SUM[t=s to s+N-1]( gamma^t-s * ( PROD[i=s to t-1](ci) ) * dt_V )
+        with:
+            dt_V = rho_t * (rt + gamma V(xt+1) - V(xt))
+            rho_t and ci being the clipped IS weights
 
         Args:
-            logits_actions_pi:
-            log_probs_actions_mu:
-            actions: action ints.
-            actions_flat: one hot actions.
-            #log_is_weights (DataOp): DataOp (time x batch x values) holding the log values of the IS
-            #    (importance sampling) weights: log(target_policy(a) / behaviour_policy(a)).
-            #    Log space is used for numerical stability (for the timesteps s=t to s=t+N-1).
-            discounts (DataOp): DataOp (time x batch x values) holding the discounts collected when stepping
+            logits_actions_pi (SingleDataOp): The raw logits output of the pi-network (one logit per discrete action).
+            log_probs_actions_mu (SingleDataOp): The log-probs of the mu-network (one log-prob per discrete action).
+            actions (SingleDataOp): The (int encoded) actually taken actions.
+            actions_flat (SingleDataOp): The one-hot converted actually taken actions.
+            discounts (SingleDataOp): DataOp (time x batch x values) holding the discounts collected when stepping
                 through the environment (for the timesteps s=t to s=t+N-1).
-            rewards (DataOp): DataOp (time x batch x values) holding the rewards collected when stepping
+            rewards (SingleDataOp): DataOp (time x batch x values) holding the rewards collected when stepping
                 through the environment (for the timesteps s=t to s=t+N-1).
-            values (DataOp): DataOp (time x batch x values) holding the the value function estimates
+            values (SingleDataOp): DataOp (time x batch x values) holding the the value function estimates
                 wrt. the learner's policy (pi) (for the timesteps s=t to s=t+N-1).
-            bootstrapped_values: DataOp (time(1) x batch x values) holding the last (bootstrapped) value estimate to use
-                as a value function estimate after n time steps (V(xs) for s=t+N).
+            bootstrapped_values (SingleDataOp): DataOp (time(1) x batch x values) holding the last (bootstrapped)
+                value estimate to use as a value function estimate after n time steps (V(xs) for s=t+N).
 
         Returns:
-            DataOpTuple:
-                v-trace values (vs) in time x batch dimensions used to train the value-function (baseline).
-                PG-advantage values in time x batch dimensions used for training via policy gradient with baseline.
+            tuple:
+                - v-trace values (vs) in time x batch dimensions used to train the value-function (baseline).
+                - PG-advantage values in time x batch dimensions used for training via policy gradient with baseline.
         """
-        if get_backend() == "tf":
+        # Simplified (not performance optimized!) numpy implementation of v-trace for testing purposes.
+        if get_backend() == "python" or self.backend == "python":
+            probs_actions_pi = softmax(logits_actions_pi, axis=-1)
+            log_probs_actions_pi = np.log(probs_actions_pi)
+
+            log_is_weights = log_probs_actions_pi - log_probs_actions_mu  # log(a/b) = log(a) - log(b)
+            log_is_weights_actions_taken = np.sum(log_is_weights * actions_flat, axis=-1, keepdims=True)
+            is_weights = np.exp(log_is_weights_actions_taken)
+
+            # rho_t = min(rho_bar, is_weights) = [1.0, 1.0], [0.67032005, 1.0], [1.0, 0.36787944]
+            if self.rho_bar is not None:
+                rho_t = np.minimum(self.rho_bar, is_weights)
+            else:
+                rho_t = is_weights
+
+            # Same for rho-PG (policy gradients).
+            if self.rho_bar_pg is not None:
+                rho_t_pg = np.minimum(self.rho_bar_pg, is_weights)
+            else:
+                rho_t_pg = is_weights
+
+            # Calculate ci terms for all timesteps:
+            # ci = min(c_bar, is_weights) = [1.0, 1.0], [0.67032005, 1.0], [1.0, 0.36787944]
+            if self.c_bar is not None:
+                c_i = np.minimum(self.c_bar, is_weights)
+            else:
+                c_i = is_weights
+
+            # Values t+1 -> shift by one time step.
+            values_t_plus_1 = np.concatenate((values[1:], bootstrapped_values), axis=0)
+            deltas = rho_t * (rewards + discounts * values_t_plus_1 - values)
+
+            # Reverse everything for recursive v_s calculation.
+            discounts_reversed = discounts[::-1]
+            c_i_reversed = c_i[::-1]
+            deltas_reversed = deltas[::-1]
+
+            vs_minus_v_xs = [np.zeros_like(np.squeeze(bootstrapped_values, axis=0))]
+
+            # Do the recursive calculations.
+            for d, c, delta in zip(discounts_reversed, c_i_reversed, deltas_reversed):
+                vs_minus_v_xs.append(delta + d * c * vs_minus_v_xs[-1])
+
+            # Convert into numpy array and revert back.
+            vs_minus_v_xs = np.array(vs_minus_v_xs[::-1])[:-1]
+
+            # Add V(x_s) to get v_s.
+            vs = vs_minus_v_xs + values
+
+            # Advantage for policy gradient.
+            vs_t_plus_1 = np.concatenate([vs[1:], bootstrapped_values], axis=0)
+            pg_advantages = (rho_t_pg * (rewards + discounts * vs_t_plus_1 - values))
+
+            return vs, pg_advantages
+
+        elif get_backend() == "tf":
             # Calculate the log IS-weight values via: logIS = log(pi(a|s)) - log(mu(a|s)).
             # Use the action_probs_pi values only of the actions actually taken.
             log_probs_actions_taken_pi = tf.expand_dims(-tf.nn.sparse_softmax_cross_entropy_with_logits(

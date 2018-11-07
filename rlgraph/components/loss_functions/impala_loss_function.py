@@ -134,7 +134,7 @@ class IMPALALossFunction(LossFunction):
             terminals = terminals[1:]
             action_probs_mu = action_probs_mu[1:]
 
-            # Discounts are simply 0.0, if there is a terminal, otherwise: `discount`.
+            # Discounts are simply 0.0, if there is a terminal, otherwise: `self.discount`.
             discounts = tf.expand_dims(tf.to_float(~terminals) * self.discount, axis=-1, name="discounts")
             # `clamp_one`: Clamp rewards between -1.0 and 1.0.
             if self.reward_clipping == "clamp_one":
