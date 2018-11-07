@@ -43,35 +43,42 @@ class TestIMPALAAgentShortTaskLearning(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space,
             execution_spec=dict(seed=12),
-            update_spec=dict(update_interval=4, batch_size=16),
-            optimizer_spec=dict(type="adam", learning_rate=0.05),
+            update_spec=dict(batch_size=16),
+            optimizer_spec=dict(type="adam", learning_rate=0.005),
         )
 
-        learn_updates = 1000
+        learn_updates = 300
         # Setup the queue runner.
         agent.call_api_method("setup_queue_runner")
-        for _ in range(learn_updates):
+        for i in range(learn_updates):
             ret = agent.update()
-            print("Loss: {}".format(float(ret[1])))
-            #print("Records: {}".format(float(ret[3])))
+            print("{}".format(i))
+            # Calculate return per episode.
+            rewards = ret[3]["rewards"][:, 1:].reshape((80,))
+            terminals = ret[3]["terminals"][:, 1:].reshape((80,))
+            returns = list()
+            return_ = 0.0
+            for r, t in zip(rewards, terminals):
+                return_ += r
+                if t:
+                    returns.append(return_)
+                    return_ = 0.0
 
-        #print("STATES:\n{}".format(agent.last_q_table["states"]))
-        #print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
+            print("\tLoss={:.2} Avg-reward={}".format(float(ret[1]), np.mean(returns)))
 
-        #self.assertEqual(results["timesteps_executed"], time_steps)
-        #self.assertEqual(results["env_frames"], time_steps)
-        #self.assertGreaterEqual(results["mean_episode_reward"], -3.5)
-        #self.assertGreaterEqual(results["max_episode_reward"], 0.0)
-        #self.assertLessEqual(results["episodes_executed"], 350)
-
-        # Check q-table for correct values.
-        expected_q_values_per_state = {
-            (1.0, 0, 0, 0): (-1, -5, 0, -1),
-            (0, 1.0, 0, 0): (-1, 1, 0, 0)
-        }
-        for state, q_values in zip(agent.last_q_table["states"], agent.last_q_table["q_values"]):
-            state, q_values = tuple(state), tuple(q_values)
-            assert state in expected_q_values_per_state, \
-                "ERROR: state '{}' not expected in q-table as it's a terminal state!".format(state)
-            recursive_assert_almost_equal(q_values, expected_q_values_per_state[state], decimals=0)
-
+        # Check the last action probs for the 2 valid next_states (start (after a reset) and one below start).
+        action_probs = ret[3]["action_probs"][:, 1:, :].reshape((80, 4))
+        next_states = ret[3]["states"][:, 1:].reshape((80,))
+        for s_, probs in zip(next_states, action_probs):
+            # Start state: Assume we picked "right" in state=1 (in order to step into goal state).
+            if s_ == 0:
+                recursive_assert_almost_equal(probs[0], 0.0, decimals=2)
+                recursive_assert_almost_equal(probs[1], 0.99, decimals=2)
+                recursive_assert_almost_equal(probs[2], 0.0, decimals=2)
+                recursive_assert_almost_equal(probs[3], 0.0, decimals=2)
+            # One below start: Assume we picked "down" in start state with very large probability.
+            elif s_ == 1:
+                recursive_assert_almost_equal(probs[0], 0.0, decimals=2)
+                recursive_assert_almost_equal(probs[1], 0.0, decimals=2)
+                recursive_assert_almost_equal(probs[2], 0.99, decimals=2)
+                recursive_assert_almost_equal(probs[3], 0.0, decimals=2)
