@@ -275,12 +275,5 @@ def parse_update_spec(update_spec):
         sync_interval=128
     )
     update_spec = default_dict(update_spec, default_spec)
-    # Assert that the synch interval is a multiple of the update_interval.
-    if update_spec["sync_interval"] / update_spec["update_interval"] != \
-        update_spec["sync_interval"] // update_spec["update_interval"]:
-        raise RLGraphError(
-            "ERROR: sync_interval ({}) must be multiple of update_interval "
-            "({})!".format(update_spec["sync_interval"], update_spec["update_interval"])
-        )
 
     return update_spec

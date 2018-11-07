@@ -23,6 +23,7 @@ from rlgraph.agents import Agent
 from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, DictMerger, \
     ContainerSplitter
 from rlgraph.spaces import FloatBox, BoolBox
+from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.util import strip_list
 
@@ -61,6 +62,14 @@ class DQNAgent(Agent):
         super(DQNAgent, self).__init__(
             action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "dqn-agent"), **kwargs
         )
+        # Assert that the synch interval is a multiple of the update_interval.
+        if self.update_spec["sync_interval"] / self.update_spec["update_interval"] != \
+                self.update_spec["sync_interval"] // self.update_spec["update_interval"]:
+            raise RLGraphError(
+                "ERROR: sync_interval ({}) must be multiple of update_interval "
+                "({})!".format(self.update_spec["sync_interval"], self.update_spec["update_interval"])
+            )
+
         self.double_q = double_q
         self.dueling_q = dueling_q
         self.huber_loss = huber_loss
