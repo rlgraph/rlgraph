@@ -1,6 +1,6 @@
 {
   "type": "actor_critic",
-
+  "sample_episodes": true,
   "discount": 0.99,
   "gae_lambda": 1.0,
 

@@ -19,6 +19,7 @@
   "execution_spec": {
     "seed": 15
   },
+  "sample_episodes": true,
 
   "network_spec":
   [
