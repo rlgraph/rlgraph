@@ -554,8 +554,6 @@ class SingleIMPALAAgent(IMPALAAgent):
         # actually call below during our build.
         if self.dynamic_batching:
             self.policy = DynamicBatchingPolicy(policy_spec=self.policy, scope="")
-        ## Manually set the reuse_variable_scope for our policies (actor: mu, learner: pi).
-        #self.policy.propagate_sub_component_properties(dict(reuse_variable_scope="shared-policy"))
 
         self.env_output_splitter = ContainerSplitter(
             tuple_length=3 if self.has_rnn is False else 4, scope="env-output-splitter"
@@ -705,7 +703,7 @@ class SingleIMPALAAgent(IMPALAAgent):
 
             # Flip everything to time-major.
             # TODO: Create components that are less input-space sensitive (those that have no variables should
-            # TODO: be reused for any kind of processing)
+            # TODO: be reused for any kind of processing: already done, use space_agnostic feature. See ReShape)
             states = transpose_states.apply(states)
             terminals = transpose_terminals.apply(terminals)
             action_probs_mu = transpose_action_probs.apply(action_probs_mu)

@@ -82,3 +82,6 @@ class TestIMPALAAgentShortTaskLearning(unittest.TestCase):
                 recursive_assert_almost_equal(probs[1], 0.0, decimals=2)
                 recursive_assert_almost_equal(probs[2], 0.99, decimals=2)
                 recursive_assert_almost_equal(probs[3], 0.0, decimals=2)
+
+        agent.terminate()
+
