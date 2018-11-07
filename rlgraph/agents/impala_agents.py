@@ -38,9 +38,6 @@ from rlgraph.components.memories.queue_runner import QueueRunner
 from rlgraph.spaces import FloatBox, Dict, Tuple
 from rlgraph.utils.util import default_dict
 
-if get_backend() == "tf":
-    import tensorflow as tf
-
 
 class IMPALAAgent(Agent):
     """
@@ -175,8 +172,10 @@ class IMPALAAgent(Agent):
             **kwargs
         )
 
+        # TODO: Get rid of this manual max_likelihood=False setting for PG algos (same in actor_critic_agent.py!).
+        self.policy.max_likelihood = False
         # Manually set the reuse_variable_scope for our policies (actor: mu, learner: pi).
-        self.policy.propagate_sub_component_properties(dict(reuse_variable_scope="shared"))
+        self.policy.propagate_sub_component_properties(dict(reuse_variable_scope="shared-policy"))
         # Always use 1st learner as the parameter server for all policy variables.
         if self.execution_spec["mode"] == "distributed" and self.execution_spec["distributed_spec"]["cluster_spec"]:
             self.policy.propagate_sub_component_properties(dict(device=dict(variables="/job:learner/task:0/cpu")))
@@ -555,8 +554,8 @@ class SingleIMPALAAgent(IMPALAAgent):
         # actually call below during our build.
         if self.dynamic_batching:
             self.policy = DynamicBatchingPolicy(policy_spec=self.policy, scope="")
-        # Manually set the reuse_variable_scope for our policies (actor: mu, learner: pi).
-        self.policy.propagate_sub_component_properties(dict(reuse_variable_scope="shared"))
+        ## Manually set the reuse_variable_scope for our policies (actor: mu, learner: pi).
+        #self.policy.propagate_sub_component_properties(dict(reuse_variable_scope="shared-policy"))
 
         self.env_output_splitter = ContainerSplitter(
             tuple_length=3 if self.has_rnn is False else 4, scope="env-output-splitter"
@@ -600,7 +599,9 @@ class SingleIMPALAAgent(IMPALAAgent):
             policy_spec = dict(
                 network_spec=self.network_spec,
                 action_adapter_spec=dict(type="baseline-action-adapter"),
-                action_space=self.action_space
+                action_space=self.action_space,
+                reuse_variable_scope="shared-policy",
+                max_likelihood=False
             )
 
             env_stepper = EnvironmentStepper(
@@ -628,8 +629,6 @@ class SingleIMPALAAgent(IMPALAAgent):
                     policy_spec=env_stepper.actor_component.policy, scope="")
                 env_stepper.actor_component.add_components(env_stepper.actor_component.policy)
 
-            env_stepper.actor_component.policy.propagate_sub_component_properties(
-                dict(reuse_variable_scope="shared"))
             self.environment_steppers.append(env_stepper)
 
         # Create the QueueRunners (one for each env-stepper).
