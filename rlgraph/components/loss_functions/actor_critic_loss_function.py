@@ -22,7 +22,7 @@ from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.components.loss_functions import LossFunction
 from rlgraph.spaces import IntBox
 from rlgraph.spaces.space_utils import sanity_check_space
-from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf

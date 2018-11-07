@@ -18,14 +18,20 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.loss_functions.loss_function import LossFunction
+from rlgraph.components.loss_functions.actor_critic_loss_function import ActorCriticLossFunction
 from rlgraph.components.loss_functions.dqn_loss_function import DQNLossFunction
 from rlgraph.components.loss_functions.dqfd_loss_function import DQFDLossFunction
+from rlgraph.components.loss_functions.impala_loss_function import IMPALALossFunction
 from rlgraph.components.loss_functions.ppo_loss_function import PPOLossFunction
 
 LossFunction.__lookup_classes__ = dict(
+    actorcriticlossfunction=ActorCriticLossFunction,
     dqnlossfunction=DQNLossFunction,
     dqfdlossfunction=DQFDLossFunction,
-    ppolossfunction=PPOLossFunction
+    impalalossfunction=IMPALALossFunction,
+    ppolossfunction=PPOLossFunction,
 )
 
-__all__ = ["LossFunction", "DQNLossFunction", "DQFDLossFunction","PPOLossFunction"]
+__all__ = ["LossFunction"] + \
+          list(set(map(lambda x: x.__name__, LossFunction.__lookup_classes__.values())))
+
