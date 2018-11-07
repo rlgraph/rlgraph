@@ -140,7 +140,11 @@ class EnvironmentStepper(Component):
         self.state_space_actor_list = list(self.state_space_actor_flattened.values())
 
         self.add_action_probs = add_action_probs
+        # TODO: Auto-infer of self.action_probs_space from action_space.
         self.action_probs_space = action_probs_space
+        if self.add_action_probs is True:
+            assert isinstance(self.action_probs_space, Space),\
+                "ERROR: If `add_action_probs` is True, must provide an `action_probs_space`!"
 
         self.environment_spec = environment_spec
         self.environment_server = SpecifiableServer(

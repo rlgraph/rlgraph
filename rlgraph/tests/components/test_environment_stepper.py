@@ -40,6 +40,10 @@ class TestEnvironmentStepper(unittest.TestCase):
     deterministic_env_action_space = IntBox(2)
     deterministic_action_probs_space = FloatBox(shape=(2,), add_batch_rank=True)
 
+    grid_world_2x2_state_space = IntBox(4)
+    grid_world_2x2_action_space = IntBox(4)
+    grid_world_2x2_action_probs_space = FloatBox(shape=(4,), add_batch_rank=True)
+
     internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True)
     internal_states_space_test_lstm = Tuple(FloatBox(shape=(3,)), FloatBox(shape=(3,)), add_batch_rank=True)
 
@@ -83,6 +87,67 @@ class TestEnvironmentStepper(unittest.TestCase):
         expected = (None, (
             np.array([False, False, True, False]),  # t_
             np.array([[3.0], [4.0], [0.0], [1.0]]),  # s' (raw)
+        ))
+        test.test("step", expected_outputs=expected)
+
+        # Make sure we close the session (to shut down the Env on the server).
+        test.terminate()
+
+    def test_environment_stepper_on_2x2_grid_world(self):
+        preprocessor_spec = [dict(
+            type="reshape", flatten=True, flatten_categories=self.grid_world_2x2_action_space.num_categories
+        )]
+        network_spec = config_from_path("configs/test_simple_nn.json")
+        # Try to find a NN that outputs greedy actions down in start state and right in state=1 (to reach goal).
+        network_spec["layers"][0]["weights_spec"] = [[0.5, -0.5], [-0.1, 0.1], [-0.2, 0.2], [-0.4, 0.2]]
+        network_spec["layers"][0]["biases_spec"] = False
+        exploration_spec = None
+        actor_component = ActorComponent(
+            preprocessor_spec,
+            dict(network_spec=network_spec, action_space=self.grid_world_2x2_action_space, max_likelihood=True),
+            exploration_spec
+        )
+        environment_stepper = EnvironmentStepper(
+            environment_spec=dict(type="grid_world", world="2x2"),
+            actor_component_spec=actor_component,
+            state_space=self.grid_world_2x2_state_space,
+            reward_space="float32",
+            add_action_probs=True,
+            action_probs_space=self.grid_world_2x2_action_probs_space,
+            num_steps=5
+        )
+
+        test = ComponentTest(
+            component=environment_stepper,
+            action_space=self.grid_world_2x2_action_space,
+        )
+
+        # Reset the stepper.
+        test.test("reset")
+
+        # Step 5 times through the Env and collect results.
+        expected = (None, (
+            np.array([True, False, True, False, True, False]),  # t_
+            np.array([0, 1, 0, 1, 0, 1]),  # s' (raw)
+            np.array([[0., 0., 0., 0.],  # action probs
+                      [0.27522963, 0.10449442, 0.33940902, 0.28086692],
+                      [0.23988727, 0.29115725, 0.23003903, 0.23891647],
+                      [0.27522963, 0.10449442, 0.33940902, 0.28086692],
+                      [0.23988727, 0.29115725, 0.23003903, 0.23891647],
+                      [0.27522963, 0.10449442, 0.33940902, 0.28086692]], dtype=np.float32)
+        ))
+        test.test("step", expected_outputs=expected, decimals=2)
+
+        # Step again, check whether stitching of states/etc.. works.
+        expected = (None, (
+            np.array([False, True, False, True, False, True]),  # t_
+            np.array([1, 0, 1, 0, 1, 0]),  # s' (raw)
+            np.array([[0., 0., 0., 0.],  # action probs
+                      [0.23988727, 0.29115725, 0.23003903, 0.23891647],
+                      [0.27522963, 0.10449442, 0.33940902, 0.28086692],
+                      [0.23988727, 0.29115725, 0.23003903, 0.23891647],
+                      [0.27522963, 0.10449442, 0.33940902, 0.28086692],
+                      [0.23988727, 0.29115725, 0.23003903, 0.23891647]], dtype=np.float32)
         ))
         test.test("step", expected_outputs=expected)
 
