@@ -796,12 +796,6 @@ class Component(Specifiable):
             component.parent_component = self
             self.sub_components[component.name] = component
 
-            # Add own reusable scope to front of sub-components'.
-            if self.reuse_variable_scope is not None:
-                # Propagate reuse_variable_scope down to the added Component's sub-components.
-                component.propagate_sub_component_properties(
-                    properties=dict(reuse_variable_scope=self.reuse_variable_scope)
-                )
             # Fix the sub-component's (and sub-sub-component's etc..) scope(s).
             self.propagate_scope(component)
 
@@ -823,6 +817,13 @@ class Component(Specifiable):
                         # Complicated way to lookup sub-component's method to avoid fixtures when original
                         # component gets copied.
                         return getattr(self.sub_components[component_name], name_)(*inputs)
+
+        # Add own reusable scope to front of all sub-components' reusable scope.
+        if self.reuse_variable_scope is not None:
+            # Propagate reuse_variable_scope down to the added Component's sub-components.
+            self.propagate_sub_component_properties(
+                properties=dict(reuse_variable_scope=self.reuse_variable_scope)
+            )
 
     def get_all_sub_components(self, list_=None, level_=0):
         """
@@ -942,7 +943,7 @@ class Component(Specifiable):
         for sc in sub_component.sub_components.values():
             sub_component.propagate_scope(sc)
 
-    def propagate_sub_component_properties(self, properties, component=None):
+    def propagate_sub_component_properties(self, properties, component=None, recursive_=False):
         """
         Recursively updates properties of component and its sub-components.
 
@@ -951,6 +952,8 @@ class Component(Specifiable):
                 sub-components with.
 
             component (Optional([Component])): Component to recursively update. Uses self if None.
+
+            recursive_ (bool): Whether this is a recursive (sub-Component) call. Default: False.
         """
         if component is None:
             component = self
@@ -959,14 +962,16 @@ class Component(Specifiable):
             # Property is some scope (value is then that scope of the parent component).
             # Have to align it with sub-component's local scope.
             if value and (name == "global_scope" or name == "reuse_variable_scope"):
-                value += (("/" + component.scope) if component.scope else "")
+                # For the parent component, do not add its scope to the shared-scope.
+                if recursive_ is True:
+                    value += (("/" + component.scope) if component.scope else "")
                 properties_scoped[name] = value
                 setattr(component, name, value)
             # Normal property: Set to static given value.
             else:
                 setattr(component, name, value)
         for sc in component.sub_components.values():
-            component.propagate_sub_component_properties(properties_scoped, sc)
+            component.propagate_sub_component_properties(properties_scoped, sc, recursive_=True)
 
     def propagate_variables(self, keys=None):
         """
