@@ -1,0 +1,45 @@
+{
+  "type": "single-impala",
+
+  "fifo_queue_spec":
+  {
+    "capacity": 1
+  },
+
+  "environment_spec":
+  {
+    "type": "open-ai-gym",
+    "gym_env": "CartPole-v0"
+  },
+
+  "worker_sample_size": 100,
+
+  "feed_previous_action_through_nn": false,
+  "feed_previous_reward_through_nn": false,
+
+  "preprocessing_spec":
+  [
+  ],
+
+  "network_spec":
+  {
+    "layers": [
+      {
+        "type": "dense",
+        "units": 10,
+        "activation": "linear",
+        "scope": "hidden-layer"
+      }
+    ],
+    "scope": "impala-net"
+  },
+
+  "exploration_spec":
+  {
+  },
+
+  "update_spec": {
+    "do_updates": true,
+    "batch_size": 16
+  }
+}
