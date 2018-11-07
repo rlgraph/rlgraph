@@ -180,4 +180,4 @@ class IMPALALossFunction(LossFunction):
             loss_entropy = -tf.reduce_sum(loss_entropy, axis=0)  # reduce over the time-rank
             loss += self.weight_entropy * loss_entropy
 
-            return loss
+            return tf.squeeze(loss, axis=-1)
