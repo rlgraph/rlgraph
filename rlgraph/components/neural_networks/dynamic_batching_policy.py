@@ -56,7 +56,7 @@ class DynamicBatchingPolicy(Component):
         # hack: link in case parent components call APIs of the distribution directly
         self.action_adapter = self.policy.action_adapter
         self.distribution = self.policy.distribution
-        self.max_likelihood = True
+        self.deterministic_policy = True
 
         # Dynamic batching options.
         self.minimum_batch_size = minimum_batch_size

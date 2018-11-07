@@ -45,7 +45,7 @@ class ActorCriticAgent(Agent):
             action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "actor-critic-agent"), **kwargs
         )
         # Use a stochastic policy.
-        self.policy.max_likelihood = False
+        self.policy.deterministic_policy = False
 
         # Extend input Space definitions to this Agent's specific API-methods.
         preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()

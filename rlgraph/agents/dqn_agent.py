@@ -61,7 +61,6 @@ class DQNAgent(Agent):
         super(DQNAgent, self).__init__(
             action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "dqn-agent"), **kwargs
         )
-
         self.double_q = double_q
         self.dueling_q = dueling_q
         self.huber_loss = huber_loss

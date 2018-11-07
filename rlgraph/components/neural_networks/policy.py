@@ -39,7 +39,7 @@ class Policy(Component):
     A Policy is a wrapper Component that contains a NeuralNetwork, an ActionAdapter and a Distribution Component.
     """
     def __init__(self, network_spec, action_space=None, action_adapter_spec=None,
-                 max_likelihood=True, scope="policy", **kwargs):
+                 deterministic_policy=True, scope="policy", **kwargs):
         """
         Args:
             network_spec (Union[NeuralNetwork,dict]): The NeuralNetwork Component or a specification dict to build
@@ -50,7 +50,7 @@ class Policy(Component):
             action_adapter_spec (Optional[dict]): A spec-dict to create an ActionAdapter. Use None for the default
                 ActionAdapter object.
 
-            max_likelihood (bool): Whether to pick actions according to the max-likelihood value or via sampling.
+            deterministic_policy (bool): Whether to pick actions according to the max-likelihood value or via sampling.
                 Default: True.
         """
         super(Policy, self).__init__(scope=scope, **kwargs)
@@ -62,7 +62,7 @@ class Policy(Component):
         else:
             self.action_adapter = ActionAdapter.from_spec(action_adapter_spec, action_space=action_space)
         self.action_space = action_space
-        self.max_likelihood = max_likelihood
+        self.deterministic_policy = deterministic_policy
 
         # TODO: Hacky trick to implement IMPALA post-LSTM256 time-rank folding and unfolding.
         # TODO: Replace entirely via sonnet-like BatchApply Component.
@@ -161,7 +161,7 @@ class Policy(Component):
         Returns:
             any: The drawn action.
         """
-        max_likelihood = self.max_likelihood if max_likelihood is None else max_likelihood
+        max_likelihood = self.deterministic_policy if max_likelihood is None else max_likelihood
 
         nn_output = self.get_nn_output(nn_input, internal_states)
 
