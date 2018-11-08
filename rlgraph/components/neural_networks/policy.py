@@ -72,9 +72,11 @@ class Policy(Component):
             "ERROR: Either one of `batch_apply` or `batch_apply_action_adapter` must be False!"
 
         # Do manual folding and unfolding as not to have to wrap too many components into a BatchApply.
+        self.folder = None
+        self.unfolder = None
         if self.batch_apply is True:
-            self.folder = ReShape(fold_time_rank=True)
-            self.unfolder = ReShape(unfold_time_rank=True)
+            self.folder = ReShape(fold_time_rank=True, scope="time-rank-folder")
+            self.unfolder = ReShape(unfold_time_rank=True, scope="time-rank-unfolder")
 
         self.neural_network = NeuralNetwork.from_spec(network_spec)  # type: NeuralNetwork
 
@@ -157,7 +159,7 @@ class Policy(Component):
             raise RLGraphError("ERROR: `action_space` is of type {} and not allowed in {} Component!".
                                format(type(action_space).__name__, self.name))
 
-        self.add_components(self.neural_network, self.action_adapter, self.distribution)
+        self.add_components(self.neural_network, self.action_adapter, self.distribution, self.folder, self.unfolder)
 
     # Define our interface.
     @rlgraph_api
