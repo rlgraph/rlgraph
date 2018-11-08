@@ -92,29 +92,8 @@ class Policy(Component):
         self.action_space = action_space
         self.max_likelihood = max_likelihood
 
-        # TODO: Hacky trick to implement IMPALA post-LSTM256 time-rank folding and unfolding.
-        # TODO: Replace entirely via sonnet-like BatchApply Component.
-        #is_impala = "IMPALANetwork" in type(self.neural_network).__name__ or "impala" in self.neural_network.name
-
         # Add API-method to get baseline output (if we use an extra value function baseline node).
         if isinstance(self.action_adapter, BaselineActionAdapter):
-            # TODO: IMPALA attempt to speed up final pass after LSTM.
-            #if is_impala:
-            #    self.time_rank_folder = ReShape(fold_time_rank=True, scope="time-rank-fold")
-            #    self.time_rank_unfolder_v = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold-v")
-            #    self.time_rank_unfolder_a_probs = ReShape(unfold_time_rank=True, time_major=True,
-            #                                              scope="time-rank-unfold-a-probs")
-            #    self.time_rank_unfolder_logits = ReShape(unfold_time_rank=True, time_major=True,
-            #                                             scope="time-rank-unfold-logits")
-            #    self.time_rank_unfolder_log_probs = ReShape(unfold_time_rank=True, time_major=True,
-            #                                            scope="time-rank-unfold-log-probs")
-            #    self.add_components(
-            #        self.time_rank_folder,
-            #        self.time_rank_unfolder_v,
-            #        self.time_rank_unfolder_a_probs,
-            #        self.time_rank_unfolder_log_probs,
-            #        self.time_rank_unfolder_logits
-            #    )
 
             @rlgraph_api(component=self)
             def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
@@ -122,19 +101,8 @@ class Policy(Component):
                 last_internal_states = nn_output.get("last_internal_states")
                 nn_output = nn_output["output"]
 
-                ## TODO: IMPALA attempt to speed up final pass after LSTM.
-                #if is_impala:
-                #    nn_output = self.time_rank_folder.apply(nn_output)
-
                 out = self.action_adapter.get_logits_probabilities_log_probs(nn_output)
 
-                ## TODO: IMPALA attempt to speed up final pass after LSTM.
-                #if is_impala:
-                #    state_values = self.time_rank_unfolder_v.apply(out["state_values"], nn_output)
-                #    logits = self.time_rank_unfolder_logits.apply(out["logits"], nn_output)
-                #    probs = self.time_rank_unfolder_a_probs.apply(out["probabilities"], nn_output)
-                #    log_probs = self.time_rank_unfolder_log_probs.apply(out["log_probs"], nn_output)
-                #else:
                 state_values = out["state_values"]
                 logits = out["logits"]
                 probs = out["probabilities"]
