@@ -17,9 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import copy
-
-from rlgraph import get_backend
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils import RLGraphError
 from rlgraph.agents.agent import Agent
@@ -56,6 +53,7 @@ class IMPALAAgent(Agent):
 
     def __init__(self, discount=0.99, fifo_queue_spec=None, architecture="large", environment_spec=None,
                  feed_previous_action_through_nn=True, feed_previous_reward_through_nn=True,
+                 batch_apply=False, batch_apply_action_adapter=True,
                  weight_pg=None, weight_baseline=None, weight_entropy=None, worker_sample_size=100,
                  **kwargs):
         """
@@ -78,12 +76,10 @@ class IMPALAAgent(Agent):
 
         Keyword Args:
             type (str): One of "single", "actor" or "learner". Default: "single".
-            num_actors (int): If type is "single", how many actors should be run in separate threads.
         """
         type_ = kwargs.pop("type", "single")
         assert type_ in ["single", "actor", "learner"]
         self.type = type_
-        self.num_actors = kwargs.pop("num_actors", 0)
         self.worker_sample_size = worker_sample_size
 
         # Network-spec by default is a "large architecture" IMPALA network.
@@ -163,6 +159,8 @@ class IMPALAAgent(Agent):
             preprocessing_spec=self.preprocessing_spec,
             network_spec=self.network_spec,
             action_adapter_spec=action_adapter_spec,
+            # TODO: Create some auto-setting based on LSTM inside the NN.
+            policy_spec=dict(batch_apply=batch_apply, batch_apply_action_adapter=batch_apply_action_adapter),
             exploration_spec=self.exploration_spec,
             optimizer_spec=optimizer_spec,
             observe_spec=observe_spec,
@@ -192,22 +190,25 @@ class IMPALAAgent(Agent):
                                (["rewards"] if not self.feed_previous_reward_through_nn else []) + \
                                ["action_probs"] + \
                                (["initial_internal_states"] if self.has_rnn else [])
+        # Define FIFO record space.
+        # Note that only states and internal_states (RNN) contain num-steps+1 items, all other sub-records only contain
+        # num-steps items.
         self.fifo_record_space = Dict(
             {
                 "terminals": bool,
-                "states": copy.deepcopy(self.state_space),
                 "action_probs": FloatBox(shape=(self.action_space.num_categories,)),
-            }, add_batch_rank=False, add_time_rank=(self.worker_sample_size + 1)
+            }, add_batch_rank=False, add_time_rank=self.worker_sample_size
         )
+        self.fifo_record_space["states"] = self.state_space.with_time_rank(self.worker_sample_size + 1)
         # Add action and rewards to state or do they have an extra channel?
         if self.feed_previous_action_through_nn:
             self.fifo_record_space["states"]["previous_action"] = self.action_space
         else:
-            self.fifo_record_space["actions"] = self.action_space.with_time_rank(self.worker_sample_size + 1)
+            self.fifo_record_space["actions"] = self.action_space.with_time_rank(self.worker_sample_size)
         if self.feed_previous_action_through_nn:
             self.fifo_record_space["states"]["previous_reward"] = FloatBox()
         else:
-            self.fifo_record_space["rewards"] = FloatBox(add_time_rank=(self.worker_sample_size + 1))
+            self.fifo_record_space["rewards"] = FloatBox(add_time_rank=self.worker_sample_size)
 
         if self.has_rnn:
             self.fifo_record_space["initial_internal_states"] = self.internal_states_space.with_time_rank(False)
@@ -291,7 +292,10 @@ class IMPALAAgent(Agent):
             # Create an IMPALALossFunction with some parameters.
             self.loss_function = IMPALALossFunction(
                 discount=self.discount, weight_pg=weight_pg, weight_baseline=weight_baseline,
-                weight_entropy=weight_entropy, device="/job:learner/task:0/gpu"
+                weight_entropy=weight_entropy,
+                slice_actions=self.feed_previous_action_through_nn,
+                slice_rewards=self.feed_previous_reward_through_nn,
+                device="/job:learner/task:0/gpu"
             )
 
             self.policy.propagate_sub_component_properties(
@@ -391,12 +395,6 @@ class IMPALAAgent(Agent):
             insert_op = fifo_queue.insert_records(record)
 
             return insert_op, terminals
-
-        @rlgraph_api(component=self.root_component)
-        def reset(self):
-            # Resets the environment running inside the agent.
-            reset_op = env_stepper.reset()
-            return reset_op
 
     def define_graph_api_learner(
             self, fifo_output_splitter, fifo_queue, states_dict_splitter, transpose_states, transpose_terminals,
@@ -505,7 +503,8 @@ class SingleIMPALAAgent(IMPALAAgent):
     """
     def __init__(self, discount=0.99, fifo_queue_spec=None, architecture="large", environment_spec=None,
                  feed_previous_action_through_nn=True, feed_previous_reward_through_nn=True,
-                 weight_pg=None, weight_baseline=None, weight_entropy=None, worker_sample_size=100,
+                 weight_pg=None, weight_baseline=None, weight_entropy=None,
+                 num_workers=1, worker_sample_size=100,
                  dynamic_batching=False, **kwargs):
         """
         Args:
@@ -527,9 +526,7 @@ class SingleIMPALAAgent(IMPALAAgent):
             dynamic_batching (bool): Whether to use the deepmind's custom dynamic batching op for wrapping the
                 optimizer's step call. The batcher.so file must be compiled for this to work (see Docker file).
                 Default: False.
-
-        Keyword Args:
-            num_actors (int): If type is "single", how many actors should be run in separate threads.
+            num_workers (int): How many actors (workers) should be run in separate threads.
         """
         # Now that we fixed the Agent's spec, call the super constructor.
         super(SingleIMPALAAgent, self).__init__(
@@ -544,11 +541,11 @@ class SingleIMPALAAgent(IMPALAAgent):
             weight_baseline=weight_baseline,
             weight_entropy=weight_entropy,
             worker_sample_size=worker_sample_size,
-            num_actors=kwargs.pop("num_actors", 1),
             name=kwargs.pop("name", "impala-single-agent"),
             **kwargs
         )
         self.dynamic_batching = dynamic_batching
+        self.num_workers = num_workers
 
         # If we use dynamic batching, wrap the dynamic batcher around the policy's graph_fn that we
         # actually call below during our build.
@@ -583,7 +580,8 @@ class SingleIMPALAAgent(IMPALAAgent):
         # Create an IMPALALossFunction with some parameters.
         self.loss_function = IMPALALossFunction(
             discount=self.discount, weight_pg=weight_pg, weight_baseline=weight_baseline,
-            weight_entropy=weight_entropy
+            weight_entropy=weight_entropy, slice_actions=self.feed_previous_action_through_nn,
+            slice_rewards=self.feed_previous_reward_through_nn
         )
 
         # Merge back to insert into FIFO.
@@ -593,7 +591,7 @@ class SingleIMPALAAgent(IMPALAAgent):
         dummy_flattener = ReShape(flatten=True, flatten_categories=self.action_space.num_categories)
 
         self.environment_steppers = list()
-        for i in range(self.num_actors):
+        for i in range(self.num_workers):
             policy_spec = dict(
                 network_spec=self.network_spec,
                 action_adapter_spec=dict(type="baseline-action-adapter"),
@@ -630,9 +628,8 @@ class SingleIMPALAAgent(IMPALAAgent):
             self.environment_steppers.append(env_stepper)
 
         # Create the QueueRunners (one for each env-stepper).
-        # - Take return value 1 of API-method step as record to insert.
         self.queue_runner = QueueRunner(
-            self.fifo_queue, "step", 1,
+            self.fifo_queue, "step", -1,  # -1: Take entire return value of API-method `step` as record to insert.
             self.env_output_splitter,
             self.fifo_input_merger,
             internal_states_slicer,
@@ -740,7 +737,7 @@ class SingleIMPALAAgent(IMPALAAgent):
             # TODO: What if only one of actions or rewards is fed through NN, but the other not?
             if self.feed_previous_reward_through_nn and self.feed_previous_action_through_nn:
                 out = states_dict_splitter.split(states)
-                actions = out[-2]
+                actions = out[-2]  # TODO: Are these always the correct slots for "previous_action" and "previous_reward"?
                 rewards = out[-1]
 
             # Calculate the loss.
