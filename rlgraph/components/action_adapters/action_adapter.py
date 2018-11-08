@@ -199,8 +199,10 @@ class ActionAdapter(Component):
             if isinstance(self.action_space, IntBox):
                 # Discrete actions.
                 parameters = tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
+                parameters._batch_rank = 0
                 # Log probs.
                 log_probs = tf.log(x=parameters)
+                log_probs._batch_rank = 0
             elif isinstance(self.action_space, FloatBox):
                 # Continuous actions.
                 mean, log_sd = tf.split(value=logits, num_or_size_splits=2, axis=1)
