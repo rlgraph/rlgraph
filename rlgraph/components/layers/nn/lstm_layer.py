@@ -119,7 +119,7 @@ class LSTMLayer(NNLayer):
                 cell_clip=self.cell_clip,
                 forget_bias=self.forget_bias,
                 name="lstm-cell",
-                _reuse=tf.AUTO_REUSE
+                reuse=tf.AUTO_REUSE
                 # TODO: self.trainable needs to be recognized somewhere here.
 
                 # These are all not supported yet for LSTMBlockCell (only for the slower LSTMCell)
