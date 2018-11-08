@@ -23,6 +23,7 @@ from rlgraph import get_backend
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.spaces import IntBox, FloatBox, BoolBox, ContainerSpace
+from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils import util
 
@@ -94,8 +95,14 @@ class ConvertType(PreprocessLayer):
         elif get_backend() == "pytorch":
             return torch.tensor(preprocessing_inputs, dtype=util.dtype(self.to_dtype, to="pytorch"))
         elif get_backend() == "tf":
+            in_space = get_space_from_op(preprocessing_inputs)
             to_dtype = util.dtype(self.to_dtype, to="tf")
             if preprocessing_inputs.dtype != to_dtype:
-                return tf.cast(x=preprocessing_inputs, dtype=to_dtype)
+                ret = tf.cast(x=preprocessing_inputs, dtype=to_dtype)
+                if in_space.has_batch_rank is True:
+                    ret._batch_rank = 0 if in_space.time_major is False else 1
+                if in_space.has_time_rank is True:
+                    ret._time_rank = 0 if in_space.time_major is True else 1
+                return ret
             else:
                 return preprocessing_inputs

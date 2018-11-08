@@ -245,9 +245,6 @@ class ReShape(PreprocessLayer):
                 # Time rank unfolding. Get the time rank from original input.
                 if self.unfold_time_rank is True:
                     original_shape = tf.shape(input_before_time_rank_folding)
-                    original_shape = tf.Print(original_shape, [original_shape], summarize=1000,
-                                         message="original_shape for {} (key={}): {}".format(input_before_time_rank_folding, key,
-                                                                                              self.scope))
                     new_shape = (original_shape[0], original_shape[1]) + new_shape[2:]
                 # No time-rank unfolding, but we do have both batch- and time-rank.
                 else:
