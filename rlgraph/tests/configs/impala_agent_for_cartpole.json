@@ -12,13 +12,20 @@
     "gym_env": "CartPole-v0"
   },
 
-  "worker_sample_size": 100,
+  "num_workers": 4,
+  "worker_sample_size": 20,
 
   "feed_previous_action_through_nn": false,
   "feed_previous_reward_through_nn": false,
+  "batch_apply": true,
+  "batch_apply_action_adapter": false,
 
   "preprocessing_spec":
   [
+    {
+      "type": "convert_type",
+      "to_dtype": "float32"
+    }
   ],
 
   "network_spec":
