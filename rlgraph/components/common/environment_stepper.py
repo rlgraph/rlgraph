@@ -27,7 +27,6 @@ from rlgraph.utils.ops import DataOpTuple, DataOpDict, flatten_op, unflatten_op
 from rlgraph.spaces import Space, Dict
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.specifiable_server import SpecifiableServer
-from rlgraph.utils.util import force_tuple, dtype as dtype_
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -163,12 +162,8 @@ class EnvironmentStepper(Component):
         self.num_steps = num_steps
 
         # Variables that hold information of last step through Env.
-        self.current_terminal = None
         self.current_state = None
-        self.current_action = None  # Only if self.add_action is True.
-        self.current_reward = None  # Only if self.add_reward is True.
         self.current_internal_states = None
-        self.current_action_probs = None
         self.time_step = 0
 
         self.has_rnn = self.actor_component.policy.neural_network.has_rnn()
@@ -180,68 +175,18 @@ class EnvironmentStepper(Component):
         self.time_step = self.get_variable(
             name="time-step", dtype="int32", initializer=0, trainable=False, local=True, use_resource=True
         )
-        self.current_terminal = self.get_variable(
-            name="current-terminal", dtype="bool", initializer=True, trainable=False, local=True, use_resource=True
-        )
         self.current_state = self.get_variable(
             name="current-state", from_space=self.state_space_actor, initializer=0, flatten=True, trainable=False,
             local=True, use_resource=True
         )
-        if self.add_action:
-            self.current_action = self.get_variable(
-                name="current-action", from_space=self.action_space, initializer=0, trainable=False,
-                local=True, use_resource=True
-            )
-        if self.add_reward:
-            self.current_reward = self.get_variable(
-                name="current-reward", from_space=self.reward_space, initializer=0.0, trainable=False,
-                local=True, use_resource=True
-            )
         if self.has_rnn:
             self.current_internal_states = self.get_variable(
                 name="current-internal-states", from_space=self.internal_states_space,
                 initializer=0.0, flatten=True, trainable=False, local=True, use_resource=True,
                 add_batch_rank=1
             )
-        if self.add_action_probs:
-            self.current_action_probs = self.get_variable(
-                name="current-action-probs", from_space=self.action_probs_space,
-                initializer=0.0, trainable=False, local=True, use_resource=True
-            )
 
-    @rlgraph_api
-    def _graph_fn_reset(self):
-        """
-        Resets the EnvStepper and stores:
-        - current state, current return, current terminal, current internal state (RNN), global time_step
-        This is only necessary at the very beginning as the step method itself will take care of resetting the Env
-        in between or during stepping runs (depending on terminal signals from the Env).
-
-        Returns:
-            SingleDataOp: The assign op that stores the state after the Env reset in `last_state` variable.
-        """
-        if get_backend() == "tf":
-            state_after_reset = self.environment_server.reset_flow()
-            # Reset current state (support ContainerSpaces as well) via our variable(s)' initializer.
-            assigns = [self.assign_variable(var, s) for var, s in zip(
-                    self.current_state.values(), force_tuple(state_after_reset)
-            )]
-            # Reset internal-states, current return and whether current state is terminal.
-            # Also maybe action and reward.
-            assigns.append(tf.variables_initializer(
-                var_list=[self.current_terminal] +
-                    ([self.current_action] if self.add_action else []) +
-                    ([self.current_reward] if self.add_reward else [])
-            ))
-            if self.has_rnn:
-                assigns.append(tf.variables_initializer(var_list=list(self.current_internal_states.values())))
-
-            # Note: self.time_step never gets reset.
-
-            with tf.control_dependencies(assigns):
-                return tf.no_op()
-
-    @rlgraph_api(returns=2)
+    @rlgraph_api(returns=1)
     def _graph_fn_step(self):
         if get_backend() == "tf":
             def scan_func(accum, time_delta):
@@ -313,18 +258,18 @@ class EnvironmentStepper(Component):
 
             # Initialize the tf.scan run.
             initializer = [
-                self.current_terminal.read_value(),  # whether the current state is terminal
+                tf.zeros(shape=(), dtype=tf.bool), #self.current_terminal.read_value(),  # whether the current state is terminal
                 # current (raw) state (flattened components if ContainerSpace).
                 tuple(map(lambda x: x.read_value(), self.current_state.values()))
             ]
             # Append actions and rewards if needed.
             if self.add_action:
-                initializer.append(self.current_action.read_value())
+                initializer.append(tf.zeros(shape=self.action_space.shape, dtype=self.action_space.dtype))  #self.current_action.read_value())
             if self.add_reward:
-                initializer.append(self.current_reward.read_value())
+                initializer.append(tf.zeros(shape=self.reward_space.shape))  #self.current_reward.read_value())
             # Append action probs if needed.
             if self.add_action_probs is True:
-                initializer.append(self.current_action_probs.read_value())
+                initializer.append(tf.zeros(shape=self.action_probs_space.shape))  # self.current_action_probs.read_value())
             # Append internal states if needed.
             if self.current_internal_states is not None:
                 initializer.append(tuple(
@@ -340,48 +285,71 @@ class EnvironmentStepper(Component):
                 back_prop=False
             ))
 
-            # Store the time-step increment, return so far, current terminal and current state.
-            assigns = [
-                tf.assign_add(self.time_step, self.num_steps),
-                self.assign_variable(self.current_terminal, step_results[0][-1])
-            ]
+            # Assign all values that need to be passed again into the next scan.
+            assigns = [tf.assign_add(self.time_step, self.num_steps)]  # time step
+            # State (or flattened state components).
+            for flat_key, var_ref, state_comp in zip(
+                    self.state_space_actor_flattened.keys(), self.current_state.values(), step_results[1]
+            ):
+                assigns.append(self.assign_variable(var_ref, state_comp[-1]))  # -1: current state (last observed)
 
-            # Concatenate first and rest.
-            full_results = []
-            for first_values, rest_values in zip(initializer, step_results):
-                full_results.append(nest.map_structure(
-                    lambda first, rest: tf.concat([[first], rest], axis=0), first_values, rest_values
-                ))
+            # Current internal state.
+            if self.current_internal_states is not None:
+                # TODO: What if internal states is not the last item in the list anymore due to some change.
+                slot = -1
+                # TODO: What if internal states is a dict? Right now assume some tuple.
+                # Remove batch rank from internal states again.
+                internal_states_wo_batch = list()
+                for i, var_ref in enumerate(self.current_internal_states.values()):  #range(len(step_results[slot])):
+                    # 1=batch axis (which has dim=1); 0=time axis.
+                    internal_states_component = tf.squeeze(step_results[slot][i], axis=1)
+                    assigns.append(self.assign_variable(var_ref, internal_states_component[-1:]))
+                    internal_states_wo_batch.append(internal_states_component)
+                step_results[slot] = tuple(internal_states_wo_batch)
 
-            # Re-build DataOpDicts from preprocessed-states and states (from tuple right now).
+            # Concatenate first and rest (and make the concatenated tensors (which are the important return information)
+            # dependent on the assigns).
+            with tf.control_dependencies(control_inputs=assigns):
+                full_results = []
+                for slot in range(len(step_results)):
+                #for first_values, rest_values in zip(initializer, step_results):
+                    first_values, rest_values = initializer[slot], step_results[slot]
+                    # Internal states need a slightly different concatenating as the batch rank is missing.
+                    if self.current_internal_states is not None and slot == len(step_results) - 1:
+                        full_results.append(nest.map_structure(self._concat, first_values, rest_values))
+                    # States need concatenating (first state needed).
+                    elif slot == 1:
+                        full_results.append(nest.map_structure(
+                            lambda first, rest: tf.concat([[first], rest], axis=0), first_values, rest_values)
+                        )
+                    # Everything else does not need concatenating (saves one op).
+                    else:
+                        full_results.append(step_results[slot])
+
+            # Re-build DataOpDicts of states (from tuple right now).
             rebuild_s = DataOpDict()
             for flat_key, var_ref, s_comp in zip(
                     self.state_space_actor_flattened.keys(), self.current_state.values(), full_results[1]
             ):
-                assigns.append(self.assign_variable(var_ref, s_comp[-1]))  # -1: current state (last observed)
                 rebuild_s[flat_key] = s_comp
             rebuild_s = unflatten_op(rebuild_s)
             full_results[1] = rebuild_s
 
-            # Remove batch rank from internal states again.
-            if self.current_internal_states is not None:
-                # TODO: What if internal states is not the last item in the list anymore due to some change.
-                slot = -1  # if self.add_action_probs is True else 2
-                # TODO: What if internal states is a dict? Right now assume some tuple.
-                internal_states_wo_batch = list()
-                for i in range(len(full_results[slot])):
-                    # 1=batch axis (which is 1); 0=time axis.
-                    internal_states_wo_batch.append(tf.squeeze(full_results[-1][i], axis=1))
-                full_results[slot] = DataOpTuple(internal_states_wo_batch)
+            # Let the auto-infer system know, what time rank we have.
+            full_results = DataOpTuple(full_results)
+            for o in flatten_op(full_results).values():
+                o._time_rank = 0  # which position in the shape is the time-rank?
 
-            with tf.control_dependencies(control_inputs=assigns):
-                # Let the auto-infer system know, what time rank we have.
-                full_results = DataOpTuple(full_results)
-                for o in flatten_op(full_results).values():
-                    o._time_rank = 0  # which position in the shape is the time-rank?
-                step_op = tf.no_op()
+            return full_results
 
-            return step_op, full_results
+    @staticmethod
+    def _concat(first, rest):
+        """
+        Helper method to concat initial value and scanned collected results.
+        """
+        shape = first.shape.as_list()
+        first.set_shape(shape=(1,) + tuple(shape[1:]))
+        return tf.concat([first, rest], axis=0)
 
     #@rlgraph_api
     def step_with_dict_return(self):
