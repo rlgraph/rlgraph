@@ -36,25 +36,11 @@ class Agent(Specifiable):
     """
     Generic agent defining RLGraph-API operations and parses and sanitizes configuration specs.
     """
-    def __init__(
-        self,
-        state_space,
-        action_space,
-        discount=0.98,
-        preprocessing_spec=None,
-        network_spec=None,
-        internal_states_space=None,
-        action_adapter_spec=None,
-        exploration_spec=None,
-        execution_spec=None,
-        optimizer_spec=None,
-        observe_spec=None,
-        update_spec=None,
-        summary_spec=None,
-        saver_spec=None,
-        auto_build=True,
-        name="agent"
-    ):
+    def __init__(self, state_space, action_space, discount=0.98,
+                 preprocessing_spec=None, network_spec=None, internal_states_space=None, action_adapter_spec=None,
+                 policy_spec=None,
+                 exploration_spec=None, execution_spec=None, optimizer_spec=None, observe_spec=None, update_spec=None,
+                 summary_spec=None, saver_spec=None, auto_build=True, name="agent"):
         """
         Args:
             state_space (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
@@ -68,6 +54,7 @@ class Agent(Specifiable):
                 Space object for the Space(s) of the internal (RNN) states.
             action_adapter_spec (Optional[dict,ActionAdapter]): The spec-dict for the ActionAdapter Component or the
                 ActionAdapter object itself.
+            policy_spec (Optional[dict]): An optional dict for further kwargs passing into the Policy c'tor.
             exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
             optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
@@ -138,7 +125,8 @@ class Agent(Specifiable):
         # The behavioral policy of the algorithm. Also the one that gets updated.
         self.policy = Policy(
             network_spec=self.neural_network,
-            action_adapter_spec=self.action_adapter_spec
+            action_adapter_spec=self.action_adapter_spec,
+            **(policy_spec or dict())
         )
 
         self.exploration = Exploration.from_spec(exploration_spec)
