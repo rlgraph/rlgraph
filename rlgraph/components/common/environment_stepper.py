@@ -94,13 +94,12 @@ class EnvironmentStepper(Component):
             if reward_space is None:
                 _, reward, _, _ = dummy_env.step(actions=action_space.sample())
                 # TODO: this may break on non 64-bit machines. tf seems to interpret a python float as tf.float64.
-                self.reward_space = Space.from_spec(
+                reward_space = Space.from_spec(
                     "float64" if type(reward) == float else float, shape=(1,)
                 ).with_batch_rank()
             dummy_env.terminate()
-        else:
-            self.reward_space = Space.from_spec(reward_space).with_batch_rank()
 
+        self.reward_space = Space.from_spec(reward_space).with_batch_rank()
         self.action_space = Space.from_spec(action_space)
         # The state that the environment produces.
         self.state_space_env = Space.from_spec(state_space)
