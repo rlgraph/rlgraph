@@ -81,6 +81,8 @@ class ReShape(PreprocessLayer):
 
         # The new shape specifications.
         self.new_shape = new_shape
+        #assert self.backend != "python" or self.new_shape is not None,\
+        #    "ERROR: `new_shape` must be provided if backend is python!"
         self.flatten = flatten
         self.flatten_categories = flatten_categories
         self.fold_time_rank = fold_time_rank
@@ -168,9 +170,14 @@ class ReShape(PreprocessLayer):
             if num_categories and num_categories > 1:
                 preprocessing_inputs = one_hot(preprocessing_inputs, depth=num_categories)
 
-            new_shape = self.get_preprocessed_space(get_space_from_op(preprocessing_inputs)).get_shape(
-                with_batch_rank=-1, with_time_rank=-1
-            )
+            if self.unfold_time_rank:
+                new_shape = (-1, -1) + preprocessing_inputs.shape[1:]
+            elif self.fold_time_rank:
+                new_shape = (-1,) + preprocessing_inputs.shape[2:]
+            else:
+                new_shape = self.get_preprocessed_space(get_space_from_op(preprocessing_inputs)).get_shape(
+                    with_batch_rank=-1, with_time_rank=-1
+                )
 
             # Dynamic new shape inference:
             # If both batch and time rank must be left alone OR the time rank must be unfolded from a currently common
@@ -179,12 +186,12 @@ class ReShape(PreprocessLayer):
                 # Time rank unfolding. Get the time rank from original input.
                 if self.unfold_time_rank is True:
                     original_shape = input_before_time_rank_folding.shape
-                    new_shape = (original_shape[0], original_shape[1]) + preprocessing_inputs.shape[2:]
+                    new_shape = (original_shape[0], original_shape[1]) + new_shape[2:]
                 # No time-rank unfolding, but we do have both batch- and time-rank.
                 else:
                     input_shape = preprocessing_inputs.shape
                     # Batch and time rank stay as is.
-                    new_shape = (input_shape[0], input_shape[1]) + preprocessing_inputs.shape[2:]
+                    new_shape = (input_shape[0], input_shape[1]) + new_shape[2:]
 
             return np.reshape(preprocessing_inputs, newshape=new_shape)
 
@@ -194,9 +201,14 @@ class ReShape(PreprocessLayer):
             if num_categories and num_categories > 1:
                 preprocessing_inputs = pytorch_one_hot(preprocessing_inputs, depth=num_categories)
 
-            new_shape = self.get_preprocessed_space(get_space_from_op(preprocessing_inputs)).get_shape(
-                with_batch_rank=-1, with_time_rank=-1
-            )
+            if self.unfold_time_rank:
+                new_shape = (-1, -1) + preprocessing_inputs.shape[1:]
+            elif self.fold_time_rank:
+                new_shape = (-1,) + preprocessing_inputs.shape[2:]
+            else:
+                new_shape = self.get_preprocessed_space(get_space_from_op(preprocessing_inputs)).get_shape(
+                    with_batch_rank=-1, with_time_rank=-1
+                )
 
             # Dynamic new shape inference:
             # If both batch and time rank must be left alone OR the time rank must be unfolded from a currently common
@@ -235,9 +247,15 @@ class ReShape(PreprocessLayer):
                     preprocessing_inputs_._time_rank = preprocessing_inputs._time_rank
                 preprocessing_inputs = preprocessing_inputs_
 
-            new_shape = self.get_preprocessed_space(get_space_from_op(preprocessing_inputs)).get_shape(
-                with_batch_rank=-1, with_time_rank=-1
-            )
+            if self.unfold_time_rank:
+                new_shape = (-1, -1) + tuple(preprocessing_inputs.shape.as_list()[1:])
+            elif self.fold_time_rank:
+                new_shape = (-1,) + tuple(preprocessing_inputs.shape.as_list()[2:])
+            else:
+                new_shape = self.get_preprocessed_space(get_space_from_op(preprocessing_inputs)).get_shape(
+                    with_batch_rank=-1, with_time_rank=-1
+                )
+
             # Dynamic new shape inference:
             # If both batch and time rank must be left alone OR the time rank must be unfolded from a currently common
             # batch+time 0th rank, get these two dynamically.
