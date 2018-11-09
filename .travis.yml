@@ -57,7 +57,7 @@ script:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_decay_components.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_dict_preprocessor_stack.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_dqn_loss_functions.py';
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_environment_stepper.py';
+  #- docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_environment_stepper.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_epsilon_exploration.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_explorations.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_fifo_queue.py';
