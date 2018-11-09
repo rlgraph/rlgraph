@@ -8,21 +8,20 @@
 
   "environment_spec":
   {
-    "type": "gridworld",
-    "world": "2x2"
+    "type": "open-ai-gym",
+    "gym_env": "CartPole-v0"
   },
-
-  "worker_sample_size": 5,
 
   "feed_previous_action_through_nn": false,
   "feed_previous_reward_through_nn": false,
+  "batch_apply": true,
+  "batch_apply_action_adapter": false,
 
   "preprocessing_spec":
   [
     {
-      "type": "reshape",
-      "flatten": true,
-      "flatten_categories": 4
+      "type": "convert_type",
+      "to_dtype": "float32"
     }
   ],
 

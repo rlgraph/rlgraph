@@ -182,6 +182,9 @@ class GridWorld(Environment):
         self.refresh_state()
         return self.state
 
+    def reset_flow(self, randomize=False):
+        return self.reset(randomize=randomize)
+
     def step(self, actions, set_discrete_pos=None):
         """
         Action map:
@@ -231,7 +234,15 @@ class GridWorld(Environment):
 
         self.refresh_state()
 
-        return self.state, self.reward, self.is_terminal, None
+        return self.state, np.array(self.reward, dtype=np.float32), np.array(self.is_terminal), None
+
+    def step_flow(self, actions):
+        state, reward, terminal, _ = self.step(actions)
+        # Flow Env logic.
+        if terminal:
+            state = self.reset()
+
+        return state, reward, terminal
 
     def render(self):
         # paints itself
@@ -249,7 +260,7 @@ class GridWorld(Environment):
 
     def refresh_state(self):
         if self.state_representation == "discr":
-            self.state = self.discrete_pos
+            self.state = np.array(self.discrete_pos, dtype=np.int32)
         elif self.state_representation == "xy_pos":
             self.state = (self.x, self.y)
         # Camera.

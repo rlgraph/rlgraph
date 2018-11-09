@@ -55,7 +55,7 @@ class DeterministicEnv(Environment):
         self.reward = self.reward_start
         return np.array([self.state], dtype=np.float32)
 
-    def reset_for_env_stepper(self):
+    def reset_flow(self):
         return self.reset()
 
     def step(self, actions=None):
@@ -72,7 +72,7 @@ class DeterministicEnv(Environment):
             terminal = True
         return np.array([self.state], dtype=np.float32), np.array(reward, dtype=np.float32), terminal, None
 
-    def step_for_env_stepper(self, actions=None):
+    def step_flow(self, actions=None):
         ret = self.step(actions)
         state = ret[0]
         if ret[2]:

@@ -148,7 +148,7 @@ class OpenAIGymEnv(Environment):
                     state = self.gym_env.reset()
         return state
 
-    def reset_for_env_stepper(self):
+    def reset_flow(self):
         return self.reset()
 
     def terminate(self):
@@ -193,9 +193,11 @@ class OpenAIGymEnv(Environment):
             self.lives = lives
         return state, np.asarray(reward, dtype=np.float32), terminal, info
 
-    def step_for_env_stepper(self, actions):
-        ret = self.step(actions)
-        return ret[0], ret[1], ret[2]
+    def step_flow(self, actions):
+        state, reward, terminal, _ = self.step(actions)
+        if terminal:
+            state = self.reset_flow()
+        return state, reward, terminal
 
     def render(self):
         self.gym_env.render("human")
@@ -223,7 +225,7 @@ class OpenAIGymEnv(Environment):
             if "int" in box_dtype:
                 return IntBox(low=space.low, high=space.high, dtype=box_dtype)
             elif "float" in box_dtype:
-                return FloatBox(low=space.low, high=space.high)
+                return FloatBox(low=space.low, high=space.high, dtype=box_dtype)
             elif "bool" in box_dtype:
                 return BoolBox(shape=space.shape)
         elif isinstance(space, gym.spaces.Tuple):

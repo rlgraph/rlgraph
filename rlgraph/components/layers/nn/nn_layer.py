@@ -53,6 +53,7 @@ class NNLayer(Layer):
         # The wrapped backend-layer object.
         self.layer = None
         self.in_space_0 = None
+        self.time_major = None
 
         super(NNLayer, self).__init__(scope=kwargs.pop("scope", "nn-layer"), **kwargs)
 
@@ -84,11 +85,6 @@ class NNLayer(Layer):
                         )
 
                     idx += 1
-
-    #@rlgraph_api
-    #def apply(self, *inputs):
-    #    out = self._graph_fn_apply(*inputs)
-    #    return dict(output=out)
 
     @rlgraph_api
     def _graph_fn_apply(self, *inputs):

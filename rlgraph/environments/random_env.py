@@ -54,7 +54,7 @@ class RandomEnv(Environment):
     def reset(self):
         return self.step()[0]  # 0=state
 
-    def reset_for_env_stepper(self):
+    def reset_flow(self):
         return self.reset()
 
     def step(self, actions=None):
@@ -72,7 +72,7 @@ class RandomEnv(Environment):
         self.last_state = np.random.get_state()
         return state, reward, terminal, None
 
-    def step_for_env_stepper(self, actions=None):
+    def step_flow(self, actions=None):
         ret = self.step(actions)
         return ret[0], ret[1], ret[2]
 

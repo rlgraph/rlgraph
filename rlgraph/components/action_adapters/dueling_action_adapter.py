@@ -22,6 +22,7 @@ import math
 from rlgraph import get_backend
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
+from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.util import SMALL_NUMBER, get_rank
@@ -81,11 +82,26 @@ class DuelingActionAdapter(ActionAdapter):
             activation="linear",
             scope="state-value-node"
         )
-        # self.action_layer is our advantage layer
+        # self.action_layer is our advantage layer.
 
-        self.add_components(
-            self.dense_layer_state_value_stream, self.dense_layer_advantage_stream, self.state_value_node
-        )
+        # Undo batch-apply of just the action layer and apply it to all layers in this action adapter.
+        if self.batch_apply is True:
+            # Remove and discard old batch apply.
+            batch_apply = self.remove_sub_component_by_name("batch-apply")
+            # Generate 2 reshapes (no batch apply component:
+            # TODO: maybe change this later, but for now this seems easier).
+            self.action_layer = batch_apply.get_sub_component_by_name("action-layer")
+            self.folder = ReShape(fold_time_rank=True, scope="folder")
+            self.unfolder = ReShape(unfold_time_rank=True, scope="unfolder")
+            self.unfolder_value_node = ReShape(unfold_time_rank=True, scope="unfolder-value-node")
+            self.add_components(
+                self.action_layer, self.folder, self.unfolder, self.unfolder_value_node,
+                self.dense_layer_state_value_stream, self.dense_layer_advantage_stream, self.state_value_node
+            )
+        else:
+            self.add_components(
+                self.dense_layer_state_value_stream, self.dense_layer_advantage_stream, self.state_value_node
+            )
 
     @rlgraph_api
     def get_action_layer_output(self, nn_output):
@@ -101,10 +117,24 @@ class DuelingActionAdapter(ActionAdapter):
                     it. Note: These will be flat advantage nodes that have not been reshaped yet according to the
                     action_space.
         """
-        output_state_value_dense = self.dense_layer_state_value_stream.apply(nn_output)
-        output_advantage_dense = self.dense_layer_advantage_stream.apply(nn_output)
-        state_value_node = self.state_value_node.apply(output_state_value_dense)
-        advantage_nodes = self.action_layer.apply(output_advantage_dense)
+
+        if self.batch_apply:
+            # Fold input.
+            folded = self.folder.apply(nn_output)
+            # Apply the action adapter layers.
+            output_state_value_dense = self.dense_layer_state_value_stream.apply(folded)
+            output_advantage_dense = self.dense_layer_advantage_stream.apply(folded)
+            state_value_node_folded = self.state_value_node.apply(output_state_value_dense)
+            advantage_nodes_folded = self.action_layer.apply(output_advantage_dense)
+            # Unfold everything again.
+            state_value_node = self.unfolder_value_node.apply(state_value_node_folded)
+            advantage_nodes = self.unfolder.apply(advantage_nodes_folded)
+        else:
+            output_state_value_dense = self.dense_layer_state_value_stream.apply(nn_output)
+            output_advantage_dense = self.dense_layer_advantage_stream.apply(nn_output)
+            state_value_node = self.state_value_node.apply(output_state_value_dense)
+            advantage_nodes = self.action_layer.apply(output_advantage_dense)
+
         return dict(state_value_node=state_value_node, output=advantage_nodes)
 
     @rlgraph_api

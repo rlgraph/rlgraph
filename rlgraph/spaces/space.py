@@ -71,6 +71,9 @@ class Space(Specifiable):
         """
         self.has_time_rank = add_time_rank
         self.time_major = time_major
+        # Auto-set time-major to True if there is only a time-rank.
+        if self.has_batch_rank is False and self.has_time_rank is True:
+            self.time_major = True
 
     def with_extra_ranks(self, add_batch_rank=True, add_time_rank=True, time_major=False):
         """

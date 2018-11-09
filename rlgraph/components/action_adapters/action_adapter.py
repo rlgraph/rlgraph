@@ -20,12 +20,13 @@ from __future__ import print_function
 from math import log
 
 from rlgraph import get_backend
-from rlgraph.components.component import Component, rlgraph_api
+from rlgraph.components.component import Component
+from rlgraph.components.common import BatchApply
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
-from rlgraph.utils.decorators import graph_fn
+from rlgraph.utils.decorators import graph_fn, rlgraph_api
 from rlgraph.utils.ops import DataOpTuple
 from rlgraph.utils.util import SMALL_NUMBER
 
@@ -49,6 +50,7 @@ class ActionAdapter(Component):
     - Translating the reshaped outputs (logits) into probabilities (by softmaxing) and log-probabilities (log).
     """
     def __init__(self, action_space, add_units=0, units=None, weights_spec=None, biases_spec=None, activation=None,
+                 batch_apply=False,
                  scope="action-adapter", **kwargs):
         """
         Args:
@@ -70,6 +72,9 @@ class ActionAdapter(Component):
 
             activation (Optional[str]): The activation function to use for `self.action_layer`.
                 Default: None (=linear).
+
+            batch_apply (bool): Whether to fold the time rank into the batch rank before passing through the action
+                adapter (and then unfold again). Default: False.
         """
         super(ActionAdapter, self).__init__(scope=scope, **kwargs)
 
@@ -77,6 +82,8 @@ class ActionAdapter(Component):
         self.weights_spec = weights_spec
         self.biases_spec = biases_spec
         self.activation = activation
+
+        self.batch_apply = batch_apply
 
         # Our (dense) action layer representing the flattened action space.
         self.action_layer = None
@@ -108,6 +115,10 @@ class ActionAdapter(Component):
             biases_spec=self.biases_spec,
             scope="action-layer"
         )
+
+        # Wrap the action layer with a batch apply?
+        if self.batch_apply is True:
+            self.action_layer = BatchApply(self.action_layer, "apply")
 
         self.add_components(self.action_layer, self.reshape)
 
@@ -188,8 +199,10 @@ class ActionAdapter(Component):
             if isinstance(self.action_space, IntBox):
                 # Discrete actions.
                 parameters = tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
+                parameters._batch_rank = 0
                 # Log probs.
                 log_probs = tf.log(x=parameters)
+                log_probs._batch_rank = 0
             elif isinstance(self.action_space, FloatBox):
                 # Continuous actions.
                 mean, log_sd = tf.split(value=logits, num_or_size_splits=2, axis=1)
