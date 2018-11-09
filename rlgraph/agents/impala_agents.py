@@ -160,7 +160,14 @@ class IMPALAAgent(Agent):
             network_spec=self.network_spec,
             action_adapter_spec=action_adapter_spec,
             # TODO: Create some auto-setting based on LSTM inside the NN.
-            policy_spec=dict(batch_apply=batch_apply, batch_apply_action_adapter=batch_apply_action_adapter),
+            policy_spec=dict(
+                batch_apply=batch_apply, batch_apply_action_adapter=batch_apply_action_adapter, deterministic=False,
+                reuse_variable_scope="shared-policy",
+                device=dict(variables="/job:learner/task:0/cpu")
+                if self.execution_spec["mode"] == "distributed" and
+                   self.execution_spec["distributed_spec"]["cluster_spec"]
+                else None
+            ),
             exploration_spec=self.exploration_spec,
             optimizer_spec=optimizer_spec,
             observe_spec=observe_spec,
@@ -169,14 +176,12 @@ class IMPALAAgent(Agent):
             name=kwargs.pop("name", "impala-{}-agent".format(self.type)),
             **kwargs
         )
+        ## Manually set the reuse_variable_scope for our policies (actor: mu, learner: pi).
+        #self.policy.propagate_sub_component_properties(dict(reuse_variable_scope="shared-policy"))
 
-        # TODO: Get rid of this manual max_likelihood=False setting for PG algos (same in actor_critic_agent.py!).
-        self.policy.max_likelihood = False
-        # Manually set the reuse_variable_scope for our policies (actor: mu, learner: pi).
-        self.policy.propagate_sub_component_properties(dict(reuse_variable_scope="shared-policy"))
-        # Always use 1st learner as the parameter server for all policy variables.
-        if self.execution_spec["mode"] == "distributed" and self.execution_spec["distributed_spec"]["cluster_spec"]:
-            self.policy.propagate_sub_component_properties(dict(device=dict(variables="/job:learner/task:0/cpu")))
+        ## Always use 1st learner as the parameter server for all policy variables.
+        #if self.execution_spec["mode"] == "distributed" and self.execution_spec["distributed_spec"]["cluster_spec"]:
+        #    self.policy.propagate_sub_component_properties(dict(device=dict(variables="/job:learner/task:0/cpu")))
 
         # Check whether we have an RNN.
         self.has_rnn = self.neural_network.has_rnn()
@@ -597,7 +602,7 @@ class SingleIMPALAAgent(IMPALAAgent):
                 action_adapter_spec=dict(type="baseline-action-adapter"),
                 action_space=self.action_space,
                 reuse_variable_scope="shared-policy",
-                max_likelihood=False
+                deterministic=False
             )
 
             env_stepper = EnvironmentStepper(

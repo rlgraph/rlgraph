@@ -76,7 +76,7 @@ class TestPolicies(unittest.TestCase):
 
         # Deterministic sample.
         #expected_actions = np.array([0, 3])
-        test.test(("get_max_likelihood_action", states), expected_outputs=None)  # dict(action=expected_actions))
+        test.test(("get_deterministic_action", states), expected_outputs=None)  # dict(action=expected_actions))
         self.assertTrue(out["action"].dtype == np.int32)
 
         # Distribution's entropy.
@@ -157,7 +157,7 @@ class TestPolicies(unittest.TestCase):
 
         # Deterministic sample.
         #expected_actions = np.array([0, 0, 0])
-        out = test.test(("get_max_likelihood_action", nn_input), expected_outputs=None)  # dict(action=expected_actions))
+        out = test.test(("get_deterministic_action", nn_input), expected_outputs=None)  # dict(action=expected_actions))
         self.assertTrue(out["action"].dtype == np.int32)
 
         # Distribution's entropy.
@@ -228,7 +228,7 @@ class TestPolicies(unittest.TestCase):
 
         # Deterministic sample.
         #expected_actions = np.array([2, 2, 2])
-        out = test.test(("get_max_likelihood_action", states), expected_outputs=None)  # dict(action=expected_actions))
+        out = test.test(("get_deterministic_action", states), expected_outputs=None)  # dict(action=expected_actions))
         self.assertTrue(out["action"].dtype == np.int32)
 
         # Distribution's entropy.
@@ -272,12 +272,17 @@ class TestPolicies(unittest.TestCase):
         test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
                   decimals=5)
 
+        expected_action_layer_output_unfolded = np.reshape(expected_action_layer_output, newshape=(2, 3, 4+1))
         # State-values: One for each item in the batch (simply take first out-node of action_layer).
-        expected_state_value_output = expected_action_layer_output[:, :1]
+        expected_state_value_output = expected_action_layer_output_unfolded[:, :, :1]
         # logits-values: One for each action-choice per item in the batch (simply take the remaining out nodes).
-        expected_logits_output = expected_action_layer_output[:, 1:]
+        expected_logits_output = expected_action_layer_output_unfolded[:, :, 1:]
         test.test(("get_state_values_logits_probabilities_log_probs", states, ["state_values", "logits"]),
                   expected_outputs=dict(state_values=expected_state_value_output, logits=expected_logits_output),
+                  decimals=5)
+
+        test.test(("get_logits_probabilities_log_probs", states, ["logits"]),
+                  expected_outputs=dict(logits=expected_logits_output),
                   decimals=5)
 
         expected_actions = np.argmax(expected_logits_output, axis=-1)
@@ -292,18 +297,18 @@ class TestPolicies(unittest.TestCase):
 
         print("Probs: {}".format(expected_probabilities_output))
 
+        # Deterministic sample.
+        out = test.test(("get_deterministic_action", states), expected_outputs=None)  # dict(action=expected_actions))
+        self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"].shape == (2, 3))  # Make sure output is unfolded.
+
         # Stochastic sample.
-        #expected_actions = np.array([0, 2, 2])
         out = test.test(("get_stochastic_action", states), expected_outputs=None)  # dict(action=expected_actions))
         self.assertTrue(out["action"].dtype == np.int32)
-
-        # Deterministic sample.
-        #expected_actions = np.array([2, 2, 2])
-        out = test.test(("get_max_likelihood_action", states), expected_outputs=None)  # dict(action=expected_actions))
-        self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"].shape == (2, 3))  # Make sure output is unfolded.
 
         # Distribution's entropy.
-        #expected_h = np.array([1.08, 1.08, 1.03])
         out = test.test(("get_entropy", states), expected_outputs=None)  # dict(entropy=expected_h), decimals=2)
         self.assertTrue(out["entropy"].dtype == np.float32)
+        self.assertTrue(out["entropy"].shape == (2, 3))  # Make sure output is unfolded.
 

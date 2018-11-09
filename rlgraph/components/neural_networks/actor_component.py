@@ -45,8 +45,8 @@ class ActorComponent(Component):
             policy_spec (Union[dict,Policy]): A specification dict for a Policy object or a Policy object directly.
             exploration_spec (Union[dict,Exploration]): A specification dict for an Exploration object or an Exploration
                 object directly.
-            deterministic_policy (Optional[bool]): See Policy's property `deterministic_policy`.
-                If not None, overwrites the equally named setting in the Policy object (defined by `policy_spec`).
+            deterministic_policy (Optional[bool]): See Policy's property `deterministic`.
+                If not None, overwrites the `deterministic` setting in the Policy object (defined by `policy_spec`).
         """
         super(ActorComponent, self).__init__(scope=kwargs.pop("scope", "actor-component"), **kwargs)
 
@@ -77,12 +77,12 @@ class ActorComponent(Component):
                 states. Or None.
         """
         deterministic_policy = self.deterministic_policy if self.deterministic_policy\
-            is not None else self.policy.deterministic_policy
+            is not None else self.policy.deterministic
 
         preprocessed_states = self.preprocessor.preprocess(states)
 
         if deterministic_policy is True:
-            out = self.policy.get_max_likelihood_action(preprocessed_states, internal_states)
+            out = self.policy.get_deterministic_action(preprocessed_states, internal_states)
         else:
             out = self.policy.get_stochastic_action(preprocessed_states, internal_states)
         actions = self.exploration.get_action(out["action"], time_step, use_exploration)
@@ -112,8 +112,8 @@ class ActorComponent(Component):
                 `last_internal_states` (DataOp): If RNN-based, the last internal states after passing through
                 states. Or None.
         """
-        max_likelihood = self.deterministic_policy if self.deterministic_policy \
-            is not None else self.policy.deterministic_policy
+        deterministic_policy = self.deterministic_policy if self.deterministic_policy \
+            is not None else self.policy.deterministic
 
         preprocessed_states = self.preprocessor.preprocess(states)
 
@@ -124,7 +124,7 @@ class ActorComponent(Component):
         else:
             out = self.policy.get_logits_probabilities_log_probs(preprocessed_states, internal_states)
 
-        if max_likelihood is True:
+        if deterministic_policy is True:
             action_sample = self.policy.distribution.sample_deterministic(out["probabilities"])
         else:
             action_sample = self.policy.distribution.sample_stochastic(out["probabilities"])

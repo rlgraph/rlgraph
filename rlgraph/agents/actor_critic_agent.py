@@ -46,10 +46,11 @@ class ActorCriticAgent(Agent):
         # Use baseline adapter to have critic.
         action_adapter_spec = kwargs.pop("action_adapter_spec", dict(type="baseline-action-adapter"))
         super(ActorCriticAgent, self).__init__(
-            action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "actor-critic-agent"), **kwargs
+            action_adapter_spec=action_adapter_spec,
+            # Use a stochastic policy.
+            policy_spec=dict(deterministic=False),
+            name=kwargs.pop("name", "actor-critic-agent"), **kwargs
         )
-        # Use a stochastic policy.
-        self.policy.deterministic_policy = False
         self.sample_episodes = sample_episodes
 
         # Extend input Space definitions to this Agent's specific API-methods.
@@ -108,7 +109,7 @@ class ActorCriticAgent(Agent):
         # Act from preprocessed states.
         @rlgraph_api(component=self.root_component)
         def action_from_preprocessed_state(self, preprocessed_states, time_step=0, use_exploration=True):
-            sample_deterministic = policy.get_max_likelihood_action(preprocessed_states)
+            sample_deterministic = policy.get_deterministic_action(preprocessed_states)
             actions = exploration.get_action(sample_deterministic["action"], time_step, use_exploration)
             return preprocessed_states, actions
 

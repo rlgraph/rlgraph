@@ -36,7 +36,7 @@ class Distribution(Component):
         sample_stochastic(parameters): Returns a stochastic sample from the distribution.
         sample_deterministic(parameters): Returns the max-likelihood value (deterministic) from the distribution.
 
-        draw(parameters, max_likelihood): Draws a sample from the distribution (if `max_likelihood` is True,
+        draw(parameters, deterministic): Draws a sample from the distribution (if `deterministic` is True,
             this is will be a deterministic draw, otherwise a stochastic sample).
 
         entropy(parameters): The entropy value of the distribution.
@@ -82,9 +82,9 @@ class Distribution(Component):
         distribution = self._graph_fn_get_distribution(parameters)
         return self._graph_fn_sample_deterministic(distribution)
 
-    def draw(self, parameters, max_likelihood=True):
+    def draw(self, parameters, deterministic=True):
         distribution = self._graph_fn_get_distribution(parameters)
-        return self._graph_fn_draw(distribution, max_likelihood)
+        return self._graph_fn_draw(distribution, deterministic)
 
     def entropy(self, parameters):
         distribution = self._graph_fn_get_distribution(parameters)
@@ -118,7 +118,7 @@ class Distribution(Component):
         raise NotImplementedError
 
     @graph_fn
-    def _graph_fn_draw(self, distribution, max_likelihood):
+    def _graph_fn_draw(self, distribution, deterministic):
         """
         Takes a sample from the (already parameterized) distribution. The parameterization also includes a possible
         batch size.
@@ -126,7 +126,7 @@ class Distribution(Component):
         Args:
             distribution (DataOp): The (already parameterized) backend-specific distribution DataOp to use for
                 sampling. This is simply the output of `self._graph_fn_parameterize`.
-            max_likelihood (bool): Whether to return the maximum-likelihood result, instead of a random sample.
+            deterministic (bool): Whether to return the maximum-likelihood result, instead of a random sample.
                 Can be used to pick deterministic actions from discrete ("greedy") or continuous (mean-value)
                 distributions.
 
@@ -135,12 +135,12 @@ class Distribution(Component):
         """
         if get_backend() == "tf":
             return tf.cond(
-                pred=max_likelihood,
+                pred=deterministic,
                 true_fn=lambda: self._graph_fn_sample_deterministic(distribution),
                 false_fn=lambda: self._graph_fn_sample_stochastic(distribution)
             )
         elif get_backend() == "pytorch":
-            if max_likelihood:
+            if deterministic:
                 return self._graph_fn_sample_deterministic(distribution)
             else:
                 self._graph_fn_sample_stochastic(distribution)

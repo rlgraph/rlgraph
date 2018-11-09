@@ -104,7 +104,7 @@ class TestEnvironmentStepper(unittest.TestCase):
             dict(network_spec=network_spec, action_adapter_spec=dict(
                 weights_spec=[[0.1, -0.5, 0.5, 0.1], [0.4, 0.2, -0.2, 0.2]],
                 biases_spec=False
-            ), action_space=self.grid_world_2x2_action_space, max_likelihood=True),
+            ), action_space=self.grid_world_2x2_action_space, deterministic=True),
             exploration_spec
         )
         environment_stepper = EnvironmentStepper(
@@ -165,7 +165,7 @@ class TestEnvironmentStepper(unittest.TestCase):
             dict(network_spec=network_spec, action_adapter_spec=dict(
                 weights_spec=[[0.1, -0.5, 0.5, 0.1], [0.4, 0.2, -0.2, 0.2]],
                 biases_spec=False
-            ), action_space=self.grid_world_2x2_action_space, max_likelihood=True),
+            ), action_space=self.grid_world_2x2_action_space, deterministic=True),
             exploration_spec
         )
         environment_stepper = EnvironmentStepper(

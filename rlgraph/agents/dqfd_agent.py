@@ -163,7 +163,7 @@ class DQFDAgent(Agent):
         # Act from preprocessed states.
         @rlgraph_api(component=self.root_component)
         def action_from_preprocessed_state(self, preprocessed_states, time_step=0, use_exploration=True):
-            sample_deterministic = policy.get_max_likelihood_action(preprocessed_states)
+            sample_deterministic = policy.get_deterministic_action(preprocessed_states)
             actions = exploration.get_action(sample_deterministic["action"], time_step, use_exploration)
             return preprocessed_states, actions
 
