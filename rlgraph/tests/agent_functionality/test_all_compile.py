@@ -21,7 +21,7 @@ import unittest
 
 from rlgraph import get_backend
 from rlgraph.agents import DQNAgent, ApexAgent, IMPALAAgent, ActorCriticAgent
-from rlgraph.environments import OpenAIGymEnv
+from rlgraph.environments import OpenAIGymEnv, GridWorld
 from rlgraph.spaces import FloatBox, Tuple
 from rlgraph.tests.test_util import config_from_path
 
@@ -73,6 +73,24 @@ class TestAllCompile(unittest.TestCase):
             action_space=env.action_space
         )
 
+    def test_impala_single_agent_compilation(self):
+        """
+        Tests IMPALA agent compilation (single-node mode).
+        """
+        env = GridWorld("2x2")
+        agent = IMPALAAgent.from_spec(
+            config_from_path("configs/impala_agent_for_2x2_gridworld.json"),
+            state_space=env.state_space,
+            action_space=env.action_space,
+            execution_spec=dict(seed=12),
+            update_spec=dict(batch_size=16),
+            optimizer_spec=dict(type="adam", learning_rate=0.05),
+            batch_apply=True,
+            batch_apply_action_adapter=False
+        )
+        agent.terminate()
+        print("Compiled IMPALA type=actor agent.")
+
     def test_impala_actor_compilation(self):
         """
         Tests IMPALA agent compilation (actor).
@@ -117,12 +135,13 @@ class TestAllCompile(unittest.TestCase):
             level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
         )
 
-        learner_agent = IMPALAAgent.from_spec(
+        agent = IMPALAAgent.from_spec(
             agent_config,
             type="learner",
             state_space=env.state_space,
             action_space=env.action_space,
             internal_states_space=Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True),
         )
+        agent.terminate()
 
         print("Compiled IMPALA type=learner agent.")
