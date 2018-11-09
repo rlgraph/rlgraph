@@ -19,10 +19,6 @@
 
   "preprocessing_spec":
   [
-    {
-      "type": "convert_type",
-      "to_dtype": "float32"
-    }
   ],
 
   "network_spec":
