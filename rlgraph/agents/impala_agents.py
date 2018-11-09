@@ -608,7 +608,8 @@ class SingleIMPALAAgent(IMPALAAgent):
                     exploration_spec=self.exploration_spec
                 ),
                 state_space=self.state_space.with_batch_rank(),
-                reward_space=float,  # TODO <- float64 for deepmind? may not work for other envs
+                action_space=self.action_space.with_batch_rank(),
+                reward_space=float,
                 internal_states_space=self.internal_states_space,
                 num_steps=self.worker_sample_size,
                 add_action=not self.feed_previous_action_through_nn,

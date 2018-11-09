@@ -77,13 +77,13 @@ class Environment(Specifiable):
         """
         pass  # optional
 
-    def step(self, **kwargs):
+    def step(self, actions, **kwargs):
         """
         Run one time step of the environment's dynamics. When the end of an episode is reached, reset() should be
         called to reset the environment's internal state.
 
         Args:
-            kwargs (any): The action(s) to be executed by the environment. Actions have to be members of this
+            actions (any): The action(s) to be executed by the environment. Actions have to be members of this
                 Environment's action_space (a call to self.action_space.contains(action) must return True)
 
         Returns:

@@ -39,7 +39,8 @@ class EnvironmentStepper(Component):
     n times through the environment, each time picking actions depending on the states that the environment produces.
     """
 
-    def __init__(self, environment_spec, actor_component_spec, num_steps=20, state_space=None, reward_space=None,
+    def __init__(self, environment_spec, actor_component_spec, num_steps=20,
+                 state_space=None, action_space=None, reward_space=None,
                  internal_states_space=None,
                  add_action_probs=False, action_probs_space=None,
                  add_action=False, add_reward=False,
@@ -55,6 +56,8 @@ class EnvironmentStepper(Component):
             num_steps (int): The number of steps to perform per `step` call.
             state_space (Optional[Space]): The state Space of the Environment. If None, will construct a dummy
                 environment to get the state Space from there.
+            action_space (Optional[Space]): The action Space of the Environment. If None, will construct a dummy
+                environment to get the action Space from there.
             reward_space (Optional[Space]): The reward Space of the Environment. If None, will construct a dummy
                 environment to get the reward Space from there.
             internal_states_space (Optional[Space]): The internal states Space (when using an RNN inside the
@@ -80,31 +83,30 @@ class EnvironmentStepper(Component):
         """
         super(EnvironmentStepper, self).__init__(scope=scope, **kwargs)
 
-        # Only to retrieve some information about the particular Env.
-        dummy_env = Environment.from_spec(environment_spec)  # type: Environment
-
         # Create the SpecifiableServer with the given env spec.
-        if state_space is None or reward_space is None:
-            state_space = dummy_env.state_space
+        if state_space is None or reward_space is None or action_space is None:
+            # Only to retrieve some information about the particular Env.
+            dummy_env = Environment.from_spec(environment_spec)  # type: Environment
+            if state_space is None:
+                state_space = dummy_env.state_space
+            if action_space is None:
+                action_space = dummy_env.action_space
             if reward_space is None:
-                _, reward, _, _ = dummy_env.step(dummy_env.action_space.sample())
+                _, reward, _, _ = dummy_env.step(actions=action_space.sample())
                 # TODO: this may break on non 64-bit machines. tf seems to interpret a python float as tf.float64.
-                reward_space = Space.from_spec(
+                self.reward_space = Space.from_spec(
                     "float64" if type(reward) == float else float, shape=(1,)
                 ).with_batch_rank()
+            dummy_env.terminate()
         else:
-            reward_space = Space.from_spec(reward_space).with_batch_rank()
+            self.reward_space = Space.from_spec(reward_space).with_batch_rank()
 
-        self.reward_space = reward_space
-        self.action_space = dummy_env.action_space
-
-        dummy_env.terminate()
-
+        self.action_space = Space.from_spec(action_space)
         # The state that the environment produces.
-        self.state_space_env = state_space
+        self.state_space_env = Space.from_spec(state_space)
         # The state that must be fed into the actor-component to produce an action.
         # May contain prev_action and prev_reward.
-        self.state_space_actor = state_space
+        self.state_space_actor = Space.from_spec(state_space)
         self.add_previous_action_to_state = add_previous_action_to_state
         self.add_previous_reward_to_state = add_previous_reward_to_state
 
@@ -258,18 +260,19 @@ class EnvironmentStepper(Component):
 
             # Initialize the tf.scan run.
             initializer = [
-                tf.zeros(shape=(), dtype=tf.bool), #self.current_terminal.read_value(),  # whether the current state is terminal
+                # terminals
+                tf.zeros(shape=(), dtype=tf.bool),
                 # current (raw) state (flattened components if ContainerSpace).
                 tuple(map(lambda x: x.read_value(), self.current_state.values()))
             ]
             # Append actions and rewards if needed.
             if self.add_action:
-                initializer.append(tf.zeros(shape=self.action_space.shape, dtype=self.action_space.dtype))  #self.current_action.read_value())
+                initializer.append(tf.zeros(shape=self.action_space.shape, dtype=self.action_space.dtype))
             if self.add_reward:
-                initializer.append(tf.zeros(shape=self.reward_space.shape))  #self.current_reward.read_value())
+                initializer.append(tf.zeros(shape=self.reward_space.shape))
             # Append action probs if needed.
             if self.add_action_probs is True:
-                initializer.append(tf.zeros(shape=self.action_probs_space.shape))  # self.current_action_probs.read_value())
+                initializer.append(tf.zeros(shape=self.action_probs_space.shape))
             # Append internal states if needed.
             if self.current_internal_states is not None:
                 initializer.append(tuple(
@@ -312,7 +315,6 @@ class EnvironmentStepper(Component):
             with tf.control_dependencies(control_inputs=assigns):
                 full_results = []
                 for slot in range(len(step_results)):
-                #for first_values, rest_values in zip(initializer, step_results):
                     first_values, rest_values = initializer[slot], step_results[slot]
                     # Internal states need a slightly different concatenating as the batch rank is missing.
                     if self.current_internal_states is not None and slot == len(step_results) - 1:
