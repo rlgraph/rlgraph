@@ -20,6 +20,7 @@ from __future__ import print_function
 import logging
 import numpy as np
 import os
+import time
 import unittest
 
 from rlgraph.environments import GridWorld, OpenAIGymEnv
@@ -95,6 +96,8 @@ class TestIMPALAAgentShortTaskLearning(unittest.TestCase):
             execution_spec=dict(seed=12),
             update_spec=dict(batch_size=8),
             optimizer_spec=dict(type="adam", learning_rate=0.01),
+            num_workers=4,
+            worker_sample_size=20
         )
 
         learn_updates = 300
@@ -108,7 +111,9 @@ class TestIMPALAAgentShortTaskLearning(unittest.TestCase):
         # Assume we have learned something.
         self.assertGreater(np.nanmean(mean_returns), 40.0)
 
+        time.sleep(3)
         agent.terminate()
+        time.sleep(3)
 
     @staticmethod
     def _calc_mean_return(records):
