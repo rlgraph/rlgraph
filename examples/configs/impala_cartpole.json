@@ -29,7 +29,7 @@
   [
       {
         "type": "dense",
-        "units": 10,
+        "units": 128,
         "activation": "linear",
         "scope": "hidden-layer"
       }
@@ -37,7 +37,7 @@
 
   "update_spec": {
     "do_updates": true,
-    "batch_size": 8
+    "batch_size": 16
   },
 
   "optimizer_spec":
