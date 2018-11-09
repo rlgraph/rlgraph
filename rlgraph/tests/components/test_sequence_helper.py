@@ -17,23 +17,28 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
 import unittest
 
 from rlgraph.components.helpers.sequence_helper import SequenceHelper
-from rlgraph.spaces import IntBox
+from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
-import numpy as np
 
 
 class TestSequenceHelper(unittest.TestCase):
+    input_spaces = dict(
+        sequence_indices=IntBox(add_batch_rank=True),
+        values=FloatBox(add_batch_rank=True),
+        rewards=FloatBox(add_batch_rank=True),
+        decay=float
+    )
 
     def test_calc_sequence_lengths(self):
         """
         Tests counting sequence lengths based on terminal configurations.
         """
         sequence_helper = SequenceHelper()
-        sequence_indices = dict(sequence_indices=IntBox(add_batch_rank=True))
-        test = ComponentTest(component=sequence_helper, input_spaces=sequence_indices)
+        test = ComponentTest(component=sequence_helper, input_spaces=self.input_spaces)
         input_ = np.asarray([0, 0, 0, 0])
         test.test(("calc_sequence_lengths", input_), expected_outputs=[4])
 
@@ -53,11 +58,7 @@ class TestSequenceHelper(unittest.TestCase):
         sequence_helper = SequenceHelper()
         decay_value = 0.5
 
-        sequence_indices = dict(
-            sequence_indices=IntBox(add_batch_rank=True),
-            decay=float
-        )
-        test = ComponentTest(component=sequence_helper, input_spaces=sequence_indices)
+        test = ComponentTest(component=sequence_helper, input_spaces=self.input_spaces)
         input_ = np.asarray([0, 0, 0, 0])
         expected_decays = [1.0, 0.5, 0.25, 0.125]
         lengths, decays = test.test(("calc_sequence_decays", [input_, decay_value]))
