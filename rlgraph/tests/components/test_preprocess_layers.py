@@ -142,7 +142,7 @@ class TestPreprocessLayers(unittest.TestCase):
             ),
             add_batch_rank=True
         )
-        flatten = ReShape(flatten=True)
+        flatten = ReShape(flatten=True, flatten_categories={"d": 3})
 
         test = ComponentTest(component=flatten, input_spaces=dict(preprocessing_inputs=space))
 
