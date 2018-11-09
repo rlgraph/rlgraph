@@ -33,7 +33,8 @@ class OpenAIGymEnv(Environment):
     """
     def __init__(
         self, gym_env, frameskip=None, max_num_noops=0, noop_action=0, episodic_life=False, fire_reset=False,
-        monitor=None, monitor_safe=False, monitor_video=0, visualize=False, **kwargs
+        monitor=None, monitor_safe=False, monitor_video=0, visualize=False,
+        force_float32=True, **kwargs
     ):
         """
         Args:
@@ -53,6 +54,9 @@ class OpenAIGymEnv(Environment):
             monitor_video: Save a video every monitor_video steps. Setting this to 0 disables recording of videos.
             visualize: If set True, the program will visualize the trainings of gym's environment. Note that such
                 visualization is probably going to slow down the training.
+            force_float32 (bool): Whether to convert all state signals (iff the state space is of dtype float64) into
+                float32. Note: This does not affect any int-type state spaces.
+                Default: True.
         """
         if isinstance(gym_env, str):
             self.gym_env = gym.make(gym_env)  # Might raise gym.error.UnregisteredEnv or gym.error.DeprecatedEnv
@@ -79,6 +83,7 @@ class OpenAIGymEnv(Environment):
         self.true_terminal = True
         self.lives = 0
         self.fire_after_reset = fire_reset
+        self.force_float32 = force_float32
 
         if self.fire_after_reset:
             assert self.gym_env.unwrapped.get_action_meanings()[1] == 'FIRE'
@@ -99,6 +104,10 @@ class OpenAIGymEnv(Environment):
         self.state_space = self.translate_space(self.gym_env.observation_space, dtype=self.reset().dtype)
         super(OpenAIGymEnv, self).__init__(self.state_space, self.action_space, **kwargs)
 
+        # If state_space is not a FloatBox -> Set force_float32 to False.
+        if not isinstance(self.state_space, FloatBox):
+            self.force_float32 = False
+
     def seed(self, seed=None):
         if seed is None:
             seed = time.time()
@@ -114,7 +123,7 @@ class OpenAIGymEnv(Environment):
             state, _, terminal, _ = self.step(2)
             if terminal:
                 self.episodic_reset()
-            return state
+            return state if self.force_float32 is False else np.array(state, dtype=np.float32)
         else:
             return self.episodic_reset()
 
@@ -128,7 +137,7 @@ class OpenAIGymEnv(Environment):
                 state, _, _, _ = self._step_and_skip(self.noop_action)
             # Update live property.
             self.lives = self.gym_env.unwrapped.ale.lives()
-            return state
+            return state if self.force_float32 is False else np.array(state, dtype=np.float32)
         else:
             return self.noop_reset()
 
@@ -146,7 +155,7 @@ class OpenAIGymEnv(Environment):
                 state, reward, terminal, info = self.gym_env.step(self.noop_action)
                 if terminal:
                     state = self.gym_env.reset()
-        return state
+        return state if self.force_float32 is False else np.array(state, dtype=np.float32)
 
     def reset_flow(self):
         return self.reset()
@@ -178,7 +187,7 @@ class OpenAIGymEnv(Environment):
 
             return max_frame, step_reward, terminal, info
 
-    def step(self, actions):
+    def step(self, actions, **kwargs):
         if self.visualize:
             self.gym_env.render()
         state, reward, terminal, info = self._step_and_skip(actions)
@@ -191,6 +200,10 @@ class OpenAIGymEnv(Environment):
             if self.lives > lives > 0:
                 terminal = True
             self.lives = lives
+
+        if self.force_float32 is True:
+            state = np.array(state, dtype=np.float32)
+
         return state, np.asarray(reward, dtype=np.float32), terminal, info
 
     def step_flow(self, actions):
@@ -202,8 +215,7 @@ class OpenAIGymEnv(Environment):
     def render(self):
         self.gym_env.render("human")
 
-    @staticmethod
-    def translate_space(space, dtype=None):
+    def translate_space(self, space, dtype=None):
         """
         Translates openAI spaces into RLGraph Space classes.
 
@@ -225,7 +237,9 @@ class OpenAIGymEnv(Environment):
             if "int" in box_dtype:
                 return IntBox(low=space.low, high=space.high, dtype=box_dtype)
             elif "float" in box_dtype:
-                return FloatBox(low=space.low, high=space.high, dtype=box_dtype)
+                return FloatBox(
+                    low=space.low, high=space.high, dtype="float32" if self.force_float32 is True else box_dtype
+                )
             elif "bool" in box_dtype:
                 return BoolBox(shape=space.shape)
         elif isinstance(space, gym.spaces.Tuple):
