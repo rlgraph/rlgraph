@@ -120,12 +120,12 @@ class IMPALALossFunction(LossFunction):
                 policy (pi). Dimensions are: (time+1) x batch x action-space+categories.
                 +1 b/c last-next-state (aka "bootstrapped" value).
             action_probs_mu (DataOp): The probabilities for all actions coming from the
-                actor's policies (mu). Dimensions are: (time+1) x batch x action-space+categories.
+                actor's policies (mu). Dimensions are: time x batch x action-space+categories.
             values (DataOp): The state value estimates coming from baseline node of the learner's policy (pi).
                 Dimensions are: (time+1) x batch x 1.
-            actions (DataOp): The actually taken actions. Dimensions are: (time+1) x batch (discrete int actions).
-            rewards (DataOp): The received rewards. Dimensions are: (time+1) x batch.
-            terminals (DataOp): The observed terminal signals. Dimensions are: (time+1) x batch.
+            actions (DataOp): The actually taken actions. Dimensions are: time x batch (discrete int actions).
+            rewards (DataOp): The received rewards. Dimensions are: time x batch.
+            terminals (DataOp): The observed terminal signals. Dimensions are: time x batch.
 
         Returns:
             SingleDataOp: The loss values per item in the batch, but summed over all timesteps.
