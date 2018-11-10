@@ -39,12 +39,14 @@ class PPOAgent(Agent):
 
     Paper: https://arxiv.org/abs/1707.06347
     """
-    def __init__(self, baseline_spec, clip_ratio=0.2, gae_lambda=1.0, sample_episodes=True, memory_spec=None, **kwargs):
+    def __init__(self, value_function_spec, clip_ratio=0.2, gae_lambda=1.0, normalize_advantages=False,
+                 sample_episodes=True, memory_spec=None, **kwargs):
         """
         Args:
-            baseline_spec (list): Neural network specification for baseline.
+            value_function_spec (list): Neural network specification for baseline.
             clip_ratio (float): Clipping parameter for likelihood ratio.
             gae_lambda (float): Lambda for generalized advantage estimation.
+            normalize_advantages (bool): If true, normalize advantage values in update.
             sample_episodes (bool): If true, the update method interprets the batch_size as the number of
                 episodes to fetch from the memory. If false, batch_size will refer to the number of time-steps. This
                 is especially relevant for environments where episode lengths may vastly differ throughout training. For
@@ -82,12 +84,16 @@ class PPOAgent(Agent):
         # The splitter for splitting up the records coming from the memory.
         self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
 
-        self.loss_function = PPOLossFunction(discount=self.discount, gae_lambda=gae_lambda, clip_ratio=clip_ratio)
+        self.loss_function = PPOLossFunction(discount=self.discount, gae_lambda=gae_lambda, clip_ratio=clip_ratio,
+                                             normalize_advantages=normalize_advantages)
 
         # TODO make network sharing optional.
         # Create non-shared baseline network.
-        self.value_function = ValueFunction(network_spec=baseline_spec)
-        self.value_function_optimizer = Optimizer.from_spec(self.optimizer_spec)
+        self.value_function = ValueFunction(network_spec=value_function_spec)
+        vf_optimizer_spec = self.optimizer_spec
+        # Cannot use the default scope for another optimizer again.
+        vf_optimizer_spec["scope"] = function
+        self.value_function_optimizer = Optimizer.from_spec(vf_optimizer_spec)
 
         self.iterations = self.update_spec["num_iterations"]
         self.sample_size = self.update_spec["sample_size"]
@@ -100,7 +106,7 @@ class PPOAgent(Agent):
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
-        self.define_graph_api("value_function", "value_function-optimizer", "policy", "preprocessor-stack",
+        self.define_graph_api("value-function", "value-function-optimizer", "policy", "preprocessor-stack",
                               self.optimizer.scope, *sub_components)
 
         if self.auto_build:
