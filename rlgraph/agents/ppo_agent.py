@@ -21,9 +21,10 @@ import numpy as np
 
 from rlgraph.agents import Agent
 from rlgraph.components import DictMerger, ContainerSplitter, \
-    Memory, PPOLossFunction, rlgraph_api, ValueFunction, Optimizer
+    Memory, PPOLossFunction, ValueFunction, Optimizer
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils.util import strip_list
+from rlgraph.utils.decorators import rlgraph_api
 
 
 class PPOAgent(Agent):
@@ -86,21 +87,23 @@ class PPOAgent(Agent):
 
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
-                          self.exploration, self.loss_function, self.optimizer]
+                          self.exploration, self.loss_function, self.optimizer,
+                          self.value_function, self.value_function_optimizer]
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
-        self.define_graph_api("policy", "preprocessor-stack", self.optimizer.scope, *sub_components)
+        self.define_graph_api("value_function", "policy", "preprocessor-stack", self.optimizer.scope, *sub_components)
 
         if self.auto_build:
             self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
                               batch_size=self.update_spec["batch_size"])
             self.graph_built = True
 
-    def define_graph_api(self, policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
+    def define_graph_api(self, value_function_scope, policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
         super(PPOAgent, self).define_graph_api(policy_scope, pre_processor_scope)
 
-        preprocessor, merger, memory, splitter, policy, exploration, loss_function, optimizer = sub_components
+        preprocessor, merger, memory, splitter, policy, exploration, loss_function, optimizer, value_function, vf_opt\
+            = sub_components
         sample_episodes = self.sample_episodes
 
         # Reset operation (resets preprocessor).
@@ -113,9 +116,8 @@ class PPOAgent(Agent):
         # Act from preprocessed states.
         @rlgraph_api(component=self.root_component)
         def action_from_preprocessed_state(self, preprocessed_states, time_step=0, use_exploration=True):
-            sample_deterministic = policy.get_max_likelihood_action(preprocessed_states)
-            actions = exploration.get_action(sample_deterministic["action"], time_step, use_exploration)
-            return preprocessed_states, actions
+            out = policy.get_action(preprocessed_states, determinisitc=use_exploration)
+            return preprocessed_states, out["action"]
 
         # State (from environment) to action with preprocessing.
         @rlgraph_api(component=self.root_component)
@@ -139,7 +141,6 @@ class PPOAgent(Agent):
             preprocessed_s, actions, rewards, terminals = splitter.split(records)
 
             # TODO subsample here
-
             step_op, loss, loss_per_item = self_.update_from_external_batch(
                 preprocessed_s, actions, rewards, terminals
             )
@@ -165,9 +166,12 @@ class PPOAgent(Agent):
                 )
                 return step_and_sync_op, loss, loss_per_item
 
-            out = policy.get_state_values_logits_probabilities_log_probs(preprocessed_states)
-            loss, loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
-                out["probabilities"], out["state_values"], actions, rewards, terminals
+            action_log_probs,  = policy.get_logits_probabilities_log_probs(preprocessed_states)
+            baseline_values = value_function.value_output(preprocessed_states)
+
+            # log_probs, baseline_values, actions, rewards, terminals, prev_log_probs
+            loss, loss_per_item, v_loss, v_loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
+                action_log_probs, baseline_values, actions, rewards, terminals
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.

@@ -17,7 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components import Component, rlgraph_api, NeuralNetwork
+from rlgraph.components import Component
+from rlgraph.components.neural_networks.neural_network import NeuralNetwork
+from rlgraph.utils.decorators import rlgraph_api
 
 
 class ValueFunction(Component):

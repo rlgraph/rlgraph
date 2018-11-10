@@ -18,10 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components import rlgraph_api
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.components.loss_functions import LossFunction
-from rlgraph.utils.decorators import graph_fn
+from rlgraph.utils.decorators import graph_fn, rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
