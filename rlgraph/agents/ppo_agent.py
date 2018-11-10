@@ -166,7 +166,7 @@ class PPOAgent(Agent):
                 )
                 return step_and_sync_op, loss, loss_per_item
 
-            action_log_probs,  = policy.get_logits_probabilities_log_probs(preprocessed_states)
+            action_log_probs = policy.get_action_log_probs(preprocessed_states, actions)
             baseline_values = value_function.value_output(preprocessed_states)
 
             # log_probs, baseline_values, actions, rewards, terminals, prev_log_probs

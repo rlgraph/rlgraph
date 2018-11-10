@@ -47,7 +47,7 @@ class PPOLossFunction(LossFunction):
         self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=discount)
 
     @rlgraph_api
-    def loss(self, log_probs, baseline_values, actions, rewards, terminals, prev_log_probs):
+    def loss(self, log_probs, baseline_values, actions, rewards, terminals):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -58,7 +58,7 @@ class PPOLossFunction(LossFunction):
             Total loss, loss per item, total baseline loss, baseline loss per item.
         """
         loss_per_item, baseline_loss_per_item = self.loss_per_item(
-            log_probs, baseline_values, actions, rewards, terminals, prev_log_probs
+            log_probs, baseline_values, actions, rewards, terminals
         )
         total_loss = self.loss_average(loss_per_item)
         total_baseline_loss = self.loss_average(baseline_loss_per_item)
@@ -66,20 +66,24 @@ class PPOLossFunction(LossFunction):
         return total_loss, loss_per_item, total_baseline_loss, baseline_loss_per_item
 
     @graph_fn
-    def _graph_fn_loss_per_item(self, log_probs, baseline_values, actions, rewards, terminals, prev_log_probs):
+    def _graph_fn_loss_per_item(self, log_probs, baseline_values, actions, rewards, terminals):
         """
         Args:
             actions (SingleDataOp): The batch of actions that were actually taken in states s (from a memory).
             rewards (SingleDataOp): The batch of rewards that we received after having taken a in s (from a memory).
             terminals (SingleDataOp): The batch of terminal signals that we received after having taken a in s
                 (from a memory).
-            prev_log_likelihood (SingleDataOp): Log likelihood to compare to when computing likelihood ratios.
         Returns:
             SingleDataOp: The loss values vector (one single value for each batch item).
         """
         if get_backend() == "tf":
-            # Compute advantages.
+            # N.b.: Many implementations do the following:
+            # Sample action -> return policy log probs with action -> feed both back in from memory/via placeholders.
+            # This creates the same effect as just stopping the gradients on the log-probs.
+            prev_log_probs = tf.stop_gradient(log_probs)
             baseline_values = tf.squeeze(input=baseline_values, axis=-1)
+
+            # Compute advantages.
             pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals)
             v_targets = pg_advantages + baseline_values
             v_targets = tf.stop_gradient(v_targets)
