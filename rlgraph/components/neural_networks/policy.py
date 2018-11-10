@@ -214,15 +214,15 @@ class Policy(Component):
         return action_log_probs, log_probs
 
     @rlgraph_api
-    def get_action(self, nn_input, internal_states=None, deterministic=None):
+    def get_action(self, nn_input, deterministic=None, internal_states=None):
         """
         Returns an action based on NN output, action adapter output and distribution sampling.
 
         Args:
             nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
             deterministic (Optional[bool]): If not None, use this to determine whether actions should be drawn
                 from the distribution in max-likelihood (deterministic) or stochastic fashion.
+            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             any: The drawn action.
