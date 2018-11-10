@@ -188,32 +188,6 @@ class Policy(Component):
         )
 
     @rlgraph_api
-    def get_action_log_probs(self, nn_input, actions, internal_states=None):
-        """
-        Computes the log-likelihood for a given set of actions under the distribution induced by a set of states.
-
-        Args:
-            nn_input (any): The input to our neural network.
-            actions (any): The actions for which to get log-probs returned.
-
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
-
-        Returns:
-            Log-probs of actions under current policy
-            Log-probs of state output
-        """
-        # Get network output.
-        nn_output = self.get_nn_output(nn_input, internal_states)
-        aa_output = self.action_adapter.get_logits_probabilities_log_probs(nn_output["output"])
-
-        probabilities, log_probs = aa_output["probabilities"], aa_output["log_probs"]
-
-        # Probabilities under current action.
-        action_log_probs = self.distribution.log_prob(probabilities, actions)
-
-        return action_log_probs, log_probs
-
-    @rlgraph_api
     def get_action(self, nn_input, deterministic=None, internal_states=None):
         """
         Returns an action based on NN output, action adapter output and distribution sampling.
@@ -240,6 +214,33 @@ class Policy(Component):
             action = self.distribution.draw(out["probabilities"], deterministic)
 
         return dict(action=action, last_internal_states=out["last_internal_states"])
+
+    @rlgraph_api
+    def get_action_log_probs(self, nn_input, actions, internal_states=None):
+        """
+        Computes the log-likelihood for a given set of actions under the distribution induced by a set of states.
+
+        Args:
+            nn_input (any): The input to our neural network.
+            actions (any): The actions for which to get log-probs returned.
+
+            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+
+        Returns:
+            Log-probs of actions under current policy
+            Log-probs of state output
+        """
+        out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
+        ## Get network output.
+        #nn_output = self.get_nn_output(nn_input, internal_states)
+        #aa_output = self.action_adapter.get_logits_probabilities_log_probs(nn_output["output"])
+
+        #probabilities, log_probs = aa_output["probabilities"], aa_output["log_probs"]
+
+        # Probabilities under current action.
+        action_log_probs = self.distribution.log_prob(out["probabilities"], actions)
+
+        return action_log_probs, out["log_probs"]
 
     @rlgraph_api
     def get_deterministic_action(self, nn_input, internal_states=None):
