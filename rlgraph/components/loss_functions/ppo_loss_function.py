@@ -32,18 +32,20 @@ class PPOLossFunction(LossFunction):
 
     https://arxiv.org/abs/1707.06347
     """
-    def __init__(self, discount=0.99,  gae_lambda=1.0, clip_ratio=0.2, scope="ppo-loss-function", **kwargs):
+    def __init__(self, discount=0.99, gae_lambda=1.0, clip_ratio=0.2, standardize_advantages=False,
+                 scope="ppo-loss-function", **kwargs):
         """
         Args:
             discount (float): The discount factor (gamma) to use.
             gae_lambda (float): Optional GAE discount factor.
             clip_ratio (float): How much to clip the likelihood ratio between old and new policy when updating.
+            standardize_advantages (bool): If true, normalize advantage values in update.
             **kwargs:
         """
         self.clip_ratio = clip_ratio
+        self.standardize_advantages = standardize_advantages
         super(PPOLossFunction, self).__init__(scope=scope, **kwargs)
 
-        self.action_space = None
         self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=discount)
 
     @rlgraph_api
@@ -85,6 +87,11 @@ class PPOLossFunction(LossFunction):
 
             # Compute advantages.
             pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals)
+
+            if self.standardize_advantages:
+                mean, std = tf.nn.moments(pg_advantages, axis=[0])
+                pg_advantages = (pg_advantages - mean) / std
+
             v_targets = pg_advantages + baseline_values
             v_targets = tf.stop_gradient(v_targets)
 

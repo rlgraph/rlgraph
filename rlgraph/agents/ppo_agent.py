@@ -39,14 +39,14 @@ class PPOAgent(Agent):
 
     Paper: https://arxiv.org/abs/1707.06347
     """
-    def __init__(self, value_function_spec, clip_ratio=0.2, gae_lambda=1.0, normalize_advantages=False,
+    def __init__(self, value_function_spec, clip_ratio=0.2, gae_lambda=1.0, standardize_advantages=False,
                  sample_episodes=True, memory_spec=None, **kwargs):
         """
         Args:
             value_function_spec (list): Neural network specification for baseline.
             clip_ratio (float): Clipping parameter for likelihood ratio.
             gae_lambda (float): Lambda for generalized advantage estimation.
-            normalize_advantages (bool): If true, normalize advantage values in update.
+            standardize_advantages (bool): If true, standardize advantage values in update.
             sample_episodes (bool): If true, the update method interprets the batch_size as the number of
                 episodes to fetch from the memory. If false, batch_size will refer to the number of time-steps. This
                 is especially relevant for environments where episode lengths may vastly differ throughout training. For
@@ -85,7 +85,7 @@ class PPOAgent(Agent):
         self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
 
         self.loss_function = PPOLossFunction(discount=self.discount, gae_lambda=gae_lambda, clip_ratio=clip_ratio,
-                                             normalize_advantages=normalize_advantages)
+                                             standardize_advantages=standardize_advantages)
 
         # TODO make network sharing optional.
         # Create non-shared baseline network.
