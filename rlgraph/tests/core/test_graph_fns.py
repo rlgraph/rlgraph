@@ -116,3 +116,25 @@ class TestGraphFns(unittest.TestCase):
         out2 = dict(a=in1["a"] - in2, b=in1["b"] - in2, c=tuple([in1["c"][0] - in2]))
         out3 = in2
         test.test(("run", [in1, in2]), expected_outputs=[out1, out2, out3], decimals=5)
+
+    def test_calling_graph_fn_from_inside_another_graph_fn(self):
+        """
+        One graph_fn gets called from within another. Must return actual ops from inner one so that the outer one
+        can handle it.
+        """
+        input_space = spaces.FloatBox(shape=(2,))
+        component = Dummy2NestedGraphFnCalls()
+        test = ComponentTest(component=component, input_spaces=dict(
+            input_=input_space
+        ))
+
+        input_ = input_space.sample()
+        expected = input_ - 1.0
+        test.test(("run", input_), expected_outputs=expected, decimals=5)
+
+    def test_component_that_defines_custom_graph_fns(self):
+        a = DummyThatDefinesCustomGraphFn()
+
+        test = ComponentTest(component=a, input_spaces=dict(input_=float))
+
+        test.test(("run", 3.4567), expected_outputs=3.4567, decimals=3)
