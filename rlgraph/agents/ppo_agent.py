@@ -19,12 +19,16 @@ from __future__ import print_function
 
 import numpy as np
 
+from rlgraph import get_backend
 from rlgraph.agents import Agent
 from rlgraph.components import DictMerger, ContainerSplitter, \
     Memory, PPOLossFunction, ValueFunction, Optimizer
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils.util import strip_list
-from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class PPOAgent(Agent):
@@ -85,6 +89,10 @@ class PPOAgent(Agent):
         self.value_function = ValueFunction(network_spec=baseline_spec)
         self.value_function_optimizer = Optimizer.from_spec(self.optimizer_spec)
 
+        self.iterations = self.update_spec["num_iterations"]
+        self.sample_size = self.update_spec["sample_size"]
+        self.batch_size = self.update_spec["batch_size"]
+
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
                           self.exploration, self.loss_function, self.optimizer,
@@ -92,17 +100,19 @@ class PPOAgent(Agent):
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
-        self.define_graph_api("value_function", "policy", "preprocessor-stack", self.optimizer.scope, *sub_components)
+        self.define_graph_api("value_function", "value_function-optimizer", "policy", "preprocessor-stack",
+                              self.optimizer.scope, *sub_components)
 
         if self.auto_build:
             self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
                               batch_size=self.update_spec["batch_size"])
             self.graph_built = True
 
-    def define_graph_api(self, value_function_scope, policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
+    def define_graph_api(self, value_function_scope, vf_optimizer_scope,
+                         policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
         super(PPOAgent, self).define_graph_api(policy_scope, pre_processor_scope)
 
-        preprocessor, merger, memory, splitter, policy, exploration, loss_function, optimizer, value_function, vf_opt\
+        preprocessor, merger, memory, splitter, policy, exploration, loss_function, optimizer, value_function, vf_optimizer\
             = sub_components
         sample_episodes = self.sample_episodes
 
@@ -173,19 +183,92 @@ class PPOAgent(Agent):
                 action_log_probs, baseline_values, actions, rewards, terminals
             )
 
-
             # Args are passed in again because some device strategies may want to split them to different devices.
             policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
             vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
 
-            vf_step_op, vf_loss, vf_loss_per_item = self.value_function_optimizer(vf_vars, vf_loss, vf_loss_per_item)
-            step_op, loss, loss_per_item = self.optimizer.step(policy_vars, loss, loss_per_item)
+            vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope)(
+                vf_vars, vf_loss, vf_loss_per_item)
+            step_op, loss, loss_per_item = self_.get_sub_component_by_name(optimizer_scope).step(
+                policy_vars, loss, loss_per_item)
 
             if hasattr(self_, "is_multi_gpu_tower") and self_.is_multi_gpu_tower is True:
                 grads_and_vars = self_.get_sub_component_by_name(optimizer_scope).calculate_gradients(policy_vars, loss)
                 return grads_and_vars, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
             else:
                 step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
+                return step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
+
+        # N.b. this is here because the iterative_optimization would need policy/losses as sub-components, but
+        # multiple parents are not allowed currently.
+        @graph_fn
+        def _graph_fn_iterative_opt(self_, preprocessed_states, actions, rewards, terminals):
+            """
+            Calls iterative optimization by repeatedly sub-sampling.
+            """
+            if get_backend() == "tf":
+                # Compute loss once to initialize loop.
+                batch_size = tf.shape(preprocessed_states)[0]
+                sample_indices = tf.random_uniform(shape=(self.sample_size,), maxval=batch_size, dtype=tf.int32)
+                sample_states = tf.gather(params=preprocessed_states, indices=sample_indices)
+                sample_actions = tf.gather(params=actions, indices=sample_indices)
+                sample_rewards = tf.gather(params=rewards, indices=sample_indices)
+                sample_terminals = tf.gather(params=terminals, indices=sample_indices)
+
+                action_log_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
+                baseline_values = self.value_function.value_output(sample_states)
+
+                loss, loss_per_item, vf_loss, vf_loss_per_item =  self_.get_sub_component_by_name(loss_function.scope).loss(
+                    action_log_probs, baseline_values, actions, sample_rewards, sample_terminals
+                )
+
+                # Args are passed in again because some device strategies may want to split them to different devices.
+                policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
+                vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
+
+                vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope)(
+                    vf_vars, vf_loss, vf_loss_per_item)
+                step_op, loss, loss_per_item = self_.get_sub_component_by_name(optimizer_scope).step(
+                    policy_vars, loss, loss_per_item)
+
+                def opt_body(index, step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item):
+                    with tf.control_dependencies([step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item]):
+                        batch_size = tf.shape(preprocessed_states)[0]
+                        sample_indices = tf.random_uniform(shape=(self.sample_size,), maxval=batch_size, dtype=tf.int32)
+                        sample_states = tf.gather(params=preprocessed_states, indices=sample_indices)
+                        sample_actions = tf.gather(params=actions, indices=sample_indices)
+                        sample_rewards = tf.gather(params=rewards, indices=sample_indices)
+                        sample_terminals = tf.gather(params=terminals, indices=sample_indices)
+
+                        action_log_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
+                        baseline_values = self.value_function.value_output(sample_states)
+
+                        loss, loss_per_item, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
+                            action_log_probs, baseline_values, actions, sample_rewards, sample_terminals
+                        )
+
+                        # Args are passed in again because some device strategies may want to split them to different devices.
+                        policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
+                        vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
+
+                        vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope)(
+                            vf_vars, vf_loss, vf_loss_per_item)
+                        step_op, loss, loss_per_item = self_.get_sub_component_by_name(optimizer_scope).step(
+                            policy_vars, loss, loss_per_item)
+
+                        return index, step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
+
+                def cond(index, step_op, loss, loss_per_item, vf_step_op, v_loss, v_loss_per_item):
+                    return index < self.iterations
+
+                index, step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item = tf.while_loop(
+                    cond=cond,
+                    body=opt_body,
+                    # Start with 1.
+                    loop_vars=[1, step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item],
+                    parallel_iterations=1
+                )
+
                 return step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
