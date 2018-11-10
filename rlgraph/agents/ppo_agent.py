@@ -150,12 +150,15 @@ class PPOAgent(Agent):
                 records = memory.get_records(self.update_spec["batch_size"])
             preprocessed_s, actions, rewards, terminals = splitter.split(records)
 
-            # TODO subsample here
-            step_op, loss, loss_per_item = self_.update_from_external_batch(
-                preprocessed_s, actions, rewards, terminals
-            )
+            # Pass to iterative-opt graph fn:
+            step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item = \
+                self_._graph_fn_iterative_opt(preprocessed_s, actions, rewards, terminals)
 
-            return step_op, loss, loss_per_item, records
+            # step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item = self_.update_from_external_batch(
+            #     preprocessed_s, actions, rewards, terminals
+            # )
+
+            return step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
 
         # Learn from an external batch.
         @rlgraph_api(component=self.root_component)
