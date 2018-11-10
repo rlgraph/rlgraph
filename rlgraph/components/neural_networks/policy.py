@@ -194,7 +194,7 @@ class Policy(Component):
 
         Args:
             nn_input (any): The input to our neural network.
-            actions (any): Actions
+            actions (any): The actions for which to get log-probs returned.
 
             internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 

@@ -521,7 +521,6 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
     component.graph_fns[wrapped_func.__name__].out_op_columns.append(out_graph_fn_column)
 
     stack = inspect.stack()
-    print("Returning from graph_fn '{}'. Caller function={}".format(wrapped_func.__name__, stack[2][3]))
     if re.match(r'^_graph_fn_.+|<lambda>$', stack[2][3]) and out_graph_fn_column.op_records[0].op is not None:
         if len(out_graph_fn_column.op_records) == 1:
             return out_graph_fn_column.op_records[0].op
