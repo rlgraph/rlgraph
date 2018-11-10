@@ -18,11 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components import Categorical, rlgraph_api
+from rlgraph.components import rlgraph_api
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.components.loss_functions import LossFunction
-from rlgraph.spaces import IntBox, FloatBox
-from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import graph_fn
 
 if get_backend() == "tf":
@@ -50,7 +48,7 @@ class PPOLossFunction(LossFunction):
         self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=discount)
 
     @rlgraph_api
-    def loss(self, logits_actions_pi, action_probs_mu, values, actions, rewards, terminals):
+    def loss(self, log_probs, baseline_values, actions, rewards, terminals, prev_log_probs):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -60,12 +58,13 @@ class PPOLossFunction(LossFunction):
         Returns:
             Total loss, loss per item, total baseline loss, baseline loss per item.
         """
-        loss_per_item = self.loss_per_item(
-            logits_actions_pi, action_probs_mu, values, actions, rewards, terminals
+        loss_per_item, baseline_loss_per_item = self.loss_per_item(
+            log_probs, baseline_values, actions, rewards, terminals, prev_log_probs
         )
         total_loss = self.loss_average(loss_per_item)
+        total_baseline_loss = self.loss_average(baseline_loss_per_item)
 
-        return total_loss, loss_per_item
+        return total_loss, loss_per_item, total_baseline_loss, baseline_loss_per_item
 
     @graph_fn
     def _graph_fn_loss_per_item(self, log_probs, baseline_values, actions, rewards, terminals, prev_log_probs):
