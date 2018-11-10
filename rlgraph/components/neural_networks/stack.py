@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import copy
+
 from rlgraph import get_backend
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.components.component import Component
@@ -140,9 +142,10 @@ class Stack(Component):
 
     @classmethod
     def from_spec(cls, spec=None, **kwargs):
+        spec_deepcopy = copy.deepcopy(spec)
         if isinstance(spec, dict):
-            kwargs["_args"] = list(spec.pop("layers", []))
+            kwargs["_args"] = list(spec_deepcopy.pop("layers", []))
         elif isinstance(spec, (tuple, list)):
-            kwargs["_args"] = spec
-            spec = None
-        return super(Stack, cls).from_spec(spec, **kwargs)
+            kwargs["_args"] = spec_deepcopy
+            spec_deepcopy = None
+        return super(Stack, cls).from_spec(spec_deepcopy, **kwargs)

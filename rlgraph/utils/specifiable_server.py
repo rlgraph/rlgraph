@@ -152,6 +152,7 @@ class SpecifiableServer(Specifiable):
                         if isinstance(e, IOError):
                             raise StopIteration()  # Clean exit.
                         else:
+                            print("ERROR: Sent={} Exception={}".format(args_, e))
                             raise
 
                 results = tf.py_func(py_call, (method_name,) + tuple(args), dtypes, name=method_name)
@@ -215,7 +216,7 @@ class SpecifiableServer(Specifiable):
                     return
 
                 # Call the method with the given args.
-                method_name = str(command[0])  #.decode()  # must decode here as method_name comes in as bytes
+                method_name = str(command[0])  # must decode here as method_name comes in as bytes
                 inputs = command[1:]
                 results = getattr(proxy_object, method_name)(*inputs)
 
@@ -224,6 +225,7 @@ class SpecifiableServer(Specifiable):
 
         # If something happens during the construction and proxy run phase, pass the exception back through our pipe.
         except Exception as e:
+            print("ERROR: Last called={} Sent={}".format(method_name, inputs))
             # Try to clean up.
             if proxy_object is not None and shutdown_method is not None and hasattr(proxy_object, shutdown_method):
                 try:

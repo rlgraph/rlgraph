@@ -118,7 +118,8 @@ class LSTMLayer(NNLayer):
                 use_peephole=self.use_peepholes,
                 cell_clip=self.cell_clip,
                 forget_bias=self.forget_bias,
-                name="lstm-cell"
+                name="lstm-cell",
+                reuse=tf.AUTO_REUSE
                 # TODO: self.trainable needs to be recognized somewhere here.
 
                 # These are all not supported yet for LSTMBlockCell (only for the slower LSTMCell)

@@ -88,6 +88,6 @@ class TestDeepmindLabEnv(unittest.TestCase):
         s = env.reset()
         start_time = time.perf_counter()
         for _ in range(num_steps):
-            img, text, r, t = env.step_for_env_stepper(env.action_space.sample())
+            img, text, r, t = env.step_flow(env.action_space.sample())
         run_time = time.perf_counter() - start_time
         print("\n{} Steps took {}sec ({:.2f} actions/sec).".format(num_steps, run_time, num_steps / run_time))

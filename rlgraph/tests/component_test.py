@@ -120,6 +120,7 @@ class ComponentTest(object):
             decimals (Optional[int]): The number of digits after the floating point up to which to compare actual
                 outputs and expected values.
             fn_test (Optional[callable]): Test function to call with (self, outs) as parameters.
+            print (bool): Whether to print out the actual results (before doing any checks on the results).
 
         Returns:
             any: The actual returned values when calling the API-method with the given parameters.
@@ -127,10 +128,14 @@ class ComponentTest(object):
         expected_outputs = kwargs.pop("expected_outputs", None)
         decimals = kwargs.pop("decimals", 7)
         fn_test = kwargs.pop("fn_test", None)
+        print_ = kwargs.pop("print", False)
         assert not kwargs
 
         # Get the outs ..
         outs = self.graph_executor.execute(*api_method_calls)
+
+        if print_ is True:
+            print("Results:\n{}".format(repr(outs)))
 
         #  Optionally do test asserts here.
         if expected_outputs is not None:

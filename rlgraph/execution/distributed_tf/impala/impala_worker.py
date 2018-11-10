@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import time
 
-from rlgraph.agents.impala_agent import IMPALAAgent
+from rlgraph.agents.impala_agents import IMPALAAgent
 from rlgraph.utils.util import default_dict
 from rlgraph.execution.worker import Worker
 

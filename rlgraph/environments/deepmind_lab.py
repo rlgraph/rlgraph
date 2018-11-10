@@ -93,7 +93,7 @@ class DeepmindLabEnv(Environment):
         state = self.level.observations()
         return state
 
-    def reset_for_env_stepper(self):
+    def reset_flow(self):
         state = self.reset()
         if isinstance(self.state_space, Dict):
             return [state[key] for key in self.state_space]
@@ -111,7 +111,7 @@ class DeepmindLabEnv(Environment):
         # Return state, reward, terminal, and None (info).
         return state, np.array(reward, dtype=np.float32), terminal, None
 
-    def step_for_env_stepper(self, actions):
+    def step_flow(self, actions):
         # Do the actual step.
         # TODO: Remove this impala hack again (just to see whether looking up action in graph is faster).
         reward = self.level.step(action=self.action_list[actions], num_steps=self.frameskip)
@@ -123,7 +123,7 @@ class DeepmindLabEnv(Environment):
         else:
             state = self.level.observations()
 
-        # Return state, reward, terminal, and None (info).
+        # Return state, reward, terminal.
         if isinstance(self.state_space, Dict):
             return [state[key] for key in self.state_space] + [np.array(reward, dtype=np.float32), terminal]
         else:

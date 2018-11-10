@@ -39,7 +39,6 @@ class QueueRunner(Component):
                  # TODO: move these into data_producing_components-wrapper components
                  env_output_splitter,
                  fifo_input_merger,
-                 next_states_slicer,
                  internal_states_slicer,
                  *data_producing_components, **kwargs):
         """
@@ -62,7 +61,6 @@ class QueueRunner(Component):
 
         self.env_output_splitter = env_output_splitter
         self.fifo_input_merger = fifo_input_merger
-        self.next_states_slicer = next_states_slicer
         self.internal_states_slicer = internal_states_slicer
 
         # The actual backend-dependent queue object.
@@ -71,8 +69,16 @@ class QueueRunner(Component):
         self.data_producing_components = data_producing_components
 
         # Add our sub-components (not the queue!).
-        self.add_components(self.env_output_splitter, self.fifo_input_merger, self.next_states_slicer,
-                            self.internal_states_slicer, *self.data_producing_components)
+        self.add_components(
+            self.env_output_splitter, self.internal_states_slicer, self.fifo_input_merger,
+            *self.data_producing_components
+        )
+
+    def check_input_completeness(self):
+        # The queue must be ready before we are (even though it's not a sub-component).
+        if self.queue.input_complete is False:
+            return False
+        return super(QueueRunner, self).check_input_completeness()
 
     @rlgraph_api
     def _graph_fn_setup(self):
@@ -84,25 +90,21 @@ class QueueRunner(Component):
                 if self.return_slot != -1:
                     # Only care about one slot of the return values.
                     record = record[self.return_slot]
-                # Create dict record from tuple return.
-                #record = self.input_merger.merge(*record)
 
                 # TODO: specific for IMPALA problem: needs to be generalized.
-                preprocessed_s, actions, rewards, returns, terminals, next_states, action_log_probs, \
-                    internal_states = self.env_output_splitter.split(record)
+                if self.internal_states_slicer is not None:
+                    terminals, states, actions, rewards, action_log_probs, internal_states = \
+                        self.env_output_splitter.split(record)
 
-                last_next_state = self.next_states_slicer.slice(next_states, -1)
-                initial_internal_states = self.internal_states_slicer.slice(internal_states, 0)
-                #current_internal_states = self.internal_states_slicer.slice(internal_states, -1)
-
-                record = self.fifo_input_merger.merge(
-                    preprocessed_s, actions, rewards, terminals, last_next_state, action_log_probs,
-                    initial_internal_states
-                )
-
-                # Insert results into the FIFOQueue.
-                #insert_op = fifo_queue.insert_records(record)
-                #return step_op, insert_op, current_internal_states, returns, terminals
+                    initial_internal_states = self.internal_states_slicer.slice(internal_states, 0)
+                    record = self.fifo_input_merger.merge(
+                        terminals, states, actions, rewards, action_log_probs, initial_internal_states
+                    )
+                else:
+                    terminals, states, actions, rewards, action_log_probs = self.env_output_splitter.split(record)
+                    record = self.fifo_input_merger.merge(
+                        terminals, states, actions, rewards, action_log_probs
+                    )
 
                 # Create enqueue_op from api_return.
                 # TODO: This is kind of cheating, as we are producing an op from a component that's not ours.
