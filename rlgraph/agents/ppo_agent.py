@@ -169,20 +169,24 @@ class PPOAgent(Agent):
             action_log_probs = policy.get_action_log_probs(preprocessed_states, actions)
             baseline_values = value_function.value_output(preprocessed_states)
 
-            # log_probs, baseline_values, actions, rewards, terminals, prev_log_probs
-            loss, loss_per_item, v_loss, v_loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
+            loss, loss_per_item, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
                 action_log_probs, baseline_values, actions, rewards, terminals
             )
 
+
             # Args are passed in again because some device strategies may want to split them to different devices.
             policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
+            vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
+
+            vf_step_op, vf_loss, vf_loss_per_item = self.value_function_optimizer(vf_vars, vf_loss, vf_loss_per_item)
+            step_op, loss, loss_per_item = self.optimizer.step(policy_vars, loss, loss_per_item)
 
             if hasattr(self_, "is_multi_gpu_tower") and self_.is_multi_gpu_tower is True:
                 grads_and_vars = self_.get_sub_component_by_name(optimizer_scope).calculate_gradients(policy_vars, loss)
-                return grads_and_vars, loss, loss_per_item
+                return grads_and_vars, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
             else:
                 step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
-                return step_op, loss, loss_per_item
+                return step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
