@@ -151,7 +151,10 @@ class Agent(Specifiable):
         # Create the Agent's optimizer based on optimizer_spec and execution strategy.
         self.optimizer = None
         if optimizer_spec is not None:
-            self.optimizer = Optimizer.from_spec(optimizer_spec)  #get_optimizer_from_device_strategy(
+            # Save spec in case agent needs to create more optimizers e.g. for baseline.
+            self.optimizer_spec = optimizer_spec
+            self.optimizer = Optimizer.from_spec(optimizer_spec)
+            #get_optimizer_from_device_strategy(
                 #optimizer_spec, self.execution_spec.get("device_strategy", 'default')
         # Update-spec dict tells the Agent how to update (e.g. memory batch size).
         self.update_spec = parse_update_spec(update_spec)

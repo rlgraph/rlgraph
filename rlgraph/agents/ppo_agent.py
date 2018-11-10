@@ -21,7 +21,7 @@ import numpy as np
 
 from rlgraph.agents import Agent
 from rlgraph.components import DictMerger, ContainerSplitter, \
-    Memory, PPOLossFunction, rlgraph_api
+    Memory, PPOLossFunction, rlgraph_api, ValueFunction, Optimizer
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils.util import strip_list
 
@@ -34,19 +34,20 @@ class PPOAgent(Agent):
 
     Paper: https://arxiv.org/abs/1707.06347
     """
-    def __init__(self, gae_lambda=1.0, sample_episodes=True, memory_spec=None, **kwargs):
+    def __init__(self, baseline_spec, clip_ratio=0.2, gae_lambda=1.0, sample_episodes=True, memory_spec=None, **kwargs):
         """
         Args:
+            baseline_spec (list): Neural network specification for baseline.
+            clip_ratio (float): Clipping parameter for likelihood ratio.
+            gae_lambda (float): Lambda for generalized advantage estimation.
             sample_episodes (bool): If true, the update method interprets the batch_size as the number of
                 episodes to fetch from the memory. If false, batch_size will refer to the number of time-steps. This
                 is especially relevant for environments where episode lengths may vastly differ throughout training. For
                 example, in CartPole, a losing episode is typically 10 steps, and a winning episode 200 steps.
-            gae_lambda (float): Lambda for generalized advantage estimation.
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
             a ring-buffer.
         """
-        # Use baseline adapter to have critic.
-        action_adapter_spec = kwargs.pop("action_adapter_spec", dict(type="baseline-action-adapter"))
+        action_adapter_spec = kwargs.pop("action_adapter_spec", dict(type="action-adapter"))
         super(PPOAgent, self).__init__(
             action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "actor-critic-agent"), **kwargs
         )
@@ -71,13 +72,17 @@ class PPOAgent(Agent):
 
         # The merger to merge inputs into one record Dict going into the memory.
         self.merger = DictMerger("states", "actions", "rewards", "terminals")
-        # The replay memory.
         assert memory_spec["type"] == "ring_buffer", "PPO memory must be ring-buffer for episode-handling."
         self.memory = Memory.from_spec(memory_spec)
         # The splitter for splitting up the records coming from the memory.
         self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
 
-        self.loss_function = PPOLossFunction()
+        self.loss_function = PPOLossFunction(discount=self.discount, gae_lambda=gae_lambda, clip_ratio=clip_ratio)
+
+        # TODO make network sharing optional.
+        # Create non-shared baseline network.
+        self.value_function = ValueFunction(network_spec=baseline_spec)
+        self.value_function_optimizer = Optimizer.from_spec(self.optimizer_spec)
 
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
@@ -87,8 +92,6 @@ class PPOAgent(Agent):
         # Define the Agent's (root-Component's) API.
         self.define_graph_api("policy", "preprocessor-stack", self.optimizer.scope, *sub_components)
 
-        # markup = get_graph_markup(self.graph_builder.root_component)
-        # print(markup)
         if self.auto_build:
             self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
                               batch_size=self.update_spec["batch_size"])
@@ -135,6 +138,8 @@ class PPOAgent(Agent):
                 records = memory.get_records(self.update_spec["batch_size"])
             preprocessed_s, actions, rewards, terminals = splitter.split(records)
 
+            # TODO subsample here
+
             step_op, loss, loss_per_item = self_.update_from_external_batch(
                 preprocessed_s, actions, rewards, terminals
             )
@@ -159,9 +164,10 @@ class PPOAgent(Agent):
                     step_op, main_policy_vars
                 )
                 return step_and_sync_op, loss, loss_per_item
+
             out = policy.get_state_values_logits_probabilities_log_probs(preprocessed_states)
             loss, loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
-                out["logits"], out["probabilities"], out["state_values"], actions, rewards, terminals
+                out["probabilities"], out["state_values"], actions, rewards, terminals
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
