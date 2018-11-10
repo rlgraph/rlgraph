@@ -520,10 +520,18 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
 
     component.graph_fns[wrapped_func.__name__].out_op_columns.append(out_graph_fn_column)
 
-    if len(out_graph_fn_column.op_records) == 1:
-        return out_graph_fn_column.op_records[0]
+    stack = inspect.stack()
+    print("Returning from graph_fn '{}'. Caller function={}".format(wrapped_func.__name__, stack[2][3]))
+    if re.match(r'^_graph_fn_.+|<lambda>$', stack[2][3]) and out_graph_fn_column.op_records[0].op is not None:
+        if len(out_graph_fn_column.op_records) == 1:
+            return out_graph_fn_column.op_records[0].op
+        else:
+            return tuple([op_rec.op for op_rec in out_graph_fn_column.op_records])
     else:
-        return tuple(out_graph_fn_column.op_records)
+        if len(out_graph_fn_column.op_records) == 1:
+            return out_graph_fn_column.op_records[0]
+        else:
+            return tuple(out_graph_fn_column.op_records)
 
 
 def _sanity_check_call_parameters(self, params, method, method_type, add_auto_key_as_first_param):
