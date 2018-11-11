@@ -80,7 +80,7 @@ def main(argv):
     print("Starting workload, this will take some time for the agents to build.")
 
     # Use exploration is true for training, false for evaluation.
-    worker.execute_timesteps(5000, use_exploration=True)
+    worker.execute_timesteps(10000, use_exploration=True)
 
     print("Mean reward: {:.2f} / over the last 10 episodes: {:.2f}".format(
         np.mean(rewards), np.mean(rewards[-10:])

@@ -214,6 +214,8 @@ class PPOAgent(Agent):
             """
             if get_backend() == "tf":
                 batch_size = tf.shape(preprocessed_states)[0]
+                last_terminal = tf.expand_dims(terminals[-1], -1)
+                terminals = tf.concat([terminals[:-1], tf.ones_like(last_terminal)], axis=0)
 
                 def opt_body(index, loss, loss_per_item, vf_loss, vf_loss_per_item):
                     start = tf.random_uniform(shape=(1,), minval=0, maxval=batch_size - 1, dtype=tf.int32)[0]
