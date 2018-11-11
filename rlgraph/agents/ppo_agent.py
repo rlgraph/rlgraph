@@ -160,12 +160,9 @@ class PPOAgent(Agent):
             loss, loss_per_item, vf_loss, vf_loss_per_item = \
                 self_._graph_fn_iterative_opt(preprocessed_s, actions, rewards, terminals)
 
-            # step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item = self_.update_from_external_batch(
-            #     preprocessed_s, actions, rewards, terminals
-            # )
-
             return loss, loss_per_item, vf_loss, vf_loss_per_item
 
+        # TODO clean up, impl.
         # # Learn from an external batch.
         # @rlgraph_api(component=self.root_component)
         # def update_from_external_batch(
@@ -221,7 +218,6 @@ class PPOAgent(Agent):
                 def opt_body(index, loss, loss_per_item, vf_loss, vf_loss_per_item):
                     start = tf.random_uniform(shape=(1,), minval=0, maxval=batch_size - 1, dtype=tf.int32)[0]
                     indices = tf.range(start=start, limit=start + self.sample_size) % batch_size
-
                     sample_states = tf.gather(params=preprocessed_states, indices=indices)
                     sample_actions = tf.gather(params=actions, indices=indices)
                     sample_rewards = tf.gather(params=rewards, indices=indices)
@@ -248,7 +244,7 @@ class PPOAgent(Agent):
                     vf_loss_per_item.set_shape((self.sample_size, ))
 
                     with tf.control_dependencies([step_op, vf_step_op]):
-                        return index, loss, loss_per_item, vf_loss, vf_loss_per_item
+                        return index + 1, loss, loss_per_item, vf_loss, vf_loss_per_item
 
                 def cond(index, loss, loss_per_item, v_loss, v_loss_per_item):
                     return index < self.iterations
@@ -263,7 +259,6 @@ class PPOAgent(Agent):
                                tf.zeros(shape=(self.sample_size,))],
                     parallel_iterations=1
                 )
-
                 return loss, loss_per_item, vf_loss, vf_loss_per_item
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):

@@ -117,7 +117,7 @@ class GraphBuilder(Specifiable):
             device_map (Optional[Dict]): Dict of Component names mapped to device names to place the Component's ops.
             build_options (Optional[Dict]): Dict of build options, e.g. default device handling for TF.
         """
-        # No device context options..
+        # No device context options.
         if build_options is None or "build_device_context" not in build_options:
             return self.build_graph(meta_graph, input_spaces, available_devices,
                                     device_strategy, default_device, device_map)
