@@ -83,7 +83,7 @@ class OpenAIGymEnv(Environment):
         self.true_terminal = True
         self.lives = 0
         self.fire_after_reset = fire_reset
-        self.force_float32 = force_float32
+        self.force_float32 = False  # Set to False for now, later overwrite with a correct value.
 
         if self.fire_after_reset:
             assert self.gym_env.unwrapped.get_action_meanings()[1] == 'FIRE'
@@ -101,12 +101,16 @@ class OpenAIGymEnv(Environment):
         # Don't trust gym's own information on dtype. Find out what the observation space really is.
         # Gym_env.observation_space's low/high used to be float64 ndarrays, but the actual output was uint8.
         self.action_space = self.translate_space(self.gym_env.action_space)
-        self.state_space = self.translate_space(self.gym_env.observation_space, dtype=self.reset().dtype)
+        self.state_space = self.translate_space(
+            self.gym_env.observation_space, dtype=self.reset().dtype, force_float32=force_float32
+        )
         super(OpenAIGymEnv, self).__init__(self.state_space, self.action_space, **kwargs)
 
         # If state_space is not a FloatBox -> Set force_float32 to False.
         if not isinstance(self.state_space, FloatBox):
-            self.force_float32 = False
+            force_float32 = False
+
+        self.force_float32 = force_float32
 
     def seed(self, seed=None):
         if seed is None:
@@ -215,7 +219,8 @@ class OpenAIGymEnv(Environment):
     def render(self):
         self.gym_env.render("human")
 
-    def translate_space(self, space, dtype=None):
+    @staticmethod
+    def translate_space(space, dtype=None, force_float32=False):
         """
         Translates openAI spaces into RLGraph Space classes.
 
@@ -238,7 +243,7 @@ class OpenAIGymEnv(Environment):
                 return IntBox(low=space.low, high=space.high, dtype=box_dtype)
             elif "float" in box_dtype:
                 return FloatBox(
-                    low=space.low, high=space.high, dtype="float32" if self.force_float32 is True else box_dtype
+                    low=space.low, high=space.high, dtype="float32" if force_float32 is True else box_dtype
                 )
             elif "bool" in box_dtype:
                 return BoolBox(shape=space.shape)

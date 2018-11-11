@@ -315,7 +315,7 @@ class TestEnvironmentStepper(unittest.TestCase):
         test.terminate()
 
     def test_environment_stepper_on_pong(self):
-        environment_spec = dict(type="openai_gym", gym_env="Pong-v0", frameskip=4, seed=10)
+        environment_spec = dict(type="openai-gym", gym_env="Pong-v0", frameskip=4, seed=10)
         dummy_env = Environment.from_spec(environment_spec)
         state_space = dummy_env.state_space
         action_space = dummy_env.action_space
@@ -352,16 +352,9 @@ class TestEnvironmentStepper(unittest.TestCase):
         ))
 
         # Check types of outputs.
-        #self.assertTrue(out[0] is None)
         self.assertTrue(isinstance(out, DataOpTuple))  # the step results as a tuple (see below)
 
         # Check types of single data.
-        #self.assertTrue(out[0].dtype == np.float32)  # preprocessed states
-        #self.assertTrue(out[0].min() >= 0.0)  # make sure we have pixels / 255
-        #self.assertTrue(out[0].max() <= 1.0)
-        #self.assertTrue(out[1].dtype == np.int32)  # actions
-        #self.assertTrue(out[2].dtype == np.float32)  # rewards
-        #self.assertTrue(out[3].dtype == np.float32)  # episode return
         self.assertTrue(out[0].dtype == np.bool_)  # next-state is terminal?
         self.assertTrue(out[1].dtype == np.uint8)  # next state (raw, not preprocessed)
         self.assertTrue(out[1].min() >= 0)  # make sure we have pixels
@@ -369,15 +362,6 @@ class TestEnvironmentStepper(unittest.TestCase):
         self.assertTrue(out[2].dtype == np.float32)  # rewards
         self.assertTrue(out[2].min() >= -1.0)  # -1.0 to 1.0
         self.assertTrue(out[2].max() <= 1.0)
-
-        # Check whether episode returns match single rewards (including resetting after each terminal signal).
-        #episode_returns = 0.0
-        #for i in range(environment_stepper.num_steps):
-        #    episode_returns += out[2][i]
-        #    self.assertAlmostEqual(episode_returns, out[1][3][i])
-        #    # Terminal: Reset accumulated episode-return before next step.
-        #    if out[1][4][i] is np.bool_(True):
-        #        episode_returns = 0.0
 
         # Make sure we close the session (to shut down the Env on the server).
         test.terminate()
@@ -478,16 +462,9 @@ class TestEnvironmentStepper(unittest.TestCase):
         )
 
         # Check types of outputs.
-        #self.assertTrue(out[0] is None)
         self.assertTrue(isinstance(out, DataOpTuple))  # the step results as a tuple (see below)
 
         # Check types of single data.
-        #self.assertTrue(out[0].dtype == np.float32)
-        #self.assertTrue(out[0].min() >= 0.0)  # make sure we have pixels / 255
-        #self.assertTrue(out[0].max() <= 1.0)
-        #self.assertTrue(out[1].dtype == np.int32)  # actions
-        #self.assertTrue(out[2].dtype == np.float32)  # rewards
-        #self.assertTrue(out[0].dtype == np.float32)  # episode return
         self.assertTrue(out[0].dtype == np.bool_)  # next-state is terminal?
         self.assertTrue(out[1].dtype == np.uint8)  # next state (raw, not preprocessed)
         self.assertTrue(out[1].min() >= 0)  # make sure we have pixels
@@ -504,14 +481,5 @@ class TestEnvironmentStepper(unittest.TestCase):
         self.assertTrue(out[3][1].dtype == np.float32)
         self.assertTrue(out[3][0].shape == (environment_stepper.num_steps, 3))
         self.assertTrue(out[3][1].shape == (environment_stepper.num_steps, 3))
-
-        # Check whether episode returns match single rewards (including terminal signals).
-        #episode_returns = 0.0
-        #for i in range(environment_stepper.num_steps):
-        #    episode_returns += out[0][i]
-        #    self.assertAlmostEqual(episode_returns, out[3][i])
-        #    # Terminal: Reset for next step.
-        #    if out[4][i] is np.bool_(True):
-        #        episode_returns = 0.0
 
         test.terminate()

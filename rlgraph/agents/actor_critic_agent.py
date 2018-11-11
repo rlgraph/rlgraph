@@ -61,7 +61,6 @@ class ActorCriticAgent(Agent):
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
             weights="variables:policy",
-            time_step=int,
             use_exploration=bool,
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
@@ -80,7 +79,7 @@ class ActorCriticAgent(Agent):
 
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
-                          self.exploration, self.loss_function, self.optimizer]
+                          self.loss_function, self.optimizer]
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
@@ -96,7 +95,7 @@ class ActorCriticAgent(Agent):
     def define_graph_api(self, policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
         super(ActorCriticAgent, self).define_graph_api(policy_scope, pre_processor_scope)
 
-        preprocessor, merger, memory, splitter, policy, exploration, loss_function, optimizer = sub_components
+        preprocessor, merger, memory, splitter, policy, loss_function, optimizer = sub_components
         sample_episodes = self.sample_episodes
 
         # Reset operation (resets preprocessor).
@@ -108,16 +107,15 @@ class ActorCriticAgent(Agent):
 
         # Act from preprocessed states.
         @rlgraph_api(component=self.root_component)
-        def action_from_preprocessed_state(self, preprocessed_states, time_step=0, use_exploration=True):
-            sample_deterministic = policy.get_deterministic_action(preprocessed_states)
-            actions = exploration.get_action(sample_deterministic["action"], time_step, use_exploration)
-            return preprocessed_states, actions
+        def action_from_preprocessed_state(self, preprocessed_states, use_exploration=True):
+            out = policy.get_action(preprocessed_states, use_exploration)
+            return preprocessed_states, out["action"]
 
         # State (from environment) to action with preprocessing.
         @rlgraph_api(component=self.root_component)
-        def get_preprocessed_state_and_action(self, states, time_step=0, use_exploration=True):
+        def get_preprocessed_state_and_action(self, states, use_exploration=True):
             preprocessed_states = preprocessor.preprocess(states)
-            return self.action_from_preprocessed_state(preprocessed_states, time_step, use_exploration)
+            return self.action_from_preprocessed_state(preprocessed_states, use_exploration)
 
         # Insert into memory.
         @rlgraph_api(component=self.root_component)
@@ -206,7 +204,7 @@ class ActorCriticAgent(Agent):
         return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
         ret = self.graph_executor.execute((
             call_method,
-            [batched_states, self.timesteps, use_exploration],
+            [batched_states, use_exploration],
             # 0=preprocessed_states, 1=action
             return_ops
         ))

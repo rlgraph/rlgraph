@@ -80,6 +80,7 @@ class TensorFlowExecutor(GraphExecutor):
         # devices depending on the device strategy and we hence keep an instance here to be able
         # to request special device init ops.
         self.optimizer = None
+        self.vf_optimizer = None
 
         self.graph_default_context = None
         self.local_device_protos = device_lib.list_local_devices()
@@ -187,7 +188,7 @@ class TensorFlowExecutor(GraphExecutor):
             # Sanity-check the component tree (from root all the way down).
             self.sanity_check_component_tree(root_component=component)
 
-            self._build_device_strategy(component, optimizer, batch_size=batch_size)
+            self._build_device_strategy(component, optimizer, batch_size=batch_size, extra_build_args=build_options)
             start = time.perf_counter()
             meta_graph = self.meta_graph_builder.build(component, input_spaces)
             meta_build_times.append(time.perf_counter() - start)
@@ -449,6 +450,9 @@ class TensorFlowExecutor(GraphExecutor):
         # TODO let graph builder do this
         if self.optimizer is not None:
             var_list.extend(self.optimizer.get_optimizer_variables())
+            # If the VF has a separate optimizer (non-shared network), we need to fetch its vars here as well.
+            if self.vf_optimizer is not None:
+                var_list.extend(self.vf_optimizer.get_optimizer_variables())
 
         if self.execution_mode == "single":
             self.init_op = tf.variables_initializer(var_list=var_list)
@@ -636,7 +640,7 @@ class TensorFlowExecutor(GraphExecutor):
         # Close the tf.Session.
         self.monitored_session.close()
 
-    def _build_device_strategy(self, root_component, root_optimizer, batch_size):
+    def _build_device_strategy(self, root_component, root_optimizer, batch_size, extra_build_args=None):
         """
         When using multiple GPUs or other special devices, additional graph components
         may be required to split up incoming data, load it to device memories, and aggregate
@@ -653,8 +657,12 @@ class TensorFlowExecutor(GraphExecutor):
             root_component (Component): The root Component (will be used to create towers via `Component.copy()`).
             root_optimizer (Optimizer): The Optimizer object of the root Component.
             batch_size (int): The batch size that needs to be split between the different GPUs.
+            extra_build_args (Optional[dict]): Extra build elements to pass.
         """
         self.optimizer = root_optimizer
+        # Save separate vf optimizer if necessary.
+        if extra_build_args is not None and "vf_optimizer" in extra_build_args:
+            self.vf_optimizer = extra_build_args["vf_optimizer"]
 
         if self.device_strategy == "multi_gpu_sync":
             assert self.num_gpus > 1, "ERROR: MultiGpuSync strategy needs more than one GPU available but" \

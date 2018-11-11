@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components import Categorical
+from rlgraph.components.distributions.categorical import Categorical
 from rlgraph.components.loss_functions import LossFunction
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space
@@ -38,7 +38,6 @@ class PPOLossFunction(LossFunction):
         """
         Args:
             clip_ratio (float): How much to clip the likelihood ratio between old and new policy when updating.
-            **kwargs:
         """
         self.clip_ratio = clip_ratio
 
