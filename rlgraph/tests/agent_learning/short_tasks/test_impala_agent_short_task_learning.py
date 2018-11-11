@@ -68,16 +68,17 @@ class TestIMPALAAgentShortTaskLearning(unittest.TestCase):
         for s_, probs in zip(next_states, action_probs):
             # Start state:
             # - Assume we picked "right" in state=1 (in order to step into goal state).
-            # - OR we picked "up" or "left" in state=0 (start state).
+            # - OR we picked "up" or "left" in state=0 (unlikely, but possible).
             if s_ == 0:
                 recursive_assert_almost_equal(probs[0], 0.0, decimals=2)
                 self.assertTrue(probs[1] > 0.99 or probs[2] > 0.99)
                 recursive_assert_almost_equal(probs[3], 0.0, decimals=2)
-            # One below start: Assume we picked "down" in start state with very large probability.
+            # One below start:
+            # - Assume we picked "down" in start state with very large probability.
+            # - OR we picked "left" or "down" in state=1 (unlikely, but possible).
             elif s_ == 1:
                 recursive_assert_almost_equal(probs[0], 0.0, decimals=2)
-                recursive_assert_almost_equal(probs[1], 0.0, decimals=2)
-                recursive_assert_almost_equal(probs[2], 0.99, decimals=2)
+                self.assertTrue(probs[1] > 0.99 or probs[2] > 0.99)
                 recursive_assert_almost_equal(probs[3], 0.0, decimals=2)
 
         agent.terminate()
