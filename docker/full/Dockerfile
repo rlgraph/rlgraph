@@ -1,3 +1,7 @@
+# Image for rlgraph/rlgraph:py3-tf-full
+# Contains all RLgraph supported envs.
+
+# TODO: Change to ready-tf-based image.
 FROM ubuntu:artful
 
 RUN apt-get update -y

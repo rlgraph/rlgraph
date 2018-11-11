@@ -20,25 +20,14 @@ before_install:
   - docker run -d --rm --name ${DOCKER_JOB_NAME} -v $(pwd):/rlgraph ${DOCKER_IMAGE} /bin/bash -c 'while true; do sleep 1; done';
 
 #install:
-#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'apt-get update && apt-get -y install git libsm6 libxrender-dev libxext6 cmake libz-dev';
-#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'curl https://bootstrap.pypa.io/get-pip.py | python';
-#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U pip';
-#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U setuptools';
-#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U numpy';
-#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install opencv-python psutil pytest-xdist';
-#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install pytest-xdist';
-#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install pyyaml six requests lz4';
-#  # In the future, add further extra packages here, like horovod, pytorch, or ray
-#  # TODO: Use our `extras_require` in setup.py, instead of specifying individual packages.
-#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pip install gym atari_py';
-#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pip install ray';
+# moved all instructions into the Dockerfile that we use.
 
 script:
   # Test learning capabilities (only one test per Agent).
   # DQN: Cartpole with dueling- and double-Q.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_dqn_agent_short_task_learning.py::TestDQNAgentShortTaskLearning::test_double_dueling_dqn_on_cart_pole';
   # IMPALA: Cartpole.
-  #- docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_impala_agent_short_task_learning.py::TestIMPALAAgentShortTaskLearning::test_impala_on_cart_pole';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_impala_agent_short_task_learning.py::TestIMPALAAgentShortTaskLearning::test_impala_on_cart_pole';
 
   # Test the core lib.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/core/test_api_methods.py';
