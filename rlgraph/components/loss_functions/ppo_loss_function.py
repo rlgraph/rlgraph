@@ -89,21 +89,21 @@ class PPOLossFunction(LossFunction):
             pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals)
 
             if self.standardize_advantages:
-                mean, std = tf.nn.moments(pg_advantages, axis=[0])
+                mean, std = tf.nn.moments(x=pg_advantages, axis=[0])
                 pg_advantages = (pg_advantages - mean) / std
 
             v_targets = pg_advantages + baseline_values
-            v_targets = tf.stop_gradient(v_targets)
+            v_targets = tf.stop_gradient(input=v_targets)
 
             # Likelihood ratio and clipped objective.
-            ratio = tf.exp(log_probs - prev_log_probs)
+            ratio = tf.exp(x=log_probs - prev_log_probs)
             clipped_advantages = tf.where(
-                pg_advantages > 0,
-                (1 + self.clip_ratio) * pg_advantages,
-                (1 - self.clip_ratio) * pg_advantages
+                condition=pg_advantages > 0,
+                x=(1 + self.clip_ratio) * pg_advantages,
+                y=(1 - self.clip_ratio) * pg_advantages
             )
 
             loss = -tf.reduce_mean(input_tensor=tf.minimum(x=ratio * pg_advantages, y=clipped_advantages))
-            baseline_loss = tf.reduce_mean((v_targets - baseline_values) ** 2)
+            baseline_loss = tf.reduce_mean(input_tensor=(v_targets - baseline_values) ** 2)
 
             return loss, baseline_loss

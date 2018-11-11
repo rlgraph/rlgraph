@@ -92,7 +92,7 @@ class PPOAgent(Agent):
         self.value_function = ValueFunction(network_spec=value_function_spec)
         vf_optimizer_spec = self.optimizer_spec
         # Cannot use the default scope for another optimizer again.
-        vf_optimizer_spec["scope"] = function
+        vf_optimizer_spec["scope"] = "value-function-optimizer"
         self.value_function_optimizer = Optimizer.from_spec(vf_optimizer_spec)
 
         self.iterations = self.update_spec["num_iterations"]
@@ -217,6 +217,8 @@ class PPOAgent(Agent):
             """
             if get_backend() == "tf":
                 # Compute loss once to initialize loop.
+
+                # TODO Fix -> this breaks trajectories
                 batch_size = tf.shape(preprocessed_states)[0]
                 sample_indices = tf.random_uniform(shape=(self.sample_size,), maxval=batch_size, dtype=tf.int32)
                 sample_states = tf.gather(params=preprocessed_states, indices=sample_indices)
@@ -227,7 +229,7 @@ class PPOAgent(Agent):
                 action_log_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
                 baseline_values = self.value_function.value_output(sample_states)
 
-                loss, loss_per_item, vf_loss, vf_loss_per_item =  self_.get_sub_component_by_name(loss_function.scope).loss(
+                loss, loss_per_item, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
                     action_log_probs, baseline_values, actions, sample_rewards, sample_terminals
                 )
 
@@ -313,7 +315,7 @@ class PPOAgent(Agent):
         return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
         ret = self.graph_executor.execute((
             call_method,
-            [batched_states, self.timesteps, use_exploration],
+            [batched_states, use_exploration],
             # 0=preprocessed_states, 1=action
             return_ops
         ))
