@@ -18,11 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components.distributions.categorical import Categorical
+from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.components.loss_functions import LossFunction
-from rlgraph.spaces import IntBox, FloatBox
-from rlgraph.spaces.space_utils import sanity_check_space
-from rlgraph.utils.decorators import graph_fn
+from rlgraph.utils.decorators import graph_fn, rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -34,62 +32,79 @@ class PPOLossFunction(LossFunction):
 
     https://arxiv.org/abs/1707.06347
     """
-    def __init__(self, clip_ratio=0.2, scope="ppo-loss-function", **kwargs):
+    def __init__(self, discount=0.99, gae_lambda=1.0, clip_ratio=0.2, standardize_advantages=False,
+                 scope="ppo-loss-function", **kwargs):
         """
         Args:
+            discount (float): The discount factor (gamma) to use.
+            gae_lambda (float): Optional GAE discount factor.
             clip_ratio (float): How much to clip the likelihood ratio between old and new policy when updating.
+            standardize_advantages (bool): If true, normalize advantage values in update.
+            **kwargs:
         """
         self.clip_ratio = clip_ratio
-
-        ## Pass our in-Socket names to parent constructor.
-        #input_sockets = ["actions", "rewards", "terminals"]
+        self.standardize_advantages = standardize_advantages
         super(PPOLossFunction, self).__init__(scope=scope, **kwargs)
 
-        self.action_space = None
-        # How many ranks do we have to reduce to get down to the final loss per batch item?
-        self.ranks_to_reduce = 0
-        self.distribution = None
+        self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=discount)
+        self.add_components(self.gae_function)
 
-    def check_input_spaces(self, input_spaces, action_space=None):
+    @rlgraph_api
+    def loss(self, log_probs, baseline_values, actions, rewards, terminals):
         """
-        Do some sanity checking on the incoming Spaces:
+        API-method that calculates the total loss (average over per-batch-item loss) from the original input to
+        per-item-loss.
+
+        Args: see `self._graph_fn_loss_per_item`.
+
+        Returns:
+            Total loss, loss per item, total baseline loss, baseline loss per item.
         """
-        assert action_space is not None
-        self.action_space = action_space
-        # Check for IntBox and FloatBox.?
-        sanity_check_space(
-            self.action_space, allowed_types=[IntBox, FloatBox], must_have_categories=False
+        loss_per_item, baseline_loss_per_item = self.loss_per_item(
+            log_probs, baseline_values, actions, rewards, terminals
         )
-        self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
+        total_loss = self.loss_average(loss_per_item)
+        total_baseline_loss = self.loss_average(baseline_loss_per_item)
 
-        # TODO: Make this flexible with different distributions.
-        self.distribution = Categorical()
+        return total_loss, loss_per_item, total_baseline_loss, baseline_loss_per_item
 
-    @graph_fn
-    def _graph_fn_loss_per_item(self, distribution, actions, rewards, terminals, prev_log_likelihood):
+    @rlgraph_api
+    def _graph_fn_loss_per_item(self, log_probs, baseline_values, actions, rewards, terminals):
         """
         Args:
-            distribution (Distribution): Distribution object which must provide a log likelihood function.
             actions (SingleDataOp): The batch of actions that were actually taken in states s (from a memory).
             rewards (SingleDataOp): The batch of rewards that we received after having taken a in s (from a memory).
             terminals (SingleDataOp): The batch of terminal signals that we received after having taken a in s
                 (from a memory).
-            prev_log_likelihood (SingleDataOp): Log likelihood to compare to when computing likelihood ratios.
         Returns:
             SingleDataOp: The loss values vector (one single value for each batch item).
         """
         if get_backend() == "tf":
-            # Call graph_fn of a sub-Component directly.
-            current_log_likelihood = self.distribution._graph_fn_log_prob(distribution, values=actions)
+            # N.b.: Many implementations do the following:
+            # Sample action -> return policy log probs with action -> feed both back in from memory/via placeholders.
+            # This creates the same effect as just stopping the gradients on the log-probs.
+            prev_log_probs = tf.stop_gradient(log_probs)
+            baseline_values = tf.squeeze(input=baseline_values, axis=-1)
 
-            likelihood_ratio = tf.exp(x=(current_log_likelihood / prev_log_likelihood))
-            unclipped_objective = likelihood_ratio * rewards
-            clipped_objective = tf.clip_by_value(
-                t=likelihood_ratio,
-                clip_value_min=(1 - self.clip_ratio),
-                clip_value_max=(1 + self.clip_ratio),
-            ) * rewards
+            # Compute advantages.
+            pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals)
 
-            surrogate_objective = tf.minimum(x=unclipped_objective, y=clipped_objective)
-            return tf.reduce_mean(input_tensor=-surrogate_objective, axis=0)
+            if self.standardize_advantages:
+                mean, std = tf.nn.moments(x=pg_advantages, axes=[0])
+                pg_advantages = (pg_advantages - mean) / std
 
+            v_targets = pg_advantages + baseline_values
+            v_targets = tf.stop_gradient(input=v_targets)
+
+            # Likelihood ratio and clipped objective.
+            ratio = tf.exp(x=log_probs - prev_log_probs)
+            clipped_advantages = tf.where(
+                condition=pg_advantages > 0,
+                x=(1 + self.clip_ratio) * pg_advantages,
+                y=(1 - self.clip_ratio) * pg_advantages
+            )
+
+            loss = -tf.minimum(x=ratio * pg_advantages, y=clipped_advantages)
+            baseline_loss = (v_targets - baseline_values) ** 2
+
+            return loss, baseline_loss
