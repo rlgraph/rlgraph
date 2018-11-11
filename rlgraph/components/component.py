@@ -26,8 +26,8 @@ import numpy as np
 import re
 
 from rlgraph import get_backend
-from rlgraph.utils.decorators import rlgraph_api, component_api_registry, component_graph_fn_registry, define_api_method, \
-    define_graph_fn
+from rlgraph.utils.decorators import rlgraph_api, component_api_registry, component_graph_fn_registry,\
+    define_api_method, define_graph_fn
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.ops import DataOpDict, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE

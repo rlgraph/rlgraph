@@ -222,8 +222,7 @@ class EnvironmentStepper(Component):
                     state,
                     # Add simple batch rank to internal_states.
                     None if internal_states is None else DataOpTuple(internal_states),  # <- None for non-RNN systems
-                    time_step=self.time_step + time_delta,
-                    return_ops=True
+                    time_step=self.time_step + time_delta
                 )
 
                 # Get output depending on whether it contains internal_states or not.

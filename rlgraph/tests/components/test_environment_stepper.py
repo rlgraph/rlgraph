@@ -315,7 +315,7 @@ class TestEnvironmentStepper(unittest.TestCase):
         test.terminate()
 
     def test_environment_stepper_on_pong(self):
-        environment_spec = dict(type="openai_gym", gym_env="Pong-v0", frameskip=4, seed=10)
+        environment_spec = dict(type="openai-gym", gym_env="Pong-v0", frameskip=4, seed=10)
         dummy_env = Environment.from_spec(environment_spec)
         state_space = dummy_env.state_space
         action_space = dummy_env.action_space
