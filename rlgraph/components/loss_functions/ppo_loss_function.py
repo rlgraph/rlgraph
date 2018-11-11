@@ -67,7 +67,7 @@ class PPOLossFunction(LossFunction):
 
         return total_loss, loss_per_item, total_baseline_loss, baseline_loss_per_item
 
-    @graph_fn
+    @rlgraph_api
     def _graph_fn_loss_per_item(self, log_probs, baseline_values, actions, rewards, terminals):
         """
         Args:
