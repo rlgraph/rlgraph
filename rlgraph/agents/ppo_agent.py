@@ -110,7 +110,8 @@ class PPOAgent(Agent):
 
         if self.auto_build:
             self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
-                              batch_size=self.update_spec["batch_size"])
+                              batch_size=self.update_spec["batch_size"],
+                              build_options=dict(vf_optimizer=self.value_function_optimizer))
             self.graph_built = True
 
     def define_graph_api(self, value_function_scope, vf_optimizer_scope,
