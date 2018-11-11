@@ -241,13 +241,12 @@ class PPOAgent(Agent):
                 policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
                 vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
 
-                vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope).step(
-                    vf_vars, vf_loss, vf_loss_per_item)
                 step_op, loss, loss_per_item = self_.get_sub_component_by_name(optimizer_scope).step(
                     policy_vars, loss, loss_per_item)
+                vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope).step(
+                    vf_vars, vf_loss, vf_loss_per_item)
 
-                def opt_body(index, step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item):
-                    with tf.control_dependencies([step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item]):
+                def opt_body(index, loss, loss_per_item, vf_loss, vf_loss_per_item):
                         start = tf.random_uniform(shape=(1,), minval=0, maxval=batch_size - 1, dtype=tf.int32)[0]
                         indices = tf.range(start=start, limit=start + self.sample_size) % batch_size
 
@@ -267,25 +266,27 @@ class PPOAgent(Agent):
                         policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
                         vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
 
-                        vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope).step(
-                            vf_vars, vf_loss, vf_loss_per_item)
                         step_op, loss, loss_per_item = self_.get_sub_component_by_name(optimizer_scope).step(
                             policy_vars, loss, loss_per_item)
+                        vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope).step(
+                            vf_vars, vf_loss, vf_loss_per_item)
 
-                        return index, step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
+                        with tf.control_dependencies([step_op, vf_step_op]):
+                            return index, loss, loss_per_item, vf_loss, vf_loss_per_item
 
-                def cond(index, step_op, loss, loss_per_item, vf_step_op, v_loss, v_loss_per_item):
+                def cond(index, loss, loss_per_item, v_loss, v_loss_per_item):
                     return index < self.iterations
 
-                index, step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item = tf.while_loop(
-                    cond=cond,
-                    body=opt_body,
-                    # Start with 1.
-                    loop_vars=[1, step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item],
-                    parallel_iterations=1
-                )
+                with tf.control_dependencies([step_op, vf_step_op]):
+                    index, loss, loss_per_item, vf_loss, vf_loss_per_item = tf.while_loop(
+                        cond=cond,
+                        body=opt_body,
+                        # Start with 1.
+                        loop_vars=[1, loss, loss_per_item, vf_loss, vf_loss_per_item],
+                        parallel_iterations=1
+                    )
 
-                return step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
+                    return step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
