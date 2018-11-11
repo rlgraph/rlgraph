@@ -241,7 +241,7 @@ class PPOAgent(Agent):
                 policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
                 vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
 
-                vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope)(
+                vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope).step(
                     vf_vars, vf_loss, vf_loss_per_item)
                 step_op, loss, loss_per_item = self_.get_sub_component_by_name(optimizer_scope).step(
                     policy_vars, loss, loss_per_item)
@@ -267,7 +267,7 @@ class PPOAgent(Agent):
                         policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
                         vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
 
-                        vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope)(
+                        vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope).step(
                             vf_vars, vf_loss, vf_loss_per_item)
                         step_op, loss, loss_per_item = self_.get_sub_component_by_name(optimizer_scope).step(
                             policy_vars, loss, loss_per_item)
