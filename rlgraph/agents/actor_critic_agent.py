@@ -204,7 +204,7 @@ class ActorCriticAgent(Agent):
         return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
         ret = self.graph_executor.execute((
             call_method,
-            [batched_states, self.timesteps, use_exploration],
+            [batched_states, use_exploration],
             # 0=preprocessed_states, 1=action
             return_ops
         ))
