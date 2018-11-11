@@ -55,4 +55,4 @@ class ValueFunction(Component):
             any: Value function estimate V(s) for inputs s.
         """
         nn_output = self.neural_network.apply(nn_input, internal_states)
-        return nn_output
+        return nn_output["output"]
