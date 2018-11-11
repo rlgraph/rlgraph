@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 
 from rlgraph import get_backend
-from rlgraph.agents import DQNAgent, ApexAgent, IMPALAAgent, ActorCriticAgent
+from rlgraph.agents import DQNAgent, ApexAgent, IMPALAAgent, ActorCriticAgent, PPOAgent
 from rlgraph.environments import OpenAIGymEnv, GridWorld
 from rlgraph.spaces import FloatBox, Tuple
 from rlgraph.tests.test_util import config_from_path
@@ -68,6 +68,18 @@ class TestAllCompile(unittest.TestCase):
         env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
         agent_config = config_from_path("configs/actor_critic_agent_for_pong.json")
         agent = ActorCriticAgent.from_spec(
+            agent_config,
+            state_space=env.state_space,
+            action_space=env.action_space
+        )
+
+    def test_ppo_compilation(self):
+        """
+        Tests PPO agent compilation.
+        """
+        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
+        agent_config = config_from_path("configs/ppo_agent_for_pong.json")
+        agent = PPOAgent.from_spec(
             agent_config,
             state_space=env.state_space,
             action_space=env.action_space
