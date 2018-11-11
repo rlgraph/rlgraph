@@ -222,13 +222,13 @@ class PPOAgent(Agent):
                 # Careful: If the batch does not end with a terminal and we sample a start within the last episode,
                 # we break sequence logic, e.g.: batch size 1000, sample size 100, start = 950 -indices: [950, 50]
                 # If terminal is not true at index 999, we erroneously connect two episodes.
-                start = tf.random_uniform(shape=(1,), minval=0, maxval=batch_size - 1, dtype=tf.int32)
-                limit = (start + self.sample_size) % batch_size
+                start = tf.random_uniform(shape=(1,), minval=0, maxval=batch_size - 1, dtype=tf.int32)[0]
+                indices = tf.range(start=start, limit=start + self.sample_size) % batch_size
 
-                sample_states = preprocessed_states[start:limit]
-                sample_actions = actions[start:limit]
-                sample_rewards = rewards[start:limit]
-                sample_terminals = terminals[start:limit]
+                sample_states = tf.gather(actions, indices)
+                sample_actions = tf.gather(preprocessed_states, indices)
+                sample_rewards = tf.gather(rewards, indices)
+                sample_terminals = tf.gather(terminals, indices)
 
                 action_log_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
                 baseline_values = self.value_function.value_output(sample_states)
@@ -248,12 +248,13 @@ class PPOAgent(Agent):
 
                 def opt_body(index, step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item):
                     with tf.control_dependencies([step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item]):
-                        start = tf.random_uniform(minval=0, maxval=batch_size - 1, dtype=tf.int32)
-                        limit = (start + self.sample_size) % batch_size
-                        sample_states = preprocessed_states[start:limit]
-                        sample_actions = actions[start:limit]
-                        sample_rewards = rewards[start:limit]
-                        sample_terminals = terminals[start:limit]
+                        start = tf.random_uniform(shape=(1,), minval=0, maxval=batch_size - 1, dtype=tf.int32)[0]
+                        indices = tf.range(start=start, limit=start + self.sample_size) % batch_size
+
+                        sample_states = tf.gather(actions, indices)
+                        sample_actions = tf.gather(preprocessed_states, indices)
+                        sample_rewards = tf.gather(rewards, indices)
+                        sample_terminals = tf.gather(terminals, indices)
 
                         action_log_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
                         baseline_values = self.value_function.value_output(sample_states)
