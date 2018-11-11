@@ -661,7 +661,7 @@ class TensorFlowExecutor(GraphExecutor):
         """
         self.optimizer = root_optimizer
         # Save separate vf optimizer if necessary.
-        if "vf_optimizer" in extra_build_args:
+        if extra_build_args is not None and "vf_optimizer" in extra_build_args:
             self.vf_optimizer = extra_build_args["vf_optimizer"]
 
         if self.device_strategy == "multi_gpu_sync":
