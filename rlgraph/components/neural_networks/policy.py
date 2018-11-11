@@ -231,11 +231,6 @@ class Policy(Component):
             Log-probs of state output
         """
         out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
-        ## Get network output.
-        #nn_output = self.get_nn_output(nn_input, internal_states)
-        #aa_output = self.action_adapter.get_logits_probabilities_log_probs(nn_output["output"])
-
-        #probabilities, log_probs = aa_output["probabilities"], aa_output["log_probs"]
 
         # Probabilities under current action.
         action_log_probs = self.distribution.log_prob(out["probabilities"], actions)
