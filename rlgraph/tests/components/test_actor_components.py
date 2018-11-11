@@ -22,7 +22,7 @@ import unittest
 
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.explorations.exploration import Exploration
-from rlgraph.components.neural_networks.policy import Policy
+from rlgraph.components.policies.policy import Policy
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest

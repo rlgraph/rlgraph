@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors, All Rights Reserved.
+# Copyright 2018 The Rlgraph Authors, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,4 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-
-from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork
 

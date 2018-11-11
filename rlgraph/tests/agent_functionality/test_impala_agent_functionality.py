@@ -23,9 +23,9 @@ import time
 import unittest
 
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
-from rlgraph.components.neural_networks.policy import Policy
+from rlgraph.components.policies.policy import Policy
 from rlgraph.components.neural_networks.actor_component import ActorComponent
-from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork
+from rlgraph.components.neural_networks.impala.impala_networks import LargeIMPALANetwork
 from rlgraph.components.explorations import Exploration
 from rlgraph.environments import Environment
 from rlgraph.spaces import *
