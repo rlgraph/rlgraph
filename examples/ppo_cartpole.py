@@ -75,7 +75,7 @@ def main(argv):
                 len(rewards), reward, np.mean(rewards[-10:])
             ))
 
-    worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, render=True, worker_executes_preprocessing=False,
+    worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, render=False, worker_executes_preprocessing=False,
                                   episode_finish_callback=episode_finished_callback)
     print("Starting workload, this will take some time for the agents to build.")
 
