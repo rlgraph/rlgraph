@@ -215,7 +215,6 @@ class PPOAgent(Agent):
             Calls iterative optimization by repeatedly sub-sampling.
             """
             if get_backend() == "tf":
-                # Compute loss once to initialize loop.
                 batch_size = tf.shape(preprocessed_states)[0]
 
                 def opt_body(index, loss, loss_per_item, vf_loss, vf_loss_per_item):
@@ -239,8 +238,13 @@ class PPOAgent(Agent):
 
                     step_op, loss, loss_per_item = self_.get_sub_component_by_name(optimizer_scope).step(
                         policy_vars, loss, loss_per_item)
+                    loss.set_shape([0])
+                    loss_per_item.set_shape((self.sample_size, ))
+
                     vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope).step(
                         vf_vars, vf_loss, vf_loss_per_item)
+                    vf_loss.set_shape([0])
+                    vf_loss_per_item.set_shape((self.sample_size, ))
 
                     with tf.control_dependencies([step_op, vf_step_op]):
                         return index, loss, loss_per_item, vf_loss, vf_loss_per_item
@@ -251,7 +255,10 @@ class PPOAgent(Agent):
                 index, loss, loss_per_item, vf_loss, vf_loss_per_item = tf.while_loop(
                     cond=cond,
                     body=opt_body,
-                    loop_vars=[0, 0.0, tf.zeros(shape=(self.sample_size,)), 0.0,
+                    loop_vars=[0,
+                               tf.zeros(0, dtype=tf.float32),
+                               tf.zeros(shape=(self.sample_size,)),
+                               tf.zeros(0, dtype=tf.float32),
                                tf.zeros(shape=(self.sample_size,))],
                     parallel_iterations=1
                 )
