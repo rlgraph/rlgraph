@@ -83,8 +83,6 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
         def api_method_wrapper(self, *args, **kwargs):
             name_ = name or re.sub(r'^_graph_fn_', "", wrapped_func.__name__)
 
-            return_ops = kwargs.pop("return_ops", False)
-
             # Direct evaluation of function.
             if self.execution_mode == "define_by_run":
                 type(self).call_count += 1
@@ -197,9 +195,18 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
             api_method_rec.out_op_columns.append(out_op_column)
 
             # Do we need to return the raw ops or the op-recs?
-            # Direct parent caller is a `_graph_fn_...`: Return raw ops.
-            stack = inspect.stack()
-            if return_ops is True or re.match(r'^_graph_fn_.+$', stack[1][3]):
+            # Only need to check if False, otherwise, we return ops directly anyway.
+            return_ops = False
+            for stack_item in inspect.stack()[1:]:  # skip current frame
+                # If we hit an API-method call -> return op-recs.
+                if stack_item[3] == "api_method_wrapper" and re.search(r'decorators\.py$', stack_item[1]):
+                    break
+                # If we hit a graph_fn call -> return ops.
+                elif stack_item[3] == "run_through_graph_fn" and re.search(r'graph_builder\.py$', stack_item[1]):
+                    return_ops = True
+                    break
+
+            if return_ops is True:
                 if type(return_values) == dict:
                     return {key: value.op for key, value in out_op_column.get_args_and_kwargs()[1].items()}
                 else:
@@ -520,8 +527,19 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
 
     component.graph_fns[wrapped_func.__name__].out_op_columns.append(out_graph_fn_column)
 
-    stack = inspect.stack()
-    if re.match(r'^_graph_fn_.+|<lambda>$', stack[2][3]) and out_graph_fn_column.op_records[0].op is not None:
+    return_ops = False
+    for stack_item in inspect.stack()[1:]:  # skip current frame
+        # If we hit an API-method call -> return op-recs.
+        if stack_item[3] == "api_method_wrapper" and re.search(r'decorators\.py$', stack_item[1]):
+            break
+        # If we hit a graph_fn call -> return ops.
+        elif stack_item[3] == "run_through_graph_fn" and re.search(r'graph_builder\.py$', stack_item[1]):
+            return_ops = True
+            break
+
+    if return_ops is True:  #re.match(r'^_graph_fn_.+|<lambda>$', stack[2][3]) and out_graph_fn_column.op_records[0].op is not None:
+        assert out_graph_fn_column.op_records[0].op is not None,\
+            "ERROR: Cannot return ops (instead of op-recs) if ops are still None!"
         if len(out_graph_fn_column.op_records) == 1:
             return out_graph_fn_column.op_records[0].op
         else:
