@@ -44,17 +44,26 @@ class IMPALALossFunction(LossFunction):
         Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
     """
     def __init__(self, discount=0.99, reward_clipping="clamp_one",
-                 weight_pg=None, weight_baseline=None, weight_entropy=None, **kwargs):
+                 weight_pg=None, weight_baseline=None, weight_entropy=None, slice_actions=False,
+                 slice_rewards=False, **kwargs):
         """
         Args:
             discount (float): The discount factor (gamma) to use.
             reward_clipping (Optional[str]): One of None, "clamp_one" or "soft_asymmetric". Default: "clamp_one".
             weight_pg (float): The coefficient used for the policy gradient loss term (L[PG]).
             weight_baseline (float): The coefficient used for the Value-function baseline term (L[V]).
+
             weight_entropy (float): The coefficient used for the entropy regularization term (L[E]).
                 In the paper, values between 0.01 and 0.00005 are used via log-uniform search.
+
+            slice_actions (bool): Whether to slice off the very first action coming in from the
+                caller. This must be True if actions/rewards are part of the state (via the keys "previous_action" and
+                "previous_reward"). Default: False.
+
+            slice_rewards (bool): Whether to slice off the very first reward coming in from the
+                caller. This must be True if actions/rewards are part of the state (via the keys "previous_action" and
+                "previous_reward"). Default: False.
         """
-        # graph_fn_num_outputs=dict(_graph_fn_loss_per_item=2) <- debug
         super(IMPALALossFunction, self).__init__(scope=kwargs.pop("scope", "impala-loss-func"), **kwargs)
 
         self.discount = discount
@@ -65,6 +74,9 @@ class IMPALALossFunction(LossFunction):
         self.weight_pg = weight_pg if weight_pg is not None else 1.0
         self.weight_baseline = weight_baseline if weight_baseline is not None else 0.5
         self.weight_entropy = weight_entropy if weight_entropy is not None else 0.00025
+
+        self.slice_actions = slice_actions
+        self.slice_rewards = slice_rewards
 
         self.action_space = None
 
@@ -89,16 +101,16 @@ class IMPALALossFunction(LossFunction):
         Returns:
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
-        loss_per_item = self._graph_fn_loss_per_item(
+        loss_per_item = self.loss_per_item(
             logits_actions_pi, action_probs_mu, values, actions, rewards, terminals
         )
-        total_loss = self._graph_fn_loss_average(loss_per_item)
+        total_loss = self.loss_average(loss_per_item)
 
         return total_loss, loss_per_item
 
-    @graph_fn
+    @rlgraph_api
     def _graph_fn_loss_per_item(self, logits_actions_pi, action_probs_mu, values, actions,
-                                rewards, terminals):  #, bootstrapped_values):
+                                rewards, terminals):
         """
         Calculates the loss per batch item (summed over all timesteps) using the formula described above in
         the docstring to this class.
@@ -108,13 +120,12 @@ class IMPALALossFunction(LossFunction):
                 policy (pi). Dimensions are: (time+1) x batch x action-space+categories.
                 +1 b/c last-next-state (aka "bootstrapped" value).
             action_probs_mu (DataOp): The probabilities for all actions coming from the
-                actor's policies (mu). Dimensions are: (time+1) x batch x action-space+categories.
+                actor's policies (mu). Dimensions are: time x batch x action-space+categories.
             values (DataOp): The state value estimates coming from baseline node of the learner's policy (pi).
-                Dimensions are: (time+1) x batch. +1 b/c last-next-state (aka "bootstrapped" value).
-            actions (DataOp): The actually taken (already one-hot flattened) actions.
-                Dimensions are: (time+1) x batch x N (N=number of discrete actions).
-            rewards (DataOp): The received rewards. Dimensions are: (time+1) x batch.
-            terminals (DataOp): The observed terminal signals. Dimensions are: (time+1) x batch.
+                Dimensions are: (time+1) x batch x 1.
+            actions (DataOp): The actually taken actions. Dimensions are: time x batch (discrete int actions).
+            rewards (DataOp): The received rewards. Dimensions are: time x batch.
+            terminals (DataOp): The observed terminal signals. Dimensions are: time x batch.
 
         Returns:
             SingleDataOp: The loss values per item in the batch, but summed over all timesteps.
@@ -124,17 +135,14 @@ class IMPALALossFunction(LossFunction):
 
             logits_actions_pi = logits_actions_pi[:-1]
             # Ignore very first actions/rewards (these are the previous ones only used as part of the state input
-            # for the network)
-            actions_flat = actions[1:]
-            actions = tf.reduce_sum(
-                tf.cast(actions_flat * tf.range(self.action_space.num_categories, dtype=tf.float32), dtype=tf.int32),
-                axis=-1
-            )
-            rewards = rewards[1:]
-            terminals = terminals[1:]
-            action_probs_mu = action_probs_mu[1:]
+            # for the network).
+            if self.slice_actions:
+                actions = actions[1:]
+            if self.slice_rewards:
+                rewards = rewards[1:]
+            actions_flat = tf.one_hot(actions, depth=self.action_space.num_categories)
 
-            # Discounts are simply 0.0, if there is a terminal, otherwise: `discount`.
+            # Discounts are simply 0.0, if there is a terminal, otherwise: `self.discount`.
             discounts = tf.expand_dims(tf.to_float(~terminals) * self.discount, axis=-1, name="discounts")
             # `clamp_one`: Clamp rewards between -1.0 and 1.0.
             if self.reward_clipping == "clamp_one":
@@ -148,6 +156,7 @@ class IMPALALossFunction(LossFunction):
             # (already multiplied by rho_t_pg): A = rho_t_pg * (rt + gamma*vt - V(t)).
             # Both vs and pg_advantages will block the gradient as they should be treated as constants by the gradient
             # calculator of this loss func.
+            rewards = tf.expand_dims(rewards, axis=-1)
             vs, pg_advantages = self.v_trace_function.calc_v_trace_values(
                 logits_actions_pi, tf.log(action_probs_mu), actions, actions_flat, discounts, rewards, values,
                 bootstrapped_values
@@ -175,8 +184,8 @@ class IMPALALossFunction(LossFunction):
             # The entropy regularizer term.
             policy = tf.nn.softmax(logits=logits_actions_pi)
             log_policy = tf.nn.log_softmax(logits=logits_actions_pi)
-            loss_entropy = tf.reduce_sum(-policy * log_policy, axis=-1)
+            loss_entropy = tf.reduce_sum(-policy * log_policy, axis=-1, keepdims=True)
             loss_entropy = -tf.reduce_sum(loss_entropy, axis=0)  # reduce over the time-rank
             loss += self.weight_entropy * loss_entropy
 
-            return loss
+            return tf.squeeze(loss, axis=-1)

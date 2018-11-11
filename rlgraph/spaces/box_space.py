@@ -26,6 +26,8 @@ from rlgraph.utils.util import dtype
 from rlgraph.utils.initializer import Initializer
 from rlgraph.spaces import Space
 
+if get_backend() == "tf":
+    import tensorflow as tf
 if get_backend() == "pytorch":
     import torch
 
@@ -104,6 +106,7 @@ class BoxSpace(Space):
         return samples
 
     def get_shape(self, with_batch_rank=False, with_time_rank=False, time_major=None, **kwargs):
+        batch_rank = ()
         if with_batch_rank is not False:
             # None shapes are typically only allowed in static graphs.
             if get_backend() == "tf":
@@ -112,14 +115,11 @@ class BoxSpace(Space):
             elif get_backend() == "pytorch":
                 batch_rank = (((1,) if with_batch_rank is True else (with_batch_rank,))
                               if self.has_batch_rank else ())
-        else:
-            batch_rank = ()
 
+        time_rank = ()
         if with_time_rank is not False:
             time_rank = (((None,) if with_time_rank is True else (with_time_rank,))
                           if self.has_time_rank else ())
-        else:
-            time_rank = ()
 
         time_major = self.time_major if time_major is None else time_major
         if time_major is False:
@@ -173,7 +173,6 @@ class BoxSpace(Space):
                 return var
 
         elif get_backend() == "tf":
-            import tensorflow as tf
             # TODO: re-evaluate the cutting of a leading '/_?' (tf doesn't like it)
             name = re.sub(r'^/_?', "", name)
             if is_input_feed:

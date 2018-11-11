@@ -152,6 +152,13 @@ class TestAPIMethods(unittest.TestCase):
         # Expected: (1): 2*in + 10
         test.test(("run", 1.1), expected_outputs=12.2, decimals=4)
 
+    def test_component_that_defines_custom_api_methods(self):
+        a = DummyThatDefinesCustomAPIMethod()
+
+        test = ComponentTest(component=a, input_spaces=dict(input_=float))
+
+        test.test(("some_custom_api_method", 1.23456), expected_outputs=1.23456, decimals=5)
+
     #def test_kwargs_in_api_call(self):
     #    core = Component(scope="container")
     #    sub_comp = Dummy2To2(scope="comp1")

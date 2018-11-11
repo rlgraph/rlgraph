@@ -192,40 +192,43 @@ class TestPytorchBackend(unittest.TestCase):
         states = np.array([[-0.08, 0.4, -0.05, -0.55], [13.0, -14.0, 10.0, -16.0]])
         # Raw NN-output.
         expected_nn_output = np.matmul(states, policy_params["policy/test-network/hidden-layer/dense/kernel"])
-        test.test(("get_nn_output", states), expected_outputs=expected_nn_output, decimals=6)
+        test.test(("get_nn_output", states), expected_outputs=dict(output=expected_nn_output), decimals=6)
 
         # Raw action layer output; Expected shape=(2,5): 2=batch, 5=action categories
         expected_action_layer_output = np.matmul(
             expected_nn_output, policy_params["policy/action-adapter/action-layer/dense/kernel"]
         )
         expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(2, 5))
-        test.test(("get_action_layer_output", states), expected_outputs=expected_action_layer_output,
+        test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
                   decimals=5)
 
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)
-        test.test(("get_action", states), expected_outputs=expected_actions)
+        test.test(("get_action", states), expected_outputs=dict(action=expected_actions, last_internal_states=None))
 
         # Logits, parameters (probs) and skip log-probs (numerically unstable for small probs).
         expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
-        test.test(("get_logits_probabilities_log_probs", states, [0, 1]), expected_outputs=[
-            expected_action_layer_output,
-            np.array(expected_probabilities_output, dtype=np.float32)
-            # np.log(expected_probabilities_output)
-        ], decimals=5)
+        test.test(("get_logits_probabilities_log_probs", states, [0, 1, 2]), expected_outputs=dict(
+            logits=expected_action_layer_output,
+            probabilities=expected_probabilities_output,
+            log_probs=np.log(expected_probabilities_output)
+        ), decimals=5)
 
         print("Probs: {}".format(expected_probabilities_output))
 
-        # Stochastic sample.
-        expected_actions = np.array([3, 4])
-        test.test(("get_stochastic_action", states), expected_outputs=expected_actions)
-
         # Deterministic sample.
-        expected_actions = np.array([4, 4])
-        test.test(("get_max_likelihood_action", states), expected_outputs=expected_actions)
+        out = test.test(("get_deterministic_action", states), expected_outputs=None)
+        self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"].shape == (2,))
+
+        # Stochastic sample.
+        out = test.test(("get_stochastic_action", states), expected_outputs=None)
+        self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"].shape == (2,))
 
         # Distribution's entropy.
-        expected_h = np.array([1.572, 0.003])
-        test.test(("get_entropy", states), expected_outputs=expected_h, decimals=3)
+        out = test.test(("get_entropy", states), expected_outputs=None)
+        self.assertTrue(out["entropy"].dtype == np.float32)
+        self.assertTrue(out["entropy"].shape == (2,))
 
     def test_act(self):
         env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)

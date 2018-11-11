@@ -33,9 +33,9 @@ class SequenceHelper(Component):
     """
 
     def __init__(self, scope="sequence-helper", **kwargs):
-        super(SequenceHelper, self).__init__(scope=scope, **kwargs)
+        super(SequenceHelper, self).__init__(space_agnostic=True, scope=scope, **kwargs)
 
-    @rlgraph_api(must_be_complete=False)
+    @rlgraph_api
     def _graph_fn_calc_sequence_lengths(self, sequence_indices):
         """
         Computes sequence lengths for a tensor containing sequence indices, where 1 indicates start
@@ -102,7 +102,7 @@ class SequenceHelper(Component):
             return torch.tensor(sequence_lengths, dtype=torch.int32)
 
     @rlgraph_api(returns=2, must_be_complete=False)
-    def _graph_fn_calc_sequence_decays(self, sequence_indices, decay):
+    def _graph_fn_calc_sequence_decays(self, sequence_indices, decay=0.9):
         """
         Computes decays for sequence indices, e.g. for generalized advantage estimation.
         That is, a sequence with terminals is used to compute for each subsequence the decay
@@ -118,7 +118,9 @@ class SequenceHelper(Component):
             decay (float): Initial decay value to start sub-sequence with.
 
         Returns:
-            Sequence lengths and their decays.
+            tuple:
+                - Sequence lengths.
+                - Decays.
         """
         if get_backend() == "tf":
             elems = tf.shape(input=sequence_indices)[0]
@@ -193,11 +195,10 @@ class SequenceHelper(Component):
             # Append final sequence.
             if length > 0:
                 sequence_lengths.append(length)
-            return torch.tensor(sequence_lengths, dtype=torch.int32),\
-                   torch.tensor(decays, dtype=torch.int32)
+            return torch.tensor(sequence_lengths, dtype=torch.int32), torch.tensor(decays, dtype=torch.int32)
 
-    @rlgraph_api(must_be_complete=False)
-    def _graph_fn_reverse_apply_decays_to_sequence(self, values, sequence_indices, decay):
+    @rlgraph_api
+    def _graph_fn_reverse_apply_decays_to_sequence(self, values, sequence_indices, decay=0.9):
         """
         Computes decays for sequence indices and applies them (in reverse manner to a sequence of values).
         Useful to compute discounted reward estimates across a sequence of estimates.
@@ -281,8 +282,8 @@ class SequenceHelper(Component):
             # Reverse, convert, and return final.
             return torch.tensor(list(reversed(discounted)), dtype=torch.float32)
 
-    @rlgraph_api(must_be_complete=False)
-    def _graph_fn_bootstrap_values(self, rewards, values, sequence_indices, discount):
+    @rlgraph_api
+    def _graph_fn_bootstrap_values(self, rewards, values, sequence_indices, discount=0.99):
         """
         Inserts value estimates at the end of each sub-sequence for a given sequence and computes deltas
         for generalized advantage estimation. That is, 0 is inserted after teach terminal and the final value of the

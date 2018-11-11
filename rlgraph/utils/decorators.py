@@ -83,8 +83,6 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
         def api_method_wrapper(self, *args, **kwargs):
             name_ = name or re.sub(r'^_graph_fn_', "", wrapped_func.__name__)
 
-            return_ops = kwargs.pop("return_ops", False)
-
             # Direct evaluation of function.
             if self.execution_mode == "define_by_run":
                 type(self).call_count += 1
@@ -197,9 +195,18 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
             api_method_rec.out_op_columns.append(out_op_column)
 
             # Do we need to return the raw ops or the op-recs?
-            # Direct parent caller is a `_graph_fn_...`: Return raw ops.
-            stack = inspect.stack()
-            if return_ops is True or re.match(r'^_graph_fn_.+$', stack[1][3]):
+            # Only need to check if False, otherwise, we return ops directly anyway.
+            return_ops = False
+            for stack_item in inspect.stack()[1:]:  # skip current frame
+                # If we hit an API-method call -> return op-recs.
+                if stack_item[3] == "api_method_wrapper" and re.search(r'decorators\.py$', stack_item[1]):
+                    break
+                # If we hit a graph_fn call -> return ops.
+                elif stack_item[3] == "run_through_graph_fn" and re.search(r'graph_builder\.py$', stack_item[1]):
+                    return_ops = True
+                    break
+
+            if return_ops is True:
                 if type(return_values) == dict:
                     return {key: value.op for key, value in out_op_column.get_args_and_kwargs()[1].items()}
                 else:
@@ -244,13 +251,15 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
         return decorator_func(api_method)
 
 
-def graph_fn(graph_fn=None, *, returns=None,
+def graph_fn(graph_fn=None, *, component=None, returns=None,
              flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False):
     """
     Graph_fn decorator used to tag any Component's graph_fn (that is not directly wrapped by an API-method) as such.
 
     Args:
         graph_fn (callable): The actual graph_fn to tag.
+        component (Optional[Component]): The Component that the graph function should belong to. None if `graph_fn` is
+            decorated inside a Component class.
         returns (Optional[int]): How many return values it returns. If None, will try to get this number from looking at the source code or from the Component's
             `num_graph_fn_return_values` property.
         flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
@@ -292,21 +301,20 @@ def graph_fn(graph_fn=None, *, returns=None,
                 )
 
         graph_fn_rec = GraphFnRecord(
-            func=wrapped_func, wrapper_func=_graph_fn_wrapper, is_class_method=True,
+            func=wrapped_func, wrapper_func=_graph_fn_wrapper, is_class_method=(component is None),
             flatten_ops=flatten_ops, split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param
         )
 
         # Registers the given method with the Component (if not already done so).
-        # TODO: allow graph_fn to be defined outside a Component class as well.
-        #if component is not None:
-        #    define_api_method(component, api_method_rec, copy_=False)
+        if component is not None:
+            define_graph_fn(component, graph_fn_rec, copy_=False)
         # Registers the given function with the Component sub-class so we can define it for each
         # constructed instance of that sub-class.
-        #else:
-        cls = wrapped_func.__qualname__.split('.<locals>', 1)[0].rsplit('.', 1)[0]
-        if cls not in component_graph_fn_registry:
-            component_graph_fn_registry[cls] = list()
-            component_graph_fn_registry[cls].append(graph_fn_rec)
+        else:
+            cls = wrapped_func.__qualname__.split('.<locals>', 1)[0].rsplit('.', 1)[0]
+            if cls not in component_graph_fn_registry:
+                component_graph_fn_registry[cls] = list()
+                component_graph_fn_registry[cls].append(graph_fn_rec)
 
         return _graph_fn_wrapper
 
@@ -386,12 +394,31 @@ def define_api_method(component, api_method_record, copy_=True):
                 component.api_method_inputs[param.name] = None
 
 
-def define_graph_fn(component, graph_fn_record):
+def define_graph_fn(component, graph_fn_record, copy_=True):
     """
+    Registers a graph_fn with a Component instance.
+
+    Args:
+        component (Component): The Component object to register the graph function with.
+        graph_fn_record (GraphFnRecord): The GraphFnRecord describing the to-be-registered graph function.
+        copy_ (bool): Whether to deepcopy the GraphFnRecord prior to handing it to the Component for storing.
     """
     # Deep copy the record (in case this got registered the normal way with via decorating a class method).
-    graph_fn_record = copy.deepcopy(graph_fn_record)
+    if copy_ is True:
+        graph_fn_record = copy.deepcopy(graph_fn_record)
+
     graph_fn_record.component = component
+
+    # Raise errors if `name` already taken in this Component.
+    # There already is a graph_fn with that name.
+    if graph_fn_record.name in component.graph_fns:
+        raise RLGraphError("Graph-Fn with name '{}' already defined!".format(graph_fn_record.name))
+    # There already is another object property with that name (avoid accidental overriding).
+    elif not graph_fn_record.is_class_method and getattr(component, graph_fn_record.name, None) is not None:
+        raise RLGraphError(
+            "Component '{}' already has a property called '{}'. Cannot define a Graph-Fn with "
+            "the same name!".format(component.name, graph_fn_record.name)
+        )
 
     setattr(component, graph_fn_record.name, graph_fn_record.wrapper_func.__get__(component, component.__class__))
     setattr(graph_fn_record.func, "__self__", component)
@@ -500,10 +527,28 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
 
     component.graph_fns[wrapped_func.__name__].out_op_columns.append(out_graph_fn_column)
 
-    if len(out_graph_fn_column.op_records) == 1:
-        return out_graph_fn_column.op_records[0]
+    return_ops = False
+    for stack_item in inspect.stack()[1:]:  # skip current frame
+        # If we hit an API-method call -> return op-recs.
+        if stack_item[3] == "api_method_wrapper" and re.search(r'decorators\.py$', stack_item[1]):
+            break
+        # If we hit a graph_fn call -> return ops.
+        elif stack_item[3] == "run_through_graph_fn" and re.search(r'graph_builder\.py$', stack_item[1]):
+            return_ops = True
+            break
+
+    if return_ops is True:  #re.match(r'^_graph_fn_.+|<lambda>$', stack[2][3]) and out_graph_fn_column.op_records[0].op is not None:
+        assert out_graph_fn_column.op_records[0].op is not None,\
+            "ERROR: Cannot return ops (instead of op-recs) if ops are still None!"
+        if len(out_graph_fn_column.op_records) == 1:
+            return out_graph_fn_column.op_records[0].op
+        else:
+            return tuple([op_rec.op for op_rec in out_graph_fn_column.op_records])
     else:
-        return tuple(out_graph_fn_column.op_records)
+        if len(out_graph_fn_column.op_records) == 1:
+            return out_graph_fn_column.op_records[0]
+        else:
+            return tuple(out_graph_fn_column.op_records)
 
 
 def _sanity_check_call_parameters(self, params, method, method_type, add_auto_key_as_first_param):

@@ -150,6 +150,66 @@ class Dummy2GraphFns1To1(Component):
         return input_ - self.constant_value * 2
 
 
+class Dummy2NestedGraphFnCalls(Component):
+    """
+    API:
+        run(input_): Result of (input_ - `self.constant_value` * 2) + `self.constant_value`
+    """
+    def __init__(self, scope="dummy-2nested-graph_fn-calls", constant_value=1.0):
+        """
+        Args:
+            constant_value (float): A constant to add to input in our graph_fn.
+        """
+        super(Dummy2NestedGraphFnCalls, self).__init__(scope=scope)
+        self.constant_value = constant_value
+
+    @rlgraph_api
+    def run(self, input_):
+        result = self._graph_fn_outer(input_)
+        return result
+
+    @graph_fn
+    def _graph_fn_outer(self, input_):
+        intermediate_result = self._graph_fn_inner(input_)
+        return intermediate_result + self.constant_value
+
+    @graph_fn
+    def _graph_fn_inner(self, input_):
+        return input_ - self.constant_value * 2
+
+
+class DummyThatDefinesCustomAPIMethod(Component):
+    def __init__(self, scope="dummy-that-defines-custom-api-method", **kwargs):
+        super(DummyThatDefinesCustomAPIMethod, self).__init__(scope=scope, **kwargs)
+
+        self.define_api_methods()
+
+    def define_api_methods(self):
+        @rlgraph_api(component=self)
+        def some_custom_api_method(self, input_):
+            return self._graph_fn_1to1(input_)
+
+    @graph_fn
+    def _graph_fn_1to1(self, input_):
+        return input_
+
+
+class DummyThatDefinesCustomGraphFn(Component):
+    def __init__(self, scope="dummy-that-defines-custom-graph-fn", **kwargs):
+        super(DummyThatDefinesCustomGraphFn, self).__init__(scope=scope, **kwargs)
+
+        self.define_graph_fns()
+
+    @rlgraph_api
+    def run(self, input_):
+        return self._graph_fn_some_custom_graph_fn(input_)
+
+    def define_graph_fns(self):
+        @graph_fn(component=self)
+        def _graph_fn_some_custom_graph_fn(self, input_):
+            return input_
+
+
 class DummyWithVar(Component):
     """
     A dummy component with a couple of sub-components that have their own API methods.

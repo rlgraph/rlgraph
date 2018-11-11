@@ -28,7 +28,6 @@ import numpy as np
 
 class TestDistributions(unittest.TestCase):
 
-
     # TODO these are all not portable to CI.
 
     # TODO also not portable to PyTorch due to batch shapes.
@@ -43,7 +42,7 @@ class TestDistributions(unittest.TestCase):
     #     bernoulli = Bernoulli(switched_off_apis={"entropy", "log_prob", "kl_divergence"})
     #     input_spaces = dict(
     #         parameters=param_space,
-    #         max_likelihood=bool,
+    #         deterministic=bool,
     #     )
     #     test = ComponentTest(component=bernoulli, input_spaces=input_spaces)
     #
@@ -54,7 +53,7 @@ class TestDistributions(unittest.TestCase):
     #     ]
     #     expected = np.array([[True, True, False, False, False]])
     #     test.test(("draw", input_), expected_outputs=expected)
-    #     # Try the same on the sample_deterministic out-Socket without the max_likelihood input..
+    #     # Try the same on the sample_deterministic out-Socket without the deterministic input..
     #     test.test(("sample_deterministic", input_[0]), expected_outputs=expected)
     #
     #     # Batch of size=2 and non-deterministic -> expect always the same result when we seed tf (done automatically
@@ -63,7 +62,7 @@ class TestDistributions(unittest.TestCase):
     #         np.array([[0.1, 0.3, 0.6, 0.71, 0.001], [0.9, 0.998, 0.9999, 0.0001, 0.345678]]),
     #         False
     #     ]
-    #     # Try the same on the sample_stochastic out-Socket without the max_likelihood input..
+    #     # Try the same on the sample_stochastic out-Socket without the deterministic input..
     #     expected = np.array([[False, True, True, True, False], [True, True, True, False, True]])
     #     test.test(("sample_stochastic", input_[0]), expected_outputs=expected)
     #
@@ -75,7 +74,7 @@ class TestDistributions(unittest.TestCase):
     #     categorical = Categorical(switched_off_apis={"entropy", "log_prob", "kl_divergence"})
     #     input_spaces = dict(
     #         parameters=param_space,
-    #         max_likelihood=bool,
+    #         deterministic=bool,
     #     )
     #     test = ComponentTest(component=categorical, input_spaces=input_spaces)
     #
@@ -121,7 +120,7 @@ class TestDistributions(unittest.TestCase):
     #     param_space = FloatBox(shape=(5, 2), add_batch_rank=True)
     #     input_spaces = dict(
     #         parameters=param_space,
-    #         max_likelihood=bool
+    #         deterministic=bool
     #     )
     #
     #     # The Component to test.
@@ -161,7 +160,7 @@ class TestDistributions(unittest.TestCase):
     #     param_space = Tuple(FloatBox(shape=(5,)), FloatBox(shape=(5,)), add_batch_rank=True)
     #     input_spaces = dict(
     #         parameters=param_space,
-    #         max_likelihood=bool,
+    #         deterministic=bool,
     #     )
     #
     #     # The Component to test.

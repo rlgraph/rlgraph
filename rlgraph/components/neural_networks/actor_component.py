@@ -33,7 +33,7 @@ class ActorComponent(Component):
     API:
         get_preprocessed_state_and_action(state, time_step, use_exploration) ->
     """
-    def __init__(self, preprocessor_spec, policy_spec, exploration_spec, max_likelihood=None,
+    def __init__(self, preprocessor_spec, policy_spec, exploration_spec, deterministic_policy=None,
                  **kwargs):
         """
         Args:
@@ -45,8 +45,8 @@ class ActorComponent(Component):
             policy_spec (Union[dict,Policy]): A specification dict for a Policy object or a Policy object directly.
             exploration_spec (Union[dict,Exploration]): A specification dict for an Exploration object or an Exploration
                 object directly.
-            max_likelihood (Optional[bool]): See Policy's property `max_likelihood`.
-                If not None, overwrites the equally named setting in the Policy object (defined by `policy_spec`).
+            deterministic_policy (Optional[bool]): See Policy's property `deterministic`.
+                If not None, overwrites the `deterministic` setting in the Policy object (defined by `policy_spec`).
         """
         super(ActorComponent, self).__init__(scope=kwargs.pop("scope", "actor-component"), **kwargs)
 
@@ -54,7 +54,7 @@ class ActorComponent(Component):
         self.policy = Policy.from_spec(policy_spec)
         self.exploration = Exploration.from_spec(exploration_spec)
 
-        self.max_likelihood = max_likelihood
+        self.deterministic_policy = deterministic_policy
 
         self.add_components(self.policy, self.exploration, self.preprocessor)
 
@@ -76,12 +76,13 @@ class ActorComponent(Component):
                 `last_internal_states` (DataOp): If RNN-based, the last internal states after passing through
                 states. Or None.
         """
-        max_likelihood = self.max_likelihood if self.max_likelihood is not None else self.policy.max_likelihood
+        deterministic_policy = self.deterministic_policy if self.deterministic_policy\
+            is not None else self.policy.deterministic
 
         preprocessed_states = self.preprocessor.preprocess(states)
 
-        if max_likelihood is True:
-            out = self.policy.get_max_likelihood_action(preprocessed_states, internal_states)
+        if deterministic_policy is True:
+            out = self.policy.get_deterministic_action(preprocessed_states, internal_states)
         else:
             out = self.policy.get_stochastic_action(preprocessed_states, internal_states)
         actions = self.exploration.get_action(out["action"], time_step, use_exploration)
@@ -111,7 +112,8 @@ class ActorComponent(Component):
                 `last_internal_states` (DataOp): If RNN-based, the last internal states after passing through
                 states. Or None.
         """
-        max_likelihood = self.max_likelihood if self.max_likelihood is not None else self.policy.max_likelihood
+        deterministic_policy = self.deterministic_policy if self.deterministic_policy \
+            is not None else self.policy.deterministic
 
         preprocessed_states = self.preprocessor.preprocess(states)
 
@@ -122,7 +124,7 @@ class ActorComponent(Component):
         else:
             out = self.policy.get_logits_probabilities_log_probs(preprocessed_states, internal_states)
 
-        if max_likelihood is True:
+        if deterministic_policy is True:
             action_sample = self.policy.distribution.sample_deterministic(out["probabilities"])
         else:
             action_sample = self.policy.distribution.sample_stochastic(out["probabilities"])

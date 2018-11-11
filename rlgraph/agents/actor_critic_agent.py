@@ -32,9 +32,13 @@ class ActorCriticAgent(Agent):
     Basic actor-critic policy gradient architecture with generalized advantage estimation,
     and entropy regularization. Suitable for execution with A2C, A3C.
     """
-    def __init__(self, gae_lambda=1.0, memory_spec=None, **kwargs):
+    def __init__(self, gae_lambda=1.0, sample_episodes=True, memory_spec=None, **kwargs):
         """
         Args:
+            sample_episodes (bool): If true, the update method interprets the batch_size as the number of
+                episodes to fetch from the memory. If false, batch_size will refer to the number of time-steps. This
+                is especially relevant for environments where episode lengths may vastly differ throughout training. For
+                example, in CartPole, a losing episode is typically 10 steps, and a winning episode 200 steps.
             gae_lambda (float): Lambda for generalized advantage estimation.
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
             a ring-buffer.
@@ -42,10 +46,12 @@ class ActorCriticAgent(Agent):
         # Use baseline adapter to have critic.
         action_adapter_spec = kwargs.pop("action_adapter_spec", dict(type="baseline-action-adapter"))
         super(ActorCriticAgent, self).__init__(
-            action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "actor-critic-agent"), **kwargs
+            action_adapter_spec=action_adapter_spec,
+            # Use a stochastic policy.
+            policy_spec=dict(deterministic=False),
+            name=kwargs.pop("name", "actor-critic-agent"), **kwargs
         )
-        # Use a stochastic policy.
-        self.policy.max_likelihood = False
+        self.sample_episodes = sample_episodes
 
         # Extend input Space definitions to this Agent's specific API-methods.
         preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()
@@ -55,7 +61,6 @@ class ActorCriticAgent(Agent):
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
             weights="variables:policy",
-            time_step=int,
             use_exploration=bool,
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
@@ -74,7 +79,7 @@ class ActorCriticAgent(Agent):
 
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
-                          self.exploration, self.loss_function, self.optimizer]
+                          self.loss_function, self.optimizer]
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
@@ -90,7 +95,8 @@ class ActorCriticAgent(Agent):
     def define_graph_api(self, policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
         super(ActorCriticAgent, self).define_graph_api(policy_scope, pre_processor_scope)
 
-        preprocessor, merger, memory, splitter, policy, exploration, loss_function, optimizer = sub_components
+        preprocessor, merger, memory, splitter, policy, loss_function, optimizer = sub_components
+        sample_episodes = self.sample_episodes
 
         # Reset operation (resets preprocessor).
         if self.preprocessing_required:
@@ -101,16 +107,15 @@ class ActorCriticAgent(Agent):
 
         # Act from preprocessed states.
         @rlgraph_api(component=self.root_component)
-        def action_from_preprocessed_state(self, preprocessed_states, time_step=0, use_exploration=True):
-            sample_deterministic = policy.get_max_likelihood_action(preprocessed_states)
-            actions = exploration.get_action(sample_deterministic["action"], time_step, use_exploration)
-            return preprocessed_states, actions
+        def action_from_preprocessed_state(self, preprocessed_states, use_exploration=True):
+            out = policy.get_action(preprocessed_states, use_exploration)
+            return preprocessed_states, out["action"]
 
         # State (from environment) to action with preprocessing.
         @rlgraph_api(component=self.root_component)
-        def get_preprocessed_state_and_action(self, states, time_step=0, use_exploration=True):
+        def get_preprocessed_state_and_action(self, states, use_exploration=True):
             preprocessed_states = preprocessor.preprocess(states)
-            return self.action_from_preprocessed_state(preprocessed_states, time_step, use_exploration)
+            return self.action_from_preprocessed_state(preprocessed_states, use_exploration)
 
         # Insert into memory.
         @rlgraph_api(component=self.root_component)
@@ -121,7 +126,10 @@ class ActorCriticAgent(Agent):
         # Learn from memory.
         @rlgraph_api(component=self.root_component)
         def update_from_memory(self_):
-            records = memory.get_episodes(self.update_spec["batch_size"])
+            if sample_episodes:
+                records = memory.get_episodes(self.update_spec["batch_size"])
+            else:
+                records = memory.get_records(self.update_spec["batch_size"])
             preprocessed_s, actions, rewards, terminals = splitter.split(records)
 
             step_op, loss, loss_per_item = self_.update_from_external_batch(
@@ -196,7 +204,7 @@ class ActorCriticAgent(Agent):
         return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
         ret = self.graph_executor.execute((
             call_method,
-            [batched_states, self.timesteps, use_exploration],
+            [batched_states, use_exploration],
             # 0=preprocessed_states, 1=action
             return_ops
         ))

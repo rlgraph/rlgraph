@@ -25,7 +25,7 @@ from rlgraph.components.helpers import dynamic_batching
 # Wrap in dynamic batching module.
 @dynamic_batching.batch_fn
 def get_state_values_logits_probabilities_log_probs(self_, nn_input_, internal_states_):
-    return self_.policy.get_state_values_logits_probabilities_log_probs(nn_input_, internal_states_, return_ops=True)
+    return self_.policy.get_state_values_logits_probabilities_log_probs(nn_input_, internal_states_)
 
 
 class DynamicBatchingPolicy(Component):
@@ -56,7 +56,7 @@ class DynamicBatchingPolicy(Component):
         # hack: link in case parent components call APIs of the distribution directly
         self.action_adapter = self.policy.action_adapter
         self.distribution = self.policy.distribution
-        self.max_likelihood = True
+        self.deterministic = True
 
         # Dynamic batching options.
         self.minimum_batch_size = minimum_batch_size
@@ -81,7 +81,7 @@ class DynamicBatchingPolicy(Component):
     #                                            timeout_ms=self.timeout_ms)
     #    def get_logits_probabilities_log_probs(nn_input_, internal_states_):
     #        # TODO potentially assign device
-    #        ret = self.policy.get_logits_probabilities_log_probs(nn_input_, internal_states_, return_ops=True)
+    #        ret = self.policy.get_logits_probabilities_log_probs(nn_input_, internal_states_)
     #        return ret
     #    out = get_logits_probabilities_log_probs(nn_input, internal_states)
     #    return out

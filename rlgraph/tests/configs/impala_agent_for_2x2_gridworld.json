@@ -1,9 +1,9 @@
 {
-  "type": "impala",
+  "type": "single-impala",
 
   "fifo_queue_spec":
   {
-    "capacity": 100
+    "capacity": 1
   },
 
   "environment_spec":
@@ -14,38 +14,33 @@
 
   "worker_sample_size": 5,
 
-  "add_previous_action": false,
-  "add_previous_reward": false,
+  "feed_previous_action_through_nn": false,
+  "feed_previous_reward_through_nn": false,
 
   "preprocessing_spec":
   [
     {
       "type": "reshape",
-      "flatten": true
+      "flatten": true,
+      "flatten_categories": 4
     }
   ],
 
   "network_spec":
-  [
-    {
-      "type": "dense",
-      "units": 10,
-      "activation": "linear",
-      "scope": "hidden-layer"
-    }
-  ],
+  {
+    "layers": [
+      {
+        "type": "dense",
+        "units": 10,
+        "activation": "linear",
+        "scope": "hidden-layer"
+      }
+    ],
+    "scope": "impala-net"
+  },
 
   "exploration_spec":
   {
-    "epsilon_spec": {
-      "decay_spec": {
-        "type": "linear_decay",
-        "from": 1.0,
-        "to": 0.1,
-        "start_timestep": 0,
-        "num_timesteps": 100
-      }
-    }
   },
 
   "update_spec": {

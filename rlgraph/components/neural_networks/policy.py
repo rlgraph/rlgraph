@@ -39,7 +39,8 @@ class Policy(Component):
     A Policy is a wrapper Component that contains a NeuralNetwork, an ActionAdapter and a Distribution Component.
     """
     def __init__(self, network_spec, action_space=None, action_adapter_spec=None,
-                 max_likelihood=True, scope="policy", **kwargs):
+                 deterministic=True, batch_apply=False, batch_apply_action_adapter=False,
+                 scope="policy", **kwargs):
         """
         Args:
             network_spec (Union[NeuralNetwork,dict]): The NeuralNetwork Component or a specification dict to build
@@ -50,70 +51,68 @@ class Policy(Component):
             action_adapter_spec (Optional[dict]): A spec-dict to create an ActionAdapter. Use None for the default
                 ActionAdapter object.
 
-            max_likelihood (bool): Whether to pick actions according to the max-likelihood value or via sampling.
+            deterministic (bool): Whether to pick actions according to the max-likelihood value or via sampling.
                 Default: True.
+
+            batch_apply (bool): Whether to wrap both the NN and the ActionAdapter with a BatchApply Component in order
+                to fold time rank into batch rank before a forward pass.
+                Note that only one of `batch_apply` or `batch_apply_action_adapter` may be True.
+                Default: False.
+
+            batch_apply_action_adapter (bool): Whether to wrap only the ActionAdapter with a BatchApply Component in
+                order to fold time rank into batch rank before a forward pass.
+                Note that only one of `batch_apply` or `batch_apply_action_adapter` may be True.
+                Default: False.
         """
         super(Policy, self).__init__(scope=scope, **kwargs)
 
-        self.neural_network = NeuralNetwork.from_spec(network_spec)
+        self.batch_apply = batch_apply
+        self.batch_apply_action_adapter = batch_apply_action_adapter
+        assert self.batch_apply is False or self.batch_apply_action_adapter is False,\
+            "ERROR: Either one of `batch_apply` or `batch_apply_action_adapter` must be False!"
+
+        # Do manual folding and unfolding as not to have to wrap too many components into a BatchApply.
+        self.folder = None
+        self.unfolder = None
+        if self.batch_apply is True:
+            self.folder = ReShape(fold_time_rank=True, scope="time-rank-folder")
+            self.unfolder = ReShape(unfold_time_rank=True, scope="time-rank-unfolder")
+
+        self.neural_network = NeuralNetwork.from_spec(network_spec)  # type: NeuralNetwork
+
         if action_space is None:
-            self.action_adapter = ActionAdapter.from_spec(action_adapter_spec)
+            self.action_adapter = ActionAdapter.from_spec(
+                action_adapter_spec, batch_apply=self.batch_apply_action_adapter
+            )
             action_space = self.action_adapter.action_space
         else:
-            self.action_adapter = ActionAdapter.from_spec(action_adapter_spec, action_space=action_space)
+            self.action_adapter = ActionAdapter.from_spec(
+                action_adapter_spec, action_space=action_space, batch_apply=self.batch_apply_action_adapter
+            )
         self.action_space = action_space
-        self.max_likelihood = max_likelihood
-
-        # TODO: Hacky trick to implement IMPALA post-LSTM256 time-rank folding and unfolding.
-        # TODO: Replace entirely via sonnet-like BatchApply Component.
-        is_impala = "IMPALANetwork" in type(self.neural_network).__name__
+        self.deterministic = deterministic
 
         # Add API-method to get baseline output (if we use an extra value function baseline node).
         if isinstance(self.action_adapter, BaselineActionAdapter):
-            # TODO: IMPALA attempt to speed up final pass after LSTM.
-            if is_impala:
-                self.time_rank_folder = ReShape(fold_time_rank=True, scope="time-rank-fold")
-                self.time_rank_unfolder_v = ReShape(unfold_time_rank=True, time_major=True, scope="time-rank-unfold-v")
-                self.time_rank_unfolder_a_probs = ReShape(unfold_time_rank=True, time_major=True,
-                                                          scope="time-rank-unfold-a-probs")
-                self.time_rank_unfolder_logits = ReShape(unfold_time_rank=True, time_major=True,
-                                                         scope="time-rank-unfold-logits")
-                self.time_rank_unfolder_log_probs = ReShape(unfold_time_rank=True, time_major=True,
-                                                        scope="time-rank-unfold-log-probs")
-                self.add_components(
-                    self.time_rank_folder,
-                    self.time_rank_unfolder_v,
-                    self.time_rank_unfolder_a_probs,
-                    self.time_rank_unfolder_log_probs,
-                    self.time_rank_unfolder_logits
-                )
 
             @rlgraph_api(component=self)
             def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
-                nn_output = self.neural_network.apply(nn_input, internal_states)
-                last_internal_states = nn_output.get("last_internal_states")
-                nn_output = nn_output["output"]
+                nn_output = self.get_nn_output(nn_input, internal_states)
+                out = self.action_adapter.get_logits_probabilities_log_probs(nn_output["output"])
 
-                # TODO: IMPALA attempt to speed up final pass after LSTM.
-                if is_impala:
-                    nn_output = self.time_rank_folder.apply(nn_output)
+                state_values = out["state_values"]
+                logits = out["logits"]
+                probs = out["probabilities"]
+                log_probs = out["log_probs"]
 
-                out = self.action_adapter.get_logits_probabilities_log_probs(nn_output)
-
-                # TODO: IMPALA attempt to speed up final pass after LSTM.
-                if is_impala:
-                    state_values = self.time_rank_unfolder_v.apply(out["state_values"], nn_output)
-                    logits = self.time_rank_unfolder_logits.apply(out["logits"], nn_output)
-                    probs = self.time_rank_unfolder_a_probs.apply(out["probabilities"], nn_output)
-                    log_probs = self.time_rank_unfolder_log_probs.apply(out["log_probs"], nn_output)
-                else:
-                    state_values = out["state_values"]
-                    logits = out["logits"]
-                    probs = out["probabilities"]
-                    log_probs = out["log_probs"]
+                if self.batch_apply is True:
+                    state_values = self.unfolder.apply(state_values, nn_input)
+                    logits = self.unfolder.apply(logits, nn_input)
+                    probs = self.unfolder.apply(probs, nn_input)
+                    log_probs = self.unfolder.apply(log_probs, nn_input)
 
                 return dict(state_values=state_values, logits=logits, probabilities=probs, log_probs=log_probs,
-                            last_internal_states=last_internal_states)
+                            last_internal_states=nn_output.get("last_internal_states"))
 
         # Figure out our Distribution.
         if isinstance(action_space, IntBox):
@@ -125,13 +124,7 @@ class Policy(Component):
             raise RLGraphError("ERROR: `action_space` is of type {} and not allowed in {} Component!".
                                format(type(action_space).__name__, self.name))
 
-        self.add_components(self.neural_network, self.action_adapter, self.distribution)
-
-        if is_impala:
-            self.add_components(
-                self.time_rank_folder, self.time_rank_unfolder_v, self.time_rank_unfolder_a_probs,
-                self.time_rank_unfolder_log_probs, self.time_rank_unfolder_logits
-            )
+        self.add_components(self.neural_network, self.action_adapter, self.distribution, self.folder, self.unfolder)
 
     # Define our interface.
     @rlgraph_api
@@ -144,70 +137,11 @@ class Policy(Component):
         Returns:
             any: The raw output of the neural network (before it's cleaned-up and passed through the ActionAdapter).
         """
+        if self.batch_apply is True:
+            nn_input = self.folder.apply(nn_input)
+
         out = self.neural_network.apply(nn_input, internal_states)
         return dict(output=out["output"], last_internal_states=out.get("last_internal_states"))
-
-    @rlgraph_api
-    def get_action(self, nn_input, internal_states=None, max_likelihood=None):
-        """
-        Returns an action based on NN output, action adapter output and distribution sampling.
-
-        Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
-            max_likelihood (Optional[bool]): If not None, use this to determine whether actions should be drawn
-                from the distribution in max-likelihood or stochastic fashion.
-
-        Returns:
-            any: The drawn action.
-        """
-        max_likelihood = self.max_likelihood if max_likelihood is None else max_likelihood
-
-        nn_output = self.get_nn_output(nn_input, internal_states)
-
-        # Skip our distribution, iff discrete action-space and max-likelihood acting (greedy).
-        # In that case, one does not need to create a distribution in the graph each act (only to get the argmax
-        # over the logits, which is the same as the argmax over the probabilities (or log-probabilities)).
-        if max_likelihood is True and isinstance(self.action_space, IntBox):
-            out = self.action_adapter.get_logits_probabilities_log_probs(nn_output["output"])
-            action = self._graph_fn_get_max_likelihood_action_wo_distribution(out["logits"])
-        else:
-            out = self.action_adapter.get_logits_probabilities_log_probs(nn_output["output"])
-            action = self.distribution.draw(out["probabilities"], max_likelihood)
-        return dict(action=action, last_internal_states=nn_output["last_internal_states"])
-
-    @rlgraph_api
-    def get_max_likelihood_action(self, nn_input, internal_states=None):
-        """
-        Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
-
-        Returns:
-            any: See `get_action`, but with max_likelihood force set to True.
-        """
-        out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
-
-        if isinstance(self.action_space, IntBox):
-            action = self._graph_fn_get_max_likelihood_action_wo_distribution(out["logits"])
-        else:
-            action = self.distribution.sample_deterministic(out["probabilities"])
-
-        return dict(action=action, last_internal_states=out["last_internal_states"])
-
-    @rlgraph_api
-    def get_stochastic_action(self, nn_input, internal_states=None):
-        """
-        Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
-
-        Returns:
-            any: See `get_action`, but with max_likelihood force set to False.
-        """
-        out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
-        action = self.distribution.sample_stochastic(out["probabilities"])
-        return dict(action=action, last_internal_states=out["last_internal_states"])
 
     @rlgraph_api
     def get_action_layer_output(self, nn_input, internal_states=None):
@@ -240,10 +174,101 @@ class Policy(Component):
         """
         nn_output = self.get_nn_output(nn_input, internal_states)
         aa_output = self.action_adapter.get_logits_probabilities_log_probs(nn_output["output"])
+
+        logits, probabilities, log_probs = aa_output["logits"], aa_output["probabilities"], aa_output["log_probs"]
+
+        if self.batch_apply is True:
+            logits = self.unfolder.apply(logits, nn_input)
+            probabilities = self.unfolder.apply(probabilities, nn_input)
+            log_probs = self.unfolder.apply(log_probs, nn_input)
+
         return dict(
-            logits=aa_output["logits"], probabilities=aa_output["probabilities"], log_probs=aa_output["log_probs"],
+            logits=logits, probabilities=probabilities, log_probs=log_probs,
             last_internal_states=nn_output["last_internal_states"]
         )
+
+    @rlgraph_api
+    def get_action(self, nn_input, deterministic=None, internal_states=None):
+        """
+        Returns an action based on NN output, action adapter output and distribution sampling.
+
+        Args:
+            nn_input (any): The input to our neural network.
+            deterministic (Optional[bool]): If not None, use this to determine whether actions should be drawn
+                from the distribution in max-likelihood (deterministic) or stochastic fashion.
+            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+
+        Returns:
+            any: The drawn action.
+        """
+        deterministic = self.deterministic if deterministic is None else deterministic
+
+        out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
+
+        # Skip our distribution, iff discrete action-space and deterministic acting (greedy).
+        # In that case, one does not need to create a distribution in the graph each act (only to get the argmax
+        # over the logits, which is the same as the argmax over the probabilities (or log-probabilities)).
+        if deterministic is True and isinstance(self.action_space, IntBox):
+            action = self._graph_fn_get_deterministic_action_wo_distribution(out["logits"])
+        else:
+            action = self.distribution.draw(out["probabilities"], deterministic)
+
+        return dict(action=action, last_internal_states=out["last_internal_states"])
+
+    @rlgraph_api
+    def get_action_log_probs(self, nn_input, actions, internal_states=None):
+        """
+        Computes the log-likelihood for a given set of actions under the distribution induced by a set of states.
+
+        Args:
+            nn_input (any): The input to our neural network.
+            actions (any): The actions for which to get log-probs returned.
+
+            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+
+        Returns:
+            Log-probs of actions under current policy
+        """
+        out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
+
+        # Probabilities under current action.
+        action_log_probs = self.distribution.log_prob(out["probabilities"], actions)
+
+        return action_log_probs
+
+    @rlgraph_api
+    def get_deterministic_action(self, nn_input, internal_states=None):
+        """
+        Args:
+            nn_input (any): The input to our neural network.
+            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+
+        Returns:
+            any: See `get_action`, but with deterministic force set to True.
+        """
+        out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
+
+        if isinstance(self.action_space, IntBox):
+            action = self._graph_fn_get_deterministic_action_wo_distribution(out["logits"])
+        else:
+            action = self.distribution.sample_deterministic(out["probabilities"])
+
+        return dict(action=action, last_internal_states=out["last_internal_states"])
+
+    @rlgraph_api
+    def get_stochastic_action(self, nn_input, internal_states=None):
+        """
+        Args:
+            nn_input (any): The input to our neural network.
+            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+
+        Returns:
+            any: See `get_action`, but with deterministic force set to False.
+        """
+        out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
+        action = self.distribution.sample_stochastic(out["probabilities"])
+
+        return dict(action=action, last_internal_states=out["last_internal_states"])
 
     @rlgraph_api
     def get_entropy(self, nn_input, internal_states=None):
@@ -257,10 +282,11 @@ class Policy(Component):
         """
         out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
         entropy = self.distribution.entropy(out["probabilities"])
+
         return dict(entropy=entropy, last_internal_states=out["last_internal_states"])
 
     @graph_fn
-    def _graph_fn_get_max_likelihood_action_wo_distribution(self, logits):
+    def _graph_fn_get_deterministic_action_wo_distribution(self, logits):
         """
         Use this function only for discrete action spaces to circumvent using a full-blown
         backend-specific distribution object (e.g. tf.distribution.Multinomial).
