@@ -156,14 +156,14 @@ class PPOAgent(Agent):
             preprocessed_s, actions, rewards, terminals = splitter.split(records)
 
             # Pass to iterative-opt graph fn:
-            step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item = \
+            loss, loss_per_item, vf_loss, vf_loss_per_item = \
                 self_._graph_fn_iterative_opt(preprocessed_s, actions, rewards, terminals)
 
             # step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item = self_.update_from_external_batch(
             #     preprocessed_s, actions, rewards, terminals
             # )
 
-            return step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
+            return loss, loss_per_item, vf_loss, vf_loss_per_item
 
         # # Learn from an external batch.
         # @rlgraph_api(component=self.root_component)
@@ -216,77 +216,47 @@ class PPOAgent(Agent):
             """
             if get_backend() == "tf":
                 # Compute loss once to initialize loop.
-
                 batch_size = tf.shape(preprocessed_states)[0]
-                # todo update last val.
-                # Careful: If the batch does not end with a terminal and we sample a start within the last episode,
-                # we break sequence logic, e.g.: batch size 1000, sample size 100, start = 950 -indices: [950, 50]
-                # If terminal is not true at index 999, we erroneously connect two episodes.
-                start = tf.random_uniform(shape=(1,), minval=0, maxval=batch_size - 1, dtype=tf.int32)[0]
-                indices = tf.range(start=start, limit=start + self.sample_size) % batch_size
-
-                sample_states = tf.gather(params=preprocessed_states, indices=indices)
-                sample_actions = tf.gather(params=actions, indices=indices)
-                sample_rewards = tf.gather(params=rewards, indices=indices)
-                sample_terminals = tf.gather(params=terminals, indices=indices)
-
-                action_log_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
-                baseline_values = self.value_function.value_output(sample_states)
-
-                loss, loss_per_item, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
-                    action_log_probs, baseline_values, actions, sample_rewards, sample_terminals
-                )
-
-                # Args are passed in again because some device strategies may want to split them to different devices.
-                policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
-                vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
-
-                step_op, loss, loss_per_item = self_.get_sub_component_by_name(optimizer_scope).step(
-                    policy_vars, loss, loss_per_item)
-                vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope).step(
-                    vf_vars, vf_loss, vf_loss_per_item)
 
                 def opt_body(index, loss, loss_per_item, vf_loss, vf_loss_per_item):
-                        start = tf.random_uniform(shape=(1,), minval=0, maxval=batch_size - 1, dtype=tf.int32)[0]
-                        indices = tf.range(start=start, limit=start + self.sample_size) % batch_size
+                    start = tf.random_uniform(shape=(1,), minval=0, maxval=batch_size - 1, dtype=tf.int32)[0]
+                    indices = tf.range(start=start, limit=start + self.sample_size) % batch_size
 
-                        sample_states = tf.gather(params=preprocessed_states, indices=indices)
-                        sample_actions = tf.gather(params=actions, indices=indices)
-                        sample_rewards = tf.gather(params=rewards, indices=indices)
-                        sample_terminals = tf.gather(params=terminals, indices=indices)
+                    sample_states = tf.gather(params=preprocessed_states, indices=indices)
+                    sample_actions = tf.gather(params=actions, indices=indices)
+                    sample_rewards = tf.gather(params=rewards, indices=indices)
+                    sample_terminals = tf.gather(params=terminals, indices=indices)
 
-                        action_log_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
-                        baseline_values = self.value_function.value_output(sample_states)
+                    action_log_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
+                    baseline_values = self.value_function.value_output(sample_states)
 
-                        loss, loss_per_item, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
-                            action_log_probs, baseline_values, actions, sample_rewards, sample_terminals
-                        )
+                    loss, loss_per_item, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
+                        action_log_probs, baseline_values, actions, sample_rewards, sample_terminals
+                    )
 
-                        # Args are passed in again because some device strategies may want to split them to different devices.
-                        policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
-                        vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
+                    policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
+                    vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
 
-                        step_op, loss, loss_per_item = self_.get_sub_component_by_name(optimizer_scope).step(
-                            policy_vars, loss, loss_per_item)
-                        vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope).step(
-                            vf_vars, vf_loss, vf_loss_per_item)
+                    step_op, loss, loss_per_item = self_.get_sub_component_by_name(optimizer_scope).step(
+                        policy_vars, loss, loss_per_item)
+                    vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope).step(
+                        vf_vars, vf_loss, vf_loss_per_item)
 
-                        with tf.control_dependencies([step_op, vf_step_op]):
-                            return index, loss, loss_per_item, vf_loss, vf_loss_per_item
+                    with tf.control_dependencies([step_op, vf_step_op]):
+                        return index, loss, loss_per_item, vf_loss, vf_loss_per_item
 
                 def cond(index, loss, loss_per_item, v_loss, v_loss_per_item):
                     return index < self.iterations
 
-                with tf.control_dependencies([step_op, vf_step_op]):
-                    index, loss, loss_per_item, vf_loss, vf_loss_per_item = tf.while_loop(
-                        cond=cond,
-                        body=opt_body,
-                        # Start with 1.
-                        loop_vars=[1, loss, loss_per_item, vf_loss, vf_loss_per_item],
-                        parallel_iterations=1
-                    )
+                index, loss, loss_per_item, vf_loss, vf_loss_per_item = tf.while_loop(
+                    cond=cond,
+                    body=opt_body,
+                    loop_vars=[0, 0.0, tf.zeros(shape=(self.sample_size,)), 0.0,
+                               tf.zeros(shape=(self.sample_size,))],
+                    parallel_iterations=1
+                )
 
-                    return step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
+                return loss, loss_per_item, vf_loss, vf_loss_per_item
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
@@ -336,8 +306,8 @@ class PPOAgent(Agent):
 
     def update(self, batch=None):
 
-        # [0]=no-op step; [1]=the loss; [2]=loss-per-item, [3]=memory-batch (if pulled)
-        return_ops = [0, 1, 2]
+        # [0]=the loss; [1]=loss-per-item, [2]=vf-loss, [3] - vf-loss- per item
+        return_ops = [0, 1, 2, 3]
         if batch is None:
             ret = self.graph_executor.execute(("update_from_memory", None, return_ops))
 
