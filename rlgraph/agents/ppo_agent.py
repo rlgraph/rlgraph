@@ -225,10 +225,10 @@ class PPOAgent(Agent):
                 start = tf.random_uniform(shape=(1,), minval=0, maxval=batch_size - 1, dtype=tf.int32)[0]
                 indices = tf.range(start=start, limit=start + self.sample_size) % batch_size
 
-                sample_states = tf.gather(actions, indices)
-                sample_actions = tf.gather(preprocessed_states, indices)
-                sample_rewards = tf.gather(rewards, indices)
-                sample_terminals = tf.gather(terminals, indices)
+                sample_states = tf.gather(params=preprocessed_states, indices=indices)
+                sample_actions = tf.gather(params=actions, indices=indices)
+                sample_rewards = tf.gather(params=rewards, indices=indices)
+                sample_terminals = tf.gather(params=terminals, indices=indices)
 
                 action_log_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
                 baseline_values = self.value_function.value_output(sample_states)
@@ -251,8 +251,8 @@ class PPOAgent(Agent):
                         start = tf.random_uniform(shape=(1,), minval=0, maxval=batch_size - 1, dtype=tf.int32)[0]
                         indices = tf.range(start=start, limit=start + self.sample_size) % batch_size
 
-                        sample_states = tf.gather(actions, indices)
-                        sample_actions = tf.gather(preprocessed_states, indices)
+                        sample_states = tf.gather(preprocessed_states, indices)
+                        sample_actions = tf.gather(actions, indices)
                         sample_rewards = tf.gather(rewards, indices)
                         sample_terminals = tf.gather(terminals, indices)
 
