@@ -76,15 +76,15 @@ def main(argv):
         ret = agent.update()
         mean_return = _calc_mean_return(ret)
         mean_returns.append(mean_return)
-        print("i={} Loss={:.4} Avg-reward={:.2}".format(i, float(ret[1]), mean_return))
-
-    time.sleep(3)
-    agent.terminate()
-    time.sleep(3)
+        print("Iteration={} Loss={:.4f} Avg-reward={:.2f}".format(i, float(ret[1]), mean_return))
 
     print("Mean return: {:.2f} / over the last 10 episodes: {:.2f}".format(
         np.nanmean(mean_returns), np.nanmean(mean_returns[-10:])
     ))
+
+    time.sleep(1)
+    agent.terminate()
+    time.sleep(1)
 
 
 def _calc_mean_return(records):
@@ -99,7 +99,7 @@ def _calc_mean_return(records):
             returns.append(return_)
             return_ = 0.0
 
-    return np.mean(returns)
+    return np.nanmean(returns)
 
 
 if __name__ == '__main__':

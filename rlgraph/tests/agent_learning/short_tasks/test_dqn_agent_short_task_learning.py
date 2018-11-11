@@ -237,7 +237,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         """
         Creates a double and dueling DQNAgent and runs it via a Runner on the CartPole Env.
         """
-        dummy_env = OpenAIGymEnv("CartPole-v0")
+        gym_env = "CartPole-v0"
+        dummy_env = OpenAIGymEnv(gym_env)
         agent = DQNAgent.from_spec(
             config_from_path("configs/dqn_agent_for_cartpole.json"),
             double_q=True,
@@ -253,7 +254,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
 
         time_steps = 3000
         worker = SingleThreadedWorker(
-            env_spec=lambda: OpenAIGymEnv("CartPole-v0", seed=10),
+            env_spec=lambda: OpenAIGymEnv(gym_env, seed=10),
             agent=agent,
             render=self.is_windows,
             worker_executes_preprocessing=False

@@ -91,15 +91,15 @@ class Distribution(Component):
         return self._graph_fn_entropy(distribution)
 
     @rlgraph_api(must_be_complete=False)
-    def log_prob(self_, parameters, values):
-        distribution = self_._graph_fn_get_distribution(parameters)
-        return self_._graph_fn_log_prob(distribution, values)
+    def log_prob(self, parameters, values):
+        distribution = self._graph_fn_get_distribution(parameters)
+        return self._graph_fn_log_prob(distribution, values)
 
     @rlgraph_api(must_be_complete=False)
-    def kl_divergence(self_, parameters, other_parameters):
-        distribution = self_._graph_fn_get_distribution(parameters)
-        other_distribution = self_._graph_fn_get_distribution(other_parameters)
-        return self_._graph_fn_kl_divergence(distribution, other_distribution)
+    def kl_divergence(self, parameters, other_parameters):
+        distribution = self._graph_fn_get_distribution(parameters)
+        other_distribution = self._graph_fn_get_distribution(other_parameters)
+        return self._graph_fn_kl_divergence(distribution, other_distribution)
 
     @rlgraph_api
     def _graph_fn_get_distribution(self, *parameters):

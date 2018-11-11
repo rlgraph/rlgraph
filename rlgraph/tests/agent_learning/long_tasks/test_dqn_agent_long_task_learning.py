@@ -23,6 +23,7 @@ import logging
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.agents import Agent
 from rlgraph.execution import SingleThreadedWorker
+from rlgraph.spaces import FloatBox
 from rlgraph.utils import root_logger
 from rlgraph.tests.test_util import config_from_path
 
@@ -33,22 +34,35 @@ class TestDQNAgentLongTaskLearning(unittest.TestCase):
     """
     root_logger.setLevel(level=logging.INFO)
 
+    pong_preprocessed_state_space = FloatBox(shape=(80, 80, 4), add_batch_rank=True)
+    pong_preprocessing_spec = [
+        dict(type="image_crop", x=0, y=25, width=160, height=160),
+        dict(type="image_resize", width=80, height=80),
+        dict(type="grayscale", keep_rank=True),
+        dict(type="divide", divisor=255,),
+        dict(type="sequence", sequence_length=4, batch_size=1, add_rank=False)
+    ]
+
     def test_dqn_on_pong(self):
         """
         Creates a DQNAgent and runs it via a Runner on an openAI Pong Env.
         """
-        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
-        agent_config = config_from_path("configs/ray_apex_for_pong.json")
+        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True, visualize=False)
+        agent_config = config_from_path("configs/dqn_agent_for_pong.json")
         agent = Agent.from_spec(
             # Uses 2015 DQN parameters as closely as possible.
             agent_config,
-            state_space=env.state_space,
+            state_space=self.pong_preprocessed_state_space,
             # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
             action_space=env.action_space
         )
 
         time_steps = 4000000
-        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, render=False)
+        worker = SingleThreadedWorker(
+            env_spec=lambda: env, agent=agent, render=True,
+            preprocessing_spec=self.pong_preprocessing_spec,
+            worker_executes_preprocessing=True
+        )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         #self.assertEqual(results["timesteps_executed"], time_steps)

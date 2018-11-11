@@ -1,16 +1,53 @@
 {
-  "type": "dqn",
+  "type": "single-impala",
 
-  "discount": 0.99,
+  "num_workers": 4,
+  "worker_sample_size": 100,
 
-  "memory_spec":
+  "fifo_queue_spec":
   {
-    "type": "replay",
-    "capacity": 10000
+    "capacity": 1
   },
+
+  "environment_spec":
+  {
+    "type": "open-ai-gym",
+    "gym_env": "Breakout-v0"
+  },
+
+  "feed_previous_action_through_nn": false,
+  "feed_previous_reward_through_nn": false,
+  "batch_apply": true,
+  "batch_apply_action_adapter": false,
 
   "preprocessing_spec":
   [
+    {
+      "type": "image_crop",
+      "x": 0,
+      "y": 25,
+      "width": 160,
+      "height": 160
+    },
+    {
+      "type": "image_resize",
+      "width": 80,
+      "height": 80
+    },
+    {
+      "type": "grayscale",
+      "keep_rank": true
+    },
+    {
+      "type": "divide",
+      "divisor": 255
+    },
+    {
+      "type": "sequence",
+      "sequence_length": 4,
+      "batch_size": 1,
+      "add_rank": false
+    }
   ],
 
   "network_spec":
@@ -45,37 +82,13 @@
     }
   ],
 
-  "action_adapter_spec":
-  {
-    "type": "dueling-action-adapter",
-    "units_state_value_stream": 512,
-    "units_advantage_stream": 512
-  },
-
   "exploration_spec":
   {
-    "epsilon_spec": {
-      "decay_spec": {
-        "type": "linear_decay",
-        "from": 1.0,
-        "to": 0.1,
-        "start_timestep": 50000,
-        "num_timesteps": 1000000
-      }
-    }
-  },
-
-  "observe_spec":
-  {
-    "buffer_size": 3000
   },
 
   "update_spec": {
     "do_updates": true,
-    "update_interval": 4,
-    "steps_before_update": 50000,
-    "batch_size": 32,
-    "sync_interval": 10000
+    "batch_size": 32
   },
 
   "optimizer_spec": {
@@ -84,3 +97,4 @@
     "clip_grad_norm": 20
   }
 }
+
